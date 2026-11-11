@@ -36,6 +36,8 @@ import { setUpSplit, showWorkspace } from './split.js';
 import { mark } from './perf.js';
 import { isRangesFile, rangesPath, type GivenRanges } from '../core/ranges.js';
 import { aheadServed, giveAhead } from '../core/ahead.js';
+import { modelLeftOut } from '../core/modelcols.js';
+import { apartSaid, columnGist, columnRole, ROLE_SAID, CHECK_EXPLAINED, MODE_EXPLAINED, gateNote, issueNote, issuesNote, rulesNote, sourceNote, timesTogether, unlikeSaid } from '../core/explain.js';
 import { bronzeOf, verdictSaid, type Bronze, type BronzeCheck, type CheckState } from '../core/bronze.js';
 import { button as nbButton, formatMs, makeCell, showError, showMarkdown, showRows as showGridRows, type CellStatus, type CellUi } from './nbcells.js';
 import type { EditorSchema, SchemaColumn } from 'smaltkit/editor';
@@ -3703,8 +3705,60 @@ function qualityVisual(f: Finding, id: string): Element | null {
     const label = NEWS_NAMES.label(col, v);
     return svgNode(dumbbellRows({ rows: [{ label: label === String(v) ? `${NEWS_NAMES.column(col)} ${label}` : label, today: f.value, low, high, todayLabel: pct(f.value), usualLabel: `band ${pct(low)}–${pct(high)}`, sev: f.severity === 'alert' ? 'alert' : 'warn' }], aria: `${f.title}, against the ontology’s band` }));
   }
-  void id;
-  return findingVisual(f);
+  return checkVisual(f, id) ?? findingVisual(f);
+}
+
+/** A column's title in a file, for any file: the ontology's title where it has one, else the name as written. */
+const titleIn = (file: string) => (c: string) => meaningsOf(file)(c)?.title ?? c;
+
+/**
+ * The pictures the News didn't have, for any dataset (amendment 3, docs/research/ui-check-visuals.md): the classifier as
+ * its AUC on a track from chance, with what tells today apart; the forest as today's score against the oddest day before;
+ * two values together as how many times as often as their shares explain, against their usual; what ran late against
+ * the usual late share; and any other number with a range as today against it.
+ */
+function checkVisual(f: Finding, id: string): Element | null {
+  const name = titleIn(f.table ?? id);
+  if (f.kind === 'apart' && f.apart) {
+    const a = f.apart;
+    return h('div', { class: 'cv' },
+      svgNode(aucTrack({ auc: a.auc, floor: a.floor, speaks: true, aria: `The classifier: AUC ${a.auc.toFixed(2)}, chance 0.5, shuffled labels ${a.floor.toFixed(2)}` })),
+      a.columns.length ? svgNode(rankBars({ rows: a.columns.slice(0, 5).map((c) => ({ label: name(c.column), share: c.share })), aria: 'What tells today apart, by column' })) : null);
+  }
+  if (f.kind === 'unlike' && f.unlike) {
+    const u = f.unlike;
+    return svgNode(forestTicks({ learned: [u.highest], score: u.score, cut: Math.max(0.5, u.highest), speaks: true, aria: `The forest: today ${u.score.toFixed(2)}, the oddest day before ${u.highest.toFixed(2)}` }));
+  }
+  if (f.kind === 'combo' && f.value !== undefined && f.range) {
+    const [a, b] = f.columns ?? [];
+    return svgNode(bulletTrack({ value: Math.exp(f.value), low: Math.exp(f.range.low), high: Math.exp(f.range.high), valueLabel: `${timesTogether(f.value)} as often`, bandLabel: `usually ${timesTogether(f.range.low)}–${timesTogether(f.range.high)}`, sev: f.severity === 'alert' ? 'alert' : 'warn', aria: `${a ? name(a) : ''} and ${b ? name(b) : ''} together: ${f.title}` }));
+  }
+  if (f.kind === 'due' && f.due && f.due.due > 0) {
+    const share = f.due.late / f.due.due;
+    return svgNode(dumbbellRows({ rows: [{ label: 'Still due', today: share, low: 0, high: f.due.usual ?? null, todayLabel: `${pct(share)} · ${fmtInt(f.due.late)} of ${fmtInt(f.due.due)}`, usualLabel: f.due.usual !== undefined ? `usually up to ${pct(f.due.usual)}` : 'no usual yet', sev: f.severity === 'alert' ? 'alert' : 'warn' }], aria: f.title }));
+  }
+  if (f.value !== undefined && f.range && !['share', 'gone', 'missing', 'volume', 'shape', 'dropped', 'rule', 'hours'].includes(f.kind)) {
+    const share = f.range.high <= 1 && f.range.low >= 0 && f.value <= 1 && f.value >= 0 && f.metric?.of !== 'trips';
+    const fmt = (v: number) => (share ? pct(v) : fmtNum(v));
+    return svgNode(bulletTrack({ value: f.value, low: f.range.low, high: f.range.high, valueLabel: `today ${fmt(f.value)}`, bandLabel: `usually ${fmt(f.range.low)}–${fmt(f.range.high)}`, sev: f.severity === 'alert' ? 'alert' : 'warn', aria: f.title }));
+  }
+  return null;
+}
+
+/**
+ * A model's finding explained (amendment 3): how strong in words, what the number means, what it was compared against,
+ * what tells today apart, and what it is not, so a learned check is read as evidence and not a verdict.
+ */
+function modelExplained(f: Finding, id: string): HTMLElement | null {
+  const name = titleIn(f.table ?? id);
+  const said = f.kind === 'apart' && f.apart ? apartSaid(f.apart, name) : f.kind === 'unlike' && f.unlike ? unlikeSaid(f.unlike) : null;
+  if (!said) return null;
+  return h('div', { class: 'cv-explain' },
+    h('p', { class: 'cv-strength' }, h('span', { class: 'bq-k' }, 'How sure'), f.kind === 'apart' ? ' Today’s rows look ' : ' Today looks ', h('b', {}, said.strength), '.'),
+    'frequency' in said ? h('p', {}, String(said.frequency)) : null,
+    h('p', {}, said.against),
+    said.why ? h('p', {}, said.why) : null,
+    h('p', { class: 'cv-caveat' }, said.caveat));
 }
 
 /**
@@ -3794,7 +3848,7 @@ function issueCard(card: string, id: string, c: BronzeCheck): HTMLElement {
       c.from === 'ontology' ? h('button', { type: 'button', class: 'linkish', onclick: () => openOntologyCheck(id, c.id) }, 'defined on the Ontology page ›')
         : h('button', { type: 'button', class: 'linkish', onclick: () => ((issueFocus = `gate:${id}`), openTab(card, 'notebook')) }, 'set in the notebook’s gate cell ›')),
     vis ? h('button', { type: 'button', class: 'bq-vis', 'aria-label': `${f!.title}: more`, onclick: () => findingDetail(f!, card) }, vis) : null,
-    f?.detail ? h('p', { class: 'bq-meaning' }, f.detail) : c.failed ? h('p', { class: 'bq-meaning' }, `${plural(c.failed, 'row breaks', 'rows break')} it in this run.`) : null,
+    f && modelExplained(f, id) ? modelExplained(f, id) : f?.detail ? h('p', { class: 'bq-meaning' }, f.detail) : c.failed ? h('p', { class: 'bq-meaning' }, `${plural(c.failed, 'row breaks', 'rows break')} it in this run.`) : null,
     c.findings.length > 1 ? h('ul', { class: 'bq-more' }, ...c.findings.slice(1, 4).map((x) => h('li', {}, glyphEl(x.severity === 'alert' ? 'alert' : 'warn', 13), ` ${x.title}`))) : null,
     fixes);
 }
@@ -3826,7 +3880,21 @@ function checkRow(card: string, id: string, c: BronzeCheck): HTMLElement {
     h('span', { class: 'bq-said' }, c.said, c.column ? h('span', { class: 'bq-col' }, c.column) : null),
     h('span', { class: 'bq-today' }, today),
     control,
-    c.from === 'ontology' ? h('button', { type: 'button', class: 'bq-go', 'aria-label': `${c.said}: on the Ontology page`, title: 'On the Ontology page', onclick: () => openOntologyCheck(id, c.id) }, '›') : h('span', {}));
+    c.from === 'ontology' ? h('button', { type: 'button', class: 'bq-go', 'aria-label': `${c.said}: on the Ontology page`, title: 'On the Ontology page', onclick: () => openOntologyCheck(id, c.id) }, '›') : h('span', {}),
+    checkHow(c, id));
+}
+
+/** How a check decides, a tap away on its line (amendment 3): what it checks and how, in plain words for any file; what
+ * its mode does; and where it comes from. Learned checks say what they learn from. */
+function checkHow(c: BronzeCheck, id: string): HTMLElement {
+  const e = CHECK_EXPLAINED[c.check];
+  const from = c.from === 'ontology' ? 'Written in the ontology (or the notebook’s gate cell).' : c.from === 'contract' ? 'Part of the contract every file is held to.' : `Learned from ${id}’s own history: what is usual for a day like this one.`;
+  const days = c.from === 'learned' ? rangesForLoad(id)?.file.days.length : undefined;
+  return h('details', { class: 'bq-how' },
+    h('summary', {}, 'How this check decides'),
+    h('p', {}, h('b', {}, e.what), ' ', e.how),
+    h('p', {}, `It ${MODE_EXPLAINED[c.mode]}. ${from}${days ? ` The history has ${plural(days, 'day')}.` : ''}`),
+    c.from === 'learned' ? h('p', { class: 'cv-caveat' }, 'A learned check finds what is unusual, not what is wrong: it warns, and a person decides.') : null);
 }
 
 /**
@@ -3848,9 +3916,19 @@ async function notebookTab(card: string, id: string): Promise<HTMLElement> {
   // The file read: its source cell and its rows.
   const at = state.doc.outline?.flatMap((o) => o.cells.filter((c) => c.kind === 'source' && c.source === id).map((c) => ({ o, c })))[0];
   const srcRef: CellRef | undefined = at ? { notebook: at.o.path, cell: at.c.cell, lang: at.c.lang, line: at.c.line, endLine: at.c.endLine } : undefined;
+  // A text cell before each cell (ADR 0015 amendment 3): what it does and what it found, from the flow and the day alone.
+  const day = newsDay() ?? viewedDay();
+  const note = (name: string, text: string) => {
+    const ui = keep(makeCell({ name, chip: 'md', kind: 'md explain' }));
+    showMarkdown(ui, text);
+    box.append(ui.root);
+  };
+  note('about the file', sourceNote({ file: id, day: day ? dayMid(day) : null, rows: nodeOf(id)?.rows, columns: fileColumns(id) ?? [], noun: { one: ontologyNounOne(id), many: ontologyNounMany(id) } }));
   box.append(flowCell(srcRef?.cell ?? id, id, 'source', cellOf(srcRef) ?? `source('${id}');`));
   // The gate cell: what each check does for this file.
   const gateRef = state.doc.cells?.[`gate:${id}`];
+  const modes = gateOn(id);
+  if (gateRef && modes) note('about the gate', gateNote({ file: id, layer: gateLayerOf(state.doc, id) ?? undefined, modes, ...(b ? { verdict: verdictSaid(b) } : {}) }));
   if (gateRef) {
     const ui = keep(makeCell({ name: gateRef.cell, chip: 'gate', kind: 'gate', code: cellOf(gateRef) ?? '', readOnly: true, maxLines: 10, label: `Cell ${gateRef.cell}, read-only` }));
     ui.root.dataset.cellRef = `gate:${id}`;
@@ -3860,13 +3938,22 @@ async function notebookTab(card: string, id: string): Promise<HTMLElement> {
   }
   // The check step that reads the file: the checks set on its columns run here.
   const step = checkStepOf(state.doc, id);
+  if (step) {
+    const run = onScreen() ?? latest();
+    const failed = new Map((run?.result.manifest.nodes.find((n) => n.origin === step.id)?.expectations?.rules ?? []).map((x) => [x.name, x.failed] as const));
+    // The cell's own rules, then the ontology's rules on the file that it enforces (switched on).
+    const own = step.kind === 'expectations' ? step.rules : [];
+    const set = rulesOf(state.doc.ontology, id).filter((r) => ruleOn(step, r.id)).map((r) => ({ name: r.id, check: '', onFail: r.action, description: ruleSaid(state.doc.ontology, r) }));
+    note('about the rules', rulesNote({ step: step.id, rules: [...own, ...set], failed, ...(step.kind === 'expectations' && step.maxDropped !== undefined ? { maxDropped: step.maxDropped } : {}), ...(nodeOf(id)?.rows !== undefined ? { rows: nodeOf(id)!.rows } : {}) }));
+  }
   if (step) box.append(flowCell(state.doc.cells?.[step.id]?.cell ?? step.id, step.id, 'check', cellOf(state.doc.cells?.[step.id]) ?? ''));
   // A cell for each check that found something: the rows behind it, as SQL the reader can change.
   const issues = b ? [...b.wrong, ...b.unusual] : [];
-  if (issues.length) box.append(h('h3', { class: 'nb-h' }, 'The issues, row by row'));
+  note('about the issues', issuesNote(issues.length));
   for (const c of issues) {
     const sql = issueSql(id, c);
     if (!sql) continue;
+    note(`about ${c.check}`, issueNote({ title: c.findings[0]?.title ?? c.said, check: c.check, ...(c.column ?? c.findings[0]?.columns?.[0] ?? c.findings[0]?.apart?.columns[0]?.column ? { column: c.column ?? c.findings[0]?.columns?.[0] ?? c.findings[0]!.apart!.columns[0]!.column } : {}), mode: c.mode, state: c.state === 'alert' ? 'alert' : 'warn', query: queryKind(c) }));
     const ui = keep(makeCell({ name: c.findings[0]?.title ?? c.said, chip: 'sql', kind: `issue ${c.state}`, code: sql, language: 'sql', label: `The rows behind: ${c.said}`, onRun: () => void runIssue(ui) }));
     ui.root.dataset.check = c.id;
     ui.setStatus(c.state === 'alert' ? 'error' : 'stale', c.state === 'alert' ? 'wrong' : 'unusual', c.said);
@@ -3885,6 +3972,18 @@ async function notebookTab(card: string, id: string): Promise<HTMLElement> {
     });
   }
   return wrap;
+}
+
+/** What an issue's query shows, as `issueSql` writes it: for its text cell. */
+function queryKind(c: BronzeCheck): 'counts' | 'blanks' | 'keys' | 'scope' | 'rows' | 'total' | 'drivers' {
+  if (['band', 'bad', 'values', 'set', 'due'].includes(c.kind)) return 'counts';
+  if (c.kind === 'covers') return 'scope';
+  if (['key', 'same', 'rows'].includes(c.kind)) return 'keys';
+  if (c.check === 'blanks') return 'blanks';
+  if (c.check === 'shares' || c.check === 'pairs') return 'counts';
+  if (c.check === 'amount') return 'total';
+  if (c.check === 'classifier' && c.findings[0]?.apart?.columns.length) return 'drivers';
+  return 'rows';
 }
 
 /** The SQL that shows the rows behind a check that found something, over the file as this run read it. */
@@ -3910,6 +4009,11 @@ function issueSql(id: string, c: BronzeCheck): string | null {
       if (c.check === 'blanks' && col) return `SELECT *\nFROM ${id}\nWHERE ${q(col)} IS NULL\nLIMIT 200`;
       if ((c.check === 'shares' || c.check === 'pairs') && f?.columns?.length) return `SELECT ${f.columns.map(q).join(', ')}, count(*) AS rows\nFROM ${id}\nGROUP BY ${f.columns.map((_, i) => i + 1).join(', ')}\nORDER BY rows DESC`;
       if (c.check === 'amount') return `SELECT count(*) AS rows\nFROM ${id}`;
+      // The classifier: today's rows by the columns that tell them apart most, to read against the earlier days'.
+      if (c.check === 'classifier' && f?.apart?.columns.length) {
+        const cols = f.apart.columns.slice(0, 2).map((x) => x.column);
+        return `SELECT ${cols.map(q).join(', ')}, count(*) AS rows\nFROM ${id}\nGROUP BY ${cols.map((_, i) => i + 1).join(', ')}\nORDER BY rows DESC`;
+      }
       return `SELECT *\nFROM ${id}\nLIMIT 50`;
   }
 }
@@ -4470,7 +4574,7 @@ async function columnsTab(card: string, id: string, who: string): Promise<HTMLEl
     const out = [normal?.missing, normal?.median].filter((j): j is Judged => !!j && j.place !== 'within');
     const detail = h('div', { class: 'col-detail', hidden: true });
     const row = h('button', { type: 'button', class: `col-row${flag ? ` ${flag.severity}` : ''}`, 'aria-expanded': 'false' },
-      h('span', { class: 'cr-name' }, h('b', {}, m?.title ?? p.name), m && saysMore(p.name, m.title) ? h('span', { class: 'cr-code' }, p.name) : null),
+      h('span', { class: 'cr-name' }, h('b', {}, m?.title ?? p.name), h('span', { class: 'cr-sub' }, m && saysMore(p.name, m.title) ? h('span', { class: 'cr-code' }, p.name) : null, h('span', { class: 'cr-role' }, ROLE_SAID[columnRole(p, modelLeftOut(state.doc.ontology, id, p.name))]))),
       h('span', { class: 'cr-dist' }, miniDist(p, m) ?? h('span', { class: 'mini-none' }, p.kind)),
       h('span', { class: 'cr-stat' }, filled < 1 ? `${pct(filled)} filled` : 'all filled'),
       colMark(id, p, out),
@@ -4508,11 +4612,99 @@ function colKey(list: HTMLElement): HTMLElement | null {
   return items.length ? h('p', { class: 'col-key', 'aria-label': 'Key' }, ...items) : null;
 }
 
+/**
+ * A column told as a story, for any file (amendment 3; docs/research/ui-check-visuals.md §6): what it is first (its title,
+ * its role, what it means, or a line read from its values); then what is different about it today, each with its
+ * picture; then its values at a glance (how full, its shape or its common values); its common values against their
+ * usual shares, where a history keeps them; the checks that read it, each a tap from how it decides; and whether the
+ * models read it.
+ */
+function columnProfile(card: string, id: string, p: Profile, type: string, m: PropertyType | undefined, normal: ColumnNormal | undefined, flags: string[]): HTMLElement {
+  const leftOut = modelLeftOut(state.doc.ontology, id, p.name);
+  const role = columnRole(p, leftOut);
+  const plain = fmtOf(p);
+  const fmt = (v: number) => (p.kind === 'time' ? plain(v) : inUnit(plain(v), v, m));
+  const gist = columnGist(p, role, fmt, (v) => labelFor(m, v) ?? v);
+  const b = isBronze(id) ? bronzeFor(id) : null;
+  const mine = (b?.checks ?? []).filter((c) => c.column === p.name || c.findings.some((f) => f.columns?.includes(p.name)));
+  const today = mine.filter((c) => c.state === 'alert' || c.state === 'warn');
+  const worst: CheckState = today.some((c) => c.state === 'alert') ? 'alert' : today.length ? 'warn' : mine.some((c) => c.state === 'ok') ? 'ok' : 'unjudged';
+  const f = p.facts;
+  const filled = f.present / Math.max(1, f.rows);
+  const part = (title: string, ...kids: Child[]) => h('section', { class: 'cp-part' }, h('h4', { class: 'cp-h' }, title), ...kids);
+  const box = h('article', { class: `cp ${worst}` });
+  // 1. What it is.
+  box.append(h('header', { class: 'cp-head' },
+    h('div', { class: 'cp-title' }, h('h3', {}, ...(m ? [m.title] : breakable(p.name))), h('span', { class: `cp-role r-${role}` }, ROLE_SAID[role]),
+      worst !== 'unjudged' ? h('span', { class: `cp-state ${worst}` }, stateMark(worst, 13), worst === 'alert' ? 'wrong today' : worst === 'warn' ? 'unusual today' : 'as usual') : null),
+    m && (saysMore(p.name, m.title) || m.unit) ? h('p', { class: 'colname' }, saysMore(p.name, m.title) ? h('code', {}, ...breakable(p.name)) : null, m.unit ? `${saysMore(p.name, m.title) ? ' · ' : ''}in ${m.unit}` : '', ` · ${type}`) : h('p', { class: 'colname' }, h('code', {}, ...breakable(p.name)), ` · ${type}`),
+    m?.description ? h('p', { class: 'cp-means' }, m.description) : null,
+    h('p', { class: m?.description ? 'cp-gist' : 'cp-means' }, m?.description ? `From today’s rows: ${gist}` : gist)));
+  // 2. What is different today.
+  if (today.length) {
+    box.append(part('Today', ...today.flatMap((c) => {
+      const x = c.findings.find((y) => y.columns?.includes(p.name)) ?? c.findings[0];
+      const vis = x ? qualityVisual(x, id) : null;
+      return [h('p', { class: `cp-find ${c.state}` }, glyphEl(c.state === 'alert' ? 'alert' : 'warn', 14), ' ', x?.title ?? c.said, h('span', { class: 'cp-by' }, ` · the ${c.check} check`)), vis ? h('div', { class: 'cp-vis' }, vis) : null];
+    })));
+  } else if (!b) {
+    if (!rowsFrom(shownDay(), viewedDay())) for (const x of idNews(id).filter((y) => y.columns?.includes(p.name) && y.severity !== 'ok')) box.append(findingCard(x, card));
+  } else box.append(part('Today', h('p', { class: 'cp-find ok' }, stateMark('ok', 13), mine.length ? ` Nothing unusual: ${plural(mine.filter((c) => c.state === 'ok').length, 'check')} on this column passed.` : ' Nothing unusual found.')));
+  // 3. Its values at a glance.
+  const bar = h('div', { class: 'cp-fill', role: 'img', 'aria-label': `${pct(filled)} filled` }, h('span', { class: 'on', style: `width:${(filled * 100).toFixed(1)}%` }), filled < 1 ? h('span', { class: 'off', style: `width:${((1 - filled) * 100).toFixed(1)}%` }) : null);
+  box.append(part('Its values',
+    h('div', { class: 'cp-facts' }, bar, h('span', {}, `${pct(filled)} filled`), h('span', {}, `${fmtInt(f.distinct)} distinct`), f.rows - f.present ? h('span', {}, `${fmtInt(f.rows - f.present)} blank`) : null),
+    ...((shape) => (shape.length ? shape : p.top?.length ? [h('p', { class: 'foot' }, `For example: ${p.top.slice(0, 3).map((t) => t.value).join(', ')}`)] : []))(columnShape(p, m))));
+  // 4. Against what is usual: its common values' shares against their learned ranges, where the history keeps them.
+  const usual = usualShares(id, p, m);
+  if (usual) box.append(part('Against a usual day', usual));
+  if (normal || history) for (const x of columnStoryUsual(id, p, m, normal)) if (x) box.append(x as Node);
+  // 5. The checks that read it.
+  if (mine.length) box.append(part('Checks on this column', h('ul', { class: 'bq-list' }, ...mine.map((c) => checkRow(card, id, c)))));
+  // 6. Who reads it.
+  box.append(part('Used by', h('p', { class: 'foot' }, leftOut ? `The models leave it out: ${leftOut}.` : role === 'id' || role === 'text' ? 'The models leave it out: too many values to learn from.' : 'The models read it: a change in it can make a day unusual.', flags.length ? ` ${flags.join('; ')}.` : '')));
+  if (m?.note) box.append(h('p', { class: 'note' }, m.note));
+  return box;
+}
+
+/** A column's common values today against their usual shares (the history's learned ranges), as dumbbells; null where no
+ * history keeps the column's values. Any watched file. */
+function usualShares(id: string, p: Profile, m: PropertyType | undefined): HTMLElement | null {
+  const hr = rangesForLoad(id);
+  const day = newsDay();
+  const vh = hr?.file.values?.[p.name];
+  if (!hr || !day || !vh || !hr.file.days.includes(day)) return null;
+  const rows: Dumbbell[] = [];
+  for (const key of vh.values.slice(0, 6)) {
+    const nr = hr.of({ of: 'value', column: p.name, value: key });
+    const v = nr?.value(day);
+    const r = nr?.at(day);
+    if (v === null || v === undefined || !r) continue;
+    let raw: unknown = key;
+    try { raw = JSON.parse(key); } catch { /* as written */ }
+    const out = v < r.low || v > r.high;
+    rows.push({ label: labelFor(m, raw) ?? String(raw), today: v, low: Math.max(0, r.low), high: Math.min(1, r.high), todayLabel: pct(v), usualLabel: `usually ${pct(Math.max(0, r.low))}–${pct(Math.min(1, r.high))}`, sev: out ? 'warn' : null });
+  }
+  if (!rows.length) return null;
+  return h('div', {}, svgNode(dumbbellRows({ rows, aria: `${p.name}: each common value’s share today against its usual range` })), h('p', { class: 'foot' }, 'The dot is today; the bar is the range learned from like days.'));
+}
+
+/** The trips history's own lines for a column (its share filled and median against their range, day by day), kept from
+ * the column card as it was. */
+function columnStoryUsual(id: string, p: Profile, m: PropertyType | undefined, normal: ColumnNormal | undefined): Child[] {
+  const out: Child[] = [];
+  if (normal) {
+    const parts: Child[] = [];
+    if (normal.missing && !(normal.missing.range.high === 0 && normal.missing.place === 'within')) parts.push(h('span', {}, `${pct(1 - normal.missing.range.high)} to ${pct(1 - normal.missing.range.low)} filled`));
+    if (parts.length) out.push(h('p', { class: 'normal-line' }, h('span', { class: 'nl-label' }, 'Normal for the day'), ...parts));
+  }
+  void id; void m;
+  return out;
+}
+
 /** A column's story, in order: what it is, how full, its shape or values, what is normal for it, what is new, and what to do. */
 function columnStory(card: string, id: string, p: Profile, q: Quality, type: string, m: PropertyType | undefined, normal: ColumnNormal | undefined, flags: string[]): Child[] {
-  const out: Child[] = [columnCard(p, type, undefined, undefined, flags, m, normal)];
-  // The day's news about it, with what can be done: only beside the day's own rows.
-  if (!rowsFrom(shownDay(), viewedDay())) for (const f of idNews(id).filter((x) => x.columns?.includes(p.name) && x.severity !== 'ok')) out.push(findingCard(f, card));
+  const out: Child[] = [columnProfile(card, id, p, type, m, normal, flags)];
   // Its history, where the history keeps it: its share missing, and its median.
   if (history && historyOf(id) === 'trips') {
     const metrics: { m: Metric; label: string; fmt: (v: number) => string }[] = [];
@@ -5092,7 +5284,8 @@ function findingVisual(f: Finding): Element | null {
     const gate = g ? gateOf(history, day, g.step, g.limit) : null;
     return gate ? gateVisual(gate) : null;
   }
-  return null;
+  // The models, two values together, what ran late, any other number with a range (amendment 3): for any file.
+  return checkVisual(f, f.table ?? loadSource() ?? '');
 }
 
 /** A row of chips for the values a finding names: new values, a new pair, a schema change. */
