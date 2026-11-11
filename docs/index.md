@@ -5,6 +5,10 @@ hero:
   name: 'sm<span class="alt">alt</span><span class="suffix tool">fl</span>'
   text: 'Small. Alternative.<br>Flow.'
   tagline: Data pipelines for smaltdb, built visually and run in the browser. A day that is off is paused, not published.
+  image:
+    light: /twin-mark.svg
+    dark: /twin-mark-on-dark.svg
+    alt: smaltfl
   actions:
     - theme: brand
       text: Getting started
