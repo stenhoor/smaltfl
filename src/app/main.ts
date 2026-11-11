@@ -2494,16 +2494,22 @@ const datesOnly = (p: Profile) => p.kind === 'time' && [p.facts.min, p.facts.max
 const fmtOf = (p: Profile) => (p.kind !== 'time' ? fmtNum : datesOnly(p) ? (ms: number) => fmtTime(ms).slice(0, 10) : fmtTime);
 
 /** A histogram of the sample from its 1st to its 99th percentile, with the median marked. */
-function histogram(p: Profile, fmt: (v: number) => string = fmtOf(p)): HTMLElement | null {
+function histogram(p: Profile, fmt: (v: number) => string = fmtOf(p), usual?: readonly number[] | null): HTMLElement | null {
   const hist = p.hist;
   const q = p.quantiles;
   if (!hist || !q) return null;
   const W = 240;
   const H = 44;
-  const max = Math.max(1, ...hist.counts);
+  const max = Math.max(1, ...hist.counts, ...(usual ?? []));
   const bw = W / hist.counts.length;
   const svg = s('svg', { viewBox: `0 0 ${W} ${H + 14}`, class: 'hist', role: 'img', 'aria-label': `Most values from ${fmt(hist.lo)} to ${fmt(hist.hi)}, the median ${fmt(q.p50)}` });
   hist.counts.forEach((c, k) => svg.append(s('rect', { class: 'b', x: k * bw + 0.5, y: H - (c / max) * H, width: Math.max(1, bw - 1), height: Math.max(c ? 1 : 0, (c / max) * H) })));
+  // A usual day's shape (amendment 3, round 2): the same bins as a usual day would fill them, as an outline over the bars.
+  if (usual?.length === hist.counts.length) {
+    let d = `M0,${H}`;
+    usual.forEach((c, k) => (d += `L${(k * bw).toFixed(1)},${(H - (c / max) * H).toFixed(1)}L${((k + 1) * bw).toFixed(1)},${(H - (c / max) * H).toFixed(1)}`));
+    svg.append(s('path', { class: 'usual', d: `${d}L${W},${H}` }));
+  }
   const mx = ((q.p50 - hist.lo) / (hist.hi - hist.lo || 1)) * W;
   svg.append(s('line', { class: 'med', x1: mx, x2: mx, y1: 0, y2: H }));
   svg.append(s('text', { class: 'ax', x: 0, y: H + 12 }, fmt(hist.lo)), s('text', { class: 'ax', x: W, y: H + 12, 'text-anchor': 'end' }, fmt(hist.hi)));
@@ -4621,6 +4627,36 @@ function colKey(list: HTMLElement): HTMLElement | null {
   return items.length ? h('p', { class: 'col-key', 'aria-label': 'Key' }, ...items) : null;
 }
 
+/** A column's usual quantiles for the day on screen (the guess each of its history's quantiles makes for it), for any
+ * watched file whose history keeps the column's quantiles; null otherwise. */
+function usualQuantiles(id: string, column: string): number[] | null {
+  const hr = rangesForLoad(id);
+  const day = newsDay();
+  if (!hr || !day || !hr.file.columns.includes(column)) return null;
+  const out: number[] = [];
+  for (let q = 0; q < QUANTILES.length; q++) {
+    const r = hr.of({ of: 'quantile', column, q })?.at(day);
+    if (!r || !Number.isFinite(r.expected)) return null;
+    out.push(r.expected);
+  }
+  return out.every((v, i) => i === 0 || v >= out[i - 1]!) ? out : null;
+}
+
+/** How many of today's sampled values a usual day would put in each of today's histogram bins: the usual quantiles read
+ * as a distribution (straight between them, the 1% at each end spread over one more step), scaled to today's count. */
+function usualBins(hist: NonNullable<Profile['hist']>, uq: readonly number[]): number[] {
+  const xs = [uq[0]! - (uq[1]! - uq[0]!), ...uq, uq.at(-1)! + (uq.at(-1)! - uq.at(-2)!)];
+  const ps = [0, ...QUANTILES, 1];
+  const F = (x: number) => {
+    if (x <= xs[0]!) return 0;
+    for (let i = 1; i < xs.length; i++) if (x <= xs[i]!) return xs[i]! === xs[i - 1]! ? ps[i]! : ps[i - 1]! + ((ps[i]! - ps[i - 1]!) * (x - xs[i - 1]!)) / (xs[i]! - xs[i - 1]!);
+    return 1;
+  };
+  const total = hist.counts.reduce((a, b) => a + b, 0) + hist.below + hist.above;
+  const w = (hist.hi - hist.lo) / hist.counts.length;
+  return hist.counts.map((_, k) => Math.max(0, F(hist.lo + (k + 1) * w) - F(hist.lo + k * w)) * total);
+}
+
 /**
  * A finding about a column said for someone with no statistics (amendment 3, round 2): one sentence in the column's own
  * unit and the file's noun, one picture that reads without a key, and the technical numbers behind "Details". The
@@ -4645,8 +4681,9 @@ function plainFinding(f: Finding, id: string, p: Profile, m: PropertyType | unde
     details = `A model was given ${fmtInt(f.apart.n)} of today’s ${noun} and ${fmtInt(f.apart.n)} from ${plural(f.apart.days, 'earlier day')}, and asked to tell them apart. It was right ${Math.round(f.apart.auc * 100)} times in 100 (a coin toss: 50; with the labels shuffled: ${Math.round(f.apart.floor * 100)}). Statisticians call this an AUC of ${f.apart.auc.toFixed(2)}. Different isn’t necessarily wrong: a planned change looks the same.`;
   } else if (f.kind === 'shape' && f.metric?.of === 'quantile' && f.value !== undefined && f.range) {
     const q = QUANTILES[f.metric.q] ?? 0.5;
-    head = quantileSaid(q, title.toLowerCase(), noun, fmt(f.value), fmt(Math.max(0, f.range.low)), fmt(f.range.high));
-    sub = `So its ${q >= 0.75 ? 'high values are' : q <= 0.25 ? 'low values are' : 'middle value is'} ${f.value > f.range.high ? 'higher' : 'lower'} than usual.`;
+    const far = f.value > f.range.high + (f.range.high - f.range.low) || f.value < f.range.low - (f.range.high - f.range.low);
+    head = `Its ${q >= 0.75 ? 'high values are' : q <= 0.25 ? 'low values are' : 'middle value is'} ${far ? 'much ' : ''}${f.value > f.range.high ? 'higher' : 'lower'} than usual.`;
+    sub = quantileSaid(q, title.toLowerCase(), noun, fmt(f.value), fmt(Math.max(0, f.range.low)), fmt(f.range.high));
     vis = svgNode(bulletTrack({ value: f.value, low: Math.max(0, f.range.low), high: f.range.high, valueLabel: `today ${fmt(f.value)}`, bandLabel: `usual ${unitSpan(fmt(Math.max(0, f.range.low)), fmt(f.range.high))}`, sev: sev === 'note' ? null : sev, aria: head }));
     details = `This compares one point of the spread of ${title.toLowerCase()} (the value ${q < 0.5 ? 'below' : 'above'} which ${q === 0.5 ? 'half' : `${Math.round((q < 0.5 ? q : 1 - q) * 100)}%`} of ${noun} fall) with the same point on like days.`;
   } else {
@@ -4693,16 +4730,44 @@ function columnProfile(card: string, id: string, p: Profile, type: string, m: Pr
     : !b && !rowsFrom(shownDay(), viewedDay()) ? idNews(id).filter((y) => (y.columns?.includes(p.name) || y.apart?.columns.some((c) => c.column === p.name)) && y.severity !== 'ok') : [];
   if (told.length) box.append(part('Today', ...told.map((x) => plainFinding(x, id, p, m, card))));
   else if (b || historyOf(id)) box.append(part('Today', h('p', { class: 'cp-find ok' }, stateMark('ok', 13), mine.length ? ` Nothing unusual: ${plural(mine.filter((c) => c.state === 'ok').length, 'check')} on this column passed.` : ' Nothing unusual about this column today.')));
-  // 3. Its values at a glance.
+  // 3. Its values at a glance, always beside a usual day where the history has one (round 2): the filled share against
+  // its usual, a number's histogram with a usual day's outline over it and its middle and spread against theirs, a
+  // category's values against their usual shares, and the last four weeks.
+  const hr = rangesForLoad(id);
+  const day = newsDay();
+  const usualOf = (metric: Metric) => (hr && day ? hr.of(metric)?.at(day) ?? null : null);
+  const blank = hr?.file.columns.includes(p.name) ? usualOf({ of: 'missing', column: p.name }) : null;
+  const usualFilled = blank ? ` (usually ${unitSpan(pct(1 - Math.min(1, blank.high)), pct(1 - Math.max(0, blank.low)))})` : '';
   const bar = h('div', { class: 'cp-fill', role: 'img', 'aria-label': `${pct(filled)} filled` }, h('span', { class: 'on', style: `width:${(filled * 100).toFixed(1)}%` }), filled < 1 ? h('span', { class: 'off', style: `width:${((1 - filled) * 100).toFixed(1)}%` }) : null);
-  box.append(part('Its values',
-    h('div', { class: 'cp-facts' }, bar, h('span', {}, `${pct(filled)} filled`), role === 'number' || role === 'date' || role === 'time' ? null : h('span', {}, `${fmtInt(f.distinct)} different values`), f.rows - f.present ? h('span', {}, `${fmtInt(f.rows - f.present)} blank`) : null),
-    p.hist && p.quantiles ? h('p', { class: 'cv-cap' }, `How many ${ontologyNounMany(id)} have each ${(m?.title ?? p.name).toLowerCase()}: taller bars, more ${ontologyNounMany(id)}. The line marks the middle value, ${fmt(p.quantiles.p50)}; half are above it. The lowest and highest 1% are left off the picture.`) : null,
-    ...((shape) => (shape.length ? shape : p.top?.length ? [h('p', { class: 'foot' }, `For example: ${p.top.slice(0, 3).map((t) => t.value).join(', ')}`)] : []))(columnShape(p, m))));
+  const facts = h('div', { class: 'cp-facts' }, bar, h('span', {}, `${pct(filled)} filled${usualFilled}`), role === 'number' || role === 'date' || role === 'time' ? null : h('span', {}, `${fmtInt(f.distinct)} different values`));
+  const uq = p.kind === 'measure' ? usualQuantiles(id, p.name) : null;
+  if (p.hist && p.quantiles && p.kind === 'measure') {
+    const q = p.quantiles;
+    const usual = uq && p.hist ? usualBins(p.hist, uq) : null;
+    const row = (label: string, today: string, was: string | null) => h('tr', {}, h('th', { scope: 'row' }, label), h('td', {}, today), h('td', {}, was ?? '—'));
+    box.append(part('Its values',
+      facts,
+      h('p', { class: 'cv-cap' }, `How many ${ontologyNounMany(id)} have each ${(m?.title ?? p.name).toLowerCase()}: taller bars, more ${ontologyNounMany(id)}.${usual ? ' The dashed outline is a usual day, for the same number of rows.' : ''} The line marks today’s middle value. The lowest and highest 1% are left off the picture.`),
+      histogram(p, fmt, usual),
+      h('table', { class: 'cp-vs' },
+        h('thead', {}, h('tr', {}, h('th', {}, ''), h('th', { scope: 'col' }, 'Today'), h('th', { scope: 'col' }, uq ? 'A usual day' : ''))),
+        h('tbody', {},
+          row('Middle value', fmt(q.p50), uq ? fmt(uq[3]!) : null),
+          row('Half fall between', unitSpan(fmt(q.p25), fmt(q.p75)), uq ? unitSpan(fmt(uq[2]!), fmt(uq[4]!)) : null),
+          row('Highest 1 in 10 start at', fmt(q.p90), uq ? fmt(uq[5]!) : null),
+          row('Smallest and largest', `${typeof f.min === 'number' ? fmt(f.min) : String(f.min)} and ${typeof f.max === 'number' ? fmt(f.max) : String(f.max)}`, null))),
+      uq ? null : h('p', { class: 'foot' }, 'No usual day to compare with yet: the history doesn’t keep this column’s spread.')));
+  } else {
+    box.append(part('Its values', facts, ...((shape) => (shape.length ? shape : p.top?.length ? [h('p', { class: 'foot' }, `For example: ${p.top.slice(0, 3).map((t) => t.value).join(', ')}`)] : []))(columnShape(p, m))));
+  }
   // 4. Against what is usual: its common values' shares against their learned ranges, where the history keeps them.
   const usual = usualShares(id, p, m);
   if (usual) box.append(part('Against a usual day', usual));
-  if (normal || history) for (const x of columnStoryUsual(id, p, m, normal)) if (x) box.append(x as Node);
+  // The last four weeks: a number's middle value, else its share left blank, each day against its usual range.
+  const weekly = hr ? (p.kind === 'measure' && uq ? { m: { of: 'median', column: p.name } as Metric, label: 'Its middle value', fmt } : blank ? { m: { of: 'missing', column: p.name } as Metric, label: 'Its share left blank', fmt: pct } : null) : null;
+  const spark = weekly ? sparkBand(weekly.m, weekly.fmt, hr) : null;
+  if (weekly && spark) box.append(part(`${weekly.label}, the last four weeks`, spark, h('p', { class: 'cv-cap' }, 'The line is each day; the shaded band is what is usual for that day; the circle is today. A gap is a day with no data.')));
+  if (normal) for (const x of columnStoryUsual(id, p, m, normal)) if (x) box.append(x as Node);
   // 5. The checks that read it.
   if (mine.length) box.append(part('Checks on this column', h('ul', { class: 'bq-list' }, ...mine.map((c) => checkRow(card, id, c)))));
   // 6. Who reads it.
@@ -4749,17 +4814,6 @@ function columnStoryUsual(id: string, p: Profile, m: PropertyType | undefined, n
 /** A column's story, in order: what it is, how full, its shape or values, what is normal for it, what is new, and what to do. */
 function columnStory(card: string, id: string, p: Profile, q: Quality, type: string, m: PropertyType | undefined, normal: ColumnNormal | undefined, flags: string[]): Child[] {
   const out: Child[] = [columnProfile(card, id, p, type, m, normal, flags)];
-  // Its history, where the history keeps it: its share missing, and its median.
-  if (history && historyOf(id) === 'trips') {
-    const metrics: { m: Metric; label: string; fmt: (v: number) => string }[] = [];
-    if (history.file.columns.includes(p.name)) {
-      if (p.facts.present < p.facts.rows || (history.of({ of: 'missing', column: p.name })?.value(history.to) ?? 0) > 0) metrics.push({ m: { of: 'missing', column: p.name }, label: 'Share left blank', fmt: pct });
-      if ((p.kind === 'measure' || p.kind === 'time') && history.medians(p.name) >= 20) metrics.push({ m: { of: 'median', column: p.name }, label: 'The middle value', fmt: p.kind === 'time' ? clockText : (v) => inUnit(fmtNum(v), v, m) });
-    }
-    for (const x of metrics) out.push(h('div', { class: 'part' }, h('p', { class: 'eyebrow' }, `${x.label}, the last four weeks`), sparkBand(x.m, x.fmt) ?? h('p', { class: 'foot' }, 'Not enough history.'), h('p', { class: 'cv-cap' }, 'The line is each day; the shaded band is what is usual for that day of the week; the circle is today.')));
-    const values = valuesStory(p.name, m);
-    if (values) out.push(values);
-  }
   void q;
   return out;
 }
@@ -7194,8 +7248,8 @@ function metricFormat(m: Metric): (v: number) => string {
 }
 
 /** A metric's last four weeks and the day, against their normal ranges: small, for a finding or a column. */
-function sparkBand(m: Metric, fmt: (v: number) => string): SVGSVGElement | null {
-  const ranges = rangesOf(m);
+function sparkBand(m: Metric, fmt: (v: number) => string, given?: HistoryRanges | null): SVGSVGElement | null {
+  const ranges = given ? given.of(m) : rangesOf(m);
   const day = newsDay();
   if (!ranges || !day) return null;
   const days = daysFrom(dayPlus(day, -27), day);
@@ -7209,20 +7263,38 @@ function sparkBand(m: Metric, fmt: (v: number) => string): SVGSVGElement | null 
   const R = 52;
   const X = (i: number) => P + (i * (W - R - 2 * P)) / (days.length - 1);
   const Y = (v: number) => P + (1 - (v - lo) / (hi - lo)) * (H - 2 * P);
-  const svg = s('svg', { viewBox: `0 0 ${W} ${H}`, class: 'spark', role: 'img', 'aria-label': `The last four weeks and ${dayLabel(day)}: the band is each day's normal range` }) as SVGSVGElement;
+  const svg = s('svg', { viewBox: `0 0 ${W} ${H + 8}`, class: 'spark', role: 'img', 'aria-label': `The last four weeks and ${dayLabel(day)}: the band is each day's normal range; a gap is a day with no data` }) as SVGSVGElement;
+  // The band: each run of days that have a range; a day alone (today after a gap) as a short bar of its own.
   let run: number[] = [];
   const flush = () => {
     if (run.length > 1) svg.append(s('path', { class: 'band', d: `M${run.map((i) => `${X(i).toFixed(1)},${Y(pts[i]!.r!.high).toFixed(1)}`).join('L')}L${[...run].reverse().map((i) => `${X(i).toFixed(1)},${Y(pts[i]!.r!.low).toFixed(1)}`).join('L')}Z` }));
+    else if (run.length === 1) {
+      const i = run[0]!;
+      svg.append(s('rect', { class: 'band', x: (X(i) - 4).toFixed(1), y: Y(pts[i]!.r!.high).toFixed(1), width: 8, height: Math.max(1, Y(pts[i]!.r!.low) - Y(pts[i]!.r!.high)).toFixed(1) }));
+    }
     run = [];
   };
   pts.forEach((p, i) => (p.r ? run.push(i) : flush()));
   flush();
-  const line = pts.map((p, i) => (p.v === null ? null : `${X(i).toFixed(1)},${Y(p.v).toFixed(1)}`)).filter(Boolean);
-  if (line.length > 1) svg.append(s('polyline', { class: 'line', points: line.join(' ') }));
+  // The line: only between days next to each other that both have a number. A day with no number is a gap, never a
+  // straight line across it (which would read as a trend that wasn't measured), and is ticked under the chart.
+  let seg: string[] = [];
+  const draw = () => {
+    if (seg.length > 1) svg.append(s('polyline', { class: 'line', points: seg.join(' ') }));
+    seg = [];
+  };
+  pts.forEach((p, i) => {
+    if (p.v === null) {
+      draw();
+      svg.append(s('line', { class: 'nodata', x1: X(i).toFixed(1), x2: X(i).toFixed(1), y1: H + 3, y2: H + 7 }));
+    } else seg.push(`${X(i).toFixed(1)},${Y(p.v).toFixed(1)}`);
+  });
+  draw();
   pts.forEach((p, i) => {
     if (p.v === null) return;
     const off = p.r && ranges.place(p.r, p.v) !== 'within';
-    if (off || i === pts.length - 1) svg.append(s('circle', { class: `pt${off ? ' out' : ''}${i === pts.length - 1 ? ' focus' : ''}`, cx: X(i).toFixed(1), cy: Y(p.v).toFixed(1), r: i === pts.length - 1 ? 3.5 : 2.5 }));
+    const alone = (i === 0 || pts[i - 1]!.v === null) && (i === pts.length - 1 || pts[i + 1]!.v === null);
+    if (off || alone || i === pts.length - 1) svg.append(s('circle', { class: `pt${off ? ' out' : ''}${i === pts.length - 1 ? ' focus' : ''}`, cx: X(i).toFixed(1), cy: Y(p.v).toFixed(1), r: i === pts.length - 1 ? 3.5 : 2.5 }));
   });
   const last = pts.at(-1)!;
   if (last.v !== null) svg.append(s('text', { class: 'tick spark-now', x: (X(pts.length - 1) + 7).toFixed(1), y: Math.min(H - 2, Math.max(10, Y(last.v) + 4)).toFixed(1) }, fmt(last.v)));

@@ -837,3 +837,14 @@ is in docs/research/ui-check-visuals.md.
 
 `test/explain.test.ts` holds the notes to the estate's and the sign-ins' files with no dataset's words in them, every
 check to a sentence, the models' wording to their numbers, and a column's role and gist to its values.
+
+Round 3 (the maintainer: "always see some comparison to normal throughout the panel"): every column with a history is
+shown against a usual day, on calm days as well.
+- **A number column:** its histogram carries a usual day's outline (`usualQuantiles`, `usualBins`: the history's
+  quantiles for the day read as a distribution, scaled to today's rows). A table sets today's middle value, the range
+  half fall between, and where the highest 1 in 10 start against a usual day's.
+- **The filled share:** said against its usual.
+- **The four-weeks chart** (`sparkBand`, now for any watched file and inside the column's card): it leaves a day with no
+  data as a gap, ticked under the chart, instead of drawing a straight line across it. It draws today's usual range
+  even after a gap.
+- **A spread finding** leads with what it means ("Its high values are much lower than usual"), then the numbers.

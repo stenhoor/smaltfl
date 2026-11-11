@@ -556,6 +556,7 @@ table.data td.new, table.data th.new { background: var(--teal-wash); }
 .hist { width: 100%; height: auto; display: block; }
 .hist .b { fill: var(--teal-fill); opacity: 0.85; }
 .hist .med { stroke: var(--ink); stroke-width: 1.5; }
+.hist .usual { fill: none; stroke: var(--ink-2); stroke-width: 1.5; stroke-dasharray: 3 2; }
 .hist .ax { fill: var(--muted); font-size: 10px; font-family: var(--mono); }
 .colcard dl.stats, .cp dl.stats { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 14px; margin: 0; font-size: 13px; }
 .colcard dl.stats dt, .colcard dl.stats dd, .cp dl.stats dt, .cp dl.stats dd { border: 0; padding: 1px 0; background: none; }
@@ -1619,6 +1620,12 @@ svg.viz { display: block; overflow: visible; max-width: 100%; height: auto; }
 .pf-more summary { cursor: pointer; font-size: 12.5px; color: var(--smalt); list-style: none; }
 .pf-more summary::before { content: '▸ '; } .pf-more[open] summary::before { content: '▾ '; }
 .pf-more p { margin: 4px 0; font-size: 13px; color: var(--ink-2); line-height: 1.45; }
+.spark .nodata { stroke: var(--muted); stroke-width: 1; opacity: .6; }
+.cp-vs { border-collapse: collapse; font-size: 13px; width: 100%; max-width: 420px; }
+.cp-vs th, .cp-vs td { text-align: left; padding: 3px 10px 3px 0; border-bottom: 1px solid var(--line); font-weight: 400; }
+.cp-vs thead th { font: 600 11px/1.2 var(--mono); text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.cp-vs tbody th { color: var(--muted); }
+.cp-vs td { font-variant-numeric: tabular-nums; color: var(--ink); }
 /* Check visuals and explanations (ADR 0015 amendment 3). */
 .cv { display: grid; gap: 6px; }
 .cv-explain { display: grid; gap: 4px; margin: 6px 0 2px; padding: 8px 10px; border-radius: 8px; background: var(--sunk); font-size: 13.5px; line-height: 1.45; }
