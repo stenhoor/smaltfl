@@ -1,0 +1,229 @@
+/**
+ * Policies (ARCHITECTURE.md §7): who may read which rows and columns, and who may run which action on which rows.
+ * They compile to SQL here, in the core, so every path that reads applies the same rules: the app's previews and
+ * results, the ontology's objects, an action's check, and later shares and a server.
+ *
+ * A row rule names the column it filters on (or several names for it, as it is called in different datasets) and
+ * the principal's attribute that holds the allowed values. It applies to every dataset that has one of those columns.
+ * A dataset that has none is closed to the people the rule is for: its rows can't be filtered, so none are shown.
+ * That is the safe reading of inheritance until lineage carries rules exactly (Q-41). A column rule removes columns
+ * by name, the ones made from them included, which it lists.
+ */
+import { literal, quoteIdent } from './sqltext.js';
+
+export interface Principal {
+  id: string;
+  name: string;
+  role?: string;
+  /** The flow's owner sees everything, through the same views as everyone else. */
+  owner?: boolean;
+  attributes?: Record<string, string[]>;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  members: string[];
+}
+
+export interface RowRule {
+  id: string;
+  kind: 'row';
+  name: string;
+  /** Principal or group ids. */
+  for: string[];
+  /** The column it filters on, under each name it has: the first one a dataset has is used. */
+  columns: string[];
+  /** The principal attribute holding the values allowed. */
+  attribute: string;
+}
+
+export interface ColumnRule {
+  id: string;
+  kind: 'column';
+  name: string;
+  for: string[];
+  remove: string[];
+}
+
+export interface ActionRule {
+  id: string;
+  kind: 'action';
+  name: string;
+  /** An ontology action type's id, or smaltfl's own action, `smaltfl:decide` (DECIDE). */
+  action: string;
+  for: string[];
+  /** Optional: the object's row must have, in this column, one of the actor's values for this attribute. */
+  scope?: { columns: string[]; attribute: string };
+  /** `smaltfl:decide` only: the options the rule lets its people take; every option but `accept` when left out (ADR
+   * 0009 §8; the owner, Q-57a: Accept the new level only for a role whose rule lists it). */
+  may?: DecisionOption[];
+}
+
+/** smaltfl's own action: deciding what happens to a held day (ADR 0009 §8). It is not an ontology action type. */
+export const DECIDE = 'smaltfl:decide';
+/**
+ * What a decision may do with a held day (C2's order): publish it as is (with a reason), don't publish it (or, for a
+ * day readers have a fill of, withdraw the fill, Q-61), fill it from another day, publish only the part that arrived
+ * (ADR 0009 amendment 1 S5), or accept the new level: publish it as is and learn the metrics its cause moved from it
+ * on (S6, ADR 0010 §5).
+ */
+export const DECIDE_OPTIONS = ['asis', 'dont', 'fill', 'complete', 'accept'] as const;
+export type DecisionOption = (typeof DECIDE_OPTIONS)[number];
+/** The options slice 1's decision sheet draws (decision.ts), publish as is and don't publish, until it draws the
+ * remedies too (step A9). */
+export type DecideOption = Extract<DecisionOption, 'asis' | 'dont'>;
+const DECIDE_VERB: Record<DecisionOption, string> = {
+  asis: 'publish a held day as is',
+  dont: 'decide not to publish a held day',
+  fill: 'fill a held day from another day',
+  complete: 'publish only the part of a held day that arrived',
+  accept: 'accept the new level',
+};
+
+export type Rule = RowRule | ColumnRule | ActionRule;
+
+export interface Policies {
+  principals: Principal[];
+  groups?: Group[];
+  rules: Rule[];
+}
+
+/** Whether a rule's `for` list covers a principal, directly or through a group. */
+export function covers(p: Policies, ids: readonly string[], principal: string): boolean {
+  if (ids.includes(principal) || ids.includes('*')) return true;
+  return (p.groups ?? []).some((g) => ids.includes(g.id) && g.members.includes(principal));
+}
+
+export interface ReadView {
+  open: boolean;
+  /** Why the dataset is closed to this viewer. */
+  reason?: string;
+  /** The names of the row rules that filter it. */
+  filters: string[];
+  /** The columns removed, and the rules that removed them. */
+  removed: { column: string; rule: string }[];
+  /** The columns kept, in order. */
+  columns: string[];
+  /** The rows kept: a SQL condition over the dataset's columns, or null for every row. */
+  where: string | null;
+}
+
+const find = (columns: readonly string[], names: readonly string[]) => {
+  for (const n of names) {
+    const hit = columns.find((c) => c.toLowerCase() === n.toLowerCase());
+    if (hit) return hit;
+  }
+  return undefined;
+};
+
+/** What one viewer may read of a dataset with these columns. */
+export function readView(p: Policies | undefined, viewer: string, columns: readonly string[]): ReadView {
+  const all: ReadView = { open: true, filters: [], removed: [], columns: [...columns], where: null };
+  if (!p) return all;
+  const who = p.principals.find((x) => x.id === viewer);
+  if (!who) return { ...all, open: false, columns: [], reason: `${viewer} is not one of the flow's people` };
+  if (who.owner) return all;
+  const conditions: string[] = [];
+  const filters: string[] = [];
+  for (const rule of p.rules) {
+    if (rule.kind !== 'row' || !covers(p, rule.for, viewer)) continue;
+    const column = find(columns, rule.columns);
+    if (!column) return { ...all, open: false, columns: [], reason: `the ${rule.name} filters on ${rule.columns.join(' or ')}, which this dataset doesn't have, so its rows can't be filtered` };
+    const values = who.attributes?.[rule.attribute] ?? [];
+    conditions.push(values.length ? `${quoteIdent(column)} IN (${values.map((v) => literal(v, 'text')).join(', ')})` : '0 = 1');
+    filters.push(rule.name);
+  }
+  const removed: { column: string; rule: string }[] = [];
+  for (const rule of p.rules) {
+    if (rule.kind !== 'column' || !covers(p, rule.for, viewer)) continue;
+    for (const c of columns) if (rule.remove.some((r) => r.toLowerCase() === c.toLowerCase()) && !removed.some((x) => x.column === c)) removed.push({ column: c, rule: rule.name });
+  }
+  const kept = columns.filter((c) => !removed.some((x) => x.column === c));
+  if (kept.length === 0) return { ...all, open: false, columns: [], removed, reason: 'every column is removed for this viewer' };
+  return { open: true, filters, removed, columns: kept, where: conditions.length ? conditions.join(' AND ') : null };
+}
+
+/**
+ * A statement's rows as a viewer may read them, or null when the dataset is closed to them. `keep` names columns the
+ * statement adds that aren't the dataset's (flags it computed from columns the viewer can read), kept after theirs.
+ */
+export function wrapRead(view: ReadView, sql: string, keep: readonly string[] = []): string | null {
+  if (!view.open) return null;
+  const cols = [...view.columns, ...keep].map(quoteIdent).join(', ');
+  return `SELECT ${cols} FROM (\n${sql}\n) AS "_smaltfl_read"${view.where ? ` WHERE ${view.where}` : ''}`;
+}
+
+export type ActionCheck = { allowed: true; reason: string; rule?: string } | { allowed: false; reason: string; rule?: string };
+
+/**
+ * Whether `actor` may run `action` on an object with this row. The runtime asks this before it writes, and
+ * records a refusal as well as an edit.
+ */
+export function checkAction(p: Policies | undefined, action: string, actor: string, row: Record<string, unknown> | null): ActionCheck {
+  if (!p) return { allowed: true, reason: 'the flow has no policies' };
+  const who = p.principals.find((x) => x.id === actor);
+  if (!who) return { allowed: false, reason: `${actor} is not one of the flow's people` };
+  if (who.owner) return { allowed: true, reason: `${who.name} owns the flow` };
+  const rules = p.rules.filter((r): r is ActionRule => r.kind === 'action' && r.action === action);
+  const mine = rules.filter((r) => covers(p, r.for, actor));
+  if (mine.length === 0) {
+    const allowed = rules.flatMap((r) => r.for.map((id) => p.groups?.find((g) => g.id === id)?.name ?? p.principals.find((x) => x.id === id)?.name ?? id));
+    return { allowed: false, reason: allowed.length ? `only ${allowed.join(' and ')} may do this` : 'no rule allows this action' };
+  }
+  for (const r of mine) {
+    if (!r.scope) return { allowed: true, reason: `${r.name} allows ${who.name}`, rule: r.id };
+    if (!row) continue;
+    const column = Object.keys(row).find((k) => r.scope!.columns.some((c) => c.toLowerCase() === k.toLowerCase()));
+    const value = column === undefined ? undefined : row[column];
+    const allowedValues = who.attributes?.[r.scope.attribute] ?? [];
+    if (value !== undefined && allowedValues.includes(String(value))) return { allowed: true, reason: `${String(value)} is one of ${who.name}'s ${r.scope.attribute}`, rule: r.id };
+    return { allowed: false, reason: `${value === undefined ? 'this object' : String(value)} is outside ${who.name}'s ${r.scope.attribute}`, rule: r.id };
+  }
+  return { allowed: false, reason: 'no object to check' };
+}
+
+/** "Owner", "Owner and Stewards", "Owner, Ana and Stewards". */
+const listed = (xs: readonly string[]) => (xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
+
+/**
+ * Whether `actor` may take `option` for a held day (ADR 0009 §8). The owner always may; a flow without policies lets
+ * its one user decide; otherwise a `smaltfl:decide` rule must cover the actor and list the option (or list none, which
+ * allows every option but `accept`: delegating deciding doesn't include accepting a new level, the owner, Q-57a). The
+ * plugin asks this at release, against the policies stored with the run, and the record keeps the rule that allowed it.
+ * Until principals are bound to identity cards (ADR 0006 §8), it is a convenience, not a guard.
+ */
+export function checkDecision(p: Policies | undefined, actor: string, option: DecisionOption): ActionCheck {
+  if (!(DECIDE_OPTIONS as readonly string[]).includes(option)) return { allowed: false, reason: `${String(option)} is not an option for a held day` };
+  if (!p) return { allowed: true, reason: 'the flow has no policies' };
+  const who = p.principals.find((x) => x.id === actor);
+  if (!who) return { allowed: false, reason: `${actor} is not one of the flow's people` };
+  if (who.owner) return { allowed: true, reason: `${who.name} owns the flow` };
+  const rules = p.rules.filter((r): r is ActionRule => r.kind === 'action' && r.action === DECIDE);
+  const lets = (r: ActionRule) => (r.may ? r.may.includes(option) : option !== 'accept');
+  const mine = rules.find((r) => lets(r) && covers(p, r.for, actor));
+  if (mine) return { allowed: true, reason: `${mine.name} allows ${who.name}`, rule: mine.id };
+  const nameOf = (id: string) => p.groups?.find((g) => g.id === id)?.name ?? p.principals.find((x) => x.id === id)?.name ?? id;
+  const may = [...new Set([...p.principals.filter((x) => x.owner).map((x) => x.name), ...rules.filter(lets).flatMap((r) => r.for.map(nameOf))])];
+  return { allowed: false, reason: may.length ? `only ${listed(may)} may ${DECIDE_VERB[option]}` : `no one may ${DECIDE_VERB[option]}: the flow has no owner and no rule allows it` };
+}
+
+/**
+ * Whether `actor` may run the flow (round 3, #7). A run that passes publishes, and every day stepped to is a run, so
+ * only someone who may decide a held day runs one: the owner, a flow without policies' one user, or the people a
+ * `smaltfl:decide` rule names, whatever options it lists. Anyone else reads what was published, and the record never
+ * names them as the one who published it. Like checkDecision, a convenience until principals are bound to identity
+ * cards (ADR 0006 §8).
+ */
+export function checkRun(p: Policies | undefined, actor: string): ActionCheck {
+  for (const o of DECIDE_OPTIONS) {
+    const c = checkDecision(p, actor, o);
+    if (c.allowed) return c;
+  }
+  if (!p) return { allowed: true, reason: 'the flow has no policies' };
+  const who = p.principals.find((x) => x.id === actor);
+  if (!who) return { allowed: false, reason: `${actor} is not one of the flow's people` };
+  const nameOf = (id: string) => p.groups?.find((g) => g.id === id)?.name ?? p.principals.find((x) => x.id === id)?.name ?? id;
+  const may = [...new Set([...p.principals.filter((x) => x.owner).map((x) => x.name), ...p.rules.filter((r): r is ActionRule => r.kind === 'action' && r.action === DECIDE).flatMap((r) => r.for.map(nameOf))])];
+  return { allowed: false, reason: may.length ? `only ${listed(may)} may run the flow: a day that passes publishes` : 'no one may run the flow: it has no owner and no rule lets anyone decide' };
+}

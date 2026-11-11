@@ -1,0 +1,97 @@
+{
+  "smaltfl": 4,
+  "id": "signins",
+  "name": "Sign-ins",
+  "description": "Sign-ins at work, a day at a time: each day's authentication events checked, counted by hour and result, and the failures by country, judged against the days before. A synthetic log, generated from a fixed seed (scripts/data/security.ts), with incidents planted: the credential-stuffing burst on Tuesday March 12, 2024 is something wrong, and the day pauses.",
+  "parameters": [
+    {
+      "name": "day",
+      "type": "text",
+      "default": null
+    }
+  ],
+  "sources": [
+    {
+      "id": "auth",
+      "table": "auth_file",
+      "description": "The day's authentication events, one file a day"
+    }
+  ],
+  "notebooks": [
+    "checks.nb.ts",
+    "counts.nb.ts"
+  ],
+  "calendar": {
+    "base": "us"
+  },
+  "ontology": {
+    "import": [
+      "../ontologies/auth.json"
+    ],
+    "objectTypes": [],
+    "linkTypes": [],
+    "actionTypes": [],
+    "properties": [
+      {
+        "column": "signins",
+        "title": "Sign-ins",
+        "description": "Sign-ins counted"
+      },
+      {
+        "column": "failures",
+        "title": "Failures",
+        "description": "Failed and locked-out sign-ins"
+      },
+      {
+        "column": "users",
+        "title": "Users",
+        "description": "Different users"
+      },
+      {
+        "column": "hour",
+        "title": "Hour",
+        "description": "The hour of the day (UTC)"
+      }
+    ]
+  },
+  "policies": {
+    "principals": [
+      {
+        "id": "owner",
+        "name": "Owner",
+        "role": "Owns the flow",
+        "owner": true
+      },
+      {
+        "id": "sam",
+        "name": "Sam",
+        "role": "Security analyst"
+      }
+    ],
+    "groups": [],
+    "rules": [
+      {
+        "id": "analysts",
+        "kind": "action",
+        "name": "Sam may decide",
+        "action": "smaltfl:decide",
+        "for": [
+          "sam"
+        ]
+      }
+    ]
+  },
+  "publish": {
+    "hold": [
+      "checks",
+      "wrong"
+    ],
+    "period": "day",
+    "watch": {
+      "auth": {
+        "history": "history.json",
+        "time": "event_time"
+      }
+    }
+  }
+}

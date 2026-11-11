@@ -1,0 +1,755 @@
+[
+ {
+  "name": "mar06-flow",
+  "what": "Control estate, calm Wed Mar 6: the Flow view as a phone opens it (notebook boxes folded)",
+  "day": "Wed 6"
+ },
+ {
+  "name": "mar06-results",
+  "what": "Control estate, calm Wed Mar 6: the Results view",
+  "day": "Wed 6",
+  "view": "results"
+ },
+ {
+  "name": "mar06-runs",
+  "what": "Control estate, calm Wed Mar 6: the Runs view (the record)",
+  "day": "Wed 6",
+  "view": "runs"
+ },
+ {
+  "name": "mar06-nb-summary",
+  "what": "Control estate, calm Wed Mar 6: the Summary notebook's sheet",
+  "day": "Wed 6",
+  "box": "nb-summary",
+  "full": true
+ },
+ {
+  "name": "mar06-flow-unfolded",
+  "what": "Control estate, calm Wed Mar 6: the Flow view with the Posture and Summary boxes unfolded",
+  "day": "Wed 6",
+  "unfold": [
+   "nb-posture",
+   "nb-summary"
+  ]
+ },
+ {
+  "name": "mar06-posture-news",
+  "what": "Control estate, calm Wed Mar 6: silver posture, News",
+  "day": "Wed 6",
+  "card": "posture",
+  "tab": "News",
+  "full": true
+ },
+ {
+  "name": "mar06-posture-checks",
+  "what": "Control estate, calm Wed Mar 6: silver posture, Checks",
+  "day": "Wed 6",
+  "card": "posture",
+  "tab": "Checks",
+  "full": true
+ },
+ {
+  "name": "mar06-tls-checks",
+  "what": "Control estate, calm Wed Mar 6: bronze tls, Checks",
+  "day": "Wed 6",
+  "card": "tls",
+  "tab": "Checks",
+  "full": true
+ },
+ {
+  "name": "mar06-byunit-news",
+  "what": "Control estate, calm Wed Mar 6: gold by_unit, News",
+  "day": "Wed 6",
+  "card": "by_unit",
+  "tab": "News",
+  "full": true
+ },
+ {
+  "name": "mar06-byunit-checks",
+  "what": "Control estate, calm Wed Mar 6: gold by_unit, Checks with the seal",
+  "day": "Wed 6",
+  "card": "by_unit",
+  "tab": "Checks",
+  "full": true
+ },
+ {
+  "name": "mar06-byunit-data",
+  "what": "Control estate, calm Wed Mar 6: gold by_unit, Data (what leadership reads)",
+  "day": "Wed 6",
+  "card": "by_unit",
+  "tab": "Data",
+  "full": true
+ },
+ {
+  "name": "mar06-bycontrol-data",
+  "what": "Control estate, calm Wed Mar 6: gold by_control, Data",
+  "day": "Wed 6",
+  "card": "by_control",
+  "tab": "Data",
+  "full": true
+ },
+ {
+  "name": "mar06-ontology",
+  "what": "Control estate, calm Wed Mar 6: the Ontology view as a phone opens it: the files the flow reads, a row each (its name, what it is, the rows of the day's load, how many rules it has), none open yet; no object-type box and no flat list of columns",
+  "day": "Wed 6",
+  "view": "ontology",
+  "viewFirst": true,
+  "expect": {
+   "text": [
+    "Files",
+    "Wed Mar 6’s load, read as Owner",
+    "600 applications · no rules yet",
+    "203 apps · 9 rules"
+   ],
+   "noText": [
+    "What the columns mean",
+    "OBJECT TYPE",
+    "Choose an object type"
+   ],
+   "count": {
+    "#ontology-files .of-row": 13,
+    "#ontology-files .of-sec": 0,
+    "#ontology-map .type": 0
+   }
+  }
+ },
+ {
+  "name": "mar06-ontology-control",
+  "what": "Control estate, calm Wed Mar 6: the Ontology view with a control's file (the WAF's) opened in place: what the file is (said once: the open row drops its line), this file's rules (one row an application, the applications it covers, its key), a card a column with its values in the day's load drawn at the top (a bar has one label: what its value stands for where that says more than the value, Blocking for block, else the value as the file writes it), its meaning and its rules (on the Application card the file's two rules about it, so no \"No rules yet.\" under the key; then a new value, the bad value, the bands), then Discovered, empty. A column's name as the file writes it is beside its title only where the two differ (app_id beside Application, none beside Status), and \"What its values stand for\" lists only the values whose meaning says more (none for the WAF provider, whose four are named as themselves)",
+  "day": "Wed 6",
+  "view": "ontology",
+  "viewFirst": true,
+  "click": ".of-item[data-file=\"waf\"] .of-row",
+  "waitFor": ".of-item.open .of-draw .colline",
+  "full": true,
+  "expect": {
+   "text": [
+    "One row an application",
+    "Covers the applications where Internet-facing is Yes, and no others",
+    "No Application blank or repeated",
+    "Set by hand · checked against the list of applications (apps)",
+    "Must be one of the applications this file covers",
+    "Set by hand · one of this file’s rules",
+    "A value never seen in this file before is flagged as wrong",
+    "Off is a bad value: a jump above its usual share is flagged as wrong",
+    "Not checked: this file’s band on Failing is checked instead",
+    "Failing between 0% and 15% of apps",
+    "Not assessed between 0% and 5% of apps",
+    "DISCOVERED",
+    "Nothing has been discovered yet. Rules the app finds in the data will be listed here to accept.",
+    "What its 2 values stand for"
+   ],
+   "noText": [
+    "What the columns mean",
+    "OBJECT TYPE",
+    "Holds Blocking",
+    "checked against apps",
+    "What its 4 values stand for",
+    "What its 3 values stand for"
+   ],
+   "minCharts": 1,
+   "count": {
+    "#ontology-files .of-row": 13,
+    "#ontology-files .of-sec": 1,
+    "#ontology-files .of-col": 5,
+    "#ontology-files .of-own .of-rule": 3,
+    "#ontology-files .of-col .of-rule": 8,
+    "#ontology-files .of-col[data-column=\"app_id\"] .of-rule": 2,
+    "#ontology-files .of-col .of-rule.of-files": 2,
+    "#ontology-files .of-col[data-column=\"app_id\"] .of-none": 0,
+    "#ontology-files .of-col .of-rule.unchecked": 1,
+    "#ontology-files .of-draw .tops": 3,
+    "#ontology-files .of-item.open .of-what": 0,
+    "#ontology-map .type": 0,
+    "#ontology-files .of-col[data-column=\"app_id\"] .of-col-head code": 1,
+    "#ontology-files .of-col[data-column=\"status\"] .of-col-head code": 0,
+    "#ontology-files .of-col[data-column=\"provider\"] details.whole": 0,
+    "#ontology-files .of-col[data-column=\"mode\"] details.whole": 1,
+    "#ontology-files .of-draw .top .v code": 0,
+    "#ontology-files .of-col .of-edit": 5
+   }
+  }
+ },
+ {
+  "name": "mar06-ontology-inventory",
+  "what": "Control estate, calm Wed Mar 6: the Ontology view with the inventory opened (one tap, and the control's section closes): it says it is the list the other files are checked against, has no rule of its own, and its nine columns are drawn from the day's file. No label only repeats the thing: Name has no \"name\" beside it and Business unit no \"business_unit\" (Application keeps app_id, another word); the columns whose values are named as themselves (the six business units, yes and no) offer no \"What its values stand for\", and Data class lists only the two of its four that stand for something else (pci: Card data, pii: Personal data)",
+  "day": "Wed 6",
+  "view": "ontology",
+  "viewFirst": true,
+  "click": ".of-item[data-file=\"apps\"] .of-row",
+  "waitFor": ".of-item.open .of-draw .colline",
+  "full": true,
+  "expect": {
+   "text": [
+    "The list of applications: 12 other files are checked against it.",
+    "No rules of its own yet.",
+    "All filled · every value different",
+    "DISCOVERED",
+    "What its 2 values stand for",
+    "What its value stands for"
+   ],
+   "noText": [
+    "What the columns mean",
+    "One row an application",
+    "What its 6 values stand for",
+    "What its 3 values stand for",
+    "What its 4 values stand for"
+   ],
+   "count": {
+    "#ontology-files .of-sec": 1,
+    "#ontology-files .of-col": 9,
+    "#ontology-files .of-rule": 0,
+    "#ontology-files .of-col[data-column=\"name\"] .of-col-head code": 0,
+    "#ontology-files .of-col[data-column=\"business_unit\"] .of-col-head code": 0,
+    "#ontology-files .of-col[data-column=\"app_id\"] .of-col-head code": 1,
+    "#ontology-files .of-col[data-column=\"business_unit\"] details.whole": 0,
+    "#ontology-files .of-col[data-column=\"internet_facing\"] details.whole": 0,
+    "#ontology-files .of-col[data-column=\"criticality\"] details.whole": 0,
+    "#ontology-files .of-col[data-column=\"data_class\"] details.whole": 1,
+    "#ontology-files .of-col[data-column=\"hosting\"] details.whole": 1,
+    "#ontology-files .of-col details.whole": 2,
+    "#flow-edits": 0
+   }
+  }
+ },
+ {
+  "name": "mar07-flow",
+  "what": "Control estate, Thu Mar 7 (the logging file lacks a column: refused): the Flow view",
+  "day": "Thu 7"
+ },
+ {
+  "name": "mar07-ontology-refused",
+  "what": "Control estate, Thu Mar 7 (the logging file lacks a column: refused): the Ontology view with the logging file opened: its row says the file was refused and still counts its eight rules, and its section has the five columns the flow expects, each with its meaning and its rules and nothing drawn, since none of the day's file was read",
+  "day": "Thu 7",
+  "view": "ontology",
+  "viewFirst": true,
+  "click": ".of-item[data-file=\"logging\"] .of-row",
+  "waitFor": ".of-item.open .of-col",
+  "full": true,
+  "expect": {
+   "text": [
+    "file refused · 8 rules",
+    "Thu Mar 7’s file was refused, so none of it was read. These are the columns the flow expects, with their rules.",
+    "Nothing to draw: the file wasn’t read.",
+    "No Application blank or repeated",
+    "None is a bad value: a jump above its usual share is flagged as wrong",
+    "DISCOVERED"
+   ],
+   "noText": [
+    "Not run yet",
+    "Run the flow"
+   ],
+   "count": {
+    "#ontology-files .of-row": 13,
+    "#ontology-files .of-sec": 1,
+    "#ontology-files .of-col": 5,
+    "#ontology-files .of-own .of-rule": 3,
+    "#ontology-files .of-col .of-rule": 7,
+    "#ontology-files .of-draw .tops": 0
+   }
+  }
+ },
+ {
+  "name": "mar08-flow",
+  "what": "Control estate, Fri Mar 8 (key rotation passes where encryption fails, silver): the Flow view",
+  "day": "Fri 8"
+ },
+ {
+  "name": "mar08-posture-news",
+  "what": "Control estate, Fri Mar 8: silver posture, News (the brief)",
+  "day": "Fri 8",
+  "card": "posture",
+  "tab": "News",
+  "full": true
+ },
+ {
+  "name": "mar08-posture-checks",
+  "what": "Control estate, Fri Mar 8: silver posture, Checks",
+  "day": "Fri 8",
+  "card": "posture",
+  "tab": "Checks",
+  "full": true
+ },
+ {
+  "name": "mar12-flow",
+  "what": "Control estate, Tue Mar 12 (the WAF pass rate collapses, bronze): the Flow view",
+  "day": "Tue 12"
+ },
+ {
+  "name": "mar12-waf-news",
+  "what": "Control estate, Tue Mar 12: bronze waf, News (the card that holds the day)",
+  "day": "Tue 12",
+  "card": "waf",
+  "tab": "News"
+ },
+ {
+  "name": "mar12-waf-checks",
+  "what": "Control estate, Tue Mar 12: bronze waf, Checks",
+  "day": "Tue 12",
+  "card": "waf",
+  "tab": "Checks",
+  "full": true
+ },
+ {
+  "name": "mar12-posture-news",
+  "what": "Control estate, Tue Mar 12: silver posture, News (the brief of the held day)",
+  "day": "Tue 12",
+  "card": "posture",
+  "tab": "News",
+  "full": true
+ },
+ {
+  "name": "mar12-posture-checks",
+  "what": "Control estate, Tue Mar 12: silver posture, Checks",
+  "day": "Tue 12",
+  "card": "posture",
+  "tab": "Checks",
+  "full": true
+ },
+ {
+  "name": "mar12-bycontrol-news",
+  "what": "Control estate, Tue Mar 12: gold by_control, News on a held day",
+  "day": "Tue 12",
+  "card": "by_control",
+  "tab": "News",
+  "full": true
+ },
+ {
+  "name": "mar12-bycontrol-checks",
+  "what": "Control estate, Tue Mar 12: gold by_control, Checks on a held day",
+  "day": "Tue 12",
+  "card": "by_control",
+  "tab": "Checks",
+  "full": true
+ },
+ {
+  "name": "mar12-ontology-control",
+  "what": "Control estate, Tue Mar 12 (held: the WAF pass rate collapses): the Ontology view with the WAF's file opened: the same rules, and the held day's own rows drawn beside them (Failing at six in ten, under the rule that says at most 15%)",
+  "day": "Tue 12",
+  "view": "ontology",
+  "viewFirst": true,
+  "click": ".of-item[data-file=\"waf\"] .of-row",
+  "waitFor": ".of-item.open .of-draw .colline",
+  "full": true,
+  "expect": {
+   "state": "held",
+   "text": [
+    "Tue Mar 12’s load, read as Owner",
+    "203 apps · 9 rules",
+    "Failing between 0% and 15% of apps",
+    "59.6%",
+    "DISCOVERED"
+   ],
+   "noText": [
+    "What the columns mean"
+   ],
+   "count": {
+    "#ontology-files .of-row": 13,
+    "#ontology-files .of-sec": 1,
+    "#ontology-files .of-col": 5
+   }
+  }
+ },
+ {
+  "name": "mar12-results",
+  "what": "Control estate, Tue Mar 12 (held): the Results view",
+  "day": "Tue 12",
+  "view": "results"
+ },
+ {
+  "name": "mar12-reader-results",
+  "what": "Control estate, Tue Mar 12 (held): the Results view as Dana, a reader",
+  "day": "Tue 12",
+  "select": [
+   "#viewer",
+   "ciso"
+  ],
+  "view": "results"
+ },
+ {
+  "name": "mar14-vuln-news",
+  "what": "Control estate, Thu Mar 14 (vulnerability due dates cluster: a look-alike that publishes): bronze vuln_sla, News",
+  "day": "Thu 14",
+  "select": [
+   "#viewer",
+   "owner"
+  ],
+  "card": "vuln_sla",
+  "tab": "News",
+  "full": true
+ },
+ {
+  "name": "mar14-ontology-due",
+  "what": "Control estate, Thu Mar 14 (vulnerability due dates cluster: Failing up, the day published): the Ontology view with the vulnerability file opened: the due date's rule on Next due, and on Status the bad value's jump said as not checked, since this file's due date tells it instead",
+  "day": "Thu 14",
+  "view": "ontology",
+  "viewFirst": true,
+  "click": ".of-item[data-file=\"vuln_sla\"] .of-row",
+  "waitFor": ".of-item.open .of-draw .colline",
+  "full": true,
+  "expect": {
+   "text": [
+    "A due date: a row is late if its Status is still Failing the day after; flagged as wrong when more are late than usual",
+    "Failing is a bad value: a jump above its usual share is flagged as wrong",
+    "Not checked: this file’s due date is checked instead",
+    "Not assessed between 0% and 5% of apps"
+   ],
+   "count": {
+    "#ontology-files .of-sec": 1,
+    "#ontology-files .of-col": 7,
+    "#ontology-files .of-col .of-rule.unchecked": 1,
+    "#ontology-files .of-col[data-column=\"next_due\"] .of-rule": 1
+   }
+  }
+ },
+ {
+  "name": "mar21-flow",
+  "what": "Control estate, Thu Mar 21 (the TLS file's rows twice): the Flow view",
+  "day": "Thu 21"
+ },
+ {
+  "name": "mar21-tls-news",
+  "what": "Control estate, Thu Mar 21: bronze tls, News",
+  "day": "Thu 21",
+  "card": "tls",
+  "tab": "News"
+ },
+ {
+  "name": "mar21-posture-checks",
+  "what": "Control estate, Thu Mar 21: silver posture, Checks (the reconcile)",
+  "day": "Thu 21",
+  "card": "posture",
+  "tab": "Checks",
+  "full": true
+ },
+ {
+  "name": "mar21-byunit-checks",
+  "what": "Control estate, Thu Mar 21: gold by_unit, Checks",
+  "day": "Thu 21",
+  "card": "by_unit",
+  "tab": "Checks",
+  "full": true
+ },
+ {
+  "name": "mar23-flow",
+  "what": "Control estate, Sat Mar 23 (six in ten DR exercises late): the Flow view",
+  "day": "Sat 23"
+ },
+ {
+  "name": "mar23-dr-news",
+  "what": "Control estate, Sat Mar 23: bronze dr_exercise, News",
+  "day": "Sat 23",
+  "card": "dr_exercise",
+  "tab": "News"
+ },
+ {
+  "name": "names-form",
+  "what": "Control estate, Wed Mar 6, as the owner: the WAF file's WAF mode card with its quiet Edit tapped: a small form in place of the card's body (the name, what it means, a label for each of its three values, Save and Cancel), with the file's own name for the column said under the name field (it never changes), and one line that a change is recorded and takes effect from the next run",
+  "day": "Wed 6",
+  "view": "ontology",
+  "viewFirst": true,
+  "clicks": [
+   ".of-item[data-file=\"waf\"] .of-row",
+   ".of-item.open .of-col[data-column=\"mode\"] .of-edit"
+  ],
+  "waitFor": ".of-item.open .of-form",
+  "full": true,
+  "expect": {
+   "text": [
+    "The file writes it as mode. That stays.",
+    "What it means",
+    "A label for each value",
+    "A label is shown where it says more than the value itself.",
+    "For waf only. A change is recorded, and takes effect from the next run.",
+    "Save",
+    "Cancel"
+   ],
+   "count": {
+    ".of-form": 1,
+    ".of-form input": 4,
+    ".of-form textarea": 1,
+    ".of-item.open .of-col.editing": 1,
+    ".of-item.open .of-col .of-edit": 4,
+    "#flow-edits": 0
+   }
+  }
+ },
+ {
+  "name": "names-rename",
+  "what": "Control estate, as the owner: the TLS file's Status renamed to Result and its value fail labelled Broken, saved (the WAF's open form closes with its section): the card's head says Result with the file's own name, status, beside it; its bar and its rules say Broken; and above the files a strip says one change is kept in this browser, what it was, that it takes effect from the next run, and offers the way back to the flow as shipped. The status line says what was recorded",
+  "view": "ontology",
+  "viewFirst": true,
+  "clicks": [
+   ".of-item[data-file=\"tls\"] .of-row",
+   ".of-item.open .of-col[data-column=\"status\"] .of-edit",
+   [
+    ".of-form input[id$=\"-name\"]",
+    "Result"
+   ],
+   [
+    ".of-form input[id$=\"-v1\"]",
+    "Broken"
+   ],
+   ".of-form .of-save"
+  ],
+  "waitFor": ".of-item.open .of-col[data-column=\"status\"] .of-draw .colline",
+  "full": true,
+  "expect": {
+   "status": "^Renamed status to Result and labelled status’s fail as Broken in tls\\. Recorded; the next run uses it\\.$",
+   "text": [
+    "1 change to this flow, kept in this browser",
+    "Renamed status to Result and labelled status’s fail as Broken in tls",
+    "Each is recorded, and takes effect from the next run.",
+    "Back to the flow as shipped",
+    "Broken is a bad value: a jump above its usual share is flagged as wrong",
+    "What its 2 values stand for"
+   ],
+   "count": {
+    ".of-item.open .of-col[data-column=\"status\"] .of-col-head code": 1,
+    ".of-form": 0,
+    "#flow-edits .fe-back": 1,
+    "#ontology-files .of-sec": 1
+   }
+  }
+ },
+ {
+  "name": "names-other-file",
+  "what": "Control estate, after the rename in the TLS file: the WAF's file, opened. Its Status is still Status with no name beside it, and its rules still say Failing: the rename and the label were the TLS file's own (Q-140)",
+  "view": "ontology",
+  "viewFirst": true,
+  "click": ".of-item[data-file=\"waf\"] .of-row",
+  "waitFor": ".of-item.open .of-draw .colline",
+  "full": true,
+  "expect": {
+   "text": [
+    "Failing is a bad value: a jump above its usual share is flagged as wrong",
+    "Failing between 0% and 15% of apps",
+    "1 change to this flow, kept in this browser"
+   ],
+   "noText": [
+    "Broken is a bad value",
+    "Broken between"
+   ],
+   "count": {
+    ".of-item.open .of-col[data-column=\"status\"] .of-col-head code": 0,
+    "#ontology-files .of-col": 5
+   }
+  }
+ },
+ {
+  "name": "names-import-card",
+  "what": "Control estate, after the rename: the TLS import card's Columns tab. The column is Result there too, with the file's own name, status, under it, as the page shares the card's drawing; a column whose title is its name again (Protocol, protocol) has one line, so four of the five carry a name",
+  "card": "tls",
+  "tab": "Columns",
+  "full": true,
+  "expect": {
+   "text": [
+    "Result",
+    "status",
+    "Certificate days left"
+   ],
+   "count": {
+    "#sheet .col-row .cr-code": 4
+   }
+  }
+ },
+ {
+  "name": "names-reload",
+  "what": "Control estate, the page loaded again after the rename: the edited flow came back from this browser (by the hash of the flow as shipped). The TLS file's column is still Result, its bad value still Broken, and the strip still lists the one change",
+  "reload": true,
+  "view": "ontology",
+  "viewFirst": true,
+  "click": ".of-item[data-file=\"tls\"] .of-row",
+  "waitFor": ".of-item.open .of-col[data-column=\"status\"] .of-draw .colline",
+  "full": true,
+  "expect": {
+   "text": [
+    "1 change to this flow, kept in this browser",
+    "Renamed status to Result and labelled status’s fail as Broken in tls",
+    "Broken is a bad value: a jump above its usual share is flagged as wrong",
+    "Back to the flow as shipped"
+   ],
+   "count": {
+    ".of-item.open .of-col[data-column=\"status\"] .of-col-head code": 1,
+    "#flow-edits .fe-back": 1
+   }
+  }
+ },
+ {
+  "name": "names-reload-record",
+  "what": "Control estate, after the reload and its run: the record. The rename is one flow change with its reason in words, and the run after the reload recorded no change back to the shipped flow (a change with no reason reads \"The flow changed · …\")",
+  "view": "runs",
+  "expect": {
+   "text": [
+    "The flow changed: Renamed status to Result and labelled status’s fail as Broken in tls"
+   ],
+   "noText": [
+    "The flow changed ·"
+   ]
+  }
+ },
+ {
+  "name": "names-reader",
+  "what": "Control estate, after the rename, as Dana, a reader: the TLS file's section shows the new name and offers no Edit; the strip lists the change without the way back, which is the owner's",
+  "select": [
+   "#viewer",
+   "ciso"
+  ],
+  "view": "ontology",
+  "viewFirst": true,
+  "waitFor": ".of-item.open .of-col[data-column=\"status\"] .of-draw .colline",
+  "full": true,
+  "expect": {
+   "text": [
+    "read as Dana",
+    "1 change to this flow, kept in this browser",
+    "Renamed status to Result and labelled status’s fail as Broken in tls"
+   ],
+   "count": {
+    ".of-edit": 0,
+    "#flow-edits .fe-back": 0,
+    ".of-item.open .of-col[data-column=\"status\"] .of-col-head code": 1
+   }
+  }
+ },
+ {
+  "name": "names-back",
+  "what": "Control estate, as the owner again: Back to the flow as shipped, tapped twice (it asks first). Every change is taken away and recorded: the strip is gone, the TLS file's column is Status again with no name beside it, and its bad value Failing",
+  "select": [
+   "#viewer",
+   "owner"
+  ],
+  "view": "ontology",
+  "viewFirst": true,
+  "clicks": [
+   "#flow-edits .fe-back",
+   "#flow-edits .fe-back"
+  ],
+  "waitFor": ".of-item.open .of-col[data-column=\"status\"] .of-draw .colline",
+  "full": true,
+  "expect": {
+   "status": "^The flow is as it was shipped again: 1 change taken away\\. Recorded; the next run uses it\\.$",
+   "text": [
+    "Failing is a bad value: a jump above its usual share is flagged as wrong"
+   ],
+   "noText": [
+    "change to this flow",
+    "Broken"
+   ],
+   "count": {
+    "#flow-edits": 0,
+    ".of-item.open .of-col[data-column=\"status\"] .of-col-head code": 0,
+    ".of-item.open .of-col .of-edit": 5
+   }
+  }
+ },
+ {
+  "name": "names-back-record",
+  "what": "Control estate, the record after going back: two flow changes, each with its reason (the rename, then back to the flow as shipped), and none without one",
+  "view": "runs",
+  "expect": {
+   "text": [
+    "The flow changed: Renamed status to Result and labelled status’s fail as Broken in tls",
+    "The flow changed: Back to the flow as shipped: 1 change taken away"
+   ],
+   "noText": [
+    "The flow changed ·"
+   ]
+  }
+ },
+ {
+  "name": "mar12-flow-dark",
+  "what": "Control estate, Tue Mar 12: the Flow view, dark",
+  "day": "Tue 12",
+  "scheme": "dark"
+ },
+ {
+  "name": "mar12-ontology-dark",
+  "what": "Control estate, Tue Mar 12: the Ontology view's first screen, dark",
+  "day": "Tue 12",
+  "scheme": "dark",
+  "view": "ontology",
+  "viewFirst": true,
+  "expect": {
+   "text": [
+    "Files"
+   ],
+   "count": {
+    "#ontology-files .of-row": 13
+   }
+  }
+ },
+ {
+  "name": "mar12-ontology-control-dark",
+  "what": "Control estate, Tue Mar 12: the Ontology view with the WAF's file opened, dark: the section's parts, the drawings and the rules",
+  "day": "Tue 12",
+  "scheme": "dark",
+  "view": "ontology",
+  "viewFirst": true,
+  "click": ".of-item[data-file=\"waf\"] .of-row",
+  "waitFor": ".of-item.open .of-draw .colline",
+  "full": true,
+  "expect": {
+   "text": [
+    "Failing between 0% and 15% of apps",
+    "DISCOVERED"
+   ],
+   "count": {
+    "#ontology-files .of-sec": 1,
+    "#ontology-files .of-col": 5
+   }
+  }
+ },
+ {
+  "name": "names-form-dark",
+  "what": "Control estate, Tue Mar 12 (held), dark: the WAF file's WAF mode card with its Edit tapped (the file is open from the stop before): the form's fields, hints and buttons, and since a day waits for a decision, the line that it is judged again when it next runs",
+  "day": "Tue 12",
+  "scheme": "dark",
+  "view": "ontology",
+  "viewFirst": true,
+  "clicks": [
+   ".of-item.open .of-col[data-column=\"mode\"] .of-edit"
+  ],
+  "waitFor": ".of-item.open .of-form",
+  "full": true,
+  "expect": {
+   "text": [
+    "The file writes it as mode. That stays.",
+    "For waf only. A change is recorded, and takes effect from the next run. A day waiting for a decision is judged again when it next runs."
+   ],
+   "count": {
+    ".of-form": 1,
+    ".of-form input": 4
+   }
+  }
+ },
+ {
+  "name": "names-rename-dark",
+  "what": "Control estate, dark: the WAF mode renamed to Mode and saved from the open form: the strip above the files (one change, what it was, the way back), and the card's head with the new name; no name beside it, since mode is Mode again",
+  "scheme": "dark",
+  "view": "ontology",
+  "viewFirst": true,
+  "clicks": [
+   [
+    ".of-form input[id$=\"-name\"]",
+    "Mode"
+   ],
+   ".of-form .of-save"
+  ],
+  "waitFor": ".of-item.open .of-col[data-column=\"mode\"] .of-draw .colline",
+  "full": true,
+  "expect": {
+   "text": [
+    "1 change to this flow, kept in this browser",
+    "Renamed mode to Mode in waf",
+    "Back to the flow as shipped",
+    "Each is recorded, and takes effect from the next run. A day waiting for a decision is judged again when it next runs."
+   ],
+   "count": {
+    ".of-form": 0,
+    ".of-item.open .of-col[data-column=\"mode\"] .of-col-head code": 0,
+    "#flow-edits .fe-back": 1
+   }
+  }
+ }
+]

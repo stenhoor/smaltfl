@@ -1,0 +1,568 @@
+/**
+ * A day's story (ADR 0008): the cause as a population or a time, the gate, what follows from it, and the words a screen
+ * shows at a glance, on made-up days whose trouble is known.
+ */
+import { describe, expect, it } from 'vitest';
+import { plusDays } from '../src/core/calendar.js';
+import { HistoryRanges } from '../src/core/history.js';
+import { LEGACY_JUDGE, newsOf, type JudgeSettings, type Names } from '../src/core/news.js';
+import { followsCause, ACT_VERB, CELL_KINDS, CONTEXT_TAG, HEALTH_HEAD, KEPT_SHARE, axisShare, recentSpan, SETTLE_LINE, STRIP_KEY, approx, cardWords, compact, countLabel, gateLabels, glanceStrings, keptOf, partLabel, ruleOrder, ruleUsual, rowName, shortWho, splitOf, splitSentence, stepLabels, storyOf, wordsIn, type Gate, type HourValues, type Story, type StoryOptions } from '../src/core/story.js';
+import { historyWith, vendorNames, type Trouble } from './helpers/history.js';
+
+const DAY = '2023-10-11'; // a Wednesday
+const options: StoryOptions = { names: vendorNames, step: 'trips_valid', limit: 0.1 };
+const story = (trouble: Record<string, Trouble>, day = DAY, more: Partial<StoryOptions> = {}): Story => {
+  const h = new HistoryRanges(historyWith(trouble));
+  return storyOf(h, day, newsOf(h, day, vendorNames), { ...options, ...more });
+};
+const words = (s: Story) => glanceStrings(s).reduce((t, x) => t + wordsIn(x), 0);
+
+describe('the cause, as a population', () => {
+  it('names the part that arrived as usual when everything else almost stopped', () => {
+    const s = story({ [DAY]: { onlyVendor1: true, dropShare: 0.105 } });
+    expect(s.state).toBe('wrong');
+    expect(s.head).toBe('Only Vendor 1 records arrived');
+    expect(s.hero).toBe('split');
+    expect(s.split).toMatchObject({ kind: 'held', name: 'Vendor 1' });
+    expect(s.split!.part.today / s.split!.part.usual).toBeGreaterThan(0.67);
+    expect(s.split!.rest.today / s.split!.rest.usual).toBeLessThan(0.01);
+    // The amount restates the split: absorbed, not told again.
+    expect(s.absorbed.map((f) => f.kind)).toContain('volume');
+    expect(s.findings.find((f) => f.kind === 'volume')).toMatchObject({ tier: 'absorbed', severity: 'note', was: 'alert' });
+    expect(s.primary).toBe('notify');
+  });
+
+  it('shows a held gate with its rows against a day like it, so a share past its limit isn’t read as more bad rows', () => {
+    const s = story({ [DAY]: { onlyVendor1: true, dropShare: 0.105 } });
+    expect(s.gate).toMatchObject({ step: 'trips_valid', held: true, limit: 0.1 });
+    // 10.5% of a near-blank day’s rows is fewer rows than a day like it drops.
+    expect(s.gate!.dropped).toBeLessThan(s.gate!.usual!.low);
+    expect(s.labels.hero).toContain('Checks held');
+    expect(s.labels.hero).toContain('limit 10%');
+    // The dropped share follows from the cause (its count is not past usual): folded, not a story of its own.
+    expect(s.follows.map((f) => f.kind)).toContain('dropped');
+  });
+
+  it('names a part that vanished while everything else held', () => {
+    const s = story({ [DAY]: { vendorGone: true } });
+    expect(s.head).toBe('Vendor 1 sent almost nothing');
+    expect(s.split).toMatchObject({ kind: 'vanished', name: 'Vendor 1' });
+    expect(s.split!.rest.today / s.split!.rest.usual).toBeGreaterThan(0.9);
+    expect(s.findings.find((f) => f.kind === 'gone')!.tier).toBe('absorbed');
+    // Each part's count against its usual one, said so it can't read as a fraction of it.
+    expect(s.labels.hero.slice(0, 4)).toEqual(['Vendor 1', expect.stringMatching(/^0 · usual ~[\d.]+k$/), 'Everything else', expect.stringMatching(/^[\d,]+ · usual ~[\d.]+k$/)]);
+    // Something wrong shows its checks, passed or not (ADR 0008 §10), and their words count at a glance.
+    expect(s.labels.hero.slice(4, 6)).toEqual(['Checks passed', '4.0% of arrived rows dropped']);
+    expect(words(s)).toBeLessThanOrEqual(60);
+  });
+
+  it('names a part that surged, as unusual, with marking it as expected its verb, said optional', () => {
+    const s = story({ [DAY]: { vendorSurge: 2.3 } });
+    expect(s.split).toMatchObject({ kind: 'surged', name: 'Vendor 1' });
+    expect(s.head).toMatch(/^Vendor 1 records 2\.\d× usual$/);
+    expect(s.primary).toBe('expected');
+    expect(s.labels.primary).toBe('Mark as expected (optional)');
+    expect(ACT_VERB.expected).toBe('Mark as expected (optional)');
+  });
+
+  it('says there is nothing to do under an unusual head only when the day’s total is in its range (ADR 0008 §6)', () => {
+    // (A day whose total is in its range says it: New Year's Day 2024, test/story-real.test.ts.) Fewer trips, or more,
+    // than the range: unusual, but its total isn't in range, so nothing is said of acting.
+    for (const t of [{ more: 0.8 }, { vendorSurge: 1.6 }]) {
+      const low = story({ [DAY]: t });
+      expect(low.state).toBe('unusual');
+      expect(low.amount!.value < low.amount!.low || low.amount!.value > low.amount!.high).toBe(true);
+      expect(low.labels.settle).toBeNull();
+    }
+    expect(SETTLE_LINE).toBe('Total in range · nothing to do');
+    // Something wrong, and a calm day: never.
+    expect(story({ [DAY]: { onlyVendor1: true, dropShare: 0.105 } }).labels.settle).toBeNull();
+    expect(story({}, '2023-10-04').labels.settle).toBeNull();
+  });
+
+  it('finds no split on an ordinary day, and none from a symptom: the named side is the smaller one', () => {
+    const h = new HistoryRanges(historyWith({ [DAY]: { onlyVendor1: true } }));
+    expect(splitOf(h, '2023-10-04', vendorNames)).toBeNull();
+    // Vendor 2 (70% of the trips) vanishing is the same day said from its other side: it is named as vendor 1 held.
+    expect(splitOf(h, DAY, vendorNames)!.value).toBe('1');
+  });
+});
+
+describe('the split in one sentence, from its figures', () => {
+  it('says “almost stopped” only for a rest that stayed near nothing all day, and “as usual” only near the usual', () => {
+    const s = story({ [DAY]: { onlyVendor1: true, dropShare: 0.105 } });
+    expect(splitSentence(s)).toMatch(/^Vendor 1 as usual \([\d,]+; usual [\d.]+k–[\d.]+k\); everything else almost stopped \([\d,]+; usual ~[\d.]+k\)\.$/);
+    const gone = story({ [DAY]: { vendorGone: true } });
+    expect(splitSentence(gone)).toMatch(/^Vendor 1 almost stopped \(0; usual [\d.]+k–[\d.]+k\); everything else (as usual|up \d+%|down \d+%) /);
+    const surge = story({ [DAY]: { vendorSurge: 2.3 } });
+    expect(splitSentence(surge)).toMatch(/^Vendor 1 2\.\d× usual \(/);
+    for (const x of [s, gone, surge]) expect(wordsIn(splitSentence(x)!)).toBeLessThanOrEqual(20);
+  });
+
+  it('says a rest that fell during the day as a fall from its hour, not as stopping', () => {
+    const s = story({ [DAY]: { stopAt: 13, onlyVendor1: false, vendorShare: 0.5 } });
+    if (s.split?.kind === 'held') expect(splitSentence(s)).toMatch(/everything else fell from 13:00 \(/);
+    expect(splitSentence(s) ?? '').not.toMatch(/almost stopped/);
+  });
+});
+
+describe('the cause, as a time', () => {
+  it('leads with the hour the trips fall, and folds what follows from it', () => {
+    const s = story({ [DAY]: { stopAt: 13, vendorShare: 0.5 } });
+    expect(s.hero).toBe('hours');
+    // Where the fall applies, and that the trips fell to a trickle (2% of usual, some every hour), in the head; the
+    // trickle's rate, and how many fewer came, on the chart.
+    expect(s.head).toBe('Trips fall to trickle from 13:00');
+    expect(s.hours).toMatchObject({ from: 13, to: 23 });
+    expect(s.hoursLabels).toMatchObject({ cut: '13:00', ghost: 'usual Wednesday' });
+    expect(s.hoursLabels!.floor).toMatch(/^still ~[\d,]+\/h$/);
+    // How many fewer than a usual day, never "missing": the hours are short, trips still came in them.
+    expect(s.hoursLabels!.missing).toMatch(/^~[\d.]+k fewer$/);
+    expect(s.labels.hero.slice(0, 4)).toEqual([s.hoursLabels!.cut, s.hoursLabels!.floor, s.hoursLabels!.missing, s.hoursLabels!.ghost]);
+    // The day's own change sits on the amount line, since the head's fall is the hours', named as the whole day's.
+    expect(s.labels.amount).toEqual([expect.stringMatching(/ trips$/), expect.stringMatching(/^whole day −\d+%$/), expect.stringMatching(/^usual /)]);
+    expect(s.primary).toBe('incident');
+    // A fall to a fifth of usual is no trickle: the head says the rate the trips fell to, the chart's own.
+    const fifth = story({ [DAY]: { stopAt: 13, keep: 0.2, vendorShare: 0.5 } });
+    expect(fifth.hero).toBe('hours');
+    expect(fifth.head).toMatch(/^Trips fall to ~[\d,]+\/h from 13:00$/);
+    expect(fifth.head.match(/~[\d,]+\/h/)![0]).toBe(fifth.hoursLabels!.floor.replace(/^still /, ''));
+    // No trips at all after the fall (a file cut off at 13:00) is no trickle and no rate: headed as found, with no
+    // "still" over hours that have no ribbon.
+    const cut = story({ [DAY]: { stopAt: 13, keep: 0, vendorShare: 0.5 } });
+    expect(cut.hero).toBe('hours');
+    expect(cut.head).toBe('Trips fall 100% from 13:00');
+    expect(cut.head).not.toMatch(/~0\/h|trickle/);
+    expect(cut.hoursLabels!.floor).toBe('');
+    expect(cut.labels.hero.join(' ')).not.toMatch(/still/);
+    // The vendors' mix moved with it, within what the cause moved: folded as the same day's, told as a note.
+    const mix = s.findings.find((f) => f.key === 'share:VendorID=1')!;
+    expect(['follows', 'sameDay', 'absorbed']).toContain(mix.tier);
+    expect(mix.severity).toBe('note');
+    expect(s.stories).toEqual([]);
+  });
+});
+
+describe('an hour fall where one part kept arriving (the load’s own rows by hour and value)', () => {
+  const fall = () => story({ [DAY]: { stopAt: 13, vendorShare: 0.5 } });
+  // The day's hours split into vendor 1 and vendor 2: vendor 1 a third of each hour before 13:00, and from 13:00 every
+  // trip but `stragglers` an hour, which go to vendor 2; with `at13`, the 13:00 hour's vendor 2 trips too.
+  const split = (got: readonly number[], stragglers = 0, at13 = 0): HourValues => {
+    const v1 = got.map((n, h) => (h < 13 ? Math.round(n / 3) : h === 13 ? Math.max(0, n - at13) : Math.max(0, n - stragglers)));
+    return { column: 'VendorID', values: { '1': v1, '2': got.map((n, h) => n - v1[h]!) } };
+  };
+
+  it('heads the day by the part that kept arriving, keys the two parts, and stops saying a trickle of every trip', () => {
+    const plain = fall();
+    const got = plain.hours!.got;
+    const s = story({ [DAY]: { stopAt: 13, vendorShare: 0.5 } }, DAY, { byHour: split(got, 0, Math.round(got[13]! / 2)) });
+    expect(s.head).toBe('Only Vendor 1 after 13:00');
+    expect(wordsIn(s.head)).toBeLessThanOrEqual(6);
+    expect(s.kept).toMatchObject({ column: 'VendorID', value: '1', name: 'Vendor 1' });
+    // Its two parts add up to the day's hours, hour by hour.
+    s.kept!.got.forEach((n, h) => expect(n + s.kept!.rest[h]!).toBe(got[h]));
+    expect(s.hoursLabels).toMatchObject({ cut: '13:00', kept: 'Vendor 1', rest: 'everything else', missing: plain.hoursLabels!.missing, ghost: 'usual Wednesday' });
+    // At a glance: the cut, the trips missing, the ghost and the key; the rate is the band's own height, not said.
+    expect(s.labels.hero.slice(0, 5)).toEqual(['13:00', plain.hoursLabels!.missing, 'usual Wednesday', 'Vendor 1', 'everything else']);
+    expect(s.labels.hero.join(' ')).not.toMatch(/still|trickle/);
+    expect(words(s)).toBeLessThanOrEqual(60);
+  });
+
+  it('allows stragglers up to a twentieth of the rows after the fall’s own hour, and no more', () => {
+    const got = fall().hours!.got;
+    const after = got.slice(14).reduce((a, b) => a + b, 0);
+    const few = Math.floor(((1 - KEPT_SHARE) * after) / 10 / 2);
+    const many = Math.ceil(((1 - KEPT_SHARE) * after) / 10) + 2;
+    expect(story({ [DAY]: { stopAt: 13, vendorShare: 0.5 } }, DAY, { byHour: split(got, few) }).head).toBe('Only Vendor 1 after 13:00');
+    // The rest fell but didn't stop: the trickle it was.
+    const fell = story({ [DAY]: { stopAt: 13, vendorShare: 0.5 } }, DAY, { byHour: split(got, many) });
+    expect(fell.head).toBe('Trips fall to trickle from 13:00');
+    expect(fell.kept).toBeNull();
+    expect(fell.hoursLabels).toMatchObject({ kept: null, rest: null });
+  });
+
+  it('tells nothing from rows that don’t add up to the day’s hours, from a column the viewer may not read, or from a blank', () => {
+    const got = fall().hours!.got;
+    const off = split(got);
+    const shifted: HourValues = { column: off.column, values: { ...off.values, '2': off.values['2']!.map((n, h) => (h === 3 ? n + 1 : n)) } };
+    expect(story({ [DAY]: { stopAt: 13, vendorShare: 0.5 } }, DAY, { byHour: shifted }).head).toBe('Trips fall to trickle from 13:00');
+    expect(story({ [DAY]: { stopAt: 13, vendorShare: 0.5 } }, DAY, { byHour: split(got), hidden: new Set(['vendorid']) }).kept).toBeNull();
+    const blank: HourValues = { column: 'VendorID', values: { null: split(got).values['1']!, '2': split(got).values['2']! } };
+    expect(keptOf(fall().hours, blank, vendorNames)).toBeNull();
+    // Without the load's rows (a day not run here), the history alone: as before.
+    expect(fall().kept).toBeNull();
+    // A cut-off file (nothing after the fall) has no part that kept arriving.
+    const none = story({ [DAY]: { stopAt: 13, keep: 0, vendorShare: 0.5 } });
+    expect(keptOf(none.hours, split(none.hours!.got), vendorNames)).toBeNull();
+  });
+});
+
+describe('a finding’s day by day, as its note says it (round 3, #23)', () => {
+  it('says a share on an axis to the decimals that keep it apart from 0', () => {
+    expect([axisShare(0), axisShare(0.0008), axisShare(0.025), axisShare(0.4), axisShare(0.12345)]).toEqual(['0%', '0.08%', '2.5%', '40%', '12%']);
+  });
+
+  it('says where the days before ran when today ran with them and its band sits apart from them', () => {
+    const day = (v: number | null, low: number | null = 0.07, high: number | null = 0.11) => ({ v, low, high });
+    // Jan 4, 2024's Extras $5.00 as a band learned apart from the weeks before: 8.7% against 21–33%, the 14 days before
+    // at 7.4–9.2% (the weekends lower) where today is too.
+    const recent = [0.08, 0.085, 0.074, 0.092, 0.081, 0.083, 0.088, 0.079, 0.082, 0.086, 0.09, 0.077, 0.084, 0.087];
+    const jan4 = [...recent.map((v) => day(v)), day(0.087, 0.21, 0.33)];
+    expect(recentSpan(jan4, axisShare)).toBe('14 days before: 7.4–9.2%, as today');
+    // Today inside its band, or apart from the days before too, or with its band where they ran: nothing to say.
+    expect(recentSpan([...recent.map((v) => day(v)), day(0.087)], axisShare)).toBeNull();
+    expect(recentSpan([...recent.map((v) => day(v)), day(0.3, 0.21, 0.33)], axisShare)).toBeNull();
+    expect(recentSpan([...recent.map((v) => day(v)), day(0.05, 0.06, 0.12)], axisShare)).toBeNull();
+    // Fewer than 7 days before with a value: too few to say.
+    expect(recentSpan([...recent.slice(0, 6).map((v) => day(v)), ...Array.from({ length: 8 }, () => day(null)), day(0.087, 0.21, 0.33)], axisShare)).toBeNull();
+    // All the days before at none, as today, under a band from last year: said once.
+    expect(recentSpan([...recent.map(() => day(0, 0, 0)), day(0, 0.0006, 0.0007)], axisShare)).toBe('14 days before: 0%, as today');
+  });
+});
+
+describe('what never folds', () => {
+  it('keeps a value never seen before as its own story, even on a day with a cause', () => {
+    const s = story({ [DAY]: { stopAt: 13, newValue: true } });
+    const fresh = s.findings.find((f) => f.kind === 'new')!;
+    expect(fresh.tier).toBe('standalone');
+    expect(fresh.severity).toBe('warn');
+    expect(s.stories.map((f) => f.kind)).toContain('new');
+  });
+
+  it('tells a finding marked as expected among the notes, marked, never as calm', () => {
+    const s = story({ [DAY]: { newValue: true } }, DAY, { acknowledged: new Set(['new:VendorID']) });
+    const fresh = s.findings.find((f) => f.kind === 'new')!;
+    expect(fresh).toMatchObject({ tier: 'note', acknowledged: true, severity: 'note' });
+    expect(s.state).toBe('notes');
+    expect(s.labels.notes).toBe('1 note');
+  });
+});
+
+describe('what a viewer may see', () => {
+  it('tells nothing from a column the viewer’s policy removes: no finding, no split', () => {
+    const open = story({ [DAY]: { vendorGone: true } });
+    expect(open.split?.column).toBe('VendorID');
+    const closed = story({ [DAY]: { vendorGone: true } }, DAY, { hidden: new Set(['vendorid']) });
+    expect(closed.split).toBeNull();
+    expect(closed.findings.some((f) => f.columns?.includes('VendorID'))).toBe(false);
+    // The amount is still the viewer's to see: told as the day's cause, without the part they can't.
+    expect(closed.head).toMatch(/^Fewer trips: [\d,]+ \(−\d+%\)$/);
+  });
+});
+
+describe('days in a row', () => {
+  it('says which day of an episode it is, and the trips short so far', () => {
+    const next = plusDays(DAY, 1);
+    const s = story({ [DAY]: { stopAt: 13 }, [next]: { onlyVendor1: true } }, next);
+    expect(s.episode).toMatchObject({ days: 2, since: DAY, hour: 13 });
+    // Day 2's chip counts the trips short so far, as the episode's hours count them (days.shortfall), to this day.
+    expect(s.episode!.short!.estimate).toBeGreaterThan(0);
+    expect(s.chip).toBe(`Day 2 · ~${compact(s.episode!.short!.estimate)} short`);
+  });
+
+  it('says a day after an episode is back to normal, names the episode, and says nothing is left to do', () => {
+    const after = plusDays(DAY, 1);
+    const s = story({ [DAY]: { onlyVendor1: true, dropShare: 0.105 } }, after);
+    expect(s.state).toBe('recovery');
+    expect(s.head).toBe('Back to normal');
+    // Its days, never what its last day was: what it was is a tap away, in the episode's sheet.
+    expect(s.chip).toBe('after Wed');
+    expect(s.recovery).toMatchObject({ from: DAY, to: DAY, held: [DAY], published: [] });
+    expect(s.labels.after).toBe('Nothing to do · Wed held');
+    expect(s.primary).toBeNull();
+    // A day that went out short is said as published, not held.
+    const short = story({ [DAY]: { stopAt: 13 } }, after);
+    // From the hour its day fell.
+    expect(short.chip).toBe('after Wed 13:00');
+    expect(short.labels.after).toBe('Nothing to do · Wed published short');
+    expect(wordsIn(s.chip!)).toBeLessThanOrEqual(5);
+    expect(glanceStrings(s).reduce((t, x) => t + wordsIn(x), 0)).toBeLessThanOrEqual(24);
+  });
+
+  it('says an ordinary day is one, by its weekday, with nothing to do', () => {
+    const s = story({}, '2023-10-04');
+    expect(s).toMatchObject({ state: 'calm', head: 'A normal Wednesday', hero: 'calm', primary: null });
+    expect(s.health.every((c) => c.severity === null)).toBe(true);
+  });
+});
+
+describe('the words at a glance', () => {
+  it('stays within its budgets: an incident day 60 words, a calm day 16', () => {
+    expect(words(story({ [DAY]: { onlyVendor1: true, dropShare: 0.105 } }))).toBeLessThanOrEqual(60);
+    expect(words(story({ [DAY]: { stopAt: 13, vendorShare: 0.5 } }))).toBeLessThanOrEqual(60);
+    expect(words(story({}, '2023-10-04'))).toBeLessThanOrEqual(16);
+    for (const s of [story({ [DAY]: { onlyVendor1: true } }), story({ [DAY]: { vendorGone: true } }), story({}, '2023-10-04')]) {
+      expect(wordsIn(s.head), s.head).toBeLessThanOrEqual(6);
+      expect(wordsIn(s.chip ?? ''), s.chip ?? '').toBeLessThanOrEqual(5);
+      for (const l of glanceStrings(s)) expect(l).not.toMatch(/because|caused by|feed stopped|disappeared|The band/);
+    }
+  });
+
+  it('says counts short: 20, 4,613 as 4.6k, 110k; fine enough to subtract where a difference sits beside them', () => {
+    expect([compact(20), compact(4613), compact(110_400), compact(1_234_000)]).toEqual(['20', '4.6k', '110k', '1.2M']);
+    // 70,495 against ~68k beside a +2k step reads as 2.5k: 68.5k doesn't.
+    expect([approx(68_486), approx(4_756), approx(110_157), approx(85_000)]).toEqual(['68.5k', '4.8k', '110k', '85k']);
+    expect(countLabel({ today: 10_518, usual: 4_508, low: null, high: null })).toBe('10,518 · usual ~4.5k');
+  });
+
+  it('labels a waterfall in one format, whole counts that add up as read and end on the count its card prints', () => {
+    expect(stepLabels(115_240, [-110_480, -143], 4_617)).toEqual({ start: '115,240', steps: ['−110,480', '−143'], end: '4,617' });
+    expect(stepLabels(119_431, [-77_466, -26], 41_939)).toEqual({ start: '119,431', steps: ['−77,466', '−26'], end: '41,939' });
+    expect(stepLabels(120_000, [-60_000, 2_000], 62_000)).toEqual({ start: '120,000', steps: ['−60,000', '+2,000'], end: '62,000' });
+    expect(stepLabels(100_000, [], 100_000)).toEqual({ start: '100,000', steps: [], end: '100,000' });
+  });
+
+  it('labels the gate’s two bars by what they count, at one decimal (two within a point of its limit), with the gap to it', () => {
+    const gate = (dropped: number, rows: number, limit: number | null = 0.1): Gate => ({ step: 'trips_valid', rows, dropped, share: dropped / rows, limit, held: limit !== null && dropped / rows > limit, near: false, usual: { expected: 5000, low: 3800, high: 5400 }, rules: [] });
+    // Just over: the share and its margin to the same decimals, so one is the other less the limit; zoomed.
+    expect(gateLabels(gate(442, 4229))).toEqual({ said: '10.45%', share: '10.45% of arrived rows dropped', limit: 'limit 10%', margin: '0.45 pt over', zoom: true, rows: '442 rows dropped', usual: 'usual 3.8k–5.4k' });
+    expect(gateLabels(gate(4004, 41_939))).toMatchObject({ share: '9.55% of arrived rows dropped', margin: '0.45 pt under', zoom: true });
+    // Past a point from it, a tenth; zoomed within two points.
+    expect(gateLabels(gate(1150, 10_000))).toMatchObject({ said: '11.5%', margin: '1.5 pt over', zoom: true });
+    // Far past it, still a tenth and the gap said, not zoomed: Fri Sep 22, 2023's 45.67%.
+    expect(gateLabels(gate(2116, 4633))).toMatchObject({ share: '45.7% of arrived rows dropped', margin: '35.7 pt over', zoom: false });
+    // Far under it: Tue Nov 15, 2022's 4.61%, as the canvas says it.
+    expect(gateLabels(gate(461, 10_000))).toMatchObject({ said: '4.6%', margin: '5.4 pt under', zoom: false });
+    // Never a margin of nothing, nor a share printed as its limit, nor a share of something as 0.0%.
+    const hair = gateLabels(gate(100_004, 1_000_000));
+    expect(hair.margin).toBe('0.0004 pt over');
+    expect(hair.share).not.toMatch(/^10(\.0+)?%/);
+    expect(gateLabels(gate(3, 10_000)).said).toBe('<0.1%');
+    expect(gateLabels(gate(500, 4000, null))).toMatchObject({ limit: null, margin: null, zoom: false, share: '12.5% of arrived rows dropped' });
+    // The gap is worked out from the share as printed, so they subtract to the limit on exact halves too: 117 of 1,040
+    // (11.25%) is "11.3% … 1.3 pt over", 96 of 1,024 (9.375%) "9.38% … 0.62 pt under".
+    expect(gateLabels(gate(117, 1040))).toMatchObject({ said: '11.3%', margin: '1.3 pt over' });
+    expect(gateLabels(gate(13, 1040))).toMatchObject({ said: '1.3%', margin: '8.7 pt under' });
+    expect(gateLabels(gate(96, 1024))).toMatchObject({ said: '9.38%', margin: '0.62 pt under' });
+    for (let rows = 1000; rows < 1400; rows++) for (let dropped = 1; dropped <= rows * 0.3; dropped++) {
+      const l = gateLabels(gate(dropped, rows));
+      if (!l.margin || l.said === '<0.1%') continue;
+      const dec = l.said.split('.')[1]!.length - 1;
+      const [pt, side] = l.margin.split(' pt ');
+      const back = Number(l.said.slice(0, -1)) + (side === 'over' ? -1 : 1) * Number(pt);
+      expect(back.toFixed(dec), `${dropped} of ${rows}: ${l.said} … ${l.margin}`).toBe((10).toFixed(dec));
+    }
+  });
+
+  it('says a rule’s usual one way, and orders the rules one way (tabs #12)', () => {
+    // A rule no day has failed: "never fails", not a band of half a row rounded to "usual 1–1".
+    expect(ruleUsual({ rows: 0, never: true, usual: { low: 0.5, high: 0.5 } })).toBe('never fails');
+    expect(ruleUsual({ rows: 3, never: false, usual: { low: 0.5, high: 0.5 } })).toBe('usual 0');
+    expect(ruleUsual({ rows: 1, never: false, usual: { low: 1.2, high: 1.4 } })).toBe('usual 1');
+    expect(ruleUsual({ rows: 4305, never: false, usual: { low: 365.4, high: 2604.8 } })).toBe('usual 365–2.6k');
+    // No range: nothing, so the row ends on its count.
+    expect(ruleUsual({ rows: 1306, never: false, usual: null })).toBe('');
+    const order = ruleOrder([{ name: 'in_month', warns: false, rows: 0 }, { name: 'passengers', warns: true, rows: 10_518 }, { name: 'duration', warns: false, rows: 1553 }, { name: 'distance', warns: false, rows: 4305 }]).map((r) => r.name);
+    expect(order).toEqual(['distance', 'duration', 'in_month', 'passengers']);
+    // The head over the gate says its share as its bar does: 8.6%, never 9% over a bar labelled 8.6%.
+    const g: Gate = { step: 'trips_valid', rows: 81_013, dropped: 6942, share: 6942 / 81_013, limit: 0.1, held: false, near: false, usual: null, rules: [] };
+    expect(gateLabels(g).said).toBe('8.6%');
+    expect(gateLabels(g).share.startsWith(gateLabels(g).said)).toBe(true);
+  });
+
+  it('cuts a head to a canvas card’s line without cutting a word or its number (tabs #32)', () => {
+    expect(cardWords('More Flex Fare trips: 5.3%', 21)).toBe('Flex Fare trips: 5.3%');
+    expect(cardWords('Stored and forwarded N: 97% (usually 98–99%)', 21)).toBe('forwarded N: 97%');
+    expect(cardWords('Busier than usual for days', 21)).toBe('Busier than usual');
+    expect(cardWords('Normal for MLK Day', 21)).toBe('Normal for MLK Day');
+    for (const h of ['More Flex Fare trips: 5.3%', 'Stored and forwarded N: 97%', 'Busier than usual for days']) expect(cardWords(h, 21).length).toBeLessThanOrEqual(21);
+  });
+
+  it('names who a vendor’s code is beside it, short', () => {
+    expect(shortWho('Creative Mobile Technologies, LLC')).toBe('Creative Mobile');
+    expect(shortWho('Curb Mobility, LLC')).toBe('Curb Mobility');
+    expect(shortWho('Myle Technologies Inc')).toBe('Myle Technologies');
+    expect(shortWho('Helix')).toBe('Helix');
+    expect(partLabel({ name: 'Vendor 1', who: 'Creative Mobile' })).toBe('Vendor 1 · Creative Mobile');
+    expect(partLabel({ name: 'Flex Fare' })).toBe('Flex Fare');
+    const named = new HistoryRanges(historyWith({ [DAY]: { vendorGone: true } }));
+    const names = { ...vendorNames, label: (_c: string, v: unknown) => (String(v) === '1' ? 'Creative Mobile Technologies, LLC' : String(v)) };
+    const s = storyOf(named, DAY, newsOf(named, DAY, names), { ...options, names });
+    expect(s.split).toMatchObject({ name: 'Vendor 1', who: 'Creative Mobile' });
+    expect(s.labels.hero[0]).toBe('Vendor 1 · Creative Mobile');
+    // Without a meaning, the code alone.
+    expect(story({ [DAY]: { vendorGone: true } }).split!.who).toBeUndefined();
+  });
+
+  it('counts a strip’s key where a strip of days is shown at a glance', () => {
+    expect(story({}, '2023-10-04').labels.key).toEqual([...STRIP_KEY]);
+    expect(story({ [DAY]: { onlyVendor1: true, dropShare: 0.105 } }).labels.key).toEqual([]);
+    expect(glanceStrings(story({}, '2023-10-04'))).toEqual(expect.arrayContaining([...STRIP_KEY]));
+  });
+
+  it('names the explained changes in words, not counted chips', () => {
+    const s = story({ [DAY]: { onlyVendor1: true, dropShare: 0.105 } });
+    expect(s.labels.follows).toMatch(/^\d+ changes? this explains$/);
+    for (const k of s.labels.kinds) expect(k).toMatch(/^(shares|values gone|blanks|spreads|times|checks|new values|new pairs|other)$/);
+    expect(s.labels.kinds.length).toBeLessThanOrEqual(3);
+  });
+
+  it('folds the changes it explains and the same day’s into one row at a glance, its first named (ADR 0008 §6)', () => {
+    const s = story({ [DAY]: { vendorSurge: 1.6 } });
+    const all = [...s.follows, ...s.sameDay];
+    expect(all.length).toBeGreaterThan(1);
+    const first = all[0]!;
+    expect(s.labels.folded).toBe(`${rowName(first, first.columns?.[0] ? vendorNames.column(first.columns[0]) : null)} + ${all.length - 1} more`);
+    // At a glance the one row stands for both; their own heads show once it opens.
+    const g = glanceStrings(s);
+    expect(g).toContain(s.labels.folded);
+    expect(g).not.toContain(s.labels.follows);
+    expect(g).not.toContain(s.labels.sameDay);
+    for (const k of s.labels.kinds) expect(g).not.toContain(k);
+    // A calm day has nothing to fold.
+    expect(story({}, '2023-10-04').labels.folded).toBeNull();
+  });
+
+  it('names a finding short by its title up to its figures, with what a share is', () => {
+    expect(rowName({ title: 'Passengers 1: 0.2% (usually 70–75%)', kind: 'share' })).toBe('Passengers 1 share');
+    expect(rowName({ title: 'Extras 2.5: 0.02% (usually 12–14%)', kind: 'gone' })).toBe('Extras 2.5 gone');
+    expect(rowName({ title: 'Duration rule: 1.7% fail (usually 1.2–1.6%)', kind: 'rule' })).toBe('Duration rule');
+    expect(rowName({ title: 'Checks dropped 9.5% (usually 4.0–6.4%)', kind: 'dropped' })).toBe('Checks dropped');
+    expect(rowName({ title: 'Distance: the lowest tenth higher', kind: 'shape' })).toBe('Distance');
+    // A title still over four words is said by its column.
+    expect(rowName({ title: 'Pickup time earlier in the day than usual', kind: 'shape' }, 'Pickup time')).toBe('Pickup time');
+  });
+});
+
+describe('the context, the health row and the tiers (ADR 0008 §6)', () => {
+  it('tells snow as a note after the numbers, never in the chip a cause takes, and never as a reason', () => {
+    // A calm day with snow: a plain note of today's, and no chip.
+    const calm = story({ '2023-10-04': { snow: 6 } }, '2023-10-04');
+    expect(calm.chip).toBeNull();
+    expect(calm.labels.context).toBe('❄ 6.0 cm today');
+    // Tagged as context where it shows, the tag counted at a glance (ADR 0008 §11).
+    expect(glanceStrings(calm)).toContain(`${CONTEXT_TAG} ❄ 6.0 cm today`);
+    expect(words(calm)).toBeLessThanOrEqual(16);
+    // A day of fewer trips after a snowy one: today's and the day before's, its weekday named.
+    const before = plusDays(DAY, -1);
+    const low = story({ [DAY]: { more: 0.8, snow: 1.5 }, [before]: { snow: 7.2 } });
+    expect(low).toMatchObject({ hero: 'amount', state: 'unusual' });
+    expect(low.chip).toBeNull();
+    expect(low.labels.context).toBe('❄ 1.5 cm today · 7.2 cm Tue');
+    for (const l of glanceStrings(low)) expect(l).not.toMatch(/because|caused by|due to/);
+    // A day with something wrong tells its cause; the day after an episode, what is left of it: no weather on either.
+    expect(story({ [DAY]: { onlyVendor1: true, dropShare: 0.105, snow: 4 } }).labels.context).toBeNull();
+    expect(story({ [DAY]: { onlyVendor1: true, dropShare: 0.105 }, [plusDays(DAY, 1)]: { snow: 4 } }, plusDays(DAY, 1)).labels.context).toBeNull();
+  });
+
+  it('heads the health row once, counted at a glance, the same five cells on every day', () => {
+    for (const s of [story({}, '2023-10-04'), story({ [DAY]: { onlyVendor1: true, dropShare: 0.105 } }), story({ [DAY]: { vendorSurge: 2.3 } })]) {
+      // A calm day's head says its cells are all normal: a blank cell can't be told from one not checked.
+      const head = s.state === 'calm' ? `${HEALTH_HEAD} · all normal` : HEALTH_HEAD;
+      expect(s.labels.health).toBe(head);
+      expect(glanceStrings(s)).toContain(head);
+      expect(s.health.map((c) => c.cell)).toEqual(Object.keys(CELL_KINDS));
+    }
+    expect(story({}, '2023-10-04').state).toBe('calm');
+  });
+
+  it('accounts for every finding in one tier, so the rows on screen add up to what was found', () => {
+    for (const trouble of [{ onlyVendor1: true, dropShare: 0.105 }, { vendorGone: true }, { vendorSurge: 2.3 }, { stopAt: 13, vendorShare: 0.5 }, { newValue: true }, { more: 0.55, snow: 2 }] as Trouble[]) {
+      const h = new HistoryRanges(historyWith({ [DAY]: trouble }));
+      const found = newsOf(h, DAY, vendorNames).filter((f) => f.severity !== 'ok');
+      const s = storyOf(h, DAY, found, options);
+      const tiers = [s.cause, ...s.stories, ...s.more, ...s.absorbed, ...s.follows, ...s.sameDay, ...s.notes, s.context].filter((f) => !!f);
+      // Each finding told once, in exactly one tier.
+      expect(new Set(tiers.map((f) => f!.key)).size, JSON.stringify(trouble)).toBe(tiers.length);
+      expect(tiers.map((f) => f!.key).sort(), JSON.stringify(trouble)).toEqual(found.map((f) => f.key).sort());
+      // The rows' counts are their tiers' sizes, and what the cause absorbed is a tap away in its health cell.
+      if (s.labels.follows) expect(s.labels.follows).toMatch(new RegExp(`^${s.follows.length} `));
+      if (s.labels.sameDay) expect(s.labels.sameDay).toMatch(new RegExp(`^${s.sameDay.length} `));
+      if (s.labels.notes) expect(s.labels.notes).toMatch(new RegExp(`^${s.notes.length} `));
+      for (const f of s.absorbed) expect(Object.values(CELL_KINDS).flat(), f.kind).toContain(f.kind);
+    }
+  });
+
+  it('says the noun of the same day’s changes once, under the changes the cause explains', () => {
+    const s = story({ [DAY]: { stopAt: 13, vendorShare: 0.5 } });
+    if (s.follows.length && s.sameDay.length) expect(s.labels.sameDay).toMatch(/^\d+ more this day$/);
+    const alone = story({ [DAY]: { more: 0.55 } });
+    if (!alone.follows.length && alone.sameDay.length) expect(alone.labels.sameDay).toMatch(/^\d+ more changes? this day$/);
+  });
+
+  it('draws an episode’s days so far, the viewed day last and none after it', () => {
+    const next = plusDays(DAY, 1);
+    const s = story({ [DAY]: { onlyVendor1: true, dropShare: 0.105 }, [next]: { onlyVendor1: true, dropShare: 0.105 }, [plusDays(DAY, 2)]: { onlyVendor1: true, dropShare: 0.105 } }, next);
+    expect(s.episode).toMatchObject({ days: 2, since: DAY });
+    expect(s.episode!.trend.map((d) => d.day)).toEqual([DAY, next]);
+    for (const d of s.episode!.trend) expect(d.trips / d.expected).toBeLessThan(0.5);
+  });
+});
+
+describe('a story on any dataset (ADR 0010 §1, §4, §8)', () => {
+  const FIRST_THANKSGIVING = '2021-11-25';
+  const general = (over: Partial<JudgeSettings> = {}): JudgeSettings => ({ ...LEGACY_JUDGE, legacy: false, ...over });
+  const told = (trouble: Record<string, Trouble>, day: string, names: Names, judge?: JudgeSettings) => {
+    const h = new HistoryRanges(historyWith(trouble));
+    return storyOf(h, day, newsOf(h, day, names, { judge }), { names, step: 'trips_valid', limit: 0.1, judge });
+  };
+
+  it('says a day with nothing to compare against is not judged yet, why, its count with no range, and never all normal', () => {
+    const s = told({}, FIRST_THANKSGIVING, vendorNames);
+    expect(s).toMatchObject({ state: 'unlearned', head: 'Not judged yet', chip: 'First Thanksgiving here', hero: 'calm', amount: null, primary: null, severity: 'ok' });
+    expect(s.labels.amount).toEqual([`${historyWith().rows[historyWith().days.indexOf(FIRST_THANKSGIVING)]!.toLocaleString('en-US')} trips`]);
+    expect(s.labels.health).toMatch(/^Health · \d+ not judged$/);
+    expect(s.health.find((c) => c.cell === 'amount')!.unjudged).toBe(1);
+    expect(words(s)).toBeLessThanOrEqual(16);
+    // The floor is something wrong, judged or not: the day pauses (Q-53).
+    const cut = told({ [FIRST_THANKSGIVING]: { blank: true } }, FIRST_THANKSGIVING, vendorNames);
+    expect(cut).toMatchObject({ state: 'wrong', hero: 'amount', primary: 'incident' });
+    expect(cut.head).toMatch(/^Almost no trips: /);
+    // A judged day says normal for its holiday a year on, from the history's own calendar.
+    expect(told({}, '2022-11-24', vendorNames)).toMatchObject({ state: 'calm', head: 'Normal for Thanksgiving', chip: null });
+  });
+
+  it('heads a bad value that surged by its own name, with an incident as its verb, never marking it as expected', () => {
+    const failed: Names = { ...vendorNames, label: (_c, v) => (String(v) === '1' ? 'Failed' : String(v)), noun: (n) => (n === 1 ? 'sign-in' : 'sign-ins') };
+    const judge = general({ bad: new Map([['vendorid', new Set(['1'])]]) });
+    const s = told({ [DAY]: { vendorSurge: 2.5 } }, DAY, failed, judge);
+    expect(s.head).toBe('Failed 2.5× usual');
+    expect(s.primary).toBe('incident');
+    expect(s.state).toBe('wrong');
+    expect(s.findings.filter((f) => f.bad).flatMap((f) => f.acts)).not.toContain('expected');
+    expect(s.findings.find((f) => f.bad)!.tier).not.toMatch(/absorbed|follows|sameDay/);
+    // Unmarked, the same surge is unusual, and marking it as expected is its verb.
+    expect(told({ [DAY]: { vendorSurge: 2.5 } }, DAY, failed, general())).toMatchObject({ head: 'Failed records 2.5× usual', primary: 'expected' });
+  });
+
+  it('names a part by the ontology: a sender sent almost nothing, any other part is almost gone', () => {
+    const sender: Names = { ...vendorNames, part: () => ({ name: 'Vendor {code}', role: 'sender' }) };
+    expect(told({ [DAY]: { vendorGone: true } }, DAY, sender, general()).head).toBe('Vendor 1 sent almost nothing');
+    const named: Names = { ...vendorNames, part: () => ({ name: 'Source {code}' }) };
+    expect(told({ [DAY]: { vendorGone: true } }, DAY, named, general()).head).toBe('Source 1 records almost gone');
+    // The general form drops the vendor shortcut: with no name in the ontology the part is said by its column.
+    expect(told({ [DAY]: { vendorGone: true } }, DAY, vendorNames, general()).head).toBe('vendor 1 almost gone');
+    // The legacy form keeps it, so the taxi's heads don't move.
+    expect(told({ [DAY]: { vendorGone: true } }, DAY, vendorNames).head).toBe('Vendor 1 sent almost nothing');
+  });
+
+  it('says the source’s noun everywhere at a glance: no sign-in story says trips', () => {
+    const signIns: Names = { ...vendorNames, noun: (n) => (n === 1 ? 'sign-in' : 'sign-ins') };
+    for (const [trouble, day] of [[{}, DAY], [{ [DAY]: { stopAt: 13 } }, DAY], [{ [DAY]: { vendorGone: true } }, DAY], [{ [DAY]: { blank: true } }, DAY], [{}, FIRST_THANKSGIVING], [{ [DAY]: { onlyVendor1: true } }, DAY]] as const) {
+      const s = told(trouble as Record<string, Trouble>, day, signIns, general());
+      expect(glanceStrings(s).filter((x) => /trip/i.test(x)), `${day} ${s.head}`).toEqual([]);
+    }
+    expect(told({ [DAY]: { stopAt: 13 } }, DAY, signIns, general()).head).toMatch(/^Sign-ins fall /);
+  });
+
+  it('folds every finding but the cause on a day held or wrong, and none on a calm or merely unusual day', () => {
+    // Fri Sep 22, 2023: only Flex Fare arrived; the day is held.
+    const wrong = told({ [DAY]: { vendorGone: true } }, DAY, vendorNames);
+    expect(wrong.severity).toBe('alert');
+    // The finding the story is anchored on, as the app finds it (its cause, else the count or part it is told by).
+    const anchor = wrong.cause ?? wrong.absorbed.find((x) => x.kind === 'volume') ?? wrong.absorbed[0]!;
+    const cause = anchor.key;
+    const effect = { key: 'trips_enriched:empty:card_tip_rate', kind: 'empty' };
+    expect(followsCause(effect, { held: true, story: wrong, anchor: cause })).toBe(true);
+    expect(followsCause({ key: 'share:passenger_count=1', kind: 'share' }, { held: false, story: wrong, anchor: cause })).toBe(true);
+    // The cause keeps its verbs; a file refused is a cause in itself.
+    expect(followsCause({ key: cause, kind: anchor.kind }, { held: true, story: wrong, anchor: cause })).toBe(false);
+    expect(followsCause({ key: 'integrity:loads/x.parquet', kind: 'integrity' }, { held: true, story: wrong, anchor: cause })).toBe(false);
+    // Held for someone the story is closed to: every finding on the day's outputs follows from what held it.
+    expect(followsCause(effect, { held: true, story: null, anchor: null })).toBe(true);
+    // A calm day, or one merely unusual, has no effects to fold: a finding there is its own news.
+    const calm = told({}, DAY, vendorNames);
+    expect(followsCause(effect, { held: false, story: calm, anchor: null })).toBe(false);
+    expect(followsCause(effect, { held: false, story: { severity: 'warn' }, anchor: cause })).toBe(false);
+  });
+});

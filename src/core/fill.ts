@@ -1,0 +1,626 @@
+/**
+ * Filling a paused day (ADR 0009 amendment 1): what is missing, from which day it is filled, the derived document that
+ * says so, the numbers each option gives readers, the options a held day gets, and a day's versions. Pure: no DOM, no
+ * engine. The page draws the options from these; the plugin runs the derived document held, and releases it only as a
+ * recorded decision says (src/plugin/release.ts).
+ *
+ * - The missing part comes from the flow's verdict (`flowStory`, raw names): a fall to the day's end, a gap or a late
+ *   start is those hours; a part that vanished is that part; a part that held while the rest vanished is the rest.
+ *   Anything else (an amount, a share, a surge, the checks alone) has nothing to fill, and neither has a day whose rows
+ *   aren't below their range: the part's rows were coded another way, and a fill would count them twice (S2).
+ * - The donor is a good day near the held one: the same weekday or the nearest day, before or after, within four
+ *   weeks, judged with nothing wrong of it (and judged at all: never a day not judged yet), never a day the flow's
+ *   calendar marks unless the held day is one, and a file in the data's list (S3). The watch's own rule comes first:
+ *   the one it names, else its pattern's (ADR 0010 §3, C1).
+ */
+import type { FixKind } from './rules.js';
+import { isSpecial, plusDays, type Every } from './calendar.js';
+import { canonicalJSON } from './canonical.js';
+import { dayShort } from './days.js';
+import { fillStepOf, isGeneralWatch, type DonorRule, type FillStep, type FlowDocument, type Missing } from './document.js';
+import type { HistoryRanges } from './history.js';
+import { metricKey, type Metric } from './history.js';
+import { calendarFor, dayClaim, donorDefault, donorGood, type FlowFor, type Hold, type HistoryRef, type StoryClaim } from './hold.js';
+import type { JSONValue, LogEntry } from './log.js';
+import type { DecisionOption } from './policy.js';
+import type { Story } from './story.js';
+
+export type { DonorRule, Missing } from './document.js';
+
+/** Before the held day (a forward fill) or after it (a backfill). */
+export type Direction = 'before' | 'after';
+
+/** The furthest a donor may be from the day it fills (S3). */
+export const DONOR_WINDOW = 28;
+
+/** A donor as the page found it: its day by a rule and a direction, the file the data's list gives for that day, and
+ * the flow's verdict on it, told from the same pinned history as the held day's claim and named for the donor source
+ * (`trips_donor`), as the derived run judges it. */
+export interface DonorPick {
+  rule: DonorRule;
+  direction: Direction;
+  day: string;
+  file: HistoryRef;
+  claim: StoryClaim;
+}
+
+/** Why no day qualifies: none within four weeks, or (after the day, in a live feed) none has arrived yet. */
+export interface NoDonor {
+  rule: DonorRule;
+  direction: Direction;
+  none: 'no good day within four weeks' | 'not arrived';
+}
+
+/**
+ * A remedy as a decision names it (S9): a fill from a donor, or the complete part alone (donor null). With the flow
+ * document and this, anyone can make the derived document again (repairDocument).
+ */
+export interface Repair {
+  kind: 'fill' | 'complete';
+  /** The fill step, and the watched source it fills. */
+  step: string;
+  source: string;
+  missing: Missing;
+  donor: { rule: DonorRule; direction: Direction; day: string; file: HistoryRef; claim: StoryClaim } | null;
+}
+
+// ------------------------------------------------------------------ what is missing
+
+/** A coded value as the history keeps it (JSON text: `1`, `"N"`, `null`), as the data types it. */
+function valueOf(json: string): string | number | boolean | null {
+  try {
+    const v = JSON.parse(json) as unknown;
+    return v === null || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean' ? v : json;
+  } catch {
+    return json;
+  }
+}
+
+/**
+ * The part of a held day a fill takes from another day (S2), from the flow's story: the hours the story's hours cause
+ * names, by the fill step's `time`; the part that vanished; or the rest, where a part held while the rest vanished.
+ * Null for any other cause, a part that surged among them: nothing is missing. A slot's hours are its own, named as
+ * the day's (06:00–10:00 of the 06–12 slot is hours 6 to 9, ADR 0010 §7).
+ */
+export function missingOf(story: Pick<Story, 'hero' | 'hours' | 'split'> & Partial<Pick<Story, 'amount'>>, time: string): Missing | null {
+  // A day whose file came with no rows at all is missing whole: every hour of it is what another day carries in.
+  if (story.hero === 'amount' && story.amount && story.amount.value === 0) return { time, hours: [0, 23] };
+  if (story.hero === 'hours' && story.hours) {
+    // A slot's parts are its own hours, placed in the day (ADR 0010 §7); quarter hours (a slot under 3 hours) are no
+    // hours a fill can name: nothing it can take.
+    const { start = 0, width = 60 } = story.hours;
+    if (width !== 60 || start % 60 !== 0) return null;
+    return { time, hours: [start / 60 + story.hours.from, start / 60 + story.hours.to] };
+  }
+  if (story.hero === 'split' && story.split) {
+    const sp = story.split;
+    if (sp.kind === 'vanished') return { column: sp.column, value: valueOf(sp.value) };
+    if (sp.kind === 'held') return { column: sp.column, value: valueOf(sp.value), rest: true };
+  }
+  return null;
+}
+
+/**
+ * Whether a held day can be filled, or published with only the part that arrived (S2): its claim says something wrong
+ * and its rows are below their range, its story names a missing part, and it is the one source holding the day (a fill
+ * of several sources at once is ADR 0010 §7's, per load).
+ */
+export function fillable(claim: Pick<StoryClaim, 'state' | 'below'> | null, story: Pick<Story, 'hero' | 'hours' | 'split'>, time: string, holding = 1): boolean {
+  return holding === 1 && !!claim && claim.state === 'wrong' && claim.below && missingOf(story, time) !== null;
+}
+
+// ------------------------------------------------------------------ the donor
+
+/** What finding a donor needs: the flow's history and document, the held day, the watched source, and the rule. */
+export interface DonorQuery {
+  /** The flow's verdict's history: every day of it (flowStory refuses ranges that leave days out), with the flow's
+   * calendar for the source. */
+  h: HistoryRanges;
+  /** The flow as it judges its days: its steps, watches, ontology and calendar. A donor is judged as the held day is,
+   * and the calendar says which days are special. */
+  doc: FlowFor;
+  day: string;
+  source: string;
+  rule: DonorRule;
+  direction: Direction;
+  /** The file the data's list gives for a day, checked against its sha256 and size, or null when it lists none. */
+  listed: (day: string) => HistoryRef | null;
+  /** The history file the claims are told from, as pinned in the engine, and the build that tells them. */
+  history: HistoryRef;
+  build: string;
+  /** Whether a day after the held one has arrived and been judged where the decision is made (run in the record or the
+   * visit): a later day that hasn't is no donor yet, however much of it the history holds (S3). Every day, without it. */
+  arrived?: (day: string) => boolean;
+}
+
+/** A day's donor candidates by a rule and direction, nearest first: 7, 14, 21, 28 days away, or 1 to 28. */
+function candidates(day: string, rule: DonorRule, direction: Direction): string[] {
+  const step = rule === 'weekday' ? 7 : 1;
+  const out: string[] = [];
+  for (let n = step; n <= DONOR_WINDOW; n += step) out.push(plusDays(day, direction === 'before' ? -n : n));
+  return out;
+}
+
+/**
+ * The first good day by a rule and direction (S3), with its file and the flow's verdict on it: within four weeks;
+ * judged, with nothing wrong of it (`donorGood`: not wrong, not refused, not unlearned); not a day the flow's calendar
+ * for the source marks unless the held day is one (ADR 0010 §2: a flow with no calendar marks none); in the data's
+ * list. A day the history doesn't have isn't judged, so isn't a donor; after the held day, a day past the history's end
+ * hasn't arrived yet, and while one may still come the answer is `not arrived`.
+ */
+export function donorFor(q: DonorQuery): DonorPick | NoDonor {
+  const calendar = calendarFor(q.doc, q.source);
+  const special = (d: string) => isSpecial(d, calendar);
+  const heldSpecial = special(q.day);
+  const days = q.h.file.days;
+  const last = days.at(-1) ?? '';
+  let waiting = false;
+  for (const d of candidates(q.day, q.rule, q.direction)) {
+    if (!days.includes(d)) {
+      if (q.direction === 'after' && d > last) waiting = true;
+      continue;
+    }
+    if (special(d) && !heldSpecial) continue;
+    // A later day that hasn't run and been judged here hasn't arrived for this decision: never shown before its time.
+    if (q.direction === 'after' && q.arrived && !q.arrived(d)) {
+      waiting = true;
+      continue;
+    }
+    const file = q.listed(d);
+    if (!file) continue;
+    const claim = dayClaim(q.h, q.doc, q.history, d, q.source, q.build);
+    if (!claim || !donorGood(claim)) continue;
+    // The run judges it as the donor source's claim (judgeDonors): the flow's verdict on the day, named for the donor.
+    return { rule: q.rule, direction: q.direction, day: d, file, claim: { ...claim, source: donorIdOf(q.source) } };
+  }
+  return { rule: q.rule, direction: q.direction, none: waiting ? 'not arrived' : 'no good day within four weeks' };
+}
+
+/**
+ * The donors a held day's sheet offers (S3): the flow's rule before first, then the other rule before, the nearest day
+ * after, and the same weekday after; each day once (the first rule that found it keeps it). Days no rule finds are
+ * left out: `none` says why the flow's own rule before found nothing, when it didn't.
+ */
+export function donorChoices(q: Omit<DonorQuery, 'rule' | 'direction'>, rule: DonorRule): { picks: DonorPick[]; none: NoDonor | null } {
+  const other: DonorRule = rule === 'weekday' ? 'nearest' : 'weekday';
+  const order: [DonorRule, Direction][] = [[rule, 'before'], [other, 'before'], ['nearest', 'after'], ['weekday', 'after']];
+  const picks: DonorPick[] = [];
+  let none: NoDonor | null = null;
+  for (const [r, direction] of order) {
+    const found = donorFor({ ...q, rule: r, direction });
+    if ('none' in found) {
+      if (r === rule && direction === 'before') none = found;
+      continue;
+    }
+    if (!picks.some((p) => p.day === found.day)) picks.push(found);
+  }
+  return { picks, none };
+}
+
+/**
+ * The rule a watched source's paused days are filled by (S3, C1): a watch in the general form names it, else its
+ * pattern gives it (`donorDefault`: weekly, the same weekday); a watch given as a file name takes the flow's
+ * `publish.donor` (format 2), else the same weekday. The plan says the same (`plannedDonor`).
+ */
+export function donorRuleOf(doc: Pick<FlowDocument, 'publish'>, source: string): DonorRule {
+  const w = Object.entries(doc.publish?.watch ?? {}).find(([id]) => id.toLowerCase() === source.toLowerCase())?.[1];
+  if (w !== undefined && isGeneralWatch(w)) return donorDefault(w);
+  return doc.publish?.donor ?? donorDefault(w ?? '');
+}
+
+// ------------------------------------------------------------------ the derived document
+
+/** The id a source's donor takes in a derived document. */
+export const donorIdOf = (source: string): string => `${source}_donor`;
+/** The id a source's donor takes in a derived document, and the table it reads (S3: until loads.json format 2). */
+export const donorSourceOf = (source: { id: string; table: string }) => ({ id: donorIdOf(source.id), table: `${source.table}_donor` });
+
+/**
+ * The derived document a remedy makes (S4): the fill step gets the missing part, and either the donor's day with the
+ * donor source as its second input (a fill), or no day (the complete part). Nothing else changes, so the derived
+ * document is the flow document and the decision, and anyone can make it again. Throws when the document has no such
+ * fill step for that source, or already has a source named as the donor would be.
+ */
+export function repairDocument(doc: FlowDocument, repair: Repair): FlowDocument {
+  const step = fillStepOf(doc, repair.source);
+  if (!step || step.id !== repair.step) throw new Error(`the flow has no fill step ${repair.step} on ${repair.source}`);
+  if (step.missing !== undefined) throw new Error(`${step.id} fills already: a derived document is made from the flow's own`);
+  const source = doc.sources.find((s) => s.id.toLowerCase() === repair.source.toLowerCase());
+  if (!source) throw new Error(`the flow has no source ${repair.source}`);
+  if ((repair.kind === 'fill') !== (repair.donor !== null)) throw new Error(repair.kind === 'fill' ? 'a fill needs its donor' : 'the complete part has no donor');
+  const donor = donorSourceOf(source);
+  if (repair.donor && doc.sources.some((s) => s.id.toLowerCase() === donor.id.toLowerCase())) throw new Error(`the flow has a source ${donor.id} already`);
+  const filled: FillStep = repair.donor
+    ? { ...step, inputs: [step.inputs[0]!, donor.id], missing: structuredClone(repair.missing), from: repair.donor.day }
+    : { ...step, inputs: [step.inputs[0]!], missing: structuredClone(repair.missing), from: null };
+  return {
+    ...doc,
+    sources: repair.donor ? [...doc.sources, { id: donor.id, table: donor.table, description: `${source.id} of ${repair.donor.day}, filling ${repair.missing && 'hours' in repair.missing ? 'its hours' : 'its part'}` }] : doc.sources,
+    steps: doc.steps.map((s) => (s.id === step.id ? filled : s)),
+  };
+}
+
+// ------------------------------------------------------------------ the numbers readers would get
+
+/** What each remedy gives readers, at the source (S12's numbers): the rows that arrived, those of the missing part set
+ * aside, those the donor gives, and the day's rows in all. */
+export interface FillCounts {
+  arrived: number;
+  setAside: number;
+  taken: number;
+  total: number;
+}
+
+/** A day's rows inside a missing part, from the history's hours or value counts; null when it can't count them. */
+export function partRows(h: HistoryRanges, day: string, missing: Missing): number | null {
+  const f = h.file;
+  const k = f.days.indexOf(day);
+  if (k < 0) return null;
+  if ('hours' in missing) {
+    const hours = f.hours?.[k];
+    return hours ? hours.slice(missing.hours[0], missing.hours[1] + 1).reduce((a, b) => a + b, 0) : null;
+  }
+  const vh = f.values?.[missing.column];
+  const at = vh ? vh.values.indexOf(JSON.stringify(missing.value)) : -1;
+  if (!vh?.counts) return null;
+  const n = at < 0 ? 0 : (vh.counts[k]?.[at] ?? 0);
+  return missing.rest ? f.rows[k]! - n : n;
+}
+
+/**
+ * The sheet's numbers for a remedy (S4: the drawing's count and the derived run's are the same number): with a donor,
+ * a fill; without, the complete part. Null when the history can't count the part on either day.
+ */
+export function fillCounts(h: HistoryRanges, day: string, missing: Missing, donor: string | null): FillCounts | null {
+  const k = h.file.days.indexOf(day);
+  const setAside = partRows(h, day, missing);
+  const taken = donor === null ? 0 : partRows(h, donor, missing);
+  if (k < 0 || setAside === null || taken === null) return null;
+  const arrived = h.file.rows[k]!;
+  return { arrived, setAside, taken, total: arrived - setAside + taken };
+}
+
+// ------------------------------------------------------------------ the options a held day gets
+
+/** "13:00". */
+const clock = (hour: number) => `${String(hour).padStart(2, '0')}:00`;
+
+/**
+ * What the complete part is called (S12): "Before 13:00 only" (hours that fell to the day's end), "From 07:00 only" (a
+ * late start), "Without 06:00–16:00" (a gap); "Without Vendor 1" (a part that vanished); "Flex Fare only" (the part that
+ * held). `name` is the split's part as the story names it.
+ */
+export function partLabel(missing: Missing, name?: string): string {
+  if ('hours' in missing) {
+    const [a, b] = missing.hours;
+    if (b === 23 && a > 0) return `Before ${clock(a)} only`;
+    if (a === 0 && b < 23) return `From ${clock(b + 1)} only`;
+    return `Without ${clock(a)}–${clock((b + 1) % 24)}`;
+  }
+  const part = name ?? `${missing.column} ${String(missing.value)}`;
+  return missing.rest ? `${part} only` : `Without ${part}`;
+}
+
+/** An option for a held day as the sheet offers it: its label, and why it is off when it is (S5). */
+export interface Offer {
+  option: DecisionOption;
+  label: string;
+  /** Why it can't be taken now: "No good day near", "Mon 25 is published". */
+  off?: string;
+  /** Said with it, not stopping it (Q-67): "fails its checks". */
+  note?: string;
+  /** A don't publish that takes back a fill readers have (Q-61): "Withdraw the fill". */
+  withdraws?: true;
+}
+
+export interface OfferInput {
+  /** The flow's story of the day, and the claim the run was held on. */
+  story: Pick<Story, 'hero' | 'hours' | 'split'>;
+  claim: Pick<StoryClaim, 'state' | 'below'> | null;
+  /** The watched source's fill step, if the flow has one. */
+  fill: Pick<FillStep, 'time'> | undefined;
+  /** The donors the sheet offers, the flow's rule first (donorChoices). */
+  donors: readonly Pick<DonorPick, 'day'>[];
+  /** Watched sources holding the day (fills are for one at a time). */
+  holding?: number;
+  /** A later day readers have now: a fill or the part that arrived would move the names back past it. */
+  later?: string | null;
+  /** The part that arrived fails the checks (its derived run's checks tripped, or the held run's did on it). */
+  partFails?: boolean;
+  /** What readers have of this day now, from a release of it. */
+  readers?: 'fill' | 'complete' | null;
+  /** The story's own (`acceptable` reads its cause and what it absorbed), and what holds the day: Accept the new level is
+   * offered by them (S6). Without them, no Accept. */
+  told?: Pick<Story, 'state' | 'hero' | 'split' | 'cause' | 'absorbed' | 'amount'>;
+  holds?: readonly Pick<Hold, 'by'>[];
+  /** What the held load covers (ADR 0010 §7): a level starts on a day, so a slot of one gets no Accept. */
+  every?: Every;
+  /** The fixes the file allows (rules.ts `fixesOf`): the part that arrived is offered only where `part` is; the donors
+   * given are the allowed ones already. */
+  fixes?: ReadonlySet<FixKind>;
+}
+
+/**
+ * The remedies a held day gets (S5), in C2's order: a fill (off with "No good day near" when no donor qualifies), the
+ * part that arrived alone (marked "fails its checks" when it does, Q-67), each off while a later day is current; and,
+ * once readers have a fill or the part alone, its withdrawal (Q-61). None when the source has no fill step or nothing
+ * is missing. Publish as is and don't publish are the sheet's own, as in slice 1.
+ */
+export function offersOf(o: OfferInput): Offer[] {
+  const out: Offer[] = [];
+  if (o.fill && fillable(o.claim, o.story, o.fill.time, o.holding ?? 1)) {
+    const missing = missingOf(o.story, o.fill.time)!;
+    const later = o.later ? `${dayShort(o.later)} is published` : undefined;
+    const donor = o.donors[0];
+    const fills = !o.fixes || ['forward', 'backward', 'impute'].some((f) => o.fixes!.has(f as FixKind));
+    if (fills) out.push({ option: 'fill', label: donor ? `Fill from ${dayShort(donor.day)}` : 'Fill', ...(later ? { off: later } : !donor ? { off: 'No good day near' } : {}) });
+    // A whole day missing has no part that arrived; a file that allows no fill but the part still gets the part.
+    if ((o.fixes?.has('part') ?? true) && !('hours' in missing && missing.hours[0] === 0 && missing.hours[1] === 23)) out.push({ option: 'complete', label: partLabel(missing, o.story.split?.name), ...(later ? { off: later } : {}), ...(o.partFails ? { note: 'fails its checks' } : {}) });
+  }
+  if (o.readers === 'fill' || o.readers === 'complete') out.push({ option: 'dont', label: o.readers === 'fill' ? 'Withdraw the fill' : 'Withdraw the part', withdraws: true });
+  // Accept the new level (S6): off while a later day is current, as publish as is is.
+  if (!o.readers && (o.every ?? 'day') === 'day' && o.told && o.holds && acceptable(o.told, o.claim, o.holds)) out.push({ option: 'accept', label: 'Accept the new level', ...(o.later ? { off: `${dayShort(o.later)} is published` } : {}) });
+  return out;
+}
+
+// ------------------------------------------------------------------ Accept the new level
+
+/** A finding's metric, as a level names it (`metricKey`), and for a coded value its count too: a level learns both. */
+function keysOf(m: Metric | undefined): string[] {
+  if (!m) return [];
+  if (m.of === 'value') return [metricKey(m), metricKey({ of: 'count', column: m.column, value: m.value })];
+  return [metricKey(m)];
+}
+
+/**
+ * The metrics a day's cause moved (ADR 0009 amendment 1 S6, X6), as a level names them: for an amount, the rows; for a
+ * split, the part's share and count, and the rows when the day's amount is off its range too; for any other cause, its
+ * finding's metric (a share, a level, a new value's share); and those of the findings it absorbed, that follow from it,
+ * or are off on the day besides (wrong or unusual): the day as it came becomes what is usual. Sorted, each once.
+ */
+export function levelMetrics(story: Pick<Story, 'hero' | 'split' | 'cause' | 'absorbed' | 'amount'> & Partial<Pick<Story, 'findings'>>, notes = true): string[] {
+  const out = new Set<string>();
+  const outside = !!story.amount && (story.amount.value < story.amount.low || story.amount.value > story.amount.high);
+  if (story.hero === 'amount' || outside) out.add('trips');
+  if (story.hero === 'split' && story.split) for (const k of keysOf({ of: 'value', column: story.split.column, value: story.split.value })) out.add(k);
+  else for (const k of keysOf(story.cause?.metric)) out.add(k);
+  // What the cause absorbed, what follows from it (a vendor gone moves the mix of the extras it fills), and anything else
+  // off on the day, wrong or unusual (a fare change moves two surcharges at once): the day as it is becomes what is
+  // usual, so all of it is learned anew from it.
+  // A note counts too when its number is outside its range (Mon Nov 14, 2022's extras, moved by Vendor 1's absence): the
+  // news shows it, and the days after would pause on it again, though it is the same change (Q-57b).
+  const outsideRange = (x: { value?: number; range?: { low: number; high: number } }) => x.value !== undefined && !!x.range && (x.value < x.range.low || x.value > x.range.high);
+  const off = (x: { tier: string; was: string; severity: string; value?: number; range?: { low: number; high: number } }) => x.tier === 'follows' || x.severity === 'alert' || x.severity === 'warn' || x.was === 'alert' || x.was === 'warn' || (notes && outsideRange(x));
+  for (const f of [...(story.absorbed ?? []), ...(story.findings ?? []).filter(off)]) for (const k of keysOf(f.metric)) out.add(k);
+  if (story.cause?.kind === 'new') for (const v of story.cause.values ?? []) for (const c of story.cause.columns ?? []) for (const k of keysOf({ of: 'value', column: c, value: v })) out.add(k);
+  return [...out].sort();
+}
+
+/**
+ * The way each metric a level names is off on a day (`levelMetrics`): up (true) or down, as its finding's number stands
+ * against what a day like it has; a split's part as it vanished or surged; the rows as the amount stands. What
+ * `levelFor` compares a later day with, so a metric going back the other way is a change again, never the new level.
+ *
+ * Of a later day (`then`, the level's own day's story, given): only what is off on it loud enough to matter (wrong,
+ * unusual, or following its cause), and a metric off the other way than on the level's day is said off the level's way,
+ * still at it, until it has gone back a quarter of the way to where it was before the level: a vendor that sent nothing
+ * sending a trickle is still at the new level (Sun Nov 20, 2022); one back at a quarter of its trips is a change again
+ * (Mon Nov 21).
+ */
+export function levelWays(story: Pick<Story, 'hero' | 'split' | 'cause' | 'absorbed' | 'amount'> & Partial<Pick<Story, 'findings'>>, then?: Pick<Story, 'hero' | 'split' | 'cause' | 'absorbed' | 'amount'> & Partial<Pick<Story, 'findings'>>): Map<string, boolean> {
+  const out = new Map<string, boolean>();
+  const put = (keys: string[], up: boolean) => {
+    for (const k of keys) if (!out.has(k)) out.set(k, up);
+  };
+  if (story.hero === 'split' && story.split) put(keysOf({ of: 'value', column: story.split.column, value: story.split.value }), story.split.kind === 'surged');
+  if (story.amount) put(['trips'], story.amount.value > story.amount.expected);
+  for (const f of [...(story.cause ? [story.cause] : []), ...(story.absorbed ?? []), ...(story.findings ?? [])]) {
+    if (f.value === undefined || !f.range) continue;
+    put(keysOf(f.metric), f.value > f.range.expected);
+  }
+  const keep = new Set(levelMetrics(story, !then));
+  for (const k of [...out.keys()]) if (!keep.has(k)) out.delete(k);
+  if (then) {
+    const was = levelWays(then);
+    const before = levelValues(then);
+    const now = levelValues(story);
+    for (const [k, up] of [...out]) {
+      const w = was.get(k);
+      const a = before.get(k);
+      const b = now.get(k);
+      if (w === undefined || w === up || !a || !b) continue;
+      const step = a.usual - a.value;
+      if (step !== 0 && (b.value - a.value) / step < 0.25) out.set(k, w);
+    }
+  }
+  return out;
+}
+
+/** Each metric's number on a day and what a day like it has, as `levelWays` reads them: the rows, and each finding's. */
+function levelValues(story: Pick<Story, 'cause' | 'absorbed' | 'amount'> & Partial<Pick<Story, 'findings'>>): Map<string, { value: number; usual: number }> {
+  const out = new Map<string, { value: number; usual: number }>();
+  if (story.amount) out.set('trips', { value: story.amount.value, usual: story.amount.expected });
+  for (const f of [...(story.cause ? [story.cause] : []), ...(story.absorbed ?? []), ...(story.findings ?? [])]) {
+    if (f.value === undefined || !f.range) continue;
+    for (const k of keysOf(f.metric)) if (!out.has(k)) out.set(k, { value: f.value, usual: f.range.expected });
+  }
+  return out;
+}
+
+/**
+ * What is off on a day besides an accepted level (Q-57b, `levelFor`'s rule, told again by the audit): each metric off on
+ * the day (`now`) the level doesn't name, or off another way than on the level's own day (`then`), said; null when
+ * nothing the level names is off on the day (it is back to the old level, a change again). Empty when the level stands.
+ */
+export function levelStray(now: ReadonlyMap<string, boolean>, then: ReadonlyMap<string, boolean>, metrics: readonly string[]): string[] | null {
+  if (now.size === 0) return null;
+  const way = (up: boolean | undefined) => (up === undefined ? 'not off' : up ? 'up' : 'down');
+  return [...now].filter(([m, up]) => !metrics.includes(m) || then.get(m) !== up).map(([m, up]) => `${m} ${way(up)}${metrics.includes(m) ? `, ${way(then.get(m))} on the level's day` : ", which the level doesn't name"}`);
+}
+
+/** The causes a level can be accepted for (X6): an amount, a split whose part vanished or surged, a share, a level (a
+ * quantile or a blank share), or a new value that stayed. */
+const LEVEL_KINDS = new Set(['volume', 'share', 'gone', 'missing', 'shape', 'new', 'band']);
+
+/**
+ * Whether a held day may be accepted as a new level (ADR 0009 amendment 1 S6, X6, Q-73): the story says something wrong,
+ * by a cause that is a level (`LEVEL_KINDS`, or the amount or a split's vanished or surged part), and nothing but the
+ * story holds the day. Never for an hours cause (a gap is not a level), a part that held while the rest vanished, a
+ * value the ontology marks bad (always alert), a refused file, a source not judged or a day not judged yet, or the
+ * checks alone.
+ */
+export function acceptable(story: Pick<Story, 'state' | 'hero' | 'split' | 'cause' | 'absorbed' | 'amount'>, claim: Pick<StoryClaim, 'state'> | null, holds: readonly Pick<Hold, 'by'>[]): boolean {
+  if (story.state !== 'wrong' || (claim && claim.state !== 'wrong')) return false;
+  if (holds.length === 0 || holds.some((h) => h.by !== 'story')) return false;
+  if (story.hero === 'hours' || story.hero === 'refused' || story.hero === 'gate') return false;
+  if (story.split?.kind === 'held' || story.split?.bad || story.cause?.bad) return false;
+  if (story.hero === 'split') return !!story.split;
+  // A file that came with no rows is missing, never a new level: nothing arrived to judge later days by.
+  if (story.hero === 'amount') return !!story.amount && story.amount.value > 0;
+  return !!story.cause && LEVEL_KINDS.has(story.cause.kind) && levelMetrics(story).length > 0;
+}
+
+/** The level an Accept records (S6, C6): the source, the held day it starts, the metrics its cause moved. Null for a
+ * day that can't be accepted. */
+export function levelOf(story: Pick<Story, 'state' | 'hero' | 'split' | 'cause' | 'absorbed' | 'amount'>, claim: Pick<StoryClaim, 'state'> | null, holds: readonly Pick<Hold, 'by'>[], day: string, source: string): { source: string; from: string; metrics: string[]; band?: { column: string; value: string; share: [number, number] } } | null {
+  if (!acceptable(story, claim, holds)) return null;
+  // A band missed (ADR 0014 §3): the Accept is of a new band, five points either side of the day's share, so the
+  // ontology is edited from the decision.
+  const c = story.cause;
+  if (c?.kind === 'band' && c.columns?.[0] && c.values?.[0] && c.value !== undefined) {
+    const value = ((): string => {
+      try {
+        return String(JSON.parse(c.values[0]!));
+      } catch {
+        return c.values[0]!;
+      }
+    })();
+    const round = (x: number) => Math.round(Math.min(1, Math.max(0, x)) * 100) / 100;
+    return { source, from: day, metrics: levelMetrics(story), band: { column: c.columns[0]!, value, share: [round(c.value - 0.05), round(c.value + 0.05)] } };
+  }
+  return { source, from: day, metrics: levelMetrics(story) };
+}
+
+// ------------------------------------------------------------------ a day's versions
+
+/** A version of a day (S7): a run of it, in the record's order, and whether readers had it. */
+export interface Version {
+  /** The run entry's seq, the run's number and its manifest. */
+  seq: number;
+  run: number;
+  manifest: string;
+  /** What arrived (the first run of the day), a fill or the part alone (a derived run), or a re-run of another file. */
+  kind: 'arrived' | 'filled' | 'complete' | 'rerun';
+  /** A fill's donor day. */
+  donor?: string;
+  /** Rows at the fill step (a derived run's), or at the source, where the entry says. */
+  rows?: number;
+  /** Readers have it now; had it before (a later publication replaced it); or never had it. */
+  shown: 'now' | 'before' | null;
+}
+
+type EntryLike = Pick<LogEntry, 'seq' | 'kind' | 'about'>;
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/** The day an entry is about: its `day`, else its inputs' period value. */
+function entryDay(a: Record<string, unknown>, period: string | null | undefined): string | null {
+  if (typeof a.day === 'string') return a.day;
+  const inputs = a.inputs;
+  const v = period && isRecord(inputs) && isRecord(inputs.parameters) ? inputs.parameters[period] : undefined;
+  return typeof v === 'string' ? v : null;
+}
+
+/**
+ * A day's versions (S7), from its flow's record: each held, passing or derived run of the day, in the order the record
+ * has them. The same run made again (its manifest seen before, as after a reload) is one version. A version is shown
+ * `now` when the last publication in the record (a passing run, or an applied release, a withdrawal included) points
+ * the names at it; `before` when one did and a later one replaced it.
+ */
+export function dayVersions(entries: readonly EntryLike[], day: string, period?: string | null): Version[] {
+  const out: Version[] = [];
+  const byManifest = new Map<string, Version>();
+  const decisions = new Map<number, Record<string, unknown>>();
+  let showing: Version | null = null;
+  const shownEver = new Set<Version>();
+  const show = (v: Version | null) => {
+    showing = v;
+    if (v) shownEver.add(v);
+  };
+  // The version each release showed before it: what a withdrawal points back to.
+  const before = new Map<number, Version | null>();
+  for (const e of entries) {
+    const a = e.about as JSONValue;
+    if (!isRecord(a)) continue;
+    if (e.kind === 'run' && (a.outcome === 'held' || a.outcome === 'ok' || a.outcome === 'derived') && typeof a.manifest === 'string' && Number.isInteger(a.run)) {
+      const mine = entryDay(a, period) === day;
+      if (!mine) {
+        if (a.outcome === 'ok') show(null);
+        continue;
+      }
+      let v = byManifest.get(a.manifest);
+      if (!v) {
+        const repair = isRecord(a.repair) ? a.repair : null;
+        const kind: Version['kind'] = a.outcome === 'derived' ? (repair?.kind === 'complete' ? 'complete' : 'filled') : out.some((x) => x.kind === 'arrived' || x.kind === 'rerun') ? 'rerun' : 'arrived';
+        const donor = repair && isRecord(repair.donor) && typeof repair.donor.day === 'string' ? repair.donor.day : undefined;
+        v = { seq: e.seq, run: a.run as number, manifest: a.manifest, kind, ...(donor ? { donor } : {}), ...(Number.isInteger(a.rows) ? { rows: a.rows as number } : {}), shown: null };
+        // The same fill made again in a new engine (a decision applied again after a reload) isn't another version: the
+        // same inputs (its document, its parameters, the donor's file) as a derived version before it.
+        if ((kind === 'filled' || kind === 'complete') && isRecord(a.inputs)) {
+          const same = out.find((x) => x.kind === kind && sameInputs(entries, x.seq, a.inputs as Record<string, unknown>));
+          if (same) {
+            byManifest.set(a.manifest, same);
+            continue;
+          }
+        }
+        // A re-run of the same file isn't another version: the same inputs as a version before it.
+        if (kind === 'rerun' && isRecord(a.inputs)) {
+          const same = out.find((x) => x.kind !== 'filled' && x.kind !== 'complete' && sameFiles(entries, x.seq, a.inputs as Record<string, unknown>));
+          if (same) {
+            byManifest.set(a.manifest, same);
+            if (a.outcome === 'ok') show(same);
+            continue;
+          }
+        }
+        out.push(v);
+        byManifest.set(a.manifest, v);
+      }
+      if (a.outcome === 'ok') show(v);
+    } else if (e.kind === 'decide') {
+      decisions.set(e.seq, a);
+    } else if (e.kind === 'release' && a.outcome === 'applied' && Number.isInteger(a.decision)) {
+      const d = decisions.get(a.decision as number);
+      const ofDay = d ? entryDay(d, period) === day : false;
+      if (!ofDay) {
+        show(null);
+        continue;
+      }
+      before.set(e.seq, showing);
+      if (Number.isInteger(a.withdraws)) {
+        show(before.get(a.withdraws as number) ?? null);
+        continue;
+      }
+      const from = isRecord(a.from) && typeof a.from.manifest === 'string' ? a.from.manifest : null;
+      const derived = d && isRecord(d.derived) && typeof d.derived.manifest === 'string' ? d.derived.manifest : null;
+      const released = typeof a.manifest === 'string' ? a.manifest : null;
+      show(byManifest.get(released ?? '') ?? byManifest.get(derived ?? '') ?? byManifest.get(from ?? '') ?? null);
+    }
+  }
+  const now = showing as Version | null;
+  for (const v of out) v.shown = v === now ? 'now' : shownEver.has(v) ? 'before' : null;
+  return out;
+}
+
+/** Whether the run entry at `seq` has the same inputs as these: its flow hash, parameters and files. */
+function sameInputs(entries: readonly EntryLike[], seq: number, inputs: Record<string, unknown>): boolean {
+  const e = entries.find((x) => x.seq === seq);
+  const a = e && isRecord(e.about) ? e.about : null;
+  return !!a && isRecord(a.inputs) && canonicalJSON(a.inputs as JSONValue) === canonicalJSON(inputs as JSONValue);
+}
+
+/** Whether the run entry at `seq` has the same files as these inputs. */
+function sameFiles(entries: readonly EntryLike[], seq: number, inputs: Record<string, unknown>): boolean {
+  const e = entries.find((x) => x.seq === seq);
+  const a = e && isRecord(e.about) ? e.about : null;
+  const files = (x: unknown) => (isRecord(x) && isRecord(x.files) ? JSON.stringify(Object.entries(x.files).sort()) : null);
+  return !!a && files(a.inputs) !== null && files(a.inputs) === files(inputs);
+}
