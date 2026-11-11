@@ -1,7 +1,12 @@
-// Drive the built smaltfl app at phone size and capture what each view shows.
+// Drive the built smaltfl app at phone, tablet or desktop size and capture what each view shows.
 //
 //   node tour.cjs <appDir> <outDir> <stops.json>
 //   TOUR_SCALE=2 node tour.cjs …           the same at twice the pixels, for screenshots a person will look at
+//   TOUR_DEVICE=tablet node tour.cjs …     at another size (DEVICES below): phone (default), tablet, tablet-wide,
+//                                          desktop. The app is held to all four (CLAUDE.md, "Phone, tablet and desktop")
+//
+// At every stop, whatever the device, the layout is checked and each failure is a problem: the page scrolls sideways,
+// or an open sheet does.
 //
 // stops.json: an array of stops, visited in order in one page:
 //   { "name": "sep22-trips-news",        file name for the screenshot and the metrics
@@ -66,6 +71,21 @@ const server = http.createServer((req, res) => {
   res.writeHead(200, { 'content-type': types[path.extname(file)] || 'application/octet-stream' }).end(fs.readFileSync(file));
 });
 
+/** The sizes the app is held to: a phone, an iPad held upright and sideways, a laptop's browser window. */
+const DEVICES = {
+  phone: { width: 390, height: 844, isMobile: true, hasTouch: true },
+  tablet: { width: 820, height: 1180, isMobile: true, hasTouch: true },
+  'tablet-wide': { width: 1180, height: 820, isMobile: true, hasTouch: true },
+  desktop: { width: 1440, height: 900, isMobile: false, hasTouch: false },
+};
+const device = DEVICES[process.env.TOUR_DEVICE || 'phone'];
+if (!device) {
+  console.error(`TOUR_DEVICE is one of ${Object.keys(DEVICES).join(', ')}`);
+  process.exit(2);
+}
+const W = device.width;
+const H = device.height;
+
 const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sat: 'Sat', Sun: 'Sun' };
 
 (async () => {
@@ -102,7 +122,7 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
     if (ctx) await ctx.close();
     scheme = wanted;
     episode = null;
-    ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: Number(process.env.TOUR_SCALE || 1), colorScheme: wanted, acceptDownloads: true });
+    ctx = await browser.newContext({ viewport: { width: W, height: H }, isMobile: device.isMobile, hasTouch: device.hasTouch, deviceScaleFactor: Number(process.env.TOUR_SCALE || 1), colorScheme: wanted, acceptDownloads: true });
     p = await ctx.newPage();
     p.on('pageerror', (e) => problems.push(`PAGEERROR ${e.message}`));
     p.on('console', (m) => m.type() === 'error' && problems.push(`console ${m.text()}`));
@@ -324,11 +344,20 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
         await p.evaluate((mode) => window.__maskText(mode), stop.mask);
       }
       const shot = path.join(out, `${stop.name}.png`);
-      if (stop.full && m.height > 844) {
-        await p.setViewportSize({ width: 390, height: Math.min(9000, m.height + 160) });
+      const sideways = await p.evaluate(() => {
+        const out = [];
+        const doc = document.documentElement;
+        if (doc.scrollWidth > window.innerWidth + 1) out.push(`the page is ${doc.scrollWidth} px wide in a ${window.innerWidth} px window`);
+        const sheet = document.getElementById('sheet');
+        if (sheet && !sheet.hidden && sheet.getBoundingClientRect().width > 0 && sheet.scrollWidth > sheet.clientWidth + 1) out.push(`the sheet scrolls sideways (${sheet.scrollWidth} px in ${sheet.clientWidth})`);
+        return out;
+      });
+      for (const s of sideways) problems.push(`${stop.name}: ${s}`);
+      if (stop.full && m.height > H) {
+        await p.setViewportSize({ width: W, height: Math.min(9000, m.height + 160) });
         await p.waitForTimeout(400);
         await p.screenshot({ path: shot });
-        await p.setViewportSize({ width: 390, height: 844 });
+        await p.setViewportSize({ width: W, height: H });
         await p.waitForTimeout(200);
       } else await p.screenshot({ path: shot });
       m.screenshot = shot;

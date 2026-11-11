@@ -185,7 +185,7 @@ match smaltdb's `CLAUDE.md`.
   the file on the decision sheet (`replaceDayFile`); the sign-ins allow forward, backward and replace (`test/fixes.test.ts`,
   `tools/browser/stops/fixes.json`). docs/research/ui-news-models-remedies.md is the UI research;
   `test/rules.test.ts`, `tools/browser/stops/rules.json`.
-- `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone size (`tour.cjs`
+- `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
 - **State of the work:** [docs/HANDOFF.md](docs/HANDOFF.md) says what is built, how to check it and what is left, in
@@ -212,6 +212,12 @@ match smaltdb's `CLAUDE.md`.
 - The plugin imports only types from `smaltdb/engine`. No runtime dependencies; cryptography is WebCrypto, plus
   `src/core/sha256.ts` for per-row hashes, which its tests check against WebCrypto.
 - A change smaltfl needs in smaltdb or another smalt repository is discussed with stenhoor first (ADR 0001 §12).
+- **Phone, tablet and desktop** ([ADR 0017](docs/adr/0017-phone-tablet-and-desktop.md)). Every screen of the app works
+  and reads well on a phone (390×844), a tablet upright and sideways (820×1180, 1180×820) and a desktop window
+  (1440×900). Phone rules stay the base; wider layouts are added with `min-width` media queries in `src/app/page.html`,
+  never by changing what a phone gets. A change to `src/app` runs the stop set it touches with `tour.cjs` at all four
+  sizes (`TOUR_DEVICE=phone|tablet|tablet-wide|desktop`), looks at the screenshots, and reports no problem the change
+  added; nothing may scroll sideways. From 960 px the sheet is a side panel beside the page, not over it.
 - Don't reformat files with Prettier. No fixed sleeps in tests. Probe tests (`test/zz-*.test.ts`) are scratch files:
   delete them, never commit them.
 

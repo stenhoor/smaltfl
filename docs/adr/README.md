@@ -21,3 +21,4 @@ records start from the answers to the questions in [../OPEN_QUESTIONS.md](../OPE
 | [0014](0014-gates.md) | Gates: bronze, silver and gold checks in the notebook, written bands and due dates in the ontology, a sealed gold | accepted (Q-110–Q-117 answered 2026-11-09); all seven slices built 2026-11-10; the control estate is its answer key |
 | [0015](0015-the-bronze-layer.md) | The bronze layer: checks driven by the ontology, a mode a column, the card read as a notebook | proposed (the maintainer's request of 2026-11-10; Q-134–Q-139) |
 | [0016](0016-stenhoors-repositories-at-main.md) | Built on stenhoor's repositories, at their latest main | accepted (Q-156, 2026-11-11) |
+| [0017](0017-phone-tablet-and-desktop.md) | Phone, tablet and desktop | accepted (Q-157, 2026-11-11) |
