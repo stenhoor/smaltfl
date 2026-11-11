@@ -25,7 +25,7 @@ import { daysFrom, HistoryRanges, isHistory, metricKey, QUANTILES, timeOf, type 
 import type { Identity, ManifestNode, SignedManifest } from '../core/manifest.js';
 import type { Backtest, NormalRange, NormalRanges, Place } from '../core/normal.js';
 import { flowNames, isPlaceholder, judgeOf, labelOf, newsOf, shareWords, tableNewsOf, usualHours, type Act, type Finding, type Names, type Severity, type TableFacts } from '../core/news.js';
-import { CHECK_NAMES, CHECK_SAID, checkOf, gateChecksOf, gateLayerOf, hasGates, JUDGED, LAYER_SAID, WRITTEN, type CheckMode, type CheckName, type GateChecks } from '../core/gates.js';
+import { writtenRules, CHECK_MODES, CHECK_NAMES, CHECK_SAID, checkOf, gateChecksOf, gateLayerOf, hasGates, JUDGED, LAYER_SAID, WRITTEN, type CheckMode, type CheckName, type GateChecks } from '../core/gates.js';
 import { toggleCheck } from '../core/gatecell.js';
 import { calendarHead, heldLoadLine, dayMid, dayShort, guessWords, judgedWords, lacked, MARK as REMEDY_MARK, noRowsBefore, reachLabel, readersOf as readersHad, readersSee, rowsFrom, shortfall, shownRun, stagedBar, stoppedLine as stoppedWords, toldLine, type DayState, type EpisodeDay, type KeptMark, type PauseState, type RemedyMark } from '../core/days.js';
 import { UNTIL, afterLine, betweenLine, dayPausedLine, daySentence, decidedLines, decisionDrawing, donorPicked, failLine, goShown, heldLine, outputPausedLine, passedLine, pausedChecks, pauseLines, pauseReasons, pickFails, receiptLines, remedyHead, ribbonOf, runFigures, sheetText, versionLines, checksSeen, filesSeen, findingOf, type RunSight, type AfterPart, type KeptLacks, type RemedySaid, type SheetIn, type SheetPick, type SheetText, type Sight } from '../core/decision.js';
@@ -33,6 +33,7 @@ import { countedChecks, rangesFor, dayClaim, dayState, flowStory, levelFor, leve
 import { dayVersions, donorIdOf, fillCounts, levelOf as acceptedLevel, levelWays, partLabel as remedyPart, type Offer, type Repair, type Version } from '../core/fill.js';
 import { gridOf, shadeOf, shareOf, standOut } from './grid.js';
 import { setUpSplit, showWorkspace } from './split.js';
+import { bronzeOf, verdictSaid, type Bronze, type BronzeCheck, type CheckState } from '../core/bronze.js';
 import { button as nbButton, formatMs, makeCell, showError, showMarkdown, showRows as showGridRows, type CellStatus, type CellUi } from './nbcells.js';
 import type { EditorSchema, SchemaColumn } from 'smaltkit/editor';
 import type { GridRow } from 'smaltkit/grid';
@@ -1735,10 +1736,17 @@ function flowCell(cell: string, id: string, chip: string, text: string): HTMLEle
   if (!nodeOf(id)) return ui.root;
   ui.output.replaceChildren(h('div', { class: 'mini-wait' }));
   // One output at a time, top to bottom: the first rows of each (the grid fetches the rest as it scrolls).
-  outputQueue = outputQueue.then(() => (ui.root.isConnected ? fillFlowOutput(ui, id) : undefined)).catch(() => undefined);
+  outputQueue = outputQueue.then(() => attached(ui.root)).then((on) => (on ? fillFlowOutput(ui, id) : undefined)).catch(() => undefined);
   return ui.root;
 }
 let outputQueue: Promise<void> = Promise.resolve();
+/** Whether `el` is on the page within a few frames: a tab's content is put on the page once all of it is built. */
+function attached(el: HTMLElement, frames = 30): Promise<boolean> {
+  return new Promise((done) => {
+    const look = (n: number) => (el.isConnected ? done(true) : n <= 0 ? done(false) : requestAnimationFrame(() => look(n - 1)));
+    look(frames);
+  });
+}
 
 async function fillFlowOutput(ui: CellUi, id: string): Promise<void> {
   const nv = await nodeView(id, state.viewer);
@@ -3096,8 +3104,8 @@ function renderFlowEdits(): void {
 // runs). Above the tabs: what it reads and what reads it, a tap away, and the day's load, to step through without
 // closing it. A card keeps its tab and its place in each tab.
 
-type Tab = 'news' | 'data' | 'columns' | 'dropped' | 'odd' | 'history' | 'checks' | 'rules' | 'models' | 'integrity' | 'about';
-const TAB_LABEL: Record<Tab, string> = { news: 'News', data: 'Data', columns: 'Columns', dropped: 'Dropped', odd: 'Odd rows', history: 'History', checks: 'Checks', rules: 'Rules', models: 'Models', integrity: 'Integrity', about: 'About' };
+type Tab = 'quality' | 'notebook' | 'news' | 'data' | 'columns' | 'dropped' | 'odd' | 'history' | 'checks' | 'rules' | 'models' | 'integrity' | 'about';
+const TAB_LABEL: Record<Tab, string> = { quality: 'Quality', notebook: 'Notebook', news: 'News', data: 'Data', columns: 'Columns', dropped: 'Dropped', odd: 'Odd rows', history: 'History', checks: 'Checks', rules: 'Rules', models: 'Models', integrity: 'Integrity', about: 'About' };
 const drill = {
   tab: new Map<string, Tab>(),
   scroll: new Map<string, number>(),
@@ -3121,6 +3129,15 @@ function tabsOf(card: string): Tab[] {
   const id = dataOf(card);
   const st = steps().get(id);
   const c = state.changes.get(id);
+  // A bronze file (Q-160): its quality first, one list of checks from the ontology down, and the notebook that reads and
+  // checks it; no News, Checks or Rules beside them.
+  if (isBronze(card)) {
+    const bronze: Tab[] = ['quality', 'notebook', 'data', 'columns'];
+    if (historyOf(id)) bronze.push('history');
+    if (Object.keys(state.doc.publish?.watch ?? {}).some((w) => w.toLowerCase() === id.toLowerCase())) bronze.push('models');
+    bronze.push('integrity', 'about');
+    return bronze;
+  }
   const out: Tab[] = ['news', 'data', 'columns'];
   // The rules set on a file's columns (rules.ts), each with its switch: on every file's import card, beside its columns.
   if (!profileOf(card) && state.doc.sources.some((x) => x.id === id)) out.push('rules');
@@ -3139,6 +3156,8 @@ function tabsOf(card: string): Tab[] {
 }
 
 const TABS: Record<Tab, (card: string, id: string, who: string) => Promise<HTMLElement>> = {
+  quality: (card, id, who) => qualityTab(card, id, who),
+  notebook: notebookTab,
   news: newsTab,
   data: dataTab,
   columns: columnsTab,
@@ -3166,8 +3185,10 @@ async function renderDrill(card: string): Promise<void> {
   const tabs = tabsOf(card);
   // A shield tapped, or a person chosen to view as: who can see it, in About.
   if (state.sheetFocus === 'access') drill.tab.set(card, 'about');
-  let tab = drill.tab.get(card) ?? 'news';
-  if (!tabs.includes(tab)) tab = 'news';
+  const first: Tab = tabs.includes('quality') ? 'quality' : 'news';
+  let tab = drill.tab.get(card) ?? first;
+  // A link to a bronze file's News, Checks or Rules lands on its Quality, where those now are.
+  if (!tabs.includes(tab)) tab = first;
   const who = state.previewAs ?? state.viewer;
   const token = ++drill.token;
   const panel = h('div', { class: 'tab-panel', role: 'tabpanel', id: 'drill-panel', 'aria-labelledby': `drill-tab-${tab}`, 'aria-busy': 'true' },
@@ -3183,10 +3204,10 @@ async function renderDrill(card: string): Promise<void> {
     // A held day with no day before it that passed in this visit has no rows to show: its news still says the day.
     const viewed = viewedDay();
     const none = !latest() && state.runs.length && viewed ? noRowsBefore(viewed) : 'Run the flow to see its data.';
-    const content = state.engine && (latest() || (tab === 'news' && state.failed)) ? await TABS[tab](card, id, who) : h('p', { class: 'foot' }, none);
+    const content = state.engine && (latest() || ((tab === 'news' || tab === 'quality') && state.failed)) ? await TABS[tab](card, id, who) : h('p', { class: 'foot' }, none);
     if (token !== drill.token) return;
     // Rows of another day carry that day, full width, over the whole panel (ADR 0008 §10).
-    const bar = showsRunRows(card, tab) ? (tab !== 'news' && asReaders(id, who) ? readersBar() : rowsFromBar()) : tab === 'news' && pauseOnTop(card) ? pauseBanner() : null;
+    const bar = showsRunRows(card, tab) ? (tab !== 'news' && asReaders(id, who) ? readersBar() : rowsFromBar()) : (tab === 'news' || tab === 'quality') && pauseOnTop(card) ? pauseBanner() : null;
     panel.replaceChildren(...(bar ? [bar] : []), content);
     panel.removeAttribute('aria-busy');
     // The news is known now for a table measured on opening it: its badge on the tab.
@@ -3604,6 +3625,305 @@ function openFileRules(file: string): void {
   ontologyFiles.from = '';
   if (location.hash === '#ontology') void renderOntology().then(() => requestAnimationFrame(() => document.querySelector<HTMLElement>(`.of-item[data-file="${CSS.escape(file)}"]`)?.scrollIntoView({ block: 'start' })));
   else location.hash = '#ontology';
+}
+
+// ------------------------------------------------------------------ the bronze card: Quality and Notebook (Q-160)
+
+/** A bronze file: a source a gated flow judges as it arrives. Its card opens to Quality, and has its own notebook. */
+const isBronze = (card: string): boolean => !profileOf(card) && state.doc.sources.some((x) => x.id === card) && !!gateOn(card);
+
+/** The file's checks for the day on screen (`bronzeOf`): the Ontology page's checks with the same ids, the contract and
+ * what is learned, each judged by the day's findings and, for a check people set, by the rows its check step counted. */
+function bronzeFor(id: string): Bronze | null {
+  const section = ontologyPage(state.doc, (f) => fileView(f)?.columns, fileColumns).files.find((f) => f.id === id);
+  if (!section) return null;
+  const day = newsDay() ?? viewedDay();
+  const findings = day ? loadFindings(id, day) : [];
+  const judged = !!day && (id === loadSource() ? !!history : !!rangesForLoad(id)?.file.days.includes(day));
+  const run = onScreen() ?? latest();
+  const step = checkStepOf(state.doc, id);
+  const counted = new Map((run?.result.manifest.nodes.find((n) => n.origin === step?.id)?.expectations?.rules ?? []).map((x) => [x.name, x.failed] as const));
+  return bronzeOf(section, gateOn(id), findings, { judged, counted });
+}
+
+const STATE_MARK: Record<CheckState, VizMark | null> = { alert: 'alert', warn: 'warn', ok: null, off: null, unjudged: 'unlearned' };
+/** A check's mark: its state's glyph, a tick for one that passed, a dash for one that is off. */
+const stateMark = (st: CheckState, size = 14): Node => (STATE_MARK[st] ? glyphEl(STATE_MARK[st]!, size) : h('span', { class: st === 'ok' ? 'bq-tick' : 'bq-dash', 'aria-hidden': 'true' }, st === 'ok' ? '✓' : '–'));
+const STATE_SAID: Record<CheckState, string> = { alert: 'wrong', warn: 'unusual', ok: 'passed', off: 'off', unjudged: 'not judged' };
+const MODE_SAID: Record<CheckMode, string> = { hold: 'Holds the day', warn: 'Warns', off: 'Off' };
+
+/** Open the Ontology page at a file, with one of its checks shown and marked: where the check is defined. */
+function openOntologyCheck(file: string, check: string): void {
+  ontologyFiles.open = file;
+  ontologyFiles.from = '';
+  const mark = () => requestAnimationFrame(() => {
+    const el = document.querySelector<HTMLElement>(`#view-ontology [data-rule="${CSS.escape(check)}"]`) ?? document.querySelector<HTMLElement>(`.of-item[data-file="${CSS.escape(file)}"]`);
+    if (!el) return;
+    el.scrollIntoView({ block: 'center' });
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 2400);
+  });
+  if (location.hash === '#ontology') void renderOntology().then(mark);
+  else {
+    pendingOntologyMark = mark;
+    location.hash = '#ontology';
+  }
+}
+let pendingOntologyMark: (() => void) | null = null;
+
+/** Open a bronze card at one of its checks (from the Ontology page): its Quality tab, the check's line marked. */
+function openCardCheck(file: string, check: string): void {
+  const go = () => {
+    drill.tab.set(file, 'quality');
+    qualityFocus = check;
+    if (state.selected !== file) select(file);
+    else void renderSheet();
+  };
+  // Back to the flow first: the view's change closes what is open, so the card opens once it has happened.
+  if (location.hash) {
+    window.addEventListener('hashchange', () => setTimeout(go, 0), { once: true });
+    location.hash = '';
+  } else go();
+}
+let qualityFocus: string | null = null;
+
+/** A finding drawn for the Quality tab: a band missed as the value's share day by day against the ontology's band, with
+ * today outside it; anything else as the News draws it. */
+function qualityVisual(f: Finding, id: string): Element | null {
+  if (f.kind === 'band' && f.band && f.value !== undefined) {
+    const [low, high] = f.band;
+    const pct = (x: number) => `${Math.round(x * 1000) / 10}%`.replace(/\.0%$/, '%');
+    const col = f.columns?.[0] ?? '';
+    const raw = f.values?.[0] ?? '';
+    let v: unknown = raw;
+    try { v = JSON.parse(raw); } catch { /* as written */ }
+    const label = NEWS_NAMES.label(col, v);
+    return svgNode(dumbbellRows({ rows: [{ label: label === String(v) ? `${NEWS_NAMES.column(col)} ${label}` : label, today: f.value, low, high, todayLabel: pct(f.value), usualLabel: `band ${pct(low)}–${pct(high)}`, sev: f.severity === 'alert' ? 'alert' : 'warn' }], aria: `${f.title}, against the ontology’s band` }));
+  }
+  void id;
+  return findingVisual(f);
+}
+
+/**
+ * The bronze card's Quality tab (ADR 0015 amendment 2, Q-160): is there anything wrong with this file today? The verdict
+ * first; then each check that found something, worst first, with a picture of the mismatch, what it means, where the
+ * check is defined, and what can be done; then every check the file has, from the ontology, its contract and its
+ * history, each with today's state and what it does. One concept: a check. What the ontology defines for a column
+ * (its allowed values, bands, due dates, keys, scope, and the checks people set on it) is listed here with the Ontology
+ * page's own id, a tap from its line there.
+ */
+async function qualityTab(card: string, id: string, who: string): Promise<HTMLElement> {
+  const b = bronzeFor(id);
+  // What today's rows say of themselves (a column blank more than its range, values gone), told from the rows, not the
+  // history: notes the reader may mark as expected, under the checks' issues.
+  const fromRows = (await tableNewsFor(id, who).catch(() => [] as Finding[])).filter((f) => f.kind !== 'calm' && f.severity !== 'ok');
+  const box = h('div', { class: 'bq' });
+  if (!b) return (box.append(h('p', { class: 'foot' }, `${id} has no checks.`)), box);
+  const day = newsDay() ?? viewedDay();
+  const rows = nodeOf(id)?.rows;
+  const counts = { ontology: 0, contract: 0, learned: 0 };
+  for (const c of b.checks) counts[c.from]++;
+  box.append(h('header', { class: `bq-verdict ${b.verdict}` },
+    b.verdict === 'hold' ? glyphEl('alert', 22) : b.verdict === 'look' ? glyphEl('warn', 22) : b.verdict === 'clean' ? h('span', { class: 'bq-tick big', 'aria-hidden': 'true' }, '✓') : glyphEl('unlearned', 22),
+    h('div', {}, h('h3', {}, verdictSaid(b)),
+      h('p', {}, [day ? dayMid(day) : null, rows !== undefined ? plural(rows, ontologyNounOne(id), ontologyNounMany(id)) : null, `${plural(counts.ontology, 'check')} from the ontology, ${counts.contract} for the file’s contract, ${counts.learned} learned from its history`].filter(Boolean).join(' · ')))));
+
+  // The issues: each check that found something wrong, then unusual, with its picture and what can be done.
+  for (const c of [...b.wrong, ...b.unusual]) box.append(issueCard(card, id, c));
+  if (fromRows.length) {
+    const told = new Set([...b.wrong, ...b.unusual].flatMap((c) => c.findings.map((f) => f.key)));
+    const notes = fromRows.filter((f) => !told.has(f.key));
+    if (notes.length) box.append(h('details', { class: 'bq-group bq-notes', ...(notes.some((f) => f.severity === 'alert' || f.severity === 'warn') ? { open: 'open' } : {}) },
+      h('summary', {}, h('span', { class: 'bq-g-t' }, 'Notes from today’s rows'), h('span', { class: 'bq-g-n' }, plural(notes.length, 'note'))),
+      h('p', { class: 'foot' }, 'What today’s rows say of themselves, against no history: worth a look, and to mark as expected where they are.'),
+      h('div', { class: 'bq-note-list' }, ...notes.slice(0, 8).map((f) => findingCard(f, card)))));
+  }
+
+  // Every check, grouped by where it comes from: the ontology's first.
+  const groups: [BronzeCheck['from'], string, string][] = [
+    ['ontology', 'From the ontology', 'What the ontology (or the notebook’s gate cell) defines for this file and its columns. Each is a tap from its line on the Ontology page.'],
+    ['contract', 'The file’s contract', 'What every file is held to: its columns and types, about as many rows as a day like it, blanks as usual.'],
+    ['learned', 'Learned from its history', 'What the file’s own history says is usual. These warn; they never hold the day on their own.'],
+  ];
+  for (const [from, title, lede] of groups) {
+    const mine = b.checks.filter((c) => c.from === from);
+    if (!mine.length) continue;
+    const bad = mine.filter((c) => c.state === 'alert' || c.state === 'warn').length;
+    const det = h('details', { class: 'bq-group', ...(from === 'ontology' || bad ? { open: 'open' } : {}) },
+      h('summary', {}, h('span', { class: 'bq-g-t' }, title), h('span', { class: 'bq-g-n' }, `${mine.filter((c) => c.state === 'ok').length} of ${mine.length} passed${bad ? ` · ${bad} to look at` : ''}`)),
+      h('p', { class: 'foot' }, lede),
+      h('ul', { class: 'bq-list' }, ...mine.map((c) => checkRow(card, id, c))));
+    box.append(det);
+  }
+  box.append(h('p', { class: 'foot' }, 'Checks are defined on the Ontology page and switched in the notebook’s gate cell; a change is recorded as a flow change and judged from the next run. ',
+    h('button', { type: 'button', class: 'linkish', onclick: () => openFileRules(id) }, `${id} on the Ontology page ›`)));
+  if (qualityFocus) {
+    const focus = qualityFocus;
+    qualityFocus = null;
+    requestAnimationFrame(() => {
+      const el = box.querySelector<HTMLElement>(`[data-check="${CSS.escape(focus)}"]`);
+      el?.closest('details')?.setAttribute('open', 'open');
+      el?.scrollIntoView({ block: 'center' });
+      el?.classList.add('flash');
+    });
+  }
+  return box;
+}
+const ontologyNounOne = (id: string) => ontologyNoun(state.doc.ontology, id, []).one;
+const ontologyNounMany = (id: string) => ontologyNoun(state.doc.ontology, id, []).many;
+
+/** One check that found something: the finding's head, its picture, what it means, where the check is defined, and the
+ * fixes (the finding's own acts, the day's decision while it waits, the rows in the notebook). */
+function issueCard(card: string, id: string, c: BronzeCheck): HTMLElement {
+  const f = c.findings[0];
+  const sev = c.state === 'alert' ? 'alert' : 'warn';
+  const vis = f ? qualityVisual(f, id) : null;
+  const waits = dayWaits();
+  const day = newsDay() ?? viewedDay();
+  const fixes = h('div', { class: 'bq-fixes' },
+    h('span', { class: 'bq-k' }, 'What you can do'),
+    waits && day && c.mode === 'hold' && sev === 'alert' ? h('button', { type: 'button', class: 'btn small primary', onclick: () => decideDay(day) }, 'Decide on the day ›') : null,
+    h('button', { type: 'button', class: 'btn small', onclick: () => ((issueFocus = c.id), openTab(card, 'notebook')) }, 'See the rows in the notebook ›'),
+    f && f.acts.length ? moreOnly(actionsOf(f, card, null, null, waits, true)) : null);
+  return h('article', { class: `bq-issue ${sev}`, 'data-check': c.id },
+    h('h4', {}, glyphEl(sev, 16), h('span', {}, f?.title ?? c.said)),
+    h('p', { class: 'bq-check' }, h('span', { class: 'bq-k' }, 'The check'), ` ${c.said} · ${MODE_SAID[c.mode]} · `,
+      c.from === 'ontology' ? h('button', { type: 'button', class: 'linkish', onclick: () => openOntologyCheck(id, c.id) }, 'defined on the Ontology page ›')
+        : h('button', { type: 'button', class: 'linkish', onclick: () => ((issueFocus = `gate:${id}`), openTab(card, 'notebook')) }, 'set in the notebook’s gate cell ›')),
+    vis ? h('button', { type: 'button', class: 'bq-vis', 'aria-label': `${f!.title}: more`, onclick: () => findingDetail(f!, card) }, vis) : null,
+    f?.detail ? h('p', { class: 'bq-meaning' }, f.detail) : c.failed ? h('p', { class: 'bq-meaning' }, `${plural(c.failed, 'row breaks', 'rows break')} it in this run.`) : null,
+    c.findings.length > 1 ? h('ul', { class: 'bq-more' }, ...c.findings.slice(1, 4).map((x) => h('li', {}, glyphEl(x.severity === 'alert' ? 'alert' : 'warn', 13), ` ${x.title}`))) : null,
+    fixes);
+}
+let issueFocus: string | null = null;
+
+/** A check on its line: today's state, what it checks, its column, what it does (the owner switches it), and its line
+ * on the Ontology page. */
+function checkRow(card: string, id: string, c: BronzeCheck): HTMLElement {
+  const owner = isOwner();
+  let control: HTMLElement;
+  if (c.kind === 'set' && c.def) {
+    const step = checkStepOf(state.doc, id);
+    const on = !!step && ruleOn(step, c.def.id);
+    const sw = h('button', { type: 'button', class: 'vf-switch', role: 'switch', 'aria-checked': String(on), 'aria-label': `${c.said}: ${on ? 'on' : 'off'}`, ...(owner && step ? {} : { disabled: 'disabled' }) }, h('span', { class: 'vf-switch-k', 'aria-hidden': 'true' }));
+    sw.addEventListener('click', () => void ruleEdited(switchRule(state.doc, id, c.def!.id, !on)));
+    control = sw;
+  } else if (owner) {
+    const sel = h('select', { class: 'bq-mode', 'aria-label': `What the ${c.check} check does` }) as HTMLSelectElement;
+    for (const mode of CHECK_MODES) sel.append(new Option(MODE_SAID[mode], mode, false, mode === c.mode));
+    sel.title = c.from === 'ontology' ? `Sets the ${c.check} check, which judges this and the file’s other ${c.check} checks` : `The ${c.check} check`;
+    sel.addEventListener('change', () => void setCheck(card, id, c.check, sel.value as CheckMode, undefined, 'quality'));
+    control = sel;
+  } else control = h('span', { class: `bq-mode-t ${c.mode}` }, MODE_SAID[c.mode]);
+  const today = c.state === 'off' ? (c.why ? `off: ${c.why}` : 'off')
+    : c.kind === 'set' && c.failed !== undefined ? (c.failed ? `${plural(c.failed, 'row breaks', 'rows break')} it` : 'every row keeps it')
+    : c.findings[0] && (c.state === 'alert' || c.state === 'warn') ? c.findings[0].title : STATE_SAID[c.state];
+  return h('li', { class: `bq-row ${c.state}`, 'data-check': c.id },
+    h('span', { class: 'bq-mark', 'aria-label': STATE_SAID[c.state] }, stateMark(c.state)),
+    h('span', { class: 'bq-said' }, c.said, c.column ? h('span', { class: 'bq-col' }, c.column) : null),
+    h('span', { class: 'bq-today' }, today),
+    control,
+    c.from === 'ontology' ? h('button', { type: 'button', class: 'bq-go', 'aria-label': `${c.said}: on the Ontology page`, title: 'On the Ontology page', onclick: () => openOntologyCheck(id, c.id) }, '›') : h('span', {}));
+}
+
+/**
+ * The bronze card's notebook: the file read and checked, as smaltnb shows it. The cell that reads the file, with its
+ * rows; the gate cell, with the checks it switches; the check step that runs the checks set on the file's columns; then
+ * a cell for each check that found something, its SQL showing the rows behind it; then the reader's own cells.
+ */
+async function notebookTab(card: string, id: string): Promise<HTMLElement> {
+  dropShown();
+  const b = bronzeFor(id);
+  const box = h('div', { class: 'nbc-list bq-nb' });
+  const cellOf = (ref: CellRef | undefined): string | null => {
+    if (!ref) return null;
+    const nb = state.doc.notebooks?.find((n) => n.path === ref.notebook);
+    const lines = (nb?.source ?? '').split('\n').slice(ref.line - 1, ref.endLine);
+    while (lines.length && !lines[lines.length - 1]!.trim()) lines.pop();
+    return lines.join('\n') || null;
+  };
+  // The file read: its source cell and its rows.
+  const at = state.doc.outline?.flatMap((o) => o.cells.filter((c) => c.kind === 'source' && c.source === id).map((c) => ({ o, c })))[0];
+  const srcRef: CellRef | undefined = at ? { notebook: at.o.path, cell: at.c.cell, lang: at.c.lang, line: at.c.line, endLine: at.c.endLine } : undefined;
+  box.append(flowCell(srcRef?.cell ?? id, id, 'source', cellOf(srcRef) ?? `source('${id}');`));
+  // The gate cell: what each check does for this file.
+  const gateRef = state.doc.cells?.[`gate:${id}`];
+  if (gateRef) {
+    const ui = keep(makeCell({ name: gateRef.cell, chip: 'gate', kind: 'gate', code: cellOf(gateRef) ?? '', readOnly: true, maxLines: 10, label: `Cell ${gateRef.cell}, read-only` }));
+    ui.root.dataset.cellRef = `gate:${id}`;
+    ui.setStatus(b?.verdict === 'hold' ? 'held' : b?.verdict === 'look' ? 'stale' : b?.verdict === 'clean' ? 'ok' : 'idle', b ? verdictSaid(b) : '');
+    ui.output.replaceChildren(h('p', { class: 'nbc-line' }, b ? `${b.passed} of ${b.judged} judged checks passed${b.wrong.length ? ` · ${plural(b.wrong.length, 'issue')}` : ''}${b.unusual.length ? ` · ${b.unusual.length} unusual` : ''}` : 'no checks'));
+    box.append(ui.root);
+  }
+  // The check step that reads the file: the checks set on its columns run here.
+  const step = checkStepOf(state.doc, id);
+  if (step) box.append(flowCell(state.doc.cells?.[step.id]?.cell ?? step.id, step.id, 'check', cellOf(state.doc.cells?.[step.id]) ?? ''));
+  // A cell for each check that found something: the rows behind it, as SQL the reader can change.
+  const issues = b ? [...b.wrong, ...b.unusual] : [];
+  if (issues.length) box.append(h('h3', { class: 'nb-h' }, 'The issues, row by row'));
+  for (const c of issues) {
+    const sql = issueSql(id, c);
+    if (!sql) continue;
+    const ui = keep(makeCell({ name: c.findings[0]?.title ?? c.said, chip: 'sql', kind: `issue ${c.state}`, code: sql, language: 'sql', label: `The rows behind: ${c.said}`, onRun: () => void runIssue(ui) }));
+    ui.root.dataset.check = c.id;
+    ui.setStatus(c.state === 'alert' ? 'error' : 'stale', c.state === 'alert' ? 'wrong' : 'unusual', c.said);
+    ui.setActions(nbButton('Run', 'Run this cell (Ctrl+Enter)', () => void runIssue(ui), 'small'));
+    box.append(ui.root);
+    void runIssue(ui);
+  }
+  const wrap = h('div', { class: 'bq-nb-wrap' }, box, exploreCells({ path: `source:${id}`, cells: [] }));
+  if (issueFocus) {
+    const focus = issueFocus;
+    issueFocus = null;
+    requestAnimationFrame(() => {
+      const el = wrap.querySelector<HTMLElement>(`[data-check="${CSS.escape(focus)}"], [data-cell-ref="${CSS.escape(focus)}"]`);
+      el?.scrollIntoView({ block: 'start' });
+      el?.classList.add('flash');
+    });
+  }
+  return wrap;
+}
+
+/** The SQL that shows the rows behind a check that found something, over the file as this run read it. */
+function issueSql(id: string, c: BronzeCheck): string | null {
+  const f = c.findings[0];
+  const col = c.column ?? f?.columns?.[0];
+  const q = (s: string) => quoteIdent(s);
+  const written = writtenRules(state.doc, id);
+  switch (c.kind) {
+    case 'band': case 'bad': case 'values': case 'set':
+      return col ? `SELECT ${q(col)}, count(*) AS rows\nFROM ${id}\nGROUP BY 1\nORDER BY rows DESC` : null;
+    case 'due':
+      return col ? `SELECT ${q(col)}, count(*) AS rows\nFROM ${id}\nGROUP BY 1\nORDER BY rows DESC` : null;
+    case 'covers': {
+      const sc = written.scope;
+      return sc ? `SELECT *\nFROM ${id}\nWHERE ${q(sc.own)} NOT IN (SELECT ${q(sc.key)} FROM ${sc.of})\nLIMIT 200` : null;
+    }
+    case 'key': case 'same': case 'rows': {
+      const key = written.reconcile?.key;
+      return key?.length ? `SELECT ${key.map(q).join(', ')}, count(*) AS rows\nFROM ${id}\nGROUP BY ${key.map((_, i) => i + 1).join(', ')}\nHAVING count(*) > 1 OR ${key.map((k) => `${q(k)} IS NULL`).join(' OR ')}\nORDER BY rows DESC\nLIMIT 200` : null;
+    }
+    default:
+      if (c.check === 'blanks' && col) return `SELECT *\nFROM ${id}\nWHERE ${q(col)} IS NULL\nLIMIT 200`;
+      if ((c.check === 'shares' || c.check === 'pairs') && f?.columns?.length) return `SELECT ${f.columns.map(q).join(', ')}, count(*) AS rows\nFROM ${id}\nGROUP BY ${f.columns.map((_, i) => i + 1).join(', ')}\nORDER BY rows DESC`;
+      if (c.check === 'amount') return `SELECT count(*) AS rows\nFROM ${id}`;
+      return `SELECT *\nFROM ${id}\nLIMIT 50`;
+  }
+}
+
+/** Runs an issue's cell: its SQL over the file as this run read it, the rows in the grid. */
+async function runIssue(ui: CellUi): Promise<void> {
+  if (!state.engine || !ui.editor) return;
+  const t0 = performance.now();
+  try {
+    const sql = await exploreSql(ui.editor.value.trim().replace(/;\s*$/, ''));
+    const total = Number((await state.engine.query(`SELECT count(*) AS n FROM (\n${sql}\n)`)).rows[0]?.[0] ?? 0);
+    const first = await state.engine.query(`SELECT * FROM (\n${sql}\n) LIMIT 50`);
+    showGridRows(ui, { columns: first.columns, rowCount: total, initial: first.rows as GridRow[], fetch: async (offset, limit) => (await state.engine!.query(`SELECT * FROM (\n${sql}\n) LIMIT ${limit} OFFSET ${offset}`)).rows as GridRow[] }, { file: ui.root.dataset.check ?? 'rows' });
+    ui.root.querySelector('.nbc-status')!.textContent = `${ui.root.dataset.status === 'error' ? 'wrong' : 'unusual'} · ${formatMs(performance.now() - t0)}`;
+  } catch (err) {
+    showError(ui, String(err instanceof Error ? err.message : err));
+  }
 }
 
 /**
@@ -8584,13 +8904,25 @@ const ontologyFiles = { open: null as string | null, doc: null as FlowDocument |
 /** A rule as a line: its sentence, how it came to be and what it is checked against, and why nothing judges it. On a
  * column's card a file's own rule is said for the column (`here`) and says whose it is: one rule, listed twice. */
 function ruleLine(r: Rule, here?: string, acts?: HTMLElement | null): HTMLElement {
-  const how = [originSaid(r.origin), here !== undefined ? 'one of this file’s rules' : r.against ? `checked against ${r.againstSaid ?? r.against}` : ''].filter(Boolean).join(' · ');
-  return h('li', { class: `of-rule${r.unchecked ? ' unchecked' : ''}${here !== undefined ? ' of-files' : ''}`, 'data-rule': r.id },
-    h('span', { class: 'of-said' }, here ?? r.said),
+  const how = [originSaid(r.origin), here !== undefined ? 'one of this file’s checks' : r.against ? `checked against ${r.againstSaid ?? r.against}` : ''].filter(Boolean).join(' · ');
+  // Today's state, as the file's card judges it (Q-160), and the way to the card: the check is the same on both.
+  const file = r.id.split('/')[0]!;
+  const st = ontologyStates.get(r.id);
+  return h('li', { class: `of-rule${r.unchecked ? ' unchecked' : ''}${here !== undefined ? ' of-files' : ''}${st ? ` st-${st}` : ''}`, 'data-rule': r.id },
+    h('span', { class: 'of-said' }, st && st !== 'off' ? h('span', { class: 'of-state', 'aria-label': STATE_SAID[st] }, stateMark(st, 13)) : null, here ?? r.said),
     h('span', { class: 'of-how' }, how),
     r.unchecked ? h('span', { class: 'of-off' }, `Not checked: ${r.unchecked}`) : null,
-    acts ?? null);
+    acts ?? null,
+    isBronze(file) ? h('button', { type: 'button', class: 'of-card-link', 'aria-label': `${here ?? r.said}: on ${file}’s card`, onclick: () => openCardCheck(file, r.id) }, st && st !== 'ok' && st !== 'off' ? `${STATE_SAID[st]} today · on the card ›` : 'On the card ›') : null);
 }
+/** Each check's state today, by its id, for the files on the Ontology page: what their cards' Quality tabs say. */
+const ontologyStates = new Map<string, CheckState>();
+/** A file's verdict on its row of the Files panel: something wrong or unusual today, said after its checks. */
+function ontologyVerdict(file: string): string {
+  const b = ontologyVerdicts.get(file);
+  return !b || b.verdict === 'clean' || b.verdict === 'unjudged' ? '' : ` · ${verdictSaid(b).replace(/: the day is held$/, '')} today`;
+}
+const ontologyVerdicts = new Map<string, Bronze>();
 
 let ruleForms = 0;
 const KIND_SAID: Record<OntologyRuleKind, string> = {
@@ -8623,7 +8955,7 @@ function ruleForm(file: string, column: string, title: string, columns: readonly
   const rangeField = h('div', { class: 'of-range' }, field('Lowest', min), field('Highest', max));
   const whenField = h('div', { class: 'of-when' }, field('Where', whenColumn), field('has one of', whenValues, 'By commas, as the file writes them.'));
   const err = h('p', { class: 'of-err', role: 'alert', hidden: true });
-  const save = h('button', { type: 'submit', class: 'btn of-save' }, was ? 'Save' : 'Add the rule');
+  const save = h('button', { type: 'submit', class: 'btn of-save' }, was ? 'Save' : 'Add the check');
   const fit = () => {
     const k = kind.value as OntologyRuleKind;
     valuesField.hidden = k !== 'oneOf' && k !== 'when';
@@ -8783,7 +9115,7 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
   };
   /** A rule people set, on its line: change it in place, or take it away (asked twice). */
   const setActs = (c: ColumnCard, r: OntologyRule): HTMLElement => {
-    const remove = h('button', { type: 'button', class: 'of-act', 'aria-label': `Remove the rule: ${ruleSaid(state.doc.ontology, r)}` }, 'Remove');
+    const remove = h('button', { type: 'button', class: 'of-act', 'aria-label': `Remove the check: ${ruleSaid(state.doc.ontology, r)}` }, 'Remove');
     remove.addEventListener('click', () => {
       if (remove.dataset.sure !== '1') {
         remove.dataset.sure = '1';
@@ -8793,7 +9125,7 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
       void ruleEdited(removeRule(state.doc, f.id, r.id));
     });
     return h('span', { class: 'of-rule-acts' },
-      h('button', { type: 'button', class: 'of-act', 'aria-label': `Change the rule: ${ruleSaid(state.doc.ontology, r)}`, onclick: (e: Event) => openRuleForm(c, r, (e.currentTarget as HTMLElement).closest('li')!) }, 'Change'),
+      h('button', { type: 'button', class: 'of-act', 'aria-label': `Change the check: ${ruleSaid(state.doc.ontology, r)}`, onclick: (e: Event) => openRuleForm(c, r, (e.currentTarget as HTMLElement).closest('li')!) }, 'Change'),
       remove);
   };
   const cards = (f.columns ?? []).map((c) => {
@@ -8817,8 +9149,8 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
       p?.note ? h('p', { class: 'note' }, p.note) : null,
       p?.lookup && visible(p.lookup.dataset) ? h('p', { class: 'of-from' }, 'Reads as its ', h('b', {}, p.lookup.label), ' in ', h('b', {}, p.lookup.dataset)) : null,
       citedLine(p),
-      h('div', { class: 'of-col-rules' }, h('p', { class: 'of-h2' }, 'Rules'), lines.length ? h('ul', { class: 'of-rules' }, ...lines) : h('p', { class: 'of-none' }, 'No rules yet.'),
-        owner ? h('button', { type: 'button', class: 'btn quiet of-add', 'aria-label': `Add a rule on ${c.title}`, onclick: (e: Event) => openRuleForm(c, null, e.currentTarget as HTMLElement) }, 'Add a rule') : null));
+      h('div', { class: 'of-col-rules' }, h('p', { class: 'of-h2' }, 'Checks'), lines.length ? h('ul', { class: 'of-rules' }, ...lines) : h('p', { class: 'of-none' }, 'No checks yet.'),
+        owner ? h('button', { type: 'button', class: 'btn quiet of-add', 'aria-label': `Add a check on ${c.title}`, onclick: (e: Event) => openRuleForm(c, null, e.currentTarget as HTMLElement) }, 'Add a check') : null));
     edit?.addEventListener('click', () => {
       if (card.querySelector('.of-form')) return;
       const close = () => {
@@ -8840,16 +9172,16 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
     return card;
   });
   const wait = h('p', { class: 'of-none' },
-    refused ? (cards.length ? `${day ? `${dayLabel(day)}’s` : 'This load’s'} file was refused, so none of it was read. These are the columns the flow expects, with their rules.` : 'This load’s file was refused: its columns weren’t read.')
+    refused ? (cards.length ? `${day ? `${dayLabel(day)}’s` : 'This load’s'} file was refused, so none of it was read. These are the columns the flow expects, with their checks.` : 'This load’s file was refused: its columns weren’t read.')
       : cards.length ? '' : f.columns ? 'No columns in this load.' : 'Run the flow to see this file’s columns.');
   wait.hidden = cards.length > 0 && !refused;
   // The row above drops its line while the section is open: the whole description is here, said once.
-  const sec = h('div', { class: 'of-sec', id: `of-sec-${f.id}`, role: 'region', 'aria-label': `${f.id}: what it is, its rules and its columns` },
+  const sec = h('div', { class: 'of-sec', id: `of-sec-${f.id}`, role: 'region', 'aria-label': `${f.id}: what it is, its checks and its columns` },
     h('div', { class: 'of-about' },
       f.description ? h('p', { class: 'of-desc' }, f.description) : h('p', { class: 'of-none' }, 'Not described yet.'),
       f.inventory ? h('p', { class: 'of-inv' }, `${f.inventory.said}.`) : null,
       sharedNote(f.id)),
-    h('section', { class: 'of-part of-own' }, h('h3', { class: 'of-h' }, 'This file’s rules'), ruleList(f.rules, 'No rules of its own yet.')),
+    h('section', { class: 'of-part of-own' }, h('h3', { class: 'of-h' }, 'This file’s checks'), ruleList(f.rules, 'No checks of its own yet.')),
     h('section', { class: 'of-part' }, h('h3', { class: 'of-h' }, cards.length ? `Columns · ${cards.length}` : 'Columns'), wait, cards.length ? h('div', { class: 'of-cols' }, ...cards) : null),
     h('section', { class: 'of-part of-disc' }, h('h3', { class: 'of-h' }, 'Discovered'),
       f.discovered.length ? ruleList(f.discovered, '') : h('p', { class: 'of-none' }, 'Nothing has been discovered yet. Rules the app finds in the data will be listed here to accept.')));
@@ -8885,6 +9217,15 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
  */
 async function renderFiles(stale: () => boolean): Promise<void> {
   const page = ontologyPage({ ...state.doc, sources: state.doc.sources.filter((x) => fileView(x.id)?.open !== false) }, (id) => fileView(id)?.columns, fileColumns);
+  ontologyStates.clear();
+  ontologyVerdicts.clear();
+  if (latest()) for (const f of page.files) {
+    if (!isBronze(f.id)) continue;
+    const b = bronzeFor(f.id);
+    if (!b) continue;
+    ontologyVerdicts.set(f.id, b);
+    for (const c of b.checks) if (c.from === 'ontology') ontologyStates.set(c.id, c.state);
+  }
   const run = latest();
   const day = shownDay();
   const from = JSON.stringify([run?.result.run ?? null, run?.result.hash ?? null, day ?? null, state.viewer, page.files.map((f) => [f.id, f.columns?.map((c) => c.name) ?? null])]);
@@ -8930,14 +9271,14 @@ async function renderFiles(stale: () => boolean): Promise<void> {
         h('span', { class: 'of-main' },
           h('span', { class: 'of-name' }, ...breakable(f.id)),
           what,
-          h('span', { class: 'of-nums' }, `${n !== undefined ? `${counted(n, f.noun)} · ` : refused.has(f.id) ? 'file refused · ' : ''}${f.count ? plural(f.count, 'rule') : 'no rules yet'}`)));
+          h('span', { class: 'of-nums' }, `${n !== undefined ? `${counted(n, f.noun)} · ` : refused.has(f.id) ? 'file refused · ' : ''}${f.count ? plural(f.count, 'check') : 'no checks yet'}${ontologyVerdict(f.id)}`)));
       const el = h('div', { class: 'of-item', 'data-file': f.id }, row);
       items.set(f.id, { el, row, what, f });
       return el;
     }));
   $('ontology-files').replaceChildren(
     h('h2', {}, 'Files'),
-    h('p', { class: 'sub' }, !page.files.length ? `No file of this flow is open to ${personName(state.viewer)}.` : run ? `${day ? `${dayLabel(day)}’s load` : 'This run’s rows'}, read as ${personName(state.viewer)}. Tap a file for its columns and rules.` : 'Run the flow to see each file’s rows and columns.'),
+    h('p', { class: 'sub' }, !page.files.length ? `No file of this flow is open to ${personName(state.viewer)}.` : run ? `${day ? `${dayLabel(day)}’s load` : 'This run’s rows'}, read as ${personName(state.viewer)}. Tap a file for its columns and checks.` : 'Run the flow to see each file’s rows and columns.'),
     list);
   if (ontologyFiles.open && items.has(ontologyFiles.open)) show(ontologyFiles.open, false);
 }
@@ -8956,6 +9297,12 @@ async function renderOntology(): Promise<void> {
   // ontology still has its files, with nothing said of them yet.
   await renderFiles(stale);
   if (stale()) return;
+  // Arrived from a card's check: its line here, shown and marked.
+  if (pendingOntologyMark) {
+    const mark = pendingOntologyMark;
+    pendingOntologyMark = null;
+    mark();
+  }
   const made = madePanel();
   $('properties').replaceChildren(made ?? '');
   $('properties').hidden = !made;

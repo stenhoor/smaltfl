@@ -50,10 +50,10 @@
  },
  {
   "name": "mar06-tls-checks",
-  "what": "Control estate, calm Wed Mar 6: bronze tls, Checks",
+  "what": "Control estate, calm Wed Mar 6: bronze tls, Checks (its Quality tab since Q-160: the News and Checks of a bronze file are there)",
   "day": "Wed 6",
   "card": "tls",
-  "tab": "Checks",
+  "tab": "Quality",
   "full": true
  },
  {
@@ -98,8 +98,8 @@
    "text": [
     "Files",
     "Wed Mar 6’s load, read as Owner",
-    "600 applications · no rules yet",
-    "203 apps · 9 rules"
+    "600 applications · no checks yet",
+    "203 apps · 9 checks"
    ],
    "noText": [
     "What the columns mean",
@@ -129,7 +129,7 @@
     "No Application blank or repeated",
     "Set by hand · checked against the list of applications (apps)",
     "Must be one of the applications this file covers",
-    "Set by hand · one of this file’s rules",
+    "Set by hand · one of this file’s checks",
     "A value never seen in this file before is flagged as wrong",
     "Off is a bad value: a jump above its usual share is flagged as wrong",
     "Not checked: this file’s band on Failing is checked instead",
@@ -182,7 +182,7 @@
   "expect": {
    "text": [
     "The list of applications: 12 other files are checked against it.",
-    "No rules of its own yet.",
+    "No checks of its own yet.",
     "All filled · every value different",
     "DISCOVERED",
     "What its 2 values stand for",
@@ -228,8 +228,8 @@
   "full": true,
   "expect": {
    "text": [
-    "file refused · 8 rules",
-    "Thu Mar 7’s file was refused, so none of it was read. These are the columns the flow expects, with their rules.",
+    "file refused · 8 checks",
+    "Thu Mar 7’s file was refused, so none of it was read. These are the columns the flow expects, with their checks.",
     "Nothing to draw: the file wasn’t read.",
     "No Application blank or repeated",
     "None is a bad value: a jump above its usual share is flagged as wrong",
@@ -277,17 +277,17 @@
  },
  {
   "name": "mar12-waf-news",
-  "what": "Control estate, Tue Mar 12: bronze waf, News (the card that holds the day)",
+  "what": "Control estate, Tue Mar 12: bronze waf, News (the card that holds the day) (its Quality tab since Q-160: the News and Checks of a bronze file are there)",
   "day": "Tue 12",
   "card": "waf",
-  "tab": "News"
+  "tab": "Quality"
  },
  {
   "name": "mar12-waf-checks",
-  "what": "Control estate, Tue Mar 12: bronze waf, Checks",
+  "what": "Control estate, Tue Mar 12: bronze waf, Checks (its Quality tab since Q-160: the News and Checks of a bronze file are there)",
   "day": "Tue 12",
   "card": "waf",
-  "tab": "Checks",
+  "tab": "Quality",
   "full": true
  },
  {
@@ -335,7 +335,7 @@
    "state": "held",
    "text": [
     "Tue Mar 12’s load, read as Owner",
-    "203 apps · 9 rules",
+    "203 apps · 9 checks",
     "Failing between 0% and 15% of apps",
     "59.6%",
     "DISCOVERED"
@@ -368,14 +368,14 @@
  },
  {
   "name": "mar14-vuln-news",
-  "what": "Control estate, Thu Mar 14 (vulnerability due dates cluster: a look-alike that publishes): bronze vuln_sla, News",
+  "what": "Control estate, Thu Mar 14 (vulnerability due dates cluster: a look-alike that publishes): bronze vuln_sla, News (its Quality tab since Q-160: the News and Checks of a bronze file are there)",
   "day": "Thu 14",
   "select": [
    "#viewer",
    "owner"
   ],
   "card": "vuln_sla",
-  "tab": "News",
+  "tab": "Quality",
   "full": true
  },
  {
@@ -409,10 +409,10 @@
  },
  {
   "name": "mar21-tls-news",
-  "what": "Control estate, Thu Mar 21: bronze tls, News",
+  "what": "Control estate, Thu Mar 21: bronze tls, News (its Quality tab since Q-160: the News and Checks of a bronze file are there)",
   "day": "Thu 21",
   "card": "tls",
-  "tab": "News"
+  "tab": "Quality"
  },
  {
   "name": "mar21-posture-checks",
@@ -437,10 +437,10 @@
  },
  {
   "name": "mar23-dr-news",
-  "what": "Control estate, Sat Mar 23: bronze dr_exercise, News",
+  "what": "Control estate, Sat Mar 23: bronze dr_exercise, News (its Quality tab since Q-160: the News and Checks of a bronze file are there)",
   "day": "Sat 23",
   "card": "dr_exercise",
-  "tab": "News"
+  "tab": "Quality"
  },
  {
   "name": "names-form",

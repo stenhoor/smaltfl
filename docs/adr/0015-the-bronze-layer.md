@@ -755,3 +755,46 @@ nice to see the days in between kind of transparent a little bit to show other d
 - **An empty day is never a new level**: Accept isn't offered for a file that came with no rows (`acceptable`).
 - **Checks:** `test/fixes.test.ts`; `tools/browser/stops/fixes.json` (the fill row's faded days and donor, the
   recommendation, no Accept) and `models.json` (the records), problems: none.
+
+## Amendment 2: one concept, checks; the bronze card's Quality and Notebook (2026-11-11, Q-160 to Q-162)
+
+The maintainer, on the bronze cards: *the news is not super helpful; there is no notebook of the file being ingested and
+the ontology's checks run on it; the checks and the rules are a mismatch, and the rules probably need to go. The checks
+are the only thing that should be there, all driven from the ontology down to the card, the link obvious and responsive.
+I want to see very quickly whether there is any quality issue with my data, a notebook to explore it, and visuals that
+explain each mismatch and what we could do to fix it.*
+
+What was found: the Ontology page counted every check it defines for a file ("tls · 7 rules": its scope, key, bands,
+values, due dates) while the card's Rules tab listed only the rules people set (`set`), so tls said "no rules yet"; the
+News led waf's held Tue Mar 12 with "Status fail: 59.6% (band 0%–15%)" and, under it, "Nothing out of the ordinary",
+with no picture of a band missed; the Checks tab was a table of the gate's fifteen checks in its own vocabulary.
+
+1. **One concept: checks** (Q-160). Everything the ontology or a gate cell defines for a file or a column is a check,
+   and so is a rule people set on a column (`ontology.rules`, kept as it is in the document: no format, plan or hash
+   changes). The Rules tab is gone, and the word with it on screen: the Ontology page says checks ("203 apps · 9 checks",
+   "Add a check").
+2. **One list, the Ontology page's** (`src/core/bronze.ts` `bronzeOf`): a file's checks are its section's checks on the
+   Ontology page, with the same ids, then its contract (`schema`, `amount`, `blanks`) and what is learned from its history
+   (`shares`, `shape`, `hours`, `pairs`, `forest`, `classifier`). Each has its mode from the gate (`CHECK_OF_KIND` names the
+   gate check that judges each kind), its state for the day from the day's findings (a band missed lands on the band's
+   own check, a bad value on its `bad` mark, a scope or key finding on `covers` or `key`, the rest on the gate check that
+   judges it) or, for a check people set, from the rows its check step counted; and the file a verdict: clean, look,
+   hold or unjudged (`verdictSaid`).
+3. **The bronze card** (Q-161): a source a gated flow judges opens to **Quality**: the verdict ("2 issues and 2 things to
+   look at: the day is held", "No quality issues: 15 checks passed"); an issue card for each check that found something,
+   worst first, with the check in words, where it is defined (a tap to its line on the Ontology page, or the gate cell),
+   its picture (a band missed is today's share against the ontology's band), what it means, and what can be done
+   (decide the held day, see the rows in the notebook, the finding's own acts); notes from today's rows, quietly; then
+   every check grouped by where it comes from, each with today's state, what it does (the owner switches it) and its
+   line on the Ontology page. **Notebook**: the cell that reads the file with its rows, the gate cell with the day's
+   verdict, the check step, a SQL cell for each issue showing the rows behind it, and the reader's own cells. News,
+   Checks and Rules are not on a bronze card; a link to one lands on Quality.
+4. **The link, both ways.** Each check's line on the Ontology page shows its state today (a tick, wrong, unusual) and
+   "On the card ›" (red with "wrong today" where it failed); a file's row there says "· 2 issues today". From the card,
+   "defined on the Ontology page ›" opens the file's section with the line marked.
+5. **Scope** (Q-162): the control estate's bronze files first (the live demo); the sign-ins and the taxi example, whose
+   sources have no gate, keep their News and Rules tabs until a follow-up carries them over.
+
+Checked by `test/bronze.test.ts` and `tools/browser/stops/bronze.json` (the held waf, its notebook, a clean tls, the link
+each way) at every size, with `estate.json`'s bronze stops moved to Quality.
+
