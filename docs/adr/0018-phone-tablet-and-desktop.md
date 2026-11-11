@@ -1,4 +1,4 @@
-# ADR 0017: Phone, tablet and desktop
+# ADR 0018: Phone, tablet and desktop
 
 - **Status:** accepted, 2026-11-11 (Q-157, the maintainer's request in a session)
 - **Date:** 2026-11-11

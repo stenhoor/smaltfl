@@ -212,7 +212,7 @@ match smaltdb's `CLAUDE.md`.
 - The plugin imports only types from `smaltdb/engine`. No runtime dependencies; cryptography is WebCrypto, plus
   `src/core/sha256.ts` for per-row hashes, which its tests check against WebCrypto.
 - A change smaltfl needs in smaltdb or another smalt repository is discussed with stenhoor first (ADR 0001 §12).
-- **Phone, tablet and desktop** ([ADR 0017](docs/adr/0017-phone-tablet-and-desktop.md)). Every screen of the app works
+- **Phone, tablet and desktop** ([ADR 0018](docs/adr/0018-phone-tablet-and-desktop.md)). Every screen of the app works
   and reads well on a phone (390×844), a tablet upright and sideways (820×1180, 1180×820) and a desktop window
   (1440×900). Phone rules stay the base; wider layouts are added with `min-width` media queries in `src/app/page.html`,
   never by changing what a phone gets. A change to `src/app` runs the stop set it touches with `tour.cjs` at all four
@@ -223,7 +223,7 @@ match smaltdb's `CLAUDE.md`.
 
 ## The smalt repositories
 
-smaltfl is built on the smalt family as Steve TenHoor (`stenhoor`) publishes it, and on his latest work (ADR 0016).
+smaltfl is built on the smalt family as Steve TenHoor (`stenhoor`) publishes it, and on his latest work (ADR 0017).
 The repositories, all `github.com/stenhoor/<name>`, public, read with `git clone --depth 1` (a session can read them
 without attaching them; it cannot push to them):
 
@@ -287,7 +287,7 @@ monitor issues: a session works on an issue when a maintainer points it to one, 
 
 - smaltfl uses smaltdb's public or pinned APIs and its plugin API v1, and changes nothing in other smalt repositories
   without stenhoor (ADR 0001 §12).
-- smaltdb's public plan API has landed and smaltql is pinned (ADR 0016): `emit.ts` still writes SQL, read by smaltql.
+- smaltdb's public plan API has landed and smaltql is pinned (ADR 0017): `emit.ts` still writes SQL, read by smaltql.
   When `emit.ts` gains a plan emitter, SQL steps are bound through smaltql; the document, the plan's other parts and
   the screens should not need to change (ADR 0004).
 - Brand assets and voice come from `stenhoor/smalt-brand`, through the fork `beepboopbop64/smalt-brand` (ADR 0002 §7).

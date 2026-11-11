@@ -78,7 +78,7 @@ family's pieces, notebooks first, so the pipeline angle is what smaltfl adds and
    *As built:* the smaltdb pin stayed at `a0906b7`. Tried on 2026-11-09, smaltnb's `062b248` is past smaltdb's
    ADR 0017 (no SQL in the engine): every `db.query(sql)` in smaltfl's tests, plugin and app fails with "this is
    written in sql, which is not registered" until smaltql is pinned and registered in the tests, the worker and the
-   page. That move is its own slice (0b below), not a pin change. *Done on 2026-11-11* ([ADR 0016](0016-stenhoors-repositories-at-main.md)):
+   page. That move is its own slice (0b below), not a pin change. *Done on 2026-11-11* ([ADR 0017](0017-stenhoors-repositories-at-main.md)):
    every pin at stenhoor's main, smaltql pinned and registered in the tests, the worker and the page.
 9. **The move.** (Q-87) The fork `beepboopbop64/smaltfl_fork` of `stenhoor/smaltfl` is the route ADR 0007 needed:
    Steve's initial commit is the root of this history, so the fork's `main` fast-forwards to it with no merge and no

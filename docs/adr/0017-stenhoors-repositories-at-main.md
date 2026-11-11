@@ -1,4 +1,4 @@
-# ADR 0016: Built on stenhoor's repositories, at their latest main
+# ADR 0017: Built on stenhoor's repositories, at their latest main
 
 - **Status:** accepted, 2026-11-11 (Q-156, the maintainer's request in a session; Q-130 brought forward)
 - **Date:** 2026-11-11
