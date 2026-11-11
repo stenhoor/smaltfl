@@ -37,14 +37,14 @@ import { mark } from './perf.js';
 import { isRangesFile, rangesPath, type GivenRanges } from '../core/ranges.js';
 import { aheadServed, giveAhead } from '../core/ahead.js';
 import { modelLeftOut } from '../core/modelcols.js';
-import { apartSaid, columnGist, columnRole, ROLE_SAID, CHECK_EXPLAINED, MODE_EXPLAINED, gateNote, issueNote, issuesNote, rulesNote, sourceNote, timesTogether, unlikeSaid } from '../core/explain.js';
+import { apartForColumn, spanOf as unitSpan, apartSaid, differenceStep, DIFFERENCE_SAID, quantileSaid, columnGist, columnRole, ROLE_SAID, CHECK_EXPLAINED, MODE_EXPLAINED, gateNote, issueNote, issuesNote, rulesNote, sourceNote, timesTogether, unlikeSaid } from '../core/explain.js';
 import { bronzeOf, verdictSaid, type Bronze, type BronzeCheck, type CheckState } from '../core/bronze.js';
 import { button as nbButton, formatMs, makeCell, showError, showMarkdown, showRows as showGridRows, type CellStatus, type CellUi } from './nbcells.js';
 import type { EditorSchema, SchemaColumn } from 'smaltkit/editor';
 import type { GridRow } from 'smaltkit/grid';
 import { derivedAbout, derivedFails, derivedKeys, derivedWhy, donorsOf, filledRows, pinDonor, repairOf, stageRepair, type Listed, type Remedies } from './fills.js';
 import { followsCause as followsFrom, ACT_VERB, CELL_KINDS, CELL_NAMES, CONTEXT_TAG, HEALTH_HEAD, STRIP_KEY, approx, axisShare, recentSpan, cardWords, changeLabel, compact, countLabel, countRange, fallSteps, gateHead, overLabel, gateLabels, gateOf, partLabel, ruleOrder, ruleUsual, shortWho, splitSentence, splitSteps, storyOf, type Cell, type DayStep, type Gate, type HourValues, type Story, type Told } from '../core/story.js';
-import { aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, degrees, weatherHours, chain, composition, contextBars, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
+import { differenceMeter, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, degrees, weatherHours, chain, composition, contextBars, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
 import { sha256Hex } from '../core/hash.js';
 import { counted, glossOf, meaningOf, nounOf as ontologyNoun, propertyOf, saysMore, type Edit, type Noun, type PropertyType } from '../core/ontology.js';
 import { ontologyPage, originSaid, typesShown, type ColumnCard, type FileSection, type Rule } from '../core/ontologypage.js';
@@ -2494,11 +2494,10 @@ const datesOnly = (p: Profile) => p.kind === 'time' && [p.facts.min, p.facts.max
 const fmtOf = (p: Profile) => (p.kind !== 'time' ? fmtNum : datesOnly(p) ? (ms: number) => fmtTime(ms).slice(0, 10) : fmtTime);
 
 /** A histogram of the sample from its 1st to its 99th percentile, with the median marked. */
-function histogram(p: Profile): HTMLElement | null {
+function histogram(p: Profile, fmt: (v: number) => string = fmtOf(p)): HTMLElement | null {
   const hist = p.hist;
   const q = p.quantiles;
   if (!hist || !q) return null;
-  const fmt = fmtOf(p);
   const W = 240;
   const H = 44;
   const max = Math.max(1, ...hist.counts);
@@ -2522,17 +2521,17 @@ function columnShape(p: Profile, meaning?: PropertyType): HTMLElement[] {
   const plain = fmtOf(p);
   // A measure in its unit; a time as it is.
   const fmt = (v: number) => (p.kind === 'time' ? plain(v) : inUnit(plain(v), v, meaning));
-  const shape = histogram(p);
+  const shape = histogram(p, fmt);
   if (shape && p.quantiles) {
     const q = p.quantiles;
     const edge = (v: unknown) => (typeof v === 'number' ? fmt(v) : String(v ?? '—').slice(0, 16));
     const stat = (k: string, v: string) => [h('dt', {}, k), h('dd', {}, v)];
     return [shape, h('dl', { class: 'stats' },
       ...stat('smallest', edge(f.min)),
-      ...stat('median', fmt(q.p50)),
+      ...stat('middle value', fmt(q.p50)),
       ...stat('largest', edge(f.max)),
-      ...(p.kind === 'measure' && f.mean !== null ? stat('mean', fmt(f.mean)) : []),
-      ...stat('middle half', `${fmt(q.p25)} – ${fmt(q.p75)}`))];
+      ...(p.kind === 'measure' && f.mean !== null ? stat('average', fmt(f.mean)) : []),
+      ...stat('half fall between', `${fmt(q.p25)} and ${fmt(q.p75)}`))];
   }
   if (!p.top?.length) return [];
   const names = p.top.map((t) => labelFor(meaning, t.value) ?? t.value);
@@ -3655,7 +3654,7 @@ const STATE_MARK: Record<CheckState, VizMark | null> = { alert: 'alert', warn: '
 /** A check's mark: its state's glyph, a tick for one that passed, a dash for one that is off. */
 const stateMark = (st: CheckState, size = 14): Node => (STATE_MARK[st] ? glyphEl(STATE_MARK[st]!, size) : h('span', { class: st === 'ok' ? 'bq-tick' : 'bq-dash', 'aria-hidden': 'true' }, st === 'ok' ? '✓' : '–'));
 const STATE_SAID: Record<CheckState, string> = { alert: 'wrong', warn: 'unusual', ok: 'passed', off: 'off', unjudged: 'not judged' };
-const MODE_SAID: Record<CheckMode, string> = { hold: 'Holds the day', warn: 'Warns', off: 'Off' };
+const MODE_SAID: Record<CheckMode, string> = { hold: 'Stops the day', warn: 'Warns only', off: 'Off' };
 
 /** Open the Ontology page at a file, with one of its checks shown and marked: where the check is defined. */
 function openOntologyCheck(file: string, check: string): void {
@@ -3722,12 +3721,14 @@ function checkVisual(f: Finding, id: string): Element | null {
   if (f.kind === 'apart' && f.apart) {
     const a = f.apart;
     return h('div', { class: 'cv' },
-      svgNode(aucTrack({ auc: a.auc, floor: a.floor, speaks: true, aria: `The classifier: AUC ${a.auc.toFixed(2)}, chance 0.5, shuffled labels ${a.floor.toFixed(2)}` })),
-      a.columns.length ? svgNode(rankBars({ rows: a.columns.slice(0, 5).map((c) => ({ label: name(c.column), share: c.share })), aria: 'What tells today apart, by column' })) : null);
+      svgNode(differenceMeter({ step: differenceStep(a.auc), aria: `How different today’s rows are: ${DIFFERENCE_SAID[differenceStep(a.auc)]}` })),
+      a.columns.length ? h('p', { class: 'cv-cap' }, 'What makes today different, by column:') : null,
+      a.columns.length ? svgNode(rankBars({ rows: a.columns.filter((c) => c.share >= 0.05).slice(0, 5).map((c) => ({ label: name(c.column), share: c.share })), aria: 'What makes today different, by column' })) : null);
   }
   if (f.kind === 'unlike' && f.unlike) {
     const u = f.unlike;
-    return svgNode(forestTicks({ learned: [u.highest], score: u.score, cut: Math.max(0.5, u.highest), speaks: true, aria: `The forest: today ${u.score.toFixed(2)}, the oddest day before ${u.highest.toFixed(2)}` }));
+    return h('div', { class: 'cv' }, svgNode(forestTicks({ learned: [u.highest], score: u.score, cut: Math.max(0.5, u.highest), speaks: true, aria: `How unlike the days before: today ${u.score.toFixed(2)}, the oddest earlier day ${u.highest.toFixed(2)}` })),
+      h('p', { class: 'cv-cap' }, `Further right is more unlike the other days. The tick is the oddest of the ${plural(u.days, 'earlier day')}; today is past it.`));
   }
   if (f.kind === 'combo' && f.value !== undefined && f.range) {
     const [a, b] = f.columns ?? [];
@@ -3754,11 +3755,13 @@ function modelExplained(f: Finding, id: string): HTMLElement | null {
   const said = f.kind === 'apart' && f.apart ? apartSaid(f.apart, name) : f.kind === 'unlike' && f.unlike ? unlikeSaid(f.unlike) : null;
   if (!said) return null;
   return h('div', { class: 'cv-explain' },
-    h('p', { class: 'cv-strength' }, h('span', { class: 'bq-k' }, 'How sure'), f.kind === 'apart' ? ' Today’s rows look ' : ' Today looks ', h('b', {}, said.strength), '.'),
-    'frequency' in said ? h('p', {}, String(said.frequency)) : null,
-    h('p', {}, said.against),
-    said.why ? h('p', {}, said.why) : null,
-    h('p', { class: 'cv-caveat' }, said.caveat));
+    h('p', { class: 'cv-strength' }, f.kind === 'apart' ? 'Today’s rows look ' : 'Today looks ', h('b', {}, said.strength), '.'),
+    f.kind === 'unlike' && said.why ? h('p', {}, said.why) : null,
+    h('p', { class: 'cv-caveat' }, said.caveat),
+    h('details', { class: 'pf-more' }, h('summary', {}, 'How this was worked out'),
+      'frequency' in said ? h('p', {}, String(said.frequency)) : null,
+      h('p', {}, said.against),
+      f.apart ? h('p', {}, `For analysts: AUC ${f.apart.auc.toFixed(2)}, ${f.apart.z.toFixed(1)} standard errors over chance; shuffled labels reached ${f.apart.floor.toFixed(2)}.`) : f.unlike ? h('p', {}, `For analysts: isolation forest score ${f.unlike.score.toFixed(2)}; the highest earlier day ${f.unlike.highest.toFixed(2)}.`) : null));
 }
 
 /**
@@ -3783,7 +3786,7 @@ async function qualityTab(card: string, id: string, who: string): Promise<HTMLEl
   box.append(h('header', { class: `bq-verdict ${b.verdict}` },
     b.verdict === 'hold' ? glyphEl('alert', 22) : b.verdict === 'look' ? glyphEl('warn', 22) : b.verdict === 'clean' ? h('span', { class: 'bq-tick big', 'aria-hidden': 'true' }, '✓') : glyphEl('unlearned', 22),
     h('div', {}, h('h3', {}, verdictSaid(b)),
-      h('p', {}, [day ? dayMid(day) : null, rows !== undefined ? plural(rows, ontologyNounOne(id), ontologyNounMany(id)) : null, `${plural(counts.ontology, 'check')} from the ontology, ${counts.contract} for the file’s contract, ${counts.learned} learned from its history`].filter(Boolean).join(' · ')))));
+      h('p', {}, [day ? dayMid(day) : null, rows !== undefined ? plural(rows, ontologyNounOne(id), ontologyNounMany(id)) : null, `${plural(counts.ontology + counts.contract + counts.learned, 'check')} ran: ${counts.ontology} written for this file, ${counts.contract} every file gets, ${counts.learned} learned from its history`].filter(Boolean).join(' · ')))));
 
   // The issues: each check that found something wrong, then unusual, with its picture and what can be done.
   for (const c of [...b.wrong, ...b.unusual]) box.append(issueCard(card, id, c));
@@ -3843,8 +3846,8 @@ function issueCard(card: string, id: string, c: BronzeCheck): HTMLElement {
     h('button', { type: 'button', class: 'btn small', onclick: () => ((issueFocus = c.id), openTab(card, 'notebook')) }, 'See the rows in the notebook ›'),
     f && f.acts.length ? moreOnly(actionsOf(f, card, null, null, waits, true)) : null);
   return h('article', { class: `bq-issue ${sev}`, 'data-check': c.id },
-    h('h4', {}, glyphEl(sev, 16), h('span', {}, f?.title ?? c.said)),
-    h('p', { class: 'bq-check' }, h('span', { class: 'bq-k' }, 'The check'), ` ${c.said} · ${MODE_SAID[c.mode]} · `,
+    h('h4', {}, glyphEl(sev, 16), h('span', {}, f?.apart ? `Today’s ${ontologyNounMany(id)} look ${DIFFERENCE_SAID[differenceStep(f.apart.auc)]} from earlier days` : f?.unlike ? `The day as a whole is ${unlikeSaid(f.unlike).strength}` : (f?.title ?? c.said))),
+    h('p', { class: 'bq-check' }, h('span', { class: 'bq-k' }, 'The check'), ` ${c.said} · ${c.mode === 'hold' ? 'it stops the day going out' : c.mode === 'warn' ? 'it only warns: the day still goes out' : 'switched off'} · `,
       c.from === 'ontology' ? h('button', { type: 'button', class: 'linkish', onclick: () => openOntologyCheck(id, c.id) }, 'defined on the Ontology page ›')
         : h('button', { type: 'button', class: 'linkish', onclick: () => ((issueFocus = `gate:${id}`), openTab(card, 'notebook')) }, 'set in the notebook’s gate cell ›')),
     vis ? h('button', { type: 'button', class: 'bq-vis', 'aria-label': `${f!.title}: more`, onclick: () => findingDetail(f!, card) }, vis) : null,
@@ -4529,6 +4532,12 @@ function colSaid(id: string, p: Profile): string | null {
     const dir = share > range.high ? ' ▲' : share < range.low ? ' ▼' : '';
     return `${name}: ${share === 0 ? 'none' : w.value} · usual ${w.range}${dir}`;
   }
+  // Said without statistics in the row (round 2): the model's finding as this column's part in it; a quantile in words.
+  if (f.kind === 'apart') return 'Part of why today looks different';
+  if (f.kind === 'shape' && f.metric?.of === 'quantile' && f.value !== undefined && f.range) {
+    const q = QUANTILES[f.metric.q] ?? 0.5;
+    return `Its ${q >= 0.75 ? 'high values are' : q <= 0.25 ? 'low values are' : 'middle value is'} ${f.value > f.range.high ? 'higher' : 'lower'} than usual`;
+  }
   return f.title;
 }
 
@@ -4613,6 +4622,45 @@ function colKey(list: HTMLElement): HTMLElement | null {
 }
 
 /**
+ * A finding about a column said for someone with no statistics (amendment 3, round 2): one sentence in the column's own
+ * unit and the file's noun, one picture that reads without a key, and the technical numbers behind "Details". The
+ * classifier is a four-step scale from "same as usual" to "very different" with this column's part of the reason; a
+ * quantile is "1 in 10 … above …"; anything else keeps its title and picture.
+ */
+function plainFinding(f: Finding, id: string, p: Profile, m: PropertyType | undefined, card: string): HTMLElement {
+  const title = m?.title ?? p.name;
+  const noun = ontologyNounMany(id);
+  const plain = fmtOf(p);
+  const fmt = (v: number) => (p.kind === 'time' ? plain(v) : inUnit(plain(v), v, m));
+  const sev = f.severity === 'alert' ? 'alert' : f.severity === 'warn' ? 'warn' : 'note';
+  let head = f.title;
+  let sub: string | null = null;
+  let vis: Element | null = null;
+  let details: string | null = null;
+  if (f.kind === 'apart' && f.apart) {
+    const a = apartForColumn(f.apart, p.name, noun, title);
+    head = a.head;
+    sub = a.part;
+    vis = h('div', { class: 'cv' }, svgNode(differenceMeter({ step: differenceStep(f.apart.auc), aria: `How different today’s ${noun} are: ${DIFFERENCE_SAID[differenceStep(f.apart.auc)]}` })));
+    details = `A model was given ${fmtInt(f.apart.n)} of today’s ${noun} and ${fmtInt(f.apart.n)} from ${plural(f.apart.days, 'earlier day')}, and asked to tell them apart. It was right ${Math.round(f.apart.auc * 100)} times in 100 (a coin toss: 50; with the labels shuffled: ${Math.round(f.apart.floor * 100)}). Statisticians call this an AUC of ${f.apart.auc.toFixed(2)}. Different isn’t necessarily wrong: a planned change looks the same.`;
+  } else if (f.kind === 'shape' && f.metric?.of === 'quantile' && f.value !== undefined && f.range) {
+    const q = QUANTILES[f.metric.q] ?? 0.5;
+    head = quantileSaid(q, title.toLowerCase(), noun, fmt(f.value), fmt(Math.max(0, f.range.low)), fmt(f.range.high));
+    sub = `So its ${q >= 0.75 ? 'high values are' : q <= 0.25 ? 'low values are' : 'middle value is'} ${f.value > f.range.high ? 'higher' : 'lower'} than usual.`;
+    vis = svgNode(bulletTrack({ value: f.value, low: Math.max(0, f.range.low), high: f.range.high, valueLabel: `today ${fmt(f.value)}`, bandLabel: `usual ${unitSpan(fmt(Math.max(0, f.range.low)), fmt(f.range.high))}`, sev: sev === 'note' ? null : sev, aria: head }));
+    details = `This compares one point of the spread of ${title.toLowerCase()} (the value ${q < 0.5 ? 'below' : 'above'} which ${q === 0.5 ? 'half' : `${Math.round((q < 0.5 ? q : 1 - q) * 100)}%`} of ${noun} fall) with the same point on like days.`;
+  } else {
+    vis = qualityVisual(f, id);
+    details = f.detail || null;
+  }
+  return h('div', { class: `pf ${sev}` },
+    h('p', { class: 'pf-head' }, sev === 'note' ? null : glyphEl(sev, 15), h('span', {}, head)),
+    sub ? h('p', { class: 'pf-sub' }, sub) : null,
+    vis ? h('div', { class: 'cp-vis' }, vis) : null,
+    details ? h('details', { class: 'pf-more' }, h('summary', {}, 'Details'), h('p', {}, details), h('button', { type: 'button', class: 'linkish', onclick: () => findingDetail(f, card) }, 'Open the finding ›')) : null);
+}
+
+/**
  * A column told as a story, for any file (amendment 3; docs/research/ui-check-visuals.md §6): what it is first (its title,
  * its role, what it means, or a line read from its values); then what is different about it today, each with its
  * picture; then its values at a glance (how full, its shape or its common values); its common values against their
@@ -4637,23 +4685,19 @@ function columnProfile(card: string, id: string, p: Profile, type: string, m: Pr
   box.append(h('header', { class: 'cp-head' },
     h('div', { class: 'cp-title' }, h('h3', {}, ...(m ? [m.title] : breakable(p.name))), h('span', { class: `cp-role r-${role}` }, ROLE_SAID[role]),
       worst !== 'unjudged' ? h('span', { class: `cp-state ${worst}` }, stateMark(worst, 13), worst === 'alert' ? 'wrong today' : worst === 'warn' ? 'unusual today' : 'as usual') : null),
-    m && (saysMore(p.name, m.title) || m.unit) ? h('p', { class: 'colname' }, saysMore(p.name, m.title) ? h('code', {}, ...breakable(p.name)) : null, m.unit ? `${saysMore(p.name, m.title) ? ' · ' : ''}in ${m.unit}` : '', ` · ${type}`) : h('p', { class: 'colname' }, h('code', {}, ...breakable(p.name)), ` · ${type}`),
+    m && (saysMore(p.name, m.title) || m.unit) ? h('p', { class: 'colname' }, saysMore(p.name, m.title) ? h('code', {}, ...breakable(p.name)) : null, m.unit ? `${saysMore(p.name, m.title) ? ' · ' : ''}in ${m.unit}` : '') : h('p', { class: 'colname' }, h('code', {}, ...breakable(p.name))),
     m?.description ? h('p', { class: 'cp-means' }, m.description) : null,
     h('p', { class: m?.description ? 'cp-gist' : 'cp-means' }, m?.description ? `From today’s rows: ${gist}` : gist)));
   // 2. What is different today.
-  if (today.length) {
-    box.append(part('Today', ...today.flatMap((c) => {
-      const x = c.findings.find((y) => y.columns?.includes(p.name)) ?? c.findings[0];
-      const vis = x ? qualityVisual(x, id) : null;
-      return [h('p', { class: `cp-find ${c.state}` }, glyphEl(c.state === 'alert' ? 'alert' : 'warn', 14), ' ', x?.title ?? c.said, h('span', { class: 'cp-by' }, ` · the ${c.check} check`)), vis ? h('div', { class: 'cp-vis' }, vis) : null];
-    })));
-  } else if (!b) {
-    if (!rowsFrom(shownDay(), viewedDay())) for (const x of idNews(id).filter((y) => y.columns?.includes(p.name) && y.severity !== 'ok')) box.append(findingCard(x, card));
-  } else box.append(part('Today', h('p', { class: 'cp-find ok' }, stateMark('ok', 13), mine.length ? ` Nothing unusual: ${plural(mine.filter((c) => c.state === 'ok').length, 'check')} on this column passed.` : ' Nothing unusual found.')));
+  const told = today.length ? today.map((c) => c.findings.find((y) => y.columns?.includes(p.name)) ?? c.findings[0]).filter((x): x is Finding => !!x)
+    : !b && !rowsFrom(shownDay(), viewedDay()) ? idNews(id).filter((y) => (y.columns?.includes(p.name) || y.apart?.columns.some((c) => c.column === p.name)) && y.severity !== 'ok') : [];
+  if (told.length) box.append(part('Today', ...told.map((x) => plainFinding(x, id, p, m, card))));
+  else if (b || historyOf(id)) box.append(part('Today', h('p', { class: 'cp-find ok' }, stateMark('ok', 13), mine.length ? ` Nothing unusual: ${plural(mine.filter((c) => c.state === 'ok').length, 'check')} on this column passed.` : ' Nothing unusual about this column today.')));
   // 3. Its values at a glance.
   const bar = h('div', { class: 'cp-fill', role: 'img', 'aria-label': `${pct(filled)} filled` }, h('span', { class: 'on', style: `width:${(filled * 100).toFixed(1)}%` }), filled < 1 ? h('span', { class: 'off', style: `width:${((1 - filled) * 100).toFixed(1)}%` }) : null);
   box.append(part('Its values',
-    h('div', { class: 'cp-facts' }, bar, h('span', {}, `${pct(filled)} filled`), h('span', {}, `${fmtInt(f.distinct)} distinct`), f.rows - f.present ? h('span', {}, `${fmtInt(f.rows - f.present)} blank`) : null),
+    h('div', { class: 'cp-facts' }, bar, h('span', {}, `${pct(filled)} filled`), role === 'number' || role === 'date' || role === 'time' ? null : h('span', {}, `${fmtInt(f.distinct)} different values`), f.rows - f.present ? h('span', {}, `${fmtInt(f.rows - f.present)} blank`) : null),
+    p.hist && p.quantiles ? h('p', { class: 'cv-cap' }, `How many ${ontologyNounMany(id)} have each ${(m?.title ?? p.name).toLowerCase()}: taller bars, more ${ontologyNounMany(id)}. The line marks the middle value, ${fmt(p.quantiles.p50)}; half are above it. The lowest and highest 1% are left off the picture.`) : null,
     ...((shape) => (shape.length ? shape : p.top?.length ? [h('p', { class: 'foot' }, `For example: ${p.top.slice(0, 3).map((t) => t.value).join(', ')}`)] : []))(columnShape(p, m))));
   // 4. Against what is usual: its common values' shares against their learned ranges, where the history keeps them.
   const usual = usualShares(id, p, m);
@@ -4683,10 +4727,10 @@ function usualShares(id: string, p: Profile, m: PropertyType | undefined): HTMLE
     let raw: unknown = key;
     try { raw = JSON.parse(key); } catch { /* as written */ }
     const out = v < r.low || v > r.high;
-    rows.push({ label: labelFor(m, raw) ?? String(raw), today: v, low: Math.max(0, r.low), high: Math.min(1, r.high), todayLabel: pct(v), usualLabel: `usually ${pct(Math.max(0, r.low))}–${pct(Math.min(1, r.high))}`, sev: out ? 'warn' : null });
+    rows.push({ label: labelFor(m, raw) ?? String(raw), today: v, low: Math.max(0, r.low), high: Math.min(1, r.high), todayLabel: pct(v), usualLabel: `usually ${unitSpan(pct(Math.max(0, r.low)), pct(Math.min(1, r.high)))}`, sev: out ? 'warn' : null });
   }
   if (!rows.length) return null;
-  return h('div', {}, svgNode(dumbbellRows({ rows, aria: `${p.name}: each common value’s share today against its usual range` })), h('p', { class: 'foot' }, 'The dot is today; the bar is the range learned from like days.'));
+  return h('div', {}, svgNode(dumbbellRows({ rows, aria: `${p.name}: each common value’s share today against its usual range` })), h('p', { class: 'foot' }, 'The dot is today; the grey bar is what past days like this one had. A limit written for the file, where there is one, is under Today.'));
 }
 
 /** The trips history's own lines for a column (its share filled and median against their range, day by day), kept from
@@ -4709,10 +4753,10 @@ function columnStory(card: string, id: string, p: Profile, q: Quality, type: str
   if (history && historyOf(id) === 'trips') {
     const metrics: { m: Metric; label: string; fmt: (v: number) => string }[] = [];
     if (history.file.columns.includes(p.name)) {
-      if (p.facts.present < p.facts.rows || (history.of({ of: 'missing', column: p.name })?.value(history.to) ?? 0) > 0) metrics.push({ m: { of: 'missing', column: p.name }, label: 'Share missing', fmt: pct });
-      if ((p.kind === 'measure' || p.kind === 'time') && history.medians(p.name) >= 20) metrics.push({ m: { of: 'median', column: p.name }, label: 'Median', fmt: p.kind === 'time' ? clockText : (v) => inUnit(fmtNum(v), v, m) });
+      if (p.facts.present < p.facts.rows || (history.of({ of: 'missing', column: p.name })?.value(history.to) ?? 0) > 0) metrics.push({ m: { of: 'missing', column: p.name }, label: 'Share left blank', fmt: pct });
+      if ((p.kind === 'measure' || p.kind === 'time') && history.medians(p.name) >= 20) metrics.push({ m: { of: 'median', column: p.name }, label: 'The middle value', fmt: p.kind === 'time' ? clockText : (v) => inUnit(fmtNum(v), v, m) });
     }
-    for (const x of metrics) out.push(h('div', { class: 'part' }, h('p', { class: 'eyebrow' }, `${x.label}, day by day`), sparkBand(x.m, x.fmt) ?? h('p', { class: 'foot' }, 'Not enough history.')));
+    for (const x of metrics) out.push(h('div', { class: 'part' }, h('p', { class: 'eyebrow' }, `${x.label}, the last four weeks`), sparkBand(x.m, x.fmt) ?? h('p', { class: 'foot' }, 'Not enough history.'), h('p', { class: 'cv-cap' }, 'The line is each day; the shaded band is what is usual for that day of the week; the circle is today.')));
     const values = valuesStory(p.name, m);
     if (values) out.push(values);
   }

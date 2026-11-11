@@ -1800,3 +1800,24 @@ export function heatGrid(o: { rows: readonly string[]; cols: readonly string[]; 
 }
 
 export const DEFS = `<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><pattern id="viz-hatch" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="4" height="4" class="hatch-bg"/><line x1="0" y1="0" x2="0" y2="4" class="hatch-line"/></pattern><pattern id="viz-stipple" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="4" class="stipple-bg"/><circle cx="2" cy="2" r="1.05" class="stipple-dot"/></pattern></defs></svg>`;
+
+/**
+ * How different today is, for anyone (ADR 0015 amendment 3, round 2): four steps from "same as usual" to "very
+ * different", the step today reached filled and marked, words under each step. No statistics on its face.
+ */
+export function differenceMeter(o: { step: 0 | 1 | 2 | 3; aria: string; w?: number }): string {
+  const w = o.w ?? 334;
+  const words = ['Same as usual', 'Slightly', 'Noticeably', 'Very different'];
+  const gap = 4;
+  const sw = (w - gap * 3) / 4;
+  let s = open(w, 46, o.aria, 'data-y0="0"');
+  words.forEach((t, i) => {
+    const x = i * (sw + gap);
+    const cls = i === o.step ? (o.step >= 2 ? 'dm-on warn' : 'dm-on') : i < o.step ? 'dm-past' : 'dm-off';
+    s += `<rect class="${cls}" x="${f1(x)}" y="6" width="${f1(sw)}" height="12" rx="3"/>`;
+    s += `<text x="${f1(x + sw / 2)}" y="34" text-anchor="middle" class="${i === o.step ? 'lbl-b' : 'tick'}">${esc(t)}</text>`;
+  });
+  const mx = o.step * (sw + gap) + sw / 2;
+  s += `<path class="dm-mark" d="M${f1(mx - 5)} 1 L${f1(mx + 5)} 1 L${f1(mx)} 6 Z"/>`;
+  return `${s}</svg>`;
+}

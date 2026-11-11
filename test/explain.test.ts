@@ -45,9 +45,9 @@ describe('the models, said honestly', () => {
   it('matches the classifier’s words to its number, says it as a frequency, and says what it is not', () => {
     const s = apartSaid({ auc: 0.77, floor: 0.55, n: 200, days: 17, columns: [{ column: 'mode', share: 0.9 }, { column: 'age', share: 0.1 }] }, (c) => c.toUpperCase());
     expect(s.strength).toBe('noticeably different');
-    expect(s.frequency).toMatch(/77 times in 100\. A coin toss gets 50; on shuffled labels it reached 55\./);
+    expect(s.frequency).toMatch(/right 77 times in 100; guessing gets 50\./);
     expect(s.against).toBe('Compared with 200 rows a side: today’s, and rows of 17 like days before it.');
-    expect(s.why).toBe('MODE (90%) and AGE (10%) are most of what tells today apart.');
+    expect(s.why).toBe('What makes it different: MODE (90%) and AGE (10%).');
     expect(s.caveat).toMatch(/isn’t necessarily wrong/);
     expect(apartSaid({ auc: 0.95, floor: 0.5, n: 30, days: 1, columns: [] }).strength).toBe('clearly different');
     expect(apartSaid({ auc: 0.55, floor: 0.5, n: 30, days: 1, columns: [] }).why).toBeNull();
@@ -80,5 +80,20 @@ describe('a column’s role and gist', () => {
     expect(columnGist(cat, 'category')).toBe('One of 3 values, most often aws (50%), gcp (30%) and f5 (20%). 10% of rows leave it blank.');
     const num = p({ kind: 'measure', facts: { rows: 10, present: 10, distinct: 10, min: 1, max: 300 }, quantiles: { p25: 20, p50: 40, p75: 90 } });
     expect(columnGist(num, 'number')).toBe('A number from 1 to 300; half of rows fall between 20 and 90.');
+  });
+});
+
+describe('round 2: no statistics on the face', () => {
+  it('says a quantile as 1 in N above or below, in the column’s unit', async () => {
+    const { quantileSaid, apartForColumn, differenceStep } = await import('../src/core/explain.js');
+    expect(quantileSaid(0.9, 'latency', 'sign-ins', '341 ms', '420 ms', '600 ms')).toBe('The highest 1 in 10 sign-ins by latency start at 341 ms today; usually they start at 420–600 ms.');
+    expect(quantileSaid(0.5, 'age', 'apps', '40', '30', '50')).toBe('Half of apps have age above 40 today; usually half are above 30–50.');
+    expect(quantileSaid(0.1, 'size', 'rows', '2', '2', '2')).toBe('The lowest 1 in 10 rows by size end at 2 today; usually they end at 2.');
+    expect(differenceStep(0.9)).toBe(3);
+    expect(differenceStep(0.55)).toBe(0);
+    const a = apartForColumn({ auc: 0.9, columns: [{ column: 'client', share: 0.6 }, { column: 'latency', share: 0.31 }] }, 'latency_ms', 'sign-ins', 'Latency');
+    expect(a.head).toBe('Today’s sign-ins look very different from earlier days.');
+    expect(a.part).toBeNull();
+    expect(apartForColumn({ auc: 0.8, columns: [{ column: 'client', share: 0.6 }, { column: 'latency', share: 0.31 }] }, 'latency', 'sign-ins', 'Latency').part).toBe('Latency is part of the reason: it explains about a third of why today stands out.');
   });
 });

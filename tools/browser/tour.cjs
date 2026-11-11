@@ -16,6 +16,7 @@
 //     "card": "trips_profile",           optional: the card whose drill-down to open (none: the canvas)
 //     "tab": "News",                      optional: the drill-down tab
 //     "full": true,                       optional: capture the whole sheet, not just the first screen
+//     "element": "#sheet .cp",            optional: capture only the first element matching, cropped to it
 //     "scheme": "dark",                   optional: "light" (default) or "dark"
 //     "mask": "letters",                  optional: mask the text ("letters": keep digits; "all"); reloads after
 //     "click": "#sheet .vf-hero",         optional: tap this first (a detail sheet opens), then capture
@@ -373,7 +374,18 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
         return out;
       });
       for (const s of sideways) problems.push(`${stop.name}: ${s}`);
-      if (stop.full && m.height > H) {
+      if (stop.element) {
+        // One part of the page, cropped to it (a focused screenshot for a person to judge one thing).
+        const el = p.locator(stop.element).first();
+        // A tall window first, so an element taller than the screen isn't cut off under the sheet's sticky head.
+        await p.setViewportSize({ width: W, height: Math.min(9000, m.height + 160) });
+        await quiet(600);
+        await el.scrollIntoViewIfNeeded();
+        await quiet(300);
+        await el.screenshot({ path: shot });
+        await p.setViewportSize({ width: W, height: H });
+        await quiet(300);
+      } else if (stop.full && m.height > H) {
         await p.setViewportSize({ width: W, height: Math.min(9000, m.height + 160) });
         await quiet(1000);
         await p.screenshot({ path: shot });

@@ -44,7 +44,7 @@ export function sourceNote(o: { file: string; day?: string | null; rows?: number
   const more = o.columns.length > 8 ? ` and ${o.columns.length - 8} more` : '';
   return [
     `### 1 · The file as it arrived`,
-    `${code(o.file)}${o.day ? `, the load of ${o.day},` : ''} is read here exactly as it arrived${o.rows !== undefined ? `: **${plural(o.rows, noun.one, noun.many)}**` : ''} in ${plural(o.columns.length, 'column')}${o.columns.length ? ` (${shown.join(', ')}${more})` : ''}.`,
+    `${code(o.file)}${o.day ? `, as received on ${o.day},` : ''} is read here exactly as it arrived${o.rows !== undefined ? `: **${plural(o.rows, noun.one, noun.many)}**` : ''} in ${plural(o.columns.length, 'column')}${o.columns.length ? ` (${shown.join(', ')}${more})` : ''}.`,
     `Nothing is changed here. Every check below reads these rows.`,
   ].join('\n\n');
 }
@@ -53,10 +53,10 @@ export function sourceNote(o: { file: string; day?: string | null; rows?: number
 export function gateNote(o: { file: string; layer?: string; modes: Partial<Record<CheckName, CheckMode>>; verdict?: string }): string {
   const by = (m: CheckMode) => (Object.entries(o.modes) as [CheckName, CheckMode][]).filter(([, x]) => x === m).map(([c]) => c);
   const lines = [`### 2 · The gate: what each check does`,
-    `The gate cell decides what happens when a check finds something in ${code(o.file)}${o.layer ? `. It starts from the **${o.layer}** layer’s defaults` : ''}: checks written as rules hold the day, checks learned from the history warn.`];
+    `The gate cell decides what happens when a check finds something in ${code(o.file)}. A check that **stops the day** keeps everything built from the file from going out until someone decides; a check that **warns** lets the day go out, marked to look at. By default, written checks stop the day and checks learned from history only warn${o.layer ? ` (the ${o.layer} layer’s defaults)` : ''}.`];
   const rows = (['hold', 'warn', 'off'] as const).map((m) => [m, by(m)] as const).filter(([, cs]) => cs.length);
-  if (rows.length) lines.push(rows.map(([m, cs]) => `- A check that ${MODE_EXPLAINED[m]}: ${list(cs.map(code))}.`).join('\n'));
-  lines.push('Switch a check on the card’s Quality tab, or write it here: `gate(file, { checks: { shares: \'off\' } })`.');
+  if (rows.length) lines.push(rows.map(([m, cs]) => `- **${m === 'hold' ? 'Stops the day going out' : m === 'warn' ? 'Warns only' : 'Switched off'}:** ${list(cs.map((c) => `${CHECK_PLAIN[c]} (${code(c)})`))}.`).join('\n'));
+  lines.push('Each check can be switched on the card’s Quality tab; the cell below is where the switches are written.');
   if (o.verdict) lines.push(`**Today:** ${o.verdict}.`);
   return lines.join('\n\n');
 }
@@ -111,10 +111,10 @@ export function apartSaid(a: { auc: number; floor: number; n: number; days: numb
   const top = a.columns.slice(0, 3);
   return {
     strength,
-    frequency: `Shown one of today’s rows and one earlier row, a model picks today’s ${k} times in 100. A coin toss gets 50; on shuffled labels it reached ${Math.round(a.floor * 100)}.`,
+    frequency: `A model was shown one of today’s rows and one earlier row, again and again, and asked which is today’s. It was right ${k} times in 100; guessing gets 50.`,
     against: `Compared with ${plural(a.n, 'row')} a side: today’s, and rows of ${plural(a.days, 'like day')} before it.`,
-    why: top.length ? `${list(top.map((c) => `${name(c.column)} (${Math.round(c.share * 100)}%)`))} ${top.length === 1 ? 'is' : 'are'} most of what tells today apart.` : null,
-    caveat: 'Different isn’t necessarily wrong: a planned change looks the same. Look at the columns first.',
+    why: top.length ? `What makes it different: ${list(top.map((c) => `${name(c.column)} (${Math.round(c.share * 100)}%)`))}.` : null,
+    caveat: 'Different isn’t necessarily wrong: a planned change looks the same. The Columns tab shows what changed in each column.',
   };
 }
 
@@ -182,3 +182,58 @@ export function columnGist(p: ProfileLike, role: ColumnRole, fmt: (v: number) =>
     default: return `Free text, ${f.distinct.toLocaleString('en-US')} different values.${blanks}`;
   }
 }
+
+/**
+ * A quantile said without statistics (amendment 3, round 2): "1 in 10 sign-ins have a latency above 341 ms today;
+ * usually that line is at 420–600 ms". `q` is the quantile (0.01 to 0.99); the values come written in their unit.
+ */
+export function quantileSaid(q: number, column: string, noun: string, value: string, low: string, high: string): string {
+  const usual = spanOf(low, high);
+  if (q === 0.5) return `Half of ${noun} have ${column} above ${value} today; usually half are above ${usual}.`;
+  const k = q <= 0.01 || q >= 0.99 ? '1 in 100' : q <= 0.1 || q >= 0.9 ? '1 in 10' : '1 in 4';
+  return q > 0.5
+    ? `The highest ${k} ${noun} by ${column} start at ${value} today; usually they start at ${usual}.`
+    : `The lowest ${k} ${noun} by ${column} end at ${value} today; usually they end at ${usual}.`;
+}
+
+/** How different today's rows are, as a step on a four-step scale (0 the same as usual … 3 very different), from the
+ * classifier's held-out AUC: for a picture that needs no statistics. */
+export const differenceStep = (auc: number): 0 | 1 | 2 | 3 => (auc >= 0.9 ? 3 : auc >= 0.75 ? 2 : auc >= 0.6 ? 1 : 0);
+export const DIFFERENCE_SAID = ['about the same as usual', 'slightly different', 'noticeably different', 'very different'] as const;
+
+/** The classifier said for one column, in words: how different today is, and this column's part in it. */
+export function apartForColumn(a: { auc: number; columns: readonly { column: string; share: number }[] }, column: string, noun: string, title: string): { head: string; part: string | null } {
+  const mine = a.columns.find((c) => c.column === column);
+  const top = a.columns[0];
+  return {
+    head: `Today’s ${noun} look ${DIFFERENCE_SAID[differenceStep(a.auc)]} from earlier days.`,
+    part: mine ? `${title} ${mine === top ? 'is the biggest reason' : 'is part of the reason'}: it explains ${shareWords(mine.share)} of why today stands out.` : null,
+  };
+}
+
+/** Two values written in the same unit, as a span with the unit once: "1,365–1,820 ms", "20–90"; one value alone when
+ * they are the same. */
+export function spanOf(low: string, high: string): string {
+  if (low === high) return low;
+  const unit = /\s*[^\d.,\s-][^\d]*$/.exec(high)?.[0] ?? '';
+  return unit && low.endsWith(unit) ? `${low.slice(0, -unit.length)}–${high}` : `${low}–${high}`;
+}
+
+/** A share said in words, for someone who doesn't read percentages: "most", "about half", "about a third"… */
+export function shareWords(x: number): string {
+  if (x >= 0.8) return 'nearly all';
+  if (x >= 0.6) return 'most';
+  if (x >= 0.45) return 'about half';
+  if (x >= 0.28) return 'about a third';
+  if (x >= 0.2) return 'about a quarter';
+  if (x >= 0.08) return 'a little';
+  return 'very little';
+}
+
+/** Each check by a plain name, for someone who doesn't know the vocabulary (the gate cell's names are in brackets). */
+export const CHECK_PLAIN: Record<CheckName, string> = {
+  schema: 'the right columns', amount: 'about as many rows as usual', blanks: 'no more blanks than usual', values: 'no bad or unknown values',
+  rules: 'rows keep the written rules', scope: 'exactly the expected items', needs: 'values other data allows', due: 'nothing overdue',
+  reconcile: 'one row per item', shares: 'values as common as usual', shape: 'numbers spread as usual', hours: 'arrivals through the day as usual',
+  pairs: 'columns go together as usual', forest: 'the day as a whole as usual', classifier: 'rows that look like earlier days’',
+};
