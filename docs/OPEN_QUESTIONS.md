@@ -80,6 +80,7 @@ one (0015) is to be written from them. Nothing here is built.
 | Q-133 | At the tip, on the fork's data (`618e81a`), `test/hold-real.test.ts` and `test/story-real.test.ts` fail six tests: the taxi example holds 41 days under `wrong` where its vector says 25 (the legacy form 43 for 28), and three word budgets are passed. CI skips these tests, which need `dist/app/data/history.json`. Bring the vector back to 25, or accept the days added? | Not asked yet: the days added, and the judge that holds them, are to be found first | open |
 | Q-156 | Which smalt repositories does smaltfl build on, and at which commits? | The maintainer, 2026-11-11: stenhoor's (Steve TenHoor's) repositories, never a fork, at their latest work: every pin moved to its repository's `main` now, and every session starts by moving them again (`npm run deps:latest`), keeping them only if smaltfl is green on them (ADR 0017) | decided |
 | Q-157 | Which screens is the app designed and checked for? | The maintainer, 2026-11-11: phone, tablet and desktop, as a standing requirement: every screen at 390×844, 820×1180, 1180×820 and 1440×900, the phone's rules the base (ADR 0018) | decided |
+| Q-158 | How does a notebook read in a card's sheet? | The maintainer, 2026-11-11: as smaltnb's page does, inside the sheet: each cell's header, code and output in smaltkit's editor and grid, the flow's own cells read-only, and the reader's own cells to explore, edited and run as smaltnb's (ADR 0011 §6, as built) | decided |
 
 ## The bronze layer: the maintainer's request, and what is open (ADR 0015)
 

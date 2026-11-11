@@ -15,7 +15,7 @@ import { holidayOf, seasonOf, US_NYC_1, type Calendar } from '../core/calendar.j
  * among the taxi example's. */
 const calendarNow = (): Calendar => history?.calendar ?? US_NYC_1;
 import { canonicalJSON } from '../core/canonical.js';
-import type { FlowDocument, GroupDef, NotebookOutline, ProfileDef, StepDef } from '../core/document.js';
+import type { FlowDocument, GroupDef, NotebookOutline, OutlineCell, ProfileDef, StepDef } from '../core/document.js';
 import { GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
 import { notebookSectionId } from '../core/notebook.js';
 import { briefOf, briefText, type BriefIn, type BriefOption } from '../core/brief.js';
@@ -32,6 +32,9 @@ import { UNTIL, afterLine, betweenLine, dayPausedLine, daySentence, decidedLines
 import { countedChecks, rangesFor, dayClaim, dayState, flowStory, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, tailPath, type Claim, decisionFor, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, lastPublished, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
 import { dayVersions, donorIdOf, fillCounts, levelOf as acceptedLevel, levelWays, partLabel as remedyPart, type Offer, type Repair, type Version } from '../core/fill.js';
 import { gridOf, shadeOf, shareOf, standOut } from './grid.js';
+import { button as nbButton, formatMs, makeCell, showError, showMarkdown, showRows as showGridRows, type CellStatus, type CellUi } from './nbcells.js';
+import type { EditorSchema, SchemaColumn } from 'smaltkit/editor';
+import type { GridRow } from 'smaltkit/grid';
 import { derivedAbout, derivedFails, derivedKeys, derivedWhy, donorsOf, filledRows, pinDonor, repairOf, stageRepair, type Listed, type Remedies } from './fills.js';
 import { followsCause as followsFrom, ACT_VERB, CELL_KINDS, CELL_NAMES, CONTEXT_TAG, HEALTH_HEAD, STRIP_KEY, approx, axisShare, recentSpan, cardWords, changeLabel, compact, countLabel, countRange, fallSteps, gateHead, overLabel, gateLabels, gateOf, partLabel, ruleOrder, ruleUsual, shortWho, splitSentence, splitSteps, storyOf, type Cell, type DayStep, type Gate, type HourValues, type Story, type Told } from '../core/story.js';
 import { aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, degrees, weatherHours, chain, composition, contextBars, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
@@ -1639,169 +1642,191 @@ function syncCanvasKey(): void {
 const notebookOfSection = (id: string): NotebookOutline | undefined => state.doc.outline?.find((o) => notebookSectionId(o.path) === id);
 
 /**
- * A notebook read top to bottom (ADR 0011 §6): each heading a part, each md cell its words, each source and step a
- * card that opens its sheet, with the rows that flow out of it once it has run and the rows that go on to the next
- * card between them, a check's rules and what each caught, each step's code a tap away, and what the notebook
- * publishes. What its box on the canvas holds, read down the page.
+ * A notebook read as smaltnb shows it (ADR 0011 §6; the maintainer, 2026-11-11: "look and feel and interact with the
+ * data the same way smaltnb does"): each cell in order, a header with its name, its language and its status, its code
+ * in smaltkit's editor, and what the run made in smaltkit's grid beneath it. The flow's own cells are read-only here
+ * (the notebook on disk is the flow's source: an edit there is a change to the flow, ADR 0004); a step's callouts (what
+ * a written rule caught, the day's news) and, on a watched step, its models sit between its code and its output. Under
+ * them, the reader's own cells (`exploreCells`), which run and are edited as smaltnb's are.
  */
-function notebookElements(o: NotebookOutline): HTMLElement[] {
-  const run = latest();
-  const rowsOf = (id: string): number | undefined => nodeOf(id)?.rows;
-  const nb = (id: string) => state.doc.notebooks?.find((n) => n.path === id);
-  const code = (path: string, line: number, endLine: number): string => {
-    const lines = (nb(path)?.source ?? '').split('\n').slice(line - 1, endLine);
+function notebookCells(o: NotebookOutline): HTMLElement[] {
+  const nb = state.doc.notebooks?.find((n) => n.path === o.path);
+  const code = (line: number, endLine: number): string => {
+    const lines = (nb?.source ?? '').split('\n').slice(line - 1, endLine);
     while (lines.length && lines[lines.length - 1]!.trim() === '') lines.pop();
-    const indent = Math.min(...lines.filter((l) => l.trim()).map((l) => /^\s*/.exec(l)![0].length));
-    return lines.map((l) => l.slice(Number.isFinite(indent) ? indent : 0)).join('\n');
-  };
-  const card = (id: string, kind: 'source' | 'step'): HTMLElement => {
-    if (!visible(id)) return h('p', { class: 'nb-md' }, `${id}: closed to ${personName(state.viewer)}.`);
-    const st = steps().get(id);
-    const n = nodeOf(id);
-    const line = cardLine(id);
-    const rows = rowsOf(id);
-    const classes = ['nb-card', kind, st?.dataset ? 'dataset' : '', n?.status === 'built' ? 'built' : '', state.failed?.origin === id ? 'failed' : '', state.selected === id ? 'selected' : ''].filter(Boolean).join(' ');
-    const status = n ? (n.status === 'folded' ? 'folded' : n.status) : run ? 'not run' : '';
-    return h('button', { type: 'button', class: classes, 'data-nb-card': id, onclick: () => select(id), 'aria-label': `${id}: open its sheet` },
-      h('span', { class: 'eyebrow' }, kindLabel(id)),
-      h('span', { class: 'nb-name' }, id),
-      h('span', { class: `nb-line ${line.tone === 'drop' ? 'drop' : ''}` }, line.mark ? glyphEl(PAUSE_MARK[line.mark], 13) : '', line.text),
-      h('span', { class: 'nb-side' }, rows !== undefined ? h('span', { class: 'nb-rows' }, `${fmtInt(rows)} rows`) : '', status ? h('span', { class: 'nb-status' }, status) : ''));
-  };
-  /** The rows that flow from a card to the next: the rows its version holds, or what its checks let through. */
-  const flowOut = (id: string): string | null => {
-    const n = nodeOf(id);
-    if (!n) return null;
-    if (n.expectations) return `${fmtInt(n.expectations.rows - n.expectations.dropped)} rows on`;
-    if (n.rows !== undefined) return `${fmtInt(n.rows)} rows on`;
-    return n.status === 'folded' ? 'folded into the next step' : null;
-  };
-  const checks = (id: string): HTMLElement | null => {
-    const e = nodeOf(id)?.expectations;
-    const st = steps().get(id);
-    if (!e || st?.kind !== 'expectations') return null;
-    return h('div', { class: 'nb-check', role: 'list', 'aria-label': 'The checks and what they caught' },
-      ...e.rules.flatMap((r) => [h('span', { class: 'k' }, r.name), h('span', {}, r.onFail === 'drop' ? 'drops' : r.onFail === 'fail' ? 'holds' : 'warns'), h('span', { class: `n ${r.failed && r.onFail === 'drop' ? 'drop' : ''}` }, r.failed ? `${fmtInt(r.failed)} rows` : 'none')]),
-      h('span', { class: 'k' }, 'in'), h('span', {}, ''), h('span', { class: 'n' }, `${fmtInt(e.rows)} rows`),
-      h('span', { class: 'k' }, 'dropped'), h('span', {}, ''), h('span', { class: `n ${e.dropped ? 'drop' : ''}` }, `${fmtInt(e.dropped)} rows`));
+    return lines.join('\n');
   };
   const parts: HTMLElement[] = [];
-  let lastCard: string | null = null;
-  const put = (el: HTMLElement) => parts.push(el);
-  const between = (id: string) => {
-    if (lastCard) {
-      const said = flowOut(lastCard);
-      if (said) parts.push(h('div', { class: 'nb-flow', 'aria-hidden': 'true' }, h('span', { class: 'arrow' }, '↓'), said));
-    }
-    lastCard = id;
-  };
-  {
-    for (const c of o.cells) {
-      if (c.kind === 'heading') {
-        put(h('h3', { class: 'nb-h' }, c.heading ?? ''));
-        if (c.text) put(h('p', { class: 'nb-lede' }, c.text));
-      } else if (c.kind === 'md') put(h('p', { class: 'nb-md' }, c.text ?? ''));
-      else if (c.kind === 'params') {
-        const values = run?.result.manifest.parameters ?? Object.fromEntries((state.doc.parameters ?? []).map((p) => [p.name, p.default ?? null]));
-        put(h('p', { class: 'nb-params' }, `Parameters · ${Object.entries(values).map(([k, v]) => `${k} = ${v === null || v === undefined ? '—' : String(v)}`).join(' · ')}`));
-      } else if (c.kind === 'source' && c.source) {
-        between(c.source);
-        put(card(c.source, 'source'));
-        for (const el of outputCells(c.source)) put(el);
-      } else if (c.kind === 'step' && c.step) {
-        between(c.step);
-        const st = steps().get(c.step);
-        const text = code(o.path, c.line, c.endLine);
-        const lines = text.split('\n').length;
-        put(h('div', { class: 'nb-step' }, card(c.step, 'step'), checks(c.step) ?? '',
-          h('details', { ...(st?.kind === 'sql' ? { open: 'open' } : {}) }, h('summary', {}, `${c.lang === 'sql' ? 'SQL' : st?.kind === 'expectations' ? 'The rules' : 'The cell'} · ${plural(lines, 'line')}`), h('pre', { class: 'cell-code' }, h('code', {}, text)))));
-        for (const el of outputCells(c.step)) put(el);
-      } else if (c.kind === 'publish' && c.publishes) {
-        put(h('p', { class: 'nb-pub' }, 'Publishes ', ...c.publishes.flatMap((n, i) => [i ? ', ' : '', h('b', {}, n)])));
-      }
+  for (const c of o.cells) {
+    if (c.kind === 'heading' || c.kind === 'md') {
+      const ui = keep(makeCell({ name: c.cell, chip: 'md', kind: 'md' }));
+      showMarkdown(ui, c.kind === 'heading' ? `## ${c.heading ?? ''}${c.text ? `\n\n${c.text}` : ''}` : c.text ?? '');
+      ui.setStatus('ok', '');
+      parts.push(ui.root);
+    } else if (c.kind === 'params') {
+      const values = latest()?.result.manifest.parameters ?? Object.fromEntries((state.doc.parameters ?? []).map((p) => [p.name, p.default ?? null]));
+      const ui = keep(makeCell({ name: c.cell, chip: 'params', kind: 'params', code: code(c.line, c.endLine), readOnly: true, maxLines: 6 }));
+      ui.setStatus('ok', '');
+      ui.output.replaceChildren(h('p', { class: 'nbc-line' }, Object.entries(values).map(([k, v]) => `${k} = ${v === null || v === undefined ? '—' : String(v)}`).join(' · ')));
+      parts.push(ui.root);
+    } else if ((c.kind === 'source' && c.source) || (c.kind === 'step' && c.step)) {
+      parts.push(flowCell(c.cell, (c.source ?? c.step)!, c.kind === 'source' ? 'source' : stepChip(c.step!, c.lang), code(c.line, c.endLine)));
+    } else if (c.kind === 'gate' && c.gate) {
+      const ui = keep(makeCell({ name: c.cell, chip: 'gate', kind: 'gate', code: code(c.line, c.endLine), readOnly: true, maxLines: 8, label: `Cell ${c.cell}, read-only` }));
+      ui.setStatus(latest() ? 'ok' : 'idle', latest() ? '' : 'not run', `judges ${c.gate}`);
+      if (visible(c.gate)) ui.setActions(nbButton('Its checks ›', `Open ${c.gate}’s Checks tab`, () => openTab(c.gate!, 'checks'), 'small'));
+      parts.push(ui.root);
+    } else if (c.kind === 'publish' && c.publishes) {
+      const ui = keep(makeCell({ name: c.cell, chip: 'publish', kind: 'publish', code: code(c.line, c.endLine), readOnly: true, maxLines: 6 }));
+      ui.setStatus('ok', '');
+      ui.output.replaceChildren(h('p', { class: 'nbc-line' }, 'Publishes ', ...c.publishes.flatMap((n, i) => [i ? ', ' : '', h('b', {}, n)])));
+      parts.push(ui.root);
     }
   }
   return parts;
 }
 
+/** The cells on screen, so a redraw stops their grids watching their size. */
+let nbShown: CellUi[] = [];
+const keep = (c: CellUi): CellUi => (nbShown.push(c), c);
+function dropShown(): void {
+  for (const c of nbShown) c.destroy();
+  nbShown = [];
+}
+
+const stepChip = (id: string, lang: OutlineCell['lang']): string => {
+  const k = steps().get(id)?.kind;
+  return k === 'expectations' ? 'check' : k === 'fill' ? 'fill' : lang;
+};
+
+/** A source's or a step's status in smaltnb's words: what the latest run did with it, and the card's line as the reason. */
+function flowStatus(id: string): { status: CellStatus; text: string; reason: string } {
+  const line = cardLine(id);
+  const n = nodeOf(id);
+  const rows = n?.rows !== undefined ? ` · ${plural(n.rows, 'row')}` : '';
+  if (state.failed?.origin === id) return { status: 'error', text: 'failed', reason: line.text };
+  if (!latest()) return { status: 'idle', text: 'not run', reason: '' };
+  if (!n) return { status: 'idle', text: 'not run', reason: line.text };
+  if (n.status === 'refused') return { status: 'error', text: 'refused', reason: line.text };
+  if (line.mark) return { status: 'held', text: `held${rows}`, reason: line.text };
+  // Something wrong or unusual in the day's news about it: amber, the news's first line as the reason (the canvas's dot).
+  const health = healthOf(id);
+  if (health === 'alert' || health === 'warn') return { status: 'held', text: `${health === 'alert' ? 'wrong' : 'unusual'}${rows}`, reason: cardNews(id).find((f) => f.severity === health)?.title ?? line.text };
+  if (n.status === 'folded') return { status: 'skipped', text: 'folded', reason: 'folded into the step that reads it' };
+  return { status: line.tone === 'drop' ? 'stale' : 'ok', text: `${n.status}${rows}`, reason: line.text };
+}
+
+/** A source or a step: its code, read-only; its callouts; its rows in the grid, fetched when the cell scrolls into view. */
+function flowCell(cell: string, id: string, chip: string, text: string): HTMLElement {
+  const ui = keep(makeCell({ name: id, chip, kind: chip === 'source' ? 'source' : 'step', code: text, readOnly: true, maxLines: 8, label: `Cell ${cell}, read-only` }));
+  ui.root.dataset.nbCard = id;
+  if (!visible(id)) {
+    ui.setStatus('skipped', 'closed', `closed to ${personName(state.viewer)}`);
+    return ui.root;
+  }
+  const st = flowStatus(id);
+  ui.setStatus(st.status, st.text, st.reason);
+  ui.setActions(nbButton('Open ›', `Open ${id}: its news, data, columns and checks`, () => select(id), 'small'));
+  const callouts = flowCallouts(id);
+  if (callouts.length) ui.body.prepend(h('div', { class: 'nbc-callouts' }, ...callouts));
+  const models = modelsCell(id);
+  if (models) ui.body.append(models);
+  if (!nodeOf(id)) return ui.root;
+  ui.output.replaceChildren(h('div', { class: 'mini-wait' }));
+  // One output at a time, top to bottom: the first rows of each (the grid fetches the rest as it scrolls).
+  outputQueue = outputQueue.then(() => (ui.root.isConnected ? fillFlowOutput(ui, id) : undefined)).catch(() => undefined);
+  return ui.root;
+}
+let outputQueue: Promise<void> = Promise.resolve();
+
+async function fillFlowOutput(ui: CellUi, id: string): Promise<void> {
+  const nv = await nodeView(id, state.viewer);
+  if (typeof nv === 'string') return void ui.output.replaceChildren(h('p', { class: 'nbc-line' }, nv));
+  try {
+    const total = nodeOf(id)?.rows ?? Number((await state.engine!.query(`SELECT count(*) AS n FROM (\n${nv.read}\n)`)).rows[0]?.[0] ?? 0);
+    const fetch = async (offset: number, limit: number) => (await state.engine!.query(`SELECT * FROM (\n${nv.read}\n) LIMIT ${limit} OFFSET ${offset}`)).rows as GridRow[];
+    const first = await state.engine!.query(`SELECT * FROM (\n${nv.read}\n) LIMIT 50`);
+    // A small output (a summary) has its picture above its rows: it is read, not scrolled (ADR 0013 §8).
+    const glance = total <= 500 ? await glanceOf(id, nv.read).catch(() => null) : null;
+    showGridRows(ui, { columns: first.columns, rowCount: total, initial: first.rows as GridRow[], fetch }, {
+      file: `${id}-${newsDay() ?? 'rows'}`,
+      before: glance ? [glance] : [],
+      extra: [
+        h('button', { type: 'button', class: 'linkish', onclick: () => openTab(id, 'data') }, 'Each column’s shape ›'),
+        h('button', { type: 'button', class: 'linkish', onclick: () => addExploreCell(`SELECT *\nFROM ${id}\nLIMIT 20`) }, 'Explore in a cell'),
+      ],
+    });
+  } catch (err) {
+    showError(ui, String(err instanceof Error ? err.message : err));
+  }
+}
+
 /**
- * The cells a notebook shows under a step once the flow has run (the maintainer, 2026-11-11: "each of the steps should
- * have an output cell that you can view the data set"): callouts first, for what a written rule caught and for the
- * day's news about the step, each a tap from where it is told in full; then the output, its first rows (and the
- * picture of a small output, `glanceOf`), folded until opened; then, on a watched step, the two models' visuals behind a
- * toggle. Nothing here is part of the notebook's source or its hash: it is what the run made, read in place.
+ * What the notebook tells under a step before its rows (the maintainer, 2026-11-11): what a written rule caught, and the
+ * day's warn and alert news about the step, each a tap from where it is told in full.
  */
-function outputCells(id: string): HTMLElement[] {
-  if (!visible(id) || !nodeOf(id)) return [];
+function flowCallouts(id: string): HTMLElement[] {
   const out: HTMLElement[] = [];
-  const cell = (kind: string, label: string, body: Node | string, cls = '') => h('section', { class: `nb-out ${kind} ${cls}`.trim(), 'aria-label': label }, h('span', { class: 'nb-out-k' }, label), body);
-  // What a written rule caught: a check step's rules with rows against them.
-  const e = nodeOf(id)?.expectations;
-  for (const r of e?.rules ?? []) {
+  const call = (sev: string, label: string, body: Child[], go: () => void) => h('section', { class: `nb-out callout ${sev}`, 'aria-label': label },
+    h('button', { type: 'button', class: `nb-call ${sev}`, onclick: go }, glyphEl(sev === 'alert' ? 'alert' : sev === 'warn' ? 'warn' : 'note', 14), h('span', {}, ...body), h('span', { class: 'nb-go' }, '›')));
+  for (const r of nodeOf(id)?.expectations?.rules ?? []) {
     if (!r.failed) continue;
     const sev = r.onFail === 'fail' ? 'alert' : r.onFail === 'drop' ? 'warn' : 'note';
     const did = r.onFail === 'drop' ? 'dropped' : r.onFail === 'fail' ? 'held the day on' : 'flagged';
-    out.push(cell('callout', 'Rule', h('button', { type: 'button', class: `nb-call ${sev}`, onclick: () => openTab(id, 'dropped') },
-      glyphEl(sev === 'alert' ? 'alert' : sev === 'warn' ? 'warn' : 'note', 14), h('span', {}, h('b', {}, RULE_TITLE(r.name)), ` ${did} ${plural(r.failed, 'row')}`), h('span', { class: 'nb-go' }, '›')), sev));
+    out.push(call(sev, 'Rule', [h('b', {}, RULE_TITLE(r.name)), ` ${did} ${plural(r.failed, 'row')}`], () => openTab(id, 'dropped')));
   }
-  // The day's news about the step: what is out of the ordinary, each a tap from its News.
-  const told = cardNews(id).filter((f) => (f.severity === 'warn' || f.severity === 'alert') && f.kind !== 'calm').slice(0, 2);
-  for (const f of told) {
-    out.push(cell('callout', 'News', h('button', { type: 'button', class: `nb-call ${f.severity}`, onclick: () => openTab(id, 'news') },
-      glyphEl(f.severity === 'alert' ? 'alert' : f.severity === 'warn' ? 'warn' : 'note', 14), h('span', {}, f.title), h('span', { class: 'nb-go' }, '›')), f.severity));
-  }
-  // The output: its first rows when opened, a small output's picture above them.
-  const body = h('div', { class: 'nb-out-body' }, h('div', { class: 'mini-wait' }));
-  let filled = false;
-  const fill = async () => {
-    if (filled) return;
-    filled = true;
-    const nv = await nodeView(id, state.viewer);
-    if (typeof nv === 'string') return body.replaceChildren(h('p', { class: 'foot' }, nv));
-    const r = await state.engine!.query(`SELECT * FROM (\n${nv.read}\n) LIMIT 8`);
-    const total = nodeOf(id)?.rows;
-    const glance = await glanceOf(id, nv.read).catch(() => null);
-    body.replaceChildren(...(glance ? [glance] : []), table(r.columns, r.rows as unknown[][], undefined, false, meaningsOf(id)),
-      h('p', { class: 'foot' }, `${total !== undefined ? `First ${fmtInt(r.rows.length)} of ${fmtInt(total)} rows` : `${fmtInt(r.rows.length)} rows`} · `, h('button', { type: 'button', class: 'linkish', onclick: () => openTab(id, 'data') }, 'all of them, with each column’s shape ›'),
-      ' · ', h('button', { type: 'button', class: 'linkish', onclick: () => addExploreCell(`SELECT *\nFROM ${id}\nLIMIT 20`) }, 'explore it in a cell of your own')));
-  };
-  const rows = nodeOf(id)?.rows;
-  const data = h('details', { class: 'nb-out output' }, h('summary', {}, h('span', { class: 'nb-out-k' }, 'Output'), ` ${id}${rows !== undefined ? ` · ${fmtInt(rows)} rows` : ''}`), body);
-  data.addEventListener('toggle', () => data.open && void fill());
-  // A small output (a summary) is open from the start: it is read, not scrolled.
-  if (rows !== undefined && rows <= 120 && isOutput(id)) (data.open = true), void fill();
-  out.push(data);
-  // The two models, on a watched step: the forest's strip and the classifier's track, behind a toggle.
-  if (Object.keys(state.doc.publish?.watch ?? {}).some((w) => w.toLowerCase() === id.toLowerCase())) {
-    const mbody = h('div', { class: 'nb-out-body' }, h('div', { class: 'mini-wait' }));
-    const models = h('details', { class: 'nb-out models' }, h('summary', {}, h('span', { class: 'nb-out-k' }, 'Models'), ' the isolation forest and the classifier on this day'), mbody);
-    let done = false;
-    models.addEventListener('toggle', () => {
-      if (!models.open || done) return;
-      done = true;
-      void modelsTab(id, id).then((el) => mbody.replaceChildren(el)).catch((err: unknown) => mbody.replaceChildren(h('p', { class: 'foot' }, `The models couldn’t be drawn: ${String(err)}`)));
-    });
-    out.push(models);
+  for (const f of cardNews(id).filter((x) => (x.severity === 'warn' || x.severity === 'alert') && x.kind !== 'calm').slice(0, 2)) {
+    out.push(call(f.severity, 'News', [f.title], () => openTab(id, 'news')));
   }
   return out;
 }
 
-// ------------------------------------------------------------------ explore cells: the reader's own
+/** On a watched step, the two models' visuals, behind a toggle under its output. */
+function modelsCell(id: string): HTMLElement | null {
+  if (!Object.keys(state.doc.publish?.watch ?? {}).some((w) => w.toLowerCase() === id.toLowerCase())) return null;
+  const body = h('div', { class: 'nb-out-body' }, h('div', { class: 'mini-wait' }));
+  const models = h('details', { class: 'nb-out models' }, h('summary', {}, h('span', { class: 'nb-out-k' }, 'Models'), ' the isolation forest and the classifier on this day'), body);
+  let done = false;
+  models.addEventListener('toggle', () => {
+    if (!models.open || done) return;
+    done = true;
+    void modelsTab(id, id).then((el) => body.replaceChildren(el)).catch((err: unknown) => body.replaceChildren(h('p', { class: 'foot' }, `The models couldn’t be drawn: ${String(err)}`)));
+  });
+  return models;
+}
 
-/** A cell the reader adds under a notebook to look further: SQL over the flow's datasets by name, or a note. */
-interface ExploreCell { id: string; kind: 'sql' | 'note'; text: string }
+// ------------------------------------------------------------------ your cells: the reader's own, as smaltnb's
 
-/** Explore cells are the reader's, kept in this browser by flow and notebook: never in the notebook's source, the plan
- * or a hash, so exploring changes nothing the flow computes or what readers are published. */
+/** A cell the reader adds under a notebook: SQL over the flow's datasets and the cells above it by name, or text. */
+interface ExploreCell { id: string; kind: 'sql' | 'md'; name: string; text: string }
+
+/** The reader's cells are kept in this browser by flow and notebook: never in the notebook's source, the plan or a hash,
+ * so exploring changes nothing the flow computes or what readers are published. */
 const exploreKey = (path: string) => `smaltfl:explore:${state.doc.id}:${path}`;
-let exploreAt: { path: string; host: HTMLElement } | null = null;
+let exploreAt: { path: string; host: HTMLElement; ui: Map<string, CellUi>; schema: EditorSchema } | null = null;
 function exploreCellsOf(path: string): ExploreCell[] {
   try {
     const v = JSON.parse(localStorage.getItem(exploreKey(path)) ?? '[]') as unknown;
-    return Array.isArray(v) ? (v as ExploreCell[]).filter((c) => c && typeof c.text === 'string' && (c.kind === 'sql' || c.kind === 'note')) : [];
+    if (!Array.isArray(v)) return [];
+    // Notes kept before the cells were smaltnb's are its text cells.
+    const cells = (v as Partial<ExploreCell & { kind: string }>[]).filter((c) => c && typeof c.text === 'string' && typeof c.id === 'string')
+      .map((c) => ({ id: c.id!, kind: c.kind === 'sql' ? 'sql' : 'md', name: c.name ?? '', text: c.text! }) as ExploreCell);
+    return named(cells);
   } catch {
     return [];
   }
+}
+/** Each cell its name, as smaltnb names them: `query1`, `text1`, … in order, a name once given kept. */
+function named(cells: ExploreCell[]): ExploreCell[] {
+  const used = new Set(cells.map((c) => c.name).filter(Boolean));
+  return cells.map((c) => {
+    if (c.name) return c;
+    const prefix = c.kind === 'sql' ? 'query' : 'text';
+    let n = 1;
+    while (used.has(`${prefix}${n}`)) n++;
+    used.add(`${prefix}${n}`);
+    return { ...c, name: `${prefix}${n}` };
+  });
 }
 function saveExploreCells(path: string, cells: ExploreCell[]): void {
   try {
@@ -1813,96 +1838,180 @@ function saveExploreCells(path: string, cells: ExploreCell[]): void {
 }
 const memo = new Map<string, ExploreCell[]>();
 const cellsFor = (path: string) => memo.get(path) ?? exploreCellsOf(path);
+const editCell = (path: string, id: string, text: string) => saveExploreCells(path, cellsFor(path).map((x) => (x.id === id ? { ...x, text } : x)));
 
-/** Add a cell to the notebook on screen, and open it to edit. */
+/** Add a cell under the notebook on screen, and run it (a text cell: open it to write). */
 function addExploreCell(text: string, kind: ExploreCell['kind'] = 'sql'): void {
   if (!exploreAt) return;
-  const cell: ExploreCell = { id: `x${Date.now().toString(36)}`, kind, text };
-  saveExploreCells(exploreAt.path, [...cellsFor(exploreAt.path), cell]);
-  drawExplore(cell.id);
+  const { path } = exploreAt;
+  const cells = named([...cellsFor(path), { id: `x${Date.now().toString(36)}`, kind, name: '', text }]);
+  saveExploreCells(path, cells);
+  const added = cells[cells.length - 1]!;
+  drawExplore();
+  const ui = exploreAt.ui.get(added.id);
+  ui?.root.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  ui?.editor?.focus();
+  if (kind === 'sql') void runExplore(added.id);
 }
 
 /**
  * A reader's SQL as the engine runs it: each dataset of the flow named after FROM or JOIN is the version this run made
- * (what its sheet's Data shows to this viewer), so `SELECT … FROM posture` reads today's posture, and a dataset closed to
- * the viewer is refused by name.
+ * (what its sheet's Data shows to this viewer), so `SELECT … FROM posture` reads today's posture; a cell above it is read
+ * by its name as smaltnb's are (`FROM query1`); a dataset closed to the viewer is refused by name.
  */
-async function exploreSql(text: string): Promise<string> {
+async function exploreSql(text: string, above: ReadonlyMap<string, string> = new Map()): Promise<string> {
   const names = new Map([...state.doc.sources.map((x) => x.id), ...steps().keys()].map((n) => [n.toLowerCase(), n] as const));
-  const used = new Set<string>();
-  for (const m of text.matchAll(/\b(?:FROM|JOIN)\s+([A-Za-z_]\w*)/gi)) if (names.has(m[1]!.toLowerCase())) used.add(names.get(m[1]!.toLowerCase())!);
   const reads = new Map<string, string>();
-  for (const n of used) {
-    const nv = await nodeView(n, state.viewer);
-    if (typeof nv === 'string') throw new Error(`${n}: ${nv}`);
-    reads.set(n.toLowerCase(), nv.read);
+  for (const m of text.matchAll(/\b(?:FROM|JOIN)\s+([A-Za-z_]\w*)/gi)) {
+    const key = m[1]!.toLowerCase();
+    if (reads.has(key)) continue;
+    if (above.has(key)) reads.set(key, above.get(key)!);
+    else if (names.has(key)) {
+      const nv = await nodeView(names.get(key)!, state.viewer);
+      if (typeof nv === 'string') throw new Error(`${names.get(key)}: ${nv}`);
+      reads.set(key, nv.read);
+    }
   }
   return text.replace(/\b(FROM|JOIN)(\s+)([A-Za-z_]\w*)\b/gi, (all, kw: string, sp: string, name: string) => (reads.has(name.toLowerCase()) ? `${kw}${sp}(\n${reads.get(name.toLowerCase())}\n) AS ${name}` : all));
 }
 
-/** The reader's cells under a notebook: each SQL cell its editor, Run, and its result (rows, and a picture where they
- * make a grid); each note its words; Add a cell; all kept in this browser. */
+/** What the editor completes and marks: the flow's datasets (with their columns once read) and the cells above. */
+function exploreSchema(): EditorSchema {
+  const names = new Set<string>();
+  const tables = new Map<string, SchemaColumn[] & { kind?: string }>();
+  for (const n of [...state.doc.sources.map((x) => x.id), ...steps().keys()]) {
+    if (!visible(n)) continue;
+    names.add(n.toLowerCase());
+    tables.set(n.toLowerCase(), Object.assign([] as SchemaColumn[], { kind: 'table' }));
+  }
+  return { names, tables };
+}
+/** Fills the schema's columns from the run (a dataset's columns as this viewer sees them), in the background. */
+async function fillSchema(schema: EditorSchema): Promise<void> {
+  for (const [key, cols] of schema.tables) {
+    const id = [...state.doc.sources.map((x) => x.id), ...steps().keys()].find((n) => n.toLowerCase() === key);
+    if (!id || cols.length) continue;
+    const nv = await nodeView(id, state.viewer).catch(() => 'no');
+    if (typeof nv !== 'string') cols.push(...nv.columns.map((name) => ({ name })));
+  }
+}
+
+/** The reader's cells under a notebook, kept across the sheet's redraws while it shows the same notebook. */
 function exploreCells(o: NotebookOutline): HTMLElement {
+  if (exploreAt?.path === o.path && exploreAt.host.isConnected) return exploreAt.host;
   const host = h('section', { class: 'nb-explore', 'aria-label': 'Your cells' });
-  exploreAt = { path: o.path, host };
+  const schema = exploreSchema();
+  exploreAt = { path: o.path, host, ui: new Map(), schema };
+  if (latest()) void fillSchema(schema);
   drawExplore();
   return host;
 }
 
-function drawExplore(editing?: string): void {
+function drawExplore(): void {
   if (!exploreAt) return;
-  const { path, host } = exploreAt;
-  const cells = cellsFor(path);
-  const first = [...steps().keys()].find((k) => isOutput(k)) ?? [...steps().keys()].pop() ?? state.doc.sources[0]?.id ?? 'x';
+  const at = exploreAt;
+  for (const c of at.ui.values()) c.destroy();
+  at.ui.clear();
+  const cells = cellsFor(at.path);
   const parts: HTMLElement[] = [h('h3', { class: 'nb-h' }, 'Your cells'),
-    h('p', { class: 'foot' }, cells.length ? 'Kept in this browser, not in the notebook: what you explore here changes nothing the flow computes or publishes.' : 'Explore further: SQL over any dataset of the flow by its name (today’s version), or a note. Kept in this browser, not in the notebook.')];
+    h('p', { class: 'foot' }, cells.length ? 'Kept in this browser, not in the notebook: what you explore here changes nothing the flow computes or publishes. Ctrl+Enter runs a cell; Shift+Enter runs it and moves on.' : 'Explore further: SQL over any dataset of the flow by its name (today’s version) and over the cells above by theirs, or text. Kept in this browser, not in the notebook.')];
   cells.forEach((c, k) => {
-    const remove = h('button', { type: 'button', class: 'linkish', 'aria-label': 'Remove this cell', onclick: () => (saveExploreCells(path, cells.filter((x) => x.id !== c.id)), drawExplore()) }, 'Remove');
-    if (c.kind === 'note') {
-      const ta = h('textarea', { class: 'nb-x-note', rows: '2', 'aria-label': 'A note' }) as HTMLTextAreaElement;
-      ta.value = c.text;
-      ta.addEventListener('change', () => saveExploreCells(path, cellsFor(path).map((x) => (x.id === c.id ? { ...x, text: ta.value } : x))));
-      parts.push(h('div', { class: 'nb-x note' }, h('div', { class: 'nb-x-head' }, h('span', { class: 'nb-out-k' }, `Note ${k + 1}`), remove), ta));
-      return;
-    }
-    const ta = h('textarea', { class: 'nb-x-sql', rows: String(Math.min(10, Math.max(3, c.text.split('\n').length))), spellcheck: 'false', 'aria-label': 'SQL' }) as HTMLTextAreaElement;
-    ta.value = c.text;
-    const result = h('div', { class: 'nb-x-out' });
-    const go = async () => {
-      saveExploreCells(path, cellsFor(path).map((x) => (x.id === c.id ? { ...x, text: ta.value } : x)));
-      result.replaceChildren(h('div', { class: 'mini-wait' }));
-      try {
-        const sql = await exploreSql(ta.value.trim().replace(/;\s*$/, ''));
-        const r = await state.engine!.query(`SELECT * FROM (\n${sql}\n) LIMIT 200`);
-        const glance = await glanceOf('', sql).catch(() => null);
-        result.replaceChildren(...(glance ? [glance] : []), table(r.columns, r.rows as unknown[][]), h('p', { class: 'foot' }, `${fmtInt(r.rows.length)}${r.rows.length === 200 ? '+' : ''} rows`));
-      } catch (err) {
-        result.replaceChildren(h('p', { class: 'nb-x-err', role: 'alert' }, String(err instanceof Error ? err.message : err)));
-      }
+    const next = () => {
+      const after = cells[k + 1];
+      if (after) at.ui.get(after.id)?.editor?.focus();
     };
-    ta.addEventListener('keydown', (ev) => { if ((ev.metaKey || ev.ctrlKey) && ev.key === 'Enter') { ev.preventDefault(); void go(); } });
-    parts.push(h('div', { class: 'nb-x sql' }, h('div', { class: 'nb-x-head' }, h('span', { class: 'nb-out-k' }, `SQL ${k + 1}`), h('button', { type: 'button', class: 'btn small primary', onclick: () => void go() }, 'Run'), remove), ta, result));
-    if (c.id === editing) requestAnimationFrame(() => (ta.focus(), void go()));
-    else if (state.engine && latest()) void go();
+    let pending: ReturnType<typeof setTimeout> | null = null;
+    const ui: CellUi = makeCell({
+      name: c.name, chip: c.kind, kind: `explore ${c.kind}`, code: c.text, language: c.kind === 'sql' ? 'sql' : 'md', label: `${c.kind === 'sql' ? 'SQL' : 'Text'} of cell ${c.name}`,
+      schema: () => at.schema,
+      onChange: (v) => {
+        if (pending) clearTimeout(pending);
+        pending = setTimeout(() => {
+          editCell(at.path, c.id, v);
+          if (c.kind === 'md') showMarkdown(ui, v);
+          else if (ranText.has(c.id) && ranText.get(c.id) !== v) ui.setStatus('stale', 'stale', 'edited since it ran');
+        }, 300);
+      },
+      onRun: () => void (c.kind === 'sql' ? runExplore(c.id) : showMarkdown(ui, ui.editor!.value)),
+      onRunNext: () => {
+        if (c.kind === 'sql') void runExplore(c.id);
+        next();
+      },
+    });
+    ui.setActions(
+      ...(c.kind === 'sql' ? [nbButton('Run', 'Run this cell (Ctrl+Enter)', () => void runExplore(c.id), 'small')] : []),
+      nbButton('×', 'Remove this cell', () => (saveExploreCells(at.path, cellsFor(at.path).filter((x) => x.id !== c.id)), drawExplore()), 'small quiet'));
+    at.ui.set(c.id, ui);
+    if (c.kind === 'md') {
+      ui.setStatus('ok', '');
+      showMarkdown(ui, c.text);
+    } else ui.setStatus('idle');
+    parts.push(ui.root);
   });
-  parts.push(h('div', { class: 'nb-actions' },
-    h('button', { type: 'button', class: 'btn small', onclick: () => addExploreCell(`SELECT *\nFROM ${first}\nLIMIT 20`) }, '+ SQL cell'),
-    h('button', { type: 'button', class: 'btn small', onclick: () => addExploreCell('', 'note') }, '+ Note')));
-  host.replaceChildren(...parts);
+  parts.push(h('div', { class: 'nbc-add' },
+    nbButton('+ SQL', 'A SQL cell: its result is named after the cell', () => addExploreCell(`SELECT *\nFROM ${firstDataset()}\nLIMIT 20`)),
+    nbButton('+ Text', 'A text cell, written in Markdown', () => addExploreCell('Write here: **Markdown**.', 'md'))));
+  at.host.replaceChildren(...parts);
+  if (state.engine && latest()) for (const c of cells) if (c.kind === 'sql') void runExplore(c.id);
+}
+
+/** The text each of the reader's cells last ran with: an edit away from it marks the cell stale, as smaltnb does. */
+const ranText = new Map<string, string>();
+const firstDataset = () => [...steps().keys()].find((k) => isOutput(k)) ?? [...steps().keys()].pop() ?? state.doc.sources[0]?.id ?? 'x';
+
+/** Runs a reader's SQL cell: the cells above it by name, the flow's datasets as this run made them, the rows in the grid. */
+async function runExplore(id: string): Promise<void> {
+  const at = exploreAt;
+  if (!at || !state.engine) return;
+  const cells = cellsFor(at.path);
+  const k = cells.findIndex((c) => c.id === id);
+  const c = cells[k];
+  const ui = at.ui.get(id);
+  if (!c || !ui) return;
+  const text = (ui.editor?.value ?? c.text).trim().replace(/;\s*$/, '');
+  editCell(at.path, id, ui.editor?.value ?? c.text);
+  ranText.set(id, ui.editor?.value ?? c.text);
+  ui.setStatus('running');
+  const t0 = performance.now();
+  try {
+    // The cells above, each its SQL with what it reads resolved, so a cell reads another by its name.
+    const above = new Map<string, string>();
+    for (const x of cells.slice(0, k)) if (x.kind === 'sql' && x.text.trim()) above.set(x.name.toLowerCase(), await exploreSql(x.text.trim().replace(/;\s*$/, ''), above));
+    const sql = await exploreSql(text, above);
+    const total = Number((await state.engine.query(`SELECT count(*) AS n FROM (\n${sql}\n)`)).rows[0]?.[0] ?? 0);
+    const first = await state.engine.query(`SELECT * FROM (\n${sql}\n) LIMIT 50`);
+    const glance = total <= 500 ? await glanceOf('', sql).catch(() => null) : null;
+    ui.setStatus('ok', `ok · ${formatMs(performance.now() - t0)}`);
+    showGridRows(ui, {
+      columns: first.columns, rowCount: total, initial: first.rows as GridRow[],
+      fetch: async (offset, limit) => (await state.engine!.query(`SELECT * FROM (\n${sql}\n) LIMIT ${limit} OFFSET ${offset}`)).rows as GridRow[],
+    }, { file: c.name, before: glance ? [glance] : [] });
+    if (!at.schema.names.has(c.name.toLowerCase())) at.schema.names.add(c.name.toLowerCase());
+    at.schema.tables.set(c.name.toLowerCase(), Object.assign(first.columns.map((name) => ({ name })), { kind: 'view' }));
+  } catch (err) {
+    ui.setStatus('error', 'error');
+    showError(ui, String(err instanceof Error ? err.message : err));
+  }
+}
+
+/** Every SQL cell of the reader's, top to bottom (smaltnb's Run all; the flow's own cells are what the run made). */
+async function runAllExplore(): Promise<void> {
+  if (!exploreAt) return;
+  for (const c of cellsFor(exploreAt.path)) if (c.kind === 'sql') await runExplore(c.id);
 }
 
 /**
- * A notebook's sheet (ADR 0011 §6): what opens when its box on the canvas is tapped. The notebook itself, read top
- * to bottom, each of its cells a tap from its own sheet; and the box's own settings (its steps shown on the canvas or
- * folded into the box, its name and colour) under it.
+ * A notebook's sheet (ADR 0011 §6): what opens when its box on the canvas is tapped. smaltnb's bar (Run all, + SQL,
+ * + Text, Source), the notebook's cells, the reader's own cells, and the box's own settings (its steps shown on the
+ * canvas or folded into the box, its name and colour) under them.
  */
 function renderNotebookSheet(g: GroupDef, o: NotebookOutline): void {
   const sheet = $('sheet');
   sheet.classList.remove('drill');
   sheet.classList.add('nb-page');
+  dropShown();
   const folded = state.collapsed.has(g.id);
   const published = g.steps.filter((id) => isOutput(id));
-  const fold = h('button', { class: 'btn small', type: 'button', onclick: () => setFolded(g.id, !folded) }, folded ? 'Show its steps on the canvas' : 'Fold it into one box');
   const name = h('input', { id: 'section-name', type: 'text', maxlength: '40', autocomplete: 'off', spellcheck: 'false', enterkeyhint: 'done' });
   name.value = g.name;
   const title = h('h2', {}, g.name);
@@ -1915,15 +2024,39 @@ function renderNotebookSheet(g: GroupDef, o: NotebookOutline): void {
   const color = g.color ?? 'slate';
   const swatches = h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': 'Colour' },
     ...GROUP_COLORS.map((c) => h('button', { type: 'button', class: `swatch-btn c-${c}`, role: 'radio', 'aria-checked': String(c === color), 'aria-label': c, title: c, onclick: () => (editSection(g.id, (x) => ({ ...x, color: c })), renderSheet()) })));
+  // Source: the whole .nb.ts file in one read-only editor, as smaltnb's Source shows it.
+  const cellsHost = h('div', { class: 'nbc-list' }, ...notebookCells(o));
+  const source = state.doc.notebooks?.find((n) => n.path === o.path)?.source ?? '';
+  let sourceUi: CellUi | null = null;
+  const sourceBtn = nbButton('Source', 'Show the whole notebook as its .nb.ts file', () => {
+    const on = sourceBtn.getAttribute('aria-pressed') !== 'true';
+    sourceBtn.setAttribute('aria-pressed', String(on));
+    sourceBtn.textContent = on ? 'Cells' : 'Source';
+    if (on) {
+      sourceUi = keep(makeCell({ name: o.path, chip: 'ts', kind: 'source-file', code: source.replace(/\n+$/, ''), readOnly: true, label: 'Notebook source, read-only' }));
+      sourceUi.setStatus('ok', '');
+      cellsHost.replaceChildren(sourceUi.root);
+    } else {
+      sourceUi?.destroy();
+      cellsHost.replaceChildren(...notebookCells(o));
+    }
+  });
+  sourceBtn.setAttribute('aria-pressed', 'false');
   sheet.setAttribute('aria-label', 'Notebook');
   sheet.replaceChildren(
     h('div', { class: 'sheet-head' },
       h('div', { style: 'flex:1;min-width:0' }, h('p', { class: 'eyebrow' }, `Notebook · ${o.path}`), title,
         h('p', { class: 'foot' }, `${plural(g.steps.length, 'step')}${published.length ? `, publishes ${published.join(', ')}` : ', publishes nothing: the next notebook reads it'}.`)),
       h('button', { class: 'close', type: 'button', 'aria-label': 'Close', onclick: () => select(null) }, '×')),
+    h('div', { class: 'nbc-bar', role: 'toolbar', 'aria-label': 'Notebook' },
+      nbButton('Run all', 'Run every cell of yours; the flow’s own cells show what its run made', () => void runAllExplore(), 'primary'),
+      nbButton('+ SQL', 'A SQL cell of your own: its result is named after the cell', () => addExploreCell(`SELECT *\nFROM ${firstDataset()}\nLIMIT 20`)),
+      nbButton('+ Text', 'A text cell of your own, written in Markdown', () => addExploreCell('Write here: **Markdown**.', 'md')),
+      sourceBtn,
+      h('span', { class: 'nbc-spacer' }),
+      nbButton(folded ? 'Show its steps on the canvas' : 'Fold it into one box', folded ? 'Draw the notebook’s steps on the canvas' : 'Draw the notebook as one box on the canvas', () => setFolded(g.id, !folded), 'quiet')),
     h('div', { class: 'sheet-body' },
-      h('div', { class: 'nb-actions' }, fold),
-      h('div', { class: 'nb' }, ...notebookElements(o)),
+      cellsHost,
       exploreCells(o),
       isOwner() ? h('details', { class: 'about-flow' }, h('summary', {}, 'The box on the canvas'),
         h('div', { class: 'sheet-body' },

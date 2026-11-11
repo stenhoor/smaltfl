@@ -1,46 +1,57 @@
 [
   {
     "name": "mar06-nb-summary",
-    "what": "Control estate, calm Wed Mar 6: the summary notebook read as a page: each step's SQL, its output open beneath it (a summary is small: its heat table and first rows), then the reader's own cells",
+    "what": "Control estate, calm Wed Mar 6: the summary notebook as smaltnb shows it: smaltnb's bar, each cell a header (name, chip, status), its code in smaltkit's editor (read-only), each step's rows in smaltkit's grid with its picture above (a summary is small), then the reader's own cells",
     "day": "Wed 6",
     "box": "nb-summary",
+    "waitFor": "#sheet .nbc[data-cell=\"failed_together\"] .sk-grid",
     "full": true,
     "expect": {
       "text": [
-        "OUTPUT",
+        "Run all",
+        "+ SQL",
+        "+ Text",
+        "Source",
         "Your cells",
-        "+ SQL cell"
+        "Download CSV"
       ],
       "count": {
-        "#sheet .nb-out.output": 6,
-        "#sheet .nb-out.output[open]": 6,
-        "#sheet .nb-out .glance": 6
+        "#sheet .nbc.kind-step": 6,
+        "#sheet .nbc.kind-step[data-status=\"ok\"]": 6,
+        "#sheet .nbc.kind-step .sk-editor": 6,
+        "#sheet .nbc.kind-step .sk-grid": 6,
+        "#sheet .nbc.kind-step .glance": 6,
+        "#sheet .nbc.kind-gate": 6,
+        "#sheet .nbc.kind-md .sk-md": 7,
+        "#sheet .nbc-error": 0
       }
     }
   },
   {
     "name": "mar06-nb-posture",
-    "what": "Control estate, calm Wed Mar 6: the posture notebook: the posture's output folded (600 rows), and the Models toggle under the watched posture",
+    "what": "Control estate, calm Wed Mar 6: the posture notebook: the posture's 600 rows in the grid (twelve shown, the rest fetched as they scroll), and the Models toggle under the watched posture",
     "day": "Wed 6",
     "box": "nb-posture",
+    "waitFor": "#sheet .nbc[data-cell=\"posture\"] .sk-grid",
     "full": true,
     "expect": {
       "text": [
-        "OUTPUT",
-        "MODELS"
+        "600 rows · 21 columns",
+        "MODELS",
+        "Show all 17 lines"
       ],
       "count": {
+        "#sheet .nbc[data-cell=\"posture\"] .sk-grid": 1,
         "#sheet .nb-out.models": 1
       }
     }
   },
   {
     "name": "mar06-nb-posture-models",
-    "what": "Control estate, calm Wed Mar 6: the posture notebook with the posture's output and its models opened in place",
+    "what": "Control estate, calm Wed Mar 6: the posture notebook with its models opened under the posture's rows",
     "day": "Wed 6",
     "box": "nb-posture",
     "clicks": [
-      "#sheet .nb-out.output > summary",
       "#sheet .nb-out.models > summary"
     ],
     "waitFor": "#sheet .nb-out.models .models-tab",
@@ -49,50 +60,86 @@
       "text": [
         "THE FOREST",
         "THE CLASSIFIER"
+      ]
+    }
+  },
+  {
+    "name": "mar06-nb-source",
+    "what": "Control estate, calm Wed Mar 6: the posture notebook's whole .nb.ts file, as smaltnb's Source shows it",
+    "day": "Wed 6",
+    "box": "nb-posture",
+    "clicks": [
+      "#sheet .nbc-bar button[aria-pressed]"
+    ],
+    "full": true,
+    "expect": {
+      "text": [
+        "Cells",
+        "posture.nb.ts"
       ],
       "count": {
-        "#sheet .nb-out.output table.data": 1
+        "#sheet .nbc.kind-source-file .sk-editor": 1,
+        "#sheet .nbc-list .nbc": 1
       }
     }
   },
   {
     "name": "mar06-nb-explore",
-    "what": "Control estate, calm Wed Mar 6: a reader's own SQL cell under the summary notebook: the apps at risk by business unit, run against today's scores",
+    "what": "Control estate, calm Wed Mar 6: the reader's own SQL cells under the summary notebook, run as smaltnb runs them: the apps at risk by business unit against today's scores, then a second cell that reads the first by its name",
     "day": "Wed 6",
     "box": "nb-summary",
     "clicks": [
-      "#sheet .nb-explore .nb-actions button",
+      "#sheet .nbc-bar button[title^=\"A SQL cell\"]",
       [
-        "#sheet .nb-x-sql",
+        "#sheet .nb-explore .nbc[data-cell=\"query1\"] textarea",
         "SELECT business_unit, hosting, count(*) AS apps, sum(CASE WHEN standing = 'at_risk' THEN 1 ELSE 0 END) AS at_risk FROM app_scores GROUP BY 1, 2"
       ],
-      "#sheet .nb-x .btn.primary"
+      "#sheet .nb-explore .nbc[data-cell=\"query1\"] .nbc-actions button",
+      "#sheet .nbc-bar button[title^=\"A SQL cell\"]",
+      [
+        "#sheet .nb-explore .nbc[data-cell=\"query2\"] textarea",
+        "SELECT business_unit, sum(at_risk) AS at_risk FROM query1 GROUP BY 1 ORDER BY 2 DESC"
+      ],
+      "#sheet .nb-explore .nbc[data-cell=\"query2\"] .nbc-actions button"
     ],
-    "waitFor": "#sheet .nb-x-out table",
+    "waitFor": "#sheet .nb-explore .nbc[data-cell=\"query2\"][data-status=\"ok\"] .sk-grid",
     "full": true,
     "expect": {
       "text": [
-        "SQL 1",
-        "AT A GLANCE"
+        "query1",
+        "query2",
+        "6 rows · 2 columns"
       ],
       "count": {
-        "#sheet .nb-x-out table.data": 1,
-        "#sheet .nb-x-err": 0
+        "#sheet .nb-explore .nbc[data-status=\"ok\"]": 2,
+        "#sheet .nb-explore .nbc-error": 0
       }
     }
   },
   {
     "name": "mar08-nb-posture",
-    "what": "Control estate, held Fri Mar 8: the posture notebook with the day's news as a callout under the posture (key rotation passing where encryption fails)",
+    "what": "Control estate, held Fri Mar 8: the posture notebook with the day's news as a callout between the posture's code and its rows (key rotation passing where encryption fails)",
     "day": "Fri 8",
     "box": "nb-posture",
     "full": true,
     "expect": {
-      "text": [
-        "NEWS"
-      ],
       "count": {
-        "#sheet .nb-out.callout.alert": 1
+        "#sheet .nbc-callouts .nb-out.callout.alert": 1,
+        "#sheet .nbc[data-cell=\"posture\"][data-status=\"held\"]": 1
+      }
+    }
+  },
+  {
+    "name": "mar06-nb-posture-dark",
+    "what": "Control estate, calm Wed Mar 6: the posture notebook in the dark scheme: smaltkit's editor and grid in smaltfl's dark colours",
+    "day": "Wed 6",
+    "box": "nb-posture",
+    "scheme": "dark",
+    "waitFor": "#sheet .nbc[data-cell=\"posture\"] .sk-grid",
+    "expect": {
+      "count": {
+        "#sheet .nbc[data-cell=\"posture\"] .sk-grid": 1,
+        "#sheet .nbc-error": 0
       }
     }
   }

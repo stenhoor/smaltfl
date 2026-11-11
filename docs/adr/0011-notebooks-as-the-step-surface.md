@@ -67,7 +67,10 @@ family's pieces, notebooks first, so the pipeline angle is what smaltfl adds and
 6. **The app: the canvas stays; a cell opens in smaltnb's editor.** (Q-93) Each notebook is a group of cards on the
    canvas, one a cell, and a card's sheet shows the cell in smaltkit's editor with its preview and the statement the
    engine runs. The day strip, the news, the pause, the decision sheet, runs and policies stay as built (ADR 0008 to
-   0010). smaltnb's own page is untouched.
+   0010). smaltnb's own page is untouched. *As built, 2026-11-11 (Q-158):* a notebook's sheet is read as smaltnb's page
+   is, with smaltkit's editor, grid and markdown (already pinned): each cell its header, its code (the flow's own,
+   read-only) and its rows in the grid; the reader's own SQL and text cells are edited and run as smaltnb's are, kept in
+   the browser (`src/app/nbcells.ts`).
 7. **smaltts is the target for publishing; plans until it lands.** (Q-94) Publishing and smaltfl's own tables go
    through smaltdb plans and smaltfl's plugin today; the seam is drawn where smaltts's `flow()` will take over: a
    dataset's publish is a `load` with `swap`, a published name an interface view, the plugin's tables a spec with change

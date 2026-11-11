@@ -111,10 +111,14 @@ match smaltdb's `CLAUDE.md`.
   them by hosting and criticality (`by_profile`), each control by type (`control_by_type`) and the controls failed
   together (`failed_together`); the generator's hosting effects (`riskOf`) are what they show). A small output's Data
   tab draws it at a glance (`src/app/grid.ts` `gridOf`, `standOut`; `heatGrid` in `viz.ts`; `tools/browser/stops/apps.json`).
-  The notebook read as a page (`renderNotebookSheet`, full screen on a phone): under each step its callouts (what a
-  written rule caught, the day's warn and alert news), its **Output** (`outputCells`: first rows, a summary's heat table
-  open) and, on a watched step, **Models**; then **Your cells** (`exploreCells`, `exploreSql`: SQL over any dataset by
-  name, notes), kept in the browser and never in the notebook or a hash (`tools/browser/stops/notebook.json`).
+  The notebook read as a page, as smaltnb shows one (`renderNotebookSheet`, full screen on a phone; Q-158): smaltnb's
+  bar (Run all, + SQL, + Text, Source), each cell a smaltnb cell (`src/app/nbcells.ts` on smaltkit's `editor`, `grid`
+  and `markdown`, its `ui.css` inlined by `build-app.mjs` and restyled by `--sk-*` in `page.html`): a header (name,
+  chip, status from the run, `flowStatus`), the flow's own code read-only, a step's callouts (what a written rule
+  caught, the day's warn and alert news) and its rows in the grid with a small output's picture above (`flowCell`,
+  `fillFlowOutput`), **Models** on a watched step; then **Your cells** (`exploreCells`, `runExplore`, `exploreSql`):
+  editable SQL and text cells, Ctrl+Enter and Shift+Enter, a cell read by its name from the cells below it, kept in the
+  browser and never in the notebook or a hash (`tools/browser/stops/notebook.json`).
 - Gates (ADR 0014): `src/core/gates.ts` is the vocabulary (`CHECK_NAMES`, written or learned, `LAYER_DEFAULTS`),
   `gate()` in `src/notebook.ts` the cell (`notebook.ts` derives `doc.gates`, the cell kept as `cells["gate:<node>"]`,
   outline kind `gate`), plan/4 a watch's `checks` (every check's mode, filled in from its layer; only a flow that
