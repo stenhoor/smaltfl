@@ -41,7 +41,9 @@ Claude Code sessions reference those repos and always try to grab the latest upd
 
 The pins moved to: smaltdb `3abee64`, smaltql `706e210`, smaltdb-io `8e151de`, smaltdb-external `66c480c`,
 smaltdb-parquet `c6ec00a`, smaltnb `41349b9`, smaltkit `c7d9c5c` (its main; smaltnb pins the same). smaltdb's version
-is still 0.9.0, so run keys don't move. On them: typecheck clean; `npm test` 941 passed, as before the move; the
+is still 0.9.0, so run keys don't move. On them: typecheck clean; `npm test` 941 passed, as before the move, and `npm run test:isolated` the same; in
+`npm run test:slow` the estate's month and the models pass, and the real-history tests fail as Q-133 records (41 days
+held under `wrong`, not 25), which CI skips; the
 package and the app build; the browser's episode suite gives the same 19 of 20 as the old pins, and the integrity
 suite stops at the same step on both (neither is new: docs/HANDOFF.md). smaltdf (`@smaltdb/df`) and smaltts are not
 pinned: smaltfl doesn't run either yet (ADR 0011 §7).
