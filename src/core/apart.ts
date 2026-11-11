@@ -7,6 +7,7 @@
  * random labels reach on the same rows. Explained by what the held-out half loses when a column's values are shuffled.
  * Learned: it warns under the layer's defaults. Everything is seeded, so the same rows always give the same verdict.
  */
+import { judgedAhead, rowsKey } from './ahead.js';
 import { plusDays } from './calendar.js';
 import type { Kind } from './quality.js';
 import { random } from './quality.js';
@@ -350,6 +351,10 @@ export interface Apart {
  * rows or nothing to learn from.
  */
 export function tellApart(today: readonly (readonly unknown[])[], reference: readonly (readonly unknown[])[], columns: readonly string[], kinds: readonly Kind[], options: { rounds?: number; rate?: number; seed?: number; permutations?: number; days?: number; leaveOut?: ReadonlySet<number> } = {}): Apart | null {
+  return tellApartNow(today, reference, columns, kinds, options);
+}
+
+function tellApartNow(today: readonly (readonly unknown[])[], reference: readonly (readonly unknown[])[], columns: readonly string[], kinds: readonly Kind[], options: { rounds?: number; rate?: number; seed?: number; permutations?: number; days?: number; leaveOut?: ReadonlySet<number> }): Apart | null {
   const n = Math.min(today.length, reference.length);
   if (n < 30) return null;
   const rnd = random(options.seed ?? 2017);
@@ -431,7 +436,14 @@ export function apartEvidence(sample: SampleFile, today: readonly (readonly unkn
   const days = likeDays(sample, day, pattern, (d) => !learnsFrom(d));
   if (!days.length) return { why: 'no like days kept in the sample yet' };
   const out = new Set([...clockColumns(sample, days), ...sample.columns.flatMap((c, k) => (leaveOut(c) ? [k] : []))]);
-  const found = tellApart(today, sampleRows(sample, days), sample.columns, sample.kinds, { days: days.length, seed: 2017, leaveOut: out });
+  const options = { days: days.length, seed: 2017, leaveOut: out };
+  // Seeded, so the same rows always tell the same: the first loads day's answer may be shipped (ADR 0019 amendment 1),
+  // keyed by today's rows, each like day's rows, the columns and the options.
+  const found = judgedAhead(
+    'apart',
+    () => [rowsKey(today), days.map((d) => rowsKey(sample.rows[sample.days.indexOf(d)] ?? [])), sample.columns, sample.kinds, options],
+    () => tellApart(today, sampleRows(sample, days), sample.columns, sample.kinds, options),
+  );
   if (!found) return { why: 'too few rows a side to learn from' };
   return { found, days, speaks: apartSpeaks(found) };
 }

@@ -202,7 +202,10 @@ match smaltdb's `CLAUDE.md`.
   engine request (`window.__smaltflEngine`); `SMALTFL_PROFILE=1` keeps names in the build. Every first-day file is
   fetched at once (`fetchAhead`). Ranges computed ahead (`src/core/ranges.ts`): the history builder's `--next`/`--ranges`
   writes `ranges.<watch>.json` for the first loads day, listed in loads.json (`ranges`), taken by the judge only where
-  `givenApplies` (`RangeOptions.given`, `loadClaim`'s `given`, the engine's `rangesPath`); `test/ranges.test.ts`.
+  `givenApplies` (`RangeOptions.given`, `loadClaim`'s `given`, the engine's `rangesPath`); `test/ranges.test.ts`. The
+  classifier judged ahead (amendment 1): the builder records its first-day answers by their inputs' sha256 into the ranges
+  file (`src/core/ahead.ts`, `RangesFile.apart`, `judgedAhead` in `apartEvidence`); `tools/browser/load.cjs APP` times each
+  phase.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).

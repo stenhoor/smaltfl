@@ -12,6 +12,9 @@ import { appendPeriods, emptyHistory, type Measures } from '../src/core/measures
 import { random } from '../src/core/quality.js';
 import { loadFlowDir, signinsDir } from './helpers/notebooks.js';
 import { securityHistory } from './fixtures/security.js';
+import { aheadServed, forgetAhead, giveAhead, recordAhead } from '../src/core/ahead.js';
+import { apartEvidence, appendSample, emptySample } from '../src/core/apart.js';
+import { afterEach } from 'vitest';
 
 /** The history with its last day's numbers changed: every series one long a day gets another value on that day. */
 function perturbLast(h: HistoryFile): HistoryFile {
@@ -108,5 +111,54 @@ describe.each([
     const live = new HistoryRanges(file, options);
     expect(plain(served.of({ of: 'trips' })?.at(before))).toEqual(plain(live.of({ of: 'trips' })?.at(before)));
     void day;
+  });
+});
+
+describe('the classifier judged ahead (amendment 1)', () => {
+  afterEach(forgetAhead);
+  const rows = (n: number, seed: number, shift = 0): unknown[][] => {
+    const rnd = random(seed);
+    return Array.from({ length: n }, () => [rnd() < 0.1 + shift ? 'fail' : 'pass', rnd() < 0.3 ? 'yes' : 'no', Math.round(rnd() * 100)]);
+  };
+  const sampleOf = () => {
+    let sample = emptySample({ flow: 'f', source: 's', columns: ['status', 'exposed', 'age'], kinds: ['code', 'code', 'measure'] });
+    for (let i = 1; i <= 28; i++) sample = appendSample(sample, `2023-09-${String(i).padStart(2, '0')}`, rows(60, i));
+    return sample;
+  };
+  const day = '2023-09-29';
+
+  it('serves the answer the build recorded for the very same rows, days and options, and computes every other', async () => {
+    const sample = sampleOf();
+    const today = rows(200, 500, 0.5);
+    const live = apartEvidence(sample, today, day, 'none');
+    expect('found' in live).toBe(true);
+    const entries = await recordAhead(async () => apartEvidence(sample, today, day, 'none'));
+    expect(entries).toHaveLength(1);
+    // Shipped as JSON, taken back.
+    giveAhead(JSON.parse(JSON.stringify(entries)));
+    const before = aheadServed();
+    // The same inputs in other objects (the page reads its own copy of the sample and the rows): served.
+    const served = apartEvidence(JSON.parse(JSON.stringify(sample)), JSON.parse(JSON.stringify(today)), day, 'none');
+    expect(aheadServed()).toBe(before + 1);
+    expect(plain(served)).toEqual(plain(live));
+    // One value of today's rows changed, a day left out of learning, another pattern: computed, as before.
+    const other = today.map((r) => [...r]);
+    other[7]![2] = 101;
+    expect(plain(apartEvidence(sample, other, day, 'none'))).toEqual(plain((forgetAhead(), apartEvidence(sample, other, day, 'none'))));
+    giveAhead(JSON.parse(JSON.stringify(entries)));
+    const at = aheadServed();
+    apartEvidence(sample, other, day, 'none');
+    apartEvidence(sample, today, day, 'none', (d) => d !== '2023-09-10');
+    apartEvidence(sample, today, day, 'weekly');
+    apartEvidence(sample, today, day, 'none', () => true, (c) => c === 'age');
+    expect(aheadServed()).toBe(at);
+  });
+
+  it('ignores entries that aren’t a judge’s key', () => {
+    giveAhead([['apart:xyz', { auc: 1 }], ['forest:' + 'a'.repeat(64), {}], 'nonsense', null]);
+    const sample = sampleOf();
+    const today = rows(200, 500, 0.5);
+    apartEvidence(sample, today, day, 'none');
+    expect(aheadServed()).toBe(0);
   });
 });

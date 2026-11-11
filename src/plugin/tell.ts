@@ -10,6 +10,7 @@ import { isSample, samplePath, type SampleFile } from '../core/apart.js';
 import type { FlowDocument } from '../core/document.js';
 import { isHistory, type HistoryFile } from '../core/history.js';
 import { loadClaim, tailPath, type StoryClaim2 } from '../core/hold.js';
+import { giveAhead } from '../core/ahead.js';
 import { isRangesFile, rangesPath } from '../core/ranges.js';
 import { measuresProblem, type MeasureSettings, type Measures } from '../core/measures.js';
 import type { TellFor } from '../core/protocol.js';
@@ -32,16 +33,27 @@ export interface TellInput {
   kept?: readonly (readonly unknown[])[];
 }
 
-/** The pinned file's JSON, or undefined when none is pinned or it isn't JSON. */
+/** The pinned file's JSON, or undefined when none is pinned or it isn't JSON. A pinned file is content-addressed, so its
+ * parse is kept by its sha256 and read again by the next run, not parsed again (it is only read, never changed). */
 function pinnedJSON(path: string): { value: unknown; sha256: string; bytes: number } | undefined {
   const p = pinned(path);
   if (!p) return undefined;
-  try {
-    return { value: JSON.parse(new TextDecoder().decode(p.bytes)) as unknown, sha256: p.sha256, bytes: p.bytes.byteLength };
-  } catch {
-    return undefined;
+  const key = `${p.sha256}:${p.bytes.byteLength}`;
+  if (!parsed.has(key)) {
+    let value: unknown;
+    try {
+      value = JSON.parse(new TextDecoder().decode(p.bytes)) as unknown;
+    } catch {
+      value = NOT_JSON;
+    }
+    parsed.set(key, value);
+    if (parsed.size > 16) parsed.delete(parsed.keys().next().value!);
   }
+  const value = parsed.get(key);
+  return value === NOT_JSON ? undefined : { value, sha256: p.sha256, bytes: p.bytes.byteLength };
 }
+const NOT_JSON = Symbol('not JSON');
+const parsed = new Map<string, unknown>();
 
 /**
  * The step's claim/2, or null with why when it can't be told: a pinned history that isn't one, a pinned tail that
@@ -67,6 +79,8 @@ export async function tellClaim(o: TellInput): Promise<{ claim: StoryClaim2 } | 
   // The ranges computed ahead for its first day (ADR 0019), taken only on the history pinned here, by its sha256.
   const r = h ? pinnedJSON(rangesPath(o.source)) : undefined;
   const given = r && h && isRangesFile(r.value) && r.value.history.sha256 === h.sha256 ? { given: { file: r.value, sha256: h.sha256 } } : {};
+  // The classifier's answers judged ahead for the first day: taken by their inputs' sha256 alone.
+  if (r && isRangesFile(r.value)) giveAhead(r.value.apart);
   const told = await loadClaim({ ...given, doc: o.doc, source: o.source, flow: o.flow, base, baseRef: h ? { path: o.history, sha256: h.sha256, bytes: h.bytes } : null, tail, measures: o.measures, settings: o.settings, skip: o.tell.skip, levels: o.tell.levels, build: o.build, ...(o.upstream ? { upstream: o.upstream } : {}), ...(sp && o.kept ? { sample: sp.value as SampleFile, kept: o.kept } : {}) });
   return told ? { claim: told.claim } : { problem: `${o.source}'s load can't be judged against its history (its slot is in the base already, or before its last period, with other numbers)` };
 }

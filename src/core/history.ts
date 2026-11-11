@@ -230,6 +230,18 @@ export function seriesOf(h: HistoryFile, m: Metric): DailySeries | null {
 }
 
 /**
+ * A history's series of a metric, made once for the file: each view of the same history (the flow's verdict, a
+ * viewer's, a claim's) reads the same series, which nothing changes once made.
+ */
+function seriesFor(h: HistoryFile, m: Metric, key: string): DailySeries | null {
+  let mine = seriesMade.get(h);
+  if (!mine) seriesMade.set(h, (mine = new Map()));
+  if (!mine.has(key)) mine.set(key, seriesOf(h, m));
+  return mine.get(key)!;
+}
+const seriesMade = new WeakMap<HistoryFile, Map<string, DailySeries | null>>();
+
+/**
  * What a due mark counts on a day (ADR 0014 §3): over the window of `within` days before the day (the day itself left
  * out), the rows that were due (each day's `on`, from the days the history has) and the rows still missed whose due
  * date fell in the window (the day's own `late` entries), with the late share; null where the column isn't marked or
@@ -464,7 +476,7 @@ export class HistoryRanges {
   of(m: Metric): NormalRanges | null {
     const key = metricKey(m);
     if (!this.made.has(key)) {
-      const s = seriesOf(this.file, m);
+      const s = seriesFor(this.file, m, key);
       const o = this.options;
       const breaks = this.levels.filter((l) => levelOn(l, m)).map((l) => l.from);
       // A bad value's share is never re-learned on its own: it always alerts (ADR 0010 §4).

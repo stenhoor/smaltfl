@@ -35,6 +35,7 @@ import { gridOf, shadeOf, shareOf, standOut } from './grid.js';
 import { setUpSplit, showWorkspace } from './split.js';
 import { mark } from './perf.js';
 import { isRangesFile, rangesPath, type GivenRanges } from '../core/ranges.js';
+import { aheadServed, giveAhead } from '../core/ahead.js';
 import { bronzeOf, verdictSaid, type Bronze, type BronzeCheck, type CheckState } from '../core/bronze.js';
 import { button as nbButton, formatMs, makeCell, showError, showMarkdown, showRows as showGridRows, type CellStatus, type CellUi } from './nbcells.js';
 import type { EditorSchema, SchemaColumn } from 'smaltkit/editor';
@@ -10137,7 +10138,32 @@ async function claimsForRun(engine: Engine, day: string | undefined, parameters:
   }
   const out: Claim[] = [];
   const tell: Record<string, TellFor> = {};
+  // Every load's measures and kept rows asked of the engine at once, in order: the engine works through them while the
+  // page judges each load as its numbers come back, instead of the page and the engine waiting on each other in turns.
+  const asked = new Map<string, { m: Promise<Measures>; kept?: Promise<unknown[][]> }>();
+  const ask = (source: string, table: string, settings: NonNullable<ReturnType<typeof settingsFor>>) => {
+    const m = measureLoad(engine, table, settings);
+    m.catch(() => undefined);
+    const kept = samples.has(source) ? m.then(() => sampleLoad(engine, table, { keep: SAMPLE_KEEP, strata: settings.counted })).then((r) => r.rows) : undefined;
+    kept?.catch(() => undefined);
+    asked.set(source, { m, ...(kept ? { kept } : {}) });
+  };
+  const pins: Promise<unknown>[] = [];
+  const prepared = Object.entries(state.doc.publish?.watch ?? {}).map(([source, w]) => {
+    const node = plan.nodes.findIndex((n) => n.origin === source);
+    if (!day || node < 0 || plan.nodes[node]!.op !== 'table') return null;
+    const known = bases.get(source);
+    const base = known?.file ?? (source === loadSource() ? baseHistory : null);
+    const pin = known?.ref ?? (source === loadSource() ? historyPin : null);
+    const ref = base && pin && pin.path === watchHistory(w) ? pin : null;
+    const b = bindingOf(source);
+    const settings = b ? settingsFor(plan, node, ref ? base : null, state.doc.steps) : null;
+    if (b && settings) ask(source, b.table, settings);
+    return { b, settings };
+  });
+  let at = -1;
   for (const [source, w] of Object.entries(state.doc.publish?.watch ?? {})) {
+    at++;
     const node = plan.nodes.findIndex((n) => n.origin === source);
     if (!day || node < 0) continue;
     const known = bases.get(source);
@@ -10155,13 +10181,11 @@ async function claimsForRun(engine: Engine, day: string | undefined, parameters:
       tell[source] = { skip: recordedSkips(), levels: levelsOf(ledger?.entries ?? [], source) };
       continue;
     }
-    const b = bindingOf(source);
-    if (!b) continue;
-    const settings = settingsFor(plan, node, ref ? base : null, state.doc.steps);
-    if (!settings) continue;
+    const { b, settings } = prepared[at]!;
+    if (!b || !settings) continue;
     let m: Measures;
     try {
-      m = await measureLoad(engine, b.table, settings);
+      m = await asked.get(source)!.m;
     } catch (e) {
       // The file can't be read as declared (ADR 0014 §2, slice 7): no claim; in a flow with gates the run holds on it
       // under the schema check, and without gates the run fails as it always did.
@@ -10172,17 +10196,18 @@ async function claimsForRun(engine: Engine, day: string | undefined, parameters:
     // The load's kept rows (ADR 0014 §5), where the node keeps a sample: the classifier's today, told with the claim.
     let kept: unknown[][] | undefined;
     if (samples.has(source)) {
-      kept = (await sampleLoad(engine, b.table, { keep: SAMPLE_KEEP, strata: settings.counted })).rows;
+      kept = await asked.get(source)!.kept!;
       const mine = keptRows.get(source) ?? new Map<string, unknown[][]>();
       mine.set(day, kept);
       keptRows.set(source, mine);
     }
     const told = await loadClaim({ ...(givens.get(source) ? { given: givens.get(source)! } : {}), doc: state.doc, source, flow: plan.flow.hash, base: ref ? base : null, baseRef: ref, tail: tails.get(source) ?? [], measures: m, settings, skip: recordedSkips(), levels: levelsOf(ledger?.entries ?? [], source), build: BUILD_COMMIT, ...(kept && samples.get(source) ? { sample: samples.get(source)!, kept } : {}) });
-    await pinFile(engine, tailPath(source), told?.tail.length ? utf8(canonicalJSON(told.tail as unknown as Parameters<typeof canonicalJSON>[0])) : null);
+    pins.push(pinFile(engine, tailPath(source), told?.tail.length ? utf8(canonicalJSON(told.tail as unknown as Parameters<typeof canonicalJSON>[0])) : null));
     const key = `${day}|${source}|${flowHistory ? countedChecks(state.doc, flowHistory, source) : false}`;
     claims.set(key, told?.claim ?? null);
     if (told) out.push(told.claim);
   }
+  await Promise.all(pins);
   return { claims: out, tell };
 }
 
@@ -12126,6 +12151,7 @@ async function start(): Promise<void> {
     setStatus(first ? `Loading ${dayLabel(first.day)}: ${fmtInt(first.rows)} ${first.rows === 1 ? noun.one : noun.many}, and the other sources, each checked against the data's list…` : `Loading the ${noun.many} and the other sources…`);
     // Each source's file, by its binding, checked here and pinned in the engine, which hashes it again and reads it as
     // smaltfl:<file>: the loads' source its first load.
+    const pinning: Promise<unknown>[] = [];
     for (const [id, b] of Object.entries(list.sources)) {
       if (!state.doc.sources.some((x) => x.id === id)) continue;
       // A daily source's first load (with several daily sources, the first day's file of each, ADR 0013 §5).
@@ -12133,8 +12159,9 @@ async function start(): Promise<void> {
       const want: (Expected & { path: string }) | undefined = day ? { path: day.file, sha256: day.sha256, bytes: day.bytes ?? -1, from: day.file } : b.entry;
       if (!want) throw new Error(`no hash for ${b.file} in the data's list: it can't be checked, so it isn't used`);
       const bytes = await got(want.path, want);
-      await pinFile(engine, b.file, bytes, want.sha256);
-      await engine.exec(pinnedDdl(b));
+      // Pinned without waiting: the engine takes the pins in order while the page reads the next file; every pin is
+      // waited for before anything runs (`pinning`).
+      pinning.push(pinFile(engine, b.file, bytes, want.sha256).then(() => engine.exec(pinnedDdl(b))));
       if (id === list.loadSource && first) loads.bytes.set(0, bytes);
       else if (day) loads.others.set(0, { ...(loads.others.get(0) ?? {}), [id]: bytes });
     }
@@ -12148,10 +12175,11 @@ async function start(): Promise<void> {
       if (!bytes || !named.includes(entry.path)) continue;
       const file = id === watched ? past : (JSON.parse(new TextDecoder().decode(bytes)) as HistoryFile);
       if (!isHistory(file) || !file.days.length) continue;
-      const pin = await pinFile(engine, entry.path, bytes, entry.sha256);
-      const ref = { path: pin.name, sha256: pin.sha256, bytes: pin.bytes };
-      bases.set(id, { file, ref });
-      if (id === watched && flowHistory) historyPin = ref;
+      pinning.push(pinFile(engine, entry.path, bytes, entry.sha256).then((pin) => {
+        const ref = { path: pin.name, sha256: pin.sha256, bytes: pin.bytes };
+        bases.set(id, { file, ref });
+        if (id === watched && flowHistory) historyPin = ref;
+      }));
     }
     mark('histories pinned');
     // Each kept sample (ADR 0014 §5), checked, kept here and pinned for the engine under the node's sample path, so a
@@ -12162,7 +12190,7 @@ async function start(): Promise<void> {
       const file = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
       if (!isSample(file)) continue;
       samples.set(id, file);
-      await pinFile(engine, samplePath(id), bytes, entry.sha256);
+      pinning.push(pinFile(engine, samplePath(id), bytes, entry.sha256));
     }
     if (first) loads.pinned = 0;
     if (first) loads.at = 0;
@@ -12176,14 +12204,17 @@ async function start(): Promise<void> {
       const file = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
       if (!isRangesFile(file) || file.history.sha256 !== h.sha256) continue;
       givens.set(id, { file, sha256: h.sha256 });
-      await pinFile(engine, rangesPath(id), bytes, entry.sha256);
+      giveAhead(file.apart);
+      pinning.push(pinFile(engine, rangesPath(id), bytes, entry.sha256));
     }
+    await Promise.all(pinning);
     if (givens.size) refreshRanges();
     mark('ranges pinned');
     state.engine = engine;
     renderLoads();
     await run();
     renderLoads();
+    mark(`first day shown (${aheadServed()} judged ahead)`);
     mark('first day shown');
     await openBriefFromHash();
   } catch (e) {

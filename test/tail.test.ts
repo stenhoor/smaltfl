@@ -30,6 +30,18 @@ describe('a base and its tail', () => {
     expect(again.values.VendorID!.counts!.slice(n).map((r) => r.slice(0, 2))).toEqual(full.values.VendorID!.counts!.slice(n).map((r) => r.slice(0, 2)));
   });
 
+  it('leaves the base as it was, however many tails are folded onto it, each its own', () => {
+    const before = structuredClone(base);
+    const a = appendPeriods(base, tail.slice(0, 3));
+    const b = appendPeriods(base, tail);
+    const c = appendPeriods(a, tail.slice(3));
+    expect(base).toEqual(before);
+    expect(c).toEqual(b);
+    expect(a.days.length).toBe(base.days.length + 3);
+    // Folding onto the first result changes it no more than folding onto the base changed the base.
+    expect(a).toEqual(appendPeriods(base, tail.slice(0, 3)));
+  });
+
   it('tells every tail day as the history built offline tells it', () => {
     const offline = new HistoryRanges(full);
     const folded = HistoryRanges.of({ base, tail });

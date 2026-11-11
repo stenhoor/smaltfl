@@ -10,6 +10,7 @@
  */
 import { metricKey, QUANTILES, type HistoryFile, type HistoryRanges, type Metric } from './history.js';
 import type { Guess, NormalRange } from './normal.js';
+import type { AheadEntries } from './ahead.js';
 
 /** A range as shipped: every number of it, its guesses without the days they learned from. */
 export type ShippedRange = Omit<NormalRange, 'guesses'> & { guesses: Omit<Guess, 'from'>[] };
@@ -23,6 +24,9 @@ export interface RangesFile {
   settings: string;
   /** Each metric's range, by `metricKey`; null where the day has none. A metric absent is computed by the judge. */
   ranges: Record<string, ShippedRange | null>;
+  /** The classifier's answers for the first day, judged ahead (ADR 0019 amendment 1, `ahead.ts`): taken by the sha256
+   * of the classifier's exact inputs, whatever history they come with. */
+  apart?: AheadEntries;
 }
 
 /** What the judge is given: a ranges file, checked against the history it was read with. */
