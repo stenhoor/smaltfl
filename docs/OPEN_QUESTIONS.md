@@ -9,7 +9,7 @@ a day that is off in [adr/0009-paused-not-published.md](adr/0009-paused-not-publ
 amendment 1, the news and the pause for any dataset in [adr/0010-any-dataset.md](adr/0010-any-dataset.md), notebooks as
 the step surface in [adr/0011-notebooks-as-the-step-surface.md](adr/0011-notebooks-as-the-step-surface.md), the brief, the
 incident page, the drill and the phone canvas in [adr/0012-visual-first-in-two-minutes.md](adr/0012-visual-first-in-two-minutes.md), the
-bronze layer in [adr/0015-the-bronze-layer.md](adr/0015-the-bronze-layer.md). The research
+bronze layer in [adr/0015-the-bronze-layer.md](adr/0015-the-bronze-layer.md), the mark in [adr/0016-the-mark.md](adr/0016-the-mark.md). The research
 behind the proposals is in [research/ecosystem-survey.md](research/ecosystem-survey.md).
 
 **Who decides:** the maintainers, together (ADR 0001 §1).
@@ -42,7 +42,7 @@ behind the proposals is in [research/ecosystem-survey.md](research/ecosystem-sur
 | Q-51 | Should a passing run of a day earlier than the one published move the dataset names back, as it does now, or stay behind, as a release must (ADR 0009 §5)? | **Unchanged for now:** a passing run moves the names, a release never moves them past a later day, and the decision sheet says when a day has been passed over. Ordering runs by their period comes with outputs partitioned by day | open |
 | Q-47 | plan/1 and document format 2, or optional fields under plan/0 and format 1? | **plan/1 and format 2** (ADR 0009, E10): an older build refuses a flow that holds, where optional fields would fail open and publish what the flow holds. Kept to two functions (`documentFormat`, `planKind`), so switching is two lines | open |
 | Q-38 | The builder (design canvas "smaltfl app concepts"): does it match what data engineering needs? What is missing or in the way? | Liked; made open after feedback (A3): a grid canvas where steps go anywhere, groups that hold any number of steps and collapse, zoom, fit, tidy and a map; every step opens into sub-steps, settings, its SQL, a preview and its schema with column lineage | in review |
-| Q-29 | The mark: round 3 leans into waves (M12–M18), all curved | Pick a wave, and whether teal is a small chip (M12–M15) or a whole wave (M16–M18). Round 3 goes to stenhoor first (ADR 0003 §3) | on hold |
+| Q-29 | The mark: round 3 leans into waves (M12–M18), all curved | **The Twin (M13), with a small chip,** picked and approved by stenhoor on 2026-11-11 (ADR 0016) | decided |
 | Q-40 | The runs and policies screens (A6, A7): the right shape? | **Runs:** each run with its status and verification; what ran and why (each step reused or rebuilt, and the reason); its checks; its signed manifest, to download, verify again, re-run or compare. **Policies:** people (identity cards) and groups; row, column and action rules, each showing what it reaches; who sees what, by district; a preview as one person, with their share and the policy checks | in review |
 | Q-41 | How do row rules pass through aggregates? | An aggregated row is visible only when every row behind it is. A dataset whose rows mix what a viewer may and may not see is closed to that viewer, and the app says why and offers the fix (group it by the rule's column): A7 shows this for `airport_times`. v1 applies rules by column name and closes a dataset without the rule's column; exact inheritance waits for bound plans | open |
 | Q-34 | Verified runs and speed: parallel execution can change a floating-point sum in its last digit | Verification is bit-exact: runs pin the engine settings that affect results (no parallel aggregation of floating-point values), and the cost is measured. Revisit if it is large. A fold that changes the order of a floating-point sum is a new result (ADR 0004); order-independent sums in smaltdb would make it free, to discuss with stenhoor | open |
@@ -243,8 +243,8 @@ record them are proposed; where an answer differs from what the designs proposed
 | Q-32 | What is a "district"? | The borough (five boroughs and Newark airport); policies can also name zones | decided |
 | Q-33 | How much snapshot history is kept? | Every snapshot by hash, within a budget; oldest unpinned first; shared or pinned runs keep theirs | decided |
 | Q-22 | The UI (clarified) | A visual builder for data engineering, in the spirit of Foundry's Pipeline Builder, built without a UI framework | decided |
-| Q-28 | Colour | Cobalt teal: `#00786F`, text `#006861`, dark `#4FD1C5` | decided |
-| Q-30 | Brand work | Through the fork `beepboopbop64/smalt-brand`, then a pull request to `stenhoor/smalt-brand` | decided |
+| Q-28 | Colour | Cobalt teal: `#00786F`, text `#006861`, dark `#4FD1C5`. **Replaced** by the user-tool layer's cerulean, `#0E7FAE`, text `#0B6A91`, dark `#5CBDE8` (smalt-brand's colour by layer; ADR 0016 §2) | decided |
+| Q-30 | Brand work | Through the fork `beepboopbop64/smalt-brand`, then a pull request to `stenhoor/smalt-brand`. The mark went to `stenhoor/smalt-brand` directly, at stenhoor's request (ADR 0016 §3) | decided |
 
 ## Round 1: decided (ADR 0001)
 

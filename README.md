@@ -19,7 +19,7 @@ a new level). Everything runs in the browser, on [smaltdb](https://github.com/st
 > - Decisions: [docs/adr/](docs/adr/README.md) (ADR 0001 to 0015)
 > - The architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the scenario it is measured against: [docs/SCENARIO.md](docs/SCENARIO.md)
 > - The owner's answers and the questions still open: [docs/OPEN_QUESTIONS.md](docs/OPEN_QUESTIONS.md)
-> - Brand: [docs/brand/DECISIONS.md](docs/brand/DECISIONS.md) (the layer's colour is set; the mark is on hold)
+> - Brand: [docs/brand/DECISIONS.md](docs/brand/DECISIONS.md) (the mark is the Twin, in the user-tool layer's cerulean: ADR 0016)
 
 ## Development
 
