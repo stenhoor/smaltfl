@@ -17,7 +17,7 @@ await build({
   target: 'node20',
   outfile,
   define: { __PLUGIN_VERSION__: JSON.stringify(pkg.version), __SMALTDB_VERSION__: JSON.stringify(smaltdb) },
-  external: ['smaltdb', 'smaltdb/*', '@smaltdb/*', 'hyparquet', 'hyparquet-compressors'],
+  external: ['smaltdb', 'smaltdb/*', '@smaltdb/*', '@smaltworks/*', 'hyparquet', 'hyparquet-compressors'],
   logLevel: 'warning',
 });
 await import(pathToFileURL(outfile).href);

@@ -37,11 +37,12 @@ export default defineConfig({
     alias: [
       { find: /^smaltdb$/, replacement: core('client/index.ts') },
       { find: /^smaltdb\/engine$/, replacement: core('engine/index.ts') },
+      { find: /^smaltdb\/plan$/, replacement: core('engine/plan/portable.ts') },
+      { find: /^smaltdb\/language$/, replacement: core('engine/language-support.ts') },
       { find: /^smaltdb\/worker-runtime$/, replacement: core('engine/worker-runtime.ts') },
       { find: /^smaltdb-src\/(.*)\.js$/, replacement: core('$1.ts') },
     ],
   },
-  server: { deps: { inline: [/node_modules\/smaltdb\//] } },
   // `npm run bench` runs the scenario benchmarks in bench/ instead of the tests. A test that runs a flow through the
   // engine takes seconds on a busy runner (test/fill-general.test.ts passed vitest's five-second default on CI and
   // failed five pushes in a row): thirty seconds a test, the time docs/HANDOFF.md has always run them with.
@@ -49,6 +50,10 @@ export default defineConfig({
     include: process.env.SMALTFL_BENCH ? ['bench/**/*.bench.ts'] : process.env.SMALTFL_SLOW ? SLOW : ['test/**/*.test.ts'],
     exclude: process.env.SMALTFL_BENCH || process.env.SMALTFL_SLOW ? [] : SLOW,
     testTimeout: 30000,
+    // smaltdb runs no SQL of its own (its ADR 0017): test/setup-sql.ts registers smaltql's. smaltql (packed.json) is
+    // transformed with smaltdb so its imports of smaltdb resolve to the same source: one engine, one registry.
+    setupFiles: ['test/setup-sql.ts'],
+    server: { deps: { inline: [/node_modules\/smaltdb\//, /node_modules\/@smaltworks\/smaltql\//] } },
     // `npm test` gives each worker a larger young generation (NODE_OPTIONS=--max-semi-space-size=64, package.json): the
     // judges allocate many short-lived arrays, and collecting them took a tenth of the time.
     // The test files share each worker's loaded modules (the engine's source above all, which every engine test would

@@ -26,7 +26,7 @@ Integrity).
 
 ```sh
 git clone https://github.com/stenhoor/smaltfl && cd smaltfl
-npm ci && npm run deps          # dependencies, then the smaltdb build pinned in packed.json
+npm ci && npm run deps          # dependencies, then the smalt builds pinned in packed.json
 npm run check                   # typecheck and tests
 npm run build:app -- --flow examples/control-estate/flow.json --out dist/app-estate
 npx serve dist/app-estate       # or any static file server
