@@ -218,6 +218,26 @@ const median = (xs: number[]) => {
 
 /** The forest a day is judged by: grown on the learned days before it, with the day's own numbers; or why it can't be. */
 type Grown = { k: number; features: Feature[]; learned: number[]; train: number[][]; today: number[]; size: number; forest: NonNullable<ReturnType<typeof growForest>> };
+/**
+ * The forest grown on these days' numbers: the same rows give the same forest (its seed is fixed), so one grown for a
+ * claim is not grown again for the page's story of the same day. Kept by a fingerprint of the rows, a few at a time.
+ */
+function forestFor(train: readonly (readonly number[])[], size: number): ReturnType<typeof growForest> {
+  let f = 2166136261;
+  for (const r of train) for (const x of r) {
+    const v = Math.round(x * 1e9);
+    f = Math.imul(f ^ (v & 0xffffffff), 16777619) >>> 0;
+    f = Math.imul(f ^ ((v / 4294967296) | 0), 16777619) >>> 0;
+  }
+  const key = `${train.length}x${train[0]?.length ?? 0}|${size}|${f}|${JSON.stringify(train[0])}|${JSON.stringify(train.at(-1))}`;
+  if (forests.has(key)) return forests.get(key)!;
+  const grown = growForest(train, { trees: TREES, size, seed: 2008 });
+  forests.set(key, grown);
+  if (forests.size > 32) forests.delete(forests.keys().next().value!);
+  return grown;
+}
+const forests = new Map<string, ReturnType<typeof growForest>>();
+
 function grownFor(h: HistoryRanges, day: string, o: Pick<UnlikeOptions, 'names' | 'label' | 'leaveOut'>): Grown | { why: string; days?: number } {
   const file = h.file;
   const k = file.days.indexOf(day);
@@ -231,7 +251,7 @@ function grownFor(h: HistoryRanges, day: string, o: Pick<UnlikeOptions, 'names' 
   const train = learned.map(row);
   const today = row(k);
   const size = Math.ceil(train.length / 2);
-  const forest = growForest(train, { trees: TREES, size, seed: 2008 });
+  const forest = forestFor(train, size);
   if (!forest) return { why: 'too few days to learn from' };
   return { k, features, learned, train, today, size, forest };
 }

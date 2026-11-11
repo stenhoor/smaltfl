@@ -43,6 +43,8 @@ export interface DataList {
   histories: Record<string, FileEntry>;
   /** Each watched node's kept sample beside its history (ADR 0014 §5), by id, where the build keeps one. */
   samples: Record<string, FileEntry>;
+  /** Each watch's ranges computed ahead for the first loads day (ADR 0019), by id, where the build made them. */
+  ranges: Record<string, FileEntry>;
   /** The source the loads feed (the first with loads), its month's loads, its incidents' and its donor days. With
    * several daily sources (ADR 0013 §5), a load is a day: the first daily source's file, with every source's file
    * for the day in `files`. */
@@ -78,6 +80,7 @@ export function readDataList(raw: unknown, fallback: DataBindings): DataList {
     }
     const histories = (index.histories ?? {}) as Record<string, FileEntry>;
     const samples = (isRecord(index.samples) ? index.samples : {}) as Record<string, FileEntry>;
+    const ranges = (isRecord(index.ranges) ? index.ranges : {}) as Record<string, FileEntry>;
     const daily = Object.entries(sources).filter(([, s]) => s.loads !== undefined).map(([id]) => id);
     const loadSource = daily[0] ?? null;
     // Several daily sources: a load is a day, listed once, with each source's file for it (the first source's at top).
@@ -98,10 +101,11 @@ export function readDataList(raw: unknown, fallback: DataBindings): DataList {
       if (k === 0) files.history = h;
     });
     for (const [id, s] of Object.entries(samples)) files[`sample:${id}`] = s;
+    for (const [id, r] of Object.entries(ranges)) files[`ranges:${id}`] = r;
     const flow = isRecord(index.flow) ? (index.flow as unknown as FileEntry) : null;
     if (flow) files.flow = flow;
     return {
-      format: 2, ...(typeof index.month === 'string' ? { month: index.month } : {}), ...(typeof index.built === 'string' ? { built: index.built } : {}), data, flow, sources, histories, samples, loadSource, daily, judged,
+      format: 2, ...(typeof index.month === 'string' ? { month: index.month } : {}), ...(typeof index.built === 'string' ? { built: index.built } : {}), data, flow, sources, histories, samples, ranges, loadSource, daily, judged,
       loads, episodes: episodesOf(index.episodes), donors: loadSource ? sources[loadSource]!.donors ?? [] : [], files,
     };
   }
@@ -126,7 +130,7 @@ export function readDataList(raw: unknown, fallback: DataBindings): DataList {
     if (loadSource) out[`history:${loadSource}`] = files.history;
   }
   return {
-    format: 1, ...(typeof index.month === 'string' ? { month: index.month } : {}), ...(typeof index.built === 'string' ? { built: index.built } : {}), data, flow: null, sources, histories, samples: {},
+    format: 1, ...(typeof index.month === 'string' ? { month: index.month } : {}), ...(typeof index.built === 'string' ? { built: index.built } : {}), data, flow: null, sources, histories, samples: {}, ranges: {},
     loadSource: loads.length ? loadSource : null, daily: loads.length && loadSource ? [loadSource] : [], judged: loads.length ? loadSource : null, loads, episodes: episodesOf(index.episodes), donors, files: out,
   };
 }

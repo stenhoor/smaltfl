@@ -21,6 +21,10 @@
  * worker thread a core, each with an engine per load.
  */
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { HistoryRanges } from '../../src/core/history.js';
+import { rangesFor } from '../../src/core/hold.js';
+import { rangesOf } from '../../src/core/ranges.js';
 import { availableParallelism } from 'node:os';
 import { basename, join } from 'node:path';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
@@ -162,7 +166,7 @@ async function worker(): Promise<void> {
 const list = (v: string | undefined) => (v === undefined ? undefined : v.split(',').map((x) => x.trim()).filter(Boolean));
 
 /** What to build, from the arguments. */
-async function jobOf(args: string[]): Promise<{ job: Job; out: string; samplePath?: string }> {
+async function jobOf(args: string[]): Promise<{ job: Job; out: string; samplePath?: string; next?: LoadFiles; rangesPath?: string }> {
   const flags = new Map<string, string[]>();
   const rest: string[] = [];
   for (let i = 0; i < args.length; i++) {
@@ -213,11 +217,15 @@ async function jobOf(args: string[]): Promise<{ job: Job; out: string; samplePat
     if (at <= 0) throw new Error(`--fixed names a source and its file: --fixed apps=path/to/apps.csv (got ${f})`);
     return [f.slice(0, at), f.slice(at + 1)];
   }));
-  return { job: { doc, source, binding, bindings: data.sources, settings: { source, every: 'day', counted: [...new Set(count)], followed: [...new Set(follow)], paired: [...new Set(pair)], time: one('time') ?? w?.time ?? null, zone: one('zone') ?? w?.zone ?? null, sample: SAMPLE }, params, files, fixed, sample: one('sample') !== undefined }, out, samplePath: one('sample') };
+  // The first load after the history (ADR 0019): measured as the page will measure it, to compute every metric's range for
+  // its day, written to --ranges.
+  const nextArg = one('next');
+  const next = nextArg ? (JSON.parse(nextArg.trim().startsWith('{') ? nextArg : readFileSync(nextArg, 'utf8')) as LoadFiles) : undefined;
+  return { job: { doc, source, binding, bindings: data.sources, settings: { source, every: 'day', counted: [...new Set(count)], followed: [...new Set(follow)], paired: [...new Set(pair)], time: one('time') ?? w?.time ?? null, zone: one('zone') ?? w?.zone ?? null, sample: SAMPLE }, params, files, fixed, sample: one('sample') !== undefined }, out, samplePath: one('sample'), next, rangesPath: one('ranges') };
 }
 
 async function main(): Promise<void> {
-  const { job, out, samplePath } = await jobOf(process.argv.slice(2));
+  const { job, out, samplePath, next, rangesPath } = await jobOf(process.argv.slice(2));
   const files = [...job.files].sort((a, b) => (a.slot < b.slot ? -1 : a.slot > b.slot ? 1 : 0));
   if (!files.length) throw new Error('no loads to measure');
   const n = Math.max(1, Math.min(availableParallelism(), files.length));
@@ -268,6 +276,16 @@ async function main(): Promise<void> {
   const text = JSON.stringify(history) + '\n';
   if (text.length > LIMIT) throw new Error(`${out} would be ${(text.length / 1048576).toFixed(1)} MB, past the ${LIMIT / 1048576} MB a page fetches`);
   writeFileSync(out, text);
+  // Every metric's range for the first day after the history (ADR 0019): the day measured, appended, and each range
+  // computed by the judge itself; the file names the history by its bytes' sha256, so it is taken on that history alone.
+  if (rangesPath && next) {
+    const t0 = Date.now();
+    const { measures } = await measure(job, next);
+    const ranges = new HistoryRanges(appendPeriods(history, [measures]), rangesFor(job.doc, job.source));
+    const made = rangesOf(ranges, measures.slot, { sha256: createHash('sha256').update(text).digest('hex'), days: history.days.length, last: history.days.at(-1)! });
+    writeFileSync(rangesPath, JSON.stringify(made) + '\n');
+    console.log(`${rangesPath}: ${Object.keys(made.ranges).length} ranges for ${made.day} in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+  }
   // The kept sample (ADR 0014 §5): the last eight weeks' loads' kept rows, in the loads' columns.
   if (samplePath) {
     let sampleFile = emptySample({ flow: job.doc.id, source: job.source, columns: first.columns, kinds, keep: SAMPLE_KEEP });

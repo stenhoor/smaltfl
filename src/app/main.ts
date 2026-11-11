@@ -34,6 +34,7 @@ import { dayVersions, donorIdOf, fillCounts, levelOf as acceptedLevel, levelWays
 import { gridOf, shadeOf, shareOf, standOut } from './grid.js';
 import { setUpSplit, showWorkspace } from './split.js';
 import { mark } from './perf.js';
+import { isRangesFile, rangesPath, type GivenRanges } from '../core/ranges.js';
 import { bronzeOf, verdictSaid, type Bronze, type BronzeCheck, type CheckState } from '../core/bronze.js';
 import { button as nbButton, formatMs, makeCell, showError, showMarkdown, showRows as showGridRows, type CellStatus, type CellUi } from './nbcells.js';
 import type { EditorSchema, SchemaColumn } from 'smaltkit/editor';
@@ -3460,12 +3461,12 @@ function rangesForLoad(id: string): HistoryRanges | null {
   const tail = tailBefore(tails.get(id) ?? [], '\uffff');
   const skips = recordedSkips();
   const levels = levelsOf(ledger?.entries ?? [], id);
-  const key = JSON.stringify([tail.map((m) => m.slot), skips, levels]);
+  const key = JSON.stringify([tail.map((m) => m.slot), skips, levels, givens.has(id)]);
   const known = otherRanges.get(id);
   if (known && known.key === key) return known.h;
   let h: HistoryRanges;
   try {
-    h = new HistoryRanges(tail.length ? appendPeriods(b.file, tail) : b.file, { ...rangesFor(state.doc, id), recorded: new Set(skips), levels });
+    h = new HistoryRanges(tail.length ? appendPeriods(b.file, tail) : b.file, { ...rangesFor(state.doc, id), recorded: new Set(skips), levels, ...(givens.get(id) ? { given: givens.get(id)! } : {}) });
   } catch {
     return null;
   }
@@ -10021,6 +10022,8 @@ let historyPin: HistoryRef | null = null;
 /** The watched source's base history, as the data's list gave it (ADR 0010 §6). */
 let baseHistory: HistoryFile | null = null;
 /** Every watch's base history and its pin (ADR 0013 §5), by watched id: the judged one's is `baseHistory`. */
+/** Each watch's ranges computed ahead for the first loads day (ADR 0019), checked against its history's sha256. */
+const givens = new Map<string, GivenRanges>();
 const bases = new Map<string, { file: HistoryFile; ref: HistoryRef }>();
 /** Each watched node's kept sample (ADR 0014 §5), by id: the build's, with the days run in this browser appended. */
 const samples = new Map<string, SampleFile>();
@@ -10076,13 +10079,14 @@ function refreshRanges(): void {
   // The levels accepted (ADR 0010 §5, C6): from each, the metrics it names are learned anew, in the flow's verdict and
   // in what this browser shows.
   const levels = levelsOf(ledger?.entries ?? [], source);
-  const key = JSON.stringify([tail.map((m) => m.slot), skips, levels]);
+  const key = JSON.stringify([tail.map((m) => m.slot), skips, levels, givens.has(source)]);
   if (key === rangesKey && flowHistory) return;
   rangesKey = key;
   const file = tail.length ? appendPeriods(baseHistory, tail) : baseHistory;
   const settings = rangesFor(state.doc, source);
-  flowHistory = new HistoryRanges(file, { ...settings, recorded: new Set(skips), levels });
-  history = new HistoryRanges(file, { ...settings, skip: incidentDays(), recorded: new Set(skips), levels });
+  const given = givens.get(source) ? { given: givens.get(source)! } : {};
+  flowHistory = new HistoryRanges(file, { ...settings, recorded: new Set(skips), levels, ...given });
+  history = new HistoryRanges(file, { ...settings, skip: incidentDays(), recorded: new Set(skips), levels, ...given });
   // claim/1 is told from these ranges, so it is told again; claim/2 is what each run was given, told before it from its
   // load's measures (claimsForRun), and is kept: a remedy staged later judges its day by the same claim.
   if (!generalForm()) claims.clear();
@@ -10173,7 +10177,7 @@ async function claimsForRun(engine: Engine, day: string | undefined, parameters:
       mine.set(day, kept);
       keptRows.set(source, mine);
     }
-    const told = await loadClaim({ doc: state.doc, source, flow: plan.flow.hash, base: ref ? base : null, baseRef: ref, tail: tails.get(source) ?? [], measures: m, settings, skip: recordedSkips(), levels: levelsOf(ledger?.entries ?? [], source), build: BUILD_COMMIT, ...(kept && samples.get(source) ? { sample: samples.get(source)!, kept } : {}) });
+    const told = await loadClaim({ ...(givens.get(source) ? { given: givens.get(source)! } : {}), doc: state.doc, source, flow: plan.flow.hash, base: ref ? base : null, baseRef: ref, tail: tails.get(source) ?? [], measures: m, settings, skip: recordedSkips(), levels: levelsOf(ledger?.entries ?? [], source), build: BUILD_COMMIT, ...(kept && samples.get(source) ? { sample: samples.get(source)!, kept } : {}) });
     await pinFile(engine, tailPath(source), told?.tail.length ? utf8(canonicalJSON(told.tail as unknown as Parameters<typeof canonicalJSON>[0])) : null);
     const key = `${day}|${source}|${flowHistory ? countedChecks(state.doc, flowHistory, source) : false}`;
     claims.set(key, told?.claim ?? null);
@@ -11822,6 +11826,8 @@ function recordMark(e: { kind: string; about: unknown }): VizMark | null {
 function renderRecord(): void {
   const box = document.getElementById('record');
   if (!box) return;
+  // Drawn where it is seen: the Runs view draws it when it is shown (showView), not on every entry while it is hidden.
+  if (box.closest('.view[hidden]')) return;
   if (!ledger) {
     box.replaceChildren(h('p', { class: 'foot' }, 'The record is opening…'));
     return;
@@ -11995,6 +12001,7 @@ function showView(): void {
   if (view === 'results') void renderResults();
   if (view === 'policies') void renderPolicies();
   if (view === 'ontology') void renderOntology();
+  if (view === 'runs') renderRecord();
 }
 
 const VIEWS = ['flow', 'ontology', 'policies', 'results', 'runs'];
@@ -12098,6 +12105,7 @@ async function start(): Promise<void> {
       else if (b.entry) fetchAhead(b.entry.path, b.entry);
     }
     for (const entry of Object.values(list.histories)) fetchAhead(entry.path, entry);
+    for (const entry of Object.values(list.ranges)) fetchAhead(entry.path, entry);
     for (const [id, entry] of Object.entries(list.samples)) if (Object.keys(state.doc.publish?.watch ?? {}).some((w) => w.toLowerCase() === id.toLowerCase())) fetchAhead(entry.path, entry);
     const got = (path: string, entry: Expected | undefined) => ahead.get(path) ?? checked(path, entry);
     // The data's list first: it must be the one this app was built with, and say what loads.json says of each file.
@@ -12159,6 +12167,19 @@ async function start(): Promise<void> {
     if (first) loads.pinned = 0;
     if (first) loads.at = 0;
     mark('samples pinned');
+    // Each watch's ranges computed ahead for the first day (ADR 0019): checked like every file, taken only on the history
+    // whose sha256 it names, and pinned for the engine's own judging of a watched step.
+    for (const [id, entry] of Object.entries(list.ranges)) {
+      const h = list.histories[id];
+      if (!h) continue;
+      const bytes = await got(entry.path, entry);
+      const file = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
+      if (!isRangesFile(file) || file.history.sha256 !== h.sha256) continue;
+      givens.set(id, { file, sha256: h.sha256 });
+      await pinFile(engine, rangesPath(id), bytes, entry.sha256);
+    }
+    if (givens.size) refreshRanges();
+    mark('ranges pinned');
     state.engine = engine;
     renderLoads();
     await run();

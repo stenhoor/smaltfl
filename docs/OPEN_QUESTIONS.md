@@ -85,6 +85,8 @@ one (0015) is to be written from them. Nothing here is built.
 | Q-160 | Rules and checks don't match (the Ontology page counts every check a file has; the card's Rules tab only the rules people set). How is the mismatch removed? | The maintainer, 2026-11-11: one concept, checks. The Rules tab and the word go; every check is listed on the card from the ontology down, each a tap from its line on the Ontology page; no format or hash changes (ADR 0015 amendment 2) | decided |
 | Q-161 | What does a bronze card open to? | Quality (the verdict, an issue card a check that found something with its picture, meaning, definition and fixes, then every check) and Notebook (the file read and checked, a cell an issue, your cells); no News, Checks or Rules (ADR 0015 amendment 2) | decided |
 | Q-162 | Which examples does the first version cover? | The control estate's bronze files first; the sign-ins and the taxi example in a follow-up (ADR 0015 amendment 2) | decided |
+| Q-163 | How fast must the demo's first day load, and may the build compute ranges ahead? | The maintainer, 2026-11-11: as fast as it can be made; the exact fixes first, then each history's normal ranges for the first loads day computed at build, shipped hashed beside it and taken only on that history and settings; verify and the audit still tell claims from the history (ADR 0019) | decided |
+| Q-164 | Should the page show the flow before the first day's judging finishes? | Yes, filling in as judging ends (ADR 0019) | decided |
 
 ## The bronze layer: the maintainer's request, and what is open (ADR 0015)
 

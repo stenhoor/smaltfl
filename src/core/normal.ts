@@ -27,6 +27,7 @@
  * Counts are guessed on a log scale (a miss is a ratio), shares on a logit scale, anything else as it is. No DOM, no
  * engine: the numbers come from runs, or from the scenario's history (scripts/data/history.ts).
  */
+import type { ShippedRange } from './ranges.js';
 import { dayLastYear, daysBetween, isSpecial, occurrencesBefore, plusDays, recurringOf, specialOf, US_NYC_1, type Calendar } from './calendar.js';
 
 /** How a number varies: a count (by ratios), a share of rows (0 to 1), or a level, such as a median. */
@@ -130,6 +131,9 @@ export interface NormalOptions {
   /** Whether a number against its day's range would hold the day: a change that held a day is never re-learned on its
    * own (X7, Q-74), since the owner asked that deliberate changes pause until accepted. */
   held?: (range: NormalRange, value: number, distance: number) => boolean;
+  /** A range computed ahead for one day (ADR 0019): taken as is for that day; its guesses' days learned from are
+   * computed when read. */
+  given?: { day: string; range: ShippedRange | null };
 }
 
 /** A break in what a number is learned from: the day it starts (`from`), and the last day it doesn't apply to yet
@@ -199,7 +203,7 @@ const DATES = new Map<string, string[]>();
 export class NormalRanges {
   readonly scale: Scale;
   private readonly series: DailySeries;
-  private readonly o: Required<NormalOptions>;
+  private readonly o: Required<Omit<NormalOptions, 'given'>> & Pick<NormalOptions, 'given'>;
   // By day, counted from the series' first: its date, whether it is special, its day last year, and what was guessed.
   private readonly dates = new Map<number, string>();
   private readonly specials = new Map<number, boolean>();
@@ -715,7 +719,7 @@ export class NormalRanges {
   at(day: string): NormalRange | null {
     const k = daysBetween(this.series.from, day);
     if (this.rangeAt.has(k)) return this.rangeAt.get(k)!;
-    const out = this.compute(k);
+    const out = this.o.given && this.o.given.day === day ? this.hydrate(this.o.given.range, k) : this.compute(k);
     this.rangeAt.set(k, out);
     return out;
   }
@@ -746,6 +750,31 @@ export class NormalRanges {
     const [sW, sY] = [this.missOf(ms, (m) => m.w), this.missOf(ms, (m) => m.y)];
     if ((sW !== null && sY !== null && broken(sY, sW)) || Math.abs(Y.r ?? 0) > 0.5) return { why: 'last year moved', days, special };
     return { why: 'too few days', days, special };
+  }
+
+  /** A range computed ahead, as `compute` would give it: its guesses' days learned from computed the first time one is
+   * read (the only part not shipped), from the same computation. */
+  private hydrate(r: ShippedRange | null, k: number): NormalRange | null {
+    if (!r) return null;
+    let live: NormalRange | null | undefined;
+    const self = this;
+    return {
+      ...r,
+      guesses: r.guesses.map((g, i) => {
+        let set: Reference[] | undefined;
+        return {
+          ...g,
+          get from(): Reference[] {
+            if (set) return set;
+            if (live === undefined) live = self.compute(k);
+            return live?.guesses[i]?.from ?? [];
+          },
+          set from(v: Reference[]) {
+            set = v;
+          },
+        } as Guess;
+      }),
+    };
   }
 
   private compute(k: number): NormalRange | null {

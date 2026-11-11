@@ -198,6 +198,11 @@ match smaltdb's `CLAUDE.md`.
   the file on the decision sheet (`replaceDayFile`); the sign-ins allow forward, backward and replace (`test/fixes.test.ts`,
   `tools/browser/stops/fixes.json`). docs/research/ui-news-models-remedies.md is the UI research;
   `test/rules.test.ts`, `tools/browser/stops/rules.json`.
+- First load (ADR 0019): `src/app/perf.ts` marks each phase (`window.__smaltflPerf`, `?perf`) and `engine.ts` times every
+  engine request (`window.__smaltflEngine`); `SMALTFL_PROFILE=1` keeps names in the build. Every first-day file is
+  fetched at once (`fetchAhead`). Ranges computed ahead (`src/core/ranges.ts`): the history builder's `--next`/`--ranges`
+  writes `ranges.<watch>.json` for the first loads day, listed in loads.json (`ranges`), taken by the judge only where
+  `givenApplies` (`RangeOptions.given`, `loadClaim`'s `given`, the engine's `rangesPath`); `test/ranges.test.ts`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
