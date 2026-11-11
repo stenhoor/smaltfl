@@ -33,6 +33,8 @@ import { countedChecks, rangesFor, dayClaim, dayState, flowStory, levelFor, leve
 import { dayVersions, donorIdOf, fillCounts, levelOf as acceptedLevel, levelWays, partLabel as remedyPart, type Offer, type Repair, type Version } from '../core/fill.js';
 import { gridOf, shadeOf, shareOf, standOut } from './grid.js';
 import { setUpSplit, showWorkspace } from './split.js';
+import { mark } from './perf.js';
+import { isRangesFile, rangesPath, type GivenRanges } from '../core/ranges.js';
 import { bronzeOf, verdictSaid, type Bronze, type BronzeCheck, type CheckState } from '../core/bronze.js';
 import { button as nbButton, formatMs, makeCell, showError, showMarkdown, showRows as showGridRows, type CellStatus, type CellUi } from './nbcells.js';
 import type { EditorSchema, SchemaColumn } from 'smaltkit/editor';
@@ -3459,12 +3461,12 @@ function rangesForLoad(id: string): HistoryRanges | null {
   const tail = tailBefore(tails.get(id) ?? [], '\uffff');
   const skips = recordedSkips();
   const levels = levelsOf(ledger?.entries ?? [], id);
-  const key = JSON.stringify([tail.map((m) => m.slot), skips, levels]);
+  const key = JSON.stringify([tail.map((m) => m.slot), skips, levels, givens.has(id)]);
   const known = otherRanges.get(id);
   if (known && known.key === key) return known.h;
   let h: HistoryRanges;
   try {
-    h = new HistoryRanges(tail.length ? appendPeriods(b.file, tail) : b.file, { ...rangesFor(state.doc, id), recorded: new Set(skips), levels });
+    h = new HistoryRanges(tail.length ? appendPeriods(b.file, tail) : b.file, { ...rangesFor(state.doc, id), recorded: new Set(skips), levels, ...(givens.get(id) ? { given: givens.get(id)! } : {}) });
   } catch {
     return null;
   }
@@ -10020,6 +10022,8 @@ let historyPin: HistoryRef | null = null;
 /** The watched source's base history, as the data's list gave it (ADR 0010 §6). */
 let baseHistory: HistoryFile | null = null;
 /** Every watch's base history and its pin (ADR 0013 §5), by watched id: the judged one's is `baseHistory`. */
+/** Each watch's ranges computed ahead for the first loads day (ADR 0019), checked against its history's sha256. */
+const givens = new Map<string, GivenRanges>();
 const bases = new Map<string, { file: HistoryFile; ref: HistoryRef }>();
 /** Each watched node's kept sample (ADR 0014 §5), by id: the build's, with the days run in this browser appended. */
 const samples = new Map<string, SampleFile>();
@@ -10075,13 +10079,14 @@ function refreshRanges(): void {
   // The levels accepted (ADR 0010 §5, C6): from each, the metrics it names are learned anew, in the flow's verdict and
   // in what this browser shows.
   const levels = levelsOf(ledger?.entries ?? [], source);
-  const key = JSON.stringify([tail.map((m) => m.slot), skips, levels]);
+  const key = JSON.stringify([tail.map((m) => m.slot), skips, levels, givens.has(source)]);
   if (key === rangesKey && flowHistory) return;
   rangesKey = key;
   const file = tail.length ? appendPeriods(baseHistory, tail) : baseHistory;
   const settings = rangesFor(state.doc, source);
-  flowHistory = new HistoryRanges(file, { ...settings, recorded: new Set(skips), levels });
-  history = new HistoryRanges(file, { ...settings, skip: incidentDays(), recorded: new Set(skips), levels });
+  const given = givens.get(source) ? { given: givens.get(source)! } : {};
+  flowHistory = new HistoryRanges(file, { ...settings, recorded: new Set(skips), levels, ...given });
+  history = new HistoryRanges(file, { ...settings, skip: incidentDays(), recorded: new Set(skips), levels, ...given });
   // claim/1 is told from these ranges, so it is told again; claim/2 is what each run was given, told before it from its
   // load's measures (claimsForRun), and is kept: a remedy staged later judges its day by the same claim.
   if (!generalForm()) claims.clear();
@@ -10172,7 +10177,7 @@ async function claimsForRun(engine: Engine, day: string | undefined, parameters:
       mine.set(day, kept);
       keptRows.set(source, mine);
     }
-    const told = await loadClaim({ doc: state.doc, source, flow: plan.flow.hash, base: ref ? base : null, baseRef: ref, tail: tails.get(source) ?? [], measures: m, settings, skip: recordedSkips(), levels: levelsOf(ledger?.entries ?? [], source), build: BUILD_COMMIT, ...(kept && samples.get(source) ? { sample: samples.get(source)!, kept } : {}) });
+    const told = await loadClaim({ ...(givens.get(source) ? { given: givens.get(source)! } : {}), doc: state.doc, source, flow: plan.flow.hash, base: ref ? base : null, baseRef: ref, tail: tails.get(source) ?? [], measures: m, settings, skip: recordedSkips(), levels: levelsOf(ledger?.entries ?? [], source), build: BUILD_COMMIT, ...(kept && samples.get(source) ? { sample: samples.get(source)!, kept } : {}) });
     await pinFile(engine, tailPath(source), told?.tail.length ? utf8(canonicalJSON(told.tail as unknown as Parameters<typeof canonicalJSON>[0])) : null);
     const key = `${day}|${source}|${flowHistory ? countedChecks(state.doc, flowHistory, source) : false}`;
     claims.set(key, told?.claim ?? null);
@@ -10768,11 +10773,14 @@ async function run(): Promise<void> {
     const period = periodOfFlow();
     if (period && has(period) && loadDay) parameters[period] = loadDay;
     refreshRanges();
+    mark('run: ranges');
     const asked = await claimsForRun(engine, loadDay, parameters);
+    mark('run: claims told');
     const told = asked?.claims;
     const data = integrity.data ? { commit: integrity.data.commit, manifest: integrity.data.manifest } : null;
     const result = await runFlow(engine, state.doc, { smaltdb: SMALTDB, parameters, data, log: recordHead(), ...(told ? { claims: told } : {}), ...(asked && Object.keys(asked.tell).length ? { tell: asked.tell } : {}) });
     const ms = performance.now() - t;
+    mark('run: flow run');
     // A held run returns, built, checked and recorded, its versions staged: only `published` names show it. A watched
     // step's claim, told in the engine, is kept from the hold it made (ADR 0013 §4).
     const engineTold = result.holds.flatMap((h) => (h.by === 'story' && h.claim && asked?.tell[h.origin] ? [h.claim] : []));
@@ -10794,7 +10802,9 @@ async function run(): Promise<void> {
     noteShown(rec, result.published);
     // What is shown is what ran: after a refused day, a run on the day still pinned shows that day.
     if (loads.pinned >= 0) loads.at = loads.pinned;
+    mark('run: tails and samples');
     await recordRun(rec, null);
+    mark('run: recorded');
     // The day just measured (and the record's new days left out) in the ranges before anything is said or drawn of it:
     // a day past the base history has its story, its head and its News on its first run, not only on its second.
     refreshRanges();
@@ -10802,13 +10812,18 @@ async function run(): Promise<void> {
     if (result.holds.length) await applyDecided(rec);
     // A run whose gates all passed, or whose holds a standing decision published, is sealed (ADR 0014 §6).
     await sealIfReady(rec);
+    mark('run: decided and sealed');
     await learnColumns();
+    mark('run: columns learned');
     void computeChanges();
     await refreshEdits();
+    mark('run: edits');
     // The day's own rows by hour and value, before anything says the day: an hour fall names the part that kept arriving.
     const ranDay = dayOfRun(rec);
     if (ranDay) await byHourFor(ranDay);
+    mark('run: by hour');
     sayRun(rec);
+    mark('run: said');
   } catch (e) {
     const msg = message(e);
     state.failed = { origin: failedOrigin(msg), message: msg };
@@ -10826,6 +10841,7 @@ async function run(): Promise<void> {
     if (location.hash === '#results') void renderResults();
     if (location.hash === '#policies') void renderPolicies();
     if (location.hash === '#ontology') void renderOntology();
+    mark('run: drawn');
   }
 }
 
@@ -11810,6 +11826,8 @@ function recordMark(e: { kind: string; about: unknown }): VizMark | null {
 function renderRecord(): void {
   const box = document.getElementById('record');
   if (!box) return;
+  // Drawn where it is seen: the Runs view draws it when it is shown (showView), not on every entry while it is hidden.
+  if (box.closest('.view[hidden]')) return;
   if (!ledger) {
     box.replaceChildren(h('p', { class: 'foot' }, 'The record is opening…'));
     return;
@@ -11983,6 +12001,7 @@ function showView(): void {
   if (view === 'results') void renderResults();
   if (view === 'policies') void renderPolicies();
   if (view === 'ontology') void renderOntology();
+  if (view === 'runs') renderRecord();
 }
 
 const VIEWS = ['flow', 'ontology', 'policies', 'results', 'runs'];
@@ -11994,8 +12013,10 @@ async function start(): Promise<void> {
   if (!document.getElementById('split')) setUpSplit($('sheet'));
   // The data list first (ADR 0010 §9): it binds each source by id, and names the flow when the page runs another than
   // the built example, which is checked against the list before it is read.
+  mark('start');
   const index = (await fetch('data/loads.json', { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null)) as unknown;
   dataList = readDataList(index, EXAMPLE_DATA);
+  mark('loads.json');
   let opening: unknown = null;
   if (dataList.flow) {
     try {
@@ -12011,6 +12032,7 @@ async function start(): Promise<void> {
     }
   }
   // What this browser kept of the flow as edited here, by the hash of the document shipped (ADR 0015 §4).
+  mark('flow.json');
   shippedHash = await flowHash(shippedDoc);
   loadFlow();
   loadArrangement();
@@ -12041,10 +12063,12 @@ async function start(): Promise<void> {
   try {
     setStatus('Opening this flow’s record, and starting the engine…');
     await loadLog();
+    mark('record opened');
     // A day held in an earlier visit still waits (ADR 0009 §10): the tab says so before anything runs.
     syncTitle();
     if (opening) throw opening;
     const engine = await connect();
+    mark('engine started');
     // The daily loads the data has, if any: the flow starts on the first.
     const list = dataList;
     integrity.data = list.data;
@@ -12064,21 +12088,42 @@ async function start(): Promise<void> {
     loads.episodes = [{ name: month }, ...list.episodes.map((e) => ({ name: e.name, about: e.about }))];
     loads.episode = month;
     loads.donors = list.donors.map((l) => ({ ...l }));
+    // Every file the first day needs, fetched at once rather than one after another: each is still checked against the
+    // list's hash before it is used (`checked`), in the order the page uses them; only the waiting overlaps.
+    const firstLoad = loads.list[0];
+    const ahead = new Map<string, Promise<Uint8Array>>();
+    const fetchAhead = (path: string | undefined, entry: Expected | undefined) => {
+      if (!path || !entry || ahead.has(path)) return;
+      const p = checked(path, entry);
+      p.catch(() => undefined);
+      ahead.set(path, p);
+    };
+    for (const [id, b] of Object.entries(list.sources)) {
+      if (!state.doc.sources.some((x) => x.id === id)) continue;
+      const d = firstLoad && (id === list.loadSource ? firstLoad : firstLoad.files?.[id]);
+      if (d) fetchAhead(d.file, { sha256: d.sha256, bytes: d.bytes ?? -1, from: d.file } as Expected);
+      else if (b.entry) fetchAhead(b.entry.path, b.entry);
+    }
+    for (const entry of Object.values(list.histories)) fetchAhead(entry.path, entry);
+    for (const entry of Object.values(list.ranges)) fetchAhead(entry.path, entry);
+    for (const [id, entry] of Object.entries(list.samples)) if (Object.keys(state.doc.publish?.watch ?? {}).some((w) => w.toLowerCase() === id.toLowerCase())) fetchAhead(entry.path, entry);
+    const got = (path: string, entry: Expected | undefined) => ahead.get(path) ?? checked(path, entry);
     // The data's list first: it must be the one this app was built with, and say what loads.json says of each file.
     if (integrity.data) await checkList(list);
     // Each watched source's history (ADR 0010 §9): its base, for each load's normal range, when the data has one.
     const watched = loadSource();
     const hf = watched ? list.histories[watched] : undefined;
-    const pastBytes = hf ? await checked(hf.path, hf) : null;
+    const pastBytes = hf ? await got(hf.path, hf) : null;
     const past = pastBytes ? (JSON.parse(new TextDecoder().decode(pastBytes)) as HistoryFile) : null;
     if (isHistory(past) && past.days.length) {
       baseHistory = past;
       rebuildTails();
       refreshRanges();
     }
+    mark('base history');
     const first = loads.list[0];
     const noun = rowNoun(watched ?? '');
-    setStatus(first ? `Loading ${dayLabel(first.day)}: ${fmtInt(first.rows)} ${noun}, and the other sources, each checked against the data's list…` : `Loading the ${noun} and the other sources…`);
+    setStatus(first ? `Loading ${dayLabel(first.day)}: ${fmtInt(first.rows)} ${first.rows === 1 ? noun.one : noun.many}, and the other sources, each checked against the data's list…` : `Loading the ${noun.many} and the other sources…`);
     // Each source's file, by its binding, checked here and pinned in the engine, which hashes it again and reads it as
     // smaltfl:<file>: the loads' source its first load.
     for (const [id, b] of Object.entries(list.sources)) {
@@ -12087,18 +12132,19 @@ async function start(): Promise<void> {
       const day = first && (id === list.loadSource ? first : first.files?.[id]);
       const want: (Expected & { path: string }) | undefined = day ? { path: day.file, sha256: day.sha256, bytes: day.bytes ?? -1, from: day.file } : b.entry;
       if (!want) throw new Error(`no hash for ${b.file} in the data's list: it can't be checked, so it isn't used`);
-      const bytes = await checked(want.path, want);
+      const bytes = await got(want.path, want);
       await pinFile(engine, b.file, bytes, want.sha256);
       await engine.exec(pinnedDdl(b));
       if (id === list.loadSource && first) loads.bytes.set(0, bytes);
       else if (day) loads.others.set(0, { ...(loads.others.get(0) ?? {}), [id]: bytes });
     }
+    mark('files pinned');
     // Each history pinned in the engine as the flow's watch names it (ADR 0009 §3): a claim told from it is checked
     // against the bytes the engine hashed, and a run whose claim was told from other bytes holds its day as not judged.
     // Every watch's (ADR 0013 §5): the judged one's is the page's base; a watched step's is read by the engine itself.
     const named = Object.values(state.doc.publish?.watch ?? {}).map(watchHistory);
     for (const [id, entry] of Object.entries(list.histories)) {
-      const bytes = id === watched ? pastBytes : await checked(entry.path, entry);
+      const bytes = id === watched ? pastBytes : await got(entry.path, entry);
       if (!bytes || !named.includes(entry.path)) continue;
       const file = id === watched ? past : (JSON.parse(new TextDecoder().decode(bytes)) as HistoryFile);
       if (!isHistory(file) || !file.days.length) continue;
@@ -12107,11 +12153,12 @@ async function start(): Promise<void> {
       bases.set(id, { file, ref });
       if (id === watched && flowHistory) historyPin = ref;
     }
+    mark('histories pinned');
     // Each kept sample (ADR 0014 §5), checked, kept here and pinned for the engine under the node's sample path, so a
     // watched step's claim reads it; a source's classifier runs here, from the same file.
     for (const [id, entry] of Object.entries(list.samples)) {
       if (!state.doc.publish?.watch || !Object.keys(state.doc.publish.watch).some((w) => w.toLowerCase() === id.toLowerCase())) continue;
-      const bytes = await checked(entry.path, entry);
+      const bytes = await got(entry.path, entry);
       const file = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
       if (!isSample(file)) continue;
       samples.set(id, file);
@@ -12119,10 +12166,25 @@ async function start(): Promise<void> {
     }
     if (first) loads.pinned = 0;
     if (first) loads.at = 0;
+    mark('samples pinned');
+    // Each watch's ranges computed ahead for the first day (ADR 0019): checked like every file, taken only on the history
+    // whose sha256 it names, and pinned for the engine's own judging of a watched step.
+    for (const [id, entry] of Object.entries(list.ranges)) {
+      const h = list.histories[id];
+      if (!h) continue;
+      const bytes = await got(entry.path, entry);
+      const file = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
+      if (!isRangesFile(file) || file.history.sha256 !== h.sha256) continue;
+      givens.set(id, { file, sha256: h.sha256 });
+      await pinFile(engine, rangesPath(id), bytes, entry.sha256);
+    }
+    if (givens.size) refreshRanges();
+    mark('ranges pinned');
     state.engine = engine;
     renderLoads();
     await run();
     renderLoads();
+    mark('first day shown');
     await openBriefFromHash();
   } catch (e) {
     if (e instanceof IntegrityError) {

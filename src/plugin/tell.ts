@@ -10,6 +10,7 @@ import { isSample, samplePath, type SampleFile } from '../core/apart.js';
 import type { FlowDocument } from '../core/document.js';
 import { isHistory, type HistoryFile } from '../core/history.js';
 import { loadClaim, tailPath, type StoryClaim2 } from '../core/hold.js';
+import { isRangesFile, rangesPath } from '../core/ranges.js';
 import { measuresProblem, type MeasureSettings, type Measures } from '../core/measures.js';
 import type { TellFor } from '../core/protocol.js';
 import { pinned } from './pinned.js';
@@ -63,6 +64,9 @@ export async function tellClaim(o: TellInput): Promise<{ claim: StoryClaim2 } | 
   // The sample pinned beside the history (ADR 0014 §5): the classifier's reference, with the load's own kept rows.
   const sp = o.kept ? pinnedJSON(samplePath(o.source)) : undefined;
   if (sp && !isSample(sp.value)) return { problem: `${samplePath(o.source)} is pinned but isn't a sample file` };
-  const told = await loadClaim({ doc: o.doc, source: o.source, flow: o.flow, base, baseRef: h ? { path: o.history, sha256: h.sha256, bytes: h.bytes } : null, tail, measures: o.measures, settings: o.settings, skip: o.tell.skip, levels: o.tell.levels, build: o.build, ...(o.upstream ? { upstream: o.upstream } : {}), ...(sp && o.kept ? { sample: sp.value as SampleFile, kept: o.kept } : {}) });
+  // The ranges computed ahead for its first day (ADR 0019), taken only on the history pinned here, by its sha256.
+  const r = h ? pinnedJSON(rangesPath(o.source)) : undefined;
+  const given = r && h && isRangesFile(r.value) && r.value.history.sha256 === h.sha256 ? { given: { file: r.value, sha256: h.sha256 } } : {};
+  const told = await loadClaim({ ...given, doc: o.doc, source: o.source, flow: o.flow, base, baseRef: h ? { path: o.history, sha256: h.sha256, bytes: h.bytes } : null, tail, measures: o.measures, settings: o.settings, skip: o.tell.skip, levels: o.tell.levels, build: o.build, ...(o.upstream ? { upstream: o.upstream } : {}), ...(sp && o.kept ? { sample: sp.value as SampleFile, kept: o.kept } : {}) });
   return told ? { claim: told.claim } : { problem: `${o.source}'s load can't be judged against its history (its slot is in the base already, or before its last period, with other numbers)` };
 }

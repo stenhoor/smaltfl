@@ -440,8 +440,14 @@ export const datedOf = (day: string, cal: Calendar = US_NYC_1): string | undefin
 /** A day not to learn an ordinary day from: a holiday, one in a holiday's window or a flow's window, one of the flow's
  * recurring days (or in its window), or one of its dates. */
 export function isSpecial(day: string, cal: Calendar = US_NYC_1): boolean {
-  return holidayOf(day, cal) !== undefined || seasonOf(day, cal) !== undefined || recurringOf(day, cal) !== undefined || datedOf(day, cal) !== undefined;
+  // Asked of every day by every metric a history judges: kept by calendar, as the answer is the calendar's alone.
+  let known = specials.get(cal);
+  if (!known) specials.set(cal, (known = new Map()));
+  let s = known.get(day);
+  if (s === undefined) known.set(day, (s = holidayOf(day, cal) !== undefined || seasonOf(day, cal) !== undefined || recurringOf(day, cal) !== undefined || datedOf(day, cal) !== undefined));
+  return s;
 }
+const specials = new WeakMap<Calendar, Map<string, boolean>>();
 
 /** A special day's name, judged by last year's alone: its holiday's, or the window's it is in. */
 export const specialOf = (day: string, cal: Calendar = US_NYC_1): string | undefined => holidayOf(day, cal) ?? seasonOf(day, cal);

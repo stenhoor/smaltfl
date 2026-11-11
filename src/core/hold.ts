@@ -13,6 +13,7 @@
  *   pause opened by a held run is found again by the run's inputs (the flow, its parameters and its files), closed by a
  *   decision or by a passing run of the same inputs, and a decision is applied again only to the keys it named.
  */
+import type { GivenRanges } from './ranges.js';
 import { canonicalJSON } from './canonical.js';
 import type { DayState, PauseState } from './days.js';
 import { stepRules } from './rules.js';
@@ -324,6 +325,8 @@ const belowOf = (s: Story): boolean => (s.amount ? s.amount.value < s.amount.low
 
 /** What a page tells a load's claim/2 from (`loadClaim`). */
 export interface LoadClaimInput {
+  /** Ranges computed ahead for the first day after the base (ADR 0019): taken where they apply, as the judge's own. */
+  given?: GivenRanges;
   doc: FlowFor & Pick<FlowDocument, 'id'>;
   source: string;
   /** The flow hash it is told under: the plan's. */
@@ -382,7 +385,7 @@ export async function loadClaim(o: LoadClaimInput): Promise<{ claim: StoryClaim2
   // left out and the levels of that slot too.
   const slotted = every !== 'day';
   const own = (d: string) => !slotted || d.slice(10) === slot.slice(10);
-  const ranges = new HistoryRanges(slotted ? slotSeries(file, slot) : file, { ...rangesFor(o.doc, o.source), recorded: new Set(skip.filter(own).map(dayOfSlot)), levels: levels.filter((l) => own(l.from)).map((l) => ({ ...l, from: dayOfSlot(l.from) })) });
+  const ranges = new HistoryRanges(slotted ? slotSeries(file, slot) : file, { ...rangesFor(o.doc, o.source), recorded: new Set(skip.filter(own).map(dayOfSlot)), levels: levels.filter((l) => own(l.from)).map((l) => ({ ...l, from: dayOfSlot(l.from) })), ...(o.given && !slotted ? { given: o.given } : {}) });
   const s = flowStory(ranges, dayOfSlot(slot), o.doc, o.source, o.upstream, o.sample && o.kept ? { sample: o.sample, today: o.kept } : undefined);
   const claim: StoryClaim2 = {
     by: 'story', v: 2, source: o.source, slot, every, state: s.state, below: belowOf(s), head: s.head, build: o.build, flow: o.flow,

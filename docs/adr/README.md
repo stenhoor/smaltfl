@@ -22,4 +22,5 @@ records start from the answers to the questions in [../OPEN_QUESTIONS.md](../OPE
 | [0015](0015-the-bronze-layer.md) | The bronze layer: checks driven by the ontology, a mode a column, the card read as a notebook | proposed (the maintainer's request of 2026-11-10; Q-134–Q-139); amendment 2, one concept (checks) and the bronze card's Quality and Notebook: accepted (Q-160–Q-162) |
 | [0016](0016-the-mark.md) | The mark is the Twin, in the user-tool layer's cerulean | accepted |
 | [0017](0017-stenhoors-repositories-at-main.md) | Built on stenhoor's repositories, at their latest main | accepted (Q-156, 2026-11-11) |
+| [0019](0019-ranges-computed-ahead.md) | Ranges computed ahead, and a first load measured | accepted (Q-163, Q-164, 2026-11-11) |
 | [0018](0018-phone-tablet-and-desktop.md) | Phone, tablet and desktop | accepted (Q-157, 2026-11-11); amendment 1, the desktop split (Q-159) |

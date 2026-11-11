@@ -3,6 +3,7 @@
  * branch), and the series a day's normal range is drawn from (normal.ts). The numbers count the checks named here, as
  * they were published: a range for what the checks drop holds only while the checks are the same. No DOM, no engine.
  */
+import type { GivenRanges, RangesFile } from './ranges.js';
 import { plusDays, daysBetween, partsOf, slotsPerDay, US_NYC_1, type Calendar, type Every } from './calendar.js';
 import { canonicalJSON } from './canonical.js';
 import { NormalRanges, type DailySeries, type NormalRange, type Pattern, type Scale } from './normal.js';
@@ -360,6 +361,24 @@ export interface RangeOptions {
   bad?: ReadonlyMap<string, ReadonlySet<string>>;
   /** The levels accepted (ADR 0010 §5, C6): from each, the metrics it names are learned only from the days since. */
   levels?: readonly Level[];
+  /** Ranges computed ahead for the first day after the history (ADR 0019, ranges.ts): taken for that day only where they
+   * apply (`givenApplies`), every other range computed as always. */
+  given?: GivenRanges;
+}
+
+/**
+ * Whether ranges given to a judge apply to its history (ADR 0019): the file's history (its sha256, its days, its last
+ * day), the day the first after it in the judge's file, the same settings, and nothing left out or accepted before it.
+ */
+export function givenApplies(g: GivenRanges, file: HistoryFile, o: RangeOptions): boolean {
+  const f = g.file;
+  if (g.sha256 !== f.history.sha256) return false;
+  if (file.days[f.history.days] !== f.day || file.days[f.history.days - 1] !== f.history.last) return false;
+  if (rangeSettings(o) !== f.settings) return false;
+  const before = (d: string) => d < f.day;
+  if ([...(o.skip ?? [])].some(before) || [...(o.recorded ?? [])].some(before)) return false;
+  if ((o.levels ?? []).some((l) => before(l.from))) return false;
+  return true;
 }
 
 /** An accepted level (ADR 0009 amendment 1 S6, C6): the day it starts, and the metrics it names, as `metricKey` does. */
@@ -424,7 +443,10 @@ export class HistoryRanges {
     this.options = options;
     this.settings = rangeSettings(options);
     this.levels = options.levels ?? [];
+    this.given = options.given && givenApplies(options.given, file, options) ? options.given.file : null;
   }
+  /** The ranges computed ahead that apply here, if any (ADR 0019). */
+  private readonly given: RangesFile | null;
 
   /**
    * A base history with its tail folded in after it (ADR 0010 §6): the periods appended from their own runs, in slot
@@ -448,7 +470,8 @@ export class HistoryRanges {
       // A bad value's share is never re-learned on its own: it always alerts (ADR 0010 §4).
       const bad = m.of === 'value' && !!o.bad?.get(m.column.toLowerCase())?.has(String(parseKey(m.value)));
       const general = { ...(o.pattern && o.pattern !== 'weekly' ? { pattern: o.pattern } : {}), ...(o.echoes ? { echoes: true } : {}), ...(o.relearn && !bad ? { relearn: true, held: HELD[m.of] ?? (() => false) } : {}), ...(breaks.length ? { breaks } : {}) };
-      this.made.set(key, s ? new NormalRanges(s, SCALES[m.of], { skip: this.left, calendar: this.calendar, ...general }) : null);
+      const given = this.given && Object.prototype.hasOwnProperty.call(this.given.ranges, key) ? { given: { day: this.given.day, range: this.given.ranges[key]! } } : {};
+      this.made.set(key, s ? new NormalRanges(s, SCALES[m.of], { skip: this.left, calendar: this.calendar, ...general, ...given }) : null);
     }
     return this.made.get(key)!;
   }

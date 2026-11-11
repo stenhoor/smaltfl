@@ -27,6 +27,7 @@
  * Counts are guessed on a log scale (a miss is a ratio), shares on a logit scale, anything else as it is. No DOM, no
  * engine: the numbers come from runs, or from the scenario's history (scripts/data/history.ts).
  */
+import type { ShippedRange } from './ranges.js';
 import { dayLastYear, daysBetween, isSpecial, occurrencesBefore, plusDays, recurringOf, specialOf, US_NYC_1, type Calendar } from './calendar.js';
 
 /** How a number varies: a count (by ratios), a share of rows (0 to 1), or a level, such as a median. */
@@ -130,6 +131,9 @@ export interface NormalOptions {
   /** Whether a number against its day's range would hold the day: a change that held a day is never re-learned on its
    * own (X7, Q-74), since the owner asked that deliberate changes pause until accepted. */
   held?: (range: NormalRange, value: number, distance: number) => boolean;
+  /** A range computed ahead for one day (ADR 0019): taken as is for that day; its guesses' days learned from are
+   * computed when read. */
+  given?: { day: string; range: ShippedRange | null };
 }
 
 /** A break in what a number is learned from: the day it starts (`from`), and the last day it doesn't apply to yet
@@ -166,7 +170,7 @@ function median(xs: readonly number[]): number {
 
 /** The smallest value at which half the weight is reached. */
 function weightedMedian(xs: readonly { v: number; w: number }[]): number {
-  const s = [...xs].sort((a, b) => a.v - b.v);
+  const s = xs.length < 2 ? xs : [...xs].sort((a, b) => a.v - b.v);
   const half = s.reduce((t, x) => t + x.w, 0) / 2;
   let acc = 0;
   for (const x of s) {
@@ -193,10 +197,13 @@ interface Inner {
 }
 
 /** A day's normal range, for a number a day: kept per day, so ranges over many days reuse each other's guesses. */
+/** Each first day's dates, day by day: shared by every series that starts on it (`NormalRanges.date`). */
+const DATES = new Map<string, string[]>();
+
 export class NormalRanges {
   readonly scale: Scale;
   private readonly series: DailySeries;
-  private readonly o: Required<NormalOptions>;
+  private readonly o: Required<Omit<NormalOptions, 'given'>> & Pick<NormalOptions, 'given'>;
   // By day, counted from the series' first: its date, whether it is special, its day last year, and what was guessed.
   private readonly dates = new Map<number, string>();
   private readonly specials = new Map<number, boolean>();
@@ -316,8 +323,12 @@ export class NormalRanges {
 
   /** A day not learned from: a holiday or one around it, a day the flow's calendar names, or one left out. */
   private excluded(k: number): boolean {
-    return this.named(k) || (this.o.skip.size > 0 && this.o.skip.has(this.date(k))) || this.outlier(k);
+    // Asked of a day by every day after it that looks back over it: kept, as it is the series' own.
+    let x = this.excludedAt.get(k);
+    if (x === undefined) this.excludedAt.set(k, (x = this.named(k) || (this.o.skip.size > 0 && this.o.skip.has(this.date(k))) || this.outlier(k)));
+    return x;
   }
+  private readonly excludedAt = new Map<number, boolean>();
 
   /**
    * A count far from the same weekday's over the three weeks before it (half as much again, or a third less: a feed
@@ -345,8 +356,14 @@ export class NormalRanges {
   }
 
   private date(k: number): string {
-    let d = this.dates.get(k);
-    if (d === undefined) this.dates.set(k, (d = plusDays(this.series.from, k)));
+    // Every series of a history starts on its first day: their days' dates are shared, made once.
+    let all = DATES.get(this.series.from);
+    if (!all) DATES.set(this.series.from, (all = []));
+    let d = k >= 0 ? all[k] : undefined;
+    if (d === undefined) {
+      d = plusDays(this.series.from, k);
+      if (k >= 0) all[k] = d;
+    }
     return d;
   }
 
@@ -477,16 +494,41 @@ export class NormalRanges {
   /** The ordinary periods before `k` from `lo` on, the latest first, fourteen at most within 28 days: their weighted
    * median, the latest counting most; null with fewer than `least`. */
   private periods(k: number, lo: number, least: number): Inner | null {
-    const from: (Reference & { x: number })[] = [];
-    for (let i = 1; i <= 28 && from.length < 14; i++) {
+    // The hottest loop of judging (every guess of every backtested day of every metric): numbers only here; the days
+    // it learned from, which only a reader of the guess asks for, are made when asked (`lazyFrom`).
+    const days: number[] = [];
+    const xs: { v: number; w: number }[] = [];
+    for (let i = 1; i <= 28 && days.length < 14; i++) {
       const j = k - i;
       if (j < lo) break;
       const v = this.excluded(j) ? null : this.val(j);
-      if (v !== null) from.push({ day: this.date(j), value: v, weight: 0.5 ** (from.length / this.o.half), x: this.fwd(v) });
+      if (v !== null) {
+        xs.push({ v: this.fwd(v), w: 0.5 ** (days.length / this.o.half) });
+        days.push(j);
+      }
     }
-    if (from.length < least) return null;
-    const total = from.reduce((t, r) => t + r.weight, 0);
-    return { g: weightedMedian(from.map((r) => ({ v: r.x, w: r.weight }))), from: from.map((r) => ({ day: r.day, value: r.value, weight: r.weight / total })) };
+    if (days.length < least) return null;
+    return this.lazyFrom(weightedMedian(xs), days, xs);
+  }
+
+  /** A guess whose days learned from (`Inner.from`) are made the first time they are read, each with its share of the
+   * weight: the same references as built at once, made only for a guess a person looks into. */
+  private lazyFrom(g: number, days: readonly number[], xs: readonly { w: number }[]): Inner {
+    let made: Reference[] | null = null;
+    const self = this;
+    return {
+      g,
+      get from(): Reference[] {
+        if (!made) {
+          const total = xs.reduce((t, x) => t + x.w, 0);
+          made = days.map((j, i) => ({ day: self.date(j), value: self.val(j)!, weight: xs[i]!.w / total }));
+        }
+        return made;
+      },
+      set from(v: Reference[]) {
+        made = v;
+      },
+    };
   }
 
   /** The weeks' guess for a day from the days before a break alone: how its weekday was before the level changed. */
@@ -677,7 +719,7 @@ export class NormalRanges {
   at(day: string): NormalRange | null {
     const k = daysBetween(this.series.from, day);
     if (this.rangeAt.has(k)) return this.rangeAt.get(k)!;
-    const out = this.compute(k);
+    const out = this.o.given && this.o.given.day === day ? this.hydrate(this.o.given.range, k) : this.compute(k);
     this.rangeAt.set(k, out);
     return out;
   }
@@ -708,6 +750,31 @@ export class NormalRanges {
     const [sW, sY] = [this.missOf(ms, (m) => m.w), this.missOf(ms, (m) => m.y)];
     if ((sW !== null && sY !== null && broken(sY, sW)) || Math.abs(Y.r ?? 0) > 0.5) return { why: 'last year moved', days, special };
     return { why: 'too few days', days, special };
+  }
+
+  /** A range computed ahead, as `compute` would give it: its guesses' days learned from computed the first time one is
+   * read (the only part not shipped), from the same computation. */
+  private hydrate(r: ShippedRange | null, k: number): NormalRange | null {
+    if (!r) return null;
+    let live: NormalRange | null | undefined;
+    const self = this;
+    return {
+      ...r,
+      guesses: r.guesses.map((g, i) => {
+        let set: Reference[] | undefined;
+        return {
+          ...g,
+          get from(): Reference[] {
+            if (set) return set;
+            if (live === undefined) live = self.compute(k);
+            return live?.guesses[i]?.from ?? [];
+          },
+          set from(v: Reference[]) {
+            set = v;
+          },
+        } as Guess;
+      }),
+    };
   }
 
   private compute(k: number): NormalRange | null {
