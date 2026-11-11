@@ -23,8 +23,9 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { HistoryRanges } from '../../src/core/history.js';
-import { rangesFor } from '../../src/core/hold.js';
+import { loadClaim, rangesFor } from '../../src/core/hold.js';
 import { rangesOf } from '../../src/core/ranges.js';
+import { recordAhead } from '../../src/core/ahead.js';
 import { availableParallelism } from 'node:os';
 import { basename, join } from 'node:path';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
@@ -35,7 +36,7 @@ import external from '@smaltdb/external';
 import parquet from '@smaltdb/parquet';
 import smaltfl from '../../src/plugin/index.js';
 import { measureLoad, pinFile, runFlow, sampleLoad, translate, type FlowDocument, type WatchDef } from '../../src/index.js';
-import { appendSample, emptySample, SAMPLE_KEEP } from '../../src/core/apart.js';
+import { appendSample, emptySample, SAMPLE_KEEP, type SampleFile } from '../../src/core/apart.js';
 import { bindingsPath, readFlow } from '../flow.js';
 import { type DayError, type HistoryFile } from '../../src/core/history.js';
 import { appendPeriods, checksOf, emptyHistory, SAMPLE, settingsFor, watchColumns, type MeasureSettings, type Measures } from '../../src/core/measures.js';
@@ -276,24 +277,34 @@ async function main(): Promise<void> {
   const text = JSON.stringify(history) + '\n';
   if (text.length > LIMIT) throw new Error(`${out} would be ${(text.length / 1048576).toFixed(1)} MB, past the ${LIMIT / 1048576} MB a page fetches`);
   writeFileSync(out, text);
-  // Every metric's range for the first day after the history (ADR 0019): the day measured, appended, and each range
-  // computed by the judge itself; the file names the history by its bytes' sha256, so it is taken on that history alone.
-  if (rangesPath && next) {
-    const t0 = Date.now();
-    const { measures } = await measure(job, next);
-    const ranges = new HistoryRanges(appendPeriods(history, [measures]), rangesFor(job.doc, job.source));
-    const made = rangesOf(ranges, measures.slot, { sha256: createHash('sha256').update(text).digest('hex'), days: history.days.length, last: history.days.at(-1)! });
-    writeFileSync(rangesPath, JSON.stringify(made) + '\n');
-    console.log(`${rangesPath}: ${Object.keys(made.ranges).length} ranges for ${made.day} in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
-  }
   // The kept sample (ADR 0014 §5): the last eight weeks' loads' kept rows, in the loads' columns.
+  let sampleFile: SampleFile | null = null;
   if (samplePath) {
-    let sampleFile = emptySample({ flow: job.doc.id, source: job.source, columns: first.columns, kinds, keep: SAMPLE_KEEP });
-    for (const r of results) if (kept.has(r.slot)) sampleFile = appendSample(sampleFile, r.slot, kept.get(r.slot)!);
+    sampleFile = emptySample({ flow: job.doc.id, source: job.source, columns: first.columns, kinds, keep: SAMPLE_KEEP });
+    for (const r of results) if (kept.has(r.slot)) sampleFile = appendSample(sampleFile!, r.slot, kept.get(r.slot)!);
     const sampleText = JSON.stringify(sampleFile) + '\n';
     if (sampleText.length > LIMIT) throw new Error(`${samplePath} would be ${(sampleText.length / 1048576).toFixed(1)} MB, past the ${LIMIT / 1048576} MB a page fetches`);
     writeFileSync(samplePath, sampleText);
     console.log(`${samplePath}: ${sampleFile.days.length} days' kept rows of ${job.source}, ${(sampleText.length / 1048576).toFixed(2)} MB`);
+  }
+  // Every metric's range for the first day after the history (ADR 0019): the day measured, appended, and each range
+  // computed by the judge itself; the file names the history by its bytes' sha256, so it is taken on that history alone.
+  if (rangesPath && next) {
+    const t0 = Date.now();
+    const { measures, kept: nextKept } = await measure(job, next);
+    const ranges = new HistoryRanges(appendPeriods(history, [measures]), rangesFor(job.doc, job.source));
+    const sha256 = createHash('sha256').update(text).digest('hex');
+    const made = rangesOf(ranges, measures.slot, { sha256, days: history.days.length, last: history.days.at(-1)! });
+    // The classifier's answers for the day, judged ahead (ADR 0019 amendment 1): the day's claim told as the page and
+    // the engine tell it, from the history, the sample and the day's kept rows, and every call the classifier made kept
+    // by its inputs' sha256.
+    if (sampleFile && nextKept) {
+      const plan = await translate(job.doc, valuesFor(job, measures.slot));
+      const apart = await recordAhead(() => loadClaim({ given: { file: made, sha256 }, doc: job.doc, source: job.source, flow: plan.flow.hash, base: history, baseRef: { path: 'history.json', sha256, bytes: text.length }, tail: [], measures, settings: settingsFor(plan, plan.nodes.findIndex((n) => n.origin === job.source), history, job.doc.steps) ?? { ...job.settings, slot: measures.slot, checks: null, counting: null }, skip: [], levels: [], build: 'ahead', sample: sampleFile, kept: nextKept }));
+      if (apart.length) made.apart = apart;
+    }
+    writeFileSync(rangesPath, JSON.stringify(made) + '\n');
+    console.log(`${rangesPath}: ${Object.keys(made.ranges).length} ranges for ${made.day} in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
   }
   console.log(`${out}: ${results.length} loads of ${job.source}, ${history.days[0]} to ${history.days.at(-1)}, ${(text.length / 1048576).toFixed(2)} MB, in ${((Date.now() - started) / 1000).toFixed(0)} s on ${n} threads`);
 }

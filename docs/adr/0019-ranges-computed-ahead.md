@@ -47,3 +47,31 @@ is refused on another history, another setting, or with a day left out before.
 The page's claims for the twelve controls (0.9 s, now mostly the classifier on kept samples and the forest), the
 engine's run (1.2 s), and start-up (0.7 s). Next candidates: the controls judged in parallel workers, the classifier's
 evidence computed ahead for the first day as the ranges are, and the notebook and editor code loaded when first opened.
+
+## Amendment 1: the classifier judged ahead, and the next steps measured (2026-11-11)
+
+The maintainer asked for the three next candidates at once (Q-165). Measured first, on a profile of the page and,
+through the debugging protocol, of the engine's worker: the page's thread is idle for 1.9 s of a 3.4 s first day and
+the worker for 1.0 s of its 2.7 s, so the engine's work, not the page's, is what the first day waits on.
+
+1. **Judged ahead** (`src/core/ahead.ts`). The classifier is seeded, so the same rows always give the same answer. The
+   history builder, with `--ranges`, tells the first day's claim as the page and the engine tell it (`loadClaim`, the
+   day's kept rows, the sample) and records every answer the classifier gave (`recordAhead`), keyed by the sha256 of
+   its exact inputs: today's rows, each like day's rows (`rowsKey`, made once for the same rows), the columns, their
+   kinds and the options. They ship in the ranges file (`RangesFile.apart`), checked and pinned with it; the page and
+   the engine take them (`giveAhead`) and `apartEvidence` serves one only for a call with the same key
+   (`judgedAhead`). Any other rows, day, pattern, day left out or column left out misses and is computed as before;
+   with nothing shipped, nothing is hashed. Claims, holds and hashes are unchanged, and verify and the audit tell
+   claims as before. The forest is not shipped: its trees would add about 3 MB, and it is grown once a day already.
+2. **The controls judged as their numbers come back.** Every load's measures and kept rows are asked of the engine at
+   once; the page judges each as it arrives, so its judging overlaps the engine's measuring. More workers would not
+   help: the page is not the thread being waited on, and a second engine would start as cold as the first.
+3. **Files pinned together**, waited for once before the run.
+4. **What a history's views share**: a series is made once for a history file (`seriesFor`), and folding a tail onto
+   a history copies the arrays it grows, not the whole file (`appendPeriods`).
+5. **The notebook's code is not split out**: smaltkit's editor, grid and markdown are 32 KB of the 860 KB app bundle.
+
+As built: the estate's first day 3.4 s → 3.06 s on the machine measured (the same machine measured main at 3.4 s;
+the 4.0 s above was another session's machine), 12 classifier answers served. The engine's own work remains:
+compiling the run's SQL (0.4 s in smaltdb, `compileProgram`), the first queries on a cold engine, and the posture's
+forest and pair ranges. `tools/browser/load.cjs APP [runs]` prints each phase's median.

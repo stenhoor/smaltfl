@@ -562,6 +562,38 @@ export function emptyHistory(o: { flow: string; source: string; settings: Pick<M
   };
 }
 
+/** A value history's own arrays copied, the copy's to grow: its entries are numbers and strings, its rows a day's
+ * counts, which folding replaces and never changes in place. */
+const ownValues = (vh: ValueHistory): ValueHistory => ({ ...vh, values: [...vh.values], first: [...vh.first], last: [...vh.last], days: [...vh.days], rows: [...vh.rows], fresh: vh.fresh.map((f) => [...f] as typeof f), ...(vh.counts ? { counts: [...vh.counts] } : {}) });
+
+/**
+ * The file with every array `appendPeriods` grows copied, and nothing else: a day's entries are pushed whole and never
+ * changed in place, so the days already in the file are shared with it and the file stays as it was, without the cost
+ * of copying a long history whole for each load judged.
+ */
+function appendable(file: HistoryFile): HistoryFile {
+  const map = <T, U>(o: Record<string, T> | undefined, f: (x: T) => U): Record<string, U> | undefined => (o ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k, f(v)])) : undefined);
+  const out: HistoryFile = {
+    ...file,
+    days: [...file.days],
+    rows: [...file.rows],
+    dropped: [...file.dropped],
+    failed: [...file.failed],
+    present: [...file.present],
+    p50: [...file.p50],
+    quantiles: [...file.quantiles],
+    hours: [...file.hours],
+  };
+  if (file.values) out.values = map(file.values, ownValues)!;
+  if (file.pairs) out.pairs = map(file.pairs, ownValues)!;
+  if (file.due) out.due = map(file.due, (dh) => ({ ...dh, on: [...dh.on], late: [...dh.late] }))!;
+  if (file.gate) {
+    const g = file.gate;
+    out.gate = { ...g, ...(g.scope ? { scope: { ...g.scope, out: [...g.scope.out], missing: [...g.scope.missing], inScope: [...g.scope.inScope] } } : {}), ...(g.needs ? { needs: [...g.needs] } : {}), ...(g.reconcile ? { reconcile: [...g.reconcile] } : {}) };
+  }
+  return out;
+}
+
 /**
  * A history file with a tail of measures folded in after its last period (ADR 0010 §6), as the builder folds its days:
  * each value's first and last period, the periods it was seen and its rows; the rows of values never seen before, once
@@ -571,7 +603,7 @@ export function emptyHistory(o: { flow: string; source: string; settings: Pick<M
  */
 export function appendPeriods(file: HistoryFile, ms: readonly Measures[]): HistoryFile {
   if (ms.length === 0) return file;
-  const out: HistoryFile = structuredClone(file);
+  const out = appendable(file);
   if (out.days.length === 0 && out.columns.length === 0) {
     out.columns = [...ms[0]!.columns];
     out.types = [...ms[0]!.types];
