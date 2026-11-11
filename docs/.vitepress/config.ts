@@ -18,7 +18,7 @@ export default defineConfig({
   srcExclude: ['brand/**', 'research/**'],
   lastUpdated: false,
   head: [
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}a-smaltworks-project.svg` }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}favicon-32.svg` }],
     ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
     ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],
     ['link', { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Geist:wght@400;500;700&family=Geist+Mono:wght@400;500&family=Martian+Mono:wght@400;600&display=swap' }],
@@ -45,7 +45,8 @@ export default defineConfig({
     },
   },
   themeConfig: {
-    siteTitle: 'smaltfl',
+    logo: { light: '/lockup.svg', dark: '/lockup-on-dark.svg', alt: 'smaltfl' },
+    siteTitle: false,
     nav: [
       { text: 'Demo', link: '/app/', target: '_self' },
       { text: 'Quick start', link: '/guide/' },
