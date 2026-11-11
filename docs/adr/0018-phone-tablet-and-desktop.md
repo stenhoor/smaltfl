@@ -42,3 +42,26 @@ them (cards the stop set names that now sit in notebook boxes, and two word budg
 - A judging round (tools/judges) reads tablet and desktop screens beside the phone's.
 - Below 960 px the sheet stays a bottom sheet, full screen for a drill: on a tablet held upright, a side panel would
   leave the page too narrow.
+
+## Amendment 1: the desktop split (2026-11-11, Q-159)
+
+The maintainer, looking at the demo on a desktop monitor: *the flow on the left and the workspace on the right; a small
+band on each side is fine, but use more of the screen, especially on bigger monitors; a bar in the middle to drag to give
+either section more room; and a button to expand either section all the way out.*
+
+From 960 px (`src/app/split.ts`, the CSS in `page.html`):
+
+- **The window, not a column.** Main is no longer held to 1180 px: the header and the page use the window but a band at
+  each edge (`--band`, 16 to 32 px). The canvas, the day strip and the tables take the room a big monitor has.
+- **The split.** The workspace (the sheet a card or a notebook opens) is `--sheet-w` wide on the right, 42% of the window
+  by default (420 to 960 px), and main gives that width up while it is open. Every sheet shares the one width.
+- **The bar.** Between them, a separator (`#split`, `role="separator"`): dragged, it resizes both sides (the workspace at
+  least 340 px, the flow at least 360); the arrow keys move it 40 px, a double tap puts it back; the width is the
+  reader's, kept in this browser (`smaltfl:split`), never in the flow.
+- **Either side the whole window.** The bar's ‹ gives the workspace the window (it covers the flow) and › gives the
+  flow the window (the workspace folds away, still open); the same button on the bar, now at the window's edge, brings
+  the other side back, and so does closing the sheet or opening a card or a notebook (`showWorkspace`).
+- **Checked** by `tools/browser/stops/split.json` (the split, each side given the window and brought back, a card opened
+  from the flow's whole window, a notebook in the workspace) at `desktop`, `tablet-wide` and `wide` (2560×1440, added to
+  `tour.cjs`); below 960 px nothing changes.
+

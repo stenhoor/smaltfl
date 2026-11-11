@@ -35,6 +35,13 @@ jobs:
             .cache/packed/*-files
           key: packed-${{ hashFiles('packed.json') }}
       - run: node scripts/fetch-packed.mjs
+      # The demos' generated days and histories, kept by what makes them (scripts/build-app.mjs checks its own hash of the
+      # same inputs, so a stale folder is never used): a change to the app alone deploys without measuring them again.
+      - uses: actions/cache@v4
+        with:
+          path: node_modules/.cache/smaltfl/data
+          key: demo-data-${{ hashFiles('scripts/data/**', 'scripts/flow.ts', 'src/core/**', 'src/plugin/**', 'src/notebook.ts', 'src/index.ts', 'examples/**', 'test/fixtures/**', 'packed.json', 'package-lock.json') }}
+          restore-keys: demo-data-
       - run: npm run docs:build
       - run: npm run build:app -- --flow examples/control-estate/flow.json --out docs/.vitepress/dist/app
       - run: npm run build:app -- --flow examples/security-signins/flow.json --out docs/.vitepress/dist/signins

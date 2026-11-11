@@ -32,6 +32,7 @@ import { UNTIL, afterLine, betweenLine, dayPausedLine, daySentence, decidedLines
 import { countedChecks, rangesFor, dayClaim, dayState, flowStory, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, tailPath, type Claim, decisionFor, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, lastPublished, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
 import { dayVersions, donorIdOf, fillCounts, levelOf as acceptedLevel, levelWays, partLabel as remedyPart, type Offer, type Repair, type Version } from '../core/fill.js';
 import { gridOf, shadeOf, shareOf, standOut } from './grid.js';
+import { setUpSplit, showWorkspace } from './split.js';
 import { button as nbButton, formatMs, makeCell, showError, showMarkdown, showRows as showGridRows, type CellStatus, type CellUi } from './nbcells.js';
 import type { EditorSchema, SchemaColumn } from 'smaltkit/editor';
 import type { GridRow } from 'smaltkit/grid';
@@ -2266,11 +2267,13 @@ function select(id: string | null): void {
   state.selected = id;
   state.section = null;
   state.issues = [];
+  if (id) showWorkspace();
   renderCanvas();
   void renderSheet();
 }
 
 function openSection(id: string, focusName = false): void {
+  showWorkspace();
   state.selected = null;
   state.section = id;
   renderCanvas();
@@ -11640,6 +11643,8 @@ const VIEWS = ['flow', 'ontology', 'policies', 'results', 'runs'];
 async function start(): Promise<void> {
   // The hatch the 'not today's run' marks use, once for the page.
   if (!document.getElementById('viz-defs')) document.body.insertAdjacentHTML('beforeend', VIZ_DEFS.replace('<svg ', '<svg id="viz-defs" '));
+  // The desktop split: the flow on the left, the workspace on the right, a bar between them (ADR 0018).
+  if (!document.getElementById('split')) setUpSplit($('sheet'));
   // The data list first (ADR 0010 §9): it binds each source by id, and names the flow when the page runs another than
   // the built example, which is checked against the list before it is read.
   const index = (await fetch('data/loads.json', { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null)) as unknown;
