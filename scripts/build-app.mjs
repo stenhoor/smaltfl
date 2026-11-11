@@ -108,7 +108,11 @@ for (const name of ['worker', 'inline', 'app']) {
 }
 // The page's title is the flow's name: the artifact host and the browser tab show it.
 const titleOf = (doc) => `${doc.name} · smaltfl`.replace(/[<&]/g, (c) => (c === '<' ? '&lt;' : '&amp;'));
+// smaltkit's styles (its editor and grid, which the notebook's cells use), from the pinned package, in the page: the
+// artifact host serves one page, so a stylesheet beside it would not load.
+const kitCss = readFileSync('node_modules/smaltkit/dist/ui.css', 'utf8').replace(/<\/style/gi, '<\\/style');
 const pageHtml = readFileSync('src/app/page.html', 'utf8')
+  .replace(/<style id="smaltkit-ui">[^<]*<\/style>/, () => `<style id="smaltkit-ui">\n${kitCss}</style>`)
   .replace('src="app.js"', `src="${hashed.app}"`)
   .replace(/<title>[^<]*<\/title>/, `<title>${titleOf(await readFlow(flowPath ?? EXAMPLE_FLOW))}</title>`);
 writeFileSync(`${out}/page.html`, pageHtml);

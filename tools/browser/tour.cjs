@@ -179,8 +179,8 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
         if (!(await el.count())) continue;
         await el.first().focus();
         await p.keyboard.press('Enter');
-        await p.waitForSelector('#sheet:not([hidden]) .nb-actions button', { timeout: 20000 });
-        const show = p.locator('#sheet .nb-actions button', { hasText: 'Show its steps' });
+        await p.waitForSelector('#sheet:not([hidden]) .nbc-bar button', { timeout: 20000 });
+        const show = p.locator('#sheet .nbc-bar button', { hasText: 'Show its steps' });
         if (await show.count()) await show.first().click();
         await p.locator('#sheet button.close').first().click().catch(() => {});
         await p.waitForSelector('#sheet', { state: 'hidden', timeout: 20000 }).catch(() => {});
@@ -188,7 +188,7 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
       if (stop.box) {
         await p.locator(`g.card[data-card="${stop.box}"]`).first().focus();
         await p.keyboard.press('Enter');
-        await p.waitForSelector('#sheet:not([hidden]) .nb', { timeout: 20000 });
+        await p.waitForSelector('#sheet:not([hidden]) .nbc-list', { timeout: 20000 });
       }
       if (stop.select) {
         await p.selectOption(stop.select[0], stop.select[1]);
