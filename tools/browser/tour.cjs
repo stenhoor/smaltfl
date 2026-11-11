@@ -103,13 +103,26 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
   const problems = [];
   // The status line's run number and state (data-run, data-state), with its words: what changed after a step.
   const status = () => p.evaluate(() => { const el = document.querySelector('#status'); return `${el?.dataset.run ?? ''}|${el?.dataset.state ?? ''}|${el?.textContent ?? ''}`; });
+  // The page at rest: no change to the DOM for 250 ms (a render, a fetch's result drawn), at most `max` ms. It stands where
+  // fixed sleeps stood: a stop waits as long as the page is still drawing, and no longer.
+  const quiet = (max = 3000) => p.evaluate((cap) => new Promise((done) => {
+    let last = performance.now();
+    const mo = new MutationObserver(() => { last = performance.now(); });
+    mo.observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
+    const start = performance.now();
+    const tick = () => {
+      const now = performance.now();
+      if (now - last >= 250 || now - start >= cap) { mo.disconnect(); done(); } else setTimeout(tick, 50);
+    };
+    setTimeout(tick, 50);
+  }), max).catch(() => {});
   const settled = async (before) => {
     // A click that starts nothing (the episode already shown) settles at once: wait 4 s for a run or a fetch to start.
     const started = await p.waitForFunction((was) => {
       const el = document.querySelector('#status');
       const text = el?.textContent ?? '';
       return (el?.dataset.run ?? '') !== was.split('|')[0] || /Running|Fetching/.test(text) || text !== was.split('|').slice(2).join('|');
-    }, before, { timeout: 4000 }).then(() => true, () => false);
+    }, before, { timeout: 2500 }).then(() => true, () => false);
     if (!started && before !== '') return;
     // Settled when a new run has finished (its number on the status line changed), or a refused file says so.
     await p.waitForFunction((was) => {
@@ -118,7 +131,7 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
       const text = el?.textContent ?? '';
       return (run !== '' && run !== was.split('|')[0]) || (text !== was.split('|').slice(2).join('|') && /isn.t the file|refused|couldn/i.test(text));
     }, before, { timeout: 180000 }).catch(() => {});
-    await p.waitForTimeout(2500);
+    await quiet(4000);
   };
   const open = async (wanted) => {
     if (ctx && scheme === wanted) return;
@@ -133,6 +146,7 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
     await settled('');
   };
   for (const stop of stops) {
+    const t0 = Date.now();
     try {
       await open(stop.scheme === 'dark' ? 'dark' : 'light');
       if (stop.reload) {
@@ -142,7 +156,7 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
       }
       if ((await p.evaluate(() => location.hash)) !== '') {
         await p.evaluate(() => { location.hash = ''; });
-        await p.waitForTimeout(600);
+        await quiet(1500);
       }
       // Close any open detail and sheet first.
       if (await p.locator('.vf-detail-wrap').count()) await p.locator('.vf-detail button.close').first().click().catch(() => {});
@@ -166,12 +180,15 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
           const next = p.locator('#loads button', { hasText: /^\s*›\s*$/ });
           if (!(await next.count()) || (await next.first().isDisabled())) break;
           await next.first().click();
-          await p.waitForTimeout(400);
+          await quiet(1000);
         }
         if (await btn.count()) {
-          const before = await status();
-          await btn.first().click();
-          await settled(before);
+          // The day already shown starts nothing: no tap, no wait for a run that never comes.
+          if ((await btn.first().getAttribute('aria-pressed')) !== 'true') {
+            const before = await status();
+            await btn.first().click();
+            await settled(before);
+          }
         } else {
           problems.push(`no day button "${stop.day}" (${(await p.locator('#loads button').allTextContents()).slice(0, 12).join(' | ')})`);
         }
@@ -195,7 +212,7 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
       }
       if (stop.select) {
         await p.selectOption(stop.select[0], stop.select[1]);
-        await p.waitForTimeout(1500);
+        await quiet(3000);
       }
       if (stop.card) {
         await p.locator(`g.card[data-card="${stop.card}"]`).focus();
@@ -208,19 +225,19 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
             await p.waitForSelector('#sheet .tab-panel:not([aria-busy])', { timeout: 60000 });
           } else problems.push(`${stop.name}: no tab "${stop.tab}" (${(await p.locator('#sheet .tabs button').allTextContents()).join(' | ')})`);
         }
-        await p.waitForTimeout(700);
+        await quiet(2000);
       }
       // A view shown before its taps ("viewFirst": the Runs view's ribbon), else after them.
       if (stop.view && stop.viewFirst) {
         await p.evaluate((v) => { location.hash = v === 'flow' ? '' : `#${v}`; }, stop.view);
-        await p.waitForTimeout(1500);
+        await quiet(3000);
       }
       // Optionally tap something first (a hero, a fold row): the sheet it opens is what is captured.
       if (stop.click) {
         const target = p.locator(stop.click).first();
         if (await target.count()) {
           await target.click();
-          await p.waitForTimeout(900);
+          await quiet(2000);
         } else problems.push(`${stop.name}: nothing to click at ${stop.click}`);
       }
       for (const step of stop.clicks ?? []) {
@@ -229,17 +246,17 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
         if (!(await target.count())) problems.push(`${stop.name}: nothing to ${typed === undefined ? 'click' : 'type into'} at ${sel}`);
         else if (typed !== undefined) {
           await target.fill(typed);
-          await p.waitForTimeout(150);
+          await quiet(1000);
         } else {
           const before = await status();
           await target.click();
-          await p.waitForTimeout(900);
+          await quiet(2000);
           if ((await status()).split('|')[0] !== before.split('|')[0] || /Running|Fetching/.test(await status())) await settled(before);
         }
       }
       if (stop.view && !stop.viewFirst) {
         await p.evaluate((v) => { location.hash = v === 'flow' ? '' : `#${v}`; }, stop.view);
-        await p.waitForTimeout(1500);
+        await quiet(3000);
       }
       if (stop.waitFor) await p.waitForSelector(stop.waitFor, { state: 'visible', timeout: 30000 }).catch(() => problems.push(`${stop.name}: ${stop.waitFor} never showed`));
       if (stop.download) {
@@ -358,15 +375,15 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
       for (const s of sideways) problems.push(`${stop.name}: ${s}`);
       if (stop.full && m.height > H) {
         await p.setViewportSize({ width: W, height: Math.min(9000, m.height + 160) });
-        await p.waitForTimeout(400);
+        await quiet(1000);
         await p.screenshot({ path: shot });
         await p.setViewportSize({ width: W, height: H });
-        await p.waitForTimeout(200);
+        await quiet(500);
       } else await p.screenshot({ path: shot });
       m.screenshot = shot;
       metrics.push(m);
       if (stop.mask) await p.evaluate(() => window.__unmaskText());
-      console.log(`${stop.name}: ${m.words} words, ${m.charts} charts, ${m.longParagraphs.length} long paragraphs, ${m.wordsBeforeFirstChart ?? '-'} words before the first chart; state ${m.state}; title "${m.title}"`);
+      console.log(`${stop.name} (${((Date.now() - t0) / 1000).toFixed(1)} s): ${m.words} words, ${m.charts} charts, ${m.longParagraphs.length} long paragraphs, ${m.wordsBeforeFirstChart ?? '-'} words before the first chart; state ${m.state}; title "${m.title}"`);
     } catch (e) {
       problems.push(`${stop.name}: ${e.message.split('\n')[0]}`);
       console.log(`${stop.name}: FAILED ${e.message.split('\n')[0]}`);

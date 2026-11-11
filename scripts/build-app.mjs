@@ -12,9 +12,9 @@
 //                                         general builder its history. Every build ships its document as data/flow.json,
 //                                         a folder's with its notebooks' sources and the steps derived from them
 import { build } from 'esbuild';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -172,9 +172,20 @@ if (days.length) {
   // build's own list: hashed here, never the data branch's.
   const bind = bindingsOf(flowPath);
   if (!bind.generate) throw new Error(`${flowPath}'s data list names no generator for its files`);
-  const work = mkdtempSync(join(tmpdir(), 'smaltfl-data-'));
-  execFileSync('node', [bind.generate, work, ...(bind.generateArgs ?? [])], { stdio: 'inherit' });
   const flowDoc = await readFlow(flowPath);
+  // The generated days, histories and samples depend only on the generator, the flow, the runtime and the pins: they
+  // are kept by a hash of those (node_modules/.cache/smaltfl/data/<hash>/), so a build after a change to the app alone
+  // reuses them, and any change to what makes them makes them again. The generator writes its files' paths into
+  // loads.json, so the cache is the folder it writes into, and a folder without `.done` is half made and made again.
+  const key = dataKey(flowPath, bind);
+  const work = join('node_modules/.cache/smaltfl/data', key);
+  const cached = existsSync(join(work, '.done'));
+  const t0 = Date.now();
+  if (!cached) {
+    rmSync(work, { recursive: true, force: true });
+    mkdirSync(work, { recursive: true });
+    execFileSync('node', [bind.generate, work, ...(bind.generateArgs ?? [])], { stdio: 'inherit' });
+  }
   // One history a watch (ADR 0013 §5): a control's from its own files (base.<watch>.json, else base.json), a watched
   // step's from a run of the flow on each day's files.
   const watches = Object.keys(flowDoc.publish?.watch ?? {});
@@ -186,10 +197,19 @@ if (days.length) {
   // sample is kept, a gate or not).
   const sampled = watches.length > 0;
   const sampleName = (w) => (watches.length === 1 ? 'sample.json' : `sample.${w}.json`);
-  for (const w of watches) {
-    const base = existsSync(join(work, `base.${w}.json`)) ? join(work, `base.${w}.json`) : join(work, 'base.json');
-    execFileSync('node', ['scripts/data/history.mjs', '--flow', flowPath, '--watch', w, '--files', base, ...fixedArgs, ...(sampled ? ['--sample', join(work, sampleName(w))] : []), join(work, historyName(w))], { stdio: 'inherit' });
+  if (!cached) {
+    // Two histories at a time (each runs its days on every core); the longest first.
+    const runs = watches.map((w) => {
+      const base = existsSync(join(work, `base.${w}.json`)) ? join(work, `base.${w}.json`) : join(work, 'base.json');
+      return { w, size: statSync(base).size, argv: ['scripts/data/history.mjs', '--flow', flowPath, '--watch', w, '--files', base, ...fixedArgs, ...(sampled ? ['--sample', join(work, sampleName(w))] : []), join(work, historyName(w))] };
+    }).sort((a, b) => b.size - a.size);
+    await inParallel(runs, 2, ({ w, argv }) => new Promise((done, fail) => {
+      const child = spawn('node', argv, { stdio: 'inherit' });
+      child.on('close', (code) => (code === 0 ? done() : fail(new Error(`the history of ${w} failed (${code})`))));
+    }));
+    writeFileSync(join(work, '.done'), `${new Date().toISOString()}\n`);
   }
+  console.log(`${cached ? 'reused' : 'made'} the generated data and ${watches.length} histories (${key.slice(0, 12)}) in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
   mkdirSync(`${out}/data/loads`, { recursive: true });
   const entry = (name, bytes, from) => {
     writeFileSync(`${out}/data/${name}`, bytes);
@@ -226,7 +246,10 @@ if (days.length) {
     }
     days = made.loads.length;
   }
-  rmSync(work, { recursive: true, force: true });
+  // The cache keeps the three data sets made last (each a few tens of MB): an older one is made again if it is needed.
+  const root = 'node_modules/.cache/smaltfl/data';
+  const kept = readdirSync(root).map((k) => ({ k, t: statSync(join(root, k)).mtimeMs })).sort((a, b) => b.t - a.t);
+  for (const { k } of kept.slice(3)) if (k !== key) rmSync(join(root, k), { recursive: true, force: true });
   const first = Object.values(sources).find((s) => s.loads)?.loads[0];
   const index = { format: 2, month: first?.slot.slice(0, 7), built: new Date().toISOString().slice(0, 19) + 'Z', data: null, flow: flowEntry, sources, histories, ...(Object.keys(samples).length ? { samples } : {}), episodes: [], ...(bind.judged ? { judged: bind.judged } : {}) };
   writeFileSync(`${out}/data/loads.json`, JSON.stringify(index, null, 2) + '\n');
@@ -243,3 +266,31 @@ if (days.length) {
   writeFileSync(`${out}/data/loads.json`, JSON.stringify({ format: 2, data: null, flow: await shipFlow(EXAMPLE_FLOW), sources, histories: {}, episodes: [] }, null, 2) + '\n');
   console.log(`built ${out} (${commit.slice(0, 12)}) with data from fixtures/xs (10,000 trips)`);
 }
+
+/** Runs `go` over `items`, at most `n` at a time. */
+async function inParallel(items, n, go) {
+  const queue = [...items];
+  await Promise.all(Array.from({ length: Math.min(n, queue.length) }, async () => {
+    while (queue.length) await go(queue.shift());
+  }));
+}
+
+/**
+ * What a flow's generated data is made from, hashed: the generator and the rest of scripts/data, the flow reader, the
+ * runtime and the core (the measures and the history are computed by them), the examples (the flow, its notebooks, its
+ * data list, the shared ontologies), the fixtures the generators draw on, the pins, and the generator's arguments.
+ */
+function dataKey(flowPath, bind) {
+  const h = createHash('sha256');
+  const files = [];
+  const walk = (p) => {
+    if (!existsSync(p)) return;
+    if (statSync(p).isDirectory()) for (const e of readdirSync(p).sort()) walk(join(p, e));
+    else files.push(p);
+  };
+  for (const p of ['scripts/data', 'scripts/flow.ts', 'src/core', 'src/plugin', 'src/notebook.ts', 'src/index.ts', 'examples', 'test/fixtures', 'packed.json', 'package-lock.json']) walk(p);
+  for (const f of files) h.update(f).update('\0').update(readFileSync(f)).update('\0');
+  h.update(JSON.stringify({ flowPath, generate: bind.generate, args: bind.generateArgs ?? [] }));
+  return h.digest('hex');
+}
+

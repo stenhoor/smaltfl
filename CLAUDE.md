@@ -18,7 +18,8 @@ match smaltdb's `CLAUDE.md`.
 | `npm run build` | `dist/`: the core (`index.js`), the runtime plugin (`plugin/index.js`) and their declarations | Packaging checks |
 | `npm run docs:dev` | The site (VitePress, `docs/`, the brand kit copied unchanged into `docs/.vitepress/theme/`); `.github/workflows/docs.yml` deploys it to GitHub Pages with the estate demo at `/app/` and the sign-ins at `/signins/` (each build writes `index.html` beside `page.html`) | Docs and site changes |
 | `npm run bench` | The scenario benchmarks in `bench/`, written to `bench/results/node.json` | Changes that could affect speed |
-| `npm run build:app` | The app in `dist/app` on `examples/nyc-taxis-weather/` (its notebooks expanded, shipped as `data/flow.json`), with the `data` branch's daily loads if fetched (else the XS fixtures); `-- --flow examples/security-signins/flow.json --out dist/app-signins` for the sign-ins (its generator's `--demo` days from the data list's `generateArgs`). Bundles are named by content (`bundles.json`) | Changes to `src/app` |
+| `npm run build:app` | The app in `dist/app` on `examples/nyc-taxis-weather/` (its notebooks expanded, shipped as `data/flow.json`), with the `data` branch's daily loads if fetched (else the XS fixtures); `-- --flow examples/security-signins/flow.json --out dist/app-signins` for the sign-ins (its generator's `--demo` days from the data list's `generateArgs`). Bundles are named by content (`bundles.json`). A generated flow's days, histories and samples are kept in `node_modules/.cache/smaltfl/data/<hash of what makes them>/`: after a change to the app alone the build takes seconds, not minutes (the docs deploy caches the same folder) | Changes to `src/app` |
+| `node tools/browser/regress.cjs APP OUT estate notebook split@desktop,tablet-wide,wide` | The browser regression: each stop set at every size (phone, tablet, tablet-wide, desktop, wide), as many at once as there are cores, one table of what passed; `--devices` narrows the sizes. Copy the built app out of `dist/` first | Before a PR that touches `src/app`; one set and its sizes while iterating |
 
 ## Layout
 
@@ -221,7 +222,7 @@ match smaltdb's `CLAUDE.md`.
   (1440×900). Phone rules stay the base; wider layouts are added with `min-width` media queries in `src/app/page.html`,
   never by changing what a phone gets. A change to `src/app` runs the stop set it touches with `tour.cjs` at all four
   sizes (`TOUR_DEVICE=phone|tablet|tablet-wide|desktop`), looks at the screenshots, and reports no problem the change
-  added; nothing may scroll sideways. From 960 px the page is the desktop split (`src/app/split.ts`, Q-159): the flow
+  added (`tools/browser/regress.cjs` runs the sets at every size in parallel); nothing may scroll sideways. From 960 px the page is the desktop split (`src/app/split.ts`, Q-159): the flow
   on the left and the workspace (the sheet) on the right across the window but a band at each edge, a bar between them
   dragged to resize them (`--sheet-w`, kept in the browser) and buttons that give either side the whole window
   (`body[data-split]`); `TOUR_DEVICE=wide` (2560×1440) and `tools/browser/stops/split.json` check it.
