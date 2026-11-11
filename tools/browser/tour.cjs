@@ -3,7 +3,8 @@
 //   node tour.cjs <appDir> <outDir> <stops.json>
 //   TOUR_SCALE=2 node tour.cjs …           the same at twice the pixels, for screenshots a person will look at
 //   TOUR_DEVICE=tablet node tour.cjs …     at another size (DEVICES below): phone (default), tablet, tablet-wide,
-//                                          desktop. The app is held to all four (CLAUDE.md, "Phone, tablet and desktop")
+//                                          desktop, wide. The app is held to all of them (CLAUDE.md, "Phone, tablet and
+//                                          desktop"; wide is a 2560 px monitor)
 //
 // At every stop, whatever the device, the layout is checked and each failure is a problem: the page scrolls sideways,
 // or an open sheet does.
@@ -77,6 +78,8 @@ const DEVICES = {
   tablet: { width: 820, height: 1180, isMobile: true, hasTouch: true },
   'tablet-wide': { width: 1180, height: 820, isMobile: true, hasTouch: true },
   desktop: { width: 1440, height: 900, isMobile: false, hasTouch: false },
+  // A big monitor: the desktop split across a wider window (ADR 0018).
+  wide: { width: 2560, height: 1440, isMobile: false, hasTouch: false },
 };
 const device = DEVICES[process.env.TOUR_DEVICE || 'phone'];
 if (!device) {

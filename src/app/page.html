@@ -244,15 +244,40 @@ pre.code { margin: 8px 0 0; padding: 10px 12px; background: var(--sunk); border-
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
   padding-block: 12px calc(18px + env(safe-area-inset-bottom, 0px));
 }
+/* The desktop split (src/app/split.ts, ADR 0018): from 960 px the page uses the window but a band at each edge, the flow
+   on the left and the workspace (the sheet) on the right, `--sheet-w` wide. The bar between them (#split) is dragged to
+   resize them, and its buttons give either side the whole window (body[data-split="work" | "flow"]). */
+#split { display: none; }
 @media (min-width: 960px) {
-  #sheet { left: auto; top: var(--head, 0px); width: 440px; max-height: none; border-radius: 0; border-top: 0; border-left: 1px solid var(--line); padding-top: 16px; }
-  /* The side panel sits beside the page, not over it: main gives up the panel's width while it is open. */
-  body:has(#sheet:not([hidden])) main { margin-left: max(0px, calc(50% - 590px)); margin-right: 440px; }
-  body:has(#sheet.nb-page:not([hidden])) main { margin-right: min(720px, 60vw); }
-}
-@media (min-width: 1440px) {
-  #sheet { width: 520px; }
-  body:has(#sheet:not([hidden])) main { margin-right: 520px; }
+  :root { --band: clamp(16px, 1.6vw, 32px); --sheet-w: clamp(420px, 42vw, 960px); }
+  header.bar { padding-left: max(var(--band), env(safe-area-inset-left, 0px)); padding-right: max(var(--band), env(safe-area-inset-right, 0px)); }
+  main { max-width: none; padding-left: max(var(--band), env(safe-area-inset-left, 0px)); padding-right: max(var(--band), env(safe-area-inset-right, 0px)); }
+  #sheet { left: auto; top: var(--head, 0px); width: var(--sheet-w); max-height: none; border-radius: 0; border-top: 0; border-left: 1px solid var(--line); padding-top: 16px; box-shadow: none; }
+  #sheet.nb-page { width: var(--sheet-w); }
+  /* The workspace sits beside the flow, not over it: main gives up its width while it is open. */
+  body:has(#sheet:not([hidden])) main { margin-left: 0; margin-right: var(--sheet-w); }
+  body:has(#sheet:not([hidden])) #split { display: flex; }
+  #split {
+    position: fixed; z-index: 21; top: var(--head, 0px); bottom: 0; right: var(--sheet-w); width: 14px; transform: translateX(50%);
+    flex-direction: column; align-items: center; justify-content: center; gap: 8px; cursor: col-resize; touch-action: none; outline: none;
+  }
+  #split::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: var(--line); transform: translateX(-50%); }
+  #split:hover::before, #split:focus-visible::before, body.splitting #split::before { width: 3px; background: var(--smalt); }
+  .split-grip { position: relative; width: 6px; height: 36px; border-radius: 3px; background: var(--line); }
+  #split:hover .split-grip, body.splitting .split-grip { background: var(--smalt); }
+  .split-btn { position: relative; width: 26px; height: 26px; padding: 0; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink-2); font: 600 15px/1 var(--font); cursor: pointer; box-shadow: 0 1px 3px rgb(0 0 0 / 0.12); }
+  .split-btn:hover, .split-btn:focus-visible { border-color: var(--smalt); color: var(--smalt); }
+  body.splitting { cursor: col-resize; user-select: none; -webkit-user-select: none; }
+  body.splitting #sheet, body.splitting main { pointer-events: none; }
+  /* The workspace has the window: it covers the flow, the bar at its left edge to bring the flow back. */
+  body[data-split="work"] #sheet { left: 0; width: auto; border-left: 0; padding-left: max(48px, env(safe-area-inset-left, 0px)); }
+  body[data-split="work"] #split { right: auto; left: 12px; transform: none; }
+  body[data-split="work"] #split .to-work, body[data-split="work"] .split-grip { display: none; }
+  /* The flow has the window: the workspace folds away (still open), the bar at the right edge to bring it back. */
+  body[data-split="flow"] #sheet { display: none; }
+  body[data-split="flow"]:has(#sheet:not([hidden])) main { margin-right: 0; padding-right: max(48px, env(safe-area-inset-right, 0px)); }
+  body[data-split="flow"] #split { right: 12px; transform: none; }
+  body[data-split="flow"] #split .to-flow, body[data-split="flow"] .split-grip { display: none; }
 }
 /* The drill-down: the whole screen on a phone, a side panel on a wide one; its head stays as its tabs scroll. */
 #sheet.drill { padding-top: 0; }
@@ -594,7 +619,7 @@ button.brief-opt:hover, button.brief-opt:focus-visible { border-color: var(--sma
 /* The notebook read as a page (the maintainer, 2026-11-11): the whole screen on a phone; under each step its callouts,
    its output and its models, set in a gutter like a notebook's output cells; then the reader's own cells. */
 @media (max-width: 959px) { #sheet.nb-page { top: 0; max-height: none; height: 100dvh; border-radius: 0; border-top: 0; box-shadow: none; } }
-@media (min-width: 960px) { #sheet.nb-page { width: min(720px, 60vw); } }
+
 .nb-out { margin: 2px 0 0 14px; padding-left: 10px; border-left: 2px solid var(--line); display: grid; gap: 6px; }
 .nb-out > summary { cursor: pointer; list-style: none; font-size: 13px; color: var(--ink-2); padding: 4px 0; min-height: 32px; display: flex; align-items: center; gap: 6px; }
 .nb-out > summary::-webkit-details-marker { display: none; }

@@ -1,0 +1,105 @@
+[
+  {
+    "name": "split-calm",
+    "what": "Control estate, Wed Mar 6: tls's Data open: the flow on the left, the workspace on the right, the bar between them",
+    "day": "Wed 6",
+    "card": "tls",
+    "tab": "Data",
+    "expect": {
+      "count": {
+        "#split": 1,
+        "#split .to-work": 1,
+        "#split .to-flow": 1,
+        "body[data-split]": 0
+      }
+    }
+  },
+  {
+    "name": "split-work",
+    "what": "The workspace given the whole window (the bar's ‹): the flow covered, the bar at the left edge to bring it back",
+    "day": "Wed 6",
+    "card": "tls",
+    "tab": "Data",
+    "clicks": [
+      "#split .to-work"
+    ],
+    "expect": {
+      "count": {
+        "body[data-split=\"work\"]": 1,
+        "#split .to-flow": 1,
+        "#split .to-work": 0
+      }
+    }
+  },
+  {
+    "name": "split-flow",
+    "what": "The flow given the whole window (the bar's ›): the workspace folded away, the bar at the right edge to bring it back",
+    "day": "Wed 6",
+    "card": "tls",
+    "tab": "Data",
+    "clicks": [
+      "#split .to-flow"
+    ],
+    "expect": {
+      "count": {
+        "body[data-split=\"flow\"]": 1,
+        "#split .to-work": 1,
+        "#split .to-flow": 0,
+        "#sheet": 0
+      }
+    }
+  },
+  {
+    "name": "split-back",
+    "what": "The workspace brought back: the split as it was",
+    "day": "Wed 6",
+    "clicks": [
+      "#split .to-work"
+    ],
+    "expect": {
+      "count": {
+        "body[data-split]": 0,
+        "#split .split-grip": 1
+      }
+    }
+  },
+  {
+    "name": "split-flow-again",
+    "what": "The flow given the whole window again, the workspace still open behind it",
+    "day": "Wed 6",
+    "clicks": [
+      "#split .to-flow"
+    ],
+    "expect": {
+      "count": {
+        "body[data-split=\"flow\"]": 1
+      }
+    },
+    "card": "tls"
+  },
+  {
+    "name": "split-card-from-flow",
+    "what": "Tapping a card with the flow given the whole window brings the workspace back with that card",
+    "day": "Wed 6",
+    "card": "waf",
+    "expect": {
+      "count": {
+        "body[data-split]": 0,
+        "#split": 1
+      }
+    }
+  },
+  {
+    "name": "split-notebook",
+    "what": "The summary notebook in the workspace beside the flow",
+    "day": "Wed 6",
+    "box": "nb-summary",
+    "waitFor": "#sheet .nbc[data-cell=\"by_unit\"] .sk-grid",
+    "expect": {
+      "count": {
+        "#split": 1,
+        "#sheet .nbc-list": 1
+      }
+    }
+  }
+]

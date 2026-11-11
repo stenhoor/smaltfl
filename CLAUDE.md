@@ -221,7 +221,10 @@ match smaltdb's `CLAUDE.md`.
   (1440×900). Phone rules stay the base; wider layouts are added with `min-width` media queries in `src/app/page.html`,
   never by changing what a phone gets. A change to `src/app` runs the stop set it touches with `tour.cjs` at all four
   sizes (`TOUR_DEVICE=phone|tablet|tablet-wide|desktop`), looks at the screenshots, and reports no problem the change
-  added; nothing may scroll sideways. From 960 px the sheet is a side panel beside the page, not over it.
+  added; nothing may scroll sideways. From 960 px the page is the desktop split (`src/app/split.ts`, Q-159): the flow
+  on the left and the workspace (the sheet) on the right across the window but a band at each edge, a bar between them
+  dragged to resize them (`--sheet-w`, kept in the browser) and buttons that give either side the whole window
+  (`body[data-split]`); `TOUR_DEVICE=wide` (2560×1440) and `tools/browser/stops/split.json` check it.
 - Don't reformat files with Prettier. No fixed sleeps in tests. Probe tests (`test/zz-*.test.ts`) are scratch files:
   delete them, never commit them.
 
