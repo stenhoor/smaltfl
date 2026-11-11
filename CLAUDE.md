@@ -185,6 +185,14 @@ match smaltdb's `CLAUDE.md`.
   sign-ins' rows have structure and two days only the models see (`SIGNIN_DEMO`, `DEMO_DAYS`), at `--scale 0.03` with a
   year of history; `test/models.test.ts` (slow set, `test/helpers/signins-world.ts`), `tools/browser/stops/models.json`;
   the columns they leave out (`src/core/modelcols.ts`: ids, keys, free text; a property's `models: 'include'|'exclude'`).
+  Amendment 2 (Q-160 to Q-162): one concept, checks. A bronze file's checks are one list (`src/core/bronze.ts`
+  `bronzeOf`, `verdictSaid`): the Ontology page's checks with its ids, the contract, what is learned, each with its mode,
+  its state for the day and its findings. A source a gated flow judges (`isBronze`) opens to **Quality** (`qualityTab`:
+  the verdict, `issueCard`s with `qualityVisual`, notes from today's rows, `checkRow`s by origin) and **Notebook**
+  (`notebookTab`: the source cell, the gate cell, the check step, an `issueSql` cell an issue, your cells); no News,
+  Checks or Rules there. Each Ontology line shows its state today and "On the card ›" (`ontologyStates`,
+  `openCardCheck`); the card's "defined on the Ontology page ›" marks the line (`openOntologyCheck`).
+  `test/bronze.test.ts`, `tools/browser/stops/bronze.json`.
   The fixes a held day is offered (`ontology.fixes`, `FIX_KINDS`, `fixesOf`, `fixOfDonor` in `rules.ts`; forward,
   backward, impute, part, replace), filtered in `donorsOf`/`offersOf`, a whole empty day fillable (`missingOf`), Replace
   the file on the decision sheet (`replaceDayFile`); the sign-ins allow forward, backward and replace (`test/fixes.test.ts`,

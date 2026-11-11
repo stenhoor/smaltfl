@@ -1,0 +1,102 @@
+[
+  {
+    "name": "bronze-waf-quality",
+    "what": "Control estate, held Tue Mar 12: waf's Quality: the verdict, each issue with its check, its picture, where it is defined and what to do, then every check by where it comes from",
+    "day": "Tue 12",
+    "card": "waf",
+    "full": true,
+    "expect": {
+      "text": [
+        "2 issues and 2 things to look at: the day is held",
+        "Status fail: 59.6% (band 0%–15%)",
+        "defined on the Ontology page",
+        "WHAT YOU CAN DO",
+        "Decide on the day",
+        "From the ontology",
+        "The file’s contract",
+        "Learned from its history"
+      ],
+      "count": {
+        "#sheet .bq-verdict.hold": 1,
+        "#sheet .bq-issue.alert": 2,
+        "#sheet .bq-issue.warn": 2,
+        "#sheet .drill-head [role=\"tab\"]": 7
+      },
+      "noText": [
+        "Nothing out of the ordinary"
+      ]
+    }
+  },
+  {
+    "name": "bronze-waf-notebook",
+    "what": "waf's Notebook: the file read (its rows), the gate cell with the day's verdict, the check step, then a cell a issue with the rows behind it",
+    "day": "Tue 12",
+    "card": "waf",
+    "tab": "Notebook",
+    "waitFor": "#sheet .nbc[data-cell=\"waf\"] .sk-grid",
+    "full": true,
+    "expect": {
+      "text": [
+        "The issues, row by row",
+        "Your cells"
+      ],
+      "count": {
+        "#sheet .nbc.kind-source .sk-grid": 1,
+        "#sheet .nbc.kind-gate": 1,
+        "#sheet .nbc.kind-issue": 4,
+        "#sheet .nbc-error": 0
+      }
+    }
+  },
+  {
+    "name": "bronze-tls-clean",
+    "what": "tls on the same day: no quality issues, every check passed",
+    "day": "Tue 12",
+    "card": "tls",
+    "expect": {
+      "text": [
+        "No quality issues"
+      ],
+      "count": {
+        "#sheet .bq-verdict.clean": 1,
+        "#sheet .bq-issue": 0
+      }
+    },
+    "tab": "Quality"
+  },
+  {
+    "name": "bronze-to-ontology",
+    "what": "From waf's status-fail issue to its line on the Ontology page, marked",
+    "day": "Tue 12",
+    "card": "waf",
+    "clicks": [
+      "#sheet .bq-issue.alert .bq-check .linkish"
+    ],
+    "full": true,
+    "expect": {
+      "count": {
+        "#view-ontology .of-rule.st-alert": 2,
+        "#view-ontology .of-rule.flash": 1
+      },
+      "pageText": [
+        "wrong today · on the card ›"
+      ]
+    },
+    "tab": "Quality"
+  },
+  {
+    "name": "bronze-from-ontology",
+    "what": "From a check's line on the Ontology page (waf left open by the stop before) back to waf's card, on that check",
+    "day": "Tue 12",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      ".of-item[data-file=\"waf\"] .of-rule.st-alert .of-card-link"
+    ],
+    "expect": {
+      "count": {
+        "#sheet:not([hidden]) .bq-verdict.hold": 1
+      }
+    }
+  }
+]

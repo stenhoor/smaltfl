@@ -177,7 +177,7 @@ if (days.length) {
   // are kept by a hash of those (node_modules/.cache/smaltfl/data/<hash>/), so a build after a change to the app alone
   // reuses them, and any change to what makes them makes them again. The generator writes its files' paths into
   // loads.json, so the cache is the folder it writes into, and a folder without `.done` is half made and made again.
-  const key = dataKey(flowPath, bind);
+  const key = await dataKey(flowPath, bind);
   const work = join('node_modules/.cache/smaltfl/data', key);
   const cached = existsSync(join(work, '.done'));
   const t0 = Date.now();
@@ -276,21 +276,23 @@ async function inParallel(items, n, go) {
 }
 
 /**
- * What a flow's generated data is made from, hashed: the generator and the rest of scripts/data, the flow reader, the
- * runtime and the core (the measures and the history are computed by them), the examples (the flow, its notebooks, its
- * data list, the shared ontologies), the fixtures the generators draw on, the pins, and the generator's arguments.
+ * What a flow's generated data is made from, hashed: every file of this repository the generator and the history builder
+ * import (their import graph, as esbuild reads it: a change to the app alone, or to a module neither reaches, keeps the
+ * data), the wrappers that run them, the examples (the flow, its notebooks, its data list and the shared ontologies are
+ * read at run time, not imported), the pins and the lockfile, and the generator's arguments.
  */
-function dataKey(flowPath, bind) {
-  const h = createHash('sha256');
-  const files = [];
+async function dataKey(flowPath, bind) {
+  const entries = [bind.generate.replace(/\.mjs$/, '.ts'), 'scripts/data/history.ts'].filter((f) => existsSync(f));
+  const { metafile } = await build({ entryPoints: entries, bundle: true, write: false, metafile: true, platform: 'node', format: 'esm', outdir: 'node_modules/.cache/smaltfl/keys', packages: 'external', logLevel: 'silent' });
+  const files = new Set([...Object.keys(metafile.inputs), bind.generate, 'scripts/data/history.mjs', 'packed.json', 'package-lock.json']);
   const walk = (p) => {
     if (!existsSync(p)) return;
-    if (statSync(p).isDirectory()) for (const e of readdirSync(p).sort()) walk(join(p, e));
-    else files.push(p);
+    if (statSync(p).isDirectory()) for (const e of readdirSync(p)) walk(join(p, e));
+    else files.add(p);
   };
-  for (const p of ['scripts/data', 'scripts/flow.ts', 'src/core', 'src/plugin', 'src/notebook.ts', 'src/index.ts', 'examples', 'test/fixtures', 'packed.json', 'package-lock.json']) walk(p);
-  for (const f of files) h.update(f).update('\0').update(readFileSync(f)).update('\0');
+  walk('examples');
+  const h = createHash('sha256');
+  for (const f of [...files].filter((f) => existsSync(f)).sort()) h.update(f).update('\0').update(readFileSync(f)).update('\0');
   h.update(JSON.stringify({ flowPath, generate: bind.generate, args: bind.generateArgs ?? [] }));
   return h.digest('hex');
 }
-

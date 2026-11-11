@@ -82,6 +82,9 @@ one (0015) is to be written from them. Nothing here is built.
 | Q-157 | Which screens is the app designed and checked for? | The maintainer, 2026-11-11: phone, tablet and desktop, as a standing requirement: every screen at 390×844, 820×1180, 1180×820 and 1440×900, the phone's rules the base (ADR 0018) | decided |
 | Q-158 | How does a notebook read in a card's sheet? | The maintainer, 2026-11-11: as smaltnb's page does, inside the sheet: each cell's header, code and output in smaltkit's editor and grid, the flow's own cells read-only, and the reader's own cells to explore, edited and run as smaltnb's (ADR 0011 §6, as built) | decided |
 | Q-159 | How does the app use a desktop monitor? | The maintainer, 2026-11-11: the flow on the left and the workspace on the right, across the window but a small band at each edge; a bar between them dragged to give either more room; a button to give either the whole window (ADR 0018 amendment 1) | decided |
+| Q-160 | Rules and checks don't match (the Ontology page counts every check a file has; the card's Rules tab only the rules people set). How is the mismatch removed? | The maintainer, 2026-11-11: one concept, checks. The Rules tab and the word go; every check is listed on the card from the ontology down, each a tap from its line on the Ontology page; no format or hash changes (ADR 0015 amendment 2) | decided |
+| Q-161 | What does a bronze card open to? | Quality (the verdict, an issue card a check that found something with its picture, meaning, definition and fixes, then every check) and Notebook (the file read and checked, a cell an issue, your cells); no News, Checks or Rules (ADR 0015 amendment 2) | decided |
+| Q-162 | Which examples does the first version cover? | The control estate's bronze files first; the sign-ins and the taxi example in a follow-up (ADR 0015 amendment 2) | decided |
 
 ## The bronze layer: the maintainer's request, and what is open (ADR 0015)
 

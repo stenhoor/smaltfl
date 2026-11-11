@@ -27,6 +27,9 @@ Build the app first (`npm run build:app`) and copy `dist/app` somewhere, because
   published, releasing an earlier one is refused by design.
 - `apps.json`: the estate's application scores and the summaries by type of application at a glance (the heat
   tables on the Data tab: control by hosting and criticality, the controls failed together, profiles at risk).
+- `bronze.json`: the bronze card (ADR 0015 amendment 2): waf's Quality on the held Tue Mar 12 (the verdict, its issues, every
+  check), its Notebook (the file read, the gate, a cell an issue), a clean tls, and the link from a check to its line on
+  the Ontology page and back. Run it at every size.
 - `split.json`: the desktop split on the control estate (the bar, each side given the whole window and brought back, a
   card opened from the flow's whole window, a notebook in the workspace); run it at `desktop`, `tablet-wide` and `wide`.
 - `estate.json`: the control estate's screens (`npm run build:app -- --flow examples/control-estate/flow.json --out
