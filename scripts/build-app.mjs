@@ -38,7 +38,8 @@ const common = {
   format: 'esm',
   platform: 'browser',
   target: 'es2022',
-  minify: true,
+  // SMALTFL_PROFILE=1 keeps the names, for a profile a person can read (tools/browser/load.cjs).
+  minify: !process.env.SMALTFL_PROFILE,
   legalComments: 'none',
   define: { __PLUGIN_VERSION__: JSON.stringify(pkg.version), __SMALTDB_VERSION__: JSON.stringify(smaltdb), __SMALTFL_COMMIT__: JSON.stringify(commit), __SMALTFL_DATA__: 'null' },
   // Only codecs other than Snappy need it (the example's files are Snappy), and the plugin loads it only then.
