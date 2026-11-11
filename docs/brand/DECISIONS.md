@@ -60,3 +60,16 @@ wave, a second exception. Dropped while drawing: a River (read as a hook) and a 
 
 Feedback: on hold. Round 3 goes to stenhoor before a mark is picked (ADR 0003 §3); cobalt teal stays, and nothing
 goes to the `smalt-brand` fork until then.
+
+## The pick (ADR 0016)
+
+stenhoor picked and approved the mark on 2026-11-11.
+
+| | **Picked** |
+| --- | --- |
+| Mark | **M13 Twin:** two waves in step and a small chip where they arrive |
+| Colour | **Deep cerulean,** the user-tool layer's: `#0E7FAE` fill, `#0B6A91` text, `#5CBDE8` on dark |
+
+The colour follows smalt-brand's colour by layer, which came after round 1: smaltfl is a user tool, and cobalt teal's
+reservation lapsed. The assets are generated in smalt-brand (`logos/smaltfl/`, stenhoor/smalt-brand#82), where the
+pick is also recorded (its DECISIONS.md, "smaltfl"); the rounds here were drawn in teal and stay as they were.

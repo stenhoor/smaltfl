@@ -1,6 +1,6 @@
 # smaltfl brand, round 3
 
-**Status:** on hold until stenhoor has seen it ([../DECISIONS.md](../DECISIONS.md)).
+**Status:** M13 Twin picked and approved, in the user-tool layer's cerulean ([../DECISIONS.md](../DECISIONS.md), ADR 0016).
 
 Round 2's feedback: lean into waves and flow, as its one curved mark (M11) did. Every mark here is curved, so each
 needs the exception to the 0/45/90° rule that smaltql's Star already has for its angles. The boards are on the design
