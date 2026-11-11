@@ -25,6 +25,7 @@ import { availableParallelism } from 'node:os';
 import { basename, join } from 'node:path';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { Database } from 'smaltdb/engine';
+import '@smaltworks/smaltql/register';
 import io from '@smaltdb/io';
 import external from '@smaltdb/external';
 import parquet from '@smaltdb/parquet';

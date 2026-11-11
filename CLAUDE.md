@@ -11,7 +11,8 @@ match smaltdb's `CLAUDE.md`.
 
 | Command | What it does | When |
 |---|---|---|
-| `npm ci && npm run deps` | Installs dependencies, then the pinned smaltdb, smaltnb and smaltkit builds in `packed.json` | First, and again after every `npm ci` or `npm install` |
+| `npm ci && npm run deps` | Installs dependencies, then the pinned builds of stenhoor's smalt repositories in `packed.json` (smaltdb, smaltql, the `@smaltdb/*` plugins, smaltnb, smaltkit) | First, and again after every `npm ci` or `npm install` |
+| `npm run deps:latest` | Moves every pin in `packed.json` to the latest commit of its repository's `main` and installs them (`-- --check` only says which are behind). See "The smalt repositories" | At the start of every session, before other work |
 | `npm run check` | `npm run typecheck` then `npm test` (vitest, under a minute on four cores) | Before every commit |
 | `npm run test:slow` | The month-long engine runs `npm test` leaves out (`SLOW` in `vitest.config.ts`: `test/estate-flow.test.ts`, about 90 s). CI runs it, and `npm run test:isolated` (every file in a fresh module graph), in a job beside `test` | Changes to the runtime, the gates or the estate |
 | `npm run build` | `dist/`: the core (`index.js`), the runtime plugin (`plugin/index.js`) and their declarations | Packaging checks |
@@ -184,7 +185,7 @@ match smaltdb's `CLAUDE.md`.
   the file on the decision sheet (`replaceDayFile`); the sign-ins allow forward, backward and replace (`test/fixes.test.ts`,
   `tools/browser/stops/fixes.json`). docs/research/ui-news-models-remedies.md is the UI research;
   `test/rules.test.ts`, `tools/browser/stops/rules.json`.
-- `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone size (`tour.cjs`
+- `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
 - **State of the work:** [docs/HANDOFF.md](docs/HANDOFF.md) says what is built, how to check it and what is left, in
@@ -211,18 +212,52 @@ match smaltdb's `CLAUDE.md`.
 - The plugin imports only types from `smaltdb/engine`. No runtime dependencies; cryptography is WebCrypto, plus
   `src/core/sha256.ts` for per-row hashes, which its tests check against WebCrypto.
 - A change smaltfl needs in smaltdb or another smalt repository is discussed with stenhoor first (ADR 0001 §12).
+- **Phone, tablet and desktop** ([ADR 0018](docs/adr/0018-phone-tablet-and-desktop.md)). Every screen of the app works
+  and reads well on a phone (390×844), a tablet upright and sideways (820×1180, 1180×820) and a desktop window
+  (1440×900). Phone rules stay the base; wider layouts are added with `min-width` media queries in `src/app/page.html`,
+  never by changing what a phone gets. A change to `src/app` runs the stop set it touches with `tour.cjs` at all four
+  sizes (`TOUR_DEVICE=phone|tablet|tablet-wide|desktop`), looks at the screenshots, and reports no problem the change
+  added; nothing may scroll sideways. From 960 px the sheet is a side panel beside the page, not over it.
 - Don't reformat files with Prettier. No fixed sleeps in tests. Probe tests (`test/zz-*.test.ts`) are scratch files:
   delete them, never commit them.
 
+## The smalt repositories
+
+smaltfl is built on the smalt family as Steve TenHoor (`stenhoor`) publishes it, and on his latest work (ADR 0017).
+The repositories, all `github.com/stenhoor/<name>`, public, read with `git clone --depth 1` (a session can read them
+without attaching them; it cannot push to them):
+
+| Repository | Package | What smaltfl takes from it |
+|---|---|---|
+| `smaltdb` | `smaltdb` | the engine and plugin API v1 (`smaltdb/engine`, `smaltdb/worker-runtime`, the client) |
+| `smaltql` | `@smaltworks/smaltql` | SQL. smaltdb runs plans, not text (its ADR 0015, 0017): the host registers smaltql, `test/setup-sql.ts` in the tests, `languages: [sqlLanguage]` in `src/app/worker.ts`, `@smaltworks/smaltql/register` in `src/app/inline.ts` and `scripts/data/history.ts`. The plugin never imports it |
+| `smaltdb-io`, `smaltdb-external`, `smaltdb-parquet` | `@smaltdb/io`, `/external`, `/parquet` | reading files and data lists |
+| `smaltnb` | `smaltnb` | the notebook format and graph (`smaltnb/format`, `smaltnb/graph`, ADR 0011) |
+| `smaltkit` | `smaltkit` | smaltty (`smaltkit/typescript`), which smaltnb's parser needs |
+| `smaltdf` | `@smaltdb/df` | not used yet: a `df` cell is written in a notebook, not run by smaltfl |
+| `smaltts` | `smaltts` | not used yet: the target for publishing once its `flow()` lands (ADR 0011 §7, Gate C with stenhoor first) |
+| `smalt-brand` | | brand and voice: read and copied from `stenhoor/smalt-brand`; a change is offered to it through the fork `beepboopbop64/smalt-brand` (ADR 0002 §7) |
+
+Use stenhoor's repositories, never a fork (`beepboopbop64/smaltdb` and the others are forks), for pins, reading
+source and checking behaviour. **Start every session with `npm run deps:latest`**: it reads each pin's
+`refs/heads/main` (not HEAD: smaltkit's and smaltdf's default branches were old working branches on 2026-11-11), moves
+`packed.json` and installs. Then `npm run check`. Green: commit `packed.json` on its own ("Move the pins to stenhoor's
+main"). Red: what broke is the task in front of everything else, or, if it can't be fixed in smaltfl, put the pins
+back and say in the PR which pin and what broke (a change smaltfl needs in another repository goes to stenhoor
+first, ADR 0001 §12). Moving a pin may move hashed vectors: a vector that moves is a decision, not a fix. A new pin
+(a package smaltfl did not use before) is asked of the maintainers first, as smaltdb's CLAUDE.md asks.
+
 ## Before the first publish
 
-smaltdb 0.9.0 is not on npm yet. `packed.json` pins it to a commit (the one its plugins are tested against);
-`scripts/fetch-packed.mjs`, identical in all smalt repositories, builds that commit, packs it and installs the tarball
-with `npm install --no-save`, so it never reaches `package.json` or the lockfile. To try an unmerged smaltdb change,
-run `node scripts/fetch-packed.mjs --local smaltdb=../smaltdb`.
+smaltdb 0.9.0 is not on npm yet. `packed.json` pins it, and the other smalt packages, to commits;
+`scripts/fetch-packed.mjs`, identical in all smalt repositories, builds each commit, packs it and installs the tarball
+with `npm install --no-save`, so it never reaches `package.json` or the lockfile (`scripts/latest-packed.mjs` is
+smaltfl's own and only moves the pins). To try an unmerged smaltdb change, run
+`node scripts/fetch-packed.mjs --local smaltdb=../smaltdb`.
 
 Tests run smaltdb from the source in its packed build (`node_modules/smaltdb/src`), and may import its internals as
-`smaltdb-src/...` (the engine server and worker protocol). `npm run build` checks the declarations against smaltdb's
+`smaltdb-src/...` (the engine server and worker protocol); smaltql is transformed with it (`test.server.deps.inline`),
+so its `smaltdb/language` is the same module and the language it registers is the tests' engine's. `npm run build` checks the declarations against smaltdb's
 published types.
 
 ## Working rules for sessions
@@ -252,6 +287,7 @@ monitor issues: a session works on an issue when a maintainer points it to one, 
 
 - smaltfl uses smaltdb's public or pinned APIs and its plugin API v1, and changes nothing in other smalt repositories
   without stenhoor (ADR 0001 §12).
-- When smaltdb's public plan API lands (its ADR 0015, step 8), `emit.ts` gains a plan emitter and SQL steps are bound
-  through smaltql; the document, the plan's other parts and the screens should not need to change (ADR 0004).
+- smaltdb's public plan API has landed and smaltql is pinned (ADR 0017): `emit.ts` still writes SQL, read by smaltql.
+  When `emit.ts` gains a plan emitter, SQL steps are bound through smaltql; the document, the plan's other parts and
+  the screens should not need to change (ADR 0004).
 - Brand assets and voice come from `stenhoor/smalt-brand`, through the fork `beepboopbop64/smalt-brand` (ADR 0002 §7).

@@ -82,6 +82,13 @@ header.bar {
   position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line);
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 10px 0;
 }
+/* Phone, tablet and desktop (CLAUDE.md): on a wide window the bar's content lines up with main's (1180 px wide, 16 px
+   inside), and the tabs sit at their own width from the left rather than stretched across the window. */
+@media (min-width: 720px) {
+  header.bar { padding-left: max(16px, env(safe-area-inset-left, 0px), calc(50% - 574px)); padding-right: max(16px, env(safe-area-inset-right, 0px), calc(50% - 574px)); }
+  header.bar nav.tabs { gap: 8px; }
+  header.bar nav.tabs a { flex: 0 0 auto; padding-inline: 14px; }
+}
 .bar-top { display: flex; align-items: center; gap: 12px; }
 .mark { display: flex; align-items: center; gap: 6px; font-family: var(--mark); font-weight: 600; font-size: 19px; letter-spacing: -0.06em; line-height: 1; margin: 0; }
 .mark .a { color: var(--smalt); } .mark .f { color: var(--tool-text); }
@@ -239,6 +246,13 @@ pre.code { margin: 8px 0 0; padding: 10px 12px; background: var(--sunk); border-
 }
 @media (min-width: 960px) {
   #sheet { left: auto; top: var(--head, 0px); width: 440px; max-height: none; border-radius: 0; border-top: 0; border-left: 1px solid var(--line); padding-top: 16px; }
+  /* The side panel sits beside the page, not over it: main gives up the panel's width while it is open. */
+  body:has(#sheet:not([hidden])) main { margin-left: max(0px, calc(50% - 590px)); margin-right: 440px; }
+  body:has(#sheet.nb-page:not([hidden])) main { margin-right: min(720px, 60vw); }
+}
+@media (min-width: 1440px) {
+  #sheet { width: 520px; }
+  body:has(#sheet:not([hidden])) main { margin-right: 520px; }
 }
 /* The drill-down: the whole screen on a phone, a side panel on a wide one; its head stays as its tabs scroll. */
 #sheet.drill { padding-top: 0; }

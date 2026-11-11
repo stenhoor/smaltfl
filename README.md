@@ -24,7 +24,8 @@ a new level). Everything runs in the browser, on [smaltdb](https://github.com/st
 ## Development
 
 ```sh
-npm ci && npm run deps   # dependencies, then the smaltdb build pinned in packed.json
+npm ci && npm run deps   # dependencies, then the smalt builds pinned in packed.json
+npm run deps:latest      # move the pins to the latest of stenhoor's repositories (ADR 0017)
 npm run check            # typecheck and tests
 npm run bench            # the scenario benchmarks (bench/results/node.json)
 npm run build:app        # the app, in dist/app (with the data branch's loads when fetched: git fetch origin data --depth 1)

@@ -1,5 +1,6 @@
 /** The engine in the page, for browsers where the worker can't start. Loaded by engine.ts only then. */
 import { Database } from 'smaltdb/engine';
+import '@smaltworks/smaltql/register';
 import io from '@smaltdb/io';
 import external from '@smaltdb/external';
 import parquet from '@smaltdb/parquet';

@@ -52,7 +52,8 @@ audited as built, each audit checked by a second reader. The maintainer's answer
    five-second default. With `dist/app/data/history.json` from the fork's data, `hold-real` and `story-real` fail six
    tests, and the taxi example holds 41 days under `wrong`, not 25 (Q-133). CI skips those tests.
 8. **The family has moved.** smaltdb's head has the public plan API, exact percentiles, pivot and typed dates, and
-   runs SQL only with smaltql registered; smaltfl pins the engine of Nov 3 (Q-130). The fork of smalt-brand is behind
+   runs SQL only with smaltql registered. *Done on 2026-11-11 (ADR 0017, Q-156):* every pin is at stenhoor's main and
+   smaltql is pinned and registered; sessions move the pins again first (`npm run deps:latest`). The fork of smalt-brand is behind
    upstream, which a reader reports now gives smaltfl the user tools' cerulean in place of teal: to confirm with
    stenhoor.
 
@@ -61,7 +62,7 @@ audited as built, each audit checked by a second reader. The maintainer's answer
 1. **Make it right** (Q-126): CI green and Q-133; a brief that follows what holds the day; a drawing for each gate
    finding; options with a computed gain, cost and undo (Q-124), a proposal only with what it rests on named (Q-128,
    Q-132); the stage rail (Q-125); the seal as passed or decided (Q-127); then a judging round on the estate.
-2. **The engine pin** (Q-130).
+2. **The engine pin** (Q-130): done on 2026-11-11, brought forward (ADR 0017).
 3. **Questions** (Q-122, Q-123): question cells in notebooks, shown as cards on the gold datasets, then the builder.
 4. **The other examples** gain their gates one by one (Q-131).
 
@@ -197,7 +198,8 @@ Each piece has its ADR, tests, and a line in CLAUDE.md's layout.
 ## How to check it
 
 ```sh
-npm ci && npm run deps                      # then the smaltdb build pinned in packed.json
+npm ci && npm run deps                      # then the builds of stenhoor's repositories pinned in packed.json
+npm run deps:latest                         # every session first: move the pins to each repository's main (ADR 0017)
 git fetch origin data --depth 1             # the real data; without it the app builds on the XS fixtures
 npm run check                               # typecheck + about 900 tests, under a minute on four cores
 npm run test:slow                           # the estate's month and the real-history tests (CI runs it beside)

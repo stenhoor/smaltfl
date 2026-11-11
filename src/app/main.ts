@@ -1213,13 +1213,15 @@ function startView(layout: GridLayout): void {
     applyView();
     return;
   }
-  // On a phone, two cards and a bit across at a readable size, the flow panned sideways (ADR 0012 §4); on a wider
-  // screen the whole flow's height fits too.
+  // On a phone, two cards and a bit across at a readable size, the flow panned sideways (ADR 0012 §4). On a tablet or
+  // a desktop the whole flow fits when it can, but never below a size whose cards read (a card's name at 11 px or
+  // more): a tall flow starts at its top and is panned, as on a phone (CLAUDE.md, "Phone, tablet and desktop").
   const narrow = host.clientWidth < 640;
   view.k = narrow
     ? Math.max(0.78, Math.min(1, (host.clientWidth - 16) / (2.2 * (GRID.cardW + GRID.gapX))))
-    : Math.max(0.55, Math.min(1, (host.clientHeight - 40) / layout.height, (host.clientWidth - 16) / (2.2 * (GRID.cardW + GRID.gapX))));
-  view.x = 16 - layout.left * view.k;
+    : Math.max(0.85, Math.min(1, (host.clientHeight - 40) / layout.height, (host.clientWidth - 32) / layout.width));
+  const fitsAcross = layout.width * view.k <= host.clientWidth - 32;
+  view.x = (narrow || !fitsAcross ? 16 : (host.clientWidth - layout.width * view.k) / 2) - layout.left * view.k;
   view.y = Math.max(16, (host.clientHeight - layout.height * view.k) / 2) - layout.top * view.k;
   view.ready = true;
   applyView();

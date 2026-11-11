@@ -11,7 +11,7 @@ Build the app first (`npm run build:app`) and copy `dist/app` somewhere, because
 
 | Command | What it does |
 |---|---|
-| `node tools/browser/tour.cjs <appDir> <outDir> <stops.json>` | Serves the built app, drives it at phone size (390×844; `TOUR_SCALE=2` for screenshots a person will look at) through the stops, saves `<name>.png` for each and writes `metrics.json`: the status line, the visible text, word counts, charts, words before the first chart, and every failed `expect` as a problem. The stop format and the `expect` checks are documented at the top of the file. |
+| `node tools/browser/tour.cjs <appDir> <outDir> <stops.json>` | Serves the built app, drives it at phone size (390×844; `TOUR_DEVICE=tablet` 820×1180, `tablet-wide` 1180×820, `desktop` 1440×900; `TOUR_SCALE=2` for screenshots a person will look at) through the stops, fails any stop where the page or an open sheet scrolls sideways, saves `<name>.png` for each and writes `metrics.json`: the status line, the visible text, word counts, charts, words before the first chart, and every failed `expect` as a problem. The stop format and the `expect` checks are documented at the top of the file. |
 | `node tools/browser/episode.cjs <appDir> <outDir>` | The September 2023 episode: the strip's marks, the paused Thursday, an incident opened and listed in History, Friday paused and held at the checks. Expect `20/20 passed`. |
 | `node tools/browser/integrity.cjs <appDir> <outDir>` | Seals, verify and re-derive, the record, an audit bag and a checkpoint downloaded, a tampered day refused. Expect `13/13 passed`. |
 | `python3 -I tools/browser/cvd.py <outDir> <png>…` | Greyscale and deuteranopia versions of screenshots (Machado et al. 2009), for the colour check. |
