@@ -160,7 +160,7 @@ if (days.length) {
   const source = manifest.loads.source ?? 'trips';
   const index = {
     format: 2, month: manifest.month, built: manifest.built, data: { commit: data, manifest: sha256(manifestBytes), bytes: manifestBytes.length }, flow: await shipFlow(EXAMPLE_FLOW),
-    sources: { [source]: { ...b[source], loads: list, donors }, zones: { ...b.zones, entry: files.zones }, weather: { ...b.weather, entry: files.weather } },
+    sources: { [source]: { ...b[source], from: `the data branch (${data.slice(0, 7)}), scripts/data/build.py`, loads: list, donors }, zones: { ...b.zones, entry: files.zones }, weather: { ...b.weather, entry: files.weather } },
     histories: history ? { [source]: history } : {},
     episodes,
   };
@@ -245,7 +245,8 @@ if (days.length) {
       const e = entry(`loads/${basename(l.file)}`, readFileSync(l.file), bind.generate);
       return { slot: l.slot, file: e.path, rows: l.rows, sha256: e.sha256, bytes: e.bytes };
     });
-    sources[source] = { ...b, loads: list, donors: [] };
+    // What made each daily source's files (ADR 0015 amendment 5): the bronze table's metadata says it.
+    sources[source] = { ...b, from: bind.generate, loads: list, donors: [] };
     days = list.length;
   } else {
     for (const [id, b] of Object.entries(bind.sources)) {
@@ -257,7 +258,7 @@ if (days.length) {
           const e = entry(`loads/${basename(f.file)}`, readFileSync(f.file), bind.generate);
           return [{ slot: l.slot, file: e.path, rows: f.rows, sha256: e.sha256, bytes: e.bytes }];
         });
-        sources[id] = { ...b, loads: list, donors: [] };
+        sources[id] = { ...b, from: bind.generate, loads: list, donors: [] };
       }
     }
     days = made.loads.length;

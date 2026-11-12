@@ -896,3 +896,37 @@ flow.
 
 `test/silver.test.ts` holds the stories to each kind of step, and summarising queries (with or without GROUP BY) to
 nothing left out.
+
+## Amendment 5: the bronze tables' metadata (2026-11-12, Q-168)
+
+The maintainer: *add metadata to the bronze tables that shows when the data was pulled in, what git commit ran the
+code, the source data's path and the ontology hash.*
+
+The metadata sits beside the file, never in it. A column written into the rows would change the snapshot's content
+hash on every ingest, so a re-run would reuse nothing. It would also give the measures, the histories and the schema
+check columns the data list doesn't declare. Instead:
+
+1. **The host says where it got each file** (`RunContext.sources`, `SourceIngest`): the data list's path, what made it
+   (`from`), when it pulled it in, and the sha256 of the bytes it pinned. The page records this at every pin, for the
+   first load, a day stepped to, another daily source's file, or a file the owner replaced (said as uploaded, in place
+   of the listed one). The build's loads.json says what made each daily source's files (`sources[id].from`).
+2. **The run keeps it on the source's entry in its signed manifest** (`ManifestNode.ingest`: path, from, at), and only
+   where the host's sha256 is the file's the engine read (`ingestOf`). A claim that isn't bound to those bytes, or is
+   badly formed, is dropped. The run's code commit (`build.smaltfl`) and ontology hash (`flow.ontology`) were already
+   in every manifest. run/1 is otherwise unchanged. A run told nothing records nothing new, so no existing hash or test
+   vector moves, and verify, which compares content, is untouched.
+3. **A row per source per run in `_smaltfl_ingests`**, for SQL: `ingested_at`, `source_path`, `made_by`, the file's
+   location, sha256 and bytes, rows, content hash, `code_commit`, `ontology_hash`, `flow_hash`, `plan_hash`. It is
+   written in the run's transaction, never hashed.
+4. **On screen, for every source:**
+   - **Data tab:** a "Where this table came from" block (pulled in, from, the file, the code with its commit linked,
+     the ontology and flow hashes, which run's signed record), and four metadata columns set apart at the grid's end
+     (`_ingested_at`, `_source_path`, `_code_commit`, `_ontology_hash`), the same on every row of the load.
+   - **Notebook tab:** the first note says the same, and a "where it came from" cell reads `_smaltfl_ingests` run by
+     run.
+
+`test/ingest.test.ts`:
+- the ingest is kept bound to the bytes, with the run's commit and ontology;
+- the run still verifies at rederive;
+- another sha256, a time that isn't one, or nothing said records nothing;
+- the data's content is the same whatever was said of it.

@@ -38,6 +38,10 @@ export interface ManifestNode {
   expectations?: ExpectationResult;
   /** A source read from a pinned file: the file, as the engine observed it (run/1). */
   file?: SourceFile;
+  /** A source whose host said where it got the file and when it pulled it in (ADR 0015 amendment 5): kept only when the
+   * host's sha256 is `file`'s, so it is bound to the bytes the engine read. With the run's code commit (`build`) and its
+   * ontology's hash (`flow.ontology`), the bronze table's metadata. */
+  ingest?: SourceIngestRecord;
   /** plan/4 (ADR 0014 §6): a gold gate's checks, counted by the run over the dataset it built: its reconciliation. */
   gate?: GateResult;
 }
@@ -47,6 +51,13 @@ export interface ManifestNode {
  * lacks. A hold reads them (core/hold.ts `reconcileSaid`), and verify counts them again. */
 export interface GateResult {
   reconcile: ReconcileCounts;
+}
+
+/** Where a source's file came from and when it was pulled in, as its host said (ADR 0015 amendment 5). */
+export interface SourceIngestRecord {
+  path: string;
+  from?: string;
+  at: string;
 }
 
 /** A file a source read (E1): its location, and the SHA-256 and size of the exact bytes the engine decoded. */

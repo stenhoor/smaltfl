@@ -22,7 +22,7 @@ import { briefOf, briefText, type BriefIn, type BriefOption } from '../core/brie
 import { createTable, emitCheckCounts, emitColumnFacts, emitCopy, emitDayHours, emitDistinct, emitHourValues, emitDrop, emitDropped, emitExcept, emitFailures, emitLookup, emitRead, emitRuleFailures, emitSample, emitSqlOver, emitUnionAll, emitUnmatched, sameColumns, stampShift, type EmitContext } from '../core/emit.js';
 import { effectOf, type Effect } from '../core/effect.js';
 import { daysFrom, HistoryRanges, isHistory, metricKey, QUANTILES, timeOf, type HistoryFile, type Metric } from '../core/history.js';
-import type { Identity, ManifestNode, SignedManifest } from '../core/manifest.js';
+import type { Identity, ManifestNode, SignedManifest, SourceFile, SourceIngestRecord } from '../core/manifest.js';
 import type { Backtest, NormalRange, NormalRanges, Place } from '../core/normal.js';
 import { flowNames, isPlaceholder, judgeOf, labelOf, newsOf, shareWords, tableNewsOf, usualHours, type Act, type Finding, type Names, type Severity, type TableFacts } from '../core/news.js';
 import { writtenRules, CHECK_MODES, CHECK_NAMES, CHECK_SAID, checkOf, gateChecksOf, gateLayerOf, hasGates, JUDGED, LAYER_SAID, WRITTEN, type CheckMode, type CheckName, type GateChecks } from '../core/gates.js';
@@ -58,7 +58,7 @@ import { createIdentity, ontologyHash, policiesHash, signManifest, verifyManifes
 import { shapeOf } from '../core/optimize.js';
 import { flowHash, isPublish2, planPeriod, translate, type Column, type FlowPlan, type PlanNode } from '../core/plan.js';
 import { checksOver, clockText, columnSql, fillGaps, growForest, isolationPath, madsOf, minuteOfDay, needOf, needWords, pathLength, principalComponents, profileColumn, quantile, renamesOf, scoreOf, secondsText, suggestChecks, unusual, type Cut, type Drift, type Forest, type Judge, type Profile, type Suggestion, type Unusual } from '../core/quality.js';
-import type { ReleaseResult, RunResult, TellFor, VerifyLevel, VerifyResult } from '../core/protocol.js';
+import type { ReleaseResult, RunResult, SourceIngest, TellFor, VerifyLevel, VerifyResult } from '../core/protocol.js';
 import { identifiers, literal, quoteIdent } from '../core/sqltext.js';
 import { measureLoad, pinFile, releaseRun, runFlow, sampleLoad, verifyRun } from '../index.js';
 import { apartColumns, apartEvidence, appendSample, isSample, SAMPLE_KEEP, samplePath, type SampleFile } from '../core/apart.js';
@@ -4069,8 +4069,18 @@ async function notebookTab(card: string, id: string): Promise<HTMLElement> {
     showMarkdown(ui, text);
     box.append(ui.root);
   };
-  note('about the file', sourceNote({ file: id, day: day ? dayMid(day) : null, rows: nodeOf(id)?.rows, columns: fileColumns(id) ?? [], noun: { one: ontologyNounOne(id), many: ontologyNounMany(id) } }));
+  const meta = bronzeMeta(id);
+  note('about the file', sourceNote({ file: id, day: day ? dayMid(day) : null, rows: nodeOf(id)?.rows, columns: fileColumns(id) ?? [], noun: { one: ontologyNounOne(id), many: ontologyNounMany(id) }, ...(meta?.ingest ? { ingest: { ...meta.ingest, commit: meta.commit, ...(meta.ontology ? { ontology: meta.ontology } : {}) } } : {}) }));
   box.append(flowCell(srcRef?.cell ?? id, id, 'source', cellOf(srcRef) ?? `source('${id}');`));
+  // Where this file came from on every run here (ADR 0015 amendment 5): the bronze table's metadata, as SQL.
+  if (meta?.ingest) {
+    const ui = keep(makeCell({ name: 'where it came from', chip: 'sql', kind: 'meta', code: `SELECT run, ingested_at, source_path, made_by, file_sha256, rows, code_commit, ontology_hash\nFROM _smaltfl_ingests\nWHERE source = ${literal(id, 'text')}\nORDER BY run DESC`, language: 'sql', label: `Where ${id}'s file came from, run by run`, onRun: () => void runIssue(ui) }));
+    ui.root.dataset.check = `meta:${id}`;
+    ui.setStatus('ok', 'metadata');
+    ui.setActions(nbButton('Run', 'Run this cell (Ctrl+Enter)', () => void runIssue(ui), 'small'));
+    box.append(ui.root);
+    void runIssue(ui);
+  }
   // The gate cell: what each check does for this file.
   const gateRef = state.doc.cells?.[`gate:${id}`];
   const modes = gateOn(id);
@@ -4173,7 +4183,7 @@ async function runIssue(ui: CellUi): Promise<void> {
     const total = Number((await state.engine.query(`SELECT count(*) AS n FROM (\n${sql}\n)`)).rows[0]?.[0] ?? 0);
     const first = await state.engine.query(`SELECT * FROM (\n${sql}\n) LIMIT 50`);
     showGridRows(ui, { columns: first.columns, rowCount: total, initial: first.rows as GridRow[], fetch: async (offset, limit) => (await state.engine!.query(`SELECT * FROM (\n${sql}\n) LIMIT ${limit} OFFSET ${offset}`)).rows as GridRow[] }, { file: ui.root.dataset.check ?? 'rows' });
-    ui.root.querySelector('.nbc-status')!.textContent = `${ui.root.dataset.status === 'error' ? 'wrong' : 'unusual'} · ${formatMs(performance.now() - t0)}`;
+    ui.root.querySelector('.nbc-status')!.textContent = `${ui.root.dataset.check?.startsWith('meta:') ? 'metadata' : ui.root.dataset.status === 'error' ? 'wrong' : 'unusual'} · ${formatMs(performance.now() - t0)}`;
   } catch (err) {
     showError(ui, String(err instanceof Error ? err.message : err));
   }
@@ -4523,6 +4533,48 @@ function fadeEdges(el: HTMLElement): HTMLElement {
   return el;
 }
 
+/**
+ * A source's bronze metadata for the run on screen (ADR 0015 amendment 5): where its file came from and when it was
+ * pulled in (its ingest, as the run's signed manifest keeps it), the file itself, and the run's code commit and ontology
+ * hash. Null for anything but a source the run read.
+ */
+interface BronzeMeta { run: RunRecord; ingest?: SourceIngestRecord; file?: SourceFile; rows?: number; commit: string; ontology?: string; flow: string }
+function bronzeMeta(id: string): BronzeMeta | null {
+  const run = onScreen() ?? latest();
+  const m = run?.result.manifest.nodes.find((n) => n.origin === id && n.op === 'table');
+  if (!run || !m) return null;
+  const man = run.result.manifest;
+  return { run, ...(m.ingest ? { ingest: m.ingest } : {}), ...(m.file ? { file: m.file } : {}), ...(m.rows !== undefined ? { rows: m.rows } : {}), commit: man.build?.smaltfl ?? 'dev', ...(man.flow.ontology ? { ontology: man.flow.ontology } : {}), flow: man.flow.hash };
+}
+/** A time for people, in UTC, to the second. */
+const whenSaid = (iso: string) => `${new Date(iso).toLocaleString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })} UTC`;
+const shortHash = (x: string) => x.slice(0, 12);
+const bytesSaid = (n: number) => (n < 1024 ? `${n} bytes` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`);
+/** A commit said and, for one of this repository's, linked: "a dev build" for none. */
+function commitEl(commit: string): Node {
+  const [sha, changes] = commit.split('+');
+  if (!/^[0-9a-f]{7,40}$/.test(sha ?? '')) return document.createTextNode('a development build (no commit)');
+  return h('span', {}, h('a', { href: `https://github.com/stenhoor/smaltfl/commit/${sha}`, target: '_blank', rel: 'noopener', title: sha }, h('code', {}, sha!.slice(0, 7))), changes ? ' with local changes' : '');
+}
+
+/** Where a bronze table came from (ADR 0015 amendment 5): a few facts, the same for every row of this load. */
+function provenancePart(id: string): HTMLElement | null {
+  const meta = bronzeMeta(id);
+  if (!meta) return null;
+  const row = (k: string, ...v: Child[]) => [h('dt', {}, k), h('dd', {}, ...v)];
+  const code = (x: string, full = x) => h('code', { title: full, class: 'pv-code' }, x);
+  return h('details', { class: 'pv', open: 'open' },
+    h('summary', {}, h('span', { class: 'pv-t' }, 'Where this table came from'), h('span', { class: 'pv-s' }, `kept with run ${runName(meta.run)}’s signed record`)),
+    h('dl', { class: 'pv-facts' },
+      ...row('Pulled in', meta.ingest ? whenSaid(meta.ingest.at) : h('span', { class: 'foot' }, 'not recorded: the run wasn’t told where the file came from')),
+      ...(meta.ingest ? row('From', code(meta.ingest.path), meta.ingest.from ? h('span', { class: 'foot' }, ` · made by ${meta.ingest.from}`) : null) : []),
+      ...(meta.file ? row('The file', code(`sha256 ${shortHash(meta.file.sha256)}…`, meta.file.sha256), h('span', { class: 'foot' }, ` · ${bytesSaid(meta.file.bytes)}${meta.rows !== undefined ? ` · ${plural(meta.rows, 'row')}` : ''}`)) : []),
+      ...row('Code', 'smaltfl ', commitEl(meta.commit)),
+      ...row('Ontology', meta.ontology ? code(`${shortHash(meta.ontology)}…`, meta.ontology) : h('span', { class: 'foot' }, 'not recorded'), h('span', { class: 'foot' }, ' · flow '), code(`${shortHash(meta.flow)}…`, meta.flow))),
+    h('p', { class: 'foot' }, 'The metadata columns at the end of the grid carry the same on every row. They sit beside the file, never in it: its hash and every check read the file as it arrived. ',
+      h('code', {}, '_smaltfl_ingests'), ` has a row a run for SQL; this is run ${meta.run.result.run} there.`));
+}
+
 async function dataTab(card: string, id: string, who: string): Promise<HTMLElement> {
   const nv = await nodeView(id, who);
   if (typeof nv === 'string') return h('p', { class: 'foot' }, nv);
@@ -4556,9 +4608,20 @@ async function dataTab(card: string, id: string, who: string): Promise<HTMLEleme
     const means = labelFor(p, v);
     return h('td', { class: cls }, typeof v === 'number' && p?.unit === 'USD' ? inUnit(text, v, p) : text, means ? h('span', { class: 'means' }, means) : null);
   };
+  // A source's metadata columns (ADR 0015 amendment 5): where its file came from, when it was pulled in, the code and the
+  // ontology, the same on every row of the load, set apart at the end; never part of the file, its hash or its checks.
+  const meta = state.doc.sources.some((x) => x.id === id) ? bronzeMeta(id) : null;
+  const metaCols: [string, string, string][] = meta ? [
+    ['_ingested_at', meta.ingest?.at ?? '', meta.ingest ? whenSaid(meta.ingest.at) : 'not recorded'],
+    ['_source_path', meta.ingest?.path ?? meta.file?.location ?? '', meta.ingest?.path ?? meta.file?.location ?? ''],
+    ['_code_commit', meta.commit, meta.commit.split('+')[0]!.slice(0, 7)],
+    ['_ontology_hash', meta.ontology ?? '', meta.ontology ? shortHash(meta.ontology) : ''],
+  ] : [];
+  const metaHead = metaCols.map(([name, full], k) => h('th', { class: `meta${k === 0 ? ' first' : ''}`, scope: 'col', title: `Metadata: ${full}` }, h('span', { class: 'th-name' }, name), h('span', { class: 'th-code' }, 'metadata')));
+  const metaCells = () => metaCols.map(([, full, shown], k) => h('td', { class: `meta${k === 0 ? ' first' : ''}`, title: full }, shown));
   const grid = fadeEdges(h('div', { class: 'grid-wrap' }, h('table', { class: 'data grid' },
-    h('thead', {}, h('tr', {}, h('th', { class: 'rownum', scope: 'col' }, '#'), ...r.columns.map(head))),
-    h('tbody', {}, ...r.rows.map((row, k) => h('tr', {}, h('th', { class: `rownum${at >= 0 && row[at] !== null && row[at] !== undefined ? ' filled' : ''}`, scope: 'row' }, String(k + 1)), ...row.map((v, j) => cell(v, r.columns[j]!))))))));
+    h('thead', {}, h('tr', {}, h('th', { class: 'rownum', scope: 'col' }, '#'), ...r.columns.map(head), ...metaHead)),
+    h('tbody', {}, ...r.rows.map((row, k) => h('tr', {}, h('th', { class: `rownum${at >= 0 && row[at] !== null && row[at] !== undefined ? ' filled' : ''}`, scope: 'row' }, String(k + 1)), ...row.map((v, j) => cell(v, r.columns[j]!)), ...metaCells()))))));
   const from = fromDay ? h('p', { class: 'rows-filled', role: 'note' }, glyphEl('fill', 14), `${fmtInt(Number(filled![0]))} of ${fmtInt(total)} rows from ${dayShort(fromDay)}`) : null;
   const lead = h('div', { class: 'vf-pick', role: 'group', 'aria-label': 'Which rows' },
     h('button', { type: 'button', class: 'vf-pick-chip', 'aria-pressed': String(!blanks), onclick: () => (drill.blanks.delete(card), void renderSheet()) }, `First ${fmtInt(r.rows.length)} of ${fmtInt(total)}`),
@@ -4580,7 +4643,7 @@ async function dataTab(card: string, id: string, who: string): Promise<HTMLEleme
     }
   }).catch(() => undefined);
   const glance = blanks ? null : await glanceOf(id, read).catch(() => null);
-  return h('div', { class: 'data-tab' }, from, glance, lead, grid);
+  return h('div', { class: 'data-tab' }, meta ? provenancePart(id) : null, from, glance, lead, grid);
 }
 
 /**
@@ -10420,6 +10483,8 @@ async function runLoad(k: number): Promise<void> {
     }
     // The engine hashes the bytes again as it pins them, kept ones included, and refuses them if they don't match.
     await pinFile(engine, loadFile(), bytes, replaced?.sha256 ?? l.sha256);
+    const main = primarySource();
+    if (main) pulledIn(main, replaced ? replaced.name : l.file, replaced?.sha256 ?? l.sha256, replaced ? `uploaded by ${state.viewer} in place of ${l.file}` : madeBy(main));
     // The other daily sources' files for the day (ADR 0013 §5), each checked and pinned under its binding's name.
     const others = loads.others.get(k) ?? {};
     for (const [id, f] of Object.entries(l.files ?? {})) {
@@ -10427,6 +10492,7 @@ async function runLoad(k: number): Promise<void> {
       if (!b || id === primarySource()) continue;
       others[id] ??= await checked(f.file, { sha256: f.sha256, bytes: f.bytes ?? -1, from: f.file });
       await pinFile(engine, b.file, others[id], f.sha256);
+      pulledIn(id, f.file, f.sha256, madeBy(id));
     }
     loads.others.set(k, others);
     for (const old of [...loads.others.keys()].slice(0, Math.max(0, loads.others.size - 3))) loads.others.delete(old);
@@ -10551,6 +10617,18 @@ let baseHistory: HistoryFile | null = null;
 /** Every watch's base history and its pin (ADR 0013 §5), by watched id: the judged one's is `baseHistory`. */
 /** Each watch's ranges computed ahead for the first loads day (ADR 0019), checked against its history's sha256. */
 const givens = new Map<string, GivenRanges>();
+
+/**
+ * Each source's file as this page pulled it in (ADR 0015 amendment 5): where it fetched it from, what made it, when it
+ * pulled it in, and its sha256; told to every run, which keeps it with the source's entry in its signed manifest when
+ * the sha256 is the file's the engine read. With the run's code commit and ontology hash, the bronze table's metadata.
+ */
+const ingested = new Map<string, SourceIngest>();
+function pulledIn(id: string, path: string, sha256: string, from?: string): void {
+  ingested.set(id, { path, sha256, at: new Date().toISOString(), ...(from ? { from } : {}) });
+}
+/** What made a source's files, as the data list says. */
+const madeBy = (id: string): string | undefined => (dataList?.sources[id] as { from?: string } | undefined)?.from ?? dataList?.sources[id]?.entry?.from;
 const bases = new Map<string, { file: HistoryFile; ref: HistoryRef }>();
 /** Each watched node's kept sample (ADR 0014 §5), by id: the build's, with the days run in this browser appended. */
 const samples = new Map<string, SampleFile>();
@@ -11343,7 +11421,8 @@ async function run(): Promise<void> {
     mark('run: claims told');
     const told = asked?.claims;
     const data = integrity.data ? { commit: integrity.data.commit, manifest: integrity.data.manifest } : null;
-    const result = await runFlow(engine, state.doc, { smaltdb: SMALTDB, parameters, data, log: recordHead(), ...(told ? { claims: told } : {}), ...(asked && Object.keys(asked.tell).length ? { tell: asked.tell } : {}) });
+    const sources = Object.fromEntries([...ingested].filter(([id]) => state.doc.sources.some((x) => x.id === id)));
+    const result = await runFlow(engine, state.doc, { smaltdb: SMALTDB, parameters, data, log: recordHead(), ...(told ? { claims: told } : {}), ...(asked && Object.keys(asked.tell).length ? { tell: asked.tell } : {}), ...(Object.keys(sources).length ? { sources } : {}) });
     const ms = performance.now() - t;
     mark('run: flow run');
     // A held run returns, built, checked and recorded, its versions staged: only `published` names show it. A watched
@@ -12699,6 +12778,7 @@ async function start(): Promise<void> {
       const want: (Expected & { path: string }) | undefined = day ? { path: day.file, sha256: day.sha256, bytes: day.bytes ?? -1, from: day.file } : b.entry;
       if (!want) throw new Error(`no hash for ${b.file} in the data's list: it can't be checked, so it isn't used`);
       const bytes = await got(want.path, want);
+      pulledIn(id, want.path, want.sha256, madeBy(id));
       // Pinned without waiting: the engine takes the pins in order while the page reads the next file; every pin is
       // waited for before anything runs (`pinning`).
       pinning.push(pinFile(engine, b.file, bytes, want.sha256).then(() => engine.exec(pinnedDdl(b))));
