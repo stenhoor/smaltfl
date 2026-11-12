@@ -4951,7 +4951,7 @@ async function columnsTab(card: string, id: string, who: string): Promise<HTMLEl
       if (show) drill.column.set(card, p.name);
       else if (drill.column.get(card) === p.name) drill.column.delete(card);
     };
-    row.addEventListener('click', () => toggle(detail.hidden));
+    row.addEventListener('click', () => toggle(detail.hidden !== false));
     list.append(h('div', { class: 'col-item' }, row, detail));
     if (open === p.name) {
       toggle(true);

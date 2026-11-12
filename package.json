@@ -48,7 +48,7 @@
     "deps": "node scripts/fetch-packed.mjs",
     "deps:latest": "node scripts/latest-packed.mjs",
     "build": "node scripts/build.mjs",
-    "typecheck": "node scripts/fetch-packed.mjs --check && tsc -p tsconfig.json",
+    "typecheck": "node scripts/fetch-packed.mjs --check && node node_modules/typescript7/bin/tsc -p tsconfig.json",
     "test": "node scripts/fetch-packed.mjs --check && NODE_OPTIONS=--max-semi-space-size=64 vitest run",
     "test:slow": "node scripts/fetch-packed.mjs --check && NODE_OPTIONS=--max-semi-space-size=64 SMALTFL_SLOW=1 vitest run",
     "test:isolated": "node scripts/fetch-packed.mjs --check && NODE_OPTIONS=--max-semi-space-size=64 SMALTFL_ISOLATE=1 vitest run",
@@ -71,8 +71,9 @@
   "devDependencies": {
     "@types/node": "^22.20.5",
     "esbuild": "^0.28.2",
-    "typescript": "5.9",
+    "typescript": "~6.0.3",
     "vitepress": "^1.6.4",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "typescript7": "npm:typescript@~7.0.2"
   }
 }
