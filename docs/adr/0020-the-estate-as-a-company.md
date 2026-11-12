@@ -776,7 +776,8 @@ watches, and attribution through silver (Q-173).
   - Thu 21: the doubled TLS file holds `failing_by_unit` by its key, as it holds silver's `effective`;
   - the push: BU-01's share of the failures falls by more than two fifths over the month, and no day says so;
   - the freeze: the vulnerability SLA's failures rise from Sun 24 to Sun 31, within what the failures vary by:
-    `failing_by_unit` is calm or has notes each day and publishes (Thu 28's hold is the loop's).
+    `failing_by_unit` holds nothing itself, and is calm or has notes on each day it publishes (Tue 26's hold is the
+    TLS file's scope, Thu 28's the loop's, and both reach it).
 - **Where the text changed as it was built:**
   - The answer key's Mon 11 row names `org_posture` and two VPs. It is `dim_app` and `failing_by_unit` (the shares
     above), and the two business units: the seven teams came from several of BU-02's departments.

@@ -312,12 +312,12 @@ describe('gold over the month: the reorg, the handover, the push and the freeze 
 
   it('shows the freeze’s overdue vulnerabilities rising, within what the failures vary by: calm or notes, published', () => {
     expect(gold.get(G.freezeUntil)!.vulnFailing).toBeGreaterThan(gold.get(addDays(G.freeze, -1))!.vulnFailing);
-    // Thu 28 is the loop's, which holds what reads the chain (silver); every other day of the freeze publishes.
-    for (let d: string = G.freeze; d <= G.freezeUntil; d = addDays(d, 1)) {
-      if (d === S.loop) continue;
-      expect(result(d).published, d).toContain('failing_by_unit');
-      expect(['calm', 'notes'], d).toContain(said(d, 'failing_by_unit').state);
-    }
+    // Nothing gold says holds a day of the freeze. Tue 26 (the TLS file's scope, bronze) and Thu 28 (the loop, silver)
+    // are held upstream, and their holds reach it; every other day publishes it, calm or with notes.
+    const freeze = MARCH.filter((d) => d >= G.freeze && d <= G.freezeUntil);
+    for (const d of freeze) expect(result(d).holds.filter((h) => h.origin === 'failing_by_unit'), d).toEqual([]);
+    expect(freeze.filter((d) => !result(d).published.includes('failing_by_unit'))).toEqual([P.scopeLoss, S.loop]);
+    for (const d of freeze.filter((x) => x !== P.scopeLoss && x !== S.loop)) expect(['calm', 'notes'], d).toContain(said(d, 'failing_by_unit').state);
     // The reorg's leftovers, the few applications still in the business unit it emptied, failing again after two weeks
     // of none, are worth knowing, not unusual.
     const left = JSON.stringify(reorg().from);
