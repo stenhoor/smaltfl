@@ -3544,12 +3544,15 @@ const followsSaid = (t: { because?: string }): string | null => (t.because?.star
  * and every finding it told, each with what it follows.
  */
 function watchedNews(story: Story, held: boolean): HTMLElement[] {
-  const told = [...(story.cause ? [story.cause] : []), ...story.stories, ...story.more, ...story.follows, ...story.sameDay, ...story.absorbed, ...story.notes];
+  // The cause is the verdict's head: listed below it only where a hold says the day above instead.
+  const told = [...(story.cause && held ? [story.cause] : []), ...story.stories, ...story.more, ...story.follows, ...story.sameDay, ...story.absorbed, ...story.notes];
   const sev: Severity = story.state === 'wrong' ? 'alert' : story.state === 'unusual' ? 'warn' : 'note';
   const out: HTMLElement[] = [];
+  const causeFollows = story.cause ? followsSaid(story.cause) : null;
   if (!held) out.push(h('div', { class: `verdict ${sev}` },
     h('p', { class: 'v-day' }, `${dayLabel(story.day)} · against its own history`),
-    h('h3', { class: 'v-head' }, glyphEl(sev, 16), story.head)));
+    h('h3', { class: 'v-head' }, glyphEl(sev, 16), ' ', story.head),
+    causeFollows ? h('p', { class: 'v-line' }, `It ${causeFollows}.`) : null));
   if (told.length) out.push(h('ul', { class: 'wn-list', 'aria-label': 'What its own history found today' }, ...told.map((t) => {
     const mark = sevMark(t.severity);
     const follows = followsSaid(t);

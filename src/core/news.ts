@@ -402,20 +402,9 @@ export function newsOf(h: HistoryRanges, day: string, names: Names, options: { c
     // is never called lasting against its old level.
     const since = j.ranges.breakAt(day);
     const so = (i: number): boolean | null => {
-      const d = plusDays(day, -i);
-      if (since !== null && d < since) return null;
-      const v = j.ranges.value(d);
-      if (v === null) return null;
-      if (j.ranges.place(j.range, v) !== way) return false;
-      // In a gated flow a day outside by fewer rows than a change must move to be told isn't the change lasting (ADR 0020
-      // slice 5): a certificate authority behind none of the failures most days and two of them on some isn't lasting
-      // when it is behind fifty today.
-      if (judge.checks !== null && j.range.scale === 'share') {
-        const kd = file.days.indexOf(d);
-        const n = kd >= 0 ? file.rows[kd] : undefined;
-        if (n !== undefined && Math.abs(v - j.range.expected) * n < M.rows) return false;
-      }
-      return true;
+      if (since !== null && plusDays(day, -i) < since) return null;
+      const v = j.ranges.value(plusDays(day, -i));
+      return v === null ? null : j.ranges.place(j.range, v) === way;
     };
     let n = 0;
     for (let i = 1; i <= 7; i++) n += so(i) ? 1 : 0;

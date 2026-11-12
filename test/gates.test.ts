@@ -213,21 +213,6 @@ describe('a value back on a few rows, in a gated flow (ADR 0020 slice 4)', () =>
     return newsOf(h, today, vendorNames, { judge }).find((f) => f.values?.[0] === '"c"');
   };
 
-  it('never calls a jump lasting for days it was outside by a row or two, in a gated flow; as before without gates', () => {
-    // A platform behind none of the day's rows for weeks, then one or two on most days of the last week, then forty.
-    const ms: Measures[] = [];
-    const few = new Set([53, 54, 56, 57, 59]);
-    for (let i = 0; i < 60; i++) ms.push(day(plusDays('2024-01-01', i), { a: 150 + (i % 7) * 3, b: 140 - (i % 5) * 2, ...(few.has(i) ? { c: 1 + (i % 2) } : {}) }));
-    ms.push(day(today, { a: 150, b: 140, c: 40 }));
-    const start = emptyHistory({ flow: 'f', source: 'failing', settings: { checks: null, counted: ['unit'], followed: [], paired: [], time: null, zone: null, sample: 2000 }, columns: ms[0]!.columns, types: ms[0]!.types, kinds: ms[0]!.kinds, warmup: 3 });
-    const h = new HistoryRanges(appendPeriods(start, ms), { pattern: 'none' });
-    const jump = (checks: GateChecks | null) => newsOf(h, today, vendorNames, { judge: { ...LEGACY_JUDGE, legacy: false, scale: 'volume' as const, pattern: 'none' as const, checks } }).find((f) => f.values?.[0] === '"c"');
-    expect(jump(LAYER_DEFAULTS.silver)).toMatchObject({ kind: 'share', severity: 'warn' });
-    expect(jump(LAYER_DEFAULTS.silver)!.lasting).toBeUndefined();
-    // Without gates, those days still count: told as a change that has lasted, a note.
-    expect(jump(null)).toMatchObject({ kind: 'share', severity: 'note' });
-  });
-
   it('tells it as worth knowing under the rows a new value needs to be unusual, unusual from them, and as before without gates', () => {
     expect(told(3, LAYER_DEFAULTS.silver)).toMatchObject({ kind: 'share', severity: 'note', check: 'shares', rows: 3 });
     expect(told(20, LAYER_DEFAULTS.silver)).toMatchObject({ kind: 'share', severity: 'warn', check: 'shares' });
