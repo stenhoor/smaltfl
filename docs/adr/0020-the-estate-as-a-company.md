@@ -794,6 +794,52 @@ watches, and attribution through silver (Q-173).
   - The seal is as today (the app's `sealOfRun`, ADR 0014 §6): nothing in it is Larkspur's own, and it is seen with the
     app in slice 5.
 
+**Slice 5, the answer key through the app (2026-11-12):** the app builds on Larkspur (`npm run build:app -- --flow
+examples/larkspur/flow.json --out dist/app-larkspur`), and `tools/browser/stops/larkspur.json` walks §9's three days, the
+reorg and the contracts at every size, each stop with its checks.
+- **The build.** The generator writes the days the histories are built from beside March's loads: `base.json`, six
+  months of every day's files, and `base.steps.json`, six weeks for the watched steps; each load's export time and each
+  file's last day before the loads (`before`, the first load's previous for `fresh`). Twenty-eight histories: a file's
+  from its own file, with the daily files its rules read pinned beside it (the CMDB its scope is counted against); the
+  eight watched steps' from one run of the flow a day (`history.mjs --watch a,b,c`: a run at the demo's scale takes about
+  13 s, so eight histories cost one run a day, not eight). About 5 minutes on four cores at 2,600 applications, cached
+  by the data's hash; 90 MB shipped, nearly all March's 620 files.
+- **Found while building it:**
+  - two history runs at once (the build runs two) shared one bundle file, and one could import the other's half-written
+    bundle: the watched steps' run once did nothing and exited cleanly. Each run now bundles to a file of its own, and
+    the build won't mark a data set done while a history is missing;
+  - the News of a watched step the views don't follow showed only its table's own news, and What happened one finding a
+    check, so a silver or gold step's day wasn't on screen. A watched step now tells its own day there (`watchedStory`:
+    `flowStory` with what its sources and the watched steps it reads said, as the engine tells its claim): its verdict,
+    every finding, and what each follows (Q-173);
+  - a check step whose stopping rule rows broke said "every row kept the rules" (Mon 18's org_chain and app_owners, the
+    holds of the day). It now says "95 of 2,410 rows broke owner_chain, a rule that stops the day", in red, and its rules
+    check fails;
+  - Larkspur's silver outputs without a gate (org_chain, coverage, remediation) read as gold, a published node's default:
+    each has a silver gate. platform_impact's watch counts its platforms and statuses, not the control, whose share is
+    each feed's own check's: the platform leads.
+- **The Contract tab (Q-171):** a published dataset with a contract shows its id, version and status, whether the run on
+  screen kept it, what it is for and how to use it, each column (type, key, required, classification, values) marked
+  where the run found it otherwise, and its service levels. The gold Checks tab's schema row reads it.
+- **What the app shows, at the demo's scale:**
+  - walk 1, Tue 12: held by the WAF file's band (22.7% failing, band 0–15%); platform_impact's News and What happened lead
+    with ing-east-3 (7.6% of the failures, usually 0.5–2.0%); org_posture's and remediation_queue's rows below;
+  - walk 2, Mon 18: held by the chain; org_chain says 4 of 245 units broke `one_root`, app_owners that 95 of 2,410
+    applications broke `owner_chain`, kept under UNASSIGNED (96 there with a retired one);
+  - walk 3, Mon 25: the TLS file warns of its failures (8.9%, usually 4.3–7.0%), a rise within reason; platform_impact
+    names ca-int-2 (5.2%, usually 0.3–0.9%);
+  - Mon 11: dim_app's News tells the reorg, its business units' shares following app_owners;
+  - failing_by_unit's and app_scorecard's contracts kept; Thu 21 holds failing_by_unit by its key.
+- **Where the text changed as it was built:**
+  - §9's figures were the design's. platform_impact tells a platform's share of all the day's failing and unassessed
+    results (ing-east-3's 7.6%, usually 0.5–2.0%), not its share of the WAF's failures (§9's 92%; 83% at the tests'
+    scale); and 95 applications lose their chain on Mon 18, not 138;
+  - walk 3's "the models say the two fail together" isn't shown: posture_wide's pair check is off (slice 3: its daily new
+    pairs were noise), and the platform says it instead;
+  - what the judges say of a day depends on the days the browser has run before it (each run's measures are the tail):
+    the stops visit the walks' days in order, and a day reached without the days before it can say more or less.
+- **The first load** (ADR 0019's machine and method, `tools/browser/load.cjs`): FIRST_LOAD.
+
 ## Consequences
 
 - **The demo can show what each layer is for:**

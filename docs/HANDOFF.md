@@ -220,12 +220,13 @@ Results on 2026-11-09, at `e42d9ec` on data `0ca4dd1`:
 
 **First: [ADR 0020](adr/0020-the-estate-as-a-company.md), the Larkspur estate** (accepted 2026-11-12, Q-169 to
 Q-175). It is built in the slices of its §8: the generator, bronze, silver, gold, the answer key through the engine,
-the product view, then the switch that makes it the demo. Slices 1 to 4 are built (its §"As built"). Three answers
-were built as recommended for the maintainers to confirm: an object type's loose ids (Q-176) and `publish.reach:
-'downstream'` (Q-177) in slice 3, and in slice 4 a steady change in gold left to the product view (Q-178: the
-remediation push isn't told by a day's judge). Next is slice 5: the answer key through the app (the histories built
-by `scripts/data/history.ts`, the app build, the browser stops, the Contract tab), then the product view (slice 6,
-Q-174). The items below follow it.
+the product view, then the switch that makes it the demo. Slices 1 to 5 are built (its §"As built"): the app builds
+on Larkspur (`npm run build:app -- --flow examples/larkspur/flow.json --out dist/app-larkspur`) and
+`tools/browser/stops/larkspur.json` walks §9's three days at every size. Three answers were built as recommended for
+the maintainers to confirm: an object type's loose ids (Q-176) and `publish.reach: 'downstream'` (Q-177) in slice 3,
+and in slice 4 a steady change in gold left to the product view (Q-178: the remediation push isn't told by a day's
+judge). Next is the product view (slice 6, Q-174), then the switch (slice 7: the docs deploy builds Larkspur and it
+becomes the demo). The items below follow it.
 
 Parked behind the notebook surface by the maintainer's decision of 2026-11-09 (Q-87, ADR 0011 §9). In priority order:
 

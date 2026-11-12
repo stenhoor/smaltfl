@@ -3906,10 +3906,13 @@ async function happenedTab(card: string, id: string): Promise<HTMLElement> {
     const findings: (Finding & { was?: Severity; because?: string })[] = told ? told.findings : day && Object.keys(state.doc.publish?.watch ?? {}).some((w) => w.toLowerCase() === id.toLowerCase()) ? loadFindings(id, day) : [];
     const loud = (x: { severity: Severity; was?: Severity }) => (x.was ?? x.severity) === 'alert' || (x.was ?? x.severity) === 'warn';
     const on = (Object.entries(g) as [CheckName, CheckMode][]).filter(([, mode]) => mode !== 'off');
-    const found = on.filter(([c]) => findings.some((x) => (x.check ?? checkOf(x.kind)) === c && loud(x))).length;
+    // A check step's rule that stops the day, broken today (StepStory.stops): the rules check failed, whatever its history.
+    const stopped = story.stops.length ? story.stops.map((r) => `${r.name}: ${plural(r.rows, 'row')}`).join(' · ') : null;
+    const found = on.filter(([c]) => (c === 'rules' && !!stopped) || findings.some((x) => (x.check ?? checkOf(x.kind)) === c && loud(x))).length;
     box.append(part('Its checks', h('details', { class: 'pf-more', ...(found ? { open: 'open' } : {}) }, h('summary', {}, found ? `${found} of ${on.length} checks found something` : `All ${on.length} checks passed`), h('ul', { class: 'sv-checks' }, ...on.map(([c, mode]) => {
       // What each check found, the worst first, three at most (as the Checks tab lists them): a platform behind the
       // failures is said beside the control they are of.
+      if (c === 'rules' && stopped) return h('li', { class: 'alert' }, glyphEl('alert', 13), h('span', {}, CHECK_PLAIN[c]), h('span', { class: 'foot' }, ` · ${stopped}: the step failed, and the day stops`));
       const mine = findings.filter((x) => (x.check ?? checkOf(x.kind)) === c && loud(x)).sort((a, b) => SEV_RANK[a.was ?? a.severity] - SEV_RANK[b.was ?? b.severity] || b.score - a.score);
       const f = mine[0];
       const worst: Severity = f ? (f.was ?? f.severity) : 'ok';

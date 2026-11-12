@@ -162,7 +162,8 @@
     "expect": {
       "text": [
         "broke owner_chain, a rule that stops the day",
-        "UNASSIGNED"
+        "UNASSIGNED",
+        "the step failed, and the day stops"
       ],
       "noText": [
         "kept the rules"
