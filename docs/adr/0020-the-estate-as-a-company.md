@@ -1,6 +1,7 @@
 # ADR 0020: The estate as a company: an organisation, shared infrastructure, and a real bronze, silver and gold
 
-- **Status:** proposed, 2026-11-12 (Q-169 to Q-175 open: the maintainers' to decide before it is built)
+- **Status:** accepted, 2026-11-12: the maintainer took the recommended answer to each of Q-169 to Q-175
+  (docs/OPEN_QUESTIONS.md). It is built in the slices of §8.
 - **Date:** 2026-11-12
 - **Builds on:**
   - [ADR 0013 §8](0013-discovered-checks.md): the control estate.
@@ -30,7 +31,7 @@ So the What happened tab has little to tell, and the checks never meet the failu
 data that drifts, joins that orphan rows, rules that change a status without the raw data changing, shared
 infrastructure that fails many things at once, and a product schema that must not break.
 
-## Decision (proposed)
+## Decision
 
 Build a new example, **the Larkspur estate** (`examples/larkspur/`, a fictional financial-services group; no real
 company or person is its subject), as a real medallion pipeline. Keep the control estate as it is until Larkspur
@@ -101,7 +102,7 @@ carries the bronze metadata (ADR 0015 amendment 5) and the source's own export t
 | `platforms` (fixed) | a platform, what it depends on, and the controls it provides | the architecture inventory |
 | twelve evidence feeds | an application a control applies to | as today (certificate inventory, WAF, encryption, key rotation, backup jobs, DR exercises, MFA, access reviews, logging coverage, privileged vault, pentest schedule), plus `edr_coverage`. `mfa` says registered and enforced apart; `edr_coverage` says when a sensor runs in reduced functionality, which isn't coverage |
 
-A new bronze check is proposed (Q-172): **fresh**, the file isn't yesterday's again. It holds when today's file has
+A new bronze check (Q-172): **fresh**, the file isn't yesterday's again. It holds when today's file has
 the same sha256 as the last load's, or its `exported_at` is older than its cadence allows. It is told from the ingest
 record that amendment 5 now keeps. It reads the file's own bytes and export time, not when the file arrived: a file
 that lands on time but is byte for byte yesterday's hides whatever changed since (a stale HR export hides leavers).
@@ -235,8 +236,8 @@ Standard (ODCS v3) where they fit:
 - the service levels: daily, available by 07:00 UTC, kept for 13 months.
 
 As in dbt's enforced contracts, a column renamed or retyped fails the build. A breaking change is a new major version,
-published beside the old one until its deprecation date. Until Q-171 is decided, the schema check compares against
-the dataset's declared columns, as the data list's are today.
+published beside the old one until its deprecation date. Until the contract field is built (slice 4), the schema
+check compares against the dataset's declared columns, as the data list's are today.
 
 ### The flow at a glance
 
@@ -365,8 +366,8 @@ The month is March 2024, the estate's month. Its calendar has three real dates:
 
 ### 6. What the tool needs that it doesn't have
 
-The example is built with the tool as it stands wherever it can. Four additions are proposed, each the maintainers' to
-decide:
+The example is built with the tool as it stands wherever it can. Four additions were proposed, and the maintainer
+accepted all four:
 
 - **Gold contracts** (Q-171): a published dataset's declared contract, with ODCS v3's fields where they fit (§4),
   checked by gold's schema check and shown on a Contract tab. Adding a document field moves plan hashes only for
@@ -395,14 +396,14 @@ run on 600 applications (Q-170).
    - `test/fixtures/larkspur.ts` and a test of the data's facts: hierarchy integrity, applicability, the dependency
      graph, rates.
 2. **Bronze:** the feeds, their ontology (object types for the organisational unit, the person, the application, the
-   platform and the control, with their links), their checks, the bronze metadata, `fresh` if decided, and the bronze
-   days of the answer key.
+   platform and the control, with their links), their checks, the bronze metadata, `fresh`, and the bronze days of the
+   answer key.
 3. **Silver:** the four notebooks, their gates, and the silver days.
-4. **Gold:** Control Posture v1, its contracts if decided, its gates and the seal, and the gold days.
+4. **Gold:** Control Posture v1, its contracts, its gates and the seal, and the gold days.
 5. **The answer key through the engine:** `test/larkspur-flow.test.ts` (slow set), the histories, the app build and
    the browser stops.
-6. **The product view**, if decided.
-7. **The switch:** Larkspur becomes the demo. The control estate stays as a regression, or is retired (Q-169).
+6. **The product view** (Q-174).
+7. **The switch:** Larkspur becomes the demo. The control estate stays as a regression (Q-169).
 
 ### 9. Three walks through the demo
 
@@ -565,14 +566,17 @@ marked *(secondary)*. Vendors' column layouts are borrowed as formats only: ever
 - ADR 0014's answer key stays the control estate's. Larkspur's is new, and a planted day that moves is a decision, not
   a fix.
 
-## Open questions
+## The questions, decided
 
-- **Q-169:** a new example (`examples/larkspur/`) beside the control estate, made the demo once its answer key passes;
-  or the control estate evolved in place (its answer key moves).
-- **Q-170:** scale: 2,400 applications for the demo, 600 for the tests?
-- **Q-171:** gold contracts as a document field (ODCS v3's fields where they fit), and a Contract tab.
-- **Q-172:** the `fresh` check.
+The maintainer, 2026-11-12, took the recommended answer to each:
+
+- **Q-169:** a new example, `examples/larkspur/`, beside the control estate. The control estate stays ADR 0014's answer
+  key and a regression; Larkspur becomes the demo once its own answer key passes through the engine.
+- **Q-170:** about 2,400 applications for the demo and 600 for the tests, the first day in 5 s, measured once silver is
+  built.
+- **Q-171:** gold contracts as a document field, with ODCS v3's fields where they fit, and a Contract tab.
+- **Q-172:** the `fresh` check, bronze, holding by default.
 - **Q-173:** attribution through silver steps.
-- **Q-174:** a product view (the posture dashboard) over gold in the app.
-- **Q-175:** fictional names: the company and people are generated from neutral word lists; product names for
-  platforms (an IdP, a SIEM) stay generic as today's do (okta, splunk).
+- **Q-174:** a product view (the posture dashboard) over gold in the app, after slice 4.
+- **Q-175:** fictional names: the company and people are generated from neutral word lists; platforms are named by
+  generic kinds, as today's estate names them (okta, splunk).

@@ -226,6 +226,9 @@ match smaltdb's `CLAUDE.md`.
   gates (bronze, silver, gold checks as a `gate()` cell in the notebook, written bands and due marks in the ontology,
   scope and dependency rules, the classifier on a kept sample, a sealed gold), in its seven slices, judged against the
   control estate's answer key (its §"The answer key"); all seven slices are built (its §"As built").
+  **Next:** [ADR 0020](docs/adr/0020-the-estate-as-a-company.md), the Larkspur estate (`examples/larkspur/`): a
+  fictional company with an organisation, shared infrastructure, a real silver and a gold data product, built in the
+  slices of its §8 and judged against its own answer key (§5); the control estate stays as ADR 0014's.
 
 ## Rules for this repository
 
