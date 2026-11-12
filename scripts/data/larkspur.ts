@@ -11,7 +11,7 @@
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { csvOf, DAILY_FILES, dayFile, exportedAt, fixedFiles, larkspur, larkspurDays, LARKSPUR_LOADS_FROM, LARKSPUR_TO } from '../../test/fixtures/larkspur.js';
+import { csvOf, DAILY_FILES, dayFile, exportedAtOf, fixedFiles, larkspur, larkspurDays, LARKSPUR_LOADS_FROM, LARKSPUR_TO } from '../../test/fixtures/larkspur.js';
 
 const args = process.argv.slice(2);
 const flag = (name: string, fallback: string) => {
@@ -43,7 +43,7 @@ for (const day of larkspurDays(from, to)) {
     const text = csvOf(t.columns, t.rows);
     const file = resolve(out, 'days', `${name}_${day}.csv`);
     writeFileSync(file, text);
-    files[name] = { file, rows: t.rows.length, exported_at: exportedAt(name, day) };
+    files[name] = { file, rows: t.rows.length, exported_at: exportedAtOf(w, name, day) };
     rows += t.rows.length;
     bytes += text.length;
   }

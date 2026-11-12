@@ -427,9 +427,13 @@ export function newsOf(h: HistoryRanges, day: string, names: Names, options: { c
   if (trips) {
     const { range, value } = trips;
     const like = `A day like it has ${fmtInt(range.low)} to ${fmtInt(range.high)}.`;
+    // In a flow with gates (ADR 0020 §2, as built), a change under a twentieth of a day like it isn't told: an inventory
+    // (the people in an HR extract, the applications in a CMDB, a feed with one row each) moves by a row or two a day by
+    // design, and against a history with almost no spread one row reads as far out. A file all but empty still is.
+    const slight = judge.checks !== null && Math.abs(value / range.expected - 1) < MATERIAL.relative;
     if (value < MATERIAL.blank * range.expected) {
       out.push({ key: 'volume', kind: 'volume', severity: 'alert', score: 99, title: `Almost no ${noun()}: ${fmtInt(value)}`, detail: like, look: 'history', metric: { of: 'trips' }, value, range, rows: value, acts: ['incident', 'notify', 'expected'] });
-    } else if (outside(trips)) {
+    } else if (outside(trips) && !slight) {
       const more = value > range.expected;
       // A rise or fall that has lasted (most of the week before outside each day's own range the same way, as the
       // weeks after Labor Day 2022 were, with no last year to learn the season from) is told as a note, unless it is

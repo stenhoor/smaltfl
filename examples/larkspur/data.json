@@ -1,0 +1,807 @@
+{
+  "smaltflData": 1,
+  "flow": "larkspur",
+  "generate": "scripts/data/larkspur.mjs",
+  "sources": {
+    "hr_org_units": {
+      "table": "hr_org_units_file",
+      "format": "csv",
+      "file": "hr_org_units.csv",
+      "header": true,
+      "columns": [
+        [
+          "org_unit_id",
+          "TEXT"
+        ],
+        [
+          "parent_id",
+          "TEXT"
+        ],
+        [
+          "name",
+          "TEXT"
+        ],
+        [
+          "level",
+          "TEXT"
+        ],
+        [
+          "leader_id",
+          "TEXT"
+        ],
+        [
+          "acting_leader_id",
+          "TEXT"
+        ],
+        [
+          "cost_centre",
+          "TEXT"
+        ]
+      ]
+    },
+    "hr_people": {
+      "table": "hr_people_file",
+      "format": "csv",
+      "file": "hr_people.csv",
+      "header": true,
+      "columns": [
+        [
+          "person_id",
+          "TEXT"
+        ],
+        [
+          "display_name",
+          "TEXT"
+        ],
+        [
+          "title",
+          "TEXT"
+        ],
+        [
+          "manager_id",
+          "TEXT"
+        ],
+        [
+          "org_unit_id",
+          "TEXT"
+        ],
+        [
+          "status",
+          "TEXT"
+        ],
+        [
+          "in_role_since",
+          "TEXT"
+        ]
+      ]
+    },
+    "cmdb_apps": {
+      "table": "cmdb_apps_file",
+      "format": "csv",
+      "file": "cmdb_apps.csv",
+      "header": true,
+      "columns": [
+        [
+          "app_id",
+          "TEXT"
+        ],
+        [
+          "name",
+          "TEXT"
+        ],
+        [
+          "owner_team_id",
+          "TEXT"
+        ],
+        [
+          "tier",
+          "TEXT"
+        ],
+        [
+          "exposure",
+          "TEXT"
+        ],
+        [
+          "data_class",
+          "TEXT"
+        ],
+        [
+          "datastore",
+          "TEXT"
+        ],
+        [
+          "hosting",
+          "TEXT"
+        ],
+        [
+          "site",
+          "TEXT"
+        ],
+        [
+          "platform_id",
+          "TEXT"
+        ],
+        [
+          "lifecycle",
+          "TEXT"
+        ],
+        [
+          "created_on",
+          "TEXT"
+        ],
+        [
+          "go_live",
+          "TEXT"
+        ],
+        [
+          "retire_by",
+          "TEXT"
+        ],
+        [
+          "updated_at",
+          "TEXT"
+        ]
+      ]
+    },
+    "cloud_assets": {
+      "table": "cloud_assets_file",
+      "format": "csv",
+      "file": "cloud_assets.csv",
+      "header": true,
+      "columns": [
+        [
+          "account_id",
+          "TEXT"
+        ],
+        [
+          "region",
+          "TEXT"
+        ],
+        [
+          "cluster",
+          "TEXT"
+        ],
+        [
+          "app_tag",
+          "TEXT"
+        ],
+        [
+          "resources",
+          "INTEGER"
+        ]
+      ]
+    },
+    "control_catalog": {
+      "table": "control_catalog_file",
+      "format": "csv",
+      "file": "control_catalog.csv",
+      "header": true,
+      "columns": [
+        [
+          "control_id",
+          "TEXT"
+        ],
+        [
+          "name",
+          "TEXT"
+        ],
+        [
+          "csf_function",
+          "TEXT"
+        ],
+        [
+          "csf_category",
+          "TEXT"
+        ],
+        [
+          "weight",
+          "INTEGER"
+        ],
+        [
+          "cadence",
+          "TEXT"
+        ],
+        [
+          "applies_exposure",
+          "TEXT"
+        ],
+        [
+          "applies_tier",
+          "TEXT"
+        ],
+        [
+          "applies_data_class",
+          "TEXT"
+        ],
+        [
+          "applies_datastore",
+          "TEXT"
+        ],
+        [
+          "applies_hosting",
+          "TEXT"
+        ],
+        [
+          "applies_lifecycle",
+          "TEXT"
+        ],
+        [
+          "depends_on",
+          "TEXT"
+        ],
+        [
+          "compensated_by",
+          "TEXT"
+        ],
+        [
+          "provided_by",
+          "TEXT"
+        ],
+        [
+          "allocation",
+          "TEXT"
+        ]
+      ]
+    },
+    "control_requirements": {
+      "table": "control_requirements_file",
+      "format": "csv",
+      "file": "control_requirements.csv",
+      "header": true,
+      "columns": [
+        [
+          "control_id",
+          "TEXT"
+        ],
+        [
+          "framework",
+          "TEXT"
+        ],
+        [
+          "requirement",
+          "TEXT"
+        ],
+        [
+          "relationship",
+          "TEXT"
+        ]
+      ]
+    },
+    "exceptions": {
+      "table": "exceptions_file",
+      "format": "csv",
+      "file": "exceptions.csv",
+      "header": true,
+      "columns": [
+        [
+          "exception_id",
+          "TEXT"
+        ],
+        [
+          "version",
+          "INTEGER"
+        ],
+        [
+          "app_id",
+          "TEXT"
+        ],
+        [
+          "control_id",
+          "TEXT"
+        ],
+        [
+          "approver_id",
+          "TEXT"
+        ],
+        [
+          "reason",
+          "TEXT"
+        ],
+        [
+          "compensating_control",
+          "TEXT"
+        ],
+        [
+          "valid_from",
+          "TEXT"
+        ],
+        [
+          "valid_to",
+          "TEXT"
+        ],
+        [
+          "original_valid_to",
+          "TEXT"
+        ],
+        [
+          "approved_on",
+          "TEXT"
+        ],
+        [
+          "status",
+          "TEXT"
+        ]
+      ]
+    },
+    "findings": {
+      "table": "findings_file",
+      "format": "csv",
+      "file": "findings.csv",
+      "header": true,
+      "columns": [
+        [
+          "finding_id",
+          "TEXT"
+        ],
+        [
+          "app_id",
+          "TEXT"
+        ],
+        [
+          "source",
+          "TEXT"
+        ],
+        [
+          "scanner",
+          "TEXT"
+        ],
+        [
+          "plugin",
+          "TEXT"
+        ],
+        [
+          "cve",
+          "TEXT"
+        ],
+        [
+          "severity",
+          "TEXT"
+        ],
+        [
+          "status",
+          "TEXT"
+        ],
+        [
+          "first_found",
+          "TEXT"
+        ],
+        [
+          "last_found",
+          "TEXT"
+        ],
+        [
+          "fixed_on",
+          "TEXT"
+        ],
+        [
+          "due_on",
+          "TEXT"
+        ],
+        [
+          "credentialed",
+          "TEXT"
+        ]
+      ]
+    },
+    "tls": {
+      "table": "tls_file",
+      "format": "csv",
+      "file": "tls.csv",
+      "header": true,
+      "columns": [
+        [
+          "app_id",
+          "TEXT"
+        ],
+        [
+          "endpoint",
+          "TEXT"
+        ],
+        [
+          "ingress",
+          "TEXT"
+        ],
+        [
+          "issuer",
+          "TEXT"
+        ],
+        [
+          "protocol",
+          "TEXT"
+        ],
+        [
+          "not_after",
+          "TEXT"
+        ],
+        [
+          "private_link",
+          "TEXT"
+        ],
+        [
+          "status",
+          "TEXT"
+        ]
+      ]
+    },
+    "waf": {
+      "table": "waf_file",
+      "format": "csv",
+      "file": "waf.csv",
+      "header": true,
+      "columns": [
+        [
+          "app_id",
+          "TEXT"
+        ],
+        [
+          "ingress",
+          "TEXT"
+        ],
+        [
+          "mode",
+          "TEXT"
+        ],
+        [
+          "ruleset_age_days",
+          "INTEGER"
+        ],
+        [
+          "status",
+          "TEXT"
+        ]
+      ]
+    },
+    "pentest_schedule": {
+      "table": "pentest_schedule_file",
+      "format": "csv",
+      "file": "pentest_schedule.csv",
+      "header": true,
+      "columns": [
+        [
+          "app_id",
+          "TEXT"
+        ],
+        [
+          "last_test",
+          "TEXT"
+        ],
+        [
+          "next_due",
+          "TEXT"
+        ],
+        [
+          "tester",
+          "TEXT"
+        ],
+        [
+          "open_highs",
+          "INTEGER"
+        ],
+        [
+          "status",
+          "TEXT"
+        ]
+      ]
+    },
+    "encryption": {
+      "table": "encryption_file",
+      "format": "csv",
+      "file": "encryption.csv",
+      "header": true,
+      "columns": [
+        [
+          "app_id",
+          "TEXT"
+        ],
+        [
+          "store_type",
+          "TEXT"
+        ],
+        [
+          "key_store",
+          "TEXT"
+        ],
+        [
+          "encrypted",
+          "TEXT"
+        ],
+        [
+          "status",
+          "TEXT"
+        ]
+      ]
+    },
+    "key_rotation": {
+      "table": "key_rotation_file",
+      "format": "csv",
+      "file": "key_rotation.csv",
+      "header": true,
+      "columns": [
+        [
+          "app_id",
+          "TEXT"
+        ],
+        [
+          "key_store",
+          "TEXT"
+        ],
+        [
+          "last_rotated",
+          "TEXT"
+        ],
+        [
+          "next_due",
+          "TEXT"
+        ],
+        [
+          "key_age_days",
+          "INTEGER"
+        ],
+        [
+          "status",
+          "TEXT"
+        ]
+      ]
+    },
+    "backup_jobs": {
+      "table": "backup_jobs_file",
+      "format": "csv",
+      "file": "backup_jobs.csv",
+      "header": true,
+      "columns": [
+        [
+          "app_id",
+          "TEXT"
+        ],
+        [
+          "controller",
+          "TEXT"
+        ],
+        [
+          "last_state",
+          "TEXT"
+        ],
+        [
+          "last_success",
+          "TEXT"
+        ],
+        [
+          "rpo_hours",
+          "INTEGER"
+        ],
+        [
+          "status",
+          "TEXT"
+        ]
+      ]
+    },
+    "dr_exercises": {
+      "table": "dr_exercises_file",
+      "format": "csv",
+      "file": "dr_exercises.csv",
+      "header": true,
+      "columns": [
+        [
+          "app_id",
+          "TEXT"
+        ],
+        [
+          "last_exercise",
+          "TEXT"
+        ],
+        [
+          "next_due",
+          "TEXT"
+        ],
+        [
+          "rto_met",
+          "TEXT"
+        ],
+        [
+          "status",
+          "TEXT"
+        ]
+      ]
+    },
+    "mfa": {
+      "table": "mfa_file",
+      "format": "csv",
+      "file": "mfa.csv",
+      "header": true,
+      "columns": [
+        [
+          "app_id",
+          "TEXT"
+        ],
+        [
+          "idp",
+          "TEXT"
+        ],
+        [
+          "registered_pct",
+          "INTEGER"
+        ],
+        [
+          "enforced",
+          "TEXT"
+        ],
+        [
+          "status",
+          "TEXT"
+        ]
+      ]
+    },
+    "access_reviews": {
+      "table": "access_reviews_file",
+      "format": "csv",
+      "file": "access_reviews.csv",
+      "header": true,
+      "columns": [
+        [
+          "app_id",
+          "TEXT"
+        ],
+        [
+          "last_review",
+          "TEXT"
+        ],
+        [
+          "next_due",
+          "TEXT"
+        ],
+        [
+          "reviewers",
+          "INTEGER"
+        ],
+        [
+          "revoked",
+          "INTEGER"
+        ],
+        [
+          "status",
+          "TEXT"
+        ]
+      ]
+    },
+    "logging_coverage": {
+      "table": "logging_coverage_file",
+      "format": "csv",
+      "file": "logging_coverage.csv",
+      "header": true,
+      "columns": [
+        [
+          "app_id",
+          "TEXT"
+        ],
+        [
+          "pipeline",
+          "TEXT"
+        ],
+        [
+          "forwarder_issuer",
+          "TEXT"
+        ],
+        [
+          "last_event",
+          "TEXT"
+        ],
+        [
+          "retention_days",
+          "INTEGER"
+        ],
+        [
+          "status",
+          "TEXT"
+        ]
+      ]
+    },
+    "privileged_vault": {
+      "table": "privileged_vault_file",
+      "format": "csv",
+      "file": "privileged_vault.csv",
+      "header": true,
+      "columns": [
+        [
+          "app_id",
+          "TEXT"
+        ],
+        [
+          "vault",
+          "TEXT"
+        ],
+        [
+          "accounts",
+          "INTEGER"
+        ],
+        [
+          "unvaulted",
+          "INTEGER"
+        ],
+        [
+          "status",
+          "TEXT"
+        ]
+      ]
+    },
+    "edr_coverage": {
+      "table": "edr_coverage_file",
+      "format": "csv",
+      "file": "edr_coverage.csv",
+      "header": true,
+      "columns": [
+        [
+          "app_id",
+          "TEXT"
+        ],
+        [
+          "hosts",
+          "INTEGER"
+        ],
+        [
+          "reporting",
+          "INTEGER"
+        ],
+        [
+          "reduced_functionality",
+          "INTEGER"
+        ],
+        [
+          "sensor_version",
+          "TEXT"
+        ],
+        [
+          "status",
+          "TEXT"
+        ]
+      ]
+    },
+    "platforms": {
+      "table": "platforms_file",
+      "format": "csv",
+      "file": "platforms.csv",
+      "header": true,
+      "columns": [
+        [
+          "platform_id",
+          "TEXT"
+        ],
+        [
+          "kind",
+          "TEXT"
+        ],
+        [
+          "name",
+          "TEXT"
+        ],
+        [
+          "site",
+          "TEXT"
+        ]
+      ]
+    },
+    "platform_links": {
+      "table": "platform_links_file",
+      "format": "csv",
+      "file": "platform_links.csv",
+      "header": true,
+      "columns": [
+        [
+          "platform_id",
+          "TEXT"
+        ],
+        [
+          "relation",
+          "TEXT"
+        ],
+        [
+          "target",
+          "TEXT"
+        ],
+        [
+          "allocation",
+          "TEXT"
+        ]
+      ]
+    }
+  }
+}
