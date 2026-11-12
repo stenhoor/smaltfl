@@ -170,6 +170,15 @@ export const posture_wide_gate = gate(posture_wide, {
   checks: { reconcile: 'hold' },
 });
 
+cell('silver_gates', { lang: 'md' });
+md`What the posture publishes besides its watched steps is silver too: what applies against the evidence, and what is failing with who fixes it`;
+
+cell('coverage_gate');
+export const coverage_gate = gate(coverage, { layer: 'silver' });
+
+cell('remediation_gate');
+export const remediation_gate = gate(remediation, { layer: 'silver' });
+
 cell('published');
 publish(coverage, { description: 'What applies against the evidence: present, missing, or a result nothing expects' });
 publish(effective, { description: 'The status a person reads, one row an application and control, with its reason' });

@@ -238,6 +238,9 @@ if (days.length) {
       const child = spawn('node', argv, { stdio: 'inherit' });
       child.on('close', (code) => (code === 0 ? done() : fail(new Error(`the history of ${w} failed (${code})`))));
     }));
+    // A run that ended without writing its history is a broken build, never a finished one the next build reuses.
+    const unwritten = watches.filter((w) => !existsSync(join(work, historyName(w))));
+    if (unwritten.length) throw new Error(`no history written for ${unwritten.join(', ')}: ${work} is left unfinished, and is made again`);
     writeFileSync(join(work, '.done'), `${new Date().toISOString()}\n`);
   }
   console.log(`${cached ? 'reused' : 'made'} the generated data and ${watches.length} histories (${key.slice(0, 12)}) in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
