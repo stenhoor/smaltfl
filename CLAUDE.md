@@ -233,7 +233,12 @@ match smaltdb's `CLAUDE.md`.
   histories from runs of the flow, `stepsFrom`). An object type's `ids: 'loose'` (Q-176) matches ids whatever their
   case and spaces in the scope and the ontology's one row an object (`looseIds`, `emitScopeCounts`); `publish.reach:
   'downstream'` (Q-177) makes a step's hold reach the outputs built from it (`reachOf`); a refused file holds every
-  output, since nothing was built.
+  output, since nothing was built. Slice 4, gold (first part): `product.nb.ts`, Control Posture v1 (`dim_org`,
+  `dim_app` with Unassigned and Unregistered, `dim_control`, `fact_control_status`, `fact_finding`, `app_scorecard`,
+  `org_posture`, `exceptions_register`, `remediation_queue`), each with a gold gate's key, a check step's rules and a
+  contract. Contracts (Q-171): the document's `contracts` (`ContractDef`, ODCS v3's fields), plan/4's
+  `publish.contracts` only where declared, `countContract` in the run into `ManifestNode.contract`, `contractSaid` under
+  the schema check, verify's `contract` check (`test/contract.test.ts`).
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).

@@ -142,7 +142,8 @@
     "org.nb.ts",
     "apps.nb.ts",
     "evidence.nb.ts",
-    "posture.nb.ts"
+    "posture.nb.ts",
+    "product.nb.ts"
   ],
   "ontology": {
     "objectTypes": [
@@ -390,6 +391,42 @@
       "posture_wide": {
         "one": "application",
         "many": "applications"
+      },
+      "dim_org": {
+        "one": "unit",
+        "many": "units"
+      },
+      "dim_app": {
+        "one": "application",
+        "many": "applications"
+      },
+      "dim_control": {
+        "one": "control",
+        "many": "controls"
+      },
+      "fact_control_status": {
+        "one": "status",
+        "many": "statuses"
+      },
+      "fact_finding": {
+        "one": "finding",
+        "many": "findings"
+      },
+      "app_scorecard": {
+        "one": "scorecard",
+        "many": "scorecards"
+      },
+      "org_posture": {
+        "one": "unit",
+        "many": "units"
+      },
+      "exceptions_register": {
+        "one": "exception",
+        "many": "exceptions"
+      },
+      "remediation_queue": {
+        "one": "item",
+        "many": "items"
       }
     },
     "rows": [
@@ -1816,6 +1853,1090 @@
         ]
       }
     ]
+  },
+  "contracts": {
+    "dim_org": {
+      "id": "control-posture/dim_org",
+      "version": "1.0.0",
+      "status": "active",
+      "description": {
+        "purpose": "The organisation, one row a unit, for every roll-up",
+        "limitations": "Held on a day the organisation’s chain loops or stops short; the last day published stands",
+        "usage": "Join an application’s owner unit or a level’s unit by org_unit_id"
+      },
+      "columns": [
+        {
+          "name": "org_unit_id",
+          "type": "TEXT",
+          "description": "The unit; UNASSIGNED for applications whose chain doesn’t resolve",
+          "classification": "internal",
+          "required": true,
+          "key": true
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "description": "Its name",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "level",
+          "type": "TEXT",
+          "description": "Its level",
+          "classification": "internal",
+          "required": true,
+          "values": [
+            "group",
+            "segment",
+            "business_unit",
+            "department",
+            "team",
+            "unassigned"
+          ]
+        },
+        {
+          "name": "parent_id",
+          "type": "TEXT",
+          "description": "The unit above",
+          "classification": "internal"
+        },
+        {
+          "name": "depth",
+          "type": "INTEGER",
+          "description": "Levels below the group",
+          "classification": "internal"
+        },
+        {
+          "name": "path",
+          "type": "TEXT",
+          "description": "Its path from the segment down",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "segment_id",
+          "type": "TEXT",
+          "description": "Its segment",
+          "classification": "internal"
+        },
+        {
+          "name": "business_unit_id",
+          "type": "TEXT",
+          "description": "Its business unit",
+          "classification": "internal"
+        },
+        {
+          "name": "department_id",
+          "type": "TEXT",
+          "description": "Its department",
+          "classification": "internal"
+        },
+        {
+          "name": "team_id",
+          "type": "TEXT",
+          "description": "The team, where it is one",
+          "classification": "internal"
+        },
+        {
+          "name": "leader_id",
+          "type": "TEXT",
+          "description": "The leader it answers to",
+          "classification": "confidential"
+        },
+        {
+          "name": "leader_how",
+          "type": "TEXT",
+          "description": "Its own leader, acting, or inherited from above",
+          "classification": "internal",
+          "values": [
+            "leader",
+            "acting",
+            "inherited"
+          ]
+        },
+        {
+          "name": "leader_name",
+          "type": "TEXT",
+          "description": "The leader’s name",
+          "classification": "confidential"
+        },
+        {
+          "name": "segment_leader_id",
+          "type": "TEXT",
+          "description": "The segment’s leader",
+          "classification": "confidential"
+        },
+        {
+          "name": "business_unit_leader_id",
+          "type": "TEXT",
+          "description": "The business unit’s leader",
+          "classification": "confidential"
+        },
+        {
+          "name": "department_leader_id",
+          "type": "TEXT",
+          "description": "The department’s leader",
+          "classification": "confidential"
+        }
+      ],
+      "sla": {
+        "frequency": "daily",
+        "availableBy": "07:00 UTC",
+        "retention": "13 months"
+      }
+    },
+    "dim_app": {
+      "id": "control-posture/dim_app",
+      "version": "1.0.0",
+      "status": "active",
+      "description": {
+        "purpose": "The applications, one row each, with their owner chain",
+        "limitations": "Held on a day the organisation’s chain breaks; Unassigned and Unregistered are members, not applications",
+        "usage": "Join a fact’s app_id; count applications where member is application"
+      },
+      "columns": [
+        {
+          "name": "app_id",
+          "type": "TEXT",
+          "description": "The application; UNREGISTERED for cloud resources no CMDB record names",
+          "classification": "internal",
+          "required": true,
+          "key": true
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "description": "Its name",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "member",
+          "type": "TEXT",
+          "description": "An application, or the Unregistered member",
+          "classification": "internal",
+          "required": true,
+          "values": [
+            "application",
+            "unregistered"
+          ]
+        },
+        {
+          "name": "tier",
+          "type": "TEXT",
+          "description": "Its tier",
+          "classification": "internal",
+          "values": [
+            "1",
+            "2",
+            "3"
+          ]
+        },
+        {
+          "name": "exposure",
+          "type": "TEXT",
+          "description": "Who can reach it",
+          "classification": "internal",
+          "values": [
+            "internet",
+            "partner",
+            "internal"
+          ]
+        },
+        {
+          "name": "data_class",
+          "type": "TEXT",
+          "description": "Its most sensitive data",
+          "classification": "internal",
+          "values": [
+            "pci",
+            "pii",
+            "confidential",
+            "internal",
+            "public"
+          ]
+        },
+        {
+          "name": "datastore",
+          "type": "TEXT",
+          "description": "Whether it keeps data",
+          "classification": "internal",
+          "values": [
+            "yes",
+            "no"
+          ]
+        },
+        {
+          "name": "hosting",
+          "type": "TEXT",
+          "description": "Where it runs",
+          "classification": "internal",
+          "values": [
+            "cloud",
+            "onprem",
+            "saas"
+          ]
+        },
+        {
+          "name": "site",
+          "type": "TEXT",
+          "description": "Its site",
+          "classification": "internal"
+        },
+        {
+          "name": "platform_id",
+          "type": "TEXT",
+          "description": "Its runtime platform",
+          "classification": "internal"
+        },
+        {
+          "name": "lifecycle",
+          "type": "TEXT",
+          "description": "Where it is in its life",
+          "classification": "internal",
+          "values": [
+            "build",
+            "active",
+            "retiring",
+            "retired"
+          ]
+        },
+        {
+          "name": "owner_team_id",
+          "type": "TEXT",
+          "description": "Its owning team; UNASSIGNED for the Unregistered member",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "department_id",
+          "type": "TEXT",
+          "description": "Its owner chain’s department, or UNASSIGNED",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "business_unit_id",
+          "type": "TEXT",
+          "description": "Its business unit, or UNASSIGNED",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "segment_id",
+          "type": "TEXT",
+          "description": "Its segment, or UNASSIGNED",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "orphaned",
+          "type": "TEXT",
+          "description": "Whether its chain fails to reach the group",
+          "classification": "internal",
+          "required": true,
+          "values": [
+            "yes",
+            "no"
+          ]
+        },
+        {
+          "name": "in_cloud",
+          "type": "TEXT",
+          "description": "Whether the cloud has resources under its tag",
+          "classification": "internal",
+          "values": [
+            "yes",
+            "no"
+          ]
+        },
+        {
+          "name": "unregistered_resources",
+          "type": "INTEGER",
+          "description": "On the Unregistered member: the cloud resources under tags no CMDB record names",
+          "classification": "internal",
+          "required": true
+        }
+      ],
+      "sla": {
+        "frequency": "daily",
+        "availableBy": "07:00 UTC",
+        "retention": "13 months"
+      }
+    },
+    "dim_control": {
+      "id": "control-posture/dim_control",
+      "version": "1.0.0",
+      "status": "active",
+      "description": {
+        "purpose": "The controls of the day’s catalogue, with the requirements they map to",
+        "limitations": "A control added to the catalogue appears the day it is listed, feed or no feed",
+        "usage": "Join a fact’s control_id"
+      },
+      "columns": [
+        {
+          "name": "control_id",
+          "type": "TEXT",
+          "description": "The control",
+          "classification": "internal",
+          "required": true,
+          "key": true
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "description": "Its name",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "csf_function",
+          "type": "TEXT",
+          "description": "Its CSF 2.0 function",
+          "classification": "internal",
+          "required": true,
+          "values": [
+            "GV",
+            "ID",
+            "PR",
+            "DE",
+            "RS",
+            "RC"
+          ]
+        },
+        {
+          "name": "csf_category",
+          "type": "TEXT",
+          "description": "Its CSF 2.0 category",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "weight",
+          "type": "INTEGER",
+          "description": "How much it counts in a score",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "cadence",
+          "type": "TEXT",
+          "description": "How often it is met",
+          "classification": "internal",
+          "required": true,
+          "values": [
+            "daily",
+            "yearly",
+            "quarterly",
+            "per finding"
+          ]
+        },
+        {
+          "name": "depends_on",
+          "type": "TEXT",
+          "description": "The control it needs first",
+          "classification": "internal"
+        },
+        {
+          "name": "compensated_by",
+          "type": "TEXT",
+          "description": "What may stand in for it",
+          "classification": "internal"
+        },
+        {
+          "name": "provided_by",
+          "type": "TEXT",
+          "description": "The kind of platform that provides it",
+          "classification": "internal"
+        },
+        {
+          "name": "allocation",
+          "type": "TEXT",
+          "description": "Who provides it",
+          "classification": "internal",
+          "values": [
+            "common",
+            "hybrid",
+            "system"
+          ]
+        },
+        {
+          "name": "mapped",
+          "type": "INTEGER",
+          "description": "The framework requirements it maps to",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "requirements",
+          "type": "TEXT",
+          "description": "Those requirements, each framework and reference",
+          "classification": "internal"
+        }
+      ],
+      "sla": {
+        "frequency": "daily",
+        "availableBy": "07:00 UTC",
+        "retention": "13 months"
+      }
+    },
+    "fact_control_status": {
+      "id": "control-posture/fact_control_status",
+      "version": "1.0.0",
+      "status": "active",
+      "description": {
+        "purpose": "The status of every control that applies to every application, evidence or not, for the GRC evidence export and the auditors",
+        "limitations": "One day’s statuses; missing evidence is a row, not assessed, never a missing one",
+        "usage": "Count statuses by control, unit or application; a score leaves out not assessed and excepted"
+      },
+      "columns": [
+        {
+          "name": "app_id",
+          "type": "TEXT",
+          "description": "The application",
+          "classification": "internal",
+          "required": true,
+          "key": true
+        },
+        {
+          "name": "control_id",
+          "type": "TEXT",
+          "description": "The control",
+          "classification": "internal",
+          "required": true,
+          "key": true
+        },
+        {
+          "name": "weight",
+          "type": "INTEGER",
+          "description": "The control’s weight",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "TEXT",
+          "description": "The status a person reads",
+          "classification": "internal",
+          "required": true,
+          "values": [
+            "pass",
+            "fail",
+            "not_assessed",
+            "excepted",
+            "compensated"
+          ]
+        },
+        {
+          "name": "raw_status",
+          "type": "TEXT",
+          "description": "As the control’s tool reported it",
+          "classification": "internal",
+          "values": [
+            "pass",
+            "fail",
+            "not_assessed"
+          ]
+        },
+        {
+          "name": "reason",
+          "type": "TEXT",
+          "description": "Why it is what it is",
+          "classification": "internal",
+          "required": true,
+          "values": [
+            "evidence",
+            "exception",
+            "compensated",
+            "exception_expired",
+            "dependency_failed",
+            "not_assessed",
+            "no_evidence"
+          ]
+        },
+        {
+          "name": "due_on",
+          "type": "TEXT",
+          "description": "When it falls due, where it does",
+          "classification": "internal"
+        },
+        {
+          "name": "days_overdue",
+          "type": "INTEGER",
+          "description": "Days past due",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "exception_id",
+          "type": "TEXT",
+          "description": "The exception in force",
+          "classification": "internal"
+        },
+        {
+          "name": "platform",
+          "type": "TEXT",
+          "description": "The platform it rests on",
+          "classification": "internal"
+        },
+        {
+          "name": "as_of",
+          "type": "TEXT",
+          "description": "The day it is as of",
+          "classification": "internal",
+          "required": true
+        }
+      ],
+      "sla": {
+        "frequency": "daily",
+        "availableBy": "07:00 UTC",
+        "retention": "13 months"
+      }
+    },
+    "fact_finding": {
+      "id": "control-posture/fact_finding",
+      "version": "1.0.0",
+      "status": "active",
+      "description": {
+        "purpose": "One row a finding with its SLA, for the vulnerability SLA report and the auditors",
+        "limitations": "Open findings and those fixed in the last thirty days; a finding reported again keeps its first-found date",
+        "usage": "Count overdue findings by severity or application"
+      },
+      "columns": [
+        {
+          "name": "finding_id",
+          "type": "TEXT",
+          "description": "The finding",
+          "classification": "internal",
+          "required": true,
+          "key": true
+        },
+        {
+          "name": "app_id",
+          "type": "TEXT",
+          "description": "The application",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "source",
+          "type": "TEXT",
+          "description": "Found by the scanner or a penetration test",
+          "classification": "internal",
+          "required": true,
+          "values": [
+            "scan",
+            "pentest"
+          ]
+        },
+        {
+          "name": "scanner",
+          "type": "TEXT",
+          "description": "The scanner",
+          "classification": "internal"
+        },
+        {
+          "name": "cve",
+          "type": "TEXT",
+          "description": "The vulnerability",
+          "classification": "internal"
+        },
+        {
+          "name": "severity",
+          "type": "TEXT",
+          "description": "Its severity",
+          "classification": "internal",
+          "required": true,
+          "values": [
+            "critical",
+            "high",
+            "medium",
+            "low",
+            "informational"
+          ]
+        },
+        {
+          "name": "status",
+          "type": "TEXT",
+          "description": "Its status",
+          "classification": "internal",
+          "required": true,
+          "values": [
+            "new",
+            "active",
+            "re-opened",
+            "fixed"
+          ]
+        },
+        {
+          "name": "first_found",
+          "type": "TEXT",
+          "description": "When first found",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "due_on",
+          "type": "TEXT",
+          "description": "When its SLA falls due",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "fixed_on",
+          "type": "TEXT",
+          "description": "When it was fixed",
+          "classification": "internal"
+        },
+        {
+          "name": "days_open",
+          "type": "INTEGER",
+          "description": "Days open",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "overdue",
+          "type": "TEXT",
+          "description": "Whether it is past its SLA",
+          "classification": "internal",
+          "required": true,
+          "values": [
+            "yes",
+            "no"
+          ]
+        }
+      ],
+      "sla": {
+        "frequency": "daily",
+        "availableBy": "07:00 UTC",
+        "retention": "13 months"
+      }
+    },
+    "app_scorecard": {
+      "id": "control-posture/app_scorecard",
+      "version": "1.0.0",
+      "status": "active",
+      "description": {
+        "purpose": "Each application’s score with its coverage beside it, for the posture dashboard and the owners",
+        "limitations": "A score is only as good as its coverage: read the two together",
+        "usage": "Rank applications by score within a coverage; the grade is the score in five bands"
+      },
+      "columns": [
+        {
+          "name": "app_id",
+          "type": "TEXT",
+          "description": "The application",
+          "classification": "internal",
+          "required": true,
+          "key": true
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "description": "Its name",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "tier",
+          "type": "TEXT",
+          "description": "Its tier",
+          "classification": "internal",
+          "values": [
+            "1",
+            "2",
+            "3"
+          ]
+        },
+        {
+          "name": "owner_team_id",
+          "type": "TEXT",
+          "description": "Its owning team",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "score",
+          "type": "REAL",
+          "description": "Weighted controls passed over weighted controls with evidence, 0 to 100",
+          "classification": "internal"
+        },
+        {
+          "name": "coverage",
+          "type": "REAL",
+          "description": "Controls with evidence over controls that apply, 0 to 100",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "grade",
+          "type": "TEXT",
+          "description": "A from 90, B from 80, C from 70, D from 60, F below",
+          "classification": "internal",
+          "values": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "F"
+          ]
+        },
+        {
+          "name": "applying",
+          "type": "INTEGER",
+          "description": "Controls that apply",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "with_evidence",
+          "type": "INTEGER",
+          "description": "Controls with evidence",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "failing",
+          "type": "INTEGER",
+          "description": "Controls failing",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "failing_controls",
+          "type": "TEXT",
+          "description": "Which",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "overdue",
+          "type": "INTEGER",
+          "description": "Failing controls past due",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "expiring",
+          "type": "INTEGER",
+          "description": "Exceptions expiring within thirty days",
+          "classification": "internal",
+          "required": true
+        }
+      ],
+      "sla": {
+        "frequency": "daily",
+        "availableBy": "07:00 UTC",
+        "retention": "13 months"
+      }
+    },
+    "org_posture": {
+      "id": "control-posture/org_posture",
+      "version": "1.0.0",
+      "status": "active",
+      "description": {
+        "purpose": "Every unit over the applications beneath it, for the leaders’ weekly digest and the posture dashboard",
+        "limitations": "Held on a day the organisation’s chain breaks; applications whose chain doesn’t resolve count under Unassigned",
+        "usage": "Read a leader’s units by level; the score and coverage are tier-weighted"
+      },
+      "columns": [
+        {
+          "name": "org_unit_id",
+          "type": "TEXT",
+          "description": "The unit",
+          "classification": "internal",
+          "required": true,
+          "key": true
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "description": "Its name",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "level",
+          "type": "TEXT",
+          "description": "Its level",
+          "classification": "internal",
+          "required": true,
+          "values": [
+            "group",
+            "segment",
+            "business_unit",
+            "department",
+            "team",
+            "unassigned"
+          ]
+        },
+        {
+          "name": "applications",
+          "type": "INTEGER",
+          "description": "Applications beneath it",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "critical",
+          "type": "INTEGER",
+          "description": "Tier 1 applications beneath it",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "score",
+          "type": "REAL",
+          "description": "Their tier-weighted score",
+          "classification": "internal"
+        },
+        {
+          "name": "coverage",
+          "type": "REAL",
+          "description": "Their tier-weighted coverage",
+          "classification": "internal"
+        },
+        {
+          "name": "failing_critical",
+          "type": "INTEGER",
+          "description": "Tier 1 applications failing a control",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "overdue",
+          "type": "INTEGER",
+          "description": "Items overdue",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "expiring",
+          "type": "INTEGER",
+          "description": "Exceptions expiring within thirty days",
+          "classification": "internal",
+          "required": true
+        }
+      ],
+      "sla": {
+        "frequency": "daily",
+        "availableBy": "07:00 UTC",
+        "retention": "13 months"
+      }
+    },
+    "exceptions_register": {
+      "id": "control-posture/exceptions_register",
+      "version": "1.0.0",
+      "status": "active",
+      "description": {
+        "purpose": "The risk register, one row an exception, for the risk committee",
+        "limitations": "Its latest version; an extension is a new version that keeps the first expiry",
+        "usage": "Review what expires within thirty days, and what was extended"
+      },
+      "columns": [
+        {
+          "name": "exception_id",
+          "type": "TEXT",
+          "description": "The exception",
+          "classification": "internal",
+          "required": true,
+          "key": true
+        },
+        {
+          "name": "app_id",
+          "type": "TEXT",
+          "description": "The application",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "control_id",
+          "type": "TEXT",
+          "description": "The control",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "approver_id",
+          "type": "TEXT",
+          "description": "Who approved it",
+          "classification": "confidential"
+        },
+        {
+          "name": "reason",
+          "type": "TEXT",
+          "description": "Why the risk was accepted",
+          "classification": "internal"
+        },
+        {
+          "name": "compensating_control",
+          "type": "TEXT",
+          "description": "What stands in meanwhile",
+          "classification": "internal"
+        },
+        {
+          "name": "valid_from",
+          "type": "TEXT",
+          "description": "When it takes effect",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "expires_on",
+          "type": "TEXT",
+          "description": "When it expires",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "first_expiry",
+          "type": "TEXT",
+          "description": "When it first expired",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "extended",
+          "type": "INTEGER",
+          "description": "How often it was extended",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "days_left",
+          "type": "INTEGER",
+          "description": "Days to its expiry",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "state",
+          "type": "TEXT",
+          "description": "Active, expiring, approved or expired",
+          "classification": "internal",
+          "required": true,
+          "values": [
+            "active",
+            "expiring",
+            "approved",
+            "expired"
+          ]
+        }
+      ],
+      "sla": {
+        "frequency": "daily",
+        "availableBy": "07:00 UTC",
+        "retention": "13 months"
+      }
+    },
+    "remediation_queue": {
+      "id": "control-posture/remediation_queue",
+      "version": "1.0.0",
+      "status": "active",
+      "description": {
+        "purpose": "What is failing, for ticketing",
+        "limitations": "Read from the owning team, not the chain, so it is there whatever happens higher up",
+        "usage": "Open a ticket an item, to the team’s leader"
+      },
+      "columns": [
+        {
+          "name": "app_id",
+          "type": "TEXT",
+          "description": "The application",
+          "classification": "internal",
+          "required": true,
+          "key": true
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "description": "Its name",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "control_id",
+          "type": "TEXT",
+          "description": "The control failing",
+          "classification": "internal",
+          "required": true,
+          "key": true
+        },
+        {
+          "name": "reason",
+          "type": "TEXT",
+          "description": "Why it fails",
+          "classification": "internal",
+          "required": true,
+          "values": [
+            "evidence",
+            "exception",
+            "compensated",
+            "exception_expired",
+            "dependency_failed",
+            "not_assessed",
+            "no_evidence"
+          ]
+        },
+        {
+          "name": "owner_team_id",
+          "type": "TEXT",
+          "description": "The owning team",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "team",
+          "type": "TEXT",
+          "description": "Its name",
+          "classification": "internal"
+        },
+        {
+          "name": "team_leader_id",
+          "type": "TEXT",
+          "description": "Its leader in post or acting",
+          "classification": "confidential"
+        },
+        {
+          "name": "due_on",
+          "type": "TEXT",
+          "description": "When it fell due",
+          "classification": "internal"
+        },
+        {
+          "name": "days_overdue",
+          "type": "INTEGER",
+          "description": "Days past due",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "severity",
+          "type": "TEXT",
+          "description": "From the control’s weight",
+          "classification": "internal",
+          "required": true,
+          "values": [
+            "high",
+            "medium",
+            "low"
+          ]
+        },
+        {
+          "name": "platform",
+          "type": "TEXT",
+          "description": "The platform it rests on",
+          "classification": "internal"
+        }
+      ],
+      "sla": {
+        "frequency": "daily",
+        "availableBy": "07:00 UTC",
+        "retention": "13 months"
+      }
+    }
   },
   "publish": {
     "hold": [

@@ -52,7 +52,7 @@ export interface LarkspurWorld {
  * A world: the files' histories from `baseFrom` to `baseTo` and the steps' from `stepsFrom` (six weeks before `baseTo`
  * unless said), then every day after `baseTo` to `loadsTo` run as it arrives.
  */
-export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; baseTo: string; loadsTo: string; stepsFrom?: string; warmup?: number }): Promise<LarkspurWorld> {
+export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; baseTo: string; loadsTo: string; stepsFrom?: string; warmup?: number; afterRun?: (db: Database, day: string, r: RunResult) => Promise<void> }): Promise<LarkspurWorld> {
   const doc = await loadFlowDir(larkspurDir);
   const data = JSON.parse(readFileSync(new URL('data.json', larkspurDir), 'utf8')) as DataBindings;
   const estate = larkspur(o);
@@ -182,7 +182,10 @@ export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; bas
   };
   for (let day = addDays(o.baseTo, 1); day <= o.loadsTo; day = addDays(day, 1)) {
     try {
-      results.set(day, await arrive(day));
+      const r = await arrive(day);
+      results.set(day, r);
+      // What a test reads of the day's published datasets, while they are the day's.
+      if (o.afterRun) await o.afterRun(db, day, r);
     } catch (e) {
       results.set(day, e as Error);
     }

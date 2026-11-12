@@ -142,6 +142,44 @@ export type Meanwhile = (typeof MEANWHILES)[number];
 export const UNTILS = ['decision', 'normal'] as const;
 export type Until = (typeof UNTILS)[number];
 
+/** A published dataset's contract (Q-171, ADR 0020 §4). */
+export interface ContractDef {
+  /** Its id, and its version: a breaking change is a new major version, published beside the old one. */
+  id: string;
+  version: string;
+  status: ContractStatus;
+  /** What it is for, what it doesn't do, and how to use it. */
+  description?: { purpose?: string; limitations?: string; usage?: string };
+  /** Each column, in order. The dataset's columns are these, by name and type: one renamed, retyped, dropped or added
+   * breaks the contract. */
+  columns: ContractColumn[];
+  /** Its service levels: how often it is published, by when, and how long each version is kept. */
+  sla?: { frequency?: string; availableBy?: string; retention?: string };
+}
+
+export interface ContractColumn {
+  name: string;
+  /** The engine's type: TEXT, INTEGER or REAL. */
+  type: ContractType;
+  description?: string;
+  /** Never blank. */
+  required?: boolean;
+  /** Part of the dataset's key, which its gate reconciles. */
+  key?: boolean;
+  classification?: ContractClassification;
+  /** The values it may take, where it takes few. */
+  values?: string[];
+}
+
+export const CONTRACT_STATUSES = ['proposed', 'active', 'deprecated', 'retired'] as const;
+export type ContractStatus = (typeof CONTRACT_STATUSES)[number];
+export const CONTRACT_TYPES = ['TEXT', 'INTEGER', 'REAL'] as const;
+export type ContractType = (typeof CONTRACT_TYPES)[number];
+export const CONTRACT_CLASSIFICATIONS = ['public', 'internal', 'confidential', 'restricted'] as const;
+export type ContractClassification = (typeof CONTRACT_CLASSIFICATIONS)[number];
+const CONTRACT_FIELDS = ['id', 'version', 'status', 'description', 'columns', 'sla'];
+const CONTRACT_COLUMN_FIELDS = ['name', 'type', 'description', 'required', 'key', 'classification', 'values'];
+
 export const REACHES = ['sources', 'downstream'] as const;
 export type Reach = (typeof REACHES)[number];
 
@@ -181,6 +219,13 @@ export interface FlowDocument {
    * with none is judged as it always was.
    */
   gates?: Record<string, GateDef>;
+  /**
+   * The contracts of published datasets (Q-171, ADR 0020 §4), by dataset: what a consumer may rely on, in the Open Data
+   * Contract Standard v3's fields where they fit. Gold's schema check holds a dataset whose columns aren't its
+   * contract's, by name and type, a required column with blanks, or a value outside a column's list. Part of the flow
+   * hash; the plan carries only what is checked, so only a flow that declares one hashes differently.
+   */
+  contracts?: Record<string, ContractDef>;
   /** Display only: sections of the canvas, each holding sources and steps. Not part of any hash. */
   groups?: GroupDef[];
   /**
@@ -522,6 +567,7 @@ export function validateDocument(doc: unknown): Issue[] {
   }
   validateExtras(doc, ids, add);
   validateGates(doc, add);
+  validateContracts(doc, add);
   validatePublish(doc, params, add);
   if (doc.calendar !== undefined) for (const [path, message] of calendarProblems(doc.calendar)) add(`$.calendar${path}`, message);
   validateFills(doc, steps, add);
@@ -576,6 +622,54 @@ function validateFills(doc: Record<string, unknown>, steps: readonly Record<stri
  * is a `gate()` cell, so a document without notebooks has none), its layer one of three, its checks from the
  * vocabulary, each hold, warn or off.
  */
+/**
+ * The contracts (Q-171, ADR 0020 §4): each on a dataset the flow publishes, in a flow with gates (gold's schema check is
+ * what holds a broken one), with an id, a semantic version, a status and its columns, each named once, typed as the
+ * engine types it; any other field refused rather than ignored.
+ */
+function validateContracts(doc: Record<string, unknown>, add: (path: string, message: string) => void): void {
+  const c = doc.contracts;
+  if (c === undefined) return;
+  if (!isRecord(c)) return add('$.contracts', 'the contracts by the dataset each is of: { dataset: { id, version, status, columns } }');
+  if (!isRecord(doc.gates) || Object.keys(doc.gates).length === 0) add('$.contracts', 'a contract is checked by gold\'s schema check: a flow without gates has none');
+  const steps = (Array.isArray(doc.steps) ? doc.steps : []).filter((s: unknown): s is Record<string, unknown> => isRecord(s) && typeof s.id === 'string');
+  const published = new Set(steps.filter((s) => s.dataset !== undefined).map((s) => String(s.id).toLowerCase()));
+  const seen = new Set<string>();
+  for (const [dataset, contract] of Object.entries(c)) {
+    const at = `$.contracts.${dataset}`;
+    const lower = dataset.toLowerCase();
+    if (seen.has(lower)) add(at, `${dataset} has two contracts (ids are compared without case)`);
+    seen.add(lower);
+    if (!published.has(lower)) add(at, `${dataset} isn't a dataset the flow publishes: a contract is what a published dataset's consumers rely on`);
+    if (!isRecord(contract)) {
+      add(at, '{ id, version, status, description?, columns, sla? }');
+      continue;
+    }
+    for (const k of Object.keys(contract)) if (!CONTRACT_FIELDS.includes(k)) add(`${at}.${k}`, `not a field this version reads (${CONTRACT_FIELDS.join(', ')}): refused rather than ignored`);
+    if (typeof contract.id !== 'string' || contract.id === '') add(`${at}.id`, 'a non-empty string');
+    if (typeof contract.version !== 'string' || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(contract.version)) add(`${at}.version`, 'a semantic version: major.minor.patch');
+    if (!(CONTRACT_STATUSES as readonly unknown[]).includes(contract.status)) add(`${at}.status`, `one of ${CONTRACT_STATUSES.join(', ')}`);
+    if (contract.description !== undefined && !(isRecord(contract.description) && Object.entries(contract.description).every(([k, v]) => ['purpose', 'limitations', 'usage'].includes(k) && typeof v === 'string'))) add(`${at}.description`, '{ purpose?, limitations?, usage? }, each text');
+    if (contract.sla !== undefined && !(isRecord(contract.sla) && Object.entries(contract.sla).every(([k, v]) => ['frequency', 'availableBy', 'retention'].includes(k) && typeof v === 'string'))) add(`${at}.sla`, '{ frequency?, availableBy?, retention? }, each text');
+    if (!Array.isArray(contract.columns) || contract.columns.length === 0) {
+      add(`${at}.columns`, 'a list of columns, each { name, type }');
+      continue;
+    }
+    const names = new Set<string>();
+    contract.columns.forEach((col: unknown, i: number) => {
+      const ca = `${at}.columns[${i}]`;
+      if (!isRecord(col) || typeof col.name !== 'string' || col.name === '') return add(ca, '{ name, type, description?, required?, key?, classification?, values? }');
+      for (const k of Object.keys(col)) if (!CONTRACT_COLUMN_FIELDS.includes(k)) add(`${ca}.${k}`, `not a field this version reads (${CONTRACT_COLUMN_FIELDS.join(', ')}): refused rather than ignored`);
+      if (names.has(col.name.toLowerCase())) add(`${ca}.name`, `${col.name} is named twice`);
+      names.add(col.name.toLowerCase());
+      if (!(CONTRACT_TYPES as readonly unknown[]).includes(col.type)) add(`${ca}.type`, `one of ${CONTRACT_TYPES.join(', ')}`);
+      for (const k of ['required', 'key'] as const) if (col[k] !== undefined && typeof col[k] !== 'boolean') add(`${ca}.${k}`, 'true or false');
+      if (col.classification !== undefined && !(CONTRACT_CLASSIFICATIONS as readonly unknown[]).includes(col.classification)) add(`${ca}.classification`, `one of ${CONTRACT_CLASSIFICATIONS.join(', ')}`);
+      if (col.values !== undefined && !(Array.isArray(col.values) && col.values.length > 0 && col.values.every((v: unknown) => typeof v === 'string'))) add(`${ca}.values`, 'a list of the values it may take, as text');
+    });
+  }
+}
+
 function validateGates(doc: Record<string, unknown>, add: (path: string, message: string) => void): void {
   const g = doc.gates;
   if (g === undefined) return;

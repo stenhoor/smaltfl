@@ -16,12 +16,12 @@
 import type { Database } from 'smaltdb/engine';
 import { canonicalJSON } from '../core/canonical.js';
 import type { EmitContext } from '../core/emit.js';
-import { createTable, emitExpectCounts, emitRead, emitReconcileCounts, emitSelect } from '../core/emit.js';
+import { createTable, emitContractCounts, emitExpectCounts, emitRead, emitReconcileCounts, emitSelect } from '../core/emit.js';
 import { hex, sha256Hex } from '../core/hash.js';
 import type { KeyEnv } from '../core/keys.js';
 import { nodeKey } from '../core/keys.js';
 import { FILLED_FROM, withoutDisplay, type FlowDocument } from '../core/document.js';
-import type { DatasetRecord, ExpectationResult, GateResult, ManifestNode, RunManifest, SourceFile, SourceIngestRecord } from '../core/manifest.js';
+import type { ContractCounts, DatasetRecord, ExpectationResult, GateResult, ManifestNode, RunManifest, SourceFile, SourceIngestRecord } from '../core/manifest.js';
 import { MANIFEST_FORMAT, manifestHash, ontologyHash, planHash, policiesHash } from '../core/manifest.js';
 import { flowHash, translate } from '../core/plan.js';
 import { shapeOf } from '../core/optimize.js';
@@ -209,6 +209,15 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
     aborted(signal);
     const counted = countGate(db, plan, node, ctx);
     if (counted) rec.gate = counted;
+  }
+  // 4c. The contracts (Q-171, plan/4): each contracted dataset checked against its contract, kept with the node in the
+  // manifest; a hold reads it under the schema check (core/hold.ts), and verify counts it again.
+  for (const [node] of (plan.publish && isPublish2(plan.publish) && !unreadable ? plan.publish.contracts : undefined) ?? []) {
+    const rec = records.get(node);
+    if (!rec) continue;
+    aborted(signal);
+    const counted = countContract(db, plan, node, ctx);
+    if (counted) rec.contract = counted;
   }
 
   // 5. The manifest. With a source refused, the snapshots alone, and no outputs: nothing was built.
@@ -627,6 +636,40 @@ export function countGate(db: Database, plan: FlowPlan, node: number, ctx: EmitC
   const of = rc.of === null ? null : emitRead(plan, rc.of, ctx);
   const row = engine(plan.nodes[node]!.origin, () => db.query(emitReconcileCounts(emitRead(plan, node, ctx), rc.key, of)).rows[0]!);
   return { reconcile: reconcileOf(row) };
+}
+
+/** The engine's static types as a contract names them (`ContractType`); any other is said in capitals. */
+const CONTRACT_TYPE: Partial<Record<ColumnType, string>> = { int: 'INTEGER', real: 'REAL', num: 'REAL', text: 'TEXT' };
+
+/**
+ * A contracted dataset against its contract (Q-171): its columns, by name and type, against the contract's, then the
+ * rows blank in a required column and outside a column's values, for the columns it has. Null for a node with none.
+ */
+export function countContract(db: Database, plan: FlowPlan, node: number, ctx: EmitContext): ContractCounts | null {
+  const c = plan.publish && isPublish2(plan.publish) ? plan.publish.contracts?.find(([n]) => n === node)?.[1] : undefined;
+  if (!c) return null;
+  const built = new Map((plan.nodes[node]!.schema ?? []).map(([name, type]) => [name.toLowerCase(), { name, type: CONTRACT_TYPE[type] ?? String(type).toUpperCase() }]));
+  const declared = new Set(c.columns.map(([name]) => name.toLowerCase()));
+  const present = c.columns.filter(([name]) => built.has(name.toLowerCase()));
+  const retyped = present.flatMap(([name, type]): [string, string, string][] => {
+    const b = built.get(name.toLowerCase())!;
+    return b.type === type.toUpperCase() ? [] : [[name, type, b.type]];
+  });
+  // The rows of the columns it has with the declared type: a retyped column is said once, as retyped.
+  const typed = present.filter(([name]) => !retyped.some(([r]) => r === name));
+  const row = typed.length ? engine(plan.nodes[node]!.origin, () => db.query(emitContractCounts(emitRead(plan, node, ctx), typed.map(([name, , required, values]) => [built.get(name.toLowerCase())!.name, required, values] as const))).rows[0]!) : [];
+  const counted = (k: 0 | 1) => typed.flatMap(([name], i): [string, number][] => {
+    const n = Number(row[2 * i + k] ?? 0);
+    return n > 0 ? [[name, n]] : [];
+  });
+  return {
+    version: c.version,
+    missing: c.columns.filter(([name]) => !built.has(name.toLowerCase())).map(([name]) => name),
+    extra: [...built.values()].filter((b) => !declared.has(b.name.toLowerCase())).map((b) => b.name),
+    retyped,
+    blank: counted(0),
+    outside: counted(1),
+  };
 }
 
 /**

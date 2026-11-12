@@ -181,9 +181,10 @@ export interface VerifyCheck {
    * name shows was released by a decision (ADR 0009 §11); repair: a derived run released with a repair is that repair
    * of its held run, read the donor's file the repair names, and read the held run's snapshot (amendment 1 S11);
    * gate: a gold gate's reconciliation counted again over the recomputed dataset gives the counts the run recorded
-   * (ADR 0014 §6).
+   * (ADR 0014 §6); contract: a contracted dataset checked again against its contract gives what the run recorded
+   * (Q-171).
    */
-  check: 'stored' | 'rerun' | 'expectations' | 'coherent' | 'key' | 'published' | 'previous' | 'accounting' | 'flow' | 'file' | 'held' | 'repair' | 'gate';
+  check: 'stored' | 'rerun' | 'expectations' | 'coherent' | 'key' | 'published' | 'previous' | 'accounting' | 'flow' | 'file' | 'held' | 'repair' | 'gate' | 'contract';
   ok: boolean;
   expected?: string;
   actual?: string | null;

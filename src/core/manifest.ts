@@ -44,6 +44,23 @@ export interface ManifestNode {
   ingest?: SourceIngestRecord;
   /** plan/4 (ADR 0014 §6): a gold gate's checks, counted by the run over the dataset it built: its reconciliation. */
   gate?: GateResult;
+  /** plan/4, a contracted dataset (Q-171): its contract checked by the run over the dataset it built. */
+  contract?: ContractCounts;
+}
+
+/**
+ * A contract checked against the dataset a run built (Q-171): the version checked; the declared columns it lacks, the
+ * columns it has that the contract doesn't name, and those whose type differs, as `[column, declared, built]`; and, by
+ * column, the rows blank in a required column and the rows outside a column's values (only those with any). Empty
+ * everywhere: the dataset keeps its contract. A hold reads them (core/hold.ts `contractSaid`), and verify counts again.
+ */
+export interface ContractCounts {
+  version: string;
+  missing: string[];
+  extra: string[];
+  retyped: [column: string, declared: string, built: string][];
+  blank: [column: string, rows: number][];
+  outside: [column: string, rows: number][];
 }
 
 /** What a run counted for a gate on a published node it doesn't watch (ADR 0014 §6): the reconciliation's counts, the

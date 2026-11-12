@@ -13,7 +13,12 @@
  * Slice 3, silver: key rotation passing where encryption fails holds the posture by its needs rule; a department dropped
  * or a chain that loops holds what reads the chain, and the per-application statuses publish; the CMDB's duplicates,
  * the exceptions that expired, the cloud's unregistered tags, the certificate authority behind two controls and the new
- * control with no evidence are told as unusual, and publish. Slow (vitest.config.ts SLOW): about seven minutes.
+ * control with no evidence are told as unusual, and publish.
+ *
+ * Slice 4, gold: Control Posture v1 keeps every contract on every day it is built; what reads the chain holds where it
+ * breaks, the scorecards and facts publish; the vulnerability SLA the scanner couldn't assess is left out of the scores
+ * with coverage falling beside them, and the new control's missing evidence lowers coverage, not the score. Slow
+ * (vitest.config.ts SLOW): about seven minutes.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { checkOf } from '../src/core/gates.js';
@@ -24,9 +29,19 @@ import { larkspurHolds, larkspurWorld, type LarkspurWorld } from './helpers/lark
 const P = LARKSPUR_PLANTED;
 const S = LARKSPUR_SILVER;
 let w: LarkspurWorld;
+/** Each day's group roll-up and coverage of the vulnerability SLA, read from gold while it is the day's. */
+const gold = new Map<string, { score: number | null; coverage: number | null; vulnAssessed: number }>();
 
 beforeAll(async () => {
-  w = await larkspurWorld({ apps: 650, baseFrom: '2023-09-01', baseTo: '2024-02-29', loadsTo: '2024-03-31' });
+  w = await larkspurWorld({
+    apps: 650, baseFrom: '2023-09-01', baseTo: '2024-02-29', loadsTo: '2024-03-31',
+    afterRun: async (db, day, r) => {
+      if (!r.published.includes('org_posture') || !r.published.includes('fact_control_status')) return;
+      const [score, coverage] = (await db.queryAsync("SELECT score, coverage FROM org_posture WHERE level = 'group'")).rows[0]! as [number | null, number | null];
+      const assessed = Number((await db.queryAsync("SELECT count(*) FROM fact_control_status WHERE control_id = 'vuln_sla' AND status <> 'not_assessed'")).rows[0]![0]);
+      gold.set(day, { score, coverage, vulnAssessed: assessed });
+    },
+  });
 }, 900_000);
 afterAll(() => w?.close());
 
@@ -141,8 +156,9 @@ describe('silver: the company conformed, and the rules applied (ADR 0020 §5)', 
   it('holds what reads the chain where a department is dropped (Mon 18) or a chain loops (Thu 28), and publishes the statuses', () => {
     for (const day of [S.dissolve, S.loop]) {
       expect(checkHolds(day), day).toEqual(['checks:app_owners', 'checks:org_chain']);
-      expect(result(day).holds.find((h) => h.origin === 'org_chain')!.reaches, day).toEqual(['app_owners', 'org_chain']);
-      expect(result(day).published, day).toEqual(['apps', 'coverage', 'effective', 'platform_impact', 'posture_wide', 'remediation', 'shadow_assets']);
+      // What reads the chain, through gold: the owner chains and the dimensions and roll-ups built on them.
+      expect(result(day).holds.find((h) => h.origin === 'org_chain')!.reaches, day).toEqual(['app_owners', 'dim_app', 'dim_org', 'org_chain', 'org_posture']);
+      expect(result(day).published, day).toEqual(expect.arrayContaining(['apps', 'coverage', 'effective', 'platform_impact', 'posture_wide', 'remediation', 'shadow_assets']));
     }
     expect(result(S.dissolve).holds.find((h) => h.origin === 'org_chain')!.said).toBe('expectations failed: one_root (4 rows)');
     expect(result(S.loop).holds.find((h) => h.origin === 'org_chain')!.said).toBe('expectations failed: no_loop (6 rows)');
@@ -190,5 +206,60 @@ describe('silver: the company conformed, and the rules applied (ADR 0020 §5)', 
   it('keeps each finding’s earliest date through the reinstall (Sat 9): silver calm where bronze warns', () => {
     expect(said(P.reinstall, 'posture_wide').state).not.toBe('wrong');
     expect(said(P.reinstall, 'effective').state).toBe('calm');
+  });
+});
+
+describe('gold: Control Posture v1, its contracts and its gates (ADR 0020 §4, §5)', () => {
+  const result = (day: string) => w.result(day);
+  const GOLD = ['app_scorecard', 'dim_app', 'dim_control', 'dim_org', 'exceptions_register', 'fact_control_status', 'fact_finding', 'org_posture', 'remediation_queue'];
+  const CHAIN = ['dim_app', 'dim_org', 'org_posture'];
+
+  it('publishes every gold dataset on a day nothing upstream holds', () => {
+    for (const day of ['2024-03-01', '2024-03-02', P.capitals, P.reinstall, '2024-03-11', S.expiries, S.duplicates, S.sbom]) expect(GOLD.filter((g) => !result(day).published.includes(g)), day).toEqual([]);
+  });
+
+  it('keeps every contract on every day of March it was built, and holds on its own keys only where the TLS rows came twice', () => {
+    for (const day of MARCH) {
+      const r = result(day);
+      if (Object.keys(r.manifest.outputs).length === 0) continue; // nothing was built: a refused file
+      const nodes = r.manifest.nodes.filter((n) => GOLD.includes(n.origin) && n.contract);
+      expect(nodes.map((n) => n.origin).sort(), day).toEqual(GOLD);
+      for (const n of nodes) expect(n.contract, `${day} ${n.origin}`).toEqual({ version: '1.0.0', missing: [], extra: [], retyped: [], blank: [], outside: [] });
+      const own = [...new Set(r.holds.filter((h) => GOLD.includes(h.origin)).map((h) => `${h.origin}: ${h.said}`))];
+      if (day === P.double) {
+        // The doubled rows flow through to gold, whose own keys say so too (one status an application and control).
+        expect(own.map((x) => x.split(':')[0])).toEqual(expect.arrayContaining(['fact_control_status']));
+        for (const x of own) expect(x, day).toMatch(/: rows don't reconcile: \d+ rows repeat a key/);
+      } else expect(own, day).toEqual([]);
+    }
+  });
+
+  it('holds what reads the chain where it breaks (Mon 18, Thu 28), and publishes the scorecards and the facts', () => {
+    for (const day of [S.dissolve, S.loop]) {
+      expect(CHAIN.filter((g) => result(day).published.includes(g)), day).toEqual([]);
+      expect(GOLD.filter((g) => !CHAIN.includes(g) && !result(day).published.includes(g)), day).toEqual([]);
+    }
+  });
+
+  it('leaves the vulnerability SLA out of the scores where the scanner couldn’t log in (Sat 16, Sun 17): coverage falls beside the score', () => {
+    const before = lastBefore(P.credentials);
+    for (const day of [P.credentials, P.credentials2]) {
+      const g = gold.get(day)!;
+      expect(g.vulnAssessed, day).toBeLessThan(before.vulnAssessed - 40);
+      expect(g.coverage!, day).toBeLessThan(before.coverage! - 1);
+    }
+  });
+
+  /** The last day before `day` gold published. */
+  const lastBefore = (day: string) => {
+    for (let d = addDays(day, -1); d >= '2024-03-01'; d = addDays(d, -1)) if (gold.has(d)) return gold.get(d)!;
+    throw new Error(`no gold published before ${day}`);
+  };
+
+  it('says the new control’s missing evidence as coverage, not as failing (Wed 27): the score holds', () => {
+    const before = lastBefore(S.sbom);
+    const g = gold.get(S.sbom)!;
+    expect(g.coverage!).toBeLessThan(before.coverage! - 5);
+    expect(Math.abs(g.score! - before.score!)).toBeLessThan(1);
   });
 });

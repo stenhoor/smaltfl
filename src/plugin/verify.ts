@@ -43,7 +43,7 @@ import { quoteIdent as q } from '../core/sqltext.js';
 import { hashTable } from './dataset-hash.js';
 import { PINNED_PREFIX, pinned, pinnedLocation, takeOpened } from './pinned.js';
 import { donorRead } from './release.js';
-import { aborted, countExpectations, countGate, engineVersion, RunError } from './runtime.js';
+import { aborted, countContract, countExpectations, countGate, engineVersion, RunError } from './runtime.js';
 import { carriedFrom, readBefore, currentOf, datasetView, derivedOf, ensureStore, findVersion, holdsOfRun, measuresOfRun, releasesOf, repairsOf } from './store.js';
 
 type Json = Parameters<typeof canonicalJSON>[0];
@@ -362,6 +362,11 @@ export async function verifyRun(db: Database, runId: number, options: VerifyOpti
       if (m.gate) {
         const again = countGate(db, plan, m.node, ctx);
         check({ node: m.node, origin: m.origin, check: 'gate', ok: again !== null && same(again, m.gate), expected: canonicalJSON(m.gate as unknown as Json), actual: again ? canonicalJSON(again as unknown as Json) : null, ...(again ? {} : { note: "the plan has no gate to count on it, yet the manifest records one" }) });
+      }
+      // A contract (Q-171): checked again over the recomputed dataset, the same as the run recorded.
+      if (m.contract) {
+        const again = countContract(db, plan, m.node, ctx);
+        check({ node: m.node, origin: m.origin, check: 'contract', ok: again !== null && same(again, m.contract), expected: canonicalJSON(m.contract as unknown as Json), actual: again ? canonicalJSON(again as unknown as Json) : null, ...(again ? {} : { note: 'the plan has no contract to check on it, yet the manifest records one' }) });
       }
     }
     // Held, at the Recomputed level (ADR 0010 §6): each watched load measured again from its snapshot, with the settings

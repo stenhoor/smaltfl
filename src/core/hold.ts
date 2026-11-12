@@ -25,7 +25,7 @@ import { HistoryRanges, rangeSettings, slotSeries, type HistoryFile, type Level,
 import { appendPeriods, emptyHistory, measuresHash, samePeriod, tailBefore, tailRef, type MeasureSettings, type Measures, type ReconcileCounts, type TailRef } from './measures.js';
 import { rootOf } from './log.js';
 import type { JSONValue, LogEntry } from './log.js';
-import type { ExpectationResult, RunManifest } from './manifest.js';
+import type { ContractCounts, ExpectationResult, RunManifest } from './manifest.js';
 import type { SampleFile } from './apart.js';
 import { flowNames, judgeOf, newsOf, type FileFacts } from './news.js';
 import { isPublish2, watchesOf, type ExpectNode, type FlowPlan, type WatchPlan } from './plan.js';
@@ -701,6 +701,18 @@ export function reconcileSaid(r: ReconcileCounts, key: readonly string[], of: st
   return parts.length ? `rows don't reconcile: ${parts.join('; ')}` : null;
 }
 
+/** What a broken contract's hold says (Q-171): each way the dataset breaks it, the columns first; null for one kept. */
+export function contractSaid(c: ContractCounts): string | null {
+  const parts: string[] = [];
+  const cols = (xs: readonly string[]) => (xs.length <= 3 ? xs.join(', ') : `${xs.slice(0, 3).join(', ')} and ${xs.length - 3} more`);
+  if (c.missing.length) parts.push(`no ${cols(c.missing)}`);
+  if (c.extra.length) parts.push(`${cols(c.extra)} not in it`);
+  for (const [column, declared, built] of c.retyped) parts.push(`${column} is ${built}, not ${declared}`);
+  for (const [column, rows] of c.blank) parts.push(`${column} blank on ${count(rows)} row${rows === 1 ? '' : 's'}`);
+  for (const [column, rows] of c.outside) parts.push(`${column} outside its values on ${count(rows)} row${rows === 1 ? '' : 's'}`);
+  return parts.length ? `breaks its contract ${c.version}: ${parts.join('; ')}` : null;
+}
+
 /**
  * What a run was asked to be, beside its plan (ADR 0009 amendment 1 S4): a derived run (`stage`), held whatever else
  * holds until a decision releases it, with its donors as judged.
@@ -759,6 +771,14 @@ export function holdsOf(plan: Pick<FlowPlan, 'nodes' | 'outputs' | 'publish'>, m
     const of = g.reconcile.of === null ? null : (plan.nodes[g.reconcile.of]?.origin ?? String(g.reconcile.of));
     const said = counts ? reconcileSaid(counts, g.reconcile.key, of) : 'its reconciliation was not counted';
     if (said) out.push({ by: 'checks', node, origin: n.origin, said, reaches: reachOf(plan, node) });
+  }
+  // A contract (Q-171, plan/4): a dataset that breaks it holds under the schema check, where its gate says hold; one not
+  // checked holds too, since the run was asked to check it.
+  for (const [node, c] of (isPublish2(pub) && !refused.length ? pub.contracts : undefined) ?? []) {
+    if (c.schema !== 'hold') continue;
+    const counts = manifest.nodes.find((m) => m.node === node)?.contract;
+    const said = counts ? contractSaid(counts) : `its contract ${c.version} was not checked`;
+    if (said) out.push({ by: 'checks', node, origin: plan.nodes[node]!.origin, said, reaches: reachOf(plan, node) });
   }
   for (const { node, holds } of watchesOf(pub)) {
     const origin = plan.nodes[node]!.origin;
