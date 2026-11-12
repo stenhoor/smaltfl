@@ -440,6 +440,8 @@ table.grid td.n { text-align: left; }
 .col-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; grid-template-areas: "name dist chip" "name stat chip" "said said said"; gap: 2px 10px; align-items: center; text-align: left; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 8px 10px; font: inherit; color: inherit; min-height: 52px; }
 .col-row[aria-expanded="true"] { border-color: var(--smalt); }
 .cr-name { grid-area: name; display: grid; } .cr-name b { font-size: 13.5px; } .cr-code { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+.cr-sub { display: flex; flex-wrap: wrap; gap: 0 6px; } .cr-role { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+.cr-code + .cr-role::before { content: '· '; }
 .cr-dist { grid-area: dist; } .cr-stat { grid-area: stat; font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
 /* The column's news under its bar: the value by name, today and usual, which way. */
 .cr-said { grid-area: said; font-size: 11.5px; color: var(--ink-2); margin-top: 2px; }
@@ -554,11 +556,12 @@ table.data td.new, table.data th.new { background: var(--teal-wash); }
 .hist { width: 100%; height: auto; display: block; }
 .hist .b { fill: var(--teal-fill); opacity: 0.85; }
 .hist .med { stroke: var(--ink); stroke-width: 1.5; }
+.hist .usual { fill: none; stroke: var(--ink-2); stroke-width: 1.5; stroke-dasharray: 3 2; }
 .hist .ax { fill: var(--muted); font-size: 10px; font-family: var(--mono); }
-.colcard dl.stats { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 14px; margin: 0; font-size: 13px; }
-.colcard dl.stats dt, .colcard dl.stats dd { border: 0; padding: 1px 0; background: none; }
-.colcard dl.stats dt { color: var(--muted); font-family: var(--font); font-size: 12px; }
-.colcard dl.stats dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.colcard dl.stats, .cp dl.stats { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 14px; margin: 0; font-size: 13px; }
+.colcard dl.stats dt, .colcard dl.stats dd, .cp dl.stats dt, .cp dl.stats dd { border: 0; padding: 1px 0; background: none; }
+.colcard dl.stats dt, .cp dl.stats dt { color: var(--muted); font-family: var(--font); font-size: 12px; }
+.colcard dl.stats dd, .cp dl.stats dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .tops { display: grid; gap: 6px; }
 .top { display: grid; grid-template-columns: minmax(0, 42%) minmax(0, 1fr) auto; align-items: center; gap: 8px; font-size: 13px; }
 .top .v { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1170,6 +1173,7 @@ svg.viz { display: block; overflow: visible; max-width: 100%; height: auto; }
 .viz .brk { fill: none; stroke: var(--muted); stroke-width: 1.2; }
 .viz .dumb { stroke: var(--ink); stroke-width: 1.6; }
 .viz .dot { fill: var(--ink); stroke: var(--surface); stroke-width: 2; }
+.viz .dm-off { fill: var(--sunk); } .viz .dm-past { fill: var(--line); } .viz .dm-on { fill: var(--ink-2); } .viz .dm-on.warn { fill: var(--warn); } .viz .dm-mark { fill: var(--ink); }
 .viz .dot-alert { fill: var(--bad); } .viz .dot-warn { fill: var(--warn); }
 .viz .gone-x { stroke: var(--bad); stroke-width: 2; stroke-linecap: round; }
 .viz .limit { fill: var(--ink); stroke: var(--surface); stroke-width: 2; paint-order: stroke; } .viz .wall { fill: var(--ink); }
@@ -1573,6 +1577,83 @@ svg.viz { display: block; overflow: visible; max-width: 100%; height: auto; }
 .nbc-foot .linkish { background: none; border: 0; padding: 0; min-height: 28px; color: var(--smalt); font: inherit; font-weight: 500; cursor: pointer; }
 .nbc-error { margin: 0; padding: 10px 14px; font: 12.5px/1.5 var(--mono); color: var(--bad); white-space: pre-wrap; overflow-wrap: anywhere; }
 .nbc-md { padding: 6px 14px 10px; font-size: 14px; }
+/* The bronze notebook's notes (ADR 0015 amendment 3): prose between the cells, read as smaltnb's text cells are, with no
+   head or border of their own so they read as the page around the code. */
+/* A column told as a story (ADR 0015 amendment 3): what it is, today, its values, against a usual day, its checks, who
+   reads it. One column on a phone; the parts side by side from the desktop width. */
+.cp { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.cp.alert { border-left: 4px solid var(--bad); } .cp.warn { border-left: 4px solid var(--warn); }
+.cp-head { display: grid; gap: 4px; }
+.cp-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.cp-title h3 { margin: 0; font-size: 17px; }
+.cp-role { font: 500 11px/1 var(--mono); text-transform: uppercase; letter-spacing: .04em; padding: 4px 7px; border-radius: 999px; background: var(--smalt-wash); color: var(--smalt); }
+.cp-role.r-id, .cp-role.r-key { background: var(--sunk); color: var(--ink-2); }
+.cp-role.r-number, .cp-role.r-date, .cp-role.r-time { background: var(--teal-wash); color: var(--teal); }
+.cp-state { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.cp-state.alert { color: var(--bad); } .cp-state.warn { color: var(--warn); } .cp-state.ok { color: var(--ok); }
+.cp-means { margin: 2px 0 0; font-size: 15px; line-height: 1.45; color: var(--ink); }
+.cp-gist { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.45; }
+.cp-part { display: grid; align-content: start; gap: 6px; padding-top: 10px; border-top: 1px solid var(--line); min-width: 0; }
+.cp-h { margin: 0; font: 600 11px/1.2 var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.cp-find { margin: 0; font-size: 14px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.cp-find.alert { color: var(--bad); } .cp-find.warn { color: var(--warn); } .cp-find.ok { color: var(--ok); }
+.cp-by { color: var(--muted); font-size: 12.5px; }
+.cp-vis { overflow-x: auto; }
+.cp .histwrap { max-width: 420px; }
+.cp .hist .ax { font-size: 9px; }
+.cp-facts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 13px; color: var(--ink-2); }
+.cp-fill { display: inline-flex; width: 96px; height: 8px; border-radius: 4px; overflow: hidden; background: var(--sunk); }
+.cp-fill .on { background: var(--teal-fill); } .cp-fill .off { background: repeating-linear-gradient(45deg, var(--bad) 0 2px, transparent 2px 4px); }
+.cp .bq-list { margin: 0; padding: 0; list-style: none; }
+.columns-tab { container-type: inline-size; }
+@container (min-width: 820px) {
+  .cp { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 20px; align-items: start; }
+  .cp-head, .cp > .note { grid-column: 1 / -1; }
+}
+/* A finding about a column, said plainly (amendment 3, round 2). */
+.pf { display: grid; gap: 6px; }
+.pf + .pf { padding-top: 10px; border-top: 1px dashed var(--line); }
+.pf-head { margin: 0; display: flex; gap: 6px; align-items: flex-start; font-size: 14.5px; line-height: 1.4; color: var(--ink); font-weight: 500; }
+.pf-head svg { flex: none; margin-top: 2px; }
+.pf-sub { margin: 0; font-size: 13.5px; color: var(--ink-2); }
+.cv-cap { margin: 4px 0 0; font-size: 12.5px; color: var(--muted); }
+.pf-more summary { cursor: pointer; font-size: 12.5px; color: var(--smalt); list-style: none; }
+.pf-more summary::before { content: '▸ '; } .pf-more[open] summary::before { content: '▾ '; }
+.pf-more p { margin: 4px 0; font-size: 13px; color: var(--ink-2); line-height: 1.45; }
+.spark .nodata { stroke: var(--muted); stroke-width: 1; opacity: .6; }
+.cp-vs { border-collapse: collapse; font-size: 13px; width: 100%; max-width: 420px; }
+.cp-vs th, .cp-vs td { text-align: left; padding: 3px 10px 3px 0; border-bottom: 1px solid var(--line); font-weight: 400; }
+.cp-vs thead th { font: 600 11px/1.2 var(--mono); text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.cp-vs tbody th { color: var(--muted); }
+.cp-vs td { font-variant-numeric: tabular-nums; color: var(--ink); }
+/* Missing data, the same everywhere (amendment 3, round 4): hatched, named, counted, with what can be done. */
+.spark .gap, .bandchart .gap { stroke: none; } .spark .gap.notrun, .bandchart .gap.notrun { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 2; }
+.hatch { stroke: var(--muted); stroke-width: 1.2; opacity: .45; }
+.bandchart .gap-t { font: 600 9px var(--mono); fill: var(--ink-2); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; }
+.viz .nodata { stroke: none; }
+.spark .gap-t { font: 600 9px var(--mono); fill: var(--ink-2); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; }
+.gap-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 2px 0 0; font-size: 13px; color: var(--ink-2); }
+.vf-key .gap-swatch { display: inline-block; width: 12px; height: 9px; vertical-align: -1px; margin-right: 4px; }
+.gap-swatch { width: 14px; height: 10px; border-radius: 2px; background: repeating-linear-gradient(45deg, var(--muted) 0 1.5px, transparent 1.5px 4px); opacity: .7; flex: none; }
+/* Check visuals and explanations (ADR 0015 amendment 3). */
+.cv { display: grid; gap: 6px; }
+.cv-explain { display: grid; gap: 4px; margin: 6px 0 2px; padding: 8px 10px; border-radius: 8px; background: var(--sunk); font-size: 13.5px; line-height: 1.45; }
+.cv-explain p { margin: 0; }
+.cv-strength b { font-weight: 600; }
+.cv-caveat { color: var(--muted); font-style: italic; }
+.bq-row .bq-how { grid-column: 1 / -1; margin: 2px 0 0 24px; font-size: 13px; }
+.bq-how summary { cursor: pointer; color: var(--smalt); font-size: 12.5px; list-style: none; }
+.bq-how summary::-webkit-details-marker { display: none; }
+.bq-how summary::before { content: '▸ '; }
+.bq-how[open] summary::before { content: '▾ '; }
+.bq-how p { margin: 4px 0; line-height: 1.45; }
+.nbc.kind-md.explain { border: 0; background: transparent; box-shadow: none; }
+.nbc.kind-md.explain .nbc-head { display: none; }
+.nbc.kind-md.explain .nbc-md { padding: 4px 2px 0; color: var(--ink); line-height: 1.5; }
+.nbc.kind-md.explain .nbc-md h3 { font-size: 15px; margin: 6px 0 4px; color: var(--ink); }
+.nbc.kind-md.explain .nbc-md p, .nbc.kind-md.explain .nbc-md ul { margin: 4px 0; }
+.nbc.kind-md.explain .nbc-md ul { padding-left: 18px; }
+.nbc.kind-md.explain .nbc-md code { font-size: 12.5px; }
 .nbc-md > h3:first-child, .nbc-md > h4:first-child { margin-top: 2px; }
 .nbc-line { margin: 0; padding: 8px 14px; font: 12px var(--mono); color: var(--ink-2); overflow-wrap: anywhere; }
 .nbc-line b { color: var(--teal); font-weight: 600; }

@@ -748,8 +748,15 @@ export interface StripKey { same?: string; marks?: Partial<Record<Mark, string>>
  * A strip's one-line key, right-aligned along its top (ADR 0008 §7): a band swatch and its word ("usual"), a tick
  * swatch and its word ("actual"), and a dashed one, "not run", when a day wasn't.
  */
-function keyRow([kb, kt]: readonly [string, string], notRun: boolean, w: number): string {
-  const kn = notRun ? 'not run' : '';
+let hatches = 0;
+/** Missing data's hatching (docs/research/ui-check-visuals.md "Missing data"): a pattern of its own id, for one chart. */
+export function hatchDef(): { id: string; def: string } {
+  const id = `nodata-${++hatches}`;
+  return { id, def: `<defs><pattern id="${id}" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line class="hatch" x1="0" y1="0" x2="0" y2="6"/></pattern></defs>` };
+}
+
+function keyRow([kb, kt]: readonly [string, string], notRun: boolean, w: number, noData = false, hatch = ''): string {
+  const kn = notRun ? 'not run' : noData ? 'no data' : '';
   const nw = kn ? kn.length * 6.2 : 0;
   const tw = kt.length * 6.2;
   const bwid = kb.length * 6.2;
@@ -758,7 +765,7 @@ function keyRow([kb, kt]: readonly [string, string], notRun: boolean, w: number)
   const x1 = x2 - 22 - bwid - 18;
   let s = `<rect class="ghost" x="${f1(x1)}" y="3" width="12" height="8" rx="2"/><text x="${f1(x1 + 16)}" y="11" class="lbl-m key">${esc(kb)}</text>`;
   s += `<rect class="ink" x="${f1(x2 - 18)}" y="5.5" width="14" height="3" rx="1"/><text x="${f1(x2)}" y="11" class="lbl-m key">${esc(kt)}</text>`;
-  if (kn) s += `<rect class="notrun" x="${f1(x3 - 16)}" y="2.5" width="11" height="9" rx="2"/><text x="${f1(x3)}" y="11" class="lbl-m key">${esc(kn)}</text>`;
+  if (kn) s += `<rect class="${notRun ? 'notrun' : 'nodata'}" x="${f1(x3 - 16)}" y="2.5" width="11" height="9" rx="2"${notRun ? '' : ` fill="url(#${hatch})"`}/><text x="${f1(x3)}" y="11" class="lbl-m key">${esc(kn)}</text>`;
   return s;
 }
 
@@ -820,7 +827,11 @@ export function dayStrip(o: { days: readonly StripDay[]; w?: number; h?: number;
   const wd = last ? new Date(`${last.day}T00:00:00Z`).getUTCDay() : -1;
   const TICK = 3;
   let s = open(w, h, o.aria, 'data-y0="0"');
-  if (o.key) s += keyRow(o.key, o.days.some((d) => d.notRun), w) + extra;
+  // A day with no number that isn't a day not run (missing data): hatched across its column, never drawn as a zero.
+  const noData = o.days.some((d) => d.v === null && !d.notRun);
+  const hatch = noData ? hatchDef() : null;
+  if (hatch) s += hatch.def;
+  if (o.key) s += keyRow(o.key, o.days.some((d) => d.notRun), w, noData, hatch?.id) + extra;
   s += `<line class="base" x1="${gx}" x2="${w}" y1="${base + 0.5}" y2="${base + 0.5}"/>`;
   o.days.forEach((d, i) => {
     const cx = gx + i * cw + cw / 2;
@@ -841,6 +852,7 @@ export function dayStrip(o: { days: readonly StripDay[]; w?: number; h?: number;
       s += `<rect class="notrun" x="${f1(cx - bw / 2 - 2.5)}" y="${top - 6}" width="${f1(bw + 5)}" height="${base - top + 8}" rx="3"/>`;
       return;
     }
+    if (d.v === null && hatch) s += `<rect class="nodata" x="${f1(cx - bw / 2)}" y="${top - 4}" width="${f1(bw)}" height="${base - top + 4}" rx="2" fill="url(#${hatch.id})"/>`;
     const inside = d.v !== null && d.low !== null && d.high !== null && d.v >= d.low && d.v <= d.high;
     const sev = inside ? null : d.sev;
     if (vy !== null) s += `<rect class="${sev ? `sev-${sev}-fill` : 'ink'}" x="${f1(cx - bw / 2 - 1)}" y="${f1(vy - tick / 2)}" width="${f1(bw + 2)}" height="${tick}" rx="1"/>`;
@@ -1800,3 +1812,24 @@ export function heatGrid(o: { rows: readonly string[]; cols: readonly string[]; 
 }
 
 export const DEFS = `<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><pattern id="viz-hatch" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="4" height="4" class="hatch-bg"/><line x1="0" y1="0" x2="0" y2="4" class="hatch-line"/></pattern><pattern id="viz-stipple" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="4" class="stipple-bg"/><circle cx="2" cy="2" r="1.05" class="stipple-dot"/></pattern></defs></svg>`;
+
+/**
+ * How different today is, for anyone (ADR 0015 amendment 3, round 2): four steps from "same as usual" to "very
+ * different", the step today reached filled and marked, words under each step. No statistics on its face.
+ */
+export function differenceMeter(o: { step: 0 | 1 | 2 | 3; aria: string; w?: number }): string {
+  const w = o.w ?? 334;
+  const words = ['Same as usual', 'Slightly', 'Noticeably', 'Very different'];
+  const gap = 4;
+  const sw = (w - gap * 3) / 4;
+  let s = open(w, 46, o.aria, 'data-y0="0"');
+  words.forEach((t, i) => {
+    const x = i * (sw + gap);
+    const cls = i === o.step ? (o.step >= 2 ? 'dm-on warn' : 'dm-on') : i < o.step ? 'dm-past' : 'dm-off';
+    s += `<rect class="${cls}" x="${f1(x)}" y="6" width="${f1(sw)}" height="12" rx="3"/>`;
+    s += `<text x="${f1(x + sw / 2)}" y="34" text-anchor="middle" class="${i === o.step ? 'lbl-b' : 'tick'}">${esc(t)}</text>`;
+  });
+  const mx = o.step * (sw + gap) + sw / 2;
+  s += `<path class="dm-mark" d="M${f1(mx - 5)} 1 L${f1(mx + 5)} 1 L${f1(mx)} 6 Z"/>`;
+  return `${s}</svg>`;
+}

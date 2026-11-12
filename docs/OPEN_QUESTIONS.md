@@ -88,6 +88,7 @@ one (0015) is to be written from them. Nothing here is built.
 | Q-163 | How fast must the demo's first day load, and may the build compute ranges ahead? | The maintainer, 2026-11-11: as fast as it can be made; the exact fixes first, then each history's normal ranges for the first loads day computed at build, shipped hashed beside it and taken only on that history and settings; verify and the audit still tell claims from the history (ADR 0019) | decided |
 | Q-164 | Should the page show the flow before the first day's judging finishes? | Yes, filling in as judging ends (ADR 0019) | decided |
 | Q-165 | Which of the next first-load steps to take? | The maintainer, 2026-11-11: all of them at once; each measured first, and the ones that don't pay said so (ADR 0019 amendment 1) | decided |
+| Q-166 | How should the bronze card explain its checks and columns? | The maintainer, 2026-11-11: a text cell before each notebook cell; the Columns tab told as a story; learned and written checks explained visually, from research; all of it for any dataset (ADR 0015 amendment 3) | decided |
 
 ## The bronze layer: the maintainer's request, and what is open (ADR 0015)
 

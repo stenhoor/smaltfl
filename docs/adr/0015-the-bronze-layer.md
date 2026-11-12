@@ -798,3 +798,66 @@ with no picture of a band missed; the Checks tab was a table of the gate's fifte
 Checked by `test/bronze.test.ts` and `tools/browser/stops/bronze.json` (the held waf, its notebook, a clean tls, the link
 each way) at every size, with `estate.json`'s bronze stops moved to Quality.
 
+
+## Amendment 3: the bronze card explained, for any dataset (2026-11-11, Q-166)
+
+The maintainer, after using amendment 2: the notebook's cells are not clear, the Columns tab is lacklustre, and the
+learned and written checks should be explained visually. All of it must work for whatever data is loaded. The research
+is in docs/research/ui-check-visuals.md.
+
+1. **The notebook explained.** The bronze Notebook tab has a text cell before each cell (`src/core/explain.ts`):
+   `sourceNote`, `gateNote`, `rulesNote`, `issuesNote` and `issueNote`. They say what arrived, what each mode does with
+   the checks that use it, each rule the check cell runs with what it counted today and the drop limit, and for each
+   issue what the check does and what its query shows. They are made from the flow and the day alone: the file's id,
+   its columns, the gate's modes, the rules, and the day's checks. The classifier's issue query counts today's rows by
+   the columns that tell them apart.
+2. **Checks explained.** Each check's line on the Quality tab opens to "How this check decides" (`checkHow`:
+   `CHECK_EXPLAINED`, `MODE_EXPLAINED`, where the check comes from, and the days a learned check learns from). The
+   findings that had no picture now get one, on the Quality tab and in the News (`checkVisual`):
+   - the classifier: its AUC on a track from chance, and the columns that tell today apart by share;
+   - the forest: today against the oddest day it learned from;
+   - two values together: "× as often" against their usual;
+   - what ran late: against the usual late share;
+   - any other number with a range: today against the range.
+
+   A model's issue says, honestly (`modelExplained`, `apartSaid`, `unlikeSaid`), how strong the evidence is in words
+   matched to the number, the number as a frequency ("picks today's 77 times in 100; a coin toss gets 50"), what it was
+   compared against, what tells today apart, and that different isn't necessarily wrong.
+3. **The column told as a story** (`columnProfile`), in this order:
+   - what it is: its title, a role read from its values (`columnRole`: identifier, key, category, code, number, date,
+     yes / no, free text), and its meaning or a line read from its values (`columnGist`);
+   - what is different about it today, each finding with its picture, or that nothing is;
+   - its values: a filled / blank bar, distinct values, its shape or common values;
+   - against a usual day: each common value's share against its learned range, for any watched file (`usualShares`);
+   - the checks that read it, each with how it decides;
+   - whether the models read it (`modelLeftOut`), and why not.
+
+   The column's row in the list carries its role. The parts sit side by side when the sheet is wide (a container
+   query), one under another on a phone.
+
+`test/explain.test.ts` holds the notes to the estate's and the sign-ins' files with no dataset's words in them, every
+check to a sentence, the models' wording to their numbers, and a column's role and gist to its values.
+
+Round 3 (the maintainer: "always see some comparison to normal throughout the panel"): every column with a history is
+shown against a usual day, on calm days as well.
+- **A number column:** its histogram carries a usual day's outline (`usualQuantiles`, `usualBins`: the history's
+  quantiles for the day read as a distribution, scaled to today's rows). A table sets today's middle value, the range
+  half fall between, and where the highest 1 in 10 start against a usual day's.
+- **The filled share:** said against its usual.
+- **The four-weeks chart** (`sparkBand`, now for any watched file and inside the column's card): it leaves a day with no
+  data as a gap, ticked under the chart, instead of drawing a straight line across it. It draws today's usual range
+  even after a gap.
+- **A spread finding** leads with what it means ("Its high values are much lower than usual"), then the numbers.
+
+Round 4 (the maintainer: "if we are missing data we should call that out better … a clear UI best practice now"): one
+convention for missing data, written down in docs/research/ui-check-visuals.md "Missing data". A stretch with no data
+is never drawn across or filled in. It is hatched and named with its reason (not run yet, held, no file, file refused,
+empty file, before the history), counted in a sentence, and offered what can be done about it (*Run …*, *Decide on …*).
+The four-weeks chart (`weeksChart`) is the first to follow it.
+Applied everywhere a day can have no number:
+- every four-weeks chart (`sparkBand` works out its own gaps when it isn't given them);
+- the History tab's band chart (`bandChart`), with a "no data" key and the sentence and buttons under it;
+- the day strips in the news and the brief (`dayStrip`): a day with no number that isn't a day not run is hatched, and
+  its key says "no data".
+
+A dashed outline means *not run*, in the strips and around a hatched stretch alike; hatching means *no data*.
