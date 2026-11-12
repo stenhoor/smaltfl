@@ -213,6 +213,10 @@ match smaltdb's `CLAUDE.md`.
   classifier judged ahead (amendment 1): the builder records its first-day answers by their inputs' sha256 into the ranges
   file (`src/core/ahead.ts`, `RangesFile.apart`, `judgedAhead` in `apartEvidence`); `tools/browser/load.cjs APP` times each
   phase.
+- The Larkspur estate (ADR 0020): `test/fixtures/larkspur.ts` draws a fictional group's organisation and leaders over
+  time, its applications, 46 platforms, a 14-control catalogue mapped to the frameworks, and twenty daily feeds and two
+  fixed ones (slice 1: calm days, nothing planted); `test/larkspur.test.ts` holds the data to ADR 0020 §1; `node
+  scripts/data/larkspur.mjs OUT_DIR` writes it, each file's export time in `loads.json`, never in its rows.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
