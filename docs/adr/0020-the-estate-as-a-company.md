@@ -99,9 +99,19 @@ record that amendment 5 now keeps.
 
 ### 3. Silver: the company conformed, and the rules applied
 
-Four notebooks. Each step is a SQL cell that smaltql runs today (recursive CTEs, window functions, `string_agg`,
-`EXCEPT`, `date()` and `julianday()` all work, checked 2026-11-12). Each step's What happened has something real to
-say.
+Four notebooks. Each step is a SQL cell that smaltql runs today. Recursive CTEs, window functions, `string_agg`,
+`EXCEPT`, `date()` and `julianday()` all work (checked 2026-11-12); `QUALIFY`, `date_diff`, `INTERVAL` and the JSON
+functions don't.
+
+The riskiest steps were prototyped on the engine the same day:
+- the walk up the leadership chain with a depth cap, which stops at the cap on a loop and marks both units;
+- each level's unit and leader as columns, by conditional aggregation over the walk;
+- duplicates collapsed to the newest record with `row_number()`. Owner conflicts are counted with a grouped join,
+  since `count(DISTINCT …) OVER` isn't supported;
+- orphans by a left join;
+- every unit's roll-up over all the applications beneath it, with the walk used as a closure.
+
+Each step's What happened has something real to say.
 
 **The organisation** (`org.nb.ts`):
 - `org_units`: typed and trimmed.
@@ -269,8 +279,8 @@ through the engine (Q-169), as ADR 0014's is today.
 | Tue 5 | The vulnerability scanner's upgrade writes statuses and severities in capitals | bronze `findings`, values (learned) | warns: new values. Silver normalises them, so silver and gold are calm. The layering, shown |
 | Wed 6 | The backup feed is yesterday's file again | bronze `backup_jobs`, fresh (Q-172) | holds: the same bytes as Tue 5's file, exported Tue 5 |
 | Thu 7 | The logging feed lacks a column | bronze `logging_coverage`, schema | holds: 4 of 5 columns |
-| Sat 9 | An agent reinstall on cluster `eks-prod-4` makes the scanner report 300 open findings as found today | bronze `findings`, shape (learned); silver `vuln_status` | warns at bronze: first-found dates much younger than usual. Silver keeps each finding's earliest date, so nothing becomes less overdue. Silver and gold are calm. An improvement that isn't, seen through |
 | Fri 8 | Key rotation passes where encryption fails | silver `effective`, needs | holds the posture: N pass key rotation while failing encryption |
+| Sat 9 | An agent reinstall on cluster `eks-prod-4` makes the scanner report 300 open findings as found today | bronze `findings`, shape (learned); silver `vuln_status` | warns at bronze: first-found dates much younger than usual. Silver keeps each finding's earliest date, so nothing becomes less overdue. Silver and gold are calm. An improvement that isn't, seen through |
 | Mon 11 | *Look-alike:* a reorg moves seven teams (~210 applications) from one VP to another | gold `org_posture`, learned | warns for the two VPs. The story says it follows the reorg (Q-173). Publishes |
 | Tue 12 | A configuration push puts ingress `ing-east-3`'s WAF in monitor mode | bronze `waf`, values (band); silver `platform_impact` | holds. The story leads with the platform: 92% of today's WAF failures are behind `ing-east-3` |
 | Wed 13 | WAF rows for applications that aren't internet-facing | bronze `waf`, scope | holds: rows out of scope |
@@ -328,6 +338,29 @@ run on 600 applications (Q-170).
    the browser stops.
 6. **The product view**, if decided.
 7. **The switch:** Larkspur becomes the demo. The control estate stays as a regression, or is retired (Q-169).
+
+### 9. Three walks through the demo
+
+Each walk starts where a person would and ends at what they would do. Each crosses all three layers.
+
+1. **Tue 12: a platform, not a hundred applications.**
+   - The day strip shows Tue 12 held. The WAF card's Quality tab says three in five fail, outside the band.
+   - Silver's `platform_impact` What happened names `ing-east-3` behind 92% of the failures.
+   - Gold's `org_posture` shows which leaders' units sit behind that ingress.
+   - The remediation queue has one row a failing application, each with its owner chain.
+   - The fix is one configuration change, and the decision is recorded.
+2. **Mon 18: the join that lost 138 applications.**
+   - Bronze is clean: every file arrived well formed.
+   - Silver's `app_owners` What happened says 138 applications found no match in the organisation, all from one
+     dissolved department, as a picture of rows in and out.
+   - The roll-ups hold; the per-application scorecards publish.
+   - The fix is a reassignment in the HR system. Tomorrow's extract carries it, and the roll-ups publish again.
+3. **Mon 25: two modest rises that are one cause.**
+   - The TLS and logging cards each show a rise within reason.
+   - The models say the two fail together far beyond what their shares explain.
+   - `platform_impact` names `ca-int-2`.
+   - The story leads with the certificate authority, the two controls follow from it, and its picture shows both on
+     the same applications.
 
 ## Consequences
 
