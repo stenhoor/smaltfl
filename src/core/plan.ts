@@ -192,6 +192,18 @@ export interface GatePlan {
   reconcile: { key: string[]; of: number | null } | null;
 }
 
+/**
+ * A contract as the run checks it (Q-171): its id and version, what a broken one does (the gate's schema check), and each
+ * column in order as `[name, type, required, values]` (values null where the column takes any). The contract's words
+ * (its description, classifications, service levels) are the document's, not the plan's.
+ */
+export interface ContractPlan {
+  id: string;
+  version: string;
+  schema: 'hold' | 'warn' | 'off';
+  columns: [name: string, type: string, required: boolean, values: string[] | null][];
+}
+
 export interface ScopePlan {
   table: string;
   key: string;
@@ -226,6 +238,8 @@ export interface PlanPublish2 {
   until: Until;
   /** plan/4 only (ADR 0014 §6): the gates on published nodes the plan doesn't watch, sorted by node. */
   gates?: [node: number, gate: GatePlan][];
+  /** plan/4, where the document declares contracts (Q-171): each contracted dataset's checked part, sorted by node. */
+  contracts?: [node: number, contract: ContractPlan][];
 }
 
 /** A watched source as either plan format says it: its node, its history's file, its period, whether it holds, and in
@@ -395,7 +409,16 @@ export async function translate(doc: FlowDocument, values: Readonly<Record<strin
       return [o.node, { checks: gateChecksOf(doc, o.name)!, reconcile: g?.reconcile ? { key: [...g.reconcile.key], of: of ?? null } : null }];
     }).sort((a, b) => a[0] - b[0])
     : [];
-  return { ...plan, smaltflPlan: gates ? 4 : notebooks ? 3 : 2, publish: { hold, period: p.period ?? null, together: p.together ?? true, ...(p.reach === 'downstream' ? { reach: 'downstream' as const } : {}), calendar: { ...calendar }, watch, meanwhile: p.meanwhile ?? 'last', until: p.until ?? 'decision', ...(gates ? { gates: goldGates } : {}) } };
+  // The contracts (Q-171): what the run checks of each, only where the document declares any, so every other plan hashes
+  // as it did.
+  const contracts = gates
+    ? Object.entries(doc.contracts ?? {}).flatMap(([name, c]): [number, ContractPlan][] => {
+      const node = index.get(name.toLowerCase());
+      if (node === undefined) return [];
+      return [[node, { id: c.id, version: c.version, schema: gateChecksOf(doc, name)?.schema ?? 'hold', columns: c.columns.map((col): [string, string, boolean, string[] | null] => [col.name, col.type, col.required === true, col.values ? [...col.values] : null]) }]];
+    }).sort((a, b) => a[0] - b[0])
+    : [];
+  return { ...plan, smaltflPlan: gates ? 4 : notebooks ? 3 : 2, publish: { hold, period: p.period ?? null, together: p.together ?? true, ...(p.reach === 'downstream' ? { reach: 'downstream' as const } : {}), calendar: { ...calendar }, watch, meanwhile: p.meanwhile ?? 'last', until: p.until ?? 'decision', ...(gates ? { gates: goldGates } : {}), ...(contracts.length ? { contracts } : {}) } };
 }
 
 /** Whether a document judges its watched sources other than every flow did before ADR 0010: a plan/2. */
@@ -563,8 +586,22 @@ const WATCH_PLAN_FIELDS_4 = [...WATCH_PLAN_FIELDS, 'checks', 'due', 'expect', 'n
 function validatePublish2(p: FlowPlan, fail: (message: string) => never, gated = false): void {
   const pub = p.publish as unknown;
   if (typeof pub !== 'object' || pub === null || Array.isArray(pub)) return fail('a format-2 plan says what holds it: publish { hold, period, together, calendar, watch, meanwhile, until }');
-  const { hold, period, together, reach, calendar, watch, meanwhile, until, gates: goldGates, ...rest } = pub as Record<string, unknown>;
+  const { hold, period, together, reach, calendar, watch, meanwhile, until, gates: goldGates, contracts, ...rest } = pub as Record<string, unknown>;
   if (Object.keys(rest).length) fail(`publish has ${Object.keys(rest).join(', ')}, which this version doesn't read`);
+  if (contracts !== undefined) {
+    if (!gated) fail('publish.contracts is plan/4’s: a plan without gates has none');
+    if (!Array.isArray(contracts) || contracts.length === 0) fail('publish.contracts is a list of [node, contract], absent when there are none');
+    (contracts as unknown[]).forEach((x, i) => {
+      if (!Array.isArray(x) || x.length !== 2 || !Number.isInteger(x[0]) || typeof x[1] !== 'object' || x[1] === null) fail(`publish.contracts[${i}] is [node, contract]`);
+      const [node, c] = x as [number, Record<string, unknown>];
+      if (!p.outputs.some((o) => o.node === node)) fail(`publish.contracts[${i}] is on node ${node}, which isn't a published node`);
+      if (i > 0 && !(((contracts as unknown[])[i - 1] as [number, unknown])[0] < node)) fail('publish.contracts is sorted by node, each node once');
+      const cols = c.columns;
+      if (typeof c.id !== 'string' || typeof c.version !== 'string' || !['hold', 'warn', 'off'].includes(c.schema as string) || !Array.isArray(cols) || cols.length === 0
+        || (cols as unknown[]).some((k) => !Array.isArray(k) || k.length !== 4 || typeof k[0] !== 'string' || typeof k[1] !== 'string' || typeof k[2] !== 'boolean' || !(k[3] === null || (Array.isArray(k[3]) && (k[3] as unknown[]).every((v) => typeof v === 'string'))))
+        || Object.keys(c).sort().join() !== 'columns,id,schema,version') fail(`publish.contracts[${i}] is { id, version, schema, columns: [name, type, required, values][] }`);
+    });
+  }
   if (reach !== undefined && (reach !== 'downstream' || together !== false)) fail('publish.reach is downstream, with together false, or absent');
   if (goldGates !== undefined && !gated) fail('publish.gates is plan/4’s: a plan/3 publish block has none');
   if (gated) {

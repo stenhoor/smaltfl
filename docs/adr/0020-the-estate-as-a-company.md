@@ -699,6 +699,48 @@ planted bronze days (`LARKSPUR_TROUBLE`), `test/helpers/larkspur-world.ts`, `tes
     for a failure; the exceptions that expire on Fri 15 are ones covering a failing control; the sandbox accounts'
     stray tags vary by day, not by week. At the tests' scale ing-east-3 is behind 83% of Tue 12's WAF failures.
 
+**Slice 4, gold, first part (2026-11-12):** `examples/larkspur/product.nb.ts` (Control Posture v1), contracts on
+published datasets (Q-171: the document's `contracts`, `test/contract.test.ts`), and gold in
+`test/larkspur-flow.test.ts`. The gold days that learned checks catch (the reorg, the remediation push, the change
+freeze) and attribution through silver (Q-173) are the second part.
+- **Control Posture v1:** the nine datasets of the table above, each with a key its gold gate reconciles, a contract,
+  and its rules as a check step:
+  - `dim_org`, with a path and each level's leader, and the **Unassigned** member;
+  - `dim_app`, with the owner chain, the **Unregistered** member and the resources under tags no CMDB record names;
+  - `dim_control`, with the framework requirements each control maps to;
+  - `fact_control_status`: every pair that applies, missing evidence a row (`not_assessed`, reason `no_evidence`), its
+    statuses in the vocabulary and `as_of` the day (rules), its keys silver's expected pairs (reconcile);
+  - `fact_finding`: one row an application and CVE, the earliest first-found kept, the SLA's due date and whether it is
+    overdue, severities in Splunk's vocabulary;
+  - `app_scorecard`: the score as above (compensated three quarters, excepted and no evidence left out), its coverage
+    beside it, a grade, the controls failing, the items overdue and the exceptions expiring within thirty days, its
+    score and coverage in range (rules);
+  - `org_posture`: every unit over the applications beneath it, the score and coverage tier-weighted (3, 2, 1), the
+    applications whose chain doesn't resolve under Unassigned; its units are `dim_org`'s (reconcile);
+  - `exceptions_register` and `remediation_queue`, the latter read from the team, not the chain.
+- **Contracts (Q-171):** a document field by published dataset, in the Open Data Contract Standard's terms: an id, a
+  semantic version, a status, a description (purpose, limitations, usage), each column's type (as the engine types it),
+  whether it is required or part of the key, its classification and its values, and the service levels (daily, by
+  07:00 UTC, kept 13 months). Only in a flow with gates. The plan carries what the run checks (`publish.contracts`,
+  only where declared, so no other plan's hash moved); the run checks each contracted dataset after building it (its
+  columns by name and type, blanks in a required column, values outside a list) into `ManifestNode.contract`; a broken
+  contract holds under the gate's schema check ("breaks its contract 1.0.0: tls outside its values on 1 row"), and
+  verify checks it again. The Contract tab is the app's, in slice 5.
+- **What gold does with March, through the engine:**
+  - every contract is kept on every day it was built;
+  - Mon 18 and Thu 28 hold `dim_org`, `dim_app` and `org_posture`, which read the chain; the scorecards and facts
+    publish;
+  - Sat 16 and Sun 17: the vulnerability SLA is left out for the applications the scanner couldn't log in to, and the
+    group's coverage falls beside its score;
+  - Wed 27: the SBOM control's missing evidence lowers coverage (99% to 91% at the group) and leaves the score as it was;
+  - Tue 5 and Sat 9, which bronze warns of, are calm in gold.
+- **Where the text changed as it was built:**
+  - "The group's applications in `org_posture` equal `dim_app`'s rows" holds with the members said: the group's and
+    Unassigned's applications are `dim_app`'s applications (it was so every day). It isn't a rule of its own: an
+    application that loses its chain is caught first by silver's owner-chain rule, which holds `org_posture` with it.
+  - A contract's types are the engine's (TEXT, INTEGER, REAL): a computed column is cast where it must be, and a column
+    whose type changes breaks the contract.
+
 ## Consequences
 
 - **The demo can show what each layer is for:**

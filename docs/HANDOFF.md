@@ -220,9 +220,10 @@ Results on 2026-11-09, at `e42d9ec` on data `0ca4dd1`:
 
 **First: [ADR 0020](adr/0020-the-estate-as-a-company.md), the Larkspur estate** (accepted 2026-11-12, Q-169 to
 Q-175). It is built in the slices of its §8: the generator, bronze, silver, gold, the answer key through the engine,
-the product view, then the switch that makes it the demo. Slices 1 to 3 are built (its §"As built"); slice 3 added an
-object type's loose ids (Q-176) and `publish.reach: 'downstream'` (Q-177), built as recommended for the maintainers to
-confirm. Next is slice 4, gold. The items below follow it.
+the product view, then the switch that makes it the demo. Slices 1 to 3 are built, and slice 4's first part (its
+§"As built"); slice 3 added an object type's loose ids (Q-176) and `publish.reach: 'downstream'` (Q-177), built as
+recommended for the maintainers to confirm. Next is slice 4's second part: the gold days learned checks catch (the
+reorg, the remediation push, the change freeze) and attribution through silver (Q-173). The items below follow it.
 
 Parked behind the notebook surface by the maintainer's decision of 2026-11-09 (Q-87, ADR 0011 §9). In priority order:
 

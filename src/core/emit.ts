@@ -436,6 +436,19 @@ export function emitReconcileCounts(sql: string, key: readonly string[], of: str
   return `SELECT ${counts.join(', ')}`;
 }
 
+/**
+ * A contract's row counts (Q-171), in one row: for each column, in order, the rows where it is blank (counted for a
+ * required column, else 0) and the rows whose value, as text, isn't among its values (counted where it has a list, else
+ * 0).
+ */
+export function emitContractCounts(sql: string, columns: readonly (readonly [name: string, required: boolean, values: readonly string[] | null])[]): string {
+  const counts = columns.flatMap(([c, required, values]) => [
+    required ? `sum(CASE WHEN ${q(c)} IS NULL THEN 1 ELSE 0 END)` : '0',
+    values ? `sum(CASE WHEN ${q(c)} IS NOT NULL AND CAST(${q(c)} AS TEXT) NOT IN (${values.map(lit).join(', ')}) THEN 1 ELSE 0 END)` : '0',
+  ]);
+  return `SELECT ${counts.join(', ')} FROM (\n${sql}\n)`;
+}
+
 /** Relations' rows together, one after another. */
 export function emitUnionAll(relations: readonly string[]): string {
   return relations.map((r) => `SELECT * FROM (\n${r}\n)`).join('\nUNION ALL\n');
