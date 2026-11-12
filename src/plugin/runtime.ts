@@ -313,6 +313,7 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
       unmeasured: (node) => told?.unmeasured(node) ?? `${plan.nodes[node]?.origin ?? node}'s snapshot wasn't measured`,
       tail: (source) => pinnedTail(tailPath(source), source),
       flow: told ? told.flow : plan.flow.hash,
+      file: (node) => records.get(node)?.file?.sha256,
     };
     judged = judgeClaims(plan, [...(context.claims ?? []), ...engineClaims], facts).map((j) => (untold.has(j.node) && 'unjudged' in j ? { node: j.node, unjudged: untold.get(j.node)! } : j));
     // With several watched sources, a load an earlier run held is carried, citing that run (ADR 0010 §7).

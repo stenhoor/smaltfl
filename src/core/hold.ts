@@ -26,7 +26,7 @@ import { rootOf } from './log.js';
 import type { JSONValue, LogEntry } from './log.js';
 import type { ExpectationResult, RunManifest } from './manifest.js';
 import type { SampleFile } from './apart.js';
-import { flowNames, judgeOf, newsOf } from './news.js';
+import { flowNames, judgeOf, newsOf, type FileFacts } from './news.js';
 import { isPublish2, watchesOf, type ExpectNode, type FlowPlan, type WatchPlan } from './plan.js';
 import { DECIDE_OPTIONS, type DecisionOption } from './policy.js';
 import { storyOf, type Story } from './story.js';
@@ -99,6 +99,9 @@ export interface StoryClaim2 {
   rows: number;
   skip: string[];
   levels: ClaimLevel[];
+  /** The file it was told of (ADR 0020 §2, Q-172): its sha256, its export time and the last load's file, as the data's
+   * list gives them; what `fresh` is judged from. Absent where the page told none: every claim before it reads as it did. */
+  file?: FileFacts;
 }
 
 /** A watched source's claim, either version: claim/1 under plan/1, claim/2 under plan/2. */
@@ -245,7 +248,7 @@ export type FlowFor = Pick<FlowDocument, 'steps' | 'ontology' | 'publish' | 'cal
  * names): leaving incident days out is one browser's choice, not the flow's. It must have the flow's calendar for the
  * source.
  */
-export function flowStory(h: HistoryRanges, day: string, doc: FlowFor, source: string, upstream?: readonly { source: string; state: string; head: string }[], apart?: { sample: SampleFile; today: readonly (readonly unknown[])[] }): Story {
+export function flowStory(h: HistoryRanges, day: string, doc: FlowFor, source: string, upstream?: readonly { source: string; state: string; head: string }[], apart?: { sample: SampleFile; today: readonly (readonly unknown[])[] }, file?: FileFacts): Story {
   if (h.skipped > 0) throw new Error("the flow's verdict learns from every day of the history but those the record leaves out: these ranges leave out days one viewer marked");
   const judge = judgeOf(doc, source);
   if (h.calendar.base !== judge.calendar.base) throw new Error(`the flow judges ${source} by the ${judge.calendar.base} calendar: these ranges were made with ${h.calendar.base}`);
@@ -255,7 +258,7 @@ export function flowStory(h: HistoryRanges, day: string, doc: FlowFor, source: s
   // Only the sources this node reads may explain its findings (ADR 0014 §2).
   const reads = upstream?.length ? new Set([...upstreamSources(doc, source)].map((x) => x.toLowerCase())) : null;
   const up = reads ? upstream!.filter((u) => reads.has(u.source.toLowerCase())) : undefined;
-  return storyOf(h, day, newsOf(h, day, names, { checks: countedChecks(doc, h, source), judge, ...(apart ? { apart } : {}) }), { names, episode: false, judge, ...(up?.length ? { upstream: up } : {}) });
+  return storyOf(h, day, newsOf(h, day, names, { checks: countedChecks(doc, h, source), judge, ...(apart ? { apart } : {}), ...(file ? { file } : {}) }), { names, episode: false, judge, ...(up?.length ? { upstream: up } : {}) });
 }
 
 /** The sources a step reads, directly or through other steps; a source reads itself. */
@@ -351,6 +354,8 @@ export interface LoadClaimInput {
    * load's own kept rows. Without them, the classifier is silent. */
   sample?: SampleFile;
   kept?: readonly (readonly unknown[])[];
+  /** The load's file as the data's list gives it (ADR 0020 §2): what `fresh` is judged from, and named in the claim. */
+  file?: FileFacts;
 }
 
 /**
@@ -386,11 +391,12 @@ export async function loadClaim(o: LoadClaimInput): Promise<{ claim: StoryClaim2
   const slotted = every !== 'day';
   const own = (d: string) => !slotted || d.slice(10) === slot.slice(10);
   const ranges = new HistoryRanges(slotted ? slotSeries(file, slot) : file, { ...rangesFor(o.doc, o.source), recorded: new Set(skip.filter(own).map(dayOfSlot)), levels: levels.filter((l) => own(l.from)).map((l) => ({ ...l, from: dayOfSlot(l.from) })), ...(o.given && !slotted ? { given: o.given } : {}) });
-  const s = flowStory(ranges, dayOfSlot(slot), o.doc, o.source, o.upstream, o.sample && o.kept ? { sample: o.sample, today: o.kept } : undefined);
+  const s = flowStory(ranges, dayOfSlot(slot), o.doc, o.source, o.upstream, o.sample && o.kept ? { sample: o.sample, today: o.kept } : undefined, o.file);
   const claim: StoryClaim2 = {
     by: 'story', v: 2, source: o.source, slot, every, state: s.state, below: belowOf(s), head: s.head, build: o.build, flow: o.flow,
     history: { base: o.baseRef ? { path: o.baseRef.path, sha256: o.baseRef.sha256, bytes: o.baseRef.bytes } : null, tail: tailRef(ms) },
     measured: await measuresHash(o.measures), rows: o.measures.rows, skip, levels: claimLevels(levels, slot),
+    ...(o.file ? { file: copyFile(o.file) } : {}),
   };
   return { claim, ranges, tail: ms };
 }
@@ -421,6 +427,8 @@ export interface ClaimFacts {
   tail?(source: string): { leaves: string[] } | { known: TailRef[] } | { problem: string } | undefined;
   /** plan/2: the flow hash a claim must be told under: the plan's; for a derived run, its held run's (C4). */
   flow?: string;
+  /** The sha256 of the file a watched source's snapshot was read from, where the run knows it: what a claim's file must be. */
+  file?(node: number): string | undefined;
 }
 
 const STATES: readonly string[] = ['calm', 'notes', 'unusual', 'wrong', 'refused', 'recovery', 'unlearned'];
@@ -472,8 +480,17 @@ function claim2Problem(c: Record<string, unknown>): string | null {
   if (!Number.isSafeInteger(c.rows) || (c.rows as number) < 0) return 'counts no rows';
   if (!isDays(c.skip)) return "doesn't list the days left out";
   if (!isLevels(c.levels)) return "doesn't list its levels: a day, metrics and a decision each";
+  if (c.file !== undefined && !isFile(c.file)) return "names a file that isn't a sha256 with, where given, an export time and the last load's slot and sha256";
   return null;
 }
+
+/** Whether a value is a load's file facts as a claim names them (`FileFacts`). */
+const isFile = (v: unknown): v is FileFacts =>
+  isRecord(v) && typeof v.sha256 === 'string' && HEX64.test(v.sha256) && (v.exported === undefined || (typeof v.exported === 'string' && Number.isFinite(Date.parse(v.exported)))) &&
+  (v.previous === undefined || (isRecord(v.previous) && typeof v.previous.slot === 'string' && PERIOD.test(v.previous.slot) && typeof v.previous.sha256 === 'string' && HEX64.test(v.previous.sha256)));
+
+/** File facts as a clean copy keeps them: only their own fields. */
+const copyFile = (f: FileFacts): FileFacts => ({ sha256: f.sha256, ...(f.exported !== undefined ? { exported: f.exported } : {}), ...(f.previous ? { previous: { slot: f.previous.slot, sha256: f.previous.sha256 } } : {}) });
 
 /**
  * Where a claim is judged: the node whose snapshot it must count, that node's origin (for what it says), the history
@@ -555,12 +572,16 @@ function judgeClaim2(c: Record<string, unknown>, at: ClaimAt, facts: ClaimFacts)
   if (measured !== claim.measured) return { node, unjudged: `the claim was told from other measures of ${origin} than its snapshot's` };
   const rows = facts.rows(node);
   if (rows !== claim.rows) return { node, unjudged: `the claim counts ${fmt(claim.rows)} rows of ${origin}, the snapshot holds ${fmt(rows)}` };
+  // A claim told of a file must be told of the one the snapshot was read from: a page can't say yesterday's file is new.
+  const read = facts.file?.(node);
+  if (claim.file && read !== undefined && claim.file.sha256 !== read) return { node, unjudged: `the claim was told of another file than the one ${origin}'s snapshot was read from` };
   return {
     node,
     claim: {
       by: 'story', v: 2, source: claim.source, slot: claim.slot, every: claim.every, state: claim.state, below: claim.below, head: claim.head, build: claim.build, flow: claim.flow,
       history: { base: base ? { path: base.path, sha256: base.sha256, bytes: base.bytes } : null, tail: claim.history.tail ? { size: claim.history.tail.size, root: claim.history.tail.root } : null },
       measured: claim.measured, rows: claim.rows, skip: [...claim.skip], levels: copyLevels(claim.levels),
+      ...(claim.file ? { file: copyFile(claim.file) } : {}),
     },
   };
 }
@@ -590,7 +611,7 @@ export function judgeClaims(plan: Pick<FlowPlan, 'nodes' | 'parameters' | 'publi
  * rows from the manifest, the measures as stored (else as the claims name them), and the flow hash they must be told
  * under.
  */
-export function factsFromClaims(claims: readonly Claim[], o: { rows(node: number): number | undefined; flow?: string; measured?(node: number): string | undefined; origin?(node: number): string | undefined }): ClaimFacts {
+export function factsFromClaims(claims: readonly Claim[], o: { rows(node: number): number | undefined; flow?: string; measured?(node: number): string | undefined; origin?(node: number): string | undefined; file?(node: number): string | undefined }): ClaimFacts {
   // Several watched sources (ADR 0010 §7): each node's measures are its own source's claim's.
   const own = (node: number) => {
     const c2 = claims.filter(isClaim2);
@@ -607,6 +628,7 @@ export function factsFromClaims(claims: readonly Claim[], o: { rows(node: number
     // The claims' own tails: judged again where the pinned tail is gone, each stands for itself.
     tail: () => ({ known: claims.flatMap((c) => (isClaim2(c) && c.history.tail ? [c.history.tail] : [])) }),
     ...(o.flow !== undefined ? { flow: o.flow } : {}),
+    ...(o.file ? { file: o.file } : {}),
   };
 }
 

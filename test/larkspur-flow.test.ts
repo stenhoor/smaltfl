@@ -3,8 +3,8 @@
  * bronze, every file judged as it arrives. Six months of history (September to February, enough for every SLA's late
  * share to be judged), then March run day by day as the app runs it, at the tests' scale (about 600 applications).
  *
- * Bronze holds a planted day by the check that should catch it, and nothing else: an empty file by its amount, a column
- * gone by the schema, a WAF in monitor mode and a controller down by their written bands, rows out of scope and missing
+ * Bronze holds a planted day by the check that should catch it, and nothing else: an empty file by its amount, yesterday's
+ * file again by `fresh`, a column gone by the schema, a WAF in monitor mode and a controller down by their written bands, rows out of scope and missing
  * by the scope, rows twice by the key, and the one SLA day that is real by the due check. Where the answer key says a
  * file only warns (new words from the scanner, a reinstall's findings, a scanner that couldn't log in), the day
  * publishes; the look-alikes are told as usual. Slow (vitest.config.ts SLOW): about two and a half minutes.
@@ -32,7 +32,11 @@ const held = (day: string): Record<string, string> => {
   const out: Record<string, string> = {};
   for (const [file, c] of Object.entries(w.claims.get(day)!)) {
     if (!c) out[file] = 'refused';
-    else if (c.state === 'wrong') out[file] = checkOf(findingsOf(day, file).find((f) => f.severity === 'alert')!.kind) ?? 'none';
+    else if (c.state === 'wrong') {
+      // The story's cause where it names one, else its first finding that is something wrong.
+      const lead = (story(day, file).cause as Finding | null) ?? findingsOf(day, file).find((f) => f.severity === 'alert');
+      out[file] = lead ? (checkOf(lead.kind) ?? 'none') : 'none';
+    }
   }
   return out;
 };
@@ -41,6 +45,7 @@ const MARCH = Array.from({ length: 31 }, (_, i) => addDays('2024-03-01', i));
 describe('bronze: each file judged as it arrives (ADR 0020 §5)', () => {
   const HELD: Record<string, Record<string, string>> = {
     [P.empty]: { mfa: 'amount' },
+    [P.stale]: { backup_jobs: 'fresh' },
     [P.column]: { logging_coverage: 'refused' },
     [P.monitor]: { waf: 'values' },
     [P.scopeCreep]: { waf: 'scope' },
@@ -58,12 +63,14 @@ describe('bronze: each file judged as it arrives (ADR 0020 §5)', () => {
     for (const [day, want] of Object.entries(HELD)) expect(held(day), day).toEqual(want);
   });
 
-  it('holds no other day of March, the stale file of Wed 6 among them until the fresh check is built', () => {
+  it('holds no other day of March', () => {
     for (const day of MARCH.filter((d) => !HELD[d])) expect(held(day), day).toEqual({});
   });
 
   it('says what it found in words a reader can check', () => {
     expect(w.claims.get(P.empty)!.mfa!.head).toBe('Almost no apps: 0');
+    expect(w.claims.get(P.stale)!.backup_jobs!.head).toBe('The same file as Tue 5’s');
+    expect(w.claims.get(P.stale)!.backup_jobs!.file).toMatchObject({ previous: { slot: addDays(P.stale, -1) } });
     expect(w.claims.get(P.monitor)!.waf!.head).toMatch(/^Status fail: \d+(\.\d)?% \(band 0%–15%\)$/);
     expect(w.claims.get(P.scopeCreep)!.waf!.head).toMatch(/^\d+ apps out of scope$/);
     expect(w.claims.get(P.controller)!.backup_jobs!.head).toMatch(/^Status not_assessed: \d+(\.\d)?% \(band 0%–5%\)$/);

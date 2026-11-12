@@ -215,8 +215,15 @@ match smaltdb's `CLAUDE.md`.
   phase.
 - The Larkspur estate (ADR 0020): `test/fixtures/larkspur.ts` draws a fictional group's organisation and leaders over
   time, its applications, 46 platforms, a 14-control catalogue mapped to the frameworks, and twenty daily feeds and two
-  fixed ones (slice 1: calm days, nothing planted); `test/larkspur.test.ts` holds the data to ADR 0020 §1; `node
-  scripts/data/larkspur.mjs OUT_DIR` writes it, each file's export time in `loads.json`, never in its rows.
+  fixed ones, with the bronze days of its answer key planted (`LARKSPUR_TROUBLE`); `test/larkspur.test.ts` holds the data
+  to ADR 0020 §1 and §5; `node scripts/data/larkspur.mjs OUT_DIR` writes it, each file's export time in `loads.json`,
+  never in its rows. `examples/larkspur/` is the flow (slice 2: `bronze.nb.ts`, a gate on every daily file; the ontology's
+  types, links, rows entries and bands; Patch Tuesday in the calendar); `test/larkspur-flow.test.ts` (slow,
+  `test/helpers/larkspur-world.ts`) runs six months and March through the engine against the answer key. The `fresh`
+  check (Q-172): a file exported before the day it covers is the last load's again (`FileFacts`, the `stale` finding in
+  `news.ts`), told with the claim (`StoryClaim2.file`, checked by the run against the snapshot's file, re-told by
+  `retell.ts`), from the data list's `exported_at` and `before` (`fileFacts` in the app; `fileTwins` in `viz.ts`); in
+  a gated flow a volume change under a twentieth isn't told.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).

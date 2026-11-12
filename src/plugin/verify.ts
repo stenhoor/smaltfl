@@ -185,7 +185,7 @@ export async function verifyRun(db: Database, runId: number, options: VerifyOpti
       // A claim/2 against the measures the run stored, under the flow hash it was judged by (a derived run's held run's).
       const claims = kept.judged.flatMap((j) => ('claim' in j ? [j.claim] : []));
       const measuredBy = storedMeasuredOf(db, runId, derived?.from ?? null, plan, byNode);
-      const again = judgeClaims(plan, claims, factsFromClaims(claims, { rows: (node) => byNode.get(node)?.rows, flow: measuredBy.flow ?? plan.flow.hash, measured: measuredBy.measured }));
+      const again = judgeClaims(plan, claims, factsFromClaims(claims, { rows: (node) => byNode.get(node)?.rows, flow: measuredBy.flow ?? plan.flow.hash, measured: measuredBy.measured, file: (node) => byNode.get(node)?.file?.sha256 }));
       for (const j of kept.judged) {
         if (!('claim' in j)) continue;
         const k = again.find((x) => x.node === j.node);

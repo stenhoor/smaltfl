@@ -12,6 +12,7 @@ export const CHECK_EXPLAINED: Record<CheckName, { what: string; how: string }> =
   amount: { what: 'The file has about as many rows as a day like this one.', how: 'Today’s row count against the range learned from like days, or a band written in the ontology.' },
   blanks: { what: 'No column is blank more often than it usually is.', how: 'Each column’s share of blank values against its own usual range.' },
   values: { what: 'Every value is one the file is allowed or known to have.', how: 'New values, values marked bad and values outside a written band, from the ontology and the history.' },
+  fresh: { what: 'The file is new: not the last load’s file again, and exported for the day it covers.', how: 'Its fingerprint (sha256) against the last load’s, and the time its system exported it against the day.' },
   rules: { what: 'Rows keep the rules written for the file.', how: 'The check cell counts the rows that break each rule; dropping too many holds the day.' },
   scope: { what: 'The file covers exactly what it should: no rows for unknown keys, no known key without a row.', how: 'The file’s keys against the dataset the ontology says they come from.' },
   needs: { what: 'No row has a value another dataset’s rule forbids.', how: 'Rows matched against the rule the ontology writes on the other dataset.' },
@@ -233,7 +234,7 @@ export function shareWords(x: number): string {
 
 /** Each check by a plain name, for someone who doesn't know the vocabulary (the gate cell's names are in brackets). */
 export const CHECK_PLAIN: Record<CheckName, string> = {
-  schema: 'the right columns', amount: 'about as many rows as usual', blanks: 'no more blanks than usual', values: 'no bad or unknown values',
+  schema: 'the right columns', fresh: 'a new file, not the last one again', amount: 'about as many rows as usual', blanks: 'no more blanks than usual', values: 'no bad or unknown values',
   rules: 'rows keep the written rules', scope: 'exactly the expected items', needs: 'values other data allows', due: 'nothing overdue',
   reconcile: 'one row per item', shares: 'values as common as usual', shape: 'numbers spread as usual', hours: 'arrivals through the day as usual',
   pairs: 'columns go together as usual', forest: 'the day as a whole as usual', classifier: 'rows that look like earlier days’',

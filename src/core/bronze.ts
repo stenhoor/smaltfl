@@ -58,13 +58,14 @@ export const CHECK_OF_KIND: Record<RuleKind, CheckName> = {
 };
 
 /** The file's contract: checks every file has, which the ontology doesn't write one by one. */
-export const CONTRACT: readonly CheckName[] = ['schema', 'amount', 'blanks'];
+export const CONTRACT: readonly CheckName[] = ['schema', 'fresh', 'amount', 'blanks'];
 /** What the gate learns from the file's history. */
 export const LEARNED: readonly CheckName[] = ['shares', 'shape', 'hours', 'pairs', 'forest', 'classifier'];
 
 /** Each contract and learned check in plain words, as a reader asks it of their data. */
 export const PLAIN: Partial<Record<CheckName, string>> = {
   schema: 'The columns and their types are the ones agreed',
+  fresh: 'A new file: not the last load’s again, exported for its day',
   amount: 'About as many rows as on a day like it',
   blanks: 'No column blank more often than usual',
   shares: 'Each value about as common as usual',

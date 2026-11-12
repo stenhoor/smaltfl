@@ -19,7 +19,8 @@ import { appendPeriods, emptyHistory, settingsFor, tailBefore, watchColumns, typ
 import type { RunResult } from '../../src/core/protocol.js';
 import { measureLoad, pinFile, runFlow, translate } from '../../src/index.js';
 import { pinnedDdl, type DataBindings } from '../../examples/sources.js';
-import { addDays, csvOf, DAILY_FILES, dayFile, fixedFiles, larkspur, type Larkspur, type LarkspurOptions } from '../fixtures/larkspur.js';
+import type { FileFacts } from '../../src/core/news.js';
+import { addDays, csvOf, DAILY_FILES, dayFile, exportedAtOf, fixedFiles, larkspur, type Larkspur, type LarkspurOptions } from '../fixtures/larkspur.js';
 import { SMALTDB } from './engine.js';
 import { loadFlowDir } from './notebooks.js';
 
@@ -56,6 +57,10 @@ export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; bas
     for (const b of Object.values(data.sources)) await d.execAsync(pinnedDdl(b));
     return d;
   };
+  /** Each file's last load, as the data list gives it: what a load's `fresh` is told against (ADR 0020 §2). */
+  const last: Record<string, { slot: string; sha256: string }> = {};
+  /** Each file's facts on the day it was pinned: its bytes, its export time, the load before it. */
+  const facts: Record<string, FileFacts> = {};
   /** A day's files pinned, and what the page says of each: where it came from, when it was exported and its bytes. */
   const pinDay = async (day: string, d: Database) => {
     const sources: NonNullable<Parameters<typeof runFlow>[2]['sources']> = {};
@@ -65,6 +70,8 @@ export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; bas
       const sha256 = await sha256Hex(bytes);
       await pinFile(d, data.sources[f]!.file, bytes, sha256);
       sources[f] = { path: `days/${f}_${day}.csv`, from: 'scripts/data/larkspur.mjs', at: `${day}T06:00:00.000Z`, sha256 };
+      facts[f] = { sha256, exported: exportedAtOf(estate, f, day), ...(last[f] ? { previous: last[f]! } : {}) };
+      last[f] = { slot: day, sha256 };
     }
     return sources;
   };
@@ -125,9 +132,9 @@ export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; bas
       }
       measured[w] = m;
       await pinFile(db, tailPath(w), utf8(canonicalJSON(tailBefore(tails[w]!, '9999') as unknown as Parameters<typeof canonicalJSON>[0])));
-      const t = await loadClaim({ doc, source: w, flow: plan.flow.hash, base: bases[w]!, baseRef: refs[w]!, tail: tails[w]!, measures: m, settings: s, skip: [], build: 'dev' });
+      const t = await loadClaim({ doc, source: w, flow: plan.flow.hash, base: bases[w]!, baseRef: refs[w]!, tail: tails[w]!, measures: m, settings: s, skip: [], build: 'dev', file: facts[w]! });
       told[w] = t?.claim ?? null;
-      if (t) (claims.push(t.claim), (stories[w] = flowStory(t.ranges, day, doc, w)));
+      if (t) (claims.push(t.claim), (stories[w] = flowStory(t.ranges, day, doc, w, undefined, undefined, facts[w])));
     }
     claimsTold.set(day, told);
     measuresTaken.set(day, measured);

@@ -335,7 +335,7 @@ through the engine (Q-169), as ADR 0014's is today.
 | Wed 13 | WAF rows for applications that aren't internet-facing | bronze `waf`, scope | holds: rows out of scope |
 | Thu 14, Fri 15 | *Look-alike:* the high findings from February's Patch Tuesday (Tue 13 Feb) fall due 30 days later, and half the pentests fall due | silver `vuln_status`, due; bronze `pentest_schedule`, due | notes: the usual lateness. Publishes |
 | Fri 15 | 46 annual exceptions expire unrenewed; six of them had been extended once already | silver `effective`, shares (learned) | warns: 46 failures with no change in the raw data, because their exceptions expired today (reason `exception_expired`, not a regression). The remediation queue grows. Publishes |
-| Sat 16, Sun 17 | A weekend password rotation isn't given to `scn-dc-west`, site DC-West's scanner: it can't log in to 120 applications' hosts, and their open findings fall 70% | bronze `findings`, shares by scanner (learned); silver `vuln_status` | warns at bronze: findings from `scn-dc-west` fell by 70% overnight, far below their usual share. Silver says the 120 are not assessed (the scanner couldn't log in), not clean. Gold's scores leave the control out for them, and coverage beside each score falls. An improvement that isn't, seen through. Publishes |
+| Sat 16, Sun 17 | A weekend password rotation isn't given to `scn-dc-west`, site DC-West's scanner: it can't log in to the hosts of DC-West's applications, and their open findings fall 70% | bronze `findings`, values (the ontology's band on scans that couldn't log in); silver `vuln_status` | warns at bronze: "Credentialed no: 3.4% (band 0%–2%)", the findings gate's written values checks warning, not holding. Silver says those applications are not assessed (the scanner couldn't log in), not clean. Gold's scores leave the control out for them, and coverage beside each score falls. An improvement that isn't, seen through. Publishes |
 | Mon 18 | The HR extract drops a dissolved department without reassigning its teams | silver `org_chain`, the rule (one root); `app_owners`, the rule (owner chain) and What happened | holds what reads the chain (`dim_org`, `dim_app`, `org_posture`): four teams no longer reach the group, so 138 of 2,400 applications are Unassigned. The story leads with the organisation and the applications follow. The per-application statuses and scorecards publish: `ownership` reads the teams, which are still there |
 | Tue 19 | Site DC-East's backup controller is down | bronze `backup_jobs`, values (band on not assessed); silver `platform_impact` | holds. The story names `bkp-dc-east` |
 | Wed 20 | A CMDB sync writes 60 duplicates (lower-cased ids, trailing spaces), 12 with another owner | silver `apps_clean`, What happened; needs (conflicts) | 2,460 records in, 2,400 out. Warns: 12 applications with two owners, the newest kept. Publishes |
@@ -411,7 +411,7 @@ run on 600 applications (Q-170).
 Each walk starts where a person would and ends at what they would do. Each crosses all three layers.
 
 1. **Tue 12: a platform, not a hundred applications.**
-   - The day strip shows Tue 12 held. The WAF card's Quality tab says three in five fail, outside the band.
+   - The day strip shows Tue 12 held. The WAF card's Quality tab says one in five fail, outside the band.
    - Silver's `platform_impact` What happened names `ing-east-3` behind 92% of the failures.
    - Gold's `org_posture` shows which leaders' units sit behind that ingress.
    - The remediation queue has one row a failing application, each with its owning team and leader.
@@ -578,6 +578,50 @@ marked *(secondary)*. Vendors' column layouts are borrowed as formats only: ever
   - the SLA clusters fall where §5 needs them (February's high findings due Thu 14 March);
   - re-opened findings keep their first-found date, and the register keeps a row a version;
   - the draw is the same whatever order the days are read in.
+
+**Slice 2, bronze (2026-11-12):** `examples/larkspur/` (`flow.json`, `bronze.nb.ts`, `data.json`), the generator's
+planted bronze days (`LARKSPUR_TROUBLE`), `test/helpers/larkspur-world.ts`, `test/larkspur-flow.test.ts` (slow) and the
+`fresh` check (`test/fresh.test.ts`).
+- **The flow:** 22 sources; an ontology of organisational units, people, applications, platforms and controls with
+  their links; a rows entry for each evidence feed, written from the catalogue's applicability; the columns' meanings;
+  and a gate on every daily file.
+- **What bronze does with March, through the engine** (six months of history, about 600 applications):
+  - **Holds, each by the check that should catch it and by nothing else:**
+    - Mon 4, the amount;
+    - Wed 6, `fresh`;
+    - Thu 7, the schema;
+    - Tue 12 and Tue 19, written bands;
+    - Wed 13 and Tue 26, the scope;
+    - Thu 21, the key;
+    - Sat 23, the due check: "Late: 33 of 52 due".
+  - **Warns and publishes, as the table says:** Tue 5, Sat 9, Sat 16 and Sun 17.
+  - **Told as the usual lateness:** the look-alikes. No other day holds.
+- **Where the text changed as it was built:**
+  - **Counts that move by a row or two:** in a flow with gates, a volume change under a twentieth of a day like it is no
+    longer told (`news.ts`). An inventory (the HR extract, the CMDB, a feed with one row an application) moves by a row
+    or two a day by design. Against a history with almost no spread, one row read as far out and held the day. Flows
+    without gates are judged as before, and the control estate's answer key still passes.
+  - **Patch Tuesday:** it is a recurring day in the flow's calendar (the second Tuesday). The findings ledger's amount
+    swings with it, so its amount only warns. What holds the ledger is its scope: an application the scanner should
+    reach with no row there, not even its scan-information row. A calendar window over the weeks after Patch Tuesday
+    would have reached every file, since a calendar is the flow's.
+  - **Written bands:** a feed's not assessed above one in twenty, a WAF failing more than one in seven, and scans that
+    couldn't log in above 2% of the ledger. The last is how Sat 16 and Sun 17 warn: the share rule tells a value as
+    unusual only four typical misses out, which 0.15% to 3.4% falls just short of.
+  - **The scanner that couldn't log in** is DC-West's whole scanner, not one VM farm: a third of one site was too small
+    to see.
+  - **The forest** is off for the catalogue, its mappings and the organisation's units, which barely change.
+  - **Generator fixes:** a finding is new only on the day it is first found, as scanners say it, and a DR exercise's
+    recovery time is its own result, whatever the lateness since.
+  - **`fresh`, refining Q-172:** the export time is the proof. A file exported before the day it covers is stale, and the
+    same bytes as the last load's are said beside it ("The same file as Tue 5’s"). The same bytes alone aren't proof: the
+    catalogue, and on a quiet day the HR extract or the CMDB, is exported afresh with the bytes it had. A file the data
+    list gives no export time for isn't judged, so the control estate, which has none, is judged as before.
+  - **`fresh` in the claim:** the file's facts (its sha256, its export time, the last load's file) are told with the
+    claim (`StoryClaim2.file`), so the audit's `check --history` re-tells freshness as it was told. A run refuses a claim
+    told of another file than its snapshot was read from. `fresh` joined plan/4's vocabulary, so a gated flow's plan hash
+    moved; no test vector pinned one.
+  - **The picture** is today's file beside the last load's, joined by "=" (`fileTwins` in `viz.ts`).
 
 ## Consequences
 

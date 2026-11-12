@@ -101,7 +101,8 @@ export async function retellClaims(entries: readonly EntryLike[], runs: readonly
           file = appendPeriods(emptyHistory({ flow: r.doc.id, source: c.source, settings: s, columns: own.columns, types: own.types, kinds: own.kinds }), [...tail, own]);
         }
         // The levels the claim names (C6) are learned anew from their days, as the page told it.
-        const story = flowStory(new HistoryRanges(file, { ...rangesFor(r.doc, c.source), recorded: new Set(c.skip), levels: c.levels }), c.slot, r.doc, c.source);
+        // The file the claim was told of (ADR 0020 §2): its facts are the claim's, so freshness is told again as it was.
+        const story = flowStory(new HistoryRanges(file, { ...rangesFor(r.doc, c.source), recorded: new Set(c.skip), levels: c.levels }), c.slot, r.doc, c.source, undefined, undefined, c.file);
         const below = story.amount ? story.amount.value < story.amount.low : story.state === 'wrong' && story.hero === 'amount' && story.cause?.kind === 'volume';
         if (story.state !== c.state || story.head !== c.head || below !== c.below) problems.push(`told again, its story says ${story.state} "${story.head}", and the claim ${c.state} "${c.head}"`);
         else stories?.set(`${r.seq}|${c.source.toLowerCase()}`, story);
