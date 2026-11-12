@@ -93,6 +93,9 @@ export interface RunResult {
   /** plan/2 (ADR 0010 §6): each watched load's measures, as the run measured its snapshot, which the page appends to
    * the source's tail (one a slot, C5) and keeps in the run's record entry. */
   measures?: Measures[];
+  /** How long each step took to read (a source) or build (a stored step), in milliseconds, by its origin (ADR 0015
+   * amendment 4): for people, never in the manifest or a hash. A step reused or folded has none of its own. */
+  timings?: Record<string, number>;
 }
 
 /**

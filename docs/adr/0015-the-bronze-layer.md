@@ -861,3 +861,38 @@ Applied everywhere a day can have no number:
   its key says "no data".
 
 A dashed outline means *not run*, in the strips and around a hatched stretch alike; hatching means *no data*.
+
+## Amendment 4: the silver layer explained, from the bronze layer's rules (2026-11-12, Q-167)
+
+The maintainer: the incoming files are now judged and explained, but what about after a join or a transformation? What
+the steps are, how long they take, what happens to the data, whether rows get dropped. Built on amendment 3's rules: a
+sentence first, a picture that reads without a key, every number against its usual, missing data said as such, for any
+flow.
+
+1. **What happened**, the first tab of every step after the files (`happenedTab`; `src/core/silver.ts` `stepStory`):
+   - **The lead sentence:** what came out, and what was left out or added, and why:
+     - a join's rows with no match: left out by an inner join, kept blank by a left join;
+     - rows matched more than once;
+     - a filter's or a check's rows, with the share and the limit;
+     - rows added up into totals: never said to be left out.
+
+     Rows are said to be left out only where they were. A query with a join or a union and fewer rows out is said as
+     in and out, nothing guessed (`sqlDoes` reads a query's joins, grouping, totals, condition, distinct and union).
+   - **The rows as a picture** (`rowFlow`): each input, then the output, on one scale; rows left out as a dashed red end
+     with why; rows added lighter.
+   - **A step that joins:** the columns that came out blank, with how many rows. A blank there is most often no match.
+   - **What the step does, whatever the day** (`opDoes`), the columns it added, dropped or worked out again, and its
+     code a tap away.
+   - **How long it took:** the run now returns each step's time (`RunResult.timings`). It is never in the manifest or a
+     hash, because it depends on the machine. A step reused or folded says so.
+   - **Its rows and time against the earlier days run here** (`usualRows`, `usualMs`), day by day in a strip. A day not
+     run is a dashed box, under the missing-data convention, with Play the rest.
+   - **Its checks**, by their plain names, folded behind "All 15 checks passed" or "2 of 15 found something".
+2. **What the steps did today**, at the top of every notebook (`notebookSummary`):
+   - one sentence: the notebook's time, and the steps that left rows out;
+   - a line per step: its rows out as a bar on one scale, what it left out as a dashed red end, its time, or "inside"
+     for a step worked out inside the one that reads it, or "reused";
+   - a tap opens the step's What happened.
+
+`test/silver.test.ts` holds the stories to each kind of step, and summarising queries (with or without GROUP BY) to
+nothing left out.

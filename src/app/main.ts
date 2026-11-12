@@ -37,14 +37,15 @@ import { mark } from './perf.js';
 import { isRangesFile, rangesPath, type GivenRanges } from '../core/ranges.js';
 import { aheadServed, giveAhead } from '../core/ahead.js';
 import { modelLeftOut } from '../core/modelcols.js';
-import { apartForColumn, daySpan, gapSaid, gapsOf, GAP_SAID, type Gap, type GapWhy, spanOf as unitSpan, apartSaid, differenceStep, DIFFERENCE_SAID, quantileSaid, columnGist, columnRole, ROLE_SAID, CHECK_EXPLAINED, MODE_EXPLAINED, gateNote, issueNote, issuesNote, rulesNote, sourceNote, timesTogether, unlikeSaid } from '../core/explain.js';
+import { msSaid, sqlDoes, stepStory, usualMs, usualRows, type StepFacts, type StepStory } from '../core/silver.js';
+import { apartForColumn, CHECK_PLAIN, daySpan, gapSaid, gapsOf, GAP_SAID, type Gap, type GapWhy, spanOf as unitSpan, apartSaid, differenceStep, DIFFERENCE_SAID, quantileSaid, columnGist, columnRole, ROLE_SAID, CHECK_EXPLAINED, MODE_EXPLAINED, gateNote, issueNote, issuesNote, rulesNote, sourceNote, timesTogether, unlikeSaid } from '../core/explain.js';
 import { bronzeOf, verdictSaid, type Bronze, type BronzeCheck, type CheckState } from '../core/bronze.js';
 import { button as nbButton, formatMs, makeCell, showError, showMarkdown, showRows as showGridRows, type CellStatus, type CellUi } from './nbcells.js';
 import type { EditorSchema, SchemaColumn } from 'smaltkit/editor';
 import type { GridRow } from 'smaltkit/grid';
 import { derivedAbout, derivedFails, derivedKeys, derivedWhy, donorsOf, filledRows, pinDonor, repairOf, stageRepair, type Listed, type Remedies } from './fills.js';
 import { followsCause as followsFrom, ACT_VERB, CELL_KINDS, CELL_NAMES, CONTEXT_TAG, HEALTH_HEAD, STRIP_KEY, approx, axisShare, recentSpan, cardWords, changeLabel, compact, countLabel, countRange, fallSteps, gateHead, overLabel, gateLabels, gateOf, partLabel, ruleOrder, ruleUsual, shortWho, splitSentence, splitSteps, storyOf, type Cell, type DayStep, type Gate, type HourValues, type Story, type Told } from '../core/story.js';
-import { differenceMeter, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, degrees, weatherHours, chain, composition, contextBars, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
+import { rowFlow, differenceMeter, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, degrees, weatherHours, chain, composition, contextBars, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
 import { sha256Hex } from '../core/hash.js';
 import { counted, glossOf, meaningOf, nounOf as ontologyNoun, propertyOf, saysMore, type Edit, type Noun, type PropertyType } from '../core/ontology.js';
 import { ontologyPage, originSaid, typesShown, type ColumnCard, type FileSection, type Rule } from '../core/ontologypage.js';
@@ -2070,6 +2071,7 @@ function renderNotebookSheet(g: GroupDef, o: NotebookOutline): void {
       h('span', { class: 'nbc-spacer' }),
       nbButton(folded ? 'Show its steps on the canvas' : 'Fold it into one box', folded ? 'Draw the notebook’s steps on the canvas' : 'Draw the notebook as one box on the canvas', () => setFolded(g.id, !folded), 'quiet')),
     h('div', { class: 'sheet-body' },
+      notebookSummary(g.steps),
       cellsHost,
       exploreCells(o),
       isOwner() ? h('details', { class: 'about-flow' }, h('summary', {}, 'The box on the canvas'),
@@ -3114,8 +3116,8 @@ function renderFlowEdits(): void {
 // runs). Above the tabs: what it reads and what reads it, a tap away, and the day's load, to step through without
 // closing it. A card keeps its tab and its place in each tab.
 
-type Tab = 'quality' | 'notebook' | 'news' | 'data' | 'columns' | 'dropped' | 'odd' | 'history' | 'checks' | 'rules' | 'models' | 'integrity' | 'about';
-const TAB_LABEL: Record<Tab, string> = { quality: 'Quality', notebook: 'Notebook', news: 'News', data: 'Data', columns: 'Columns', dropped: 'Dropped', odd: 'Odd rows', history: 'History', checks: 'Checks', rules: 'Rules', models: 'Models', integrity: 'Integrity', about: 'About' };
+type Tab = 'happened' | 'quality' | 'notebook' | 'news' | 'data' | 'columns' | 'dropped' | 'odd' | 'history' | 'checks' | 'rules' | 'models' | 'integrity' | 'about';
+const TAB_LABEL: Record<Tab, string> = { happened: 'What happened', quality: 'Quality', notebook: 'Notebook', news: 'News', data: 'Data', columns: 'Columns', dropped: 'Dropped', odd: 'Odd rows', history: 'History', checks: 'Checks', rules: 'Rules', models: 'Models', integrity: 'Integrity', about: 'About' };
 const drill = {
   tab: new Map<string, Tab>(),
   scroll: new Map<string, number>(),
@@ -3148,7 +3150,8 @@ function tabsOf(card: string): Tab[] {
     bronze.push('integrity', 'about');
     return bronze;
   }
-  const out: Tab[] = ['news', 'data', 'columns'];
+  // A step after the files (the silver layer, ADR 0015 amendment 4): what it did to the data first.
+  const out: Tab[] = st && !profileOf(card) && !state.doc.sources.some((x) => x.id === id) ? ['happened', 'news', 'data', 'columns'] : ['news', 'data', 'columns'];
   // The rules set on a file's columns (rules.ts), each with its switch: on every file's import card, beside its columns.
   if (!profileOf(card) && state.doc.sources.some((x) => x.id === id)) out.push('rules');
   const removes = c !== undefined && c.same && c.rowsIn != null && c.rowsOut != null && c.rowsIn > c.rowsOut;
@@ -3166,6 +3169,7 @@ function tabsOf(card: string): Tab[] {
 }
 
 const TABS: Record<Tab, (card: string, id: string, who: string) => Promise<HTMLElement>> = {
+  happened: (card, id) => happenedTab(card, id),
   quality: (card, id, who) => qualityTab(card, id, who),
   notebook: notebookTab,
   news: newsTab,
@@ -3635,6 +3639,139 @@ function openFileRules(file: string): void {
   ontologyFiles.from = '';
   if (location.hash === '#ontology') void renderOntology().then(() => requestAnimationFrame(() => document.querySelector<HTMLElement>(`.of-item[data-file="${CSS.escape(file)}"]`)?.scrollIntoView({ block: 'start' })));
   else location.hash = '#ontology';
+}
+
+// ------------------------------------------------------------------ the silver layer: what a step did (amendment 4)
+
+/** A step's facts for its story (`stepStory`): its inputs' rows, its rows out, what it changed, how long it took, and its
+ * rows and time on the earlier days run here. As the viewer reads them. */
+async function stepFactsOf(id: string): Promise<{ facts: StepFacts; run: RunRecord } | null> {
+  const run = onScreen() ?? latest();
+  if (!run || !state.engine) return null;
+  const insp = await inspect(run);
+  const i = insp.index.get(id);
+  if (i === undefined || !insp.manifest.has(i)) return null;
+  const n = insp.plan.nodes[i]!;
+  const c = state.changes.get(id) ?? (await changeOf(insp, i));
+  const m = insp.manifest.get(i)!;
+  const inputs = await Promise.all(n.inputs.map(async (j) => ({ name: insp.plan.nodes[j]!.origin, rows: insp.manifest.has(j) ? await rowsAs(insp, j) : null })));
+  // The step on the other days run here: one run a day (the latest), never the day on screen.
+  const byDay = new Map<number, RunRecord>();
+  for (const r of state.runs) if (r.load !== undefined && r.load !== run.load && !r.derived) byDay.set(r.load, r);
+  const earlierRows = [...byDay.values()].map((r) => r.result.manifest.nodes.find((x) => x.origin === id)?.rows).filter((x): x is number => typeof x === 'number');
+  const earlierMs = [...byDay.values()].map((r) => r.result.timings?.[id]).filter((x): x is number => typeof x === 'number');
+  const facts: StepFacts = {
+    op: n.op, origin: id, inputs, rowsOut: c.rowsOut, status: m.status, added: c.added, removed: c.removed, replaced: c.replaced,
+    ms: run.result.timings?.[id] ?? null,
+    usual: { rows: usualRows(earlierRows), ms: usualMs(earlierMs), days: byDay.size },
+    ...(n.op === 'join' ? { join: { how: n.how, on: n.on, unmatched: c.unmatched ?? null } } : {}),
+    ...(n.op === 'filter' ? { filter: { where: n.where } } : {}),
+    ...(n.op === 'aggregate' ? { aggregate: { groupBy: n.groupBy.map(([name]) => name), measures: n.measures.map(([name]) => name) } } : {}),
+    ...(n.op === 'sql' ? { sql: n.sql } : {}),
+    ...(n.op === 'expect' && m.expectations ? { expect: { dropped: m.expectations.dropped, flagged: c.flagged ?? 0, rules: m.expectations.rules.map((r, k) => ({ name: r.name, failed: r.failed, onFail: n.rules[k]?.[2] ?? 'warn' })), maxDropped: n.maxDropped } } : {}),
+  };
+  return { facts, run };
+}
+
+/**
+ * What a notebook's steps did today, at a glance (ADR 0015 amendment 4): a sentence for the whole notebook (its time, the
+ * steps that left rows out), then a line a step, each its rows out as a bar on one scale with what it left out marked
+ * at its end, and its time; a tap opens the step's What happened. Filled in as each step's counts arrive.
+ */
+function notebookSummary(ids: readonly string[]): HTMLElement {
+  const box = h('section', { class: 'sv-sum', 'aria-label': 'What the steps did today' }, h('p', { class: 'foot' }, 'Working out what each step did…'));
+  void (async () => {
+    const got: { id: string; story: StepStory; facts: StepFacts }[] = [];
+    for (const id of ids) {
+      const f = await stepFactsOf(id).catch(() => null);
+      if (f) got.push({ id, facts: f.facts, story: stepStory(f.facts) });
+    }
+    if (!got.length) return box.replaceChildren(h('p', { class: 'foot' }, 'Run the flow to see what each step did.'));
+    const lostOf = (x: (typeof got)[number]) => x.story.flow?.lost.reduce((a, b) => a + b.rows, 0) ?? 0;
+    const total = got.reduce((a, x) => a + (x.facts.ms ?? 0), 0);
+    const dropping = got.filter((x) => lostOf(x) > 0);
+    const max = Math.max(1, ...got.map((x) => Math.max(x.facts.rowsOut ?? 0, ...(x.facts.inputs.map((i) => i.rows ?? 0)))));
+    const head = `${plural(got.length, 'step')} ran${total ? ` in ${msSaid(total)}` : ''}. ${dropping.length ? `${dropping.map((x) => `${x.id} left out ${fmtInt(lostOf(x))}`).join('; ')}.` : 'No step left a row out.'}`;
+    box.replaceChildren(h('h3', { class: 'sv-sum-h' }, 'What the steps did today'), h('p', {}, head),
+      h('ol', { class: 'sv-rows' }, ...got.map((x) => {
+        const out = x.facts.rowsOut ?? 0;
+        const lost = lostOf(x);
+        return h('li', {}, h('button', { type: 'button', class: 'sv-row', onclick: () => openTab(x.id, 'happened'), 'aria-label': `${x.id}: ${x.story.head}` },
+          h('span', { class: 'sv-name' }, x.id),
+          h('span', { class: 'sv-bar', 'aria-hidden': 'true' }, h('span', { class: 'on', style: `width:${((out / max) * 100).toFixed(1)}%` }), lost ? h('span', { class: 'lost', style: `width:${((lost / max) * 100).toFixed(1)}%` }) : null),
+          h('span', { class: 'sv-n' }, `${fmtInt(out)}${lost ? ` · −${fmtInt(lost)}` : ''}`),
+          h('span', { class: 'sv-ms' }, x.facts.status === 'reused' ? 'reused' : x.facts.ms != null ? msSaid(x.facts.ms) : 'inside')));
+      })),
+      h('p', { class: 'foot' }, `Each bar is the rows a step made, on one scale; a dashed red end is the rows it left out. Tap a step for what it did and why.${got.some((x) => x.facts.status === 'folded') ? ' “inside”: worked out inside the step that reads it, so it has no time of its own.' : ''}${got.some((x) => x.facts.status === 'reused') ? ' “reused”: the same inputs and code as an earlier run, so not built again.' : ''}`));
+  })();
+  return box;
+}
+
+/**
+ * The silver card's first tab (ADR 0015 amendment 4): what this step did to the data today, for anyone. The lead
+ * sentence (what came out, and what was left out or added, and why); the rows in and out as a picture; what the step does
+ * and the columns it changed, with its code a tap away; how long it took against its usual; its rows against the
+ * earlier days run here, day by day, with the days not run said as such (the missing-data convention); its checks.
+ */
+async function happenedTab(card: string, id: string): Promise<HTMLElement> {
+  const box = h('div', { class: 'sv' });
+  const got = await stepFactsOf(id);
+  if (!got) return (box.append(h('p', { class: 'foot' }, 'Run the flow to see what this step did.')), box);
+  const { facts, run } = got;
+  const story = stepStory(facts);
+  const lost = story.flow?.lost.reduce((a, b) => a + b.rows, 0) ?? 0;
+  const odd = /^(Fewer|More) than usual/.test(story.usual);
+  const part = (title: string, ...kids: Child[]) => h('section', { class: 'cp-part' }, h('h4', { class: 'cp-h' }, title), ...kids);
+  box.append(h('header', { class: `sv-head${lost || odd ? ' look' : ''}` },
+    lost || odd ? glyphEl('warn', 18) : h('span', { class: 'bq-tick big', 'aria-hidden': 'true' }, '✓'),
+    h('div', {}, h('h3', {}, story.head), story.time ? h('p', {}, story.time) : null)));
+  if (story.flow) box.append(h('div', { class: 'cp-vis' }, svgNode(rowFlow({ ...story.flow, outLabel: id, aria: story.head }))));
+  if (lost && tabsOf(card).includes('dropped')) box.append(h('p', {}, h('button', { type: 'button', class: 'btn small', onclick: () => openTab(card, 'dropped') }, `See the ${fmtInt(lost)} rows left out ›`)));
+  // A step that joins (a join, or a query with an outer join): the columns its rows came out blank in, each with how many
+  // rows. A blank there is most often a row with no match in the dataset the column comes from.
+  if (facts.join?.how === 'left' || (facts.sql && sqlDoes(facts.sql).joins)) {
+    const nv = await nodeView(id, state.viewer).catch(() => null);
+    const q = nv && typeof nv !== 'string' ? await qualityOf(nv.insp, nv.i).catch(() => null) : null;
+    const blanks = (q?.profiles ?? []).map((p) => ({ name: p.name, blank: p.facts.rows - p.facts.present, rows: p.facts.rows })).filter((x) => x.blank > 0).sort((a, b) => b.blank - a.blank);
+    if (q) box.append(part('Rows with no match', blanks.length
+      ? h('div', {}, h('p', {}, `${plural(blanks.length, 'column')} came out blank for some rows: most often a row that found no match where the column comes from.`),
+          h('ul', { class: 'sv-blanks' }, ...blanks.slice(0, 12).map((x) => h('li', {}, h('span', { class: 'sv-name' }, x.name),
+            h('span', { class: 'sv-bar', 'aria-hidden': 'true' }, h('span', { class: 'on', style: `width:${(((x.rows - x.blank) / Math.max(1, x.rows)) * 100).toFixed(1)}%` }), h('span', { class: 'blank', style: `width:${((x.blank / Math.max(1, x.rows)) * 100).toFixed(1)}%` })),
+            h('span', { class: 'sv-n' }, `${fmtInt(x.blank)} of ${fmtInt(x.rows)} blank`)))),
+          blanks.length > 12 ? h('p', { class: 'foot' }, `and ${blanks.length - 12} more; every column is on the Columns tab.`) : null)
+      : h('p', {}, h('span', { class: 'bq-tick', 'aria-hidden': 'true' }, '✓'), ' Every row found its match: no column came out blank.')));
+  }
+  // What it does, whatever the day; the columns it changed; its code.
+  const ref = state.doc.cells?.[id];
+  const nb = ref ? state.doc.notebooks?.find((x) => x.path === ref.notebook) : undefined;
+  const code = ref && nb ? nb.source.split('\n').slice(ref.line - 1, ref.endLine).join('\n').replace(/\s+$/, '') : null;
+  box.append(part('What it does', h('p', {}, story.does), story.columns ? h('p', { class: 'foot' }, story.columns) : null,
+    code ? h('details', { class: 'pf-more' }, h('summary', {}, `Its code · ${ref!.notebook}`), h('pre', { class: 'cell-code', tabindex: '0' }, h('code', {}, code))) : null));
+  // Against the earlier days run here, day by day: a day not run is a dashed box (the missing-data convention).
+  const list = shownLoads();
+  const rowsOn = (k: number) => [...state.runs].reverse().find((r) => r.load === k && !r.derived)?.result.manifest.nodes.find((x) => x.origin === id)?.rows ?? null;
+  const days: StripDay[] = list.map((k) => {
+    const v = rowsOn(k);
+    return v === null ? { day: loads.list[k]!.day, v, low: null, high: null, notRun: true } : { day: loads.list[k]!.day, v, low: facts.usual?.rows?.[0] ?? null, high: facts.usual?.rows?.[1] ?? null };
+  });
+  const notRun = days.filter((d) => d.notRun).length;
+  box.append(part('Against a usual day', h('p', {}, story.usual),
+    days.length > 1 ? svgNode(dayStrip({ days, aria: `${id}: its rows each day run here`, key: ['usual range', 'rows out'], labels: [[0, dayShort(days[0]!.day), 'start'], [days.length - 1, dayShort(days.at(-1)!.day), 'end']] })) : null,
+    notRun ? h('p', { class: 'gap-line' }, h('span', { class: 'gap-swatch notrun', 'aria-hidden': 'true' }), h('span', {}, `${notRun} of the ${days.length} days not run yet, so not compared.`), h('button', { type: 'button', class: 'btn small', onclick: () => void playLoads() }, 'Play the rest ›')) : null));
+  // Its checks, where a gate judges it: each by its plain name, with what it does.
+  const g = gateOn(id);
+  if (g) {
+    const day = newsDay() ?? viewedDay();
+    const findings = day && Object.keys(state.doc.publish?.watch ?? {}).some((w) => w.toLowerCase() === id.toLowerCase()) ? loadFindings(id, day) : [];
+    const on = (Object.entries(g) as [CheckName, CheckMode][]).filter(([, mode]) => mode !== 'off');
+    const found = on.filter(([c]) => findings.some((x) => (x.check ?? checkOf(x.kind)) === c && (x.severity === 'alert' || x.severity === 'warn'))).length;
+    box.append(part('Its checks', h('details', { class: 'pf-more', ...(found ? { open: 'open' } : {}) }, h('summary', {}, found ? `${found} of ${on.length} checks found something` : `All ${on.length} checks passed`), h('ul', { class: 'sv-checks' }, ...on.map(([c, mode]) => {
+      const f = findings.find((x) => (x.check ?? checkOf(x.kind)) === c && (x.severity === 'alert' || x.severity === 'warn'));
+      return h('li', { class: f ? f.severity : 'ok' }, f ? glyphEl(f.severity === 'alert' ? 'alert' : 'warn', 13) : h('span', { class: 'bq-tick', 'aria-hidden': 'true' }, '✓'), h('span', {}, CHECK_PLAIN[c]), h('span', { class: 'foot' }, f ? ` · ${f.title}` : mode === 'hold' ? ' · stops the day if not' : ' · warns if not'));
+    })))));
+  }
+  void run;
+  return box;
 }
 
 // ------------------------------------------------------------------ the bronze card: Quality and Notebook (Q-160)
