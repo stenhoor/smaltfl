@@ -21,6 +21,7 @@ import { HistoryRanges, lateAt, lateUsual, QUANTILES, type Metric, type ValueHis
 import type { NoRange, NormalRange, NormalRanges } from './normal.js';
 import { marksOn, nounOf, partNamed, propertyOf } from './ontology.js';
 import { clockText } from './quality.js';
+import { dayMid, dayShort } from './days.js';
 import { comboNews, unlikeNews } from './combos.js';
 
 export type Severity = 'alert' | 'warn' | 'note' | 'ok';
@@ -31,7 +32,7 @@ export type Act = 'expected' | 'incident' | 'notify' | 'rule' | 'quarantine' | '
 
 export interface Finding {
   key: string;
-  kind: 'volume' | 'hours' | 'gone' | 'share' | 'band' | 'due' | 'scope' | 'needs' | 'reconcile' | 'apart' | 'new' | 'pair' | 'combo' | 'unlike' | 'missing' | 'shape' | 'dropped' | 'rule' | 'schema' | 'weather' | 'calm' | 'unlearned' | 'key' | 'unmatched' | 'placeholder' | 'empty' | 'integrity';
+  kind: 'volume' | 'stale' | 'hours' | 'gone' | 'share' | 'band' | 'due' | 'scope' | 'needs' | 'reconcile' | 'apart' | 'new' | 'pair' | 'combo' | 'unlike' | 'missing' | 'shape' | 'dropped' | 'rule' | 'schema' | 'weather' | 'calm' | 'unlearned' | 'key' | 'unmatched' | 'placeholder' | 'empty' | 'integrity';
   severity: Severity;
   /** How far out, in typical misses (capped): what ranks findings of a severity. */
   score: number;
@@ -75,6 +76,19 @@ export interface Finding {
   due?: { due: number; late: number; within: number; usual?: number };
   /** What the classifier found (an `apart` finding, ADR 0014 §5). */
   apart?: Apart;
+  /** A file that isn't fresh (a `stale` finding, ADR 0020 §2): the file's facts and the day it was loaded for. */
+  file?: FileFacts & { day: string; same: boolean; early: boolean };
+}
+
+/**
+ * What the page knows of a load's file (ADR 0020 §2, Q-172), from the data's list: its sha256, when its system exported
+ * it, and the file the last load read. A file that is the last load's again, byte for byte, or one exported before the day
+ * it covers, isn't fresh.
+ */
+export interface FileFacts {
+  sha256: string;
+  exported?: string;
+  previous?: { slot: string; sha256: string };
 }
 
 /** How a column and a value are said: a column's title, and a code with what it stands for. */
@@ -321,6 +335,14 @@ export function shareWords(value: number, low: number, high: number): { value: s
   const hi = at(high, dr);
   return { value: `${at(value, d)}%`, range: lo === hi ? `${lo}%` : `${lo}–${hi}%` };
 }
+/** An instant as a day and a time in a zone ('UTC' or an IANA name): what a file's export time is read as. */
+function zoned(instant: string, zone: string): { day: string; time: string } | null {
+  const ms = Date.parse(instant);
+  if (!Number.isFinite(ms)) return null;
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: zone || 'UTC', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(ms);
+  const at = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
+  return { day: `${at('year')}-${at('month')}-${at('day')}`, time: `${at('hour')}:${at('minute')}` };
+}
 const cap = (d: number) => (Number.isFinite(d) ? Math.min(99, Math.abs(d)) : 99);
 /** A value in a short title, by its history key: its meaning when that is short ("Credit card"), else its own value
  * ("N", "$2.50"). What the findings and the models' views name a value by. */
@@ -349,7 +371,7 @@ const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
  * A day's findings, most important first; `checks` says whether the flow's checks are the ones the history counted, and
  * `judge` how the source is judged (ADR 0010 §4: bad values, serious columns, floors; the legacy form by default).
  */
-export function newsOf(h: HistoryRanges, day: string, names: Names, options: { checks?: boolean; judge?: JudgeSettings; apart?: { sample: SampleFile; today: readonly (readonly unknown[])[] } } = {}): Finding[] {
+export function newsOf(h: HistoryRanges, day: string, names: Names, options: { checks?: boolean; judge?: JudgeSettings; apart?: { sample: SampleFile; today: readonly (readonly unknown[])[] }; file?: FileFacts } = {}): Finding[] {
   const file = h.file;
   const k = file.days.indexOf(day);
   if (k < 0) return [];
@@ -420,6 +442,26 @@ export function newsOf(h: HistoryRanges, day: string, names: Names, options: { c
     return { ...f, severity: 'note', score: f.score / 10, lasting: since };
   };
 
+  // Fresh (ADR 0020 §2, Q-172): a file its system exported before the day it covers is the last load's again, and hides
+  // whatever changed since. It reads as an ordinary day, so nothing else here sees it; its facts are the data list's,
+  // told with the claim. The export time is the proof: the same bytes alone aren't (a catalogue that doesn't change is
+  // exported afresh each day with the bytes it had), so they are said beside it, and a file with no export time isn't
+  // judged. Judged only where a gate judges the node.
+  const ff = options.file;
+  if (ff && judge.checks) {
+    const same = !!ff.previous && ff.previous.sha256 === ff.sha256 && ff.previous.slot.slice(0, 10) < day;
+    const at = ff.exported ? zoned(ff.exported, judge.calendar.zone) : null;
+    const early = !!at && at.day < day;
+    if (early) {
+      const exported = `exported ${dayMid(at!.day)} at ${at!.time}${judge.calendar.zone === 'UTC' ? ' UTC' : ''}`;
+      const title = same ? `The same file as ${dayShort(ff.previous!.slot.slice(0, 10))}’s` : `Exported ${dayShort(at!.day)}, before its day`;
+      const detail = same
+        ? `Byte for byte the file loaded for ${dayMid(ff.previous!.slot.slice(0, 10))} (sha256 ${ff.sha256.slice(0, 12)}…), ${exported}: whatever changed since isn’t in it.`
+        : `Its system ${exported}, before ${dayMid(day)}, the day it is loaded for: whatever changed since isn’t in it.`;
+      out.push({ key: 'fresh', kind: 'stale', severity: 'alert', score: 99, title, detail, look: 'integrity', rows, file: { ...ff, day, same, early }, acts: ['incident', 'notify'] });
+    }
+  }
+
   // Volume: the day's trips against what a day like it has; all but blank; the hours it stops or starts.
   const trips = judged({ of: 'trips' });
   // The floors, scaled in the general form with the day's expected rows (its rows, when they have no range).
@@ -427,9 +469,13 @@ export function newsOf(h: HistoryRanges, day: string, names: Names, options: { c
   if (trips) {
     const { range, value } = trips;
     const like = `A day like it has ${fmtInt(range.low)} to ${fmtInt(range.high)}.`;
+    // In a flow with gates (ADR 0020 §2, as built), a change under a twentieth of a day like it isn't told: an inventory
+    // (the people in an HR extract, the applications in a CMDB, a feed with one row each) moves by a row or two a day by
+    // design, and against a history with almost no spread one row reads as far out. A file all but empty still is.
+    const slight = judge.checks !== null && Math.abs(value / range.expected - 1) < MATERIAL.relative;
     if (value < MATERIAL.blank * range.expected) {
       out.push({ key: 'volume', kind: 'volume', severity: 'alert', score: 99, title: `Almost no ${noun()}: ${fmtInt(value)}`, detail: like, look: 'history', metric: { of: 'trips' }, value, range, rows: value, acts: ['incident', 'notify', 'expected'] });
-    } else if (outside(trips)) {
+    } else if (outside(trips) && !slight) {
       const more = value > range.expected;
       // A rise or fall that has lasted (most of the week before outside each day's own range the same way, as the
       // weeks after Labor Day 2022 were, with no last year to learn the season from) is told as a note, unless it is

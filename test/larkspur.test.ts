@@ -10,18 +10,21 @@
  * - the evidence feeds say a tool's own status, their columns agree with it, and they name the platforms;
  * - the findings ledger tells a clean application from one the scanner never reached or couldn't log in to;
  * - the risk register keeps a row a version, an extension keeping the first expiry;
- * - a day at the demo's scale is about 2,400 applications and 25,000 rows.
+ * - a day at the demo's scale is about 2,400 applications and 25,000 rows;
+ * - each bronze day ADR 0020 §5 plants is in its file as the table says, and in no other file that day.
  */
 import { describe, expect, it } from 'vitest';
 import {
-  addDays, appliesTo, appsOn, CONTROL, CONTROL_IDS, CONTROLS, csvOf, DAILY_FILES, dayFile, dayFiles, daysFrom, EVIDENCE_FILES, exceptedOn, FILE_CONTROL, fixedFiles,
-  larkspur, LARKSPUR_FROM, LARKSPUR_LOADS_FROM, leaderOf, LEVELS, orgOn, ownedOn, patchTuesday, PLATFORMS, rawStatus, REQUIREMENTS, SEVERITY_DAYS, vulnOn,
+  addDays, appliesTo, appsOn, CONTROL, CONTROL_IDS, CONTROLS, csvOf, DAILY_FILES, dayFile, dayFiles, daysFrom, EVIDENCE_FILES, exceptedOn, exportedAt, exportedAtOf, FILE_CONTROL, fixedFiles,
+  larkspur, LARKSPUR_FROM, LARKSPUR_LOADS_FROM, LARKSPUR_PLANTED, LARKSPUR_TROUBLE, leaderOf, LEVELS, orgOn, ownedOn, patchTuesday, PLATFORMS, rawStatus, REQUIREMENTS, SEVERITY_DAYS, vulnOn,
   type AppOn, type Cell, type DailyFile, type Table,
 } from './fixtures/larkspur.js';
 
 const w = larkspur({ apps: 650 });
+/** The same estate with nothing planted: what a planted day is compared with. */
+const calm = larkspur({ apps: 650, incidents: false });
 /** Calm days across the span: two Patch Tuesdays among them. */
-const CALM = ['2023-06-07', '2023-11-14', '2024-01-09', '2024-02-20', '2024-03-05', '2024-03-18'];
+const CALM = ['2023-06-07', '2023-11-14', '2024-01-09', '2024-02-20', '2024-02-27', '2024-03-01'];
 const cache = new Map<string, Record<DailyFile, Table>>();
 const files = (d: string) => {
   if (!cache.has(d)) cache.set(d, dayFiles(w, d));
@@ -355,7 +358,7 @@ describe('the findings ledger', () => {
   it('holds one or two open findings an application scanned on a calm day, and a batch each Patch Tuesday', () => {
     const open = (d: string) => files(d).findings.rows.filter((r) => r[col(files(d).findings, 'severity')] !== 'info' && r[col(files(d).findings, 'status')] !== 'fixed').length;
     const scannedApps = (d: string) => appsOn(w, d).filter((a) => a.hosting !== 'saas' && a.lifecycle !== 'retired').length;
-    for (const d of ['2023-06-07', '2024-02-20', '2024-03-05']) {
+    for (const d of ['2023-06-07', '2024-02-20', '2024-02-27']) {
       expect(open(d) / scannedApps(d), d).toBeGreaterThan(0.8);
       expect(open(d) / scannedApps(d), d).toBeLessThan(2.5);
     }
@@ -391,7 +394,7 @@ describe('the findings ledger', () => {
         if (row.status === 'fixed') expect(daysFrom(row.fixed_on!, d), row.finding_id).toBeLessThan(30);
         else expect(row.fixed_on, row.finding_id).toBe('');
         if (row.status === 're-opened') expect(daysFrom(row.first_found!, d), row.finding_id).toBeGreaterThan(10);
-        if (row.status === 'new') expect(daysFrom(row.first_found!, d), row.finding_id).toBeLessThan(3);
+        if (row.status === 'new') expect(row.first_found, row.finding_id).toBe(d);
       }
     }
     expect([...statuses].sort()).toEqual(['active', 'fixed', 'new', 're-opened']);
@@ -497,3 +500,148 @@ describe('the draw', () => {
     expect(dayFiles(larkspur({ apps: 120, seed: 4 }), a).cmdb_apps).not.toEqual(firstA.cmdb_apps);
   });
 });
+
+describe('the planted days a file shows as it arrives (ADR 0020 §5)', () => {
+  const P = LARKSPUR_PLANTED;
+  const rowsOf = (t: Table) => t.rows.map((r) => Object.fromEntries(t.columns.map((c, i) => [c, r[i]])) as Record<string, Cell>);
+  const failShare = (t: Table, f: (r: Record<string, Cell>) => boolean = () => true) => share(rowsOf(t).filter(f), (r) => r.status === 'fail');
+
+  it('plants each on its file and day, and nothing with incidents off', () => {
+    const days = new Map<string, string[]>();
+    for (const t of LARKSPUR_TROUBLE) days.set(t.day, [...(days.get(t.day) ?? []), `${t.file}:${t.kind}`]);
+    expect([...days.keys()].sort()).toEqual([...new Set(Object.values(P))].sort());
+    for (const list of days.values()) expect(list).toHaveLength(1);
+    expect(calm.trouble).toEqual([]);
+    // On a planted day, every other file is the calm estate's: all but a late day's file, whose completions planted
+    // late are missing from the days before too (what would have been done early wasn't).
+    const lateFiles = new Set<string>(LARKSPUR_TROUBLE.filter((x) => x.kind === 'late').map((x) => x.file));
+    for (const t of LARKSPUR_TROUBLE.filter((x) => x.kind !== 'late')) {
+      for (const f of DAILY_FILES.filter((x) => x !== t.file && !lateFiles.has(x))) expect(dayFile(w, f, t.day), `${f} on ${t.day}`).toEqual(dayFile(calm, f, t.day));
+    }
+  });
+
+  it('Mon 4: the MFA file arrives with its header and no rows', () => {
+    const t = dayFile(w, 'mfa', P.empty);
+    expect(t.rows).toEqual([]);
+    expect(t.columns).toEqual(dayFile(calm, 'mfa', P.empty).columns);
+  });
+
+  it('Tue 5: the scanner writes statuses and severities in capitals, and nothing else changes', () => {
+    const t = dayFile(w, 'findings', P.capitals);
+    const c = dayFile(calm, 'findings', P.capitals);
+    expect(new Set(cells(t, 'severity'))).toEqual(new Set(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO']));
+    expect(t.rows.map((r) => r.map((v) => (typeof v === 'string' && /^[A-Z-]+$/.test(v) && v !== 'SCAN-INFO' ? v.toLowerCase() : v)))).toEqual(c.rows);
+  });
+
+  it('Wed 6: the backup file is Tuesday’s again, bytes and export time', () => {
+    const wed = dayFile(w, 'backup_jobs', P.stale);
+    const tue = dayFile(w, 'backup_jobs', addDays(P.stale, -1));
+    expect(csvOf(wed.columns, wed.rows)).toBe(csvOf(tue.columns, tue.rows));
+    expect(exportedAtOf(w, 'backup_jobs', P.stale)).toBe(exportedAt('backup_jobs', addDays(P.stale, -1)));
+    expect(exportedAtOf(w, 'mfa', P.stale)).toBe(exportedAt('mfa', P.stale));
+    expect(dayFile(calm, 'backup_jobs', P.stale)).not.toEqual(wed);
+  });
+
+  it('Thu 7: the logging file lacks its retention column', () => {
+    const t = dayFile(w, 'logging_coverage', P.column);
+    expect(t.columns).toEqual(dayFile(calm, 'logging_coverage', P.column).columns.filter((c) => c !== 'retention_days'));
+    expect(t.rows.every((r) => r.length === t.columns.length)).toBe(true);
+  });
+
+  it('Sat 9: agents reinstalled on eks-prod-4 report every open finding there again, found today, beside the old record', () => {
+    const t = rowsOf(dayFile(w, 'findings', P.reinstall));
+    const again = t.filter((r) => String(r.finding_id).endsWith('-R'));
+    const apps = byApp(P.reinstall);
+    expect(again.length).toBeGreaterThan(20);
+    for (const r of again) {
+      expect(apps.get(String(r.app_id))!.platform_id).toBe('eks-prod-4');
+      expect([r.status, r.first_found]).toEqual(['new', P.reinstall]);
+      const old = t.find((x) => x.finding_id === String(r.finding_id).slice(0, -2))!;
+      expect([old.app_id, old.cve, old.plugin]).toEqual([r.app_id, r.cve, r.plugin]);
+      expect(String(old.first_found) < P.reinstall).toBe(true);
+    }
+    expect(dayFile(w, 'findings', addDays(P.reinstall, 1)).rows.some((r) => String(r[0]).endsWith('-R'))).toBe(false);
+  });
+
+  it('Tue 12: ingress ing-east-3 in monitor mode fails every application behind it, most of the day’s WAF failures', () => {
+    const t = dayFile(w, 'waf', P.monitor);
+    const rows = rowsOf(t);
+    const behind = rows.filter((r) => r.ingress === 'ing-east-3');
+    expect(behind.length).toBeGreaterThan(5);
+    for (const r of behind) expect([r.status, r.mode]).toEqual(['fail', 'monitor']);
+    expect(failShare(t)).toBeGreaterThan(0.15);
+    expect(behind.length / rows.filter((r) => r.status === 'fail').length).toBeGreaterThan(0.85);
+    expect(failShare(dayFile(calm, 'waf', P.monitor))).toBeLessThan(0.08);
+  });
+
+  it('Wed 13: WAF rows for applications it doesn’t apply to, a tenth of its rows', () => {
+    const t = dayFile(w, 'waf', P.scopeCreep);
+    const apps = byApp(P.scopeCreep);
+    const out = cells(t, 'app_id').filter((id) => !appliesTo('waf', apps.get(String(id))!));
+    const own = t.rows.length - out.length;
+    expect(out.length).toBe(Math.round(0.1 * own));
+    expect(new Set(cells(t, 'app_id')).size).toBe(t.rows.length);
+  });
+
+  it('Sat 16 and Sun 17: DC-West’s scanner can’t log in to the hosts it scans; it says so, and their open findings fall by about 70%', () => {
+    let planted = 0;
+    let usual = 0;
+    for (const d of [P.credentials, P.credentials2]) {
+      const t = rowsOf(dayFile(w, 'findings', d));
+      const c = rowsOf(dayFile(calm, 'findings', d));
+      const apps = byApp(d);
+      const on = (r: Record<string, Cell>) => apps.get(String(r.app_id))!.deps.scanner === 'scn-dc-west';
+      const info = t.filter((r) => r.plugin === 'SCAN-INFO' && on(r));
+      expect(info.length, d).toBeGreaterThan(3);
+      expect(info.every((r) => r.credentialed === 'no'), d).toBe(true);
+      const open = (rs: Record<string, Cell>[]) => rs.filter((r) => on(r) && r.plugin !== 'SCAN-INFO' && r.source === 'scan' && r.status !== 'fixed').length;
+      planted += open(t);
+      usual += open(c);
+    }
+    // Over the two days, about three in ten are still reported.
+    expect(planted / usual).toBeGreaterThan(0.15);
+    expect(planted / usual).toBeLessThan(0.5);
+    // Monday's scans log in again.
+    const mon = addDays(P.credentials2, 1);
+    expect(rowsOf(dayFile(w, 'findings', mon)).filter((r) => r.plugin === 'SCAN-INFO' && r.credentialed === 'no')).toEqual(rowsOf(dayFile(calm, 'findings', mon)).filter((r) => r.plugin === 'SCAN-INFO' && r.credentialed === 'no'));
+  });
+
+  it('Tue 19: DC-East’s backup controller is down, so the applications it backs up are not assessed', () => {
+    const t = rowsOf(dayFile(w, 'backup_jobs', P.controller));
+    const there = t.filter((r) => r.controller === 'bkp-dc-east');
+    expect(there.length).toBeGreaterThan(5);
+    expect(there.every((r) => r.status === 'not_assessed')).toBe(true);
+    expect(share(t, (r) => r.status === 'not_assessed')).toBeGreaterThan(0.05);
+  });
+
+  it('Thu 21: every TLS row twice', () => {
+    expect(dayFile(w, 'tls', P.double).rows).toEqual([...dayFile(calm, 'tls', P.double).rows, ...dayFile(calm, 'tls', P.double).rows]);
+  });
+
+  it('Fri 22: six in ten of the DR exercises due that day run late, where the usual is about one in ten', () => {
+    // The cohort due on Fri 22, as the file says on the Wednesday before, and how many of it fail the day after.
+    const lateShare = (ww: typeof w) => {
+      const due = new Set(rowsOf(dayFile(ww, 'dr_exercises', addDays(P.drLate, -2))).filter((r) => r.next_due === P.drLate).map((r) => r.app_id));
+      const after = rowsOf(dayFile(ww, 'dr_exercises', addDays(P.drLate, 1))).filter((r) => due.has(r.app_id));
+      return { size: due.size, late: share(after, (r) => r.status === 'fail') };
+    };
+    const planted = lateShare(w);
+    const usual = lateShare(calm);
+    expect(planted.size).toBeGreaterThan(20);
+    expect(planted.late).toBeGreaterThan(0.45);
+    expect(planted.late).toBeLessThan(0.75);
+    expect(usual.late).toBeLessThan(0.25);
+    expect(failShare(dayFile(w, 'dr_exercises', P.drLate))).toBeLessThan(0.05);
+  });
+
+  it('Tue 26: no TLS rows for the Cards unit’s internet-facing applications', () => {
+    const apps = byApp(P.scopeLoss);
+    const cards = (id: Cell) => {
+      const a = apps.get(String(id))!;
+      return a.exposure === 'internet' && w.unit.get(a.owner_team_id)!.business_unit === 'BU-01';
+    };
+    expect(cells(dayFile(w, 'tls', P.scopeLoss), 'app_id').some(cards)).toBe(false);
+    expect(cells(dayFile(calm, 'tls', P.scopeLoss), 'app_id').filter(cards).length).toBeGreaterThan(3);
+  });
+});
+

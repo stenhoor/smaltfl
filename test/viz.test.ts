@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { DEFS, aucTrack, forestTicks, rankBars, amountLine, bandSpan, notJudgedMark, degrees, weatherHours, bulletTrack, composition, contextBars, dayStrip, decisionRow, dumbbellRows, episodeBars, episodeChip, episodeDays, episodeIcon, esc, episodeLine, gateBars, glyph, hourBars, learnStrip, lineage, niceMax, partBar, quantileStrip, reachIcon, ruleRows, splitRows, stripBar, trendPips, waterfall, wrapName } from '../src/app/viz.js';
+import { DEFS, aucTrack, fileTwins, forestTicks, rankBars, amountLine, bandSpan, notJudgedMark, degrees, weatherHours, bulletTrack, composition, contextBars, dayStrip, decisionRow, dumbbellRows, episodeBars, episodeChip, episodeDays, episodeIcon, esc, episodeLine, gateBars, glyph, hourBars, learnStrip, lineage, niceMax, partBar, quantileStrip, reachIcon, ruleRows, splitRows, stripBar, trendPips, waterfall, wrapName } from '../src/app/viz.js';
 
 const hours = Array.from({ length: 24 }, (_, h) => (h < 13 ? 5000 : 300));
 const usual = Array.from({ length: 24 }, () => 5000);
@@ -21,6 +21,7 @@ const charts: [string, string, boolean][] = [
   ['episode', episodeLine({ days: [{ label: 'Thu', got: hours, usual }, { label: 'Fri', got: hours.map(() => 200), usual }], cut: 13, cutLabel: 'Thu 13:00', aria: 'Every hour, Thu to Fri' }), true],
   ['rules', ruleRows({ rules: [{ label: 'Distance', warns: false, rows: 2059, low: 1700, high: 4100, usualLabel: 'usual 1.7k–4.1k' }, { label: 'Passengers', warns: true, rows: 4613, low: null, high: null, usualLabel: '' }], aria: 'Rows each check fails' }), true],
   ['lineage', lineage({ source: 'trips', step: 'trips_valid', outputs: ['zone_hour', 'borough_hour', 'weather_effect'], aria: 'Not published' }), false],
+  ['the same file', fileTwins({ today: { label: 'Loaded for Wed 6', sha256: 'a'.repeat(64), exported: 'exported Tue 5 04:55' }, before: { label: 'Loaded for Tue 5', sha256: 'a'.repeat(64) }, same: true, aria: 'The same file as Tue 5’s' }), false],
   ['dumbbell', dumbbellRows({ rows: [{ label: 'Credit card', today: 0.002, low: 0.75, high: 0.8, todayLabel: '0.2%', usualLabel: 'usually 75–80%', sev: 'alert' }, { label: 'JFK', today: 0, low: 0.037, high: 0.061, todayLabel: 'none', usualLabel: 'usually 3.7–6.1%', gone: true }], aria: 'Shares that moved' }), true],
   ['context', contextBars({ values: [0, 0, 7.2, 1.5], note: 'Sat 7.2 cm · Sun 1.5 cm', label: (v) => `${v.toFixed(1)} cm`, kind: 'snow', aria: 'Snow in Manhattan each day, for context: 7.2 cm on Sat, 1.5 cm on Sun' }), true],
   ['learned', learnStrip({ weeks: [98_000, 101_000, 95_000, 99_000, 97_000, 100_000], weeksLabel: '6 Saturdays before', year: [92_000], yearLabel: ['last year', 'Sep 24'], today: { v: 5732, low: 81_000, high: 147_000, sev: 'alert' }, bandLabel: 'usual 81k–147k', aria: 'The six Saturdays before and the day last year: today’s range from them, 81,000 to 147,000' }), true],
@@ -924,3 +925,18 @@ describe('the models’ views (ADR 0015 §6)', () => {
   });
 });
 
+
+describe('a file that isn’t fresh (fileTwins, ADR 0020 §2)', () => {
+  it('sets today’s file beside the last load’s, the same bytes joined by =, and today’s alone when only its export time is early', () => {
+    const same = fileTwins({ today: { label: 'Loaded for Wed 6', sha256: '3fa21c90' + '0'.repeat(56), exported: 'exported Tue 5 04:55' }, before: { label: 'Loaded for Tue 5', sha256: '3fa21c90' + '0'.repeat(56) }, same: true, aria: 'The same file as Tue 5’s' });
+    expect(same).toContain('Loaded for Wed 6');
+    expect(same).toContain('Loaded for Tue 5');
+    expect(same).toContain('sha256 3fa21c9000…');
+    expect(same).toContain('the same bytes');
+    expect(same).toMatch(/>=<\/text>/);
+    const early = fileTwins({ today: { label: 'Loaded for Wed 6', sha256: 'b'.repeat(64), exported: 'exported Tue 5 04:55' }, before: null, same: false, aria: 'Exported Tue 5, before its day' });
+    expect(early).not.toContain('Tue 5’s');
+    expect(early).toContain('class="lbl-bad"');
+    expect(early.match(/<path class="base"/g)).toHaveLength(1);
+  });
+});

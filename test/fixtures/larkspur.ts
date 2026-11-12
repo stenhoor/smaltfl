@@ -45,7 +45,69 @@ export interface LarkspurOptions {
   /** How many applications are drawn across the span, created before it or during it (default 2,600: about 2,400 are
    * in the CMDB in March 2024, the rest not yet created or retired and gone; the tests draw 650 for about 600). */
   apps?: number;
+  /** The trouble planted (default LARKSPUR_TROUBLE); `incidents: false` plants none. */
+  incidents?: boolean;
+  trouble?: readonly Trouble[];
 }
+
+// ------------------------------------------------------------------ the planted days
+
+/** The days ADR 0020 §5 plants that a file shows as it arrives (slice 2), by the names the tests use. */
+export const LARKSPUR_PLANTED = {
+  empty: '2024-03-04',
+  capitals: '2024-03-05',
+  stale: '2024-03-06',
+  column: '2024-03-07',
+  reinstall: '2024-03-09',
+  monitor: '2024-03-12',
+  scopeCreep: '2024-03-13',
+  credentials: '2024-03-16',
+  credentials2: '2024-03-17',
+  controller: '2024-03-19',
+  double: '2024-03-21',
+  drLate: '2024-03-22',
+  scopeLoss: '2024-03-26',
+} as const;
+
+/** A trouble planted on a day's file: what, and where. */
+export type Trouble =
+  | { day: string; file: DailyFile; kind: 'empty' | 'double' | 'capitals' }
+  /** The file is the day before's again: its bytes and its export time. */
+  | { day: string; file: DailyFile; kind: 'stale' }
+  | { day: string; file: DailyFile; kind: 'column'; column: string }
+  /** The scanner's agents on a cluster are reinstalled: every open finding on its applications is reported again, under
+   * a new id, as found today, beside the record the scanner hasn't purged yet. */
+  | { day: string; file: 'findings'; kind: 'reinstall'; runtime: string }
+  /** A scanner can't log in to the hosts it scans: their scan-information rows say so, and the findings only a
+   * logged-in scan finds (this share of them) aren't reported. */
+  | { day: string; file: 'findings'; kind: 'credentials'; scanner: string; drop: number }
+  /** A configuration push puts an ingress's WAF in monitor mode: every application behind it fails. */
+  | { day: string; file: 'waf'; kind: 'monitor'; ingress: string }
+  /** Rows for applications the control doesn't apply to, as many as this share of its rows. */
+  | { day: string; file: EvidenceFile; kind: 'scope_creep'; share: number }
+  /** A site's backup controller is down: the applications it backs up can't be assessed. */
+  | { day: string; file: 'backup_jobs'; kind: 'controller'; backup: string }
+  /** No rows for one business unit's internet-facing applications. */
+  | { day: string; file: EvidenceFile; kind: 'scope_loss'; business_unit: string }
+  /** An SLA control's completions due on the day run late at this rate, against its usual. */
+  | { day: string; file: EvidenceFile; kind: 'late'; control: ControlId; rate: number };
+
+const P = LARKSPUR_PLANTED;
+export const LARKSPUR_TROUBLE: readonly Trouble[] = [
+  { day: P.empty, file: 'mfa', kind: 'empty' },
+  { day: P.capitals, file: 'findings', kind: 'capitals' },
+  { day: P.stale, file: 'backup_jobs', kind: 'stale' },
+  { day: P.column, file: 'logging_coverage', kind: 'column', column: 'retention_days' },
+  { day: P.reinstall, file: 'findings', kind: 'reinstall', runtime: 'eks-prod-4' },
+  { day: P.monitor, file: 'waf', kind: 'monitor', ingress: 'ing-east-3' },
+  { day: P.scopeCreep, file: 'waf', kind: 'scope_creep', share: 0.1 },
+  { day: P.credentials, file: 'findings', kind: 'credentials', scanner: 'scn-dc-west', drop: 0.7 },
+  { day: P.credentials2, file: 'findings', kind: 'credentials', scanner: 'scn-dc-west', drop: 0.7 },
+  { day: P.controller, file: 'backup_jobs', kind: 'controller', backup: 'bkp-dc-east' },
+  { day: P.double, file: 'tls', kind: 'double' },
+  { day: P.drLate, file: 'dr_exercises', kind: 'late', control: 'dr_exercise', rate: 0.6 },
+  { day: P.scopeLoss, file: 'tls', kind: 'scope_loss', business_unit: 'BU-01' },
+];
 
 // ------------------------------------------------------------------ draws
 
@@ -506,6 +568,7 @@ export interface Larkspur {
   vacancies: ReadonlyMap<string, Vacancy>;
   exceptions: readonly ExceptionDraw[];
   exceptionsOf: ReadonlyMap<string, readonly ExceptionDraw[]>;
+  trouble: readonly Trouble[];
   cache: { findings: Map<string, Finding[]>; cycles: Map<string, Cycle[]>; apps: Map<string, AppOn[]> };
 }
 
@@ -573,7 +636,8 @@ export function larkspur(o: LarkspurOptions = {}): Larkspur {
   }
   const exceptionsOf = new Map<string, ExceptionDraw[]>();
   for (const e of exceptions) exceptionsOf.set(`${e.app}|${e.control}`, [...(exceptionsOf.get(`${e.app}|${e.control}`) ?? []), e]);
-  return { seed, units, unit, children, apps, people, tenures, vacancies, exceptions, exceptionsOf, cache: { findings: new Map(), cycles: new Map(), apps: new Map() } };
+  const trouble = o.incidents === false ? [] : (o.trouble ?? LARKSPUR_TROUBLE);
+  return { seed, units, unit, children, apps, people, tenures, vacancies, exceptions, exceptionsOf, trouble, cache: { findings: new Map(), cycles: new Map(), apps: new Map() } };
 }
 
 // ------------------------------------------------------------------ the organisation on a day
@@ -756,7 +820,9 @@ function cycles(w: Larkspur, a: { app_id: string }, control: ControlId): Cycle[]
     for (let d = addDays(LARKSPUR_FROM, -Math.floor(uniform(seed, a.app_id, control, 'anchor') * s.period)); d <= addDays(LARKSPUR_TO, s.period); d = addDays(d, s.period)) dues.push(d);
   }
   const out = dues.map((due) => {
-    const late = uniform(seed, a.app_id, control, 'late', due) < lateRate;
+    // A planted late day: the completions due on it run late at its rate.
+    const planted = w.trouble.find((t) => t.kind === 'late' && t.control === control && t.day === due);
+    const late = uniform(seed, a.app_id, control, 'late', due) < (planted && planted.kind === 'late' ? planted.rate : lateRate);
     const u = uniform(seed, a.app_id, control, 'when', due);
     return { due, done: late ? addDays(due, int(3, 45, u)) : addDays(due, -int(5, 40, u)) };
   });
@@ -837,11 +903,11 @@ export function findingsOf(w: Larkspur, a: { app_id: string }): Finding[] {
   return out;
 }
 
-/** A finding's state on a day: open (new for its first three days), re-opened, fixed in the last thirty days, or not
- * listed. */
+/** A finding's state on a day: open (new on the day it is first found, as scanners say it), re-opened, fixed in the last
+ * thirty days, or not listed. */
 export function findingOn(f: Finding, d: string): { status: 'new' | 'active' | 're-opened' | 'fixed'; fixedOn: string | null } | null {
   if (d < f.found) return null;
-  if (d < f.fixed) return { status: daysFrom(f.found, d) < 3 ? 'new' : 'active', fixedOn: null };
+  if (d < f.fixed) return { status: d === f.found ? 'new' : 'active', fixedOn: null };
   if (f.reopen && f.reopen.at <= d) {
     if (d < f.reopen.fixed) return { status: 're-opened', fixedOn: null };
     return d < addDays(f.reopen.fixed, 30) ? { status: 'fixed', fixedOn: f.reopen.fixed } : null;
@@ -878,7 +944,7 @@ export type EvidenceFile = (typeof EVIDENCE_FILES)[number];
 export const COLUMNS: Record<DailyFile | (typeof FIXED_FILES)[number], readonly (readonly [string, 'TEXT' | 'INTEGER' | 'REAL'])[]> = {
   hr_org_units: [['org_unit_id', 'TEXT'], ['parent_id', 'TEXT'], ['name', 'TEXT'], ['level', 'TEXT'], ['leader_id', 'TEXT'], ['acting_leader_id', 'TEXT'], ['cost_centre', 'TEXT']],
   hr_people: [['person_id', 'TEXT'], ['display_name', 'TEXT'], ['title', 'TEXT'], ['manager_id', 'TEXT'], ['org_unit_id', 'TEXT'], ['status', 'TEXT'], ['in_role_since', 'TEXT']],
-  cmdb_apps: [['app_id', 'TEXT'], ['name', 'TEXT'], ['owner_team_id', 'TEXT'], ['tier', 'INTEGER'], ['exposure', 'TEXT'], ['data_class', 'TEXT'], ['datastore', 'TEXT'], ['hosting', 'TEXT'], ['site', 'TEXT'], ['platform_id', 'TEXT'], ['lifecycle', 'TEXT'], ['created_on', 'TEXT'], ['go_live', 'TEXT'], ['retire_by', 'TEXT'], ['updated_at', 'TEXT']],
+  cmdb_apps: [['app_id', 'TEXT'], ['name', 'TEXT'], ['owner_team_id', 'TEXT'], ['tier', 'TEXT'], ['exposure', 'TEXT'], ['data_class', 'TEXT'], ['datastore', 'TEXT'], ['hosting', 'TEXT'], ['site', 'TEXT'], ['platform_id', 'TEXT'], ['lifecycle', 'TEXT'], ['created_on', 'TEXT'], ['go_live', 'TEXT'], ['retire_by', 'TEXT'], ['updated_at', 'TEXT']],
   cloud_assets: [['account_id', 'TEXT'], ['region', 'TEXT'], ['cluster', 'TEXT'], ['app_tag', 'TEXT'], ['resources', 'INTEGER']],
   control_catalog: [['control_id', 'TEXT'], ['name', 'TEXT'], ['csf_function', 'TEXT'], ['csf_category', 'TEXT'], ['weight', 'INTEGER'], ['cadence', 'TEXT'], ['applies_exposure', 'TEXT'], ['applies_tier', 'TEXT'], ['applies_data_class', 'TEXT'], ['applies_datastore', 'TEXT'], ['applies_hosting', 'TEXT'], ['applies_lifecycle', 'TEXT'], ['depends_on', 'TEXT'], ['compensated_by', 'TEXT'], ['provided_by', 'TEXT'], ['allocation', 'TEXT']],
   control_requirements: [['control_id', 'TEXT'], ['framework', 'TEXT'], ['requirement', 'TEXT'], ['relationship', 'TEXT']],
@@ -926,7 +992,8 @@ function evidenceRow(w: Larkspur, file: EvidenceFile, a: AppOn, d: string, statu
     }
     case 'waf': {
       const how = u('how');
-      return [a.app_id, a.deps.ingress ?? '', na ? null : !fail ? 'block' : how < 0.5 ? 'monitor' : how < 0.8 ? 'off' : 'block', na ? null : fail && how >= 0.8 ? int(46, 200, u('age')) : int(0, 30, u('age')), status];
+      // A failing WAF is mostly one left in monitor mode or running stale rules; one switched off is rare.
+      return [a.app_id, a.deps.ingress ?? '', na ? null : !fail ? 'block' : how < 0.55 ? 'monitor' : how < 0.65 ? 'off' : 'block', na ? null : fail && how >= 0.65 ? int(46, 200, u('age')) : int(0, 30, u('age')), status];
     }
     case 'encryption':
       return [a.app_id, pick(['postgres', 'oracle', 'sqlserver', 'object-store', 'document-db', 'files'], steady('store')), a.deps.key_store ?? '', na ? null : fail ? 'no' : 'yes', status];
@@ -962,14 +1029,46 @@ function evidenceRow(w: Larkspur, file: EvidenceFile, a: AppOn, d: string, statu
         return [a.app_id, last, next, steady('tester') < 0.6 ? 'internal red team' : 'third party', na ? null : highs, status];
       }
       if (file === 'key_rotation') return [a.app_id, a.deps.key_store ?? '', last, next, na || !st.last ? null : daysFrom(st.last, d), status];
-      if (file === 'dr_exercises') return [a.app_id, last, next, na ? null : fail && u('rto') < 0.3 ? 'no' : 'yes', status];
+      // Whether the last exercise recovered in time is that exercise's own result, whatever the lateness since.
+      if (file === 'dr_exercises') return [a.app_id, last, next, na ? null : st.last && uniform(seed, a.app_id, 'rto', st.last) < 0.04 ? 'no' : 'yes', status];
       return [a.app_id, last, next, na ? null : int(1, 4, u('reviewers')), na ? null : int(0, 12, u('revoked')), status];
     }
   }
 }
 
-/** A day's file, with nothing planted. Rows come in key order. */
+/**
+ * A day's file, as it arrives: in key order, with the day's planted trouble. A stale file is the day before's again;
+ * the rest is planted as the file is drawn (an ingress in monitor mode, a controller down, a scanner that can't log in,
+ * agents reinstalled, rows out of scope or missing) or on the drawn file (no rows, rows twice, a column gone, capitals).
+ */
 export function dayFile(w: Larkspur, file: DailyFile, d: string): Table {
+  const planted = w.trouble.filter((t) => t.day === d && t.file === file);
+  if (planted.some((t) => t.kind === 'stale')) return dayFile(w, file, addDays(d, -1));
+  const { columns, rows } = drawnFile(w, file, d, planted);
+  let out = rows;
+  for (const t of planted) {
+    if (t.kind === 'empty') out = [];
+    if (t.kind === 'double') out = [...out, ...out.map((r) => [...r])];
+    if (t.kind === 'capitals') {
+      const at = ['status', 'severity'].map((c) => columns.indexOf(c)).filter((i) => i >= 0);
+      out = out.map((r) => r.map((v, i) => (at.includes(i) && typeof v === 'string' ? v.toUpperCase() : v)));
+    }
+    if (t.kind === 'column') {
+      const at = columns.indexOf(t.column);
+      if (at < 0) throw new Error(`${file} has no column ${t.column}`);
+      columns.splice(at, 1);
+      out = out.map((r) => r.filter((_, i) => i !== at));
+    }
+  }
+  return { columns, rows: out };
+}
+
+/** When a file was exported: the day's time, or the day before's for a file that is the day before's again. */
+export function exportedAtOf(w: Larkspur, file: DailyFile, d: string): string {
+  return w.trouble.some((t) => t.day === d && t.file === file && t.kind === 'stale') ? exportedAtOf(w, file, addDays(d, -1)) : exportedAt(file, d);
+}
+
+function drawnFile(w: Larkspur, file: DailyFile, d: string, planted: readonly Trouble[]): Table {
   const columns = columnsOf(file);
   const rows: Cell[][] = [];
   const apps = appsOn(w, d);
@@ -995,24 +1094,48 @@ export function dayFile(w: Larkspur, file: DailyFile, d: string): Table {
     case 'exceptions':
       rows.push(...exceptionRows(w, d));
       break;
-    case 'findings':
+    case 'findings': {
+      const locked = planted.find((t) => t.kind === 'credentials');
+      const reinstalled = planted.find((t) => t.kind === 'reinstall');
       for (const a of apps) {
         if (!scanned(a)) continue;
         const scan = scanOn(w, a, d);
+        const noLogin = !!locked && locked.kind === 'credentials' && a.deps.scanner === locked.scanner;
+        const again = !!reinstalled && reinstalled.kind === 'reinstall' && a.platform_id === reinstalled.runtime;
         const seen = scan.scanned ? d : addDays(d, -1);
-        if (scan.scanned) rows.push([`SCAN-${a.app_id}`, a.app_id, 'scan', a.deps.scanner ?? '', 'SCAN-INFO', '', 'info', 'active', a.go_live < d ? a.go_live : d, d, '', '', scan.credentialed ? 'yes' : 'no']);
+        if (scan.scanned) rows.push([`SCAN-${a.app_id}`, a.app_id, 'scan', a.deps.scanner ?? '', 'SCAN-INFO', '', 'info', 'active', a.go_live < d ? a.go_live : d, d, '', '', scan.credentialed && !noLogin ? 'yes' : 'no']);
         for (const f of findingsOf(w, a)) {
           const on = findingOn(f, d);
           // A scanner that didn't reach the application today can't have found anything new on it today.
           if (!on || (!scan.scanned && f.found >= d)) continue;
           const open = on.status !== 'fixed';
+          // A scan that couldn't log in misses what only a logged-in scan finds.
+          if (noLogin && open && f.source === 'scan' && uniform(w.seed, f.id, 'unseen', d) < (locked as { drop: number }).drop) continue;
           rows.push([f.id, a.app_id, f.source, f.source === 'scan' ? a.deps.scanner ?? '' : '', f.plugin, f.cve, f.severity, on.status, f.found, open ? seen : addDays(on.fixedOn!, -1), on.fixedOn ?? '', f.due, '']);
+          if (again && open && f.source === 'scan') rows.push([`${f.id}-R`, a.app_id, f.source, a.deps.scanner ?? '', f.plugin, f.cve, f.severity, 'new', d, d, '', addDays(d, SEVERITY_DAYS[f.severity]), '']);
         }
       }
       break;
+    }
     default: {
       const control = FILE_CONTROL[file];
-      for (const a of apps) if (appliesTo(control, a)) rows.push(evidenceRow(w, file, a, d, rawStatus(w, control, a, d)));
+      let covered = apps.filter((a) => appliesTo(control, a));
+      for (const t of planted) {
+        if (t.kind === 'scope_loss') covered = covered.filter((a) => !(a.exposure === 'internet' && w.unit.get(a.owner_team_id)!.business_unit === t.business_unit));
+        if (t.kind === 'scope_creep') {
+          const out = apps.filter((a) => !appliesTo(control, a) && (a.lifecycle === 'active' || a.lifecycle === 'retiring')).sort((x, y) => uniform(w.seed, x.app_id, 'creep', d) - uniform(w.seed, y.app_id, 'creep', d));
+          covered = [...covered, ...out.slice(0, Math.round(t.share * covered.length))].sort((x, y) => (x.app_id < y.app_id ? -1 : 1));
+        }
+      }
+      const monitor = planted.find((t) => t.kind === 'monitor');
+      const down = planted.find((t) => t.kind === 'controller');
+      for (const a of covered) {
+        const behind = !!monitor && monitor.kind === 'monitor' && a.deps.ingress === monitor.ingress;
+        const unreached = !!down && down.kind === 'controller' && a.deps.backup === down.backup;
+        const row = evidenceRow(w, file, a, d, behind ? 'fail' : unreached ? 'not_assessed' : rawStatus(w, control, a, d));
+        if (behind) row[columns.indexOf('mode')] = 'monitor';
+        rows.push(row);
+      }
     }
   }
   return { columns, rows };

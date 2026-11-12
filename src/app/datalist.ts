@@ -15,6 +15,8 @@ export interface Listed {
   sha256: string;
   bytes?: number;
   rows: number;
+  /** When the file's system exported it, where the list says (ADR 0020 §2): what `fresh` reads against the day. */
+  exported?: string;
   /** With several daily sources (ADR 0013 §5): the day's file of each, by source id, this one's among them. */
   files?: Record<string, Listed>;
 }
@@ -27,6 +29,9 @@ export interface ListedSource extends Binding {
   entry?: FileEntry;
   loads?: Listed[];
   donors?: Listed[];
+  /** The file of the last day before the loads, the history's last (ADR 0020 §2): what the first load's `fresh` is
+   * told against. */
+  before?: { day: string; sha256: string };
 }
 
 /** A data list, read. */
@@ -61,8 +66,8 @@ export interface DataList {
   files: Record<string, FileEntry>;
 }
 
-type RawLoad = { day?: string; slot?: string; file: string; sha256: string; bytes?: number; rows: number };
-const listedOf = (l: RawLoad): Listed => ({ day: l.slot ?? l.day ?? '', file: l.file, sha256: l.sha256, ...(l.bytes !== undefined ? { bytes: l.bytes } : {}), rows: l.rows });
+type RawLoad = { day?: string; slot?: string; file: string; sha256: string; bytes?: number; rows: number; exported_at?: string; exported?: string };
+const listedOf = (l: RawLoad): Listed => ({ day: l.slot ?? l.day ?? '', file: l.file, sha256: l.sha256, ...(l.bytes !== undefined ? { bytes: l.bytes } : {}), rows: l.rows, ...((l.exported_at ?? l.exported) ? { exported: (l.exported_at ?? l.exported)! } : {}) });
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /**
@@ -76,7 +81,8 @@ export function readDataList(raw: unknown, fallback: DataBindings): DataList {
   if (index.format === 2) {
     const sources: Record<string, ListedSource> = {};
     for (const [id, s] of Object.entries((index.sources ?? {}) as Record<string, Record<string, unknown>>)) {
-      sources[id] = { ...(s as unknown as Binding), ...(s.entry ? { entry: s.entry as FileEntry } : {}), ...(Array.isArray(s.loads) ? { loads: (s.loads as RawLoad[]).map(listedOf) } : {}), ...(Array.isArray(s.donors) ? { donors: (s.donors as RawLoad[]).map(listedOf) } : {}) };
+      const before = isRecord(s.before) && typeof s.before.day === 'string' && typeof s.before.sha256 === 'string' ? { day: s.before.day, sha256: s.before.sha256 } : null;
+      sources[id] = { ...(s as unknown as Binding), ...(s.entry ? { entry: s.entry as FileEntry } : {}), ...(Array.isArray(s.loads) ? { loads: (s.loads as RawLoad[]).map(listedOf) } : {}), ...(Array.isArray(s.donors) ? { donors: (s.donors as RawLoad[]).map(listedOf) } : {}), ...(before ? { before } : {}) };
     }
     const histories = (index.histories ?? {}) as Record<string, FileEntry>;
     const samples = (isRecord(index.samples) ? index.samples : {}) as Record<string, FileEntry>;

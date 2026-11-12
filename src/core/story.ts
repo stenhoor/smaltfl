@@ -205,7 +205,7 @@ export const ACT_VERB: Record<Act, string> = {
 };
 
 /** The health row's cells (ADR 0008 §6), in order, each with the kinds of finding it holds and its name on screen. */
-export const CELL_KINDS: Record<Cell, readonly Finding['kind'][]> = { file: ['integrity', 'schema'], amount: ['volume'], hours: ['hours'], values: ['gone', 'share', 'band', 'due', 'scope', 'needs', 'reconcile', 'new', 'pair', 'combo', 'unlike', 'apart', 'missing'], shape: ['shape'] };
+export const CELL_KINDS: Record<Cell, readonly Finding['kind'][]> = { file: ['integrity', 'stale', 'schema'], amount: ['volume'], hours: ['hours'], values: ['gone', 'share', 'band', 'due', 'scope', 'needs', 'reconcile', 'new', 'pair', 'combo', 'unlike', 'apart', 'missing'], shape: ['shape'] };
 export const CELL_NAMES: Record<Cell, string> = { file: 'File', amount: 'Amount', hours: 'Hours', values: 'Values', shape: 'Shape' };
 /** The health row's heading: what the five cells are, said once and counted at a glance. */
 export const HEALTH_HEAD = 'Health';
@@ -216,7 +216,7 @@ export const SETTLE_LINE = 'Total in range · nothing to do';
 
 const RANK: Record<Severity, number> = { alert: 0, warn: 1, note: 2, ok: 3 };
 const VALUE_KINDS = new Set<Finding['kind']>(['gone', 'share', 'missing']);
-const NEVER_FOLD = new Set<Finding['kind']>(['new', 'pair', 'combo', 'unlike', 'apart', 'band', 'due', 'scope', 'needs', 'reconcile', 'schema', 'integrity', 'weather', 'calm', 'unlearned']);
+const NEVER_FOLD = new Set<Finding['kind']>(['new', 'pair', 'combo', 'unlike', 'apart', 'band', 'due', 'scope', 'needs', 'reconcile', 'schema', 'integrity', 'stale', 'weather', 'calm', 'unlearned']);
 /** The written rules (ADR 0014 §4, §6): a step's own whatever its sources said. */
 const WRITTEN_RULES = new Set<Finding['kind']>(['scope', 'needs', 'reconcile']);
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];

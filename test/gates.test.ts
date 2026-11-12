@@ -84,7 +84,7 @@ export const late = sql\`SELECT count(*) AS n FROM \${auth_gate}\`;
     const issues = async (cells: string) => (await stepsOfNotebooks(flow(`${SETUP}${BODY}${cells}`), ts)).issues.map((i) => i.message);
     expect(await issues("cell('g');\nexport const g = gate(nobody);\n")).toEqual(['gate() judges a source or step by its name; nothing defines nobody as one']);
     expect(await issues("cell('g');\nexport const g = gate(auth_valid);\n")).toEqual(['gate(auth_valid, …): auth_valid is a step nothing publishes or watches; a gate judges what the flow judges or lets out']);
-    expect(await issues("cell('g');\nexport const g = gate(auth, { checks: { smell: 'hold' } });\n")).toEqual(["gate(auth, …): smell isn't a check (schema, amount, blanks, values, rules, scope, needs, due, reconcile, shares, shape, hours, pairs, forest, classifier)"]);
+    expect(await issues("cell('g');\nexport const g = gate(auth, { checks: { smell: 'hold' } });\n")).toEqual(["gate(auth, …): smell isn't a check (schema, fresh, amount, blanks, values, rules, scope, needs, due, reconcile, shares, shape, hours, pairs, forest, classifier)"]);
     expect(await issues("cell('g');\nexport const g = gate(auth, { checks: { shares: 'loud' } });\n")).toEqual(['gate(auth, …): checks.shares is one of hold, warn, off']);
     expect(await issues("cell('g');\nexport const g = gate(auth, { layer: 'platinum' });\n")).toEqual(['gate(auth, …): layer is one of bronze, silver, gold']);
     expect(await issues("cell('g');\nexport const g = gate(auth, { strict: true });\n")).toEqual(["gate(auth, …): strict isn't a gate's setting (layer, checks, scope, needs, reconcile): refused rather than ignored"]);

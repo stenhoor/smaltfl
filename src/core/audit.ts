@@ -778,7 +778,7 @@ function engineHoldsProblems(kept: EngineHolds, about: unknown, plan: FlowPlan, 
   if (!Array.isArray(kept.holds) || !Array.isArray(kept.judged)) problems.push("what the engine kept of what held it isn't shaped as holds and judged sources");
   try {
     const claims = judged.flatMap((j) => ('claim' in j ? [j.claim] : []));
-    const again = judgeClaims(plan, claims, factsFromClaims(claims, { rows: (node) => m.nodes.find((n) => n.node === node)?.rows, flow: claimsFlow(claims, m), origin: (node) => plan.nodes[node]?.origin }));
+    const again = judgeClaims(plan, claims, factsFromClaims(claims, { rows: (node) => m.nodes.find((n) => n.node === node)?.rows, flow: claimsFlow(claims, m), origin: (node) => plan.nodes[node]?.origin, file: (node) => m.nodes.find((n) => n.node === node)?.file?.sha256 }));
     const same = (x: unknown, y: unknown) => x !== undefined && y !== undefined && canonicalJSON(x as JSONValue) === canonicalJSON(y as JSONValue);
     if (judged.some((j) => 'claim' in j && !same(again.find((k) => k.node === j.node), j))) problems.push("the claims the engine judged it by don't match it");
     if (!same(carry(spare(holdsOf(plan, m, judged), readBefore), earlier), holds)) problems.push("the engine's holds for it aren't what its manifest and its judged sources hold");
@@ -830,7 +830,7 @@ function heldProblems(about: unknown, plan: FlowPlan, m: RunManifest, problems: 
   const stated = holds.filter((h) => h.by === 'checks');
   if (JSON.stringify(checks.map((h) => [h.node, h.said])) !== JSON.stringify(stated.map((h) => [h.node, h.said]))) problems.push("the checks it says held it aren't what its manifest's counts hold");
   const claims = holds.flatMap((h) => (h.by === 'story' && h.claim ? [h.claim] : []));
-  const judged = judgeClaims(plan, claims, factsFromClaims(claims, { rows: (node) => m.nodes.find((n) => n.node === node)?.rows, flow: claimsFlow(claims, m), origin: (node) => plan.nodes[node]?.origin }));
+  const judged = judgeClaims(plan, claims, factsFromClaims(claims, { rows: (node) => m.nodes.find((n) => n.node === node)?.rows, flow: claimsFlow(claims, m), origin: (node) => plan.nodes[node]?.origin, file: (node) => m.nodes.find((n) => n.node === node)?.file?.sha256 }));
   for (const h of holds.filter((x) => x.by === 'story' || x.by === 'unjudged')) {
     if (!watchesOf(pub).some((w) => w.node === h.node)) problems.push(`it says ${h.origin} held it, which the plan doesn't watch`);
     else if (h.by === 'story') {

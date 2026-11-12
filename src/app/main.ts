@@ -24,7 +24,7 @@ import { effectOf, type Effect } from '../core/effect.js';
 import { daysFrom, HistoryRanges, isHistory, metricKey, QUANTILES, timeOf, type HistoryFile, type Metric } from '../core/history.js';
 import type { Identity, ManifestNode, SignedManifest, SourceFile, SourceIngestRecord } from '../core/manifest.js';
 import type { Backtest, NormalRange, NormalRanges, Place } from '../core/normal.js';
-import { flowNames, isPlaceholder, judgeOf, labelOf, newsOf, shareWords, tableNewsOf, usualHours, type Act, type Finding, type Names, type Severity, type TableFacts } from '../core/news.js';
+import { flowNames, isPlaceholder, judgeOf, labelOf, newsOf, shareWords, tableNewsOf, usualHours, type Act, type FileFacts, type Finding, type Names, type Severity, type TableFacts } from '../core/news.js';
 import { writtenRules, CHECK_MODES, CHECK_NAMES, CHECK_SAID, checkOf, gateChecksOf, gateLayerOf, hasGates, JUDGED, LAYER_SAID, WRITTEN, type CheckMode, type CheckName, type GateChecks } from '../core/gates.js';
 import { toggleCheck } from '../core/gatecell.js';
 import { calendarHead, heldLoadLine, dayMid, dayShort, guessWords, judgedWords, lacked, MARK as REMEDY_MARK, noRowsBefore, reachLabel, readersOf as readersHad, readersSee, rowsFrom, shortfall, shownRun, stagedBar, stoppedLine as stoppedWords, toldLine, type DayState, type EpisodeDay, type KeptMark, type PauseState, type RemedyMark } from '../core/days.js';
@@ -45,7 +45,7 @@ import type { EditorSchema, SchemaColumn } from 'smaltkit/editor';
 import type { GridRow } from 'smaltkit/grid';
 import { derivedAbout, derivedFails, derivedKeys, derivedWhy, donorsOf, filledRows, pinDonor, repairOf, stageRepair, type Listed, type Remedies } from './fills.js';
 import { followsCause as followsFrom, ACT_VERB, CELL_KINDS, CELL_NAMES, CONTEXT_TAG, HEALTH_HEAD, STRIP_KEY, approx, axisShare, recentSpan, cardWords, changeLabel, compact, countLabel, countRange, fallSteps, gateHead, overLabel, gateLabels, gateOf, partLabel, ruleOrder, ruleUsual, shortWho, splitSentence, splitSteps, storyOf, type Cell, type DayStep, type Gate, type HourValues, type Story, type Told } from '../core/story.js';
-import { rowFlow, differenceMeter, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, degrees, weatherHours, chain, composition, contextBars, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
+import { rowFlow, differenceMeter, fileTwins, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, degrees, weatherHours, chain, composition, contextBars, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
 import { sha256Hex } from '../core/hash.js';
 import { counted, glossOf, meaningOf, nounOf as ontologyNoun, propertyOf, saysMore, type Edit, type Noun, type PropertyType } from '../core/ontology.js';
 import { ontologyPage, originSaid, typesShown, type ColumnCard, type FileSection, type Rule } from '../core/ontologypage.js';
@@ -3492,7 +3492,8 @@ function loadFindings(id: string, day: string): Finding[] {
   const h = rangesForLoad(id);
   if (!h || !h.file.days.includes(day)) return [];
   const apart = apartFor(id, day);
-  return newsOf(h, day, flowNames(state.doc, id), { checks: countedChecks(state.doc, h, id), judge: judgeOf(state.doc, id), ...(apart ? { apart } : {}) });
+  const file = fileFacts(id, day);
+  return newsOf(h, day, flowNames(state.doc, id), { checks: countedChecks(state.doc, h, id), judge: judgeOf(state.doc, id), ...(apart ? { apart } : {}), ...(file ? { file } : {}) });
 }
 
 /**
@@ -5100,7 +5101,8 @@ function storyFor(day: string): Story | null {
     // the settings every flow had.
     const judge = judgeOf(state.doc, loadSource() ?? '');
     const apart = apartFor(loadSource() ?? '', day);
-    const found = newsOf(history, day, NEWS_NAMES, { checks: checksAsCounted(), judge, ...(apart ? { apart } : {}) });
+    const file = fileFacts(loadSource() ?? '', day);
+    const found = newsOf(history, day, NEWS_NAMES, { checks: checksAsCounted(), judge, ...(apart ? { apart } : {}), ...(file ? { file } : {}) });
     const acknowledged = new Set(found.filter((f) => logOf(day, f.key).some((e) => e.act === 'expected')).map((f) => f.key));
     // What the other watched loads said of the day (ADR 0014 §2): a finding of the judged step that repeats a source's
     // follows from it.
@@ -5550,6 +5552,13 @@ function findingVisual(f: Finding): Element | null {
   if (f.kind === 'volume') {
     const days = stripOf({ of: 'trips' }, day, 28, f.severity);
     return days.length ? svgNode(dayStrip({ days, labels: stripLabels(days), aria: `${RowsWord()} day by day: ${f.title}` })) : null;
+  }
+  // A file that isn't fresh (ADR 0020 §2): today's file beside the last load's, or alone with its export time.
+  if (f.kind === 'stale' && f.file) {
+    const ff = f.file;
+    const at = ff.exported ? new Date(Date.parse(ff.exported)) : null;
+    const when = at ? `exported ${dayShort(at.toISOString().slice(0, 10))} ${at.toISOString().slice(11, 16)}` : null;
+    return svgNode(fileTwins({ today: { label: `Loaded for ${dayShort(ff.day)}`, sha256: ff.sha256, exported: when }, before: ff.same && ff.previous ? { label: `Loaded for ${dayShort(ff.previous.slot.slice(0, 10))}`, sha256: ff.previous.sha256 } : null, same: ff.same, aria: f.title }));
   }
   if (f.kind === 'hours' && f.hours) return svgNode(hourBars({ got: f.hours.got, usual: f.hours.usual, cut: f.hours.from, cutLabel: clockText(f.hours.from * 60), aria: `${RowsWord()} by hour: ${f.title}` }));
   if ((f.kind === 'share' || f.kind === 'gone' || f.kind === 'missing') && (f.members?.length || f.range)) {
@@ -7860,7 +7869,8 @@ function calendarSeverity(day: string): Severity {
   const l = loads.list.find((x) => x.day === day);
   const c = l ? integrity.checks.get(l.file) : undefined;
   if (c && fileSeverity(c.class) !== 'ok') return fileSeverity(c.class);
-  const found = newsOf(history!, day, NEWS_NAMES, { checks: checksAsCounted() });
+  const file = fileFacts(loadSource() ?? '', day);
+  const found = newsOf(history!, day, NEWS_NAMES, { checks: checksAsCounted(), ...(file ? { file, judge: judgeOf(state.doc, loadSource() ?? '') } : {}) });
   const acknowledged = new Set(found.filter((f) => logOf(day, f.key).some((e) => e.act === 'expected')).map((f) => f.key));
   const g = gateStep();
   return storyOf(history!, day, found, { names: NEWS_NAMES, step: g?.step, limit: g?.limit ?? null, hidden: hiddenTripColumns(), acknowledged, episode: false }).severity;
@@ -10624,6 +10634,29 @@ const givens = new Map<string, GivenRanges>();
  * the sha256 is the file's the engine read. With the run's code commit and ontology hash, the bronze table's metadata.
  */
 const ingested = new Map<string, SourceIngest>();
+
+/**
+ * A load's file as the data list and the page know it (ADR 0020 §2, Q-172): the bytes the page pinned, when the file's
+ * system exported it (for a listed file, not one the viewer put in its place) and the file of the load before it, the
+ * history's last for the first load. What `fresh` is judged from, told only where a gate judges it, so no other flow's
+ * claims change.
+ */
+function fileFacts(source: string, day: string): FileFacts | undefined {
+  const fresh = gateChecksOf(state.doc, source)?.fresh;
+  if (!fresh || fresh === 'off') return undefined;
+  const s = dataList?.sources[source];
+  const list = s?.loads ?? [];
+  const i = list.findIndex((l) => l.day === day);
+  const listed = i >= 0 ? list[i]! : undefined;
+  // The day on screen's file is the one pinned (a file the viewer put in its place is its own); any other day's, the list's.
+  const pinned = day === viewedDay() ? ingested.get(source)?.sha256 : undefined;
+  const sha256 = pinned ?? listed?.sha256;
+  if (!sha256) return undefined;
+  const prev = i > 0 ? { slot: list[i - 1]!.day, sha256: list[i - 1]!.sha256 } : i === 0 && s?.before ? { slot: s.before.day, sha256: s.before.sha256 } : undefined;
+  // The export time is what freshness is told from: a file the list gives none for (or one put in its place) isn't judged.
+  if (!listed?.exported || listed.sha256 !== sha256) return undefined;
+  return { sha256, exported: listed.exported, ...(prev ? { previous: prev } : {}) };
+}
 function pulledIn(id: string, path: string, sha256: string, from?: string): void {
   ingested.set(id, { path, sha256, at: new Date().toISOString(), ...(from ? { from } : {}) });
 }
@@ -10805,7 +10838,8 @@ async function claimsForRun(engine: Engine, day: string | undefined, parameters:
       mine.set(day, kept);
       keptRows.set(source, mine);
     }
-    const told = await loadClaim({ ...(givens.get(source) ? { given: givens.get(source)! } : {}), doc: state.doc, source, flow: plan.flow.hash, base: ref ? base : null, baseRef: ref, tail: tails.get(source) ?? [], measures: m, settings, skip: recordedSkips(), levels: levelsOf(ledger?.entries ?? [], source), build: BUILD_COMMIT, ...(kept && samples.get(source) ? { sample: samples.get(source)!, kept } : {}) });
+    const file = fileFacts(source, day);
+    const told = await loadClaim({ ...(givens.get(source) ? { given: givens.get(source)! } : {}), doc: state.doc, source, flow: plan.flow.hash, base: ref ? base : null, baseRef: ref, tail: tails.get(source) ?? [], measures: m, settings, skip: recordedSkips(), levels: levelsOf(ledger?.entries ?? [], source), build: BUILD_COMMIT, ...(kept && samples.get(source) ? { sample: samples.get(source)!, kept } : {}), ...(file ? { file } : {}) });
     pins.push(pinFile(engine, tailPath(source), told?.tail.length ? utf8(canonicalJSON(told.tail as unknown as Parameters<typeof canonicalJSON>[0])) : null));
     const key = `${day}|${source}|${flowHistory ? countedChecks(state.doc, flowHistory, source) : false}`;
     claims.set(key, told?.claim ?? null);
@@ -11803,7 +11837,7 @@ function flowStoryOf(day: string): Story | null {
   const src = loadSource();
   if (!flowHistory || !src) return null;
   try {
-    return flowStory(flowHistory, day, state.doc, src);
+    return flowStory(flowHistory, day, state.doc, src, undefined, undefined, fileFacts(src, day));
   } catch {
     return null;
   }

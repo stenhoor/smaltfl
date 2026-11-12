@@ -1423,6 +1423,33 @@ export interface Dumbbell {
  * today as a dot joined to it by a line, so the direction reads without colour. A value gone today is a ×; a new one
  * has no band and a 'new' tag.
  */
+/**
+ * A file that isn't fresh (ADR 0020 §2, a `stale` finding): today's file beside the last load's, each a page with its
+ * day, its fingerprint and when it was exported, joined by "=" when the bytes are the same; or today's file alone, with
+ * when its system exported it against the day it is loaded for. Plain words on the pages, so a reader needs no hash to
+ * see it: "the same file".
+ */
+export function fileTwins({ today, before, same, w = 334, aria }: { today: { label: string; sha256: string; exported: string | null }; before: { label: string; sha256: string } | null; same: boolean; w?: number; aria: string }): string {
+  const h = 84;
+  const gap = before ? 34 : 0;
+  const cardW = before ? (w - gap) / 2 : w;
+  let s = open(w, h, aria);
+  const page = (x: number, title: string, sha: string, line: string | null, bad: boolean) => {
+    const r = x + cardW - 2;
+    s += `<path class="base" d="M${f1(x + 1)} 4H${f1(r - 14)}L${f1(r)} 18V${h - 4}H${f1(x + 1)}Z"/>`;
+    s += `<path class="hair" d="M${f1(r - 14)} 4V18H${f1(r)}"/>`;
+    s += `<text class="lbl-b" x="${f1(x + 10)}" y="26">${esc(title)}</text>`;
+    s += `<text class="mono" x="${f1(x + 10)}" y="47">${esc(`sha256 ${sha.slice(0, 10)}…`)}</text>`;
+    if (line) s += `<text class="${bad ? 'lbl-bad' : 'lbl-m'}" x="${f1(x + 10)}" y="67">${esc(line)}</text>`;
+  };
+  page(0, today.label, today.sha256, today.exported, !same && !!today.exported);
+  if (before) {
+    page(cardW + gap, before.label, before.sha256, same ? 'the same bytes' : null, same);
+    s += `<text class="${same ? 'lbl-bad' : 'lbl-m'}" x="${f1(cardW + gap / 2)}" y="50" text-anchor="middle" font-size="20">${same ? '=' : '≠'}</text>`;
+  }
+  return `${s}</svg>`;
+}
+
 export function dumbbellRows({ rows, w = 334, aria }: { rows: readonly Dumbbell[]; w?: number; aria: string }): string {
   const rowH = 30;
   const top = Math.max(0.0001, ...rows.flatMap((r) => [r.today, r.high ?? 0]));

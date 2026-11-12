@@ -1,0 +1,1395 @@
+{
+  "smaltfl": 4,
+  "id": "larkspur",
+  "name": "Larkspur estate",
+  "description": "A fictional financial-services group's control posture as its systems export it each day (ADR 0020): the organisation and its leaders from HR, about 2,400 applications from the CMDB, the cloud inventory, 46 shared platforms, a catalogue of 14 controls mapped to the frameworks, the risk register, the findings ledger and twelve evidence feeds. This first notebook is the bronze layer: every feed judged as it arrives. A synthetic dataset: no real company or person is its subject.",
+  "parameters": [
+    {
+      "name": "day",
+      "type": "text",
+      "default": null
+    }
+  ],
+  "calendar": {
+    "base": "us",
+    "zone": "UTC",
+    "days": [
+      {
+        "name": "Patch Tuesday",
+        "short": "Patch Tue",
+        "weekday": "tue",
+        "between": [
+          8,
+          14
+        ]
+      }
+    ]
+  },
+  "sources": [
+    {
+      "id": "hr_org_units",
+      "table": "hr_org_units_file",
+      "description": "The HR system's daily extract of the organisation: every unit (the group, its segments, business units, departments and teams) with its parent, its leader, and anyone acting for a vacant or absent one"
+    },
+    {
+      "id": "hr_people",
+      "table": "hr_people_file",
+      "description": "The leaders in the HR extract: each with their title, manager, unit and status (active, on leave, or left in the last thirty days)"
+    },
+    {
+      "id": "cmdb_apps",
+      "table": "cmdb_apps_file",
+      "description": "The CMDB's applications: the owning team, tier, exposure, data class, datastore, hosting, site, runtime platform and lifecycle, with when each record last changed"
+    },
+    {
+      "id": "cloud_assets",
+      "table": "cloud_assets_file",
+      "description": "The cloud inventory: resources counted by application tag in each account"
+    },
+    {
+      "id": "control_catalog",
+      "table": "control_catalog_file",
+      "description": "The GRC tool's control catalogue: each control's CSF 2.0 function and category, weight and cadence, which applications it applies to, what it depends on, what compensates for it and the kind of platform that provides it"
+    },
+    {
+      "id": "control_requirements",
+      "table": "control_requirements_file",
+      "description": "Each control mapped to framework requirements (NIST CSF 2.0, ISO/IEC 27001:2022, PCI DSS v4.0.1, SOC 2), with how the two relate"
+    },
+    {
+      "id": "exceptions",
+      "table": "exceptions_file",
+      "description": "The risk register: every version of every exception, with its approver, reason, validity and status that day"
+    },
+    {
+      "id": "findings",
+      "table": "findings_file",
+      "description": "The vulnerability scanners and penetration tests: open findings, those fixed in the last thirty days, and one scan-information row an application scanned, saying whether the scanner logged in"
+    },
+    {
+      "id": "tls",
+      "table": "tls_file",
+      "description": "TLS on exposed endpoints: the ingress, the certificate's issuer, the protocol offered and the certificate's expiry. One row an application it applies to (live internet- and partner-facing applications)"
+    },
+    {
+      "id": "waf",
+      "table": "waf_file",
+      "description": "The web application firewall in front of internet-facing applications: its ingress, its mode and its ruleset’s age. One row an application it applies to"
+    },
+    {
+      "id": "pentest_schedule",
+      "table": "pentest_schedule_file",
+      "description": "Yearly penetration tests for exposed tier 1 and 2 applications: the last test, the next due date and the open high findings"
+    },
+    {
+      "id": "encryption",
+      "table": "encryption_file",
+      "description": "Encryption at rest for applications with a datastore: the store and its key store"
+    },
+    {
+      "id": "key_rotation",
+      "table": "key_rotation_file",
+      "description": "Yearly key rotation for regulated data: the key store, the last rotation, the next due date and the key's age"
+    },
+    {
+      "id": "backup_jobs",
+      "table": "backup_jobs_file",
+      "description": "Backups for the applications we host that keep data: the controller, the last job's state, the last success and the recovery point"
+    },
+    {
+      "id": "dr_exercises",
+      "table": "dr_exercises_file",
+      "description": "Yearly disaster-recovery exercises for tier 1 applications: the last exercise, the next due date and whether the recovery time was met"
+    },
+    {
+      "id": "mfa",
+      "table": "mfa_file",
+      "description": "MFA for every live application: the identity provider, the share of users registered and whether MFA is enforced. Registered is not enforced"
+    },
+    {
+      "id": "access_reviews",
+      "table": "access_reviews_file",
+      "description": "Quarterly access reviews for applications with confidential or regulated data: the last review, the next due date, the reviewers and the access revoked"
+    },
+    {
+      "id": "logging_coverage",
+      "table": "logging_coverage_file",
+      "description": "Central logging for the applications we host: the pipeline, the forwarder's certificate issuer, the last event received and the retention"
+    },
+    {
+      "id": "privileged_vault",
+      "table": "privileged_vault_file",
+      "description": "Privileged accounts of tier 1 and 2 applications: the vault, the accounts, and how many are not vaulted"
+    },
+    {
+      "id": "edr_coverage",
+      "table": "edr_coverage_file",
+      "description": "Endpoint detection on the hosts of the applications we host: hosts, hosts reporting, hosts in reduced functionality and the sensor version"
+    },
+    {
+      "id": "platforms",
+      "table": "platforms_file",
+      "description": "The architecture inventory: each shared platform, its kind and its site"
+    },
+    {
+      "id": "platform_links",
+      "table": "platform_links_file",
+      "description": "What each platform depends on, and the controls it provides to the applications on it (common or hybrid)"
+    }
+  ],
+  "notebooks": [
+    "bronze.nb.ts"
+  ],
+  "ontology": {
+    "objectTypes": [
+      {
+        "id": "org_unit",
+        "name": "Organisational unit",
+        "dataset": "hr_org_units",
+        "key": [
+          "org_unit_id"
+        ],
+        "title": "name",
+        "description": "A unit of the organisation: the group, a segment, a business unit, a department or a team"
+      },
+      {
+        "id": "person",
+        "name": "Person",
+        "dataset": "hr_people",
+        "key": [
+          "person_id"
+        ],
+        "title": "display_name",
+        "description": "A leader of a unit"
+      },
+      {
+        "id": "application",
+        "name": "Application",
+        "dataset": "cmdb_apps",
+        "key": [
+          "app_id"
+        ],
+        "title": "name",
+        "description": "An application of the CMDB: what every evidence feed’s rows are one each of"
+      },
+      {
+        "id": "platform",
+        "name": "Platform",
+        "dataset": "platforms",
+        "key": [
+          "platform_id"
+        ],
+        "title": "name",
+        "description": "A shared platform applications run on or rely on"
+      },
+      {
+        "id": "control",
+        "name": "Control",
+        "dataset": "control_catalog",
+        "key": [
+          "control_id"
+        ],
+        "title": "name",
+        "description": "A control of the catalogue"
+      }
+    ],
+    "linkTypes": [
+      {
+        "id": "owned_by",
+        "name": "Owned by",
+        "from": "application",
+        "to": "org_unit",
+        "on": [
+          [
+            "owner_team_id",
+            "org_unit_id"
+          ]
+        ],
+        "cardinality": "many-to-one"
+      },
+      {
+        "id": "reports_into",
+        "name": "Reports into",
+        "from": "org_unit",
+        "to": "org_unit",
+        "on": [
+          [
+            "parent_id",
+            "org_unit_id"
+          ]
+        ],
+        "cardinality": "many-to-one"
+      },
+      {
+        "id": "led_by",
+        "name": "Led by",
+        "from": "org_unit",
+        "to": "person",
+        "on": [
+          [
+            "leader_id",
+            "person_id"
+          ]
+        ],
+        "cardinality": "many-to-one"
+      },
+      {
+        "id": "managed_by",
+        "name": "Managed by",
+        "from": "person",
+        "to": "person",
+        "on": [
+          [
+            "manager_id",
+            "person_id"
+          ]
+        ],
+        "cardinality": "many-to-one"
+      },
+      {
+        "id": "runs_on",
+        "name": "Runs on",
+        "from": "application",
+        "to": "platform",
+        "on": [
+          [
+            "platform_id",
+            "platform_id"
+          ]
+        ],
+        "cardinality": "many-to-one"
+      }
+    ],
+    "actionTypes": [],
+    "nouns": {
+      "hr_org_units": {
+        "one": "unit",
+        "many": "units"
+      },
+      "hr_people": {
+        "one": "person",
+        "many": "people"
+      },
+      "cmdb_apps": {
+        "one": "app",
+        "many": "apps"
+      },
+      "cloud_assets": {
+        "one": "tag",
+        "many": "tags"
+      },
+      "control_catalog": {
+        "one": "control",
+        "many": "controls"
+      },
+      "control_requirements": {
+        "one": "mapping",
+        "many": "mappings"
+      },
+      "exceptions": {
+        "one": "exception",
+        "many": "exceptions"
+      },
+      "findings": {
+        "one": "finding",
+        "many": "findings"
+      },
+      "tls": {
+        "one": "app",
+        "many": "apps"
+      },
+      "waf": {
+        "one": "app",
+        "many": "apps"
+      },
+      "pentest_schedule": {
+        "one": "app",
+        "many": "apps"
+      },
+      "encryption": {
+        "one": "app",
+        "many": "apps"
+      },
+      "key_rotation": {
+        "one": "app",
+        "many": "apps"
+      },
+      "backup_jobs": {
+        "one": "app",
+        "many": "apps"
+      },
+      "dr_exercises": {
+        "one": "app",
+        "many": "apps"
+      },
+      "mfa": {
+        "one": "app",
+        "many": "apps"
+      },
+      "access_reviews": {
+        "one": "app",
+        "many": "apps"
+      },
+      "logging_coverage": {
+        "one": "app",
+        "many": "apps"
+      },
+      "privileged_vault": {
+        "one": "app",
+        "many": "apps"
+      },
+      "edr_coverage": {
+        "one": "app",
+        "many": "apps"
+      },
+      "platforms": {
+        "one": "platform",
+        "many": "platforms"
+      },
+      "platform_links": {
+        "one": "link",
+        "many": "links"
+      }
+    },
+    "rows": [
+      {
+        "dataset": "tls",
+        "of": "application",
+        "where": {
+          "exposure": [
+            "internet",
+            "partner"
+          ],
+          "lifecycle": [
+            "active",
+            "retiring"
+          ]
+        }
+      },
+      {
+        "dataset": "waf",
+        "of": "application",
+        "where": {
+          "exposure": "internet",
+          "hosting": [
+            "cloud",
+            "onprem"
+          ],
+          "lifecycle": [
+            "active",
+            "retiring"
+          ]
+        }
+      },
+      {
+        "dataset": "pentest_schedule",
+        "of": "application",
+        "where": {
+          "exposure": [
+            "internet",
+            "partner"
+          ],
+          "tier": [
+            "1",
+            "2"
+          ],
+          "lifecycle": [
+            "active",
+            "retiring"
+          ]
+        }
+      },
+      {
+        "dataset": "encryption",
+        "of": "application",
+        "where": {
+          "datastore": "yes",
+          "lifecycle": [
+            "active",
+            "retiring"
+          ]
+        }
+      },
+      {
+        "dataset": "key_rotation",
+        "of": "application",
+        "where": {
+          "data_class": [
+            "pci",
+            "pii"
+          ],
+          "datastore": "yes",
+          "lifecycle": [
+            "active",
+            "retiring"
+          ]
+        }
+      },
+      {
+        "dataset": "backup_jobs",
+        "of": "application",
+        "where": {
+          "datastore": "yes",
+          "hosting": [
+            "cloud",
+            "onprem"
+          ],
+          "lifecycle": [
+            "active",
+            "retiring"
+          ]
+        }
+      },
+      {
+        "dataset": "dr_exercises",
+        "of": "application",
+        "where": {
+          "tier": "1",
+          "lifecycle": [
+            "active",
+            "retiring"
+          ]
+        }
+      },
+      {
+        "dataset": "mfa",
+        "of": "application",
+        "where": {
+          "lifecycle": [
+            "active",
+            "retiring"
+          ]
+        }
+      },
+      {
+        "dataset": "access_reviews",
+        "of": "application",
+        "where": {
+          "data_class": [
+            "pci",
+            "pii",
+            "confidential"
+          ],
+          "lifecycle": [
+            "active",
+            "retiring"
+          ]
+        }
+      },
+      {
+        "dataset": "logging_coverage",
+        "of": "application",
+        "where": {
+          "hosting": [
+            "cloud",
+            "onprem"
+          ],
+          "lifecycle": [
+            "active",
+            "retiring"
+          ]
+        }
+      },
+      {
+        "dataset": "privileged_vault",
+        "of": "application",
+        "where": {
+          "tier": [
+            "1",
+            "2"
+          ],
+          "lifecycle": [
+            "active",
+            "retiring"
+          ]
+        }
+      },
+      {
+        "dataset": "edr_coverage",
+        "of": "application",
+        "where": {
+          "hosting": [
+            "cloud",
+            "onprem"
+          ],
+          "lifecycle": [
+            "active",
+            "retiring"
+          ]
+        }
+      }
+    ],
+    "properties": [
+      {
+        "column": "org_unit_id",
+        "title": "Unit",
+        "description": "The organisational unit's id in the HR system"
+      },
+      {
+        "column": "parent_id",
+        "title": "Parent unit",
+        "description": "The unit this one reports into; blank for the group"
+      },
+      {
+        "column": "level",
+        "title": "Level",
+        "description": "The unit's place in the organisation",
+        "values": {
+          "group": "Group",
+          "segment": "Segment",
+          "business_unit": "Business unit",
+          "department": "Department",
+          "team": "Team"
+        }
+      },
+      {
+        "column": "leader_id",
+        "title": "Leader",
+        "description": "The person leading the unit; blank while the post is vacant"
+      },
+      {
+        "column": "acting_leader_id",
+        "title": "Acting leader",
+        "description": "Who acts for a vacant post or an absent leader; blank when no one is named"
+      },
+      {
+        "column": "cost_centre",
+        "title": "Cost centre",
+        "description": "The unit's cost centre"
+      },
+      {
+        "column": "person_id",
+        "title": "Person",
+        "description": "The person's id in the HR system"
+      },
+      {
+        "column": "display_name",
+        "title": "Name",
+        "description": "The person's name"
+      },
+      {
+        "column": "title",
+        "title": "Title",
+        "description": "Their job title"
+      },
+      {
+        "column": "manager_id",
+        "title": "Manager",
+        "description": "Who they report to: the leader of the unit above, or whoever acts for it"
+      },
+      {
+        "column": "in_role_since",
+        "title": "In role since",
+        "description": "When they took up the post"
+      },
+      {
+        "column": "status",
+        "title": "Status",
+        "description": "Whether the person is active, on leave, or left in the last thirty days",
+        "values": {
+          "active": "Active",
+          "leave": "On leave",
+          "left": "Left"
+        },
+        "datasets": [
+          "hr_people"
+        ]
+      },
+      {
+        "column": "app_id",
+        "title": "Application",
+        "description": "The application's id in the CMDB"
+      },
+      {
+        "column": "name",
+        "title": "Name",
+        "description": "What it is called"
+      },
+      {
+        "column": "owner_team_id",
+        "title": "Owning team",
+        "description": "The team accountable for the application"
+      },
+      {
+        "column": "tier",
+        "title": "Tier",
+        "description": "How critical the application is to the business: 1 the most",
+        "values": {
+          "1": "Tier 1",
+          "2": "Tier 2",
+          "3": "Tier 3"
+        }
+      },
+      {
+        "column": "exposure",
+        "title": "Exposure",
+        "description": "Who can reach it: anyone on the internet, partners, or only staff",
+        "values": {
+          "internet": "Internet",
+          "partner": "Partner",
+          "internal": "Internal"
+        }
+      },
+      {
+        "column": "data_class",
+        "title": "Data class",
+        "description": "The most sensitive data it holds",
+        "values": {
+          "pci": "Card data",
+          "pii": "Personal data",
+          "confidential": "Confidential",
+          "internal": "Internal",
+          "public": "Public"
+        }
+      },
+      {
+        "column": "datastore",
+        "title": "Keeps data",
+        "description": "Whether it has a datastore of its own",
+        "values": {
+          "yes": "Yes",
+          "no": "No"
+        }
+      },
+      {
+        "column": "hosting",
+        "title": "Hosting",
+        "description": "Where it runs",
+        "values": {
+          "cloud": "Cloud",
+          "onprem": "On premises",
+          "saas": "Software as a service"
+        }
+      },
+      {
+        "column": "site",
+        "title": "Site",
+        "description": "The cloud region or data centre it runs in",
+        "values": {
+          "CLOUD-EAST": "Cloud, east",
+          "CLOUD-WEST": "Cloud, west",
+          "DC-EAST": "DC-East",
+          "DC-WEST": "DC-West",
+          "SAAS": "A vendor"
+        }
+      },
+      {
+        "column": "platform_id",
+        "title": "Platform",
+        "description": "The shared platform it runs on, or the platform a link starts from"
+      },
+      {
+        "column": "lifecycle",
+        "title": "Lifecycle",
+        "description": "Where it is in its life",
+        "values": {
+          "build": "Being built",
+          "active": "Live",
+          "retiring": "Retiring",
+          "retired": "Retired"
+        }
+      },
+      {
+        "column": "created_on",
+        "title": "Created",
+        "description": "When the record was created"
+      },
+      {
+        "column": "go_live",
+        "title": "Go-live",
+        "description": "When it went live, or will"
+      },
+      {
+        "column": "retire_by",
+        "title": "Retire by",
+        "description": "When it is to be retired; blank when no date is set"
+      },
+      {
+        "column": "updated_at",
+        "title": "Updated",
+        "description": "When the record last changed"
+      },
+      {
+        "column": "account_id",
+        "title": "Account",
+        "description": "The cloud account"
+      },
+      {
+        "column": "region",
+        "title": "Region",
+        "description": "The cloud region"
+      },
+      {
+        "column": "cluster",
+        "title": "Cluster",
+        "description": "The production cluster, blank outside production"
+      },
+      {
+        "column": "app_tag",
+        "title": "Application tag",
+        "description": "The application id the resources are tagged with, as the cloud has it: not always one the CMDB knows"
+      },
+      {
+        "column": "resources",
+        "title": "Resources",
+        "description": "How many resources carry the tag in the account"
+      },
+      {
+        "column": "control_id",
+        "title": "Control",
+        "description": "The control's id in the catalogue"
+      },
+      {
+        "column": "csf_function",
+        "title": "CSF function",
+        "description": "The NIST CSF 2.0 function",
+        "values": {
+          "GV": "Govern",
+          "ID": "Identify",
+          "PR": "Protect",
+          "DE": "Detect",
+          "RS": "Respond",
+          "RC": "Recover"
+        }
+      },
+      {
+        "column": "csf_category",
+        "title": "CSF category",
+        "description": "The NIST CSF 2.0 category"
+      },
+      {
+        "column": "weight",
+        "title": "Weight",
+        "description": "How much the control counts in a score, 1 to 3"
+      },
+      {
+        "column": "cadence",
+        "title": "Cadence",
+        "description": "How often the control is met"
+      },
+      {
+        "column": "depends_on",
+        "title": "Depends on",
+        "description": "The control this one needs to pass first"
+      },
+      {
+        "column": "compensated_by",
+        "title": "Compensated by",
+        "description": "What may stand in for the control when it fails"
+      },
+      {
+        "column": "provided_by",
+        "title": "Provided by",
+        "description": "The kind of platform that provides the control to the applications on it"
+      },
+      {
+        "column": "allocation",
+        "title": "Allocation",
+        "description": "Who provides the control: a platform (common), a platform and the application (hybrid), or the application alone (system)",
+        "values": {
+          "common": "Common",
+          "hybrid": "Hybrid",
+          "system": "System-specific"
+        }
+      },
+      {
+        "column": "framework",
+        "title": "Framework",
+        "description": "The framework the requirement belongs to"
+      },
+      {
+        "column": "requirement",
+        "title": "Requirement",
+        "description": "The requirement's reference in its framework"
+      },
+      {
+        "column": "relationship",
+        "title": "Relationship",
+        "description": "How the control relates to the requirement, in NIST IR 8477’s words",
+        "values": {
+          "subset of": "Subset of",
+          "intersects with": "Intersects with",
+          "equal": "Equal",
+          "superset of": "Superset of"
+        }
+      },
+      {
+        "column": "exception_id",
+        "title": "Exception",
+        "description": "The exception's id in the risk register"
+      },
+      {
+        "column": "version",
+        "title": "Version",
+        "description": "The version of the exception: an extension is a new version"
+      },
+      {
+        "column": "approver_id",
+        "title": "Approver",
+        "description": "Who approved the version"
+      },
+      {
+        "column": "reason",
+        "title": "Reason",
+        "description": "Why the risk was accepted"
+      },
+      {
+        "column": "compensating_control",
+        "title": "Compensating control",
+        "description": "What stands in for the control meanwhile"
+      },
+      {
+        "column": "valid_from",
+        "title": "Valid from",
+        "description": "When the version takes effect"
+      },
+      {
+        "column": "valid_to",
+        "title": "Valid to",
+        "description": "When the version expires"
+      },
+      {
+        "column": "original_valid_to",
+        "title": "First expiry",
+        "description": "An extension keeps the date the exception first expired"
+      },
+      {
+        "column": "approved_on",
+        "title": "Approved",
+        "description": "When the version was approved"
+      },
+      {
+        "column": "status",
+        "title": "Status",
+        "description": "The version's status that day",
+        "values": {
+          "approved": "Approved, not started",
+          "active": "Active",
+          "superseded": "Superseded",
+          "expired": "Expired"
+        },
+        "datasets": [
+          "exceptions"
+        ]
+      },
+      {
+        "column": "finding_id",
+        "title": "Finding",
+        "description": "The finding's id as the scanner reports it"
+      },
+      {
+        "column": "source",
+        "title": "Found by",
+        "description": "The scanner or a penetration test",
+        "values": {
+          "scan": "Scanner",
+          "pentest": "Penetration test"
+        }
+      },
+      {
+        "column": "scanner",
+        "title": "Scanner",
+        "description": "The scanner that reported it"
+      },
+      {
+        "column": "plugin",
+        "title": "Check",
+        "description": "The scanner's check that found it; SCAN-INFO is the row saying an application was scanned"
+      },
+      {
+        "column": "cve",
+        "title": "CVE",
+        "description": "The vulnerability it is"
+      },
+      {
+        "column": "severity",
+        "title": "Severity",
+        "description": "How severe the scanner says it is",
+        "values": {
+          "critical": "Critical",
+          "high": "High",
+          "medium": "Medium",
+          "low": "Low",
+          "info": "Information"
+        }
+      },
+      {
+        "column": "status",
+        "title": "Status",
+        "description": "The finding's status, as the scanner writes it",
+        "values": {
+          "new": "New",
+          "active": "Open",
+          "re-opened": "Re-opened",
+          "fixed": "Fixed"
+        },
+        "datasets": [
+          "findings"
+        ]
+      },
+      {
+        "column": "first_found",
+        "title": "First found",
+        "description": "When the scanner first found it"
+      },
+      {
+        "column": "last_found",
+        "title": "Last found",
+        "description": "When the scanner last saw it"
+      },
+      {
+        "column": "fixed_on",
+        "title": "Fixed",
+        "description": "When it was fixed; blank while open"
+      },
+      {
+        "column": "due_on",
+        "title": "Due",
+        "description": "The day it must be fixed by: its severity's SLA from when it was first found"
+      },
+      {
+        "column": "credentialed",
+        "title": "Logged in",
+        "description": "On the scan-information row: whether the scanner logged in to the hosts. A scan that did not finds far less",
+        "values": {
+          "yes": "Yes",
+          "no": "No"
+        },
+        "expect": [
+          {
+            "value": "no",
+            "share": [
+              0,
+              0.02
+            ]
+          }
+        ]
+      },
+      {
+        "column": "status",
+        "title": "Status",
+        "description": "The control's status as its own tool reports it, before exceptions and compensation",
+        "values": {
+          "pass": "Pass",
+          "fail": "Fail",
+          "not_assessed": "Not assessed"
+        },
+        "datasets": [
+          "tls",
+          "waf",
+          "pentest_schedule",
+          "encryption",
+          "key_rotation",
+          "backup_jobs",
+          "dr_exercises",
+          "mfa",
+          "access_reviews",
+          "logging_coverage",
+          "privileged_vault",
+          "edr_coverage"
+        ],
+        "bad": [
+          "fail"
+        ],
+        "newValues": "alert",
+        "expect": [
+          {
+            "value": "not_assessed",
+            "share": [
+              0,
+              0.05
+            ]
+          },
+          {
+            "value": "fail",
+            "share": [
+              0,
+              0.15
+            ],
+            "datasets": [
+              "waf"
+            ]
+          }
+        ]
+      },
+      {
+        "column": "endpoint",
+        "title": "Endpoint",
+        "description": "The address the certificate is for"
+      },
+      {
+        "column": "ingress",
+        "title": "Ingress",
+        "description": "The shared ingress in front of the application"
+      },
+      {
+        "column": "issuer",
+        "title": "Issuer",
+        "description": "The certificate authority that issued the endpoint's certificate"
+      },
+      {
+        "column": "protocol",
+        "title": "Protocol",
+        "description": "The TLS version offered",
+        "newValues": "alert"
+      },
+      {
+        "column": "not_after",
+        "title": "Expires",
+        "description": "When the certificate expires"
+      },
+      {
+        "column": "private_link",
+        "title": "Private link",
+        "description": "Whether a partner reaches it over a private link",
+        "values": {
+          "yes": "Yes",
+          "no": "No"
+        }
+      },
+      {
+        "column": "mode",
+        "title": "Mode",
+        "description": "What the firewall does with a bad request",
+        "values": {
+          "block": "Block",
+          "monitor": "Monitor only",
+          "off": "Off"
+        },
+        "bad": [
+          "off"
+        ]
+      },
+      {
+        "column": "ruleset_age_days",
+        "title": "Ruleset age",
+        "description": "Days since its rules were updated",
+        "unit": "days"
+      },
+      {
+        "column": "last_test",
+        "title": "Last test",
+        "description": "When it was last tested"
+      },
+      {
+        "column": "next_due",
+        "title": "Next due",
+        "description": "When the next one is due; while overdue, the date it missed",
+        "due": {
+          "status": "status",
+          "miss": "fail"
+        }
+      },
+      {
+        "column": "tester",
+        "title": "Tester",
+        "description": "Who tests it"
+      },
+      {
+        "column": "open_highs",
+        "title": "Open highs",
+        "description": "High findings from its tests still open"
+      },
+      {
+        "column": "store_type",
+        "title": "Store",
+        "description": "The kind of datastore"
+      },
+      {
+        "column": "key_store",
+        "title": "Key store",
+        "description": "Where its keys are kept"
+      },
+      {
+        "column": "encrypted",
+        "title": "Encrypted",
+        "description": "Whether the data is encrypted at rest",
+        "values": {
+          "yes": "Yes",
+          "no": "No"
+        }
+      },
+      {
+        "column": "last_rotated",
+        "title": "Last rotated",
+        "description": "When its key was last rotated"
+      },
+      {
+        "column": "key_age_days",
+        "title": "Key age",
+        "description": "Days since the key was rotated",
+        "unit": "days"
+      },
+      {
+        "column": "controller",
+        "title": "Controller",
+        "description": "The backup controller or service that backs it up"
+      },
+      {
+        "column": "last_state",
+        "title": "Last job",
+        "description": "The last backup job's state",
+        "values": {
+          "COMPLETED": "Completed",
+          "FAILED": "Failed",
+          "PARTIAL": "Partial"
+        }
+      },
+      {
+        "column": "last_success",
+        "title": "Last success",
+        "description": "When a backup last completed"
+      },
+      {
+        "column": "rpo_hours",
+        "title": "Recovery point",
+        "description": "How old the newest backup may be",
+        "unit": "hours"
+      },
+      {
+        "column": "last_exercise",
+        "title": "Last exercise",
+        "description": "When it was last exercised"
+      },
+      {
+        "column": "rto_met",
+        "title": "Recovery time met",
+        "description": "Whether the last exercise recovered in time",
+        "values": {
+          "yes": "Yes",
+          "no": "No"
+        },
+        "bad": [
+          "no"
+        ]
+      },
+      {
+        "column": "idp",
+        "title": "Identity provider",
+        "description": "Where its users sign in; local is its own sign-in"
+      },
+      {
+        "column": "registered_pct",
+        "title": "Registered",
+        "description": "The share of its users registered for MFA: registered is not enforced",
+        "unit": "%"
+      },
+      {
+        "column": "enforced",
+        "title": "Enforced",
+        "description": "Whether a policy enforces MFA",
+        "values": {
+          "yes": "Yes",
+          "no": "No"
+        }
+      },
+      {
+        "column": "last_review",
+        "title": "Last review",
+        "description": "When its access was last reviewed"
+      },
+      {
+        "column": "reviewers",
+        "title": "Reviewers",
+        "description": "Who reviewed it"
+      },
+      {
+        "column": "revoked",
+        "title": "Revoked",
+        "description": "Access removed at the last review"
+      },
+      {
+        "column": "pipeline",
+        "title": "Pipeline",
+        "description": "The log pipeline its logs go through"
+      },
+      {
+        "column": "forwarder_issuer",
+        "title": "Forwarder issuer",
+        "description": "The certificate authority behind its log forwarder's certificate"
+      },
+      {
+        "column": "last_event",
+        "title": "Last event",
+        "description": "When its last log event arrived"
+      },
+      {
+        "column": "retention_days",
+        "title": "Retention",
+        "description": "How long its logs are kept",
+        "unit": "days"
+      },
+      {
+        "column": "vault",
+        "title": "Vault",
+        "description": "The privileged access vault"
+      },
+      {
+        "column": "accounts",
+        "title": "Privileged accounts",
+        "description": "Its privileged accounts"
+      },
+      {
+        "column": "unvaulted",
+        "title": "Not vaulted",
+        "description": "Privileged accounts outside the vault"
+      },
+      {
+        "column": "hosts",
+        "title": "Hosts",
+        "description": "The hosts it runs on"
+      },
+      {
+        "column": "reporting",
+        "title": "Reporting",
+        "description": "Hosts whose sensor reported"
+      },
+      {
+        "column": "reduced_functionality",
+        "title": "Reduced functionality",
+        "description": "Hosts whose sensor runs in reduced functionality mode: not coverage"
+      },
+      {
+        "column": "sensor_version",
+        "title": "Sensor version",
+        "description": "The EDR sensor's version"
+      },
+      {
+        "column": "kind",
+        "title": "Kind",
+        "description": "What kind of platform it is"
+      },
+      {
+        "column": "relation",
+        "title": "Relation",
+        "description": "What the link says: the platform depends on another, or provides a control",
+        "values": {
+          "depends_on": "Depends on",
+          "provides": "Provides"
+        }
+      },
+      {
+        "column": "target",
+        "title": "Target",
+        "description": "The platform depended on, or the control provided"
+      }
+    ]
+  },
+  "policies": {
+    "principals": [
+      {
+        "id": "owner",
+        "name": "Owner",
+        "role": "Owns the flow",
+        "owner": true
+      },
+      {
+        "id": "ciso",
+        "name": "Sloane Marsden",
+        "role": "Security lead"
+      }
+    ],
+    "groups": [],
+    "rules": [
+      {
+        "id": "leads",
+        "kind": "action",
+        "name": "The security lead may decide",
+        "action": "smaltfl:decide",
+        "for": [
+          "ciso"
+        ]
+      }
+    ]
+  },
+  "publish": {
+    "hold": [
+      "checks",
+      "wrong"
+    ],
+    "period": "day",
+    "together": false,
+    "watch": {
+      "hr_org_units": {
+        "history": "history.hr_org_units.json",
+        "pattern": "none"
+      },
+      "hr_people": {
+        "history": "history.hr_people.json",
+        "pattern": "none"
+      },
+      "cmdb_apps": {
+        "history": "history.cmdb_apps.json",
+        "pattern": "none"
+      },
+      "cloud_assets": {
+        "history": "history.cloud_assets.json",
+        "pattern": "none"
+      },
+      "control_catalog": {
+        "history": "history.control_catalog.json",
+        "pattern": "none"
+      },
+      "control_requirements": {
+        "history": "history.control_requirements.json",
+        "pattern": "none"
+      },
+      "exceptions": {
+        "history": "history.exceptions.json",
+        "pattern": "none"
+      },
+      "findings": {
+        "history": "history.findings.json",
+        "pattern": "monthly"
+      },
+      "tls": {
+        "history": "history.tls.json",
+        "pattern": "none"
+      },
+      "waf": {
+        "history": "history.waf.json",
+        "pattern": "none"
+      },
+      "pentest_schedule": {
+        "history": "history.pentest_schedule.json",
+        "pattern": "none"
+      },
+      "encryption": {
+        "history": "history.encryption.json",
+        "pattern": "none"
+      },
+      "key_rotation": {
+        "history": "history.key_rotation.json",
+        "pattern": "none"
+      },
+      "backup_jobs": {
+        "history": "history.backup_jobs.json",
+        "pattern": "none"
+      },
+      "dr_exercises": {
+        "history": "history.dr_exercises.json",
+        "pattern": "none"
+      },
+      "mfa": {
+        "history": "history.mfa.json",
+        "pattern": "none"
+      },
+      "access_reviews": {
+        "history": "history.access_reviews.json",
+        "pattern": "none"
+      },
+      "logging_coverage": {
+        "history": "history.logging_coverage.json",
+        "pattern": "none"
+      },
+      "privileged_vault": {
+        "history": "history.privileged_vault.json",
+        "pattern": "none"
+      },
+      "edr_coverage": {
+        "history": "history.edr_coverage.json",
+        "pattern": "none"
+      }
+    }
+  }
+}

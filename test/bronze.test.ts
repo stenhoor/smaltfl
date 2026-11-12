@@ -32,7 +32,7 @@ describe('the estate’s waf on Tue Mar 12', () => {
     const page = [...section.rules, ...(section.columns ?? []).flatMap((c) => c.rules)].map((r) => r.id);
     expect(b.checks.filter((c) => c.from === 'ontology').map((c) => c.id)).toEqual(page);
     expect(page.length).toBe(section.count);
-    expect(b.checks.filter((c) => c.from === 'contract').map((c) => c.check)).toEqual(['schema', 'amount', 'blanks']);
+    expect(b.checks.filter((c) => c.from === 'contract').map((c) => c.check)).toEqual(['schema', 'fresh', 'amount', 'blanks']);
     expect(b.checks.filter((c) => c.from === 'learned').map((c) => c.check)).toEqual(['shares', 'shape', 'hours', 'pairs', 'forest', 'classifier']);
     for (const c of b.checks.filter((x) => x.from === 'ontology')) expect(c.check).toBe(CHECK_OF_KIND[c.kind as keyof typeof CHECK_OF_KIND]);
     expect(b.verdict).toBe('clean');

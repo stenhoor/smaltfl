@@ -13,7 +13,7 @@ const core = (path: string): string => fileURLToPath(new URL(`./node_modules/sma
  * year of the sign-in log (test/models.test.ts, through the engine at the app's scale), and the tests on
  * the real history, which run only where `dist/app/data/history.json` was built from the data branch (minutes each).
  */
-const SLOW = ['test/estate-flow.test.ts', 'test/models.test.ts', 'test/*-real.test.ts'];
+const SLOW = ['test/estate-flow.test.ts', 'test/larkspur-flow.test.ts', 'test/models.test.ts', 'test/*-real.test.ts'];
 
 /**
  * The files that take longest, started first in this order, so none of them is left to run alone at the end: a world of

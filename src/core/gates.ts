@@ -19,7 +19,7 @@ export type Layer = (typeof LAYERS)[number];
  * (`due`, `scope`, `needs`, `reconcile`, `classifier`: slices 2 to 5) is in the vocabulary, so a gate may set it and
  * the Checks tab says it isn't judged yet, rather than refuse a notebook written for the next build.
  */
-export const CHECK_NAMES = ['schema', 'amount', 'blanks', 'values', 'rules', 'scope', 'needs', 'due', 'reconcile', 'shares', 'shape', 'hours', 'pairs', 'forest', 'classifier'] as const;
+export const CHECK_NAMES = ['schema', 'fresh', 'amount', 'blanks', 'values', 'rules', 'scope', 'needs', 'due', 'reconcile', 'shares', 'shape', 'hours', 'pairs', 'forest', 'classifier'] as const;
 export type CheckName = (typeof CHECK_NAMES)[number];
 
 /** What a check does with what it finds: holds the day (its own severity), warns at most, or says nothing. */
@@ -27,14 +27,15 @@ export const CHECK_MODES = ['hold', 'warn', 'off'] as const;
 export type CheckMode = (typeof CHECK_MODES)[number];
 
 /** The checks that are written rules or contracts; the rest are learned from the history. */
-export const WRITTEN: ReadonlySet<CheckName> = new Set<CheckName>(['schema', 'amount', 'blanks', 'values', 'rules', 'scope', 'needs', 'due', 'reconcile']);
+export const WRITTEN: ReadonlySet<CheckName> = new Set<CheckName>(['schema', 'fresh', 'amount', 'blanks', 'values', 'rules', 'scope', 'needs', 'due', 'reconcile']);
 
 /** The checks this build judges: the others are named, switchable and not yet told (ADR 0014's slices 2 to 5). */
-export const JUDGED: ReadonlySet<CheckName> = new Set<CheckName>(['schema', 'amount', 'blanks', 'values', 'rules', 'scope', 'needs', 'due', 'reconcile', 'shares', 'shape', 'hours', 'pairs', 'forest', 'classifier']);
+export const JUDGED: ReadonlySet<CheckName> = new Set<CheckName>(['schema', 'fresh', 'amount', 'blanks', 'values', 'rules', 'scope', 'needs', 'due', 'reconcile', 'shares', 'shape', 'hours', 'pairs', 'forest', 'classifier']);
 
 /** What each check says, in a few words, for the Checks tab. */
 export const CHECK_SAID: Record<CheckName, string> = {
   schema: 'the columns and types are the contract’s',
+  fresh: 'a new file: not the last load’s bytes again, exported for its day',
   amount: 'rows against a day like it, or the written band',
   blanks: 'a column blank beyond its range',
   values: 'a value never seen; a bad value up; a written band missed',
@@ -57,9 +58,9 @@ export const CHECK_SAID: Record<CheckName, string> = {
  * object; a node with no key written counts nothing, so the default says nothing there.
  */
 export const LAYER_DEFAULTS: Record<Layer, Record<CheckName, CheckMode>> = {
-  bronze: { schema: 'hold', amount: 'hold', blanks: 'hold', values: 'hold', rules: 'hold', scope: 'hold', needs: 'off', due: 'hold', reconcile: 'hold', shares: 'warn', shape: 'warn', hours: 'warn', pairs: 'warn', forest: 'warn', classifier: 'warn' },
-  silver: { schema: 'hold', amount: 'hold', blanks: 'hold', values: 'hold', rules: 'hold', scope: 'hold', needs: 'hold', due: 'hold', reconcile: 'off', shares: 'warn', shape: 'warn', hours: 'warn', pairs: 'warn', forest: 'warn', classifier: 'warn' },
-  gold: { schema: 'hold', amount: 'off', blanks: 'off', values: 'off', rules: 'hold', scope: 'off', needs: 'off', due: 'off', reconcile: 'hold', shares: 'off', shape: 'off', hours: 'off', pairs: 'off', forest: 'off', classifier: 'off' },
+  bronze: { schema: 'hold', fresh: 'hold', amount: 'hold', blanks: 'hold', values: 'hold', rules: 'hold', scope: 'hold', needs: 'off', due: 'hold', reconcile: 'hold', shares: 'warn', shape: 'warn', hours: 'warn', pairs: 'warn', forest: 'warn', classifier: 'warn' },
+  silver: { schema: 'hold', fresh: 'off', amount: 'hold', blanks: 'hold', values: 'hold', rules: 'hold', scope: 'hold', needs: 'hold', due: 'hold', reconcile: 'off', shares: 'warn', shape: 'warn', hours: 'warn', pairs: 'warn', forest: 'warn', classifier: 'warn' },
+  gold: { schema: 'hold', fresh: 'off', amount: 'off', blanks: 'off', values: 'off', rules: 'hold', scope: 'off', needs: 'off', due: 'off', reconcile: 'hold', shares: 'off', shape: 'off', hours: 'off', pairs: 'off', forest: 'off', classifier: 'off' },
 };
 
 /** A gate as the document keeps it (ADR 0014 §1): its layer, the checks it sets apart from the layer's defaults, and
@@ -214,6 +215,7 @@ export const hasGates = (doc: Pick<FlowDocument, 'gates'>): boolean => Object.ke
 export function checkOf(kind: Finding['kind']): CheckName | null {
   switch (kind) {
     case 'volume': return 'amount';
+    case 'stale': return 'fresh';
     case 'hours': return 'hours';
     case 'share': return 'shares';
     case 'gone': return 'shares';
