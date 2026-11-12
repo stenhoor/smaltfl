@@ -7279,8 +7279,9 @@ function sparkBand(m: Metric, fmt: (v: number) => string, given?: HistoryRanges 
   // The line: only between days next to each other that both have a number. A day with no number is a gap, never a
   // straight line across it (which would read as a trend that wasn't measured), and is ticked under the chart.
   // Missing data (round 4): each stretch of days with no number hatched across the chart and named with why, never a
-  // line drawn across it. Without gaps given, a day with no number is ticked under the chart.
-  if (gaps?.length) {
+  // line drawn across it; a stretch not run yet is outlined dashed too, as a day not run is in the day strips.
+  gaps ??= gapsOf(days, (_d, i) => pts[i]!.v !== null, (d) => gapWhy(loadSource() ?? '', d, given ?? history));
+  if (gaps.length) {
     const step = (W - R - 2 * P) / (days.length - 1);
     const id = `gap-${++gapPatterns}`;
     const defs = s('defs', {});
@@ -7289,7 +7290,7 @@ function sparkBand(m: Metric, fmt: (v: number) => string, given?: HistoryRanges 
     for (const g of gaps) {
       const x0 = Math.max(0, X(g.at[0]) - step / 2);
       const x1 = Math.min(W - R, X(g.at[1]) + step / 2);
-      svg.append(s('rect', { class: 'gap', x: x0.toFixed(1), y: 0, width: Math.max(2, x1 - x0).toFixed(1), height: H, fill: `url(#${id})` }));
+      svg.append(s('rect', { class: `gap${g.why === 'not-run' ? ' notrun' : ''}`, x: x0.toFixed(1), y: 0, width: Math.max(2, x1 - x0).toFixed(1), height: H, fill: `url(#${id})` }));
       if (x1 - x0 >= 52) svg.append(s('text', { class: 'gap-t', x: ((x0 + x1) / 2).toFixed(1), y: (H / 2 + 4).toFixed(1), 'text-anchor': 'middle' }, GAP_SAID[g.why].short));
     }
   }
@@ -7301,7 +7302,7 @@ function sparkBand(m: Metric, fmt: (v: number) => string, given?: HistoryRanges 
   pts.forEach((p, i) => {
     if (p.v === null) {
       draw();
-      if (!gaps?.length) svg.append(s('line', { class: 'nodata', x1: X(i).toFixed(1), x2: X(i).toFixed(1), y1: H + 3, y2: H + 7 }));
+      void 0;
     } else seg.push(`${X(i).toFixed(1)},${Y(p.v).toFixed(1)}`);
   });
   draw();
@@ -7531,7 +7532,15 @@ async function historyTab(card: string, id: string, who: string): Promise<HTMLEl
     box.append(bandChart(ranges, days, focus, choice.m.of === 'trips' ? (v) => fmtCompact(v).replace('.0k', 'k') : fmt, pick, limit, day, verdict === 'alert' || verdict === 'warn' ? verdict : undefined) ?? '',
       h('div', { class: 'vf-key', 'aria-hidden': 'true' },
         h('span', {}, h('i', { class: 'k-band' }), 'usual'), h('span', {}, h('i', { class: 'k-exp' }), 'guess'), h('span', {}, h('i', { class: 'k-out' }), 'outside'),
-        h('span', {}, h('i', { class: 'k-focus' }), 'this day'), h('span', {}, h('i', { class: 'k-hol' }), 'holiday'), limit !== undefined ? h('span', {}, h('i', { class: 'k-limit' }), 'limit') : null),
+        h('span', {}, h('i', { class: 'k-focus' }), 'this day'), h('span', {}, h('i', { class: 'k-hol' }), 'holiday'), limit !== undefined ? h('span', {}, h('i', { class: 'k-limit' }), 'limit') : null,
+        ((gs) => (gs.length ? h('span', {}, h('i', { class: 'gap-swatch' }), 'no data') : null))(gapsOf(days.filter((d) => d <= day), (d) => ranges.value(d) !== null, () => 'no-file'))),
+      ((gs) => {
+        // Missing data said in a sentence under the chart, with what can be done (round 4).
+        const said = gapSaid(gs, days.filter((d) => d <= day).length);
+        const runnable = gs.filter((g) => g.why === 'not-run');
+        return said ? h('p', { class: 'gap-line' }, h('span', { class: 'gap-swatch', 'aria-hidden': 'true' }), h('span', {}, said),
+          runnable.length ? h('button', { type: 'button', class: 'btn small', onclick: () => void runDays(runnable.flatMap((g) => days.slice(g.at[0], g.at[1] + 1))) }, `Run ${runnable.map((g) => daySpan(g.from, g.to)).join(', ')} ›`) : null) : '';
+      })(gapsOf(days.filter((d) => d <= day), (d) => ranges.value(d) !== null, (d) => gapWhy(card, d, history))),
       h('details', { class: 'vf-why' }, h('summary', {}, 'How this day’s band is made', bt ? h('span', { class: 'vf-chip' }, bt.textContent!.match(/\(([\d.]+%)\)/)?.[1] ? `${bt.textContent!.match(/\(([\d.]+%)\)/)![1]} of days outside it last year` : '') : null),
         rangeWhy(ranges, seen, focus, choice.m, fmt, pick, choice.label), bt ?? ''));
   }
@@ -10722,6 +10731,20 @@ function bandChart(ranges: NormalRanges, days: readonly string[], focus: string,
   };
   pts.forEach((p, i) => (p.r ? stretch.push(i) : flush()));
   flush();
+  // Missing data (round 4): a stretch up to the day on screen with no number, hatched and named, never drawn as nothing.
+  const missing = gapsOf(days.filter((d) => !today || d <= today), (_d, i) => pts[i]!.v !== null, (d) => gapWhy(loadSource() ?? '', d, history));
+  if (missing.length) {
+    const defs = s('defs', {});
+    const hid = `gap-${++gapPatterns}`;
+    defs.innerHTML = `<pattern id="${hid}" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line class="hatch" x1="0" y1="0" x2="0" y2="6"/></pattern>`;
+    svg.append(defs);
+    for (const g of missing) {
+      const x0 = X(g.at[0]) - step / 2;
+      const w = (g.at[1] - g.at[0] + 1) * step;
+      svg.append(s('rect', { class: `gap${g.why === 'not-run' ? ' notrun' : ''}`, x: x0.toFixed(1), y: T, width: w.toFixed(1), height: H - T - B, fill: `url(#${hid})` }));
+      if (w >= 56) svg.append(s('text', { class: 'gap-t', x: (x0 + w / 2).toFixed(1), y: ((H - B + T) / 2).toFixed(1), 'text-anchor': 'middle' }, GAP_SAID[g.why].short));
+    }
+  }
   // Holidays marked under the plot, and the days around them lighter.
   pts.forEach((p, i) => {
     if (holidayOf(p.d, calendarNow())) svg.append(s('rect', { class: 'hol', x: (X(i) - step * 0.4).toFixed(1), y: H - B + 2, width: (step * 0.8).toFixed(1), height: 3 }));

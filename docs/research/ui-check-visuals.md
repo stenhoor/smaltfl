@@ -65,9 +65,10 @@ Every chart, table and sentence in the app treats a day, a value or a file with 
 
 1. **Never invent it.** No line drawn across a gap, no zero, no carried-forward value. A line drawn across a gap reads
    as a trend nobody measured (the maintainer's note on the four-weeks chart).
-2. **Show it as missing, not by colour alone.** Hatching across the stretch (diagonal lines), with its reason written
-   on it where there is room. In the day strip, a day not run is a dashed box. Both are shapes, readable in grey and by
-   colour-blind readers (WCAG 1.4.1).
+2. **Show it as missing, not by colour alone.** Hatching across the stretch (diagonal lines) means *no data*, with its
+   reason written on it where there is room. A dashed outline means *not run*: a day not run in the strips, and around a
+   hatched stretch that only needs running. Both are shapes, readable in grey and by colour-blind readers (WCAG
+   1.4.1).
 3. **Say why**, in words: *not run yet* (the file is here; the day hasn't been run), *held, waiting for a decision* (it
    ran; its numbers count once someone decides), *no file* (nothing arrived), *file refused* (it arrived and couldn't be
    read), *empty file* (it arrived with no rows), *before the history* (the history starts later). The reasons differ

@@ -854,3 +854,10 @@ convention for missing data, written down in docs/research/ui-check-visuals.md "
 is never drawn across or filled in. It is hatched and named with its reason (not run yet, held, no file, file refused,
 empty file, before the history), counted in a sentence, and offered what can be done about it (*Run …*, *Decide on …*).
 The four-weeks chart (`weeksChart`) is the first to follow it.
+Applied everywhere a day can have no number:
+- every four-weeks chart (`sparkBand` works out its own gaps when it isn't given them);
+- the History tab's band chart (`bandChart`), with a "no data" key and the sentence and buttons under it;
+- the day strips in the news and the brief (`dayStrip`): a day with no number that isn't a day not run is hatched, and
+  its key says "no data".
+
+A dashed outline means *not run*, in the strips and around a hatched stretch alike; hatching means *no data*.
