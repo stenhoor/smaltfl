@@ -29,7 +29,7 @@ import { writtenRules, CHECK_MODES, CHECK_NAMES, CHECK_SAID, checkOf, gateChecks
 import { toggleCheck } from '../core/gatecell.js';
 import { calendarHead, heldLoadLine, dayMid, dayShort, guessWords, judgedWords, lacked, MARK as REMEDY_MARK, noRowsBefore, reachLabel, readersOf as readersHad, readersSee, rowsFrom, shortfall, shownRun, stagedBar, stoppedLine as stoppedWords, toldLine, type DayState, type EpisodeDay, type KeptMark, type PauseState, type RemedyMark } from '../core/days.js';
 import { UNTIL, afterLine, betweenLine, dayPausedLine, daySentence, decidedLines, decisionDrawing, donorPicked, failLine, goShown, heldLine, outputPausedLine, passedLine, pausedChecks, pauseLines, pauseReasons, pickFails, receiptLines, remedyHead, ribbonOf, runFigures, sheetText, versionLines, checksSeen, filesSeen, findingOf, type RunSight, type AfterPart, type KeptLacks, type RemedySaid, type SheetIn, type SheetPick, type SheetText, type Sight } from '../core/decision.js';
-import { contractSaid, countedChecks, rangesFor, dayClaim, dayState, flowStory, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, tailPath, type Claim, decisionFor, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, lastPublished, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
+import { contractSaid, countedChecks, rangesFor, dayClaim, dayState, flowStory, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, upstreamSteps, tailPath, type Claim, decisionFor, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, lastPublished, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
 import { dayVersions, donorIdOf, fillCounts, levelOf as acceptedLevel, levelWays, partLabel as remedyPart, type Offer, type Repair, type Version } from '../core/fill.js';
 import { gridOf, shadeOf, shareOf, standOut } from './grid.js';
 import { setUpSplit, showWorkspace } from './split.js';
@@ -44,7 +44,7 @@ import { button as nbButton, formatMs, makeCell, showError, showMarkdown, showRo
 import type { EditorSchema, SchemaColumn } from 'smaltkit/editor';
 import type { GridRow } from 'smaltkit/grid';
 import { derivedAbout, derivedFails, derivedKeys, derivedWhy, donorsOf, filledRows, pinDonor, repairOf, stageRepair, type Listed, type Remedies } from './fills.js';
-import { followsCause as followsFrom, ACT_VERB, CELL_KINDS, CELL_NAMES, CONTEXT_TAG, HEALTH_HEAD, STRIP_KEY, approx, axisShare, recentSpan, cardWords, changeLabel, compact, countLabel, countRange, fallSteps, gateHead, overLabel, gateLabels, gateOf, partLabel, ruleOrder, ruleUsual, shortWho, splitSentence, splitSteps, storyOf, type Cell, type DayStep, type Gate, type HourValues, type Story, type Told } from '../core/story.js';
+import { followsCause as followsFrom, ACT_VERB, CELL_KINDS, CELL_NAMES, CONTEXT_TAG, HEALTH_HEAD, STRIP_KEY, approx, axisShare, recentSpan, cardWords, changeLabel, compact, countLabel, countRange, fallSteps, gateHead, overLabel, gateLabels, gateOf, partLabel, ruleOrder, ruleUsual, shortWho, splitSentence, splitSteps, saidOf, storyOf, type Cell, type DayStep, type Gate, type HourValues, type Story, type Told, type Upstream } from '../core/story.js';
 import { rowFlow, differenceMeter, fileTwins, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, degrees, weatherHours, chain, composition, contextBars, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
 import { sha256Hex } from '../core/hash.js';
 import { counted, glossOf, meaningOf, nounOf as ontologyNoun, propertyOf, saysMore, type Edit, type Noun, type PropertyType } from '../core/ontology.js';
@@ -3499,6 +3499,65 @@ function loadFindings(id: string, day: string): Finding[] {
   return newsOf(h, day, flowNames(state.doc, id), { checks: countedChecks(state.doc, h, id), judge: judgeOf(state.doc, id), ...(apart ? { apart } : {}), ...(file ? { file } : {}) });
 }
 
+/** The watched steps, as the flow lists them: those whose own history judges their day (ADR 0013 §4). */
+const watchedSteps = (): string[] => Object.keys(state.doc.publish?.watch ?? {}).filter((w) => !sourceIds().has(w) && w !== loadSource());
+const watchedStories = new Map<string, Story | null>();
+
+/**
+ * A watched step's day as its story tells it (ADR 0014 §2, Q-173), for a step the views don't follow: its findings
+ * against its own history, each told as following what it repeats, a source it reads that said something that day or
+ * a watched step it reads that said the same column and value. Told by `flowStory`, as the engine tells the step's
+ * claim; null without its history or its day.
+ */
+function watchedStory(id: string, day: string): Story | null {
+  if (!watchedSteps().includes(id)) return null;
+  const h = rangesForLoad(id);
+  if (!h || !h.file.days.includes(day)) return null;
+  const sources: Upstream[] = [];
+  for (const [k, c] of claims) if (k.startsWith(`${day}|`) && c && sourceIds().has(c.source) && !sources.some((x) => x.source === c.source)) sources.push({ source: c.source, state: c.state, head: c.head });
+  const key = `${id}|${day}|${h.file.days.length}|${dataLog.version}|${sources.map((u) => `${u.source}=${u.state}`).join(',')}`;
+  const known = watchedStories.get(key);
+  if (known !== undefined) return known;
+  watchedStories.set(key, null); // read while it is being told: the flow is a graph, never a cycle, but never loop
+  const steps = [...upstreamSteps(state.doc, id)].filter((st) => watchedSteps().includes(st));
+  const upstream: Upstream[] = [...sources];
+  for (const st of steps) {
+    const told = watchedStory(st, day);
+    if (told) upstream.push({ source: st, state: told.state, head: told.head, said: saidOf(told) });
+  }
+  let told: Story | null = null;
+  try {
+    told = flowStory(h, day, state.doc, id, upstream, apartFor(id, day), fileFacts(id, day));
+  } catch {
+    told = null;
+  }
+  watchedStories.set(key, told);
+  for (const old of [...watchedStories.keys()].slice(0, Math.max(0, watchedStories.size - 120))) watchedStories.delete(old);
+  return told;
+}
+
+/** What a told finding follows from, in words: the node upstream it repeats ("follows app_owners"), or nothing. */
+const followsSaid = (t: { because?: string }): string | null => (t.because?.startsWith('upstream:') ? `follows ${t.because.slice('upstream:'.length)}` : null);
+
+/**
+ * A watched step's own day in its News (ADR 0014 §2): its verdict against its own history, unless a hold says it above,
+ * and every finding it told, each with what it follows.
+ */
+function watchedNews(story: Story, held: boolean): HTMLElement[] {
+  const told = [...(story.cause ? [story.cause] : []), ...story.stories, ...story.more, ...story.follows, ...story.sameDay, ...story.absorbed, ...story.notes];
+  const sev: Severity = story.state === 'wrong' ? 'alert' : story.state === 'unusual' ? 'warn' : 'note';
+  const out: HTMLElement[] = [];
+  if (!held) out.push(h('div', { class: `verdict ${sev}` },
+    h('p', { class: 'v-day' }, `${dayLabel(story.day)} · against its own history`),
+    h('h3', { class: 'v-head' }, glyphEl(sev, 16), story.head)));
+  if (told.length) out.push(h('ul', { class: 'wn-list', 'aria-label': 'What its own history found today' }, ...told.map((t) => {
+    const mark = sevMark(t.severity);
+    const follows = followsSaid(t);
+    return h('li', { class: t.severity }, mark ? glyphEl(mark, 13) : h('span', { class: 'bq-tick', 'aria-hidden': 'true' }, '✓'), h('span', {}, t.title, follows ? h('span', { class: 'foot' }, ` · ${follows}`) : null));
+  })));
+  return out;
+}
+
 /**
  * The gate's checks, one a row (ADR 0014 §7): the check and what it says, written or learned, what it does (hold, warn,
  * off), and today's result from the day's findings. Read-only in this slice: the gate is written in the notebook's
@@ -3797,9 +3856,10 @@ async function happenedTab(card: string, id: string): Promise<HTMLElement> {
   const story = stepStory(facts);
   const lost = story.flow?.lost.reduce((a, b) => a + b.rows, 0) ?? 0;
   const odd = /^(Fewer|More) than usual/.test(story.usual);
+  const stopped = story.stops.length > 0;
   const part = (title: string, ...kids: Child[]) => h('section', { class: 'cp-part' }, h('h4', { class: 'cp-h' }, title), ...kids);
-  box.append(h('header', { class: `sv-head${lost || odd ? ' look' : ''}` },
-    lost || odd ? glyphEl('warn', 18) : h('span', { class: 'bq-tick big', 'aria-hidden': 'true' }, '✓'),
+  box.append(h('header', { class: `sv-head${stopped ? ' stop' : lost || odd ? ' look' : ''}` },
+    stopped ? glyphEl('alert', 18) : lost || odd ? glyphEl('warn', 18) : h('span', { class: 'bq-tick big', 'aria-hidden': 'true' }, '✓'),
     h('div', {}, h('h3', {}, story.head), story.time ? h('p', {}, story.time) : null)));
   if (story.flow) box.append(h('div', { class: 'cp-vis' }, svgNode(rowFlow({ ...story.flow, outLabel: id, aria: story.head }))));
   if (lost && tabsOf(card).includes('dropped')) box.append(h('p', {}, h('button', { type: 'button', class: 'btn small', onclick: () => openTab(card, 'dropped') }, `See the ${fmtInt(lost)} rows left out ›`)));
@@ -3838,12 +3898,20 @@ async function happenedTab(card: string, id: string): Promise<HTMLElement> {
   const g = gateOn(id);
   if (g) {
     const day = newsDay() ?? viewedDay();
-    const findings = day && Object.keys(state.doc.publish?.watch ?? {}).some((w) => w.toLowerCase() === id.toLowerCase()) ? loadFindings(id, day) : [];
+    // A watched step's told findings, each with what it follows (Q-173); else the judge's own.
+    const told = day ? watchedStory(id, day) : null;
+    const findings: (Finding & { was?: Severity; because?: string })[] = told ? told.findings : day && Object.keys(state.doc.publish?.watch ?? {}).some((w) => w.toLowerCase() === id.toLowerCase()) ? loadFindings(id, day) : [];
+    const loud = (x: { severity: Severity; was?: Severity }) => (x.was ?? x.severity) === 'alert' || (x.was ?? x.severity) === 'warn';
     const on = (Object.entries(g) as [CheckName, CheckMode][]).filter(([, mode]) => mode !== 'off');
-    const found = on.filter(([c]) => findings.some((x) => (x.check ?? checkOf(x.kind)) === c && (x.severity === 'alert' || x.severity === 'warn'))).length;
+    const found = on.filter(([c]) => findings.some((x) => (x.check ?? checkOf(x.kind)) === c && loud(x))).length;
     box.append(part('Its checks', h('details', { class: 'pf-more', ...(found ? { open: 'open' } : {}) }, h('summary', {}, found ? `${found} of ${on.length} checks found something` : `All ${on.length} checks passed`), h('ul', { class: 'sv-checks' }, ...on.map(([c, mode]) => {
-      const f = findings.find((x) => (x.check ?? checkOf(x.kind)) === c && (x.severity === 'alert' || x.severity === 'warn'));
-      return h('li', { class: f ? f.severity : 'ok' }, f ? glyphEl(f.severity === 'alert' ? 'alert' : 'warn', 13) : h('span', { class: 'bq-tick', 'aria-hidden': 'true' }, '✓'), h('span', {}, CHECK_PLAIN[c]), h('span', { class: 'foot' }, f ? ` · ${f.title}` : mode === 'hold' ? ' · stops the day if not' : ' · warns if not'));
+      // What each check found, the worst first, three at most (as the Checks tab lists them): a platform behind the
+      // failures is said beside the control they are of.
+      const mine = findings.filter((x) => (x.check ?? checkOf(x.kind)) === c && loud(x)).sort((a, b) => SEV_RANK[a.was ?? a.severity] - SEV_RANK[b.was ?? b.severity] || b.score - a.score);
+      const f = mine[0];
+      const worst: Severity = f ? (f.was ?? f.severity) : 'ok';
+      const said = mine.slice(0, 3).map((x) => `${x.title}${followsSaid(x) ? `, ${followsSaid(x)}` : ''}`).join(' · ') + (mine.length > 3 ? ` · and ${mine.length - 3} more` : '');
+      return h('li', { class: f ? worst : 'ok' }, f ? glyphEl(worst === 'alert' ? 'alert' : 'warn', 13) : h('span', { class: 'bq-tick', 'aria-hidden': 'true' }, '✓'), h('span', {}, CHECK_PLAIN[c]), h('span', { class: 'foot' }, f ? ` · ${said}` : mode === 'hold' ? ' · stops the day if not' : ' · warns if not'));
     })))));
   }
   void run;
@@ -7327,6 +7395,9 @@ async function newsTab(card: string, id: string, who: string): Promise<HTMLEleme
       h('h3', { class: 'v-head' }, glyphEl(mine.by === 'unjudged' ? 'held' : 'alert', 16), mine.by === 'unjudged' ? 'Held: not judged' : mine.said.replace(/\s*\((usually|never)[^)]*\)$/, '')),
       h('p', { class: 'v-line' }, mine.by === 'unjudged' ? mine.said : `${mine.said}: this load against its own history. The day is paused by it.`)));
   }
+  // A watched step the views don't follow tells its own day (ADR 0014 §2): its verdict and what it follows.
+  const ownStory = !state.failed && storyDay ? watchedStory(dataOf(card), storyDay) : null;
+  if (ownStory && ownStory.state !== 'calm' && ownStory.state !== 'unlearned') box.append(...watchedNews(ownStory, !!mine));
   // A day paused with no story to tell it (the history doesn't have the day, or there is none): what held it, what
   // waits, and Decide (ADR 0009 §3: a source not judged is held, and a person decides).
   const own = !state.failed && dataOf(card) === loadSource() ? onScreen() : undefined;
