@@ -3518,7 +3518,7 @@ function watchedStory(id: string, day: string): Story | null {
   const key = `${id}|${day}|${h.file.days.length}|${dataLog.version}|${sources.map((u) => `${u.source}=${u.state}`).join(',')}`;
   const known = watchedStories.get(key);
   if (known !== undefined) return known;
-  watchedStories.set(key, null); // read while it is being told: the flow is a graph, never a cycle, but never loop
+  watchedStories.set(key, null); // marked while it is told: the steps it reads are told first, and none reads it back
   const steps = [...upstreamSteps(state.doc, id)].filter((st) => watchedSteps().includes(st));
   const upstream: Upstream[] = [...sources];
   for (const st of steps) {

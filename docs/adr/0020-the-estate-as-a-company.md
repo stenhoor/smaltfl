@@ -838,7 +838,11 @@ reorg and the contracts at every size, each stop with its checks.
     pairs were noise), and the platform says it instead;
   - what the judges say of a day depends on the days the browser has run before it (each run's measures are the tail):
     the stops visit the walks' days in order, and a day reached without the days before it can say more or less.
-- **The first load** (ADR 0019's machine and method, `tools/browser/load.cjs`): FIRST_LOAD.
+- **The first load doesn't fit its budget** (`tools/browser/load.cjs`, five fresh loads, the median): Larkspur's first
+  day is shown at 11.0 s on a desktop and 11.4 s on a phone, where the estate's is at 3.17 s on the same machine (ADR
+  0019's 3.06 s). The engine's run of the flow is 7.3 s of it (the estate's 1.05 s): some hundred steps over 28,000 rows
+  of twenty files; telling the day's claims 2.0 s (the estate's 0.63 s); 31 MB fetched, 3.75 MB compressed. Q-170 said
+  the budget is revised if it doesn't fit: Q-179 decides what follows.
 
 ## Consequences
 
