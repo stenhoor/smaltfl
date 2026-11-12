@@ -377,17 +377,22 @@ export function emitRuleCheck(rule: { column: string; kind: 'required' | 'oneOf'
   }
 }
 
+/** An id as a loose type compares it (`ObjectType.ids`): whatever its case and the spaces around it. */
+const loosened = (column: string): string => `upper(trim(${column}))`;
+
 /**
  * A scope rule's counts (ADR 0014 §4), in one row: the rows whose key is not among the inventory's keys in scope (a
- * blank key among them), the keys in scope with no row, and the keys in scope.
+ * blank key among them), the keys in scope with no row, and the keys in scope. With `loose`, ids are compared whatever
+ * their case and the spaces around them, and the inventory's records naming one id are one key in scope.
  */
-export function emitScopeCounts(sql: string, scope: { table: string; key: string; own: string; where: string }): string {
-  const inScope = `SELECT ${q(scope.key)} AS k FROM ${q(scope.table)} WHERE (
+export function emitScopeCounts(sql: string, scope: { table: string; key: string; own: string; where: string; loose?: boolean }): string {
+  const id = (column: string) => (scope.loose ? loosened(column) : column);
+  const inScope = `SELECT ${scope.loose ? 'DISTINCT ' : ''}${id(q(scope.key))} AS k FROM ${q(scope.table)} WHERE (
 ${scope.where}
 ) AND ${q(scope.key)} IS NOT NULL`;
   return `SELECT (SELECT count(*) FROM (
 ${sql}
-) s WHERE s.${q(scope.own)} IS NULL OR s.${q(scope.own)} NOT IN (${inScope})), (SELECT count(*) FROM (${inScope}) i WHERE i.k NOT IN (SELECT ${q(scope.own)} FROM (
+) s WHERE s.${q(scope.own)} IS NULL OR ${id(`s.${q(scope.own)}`)} NOT IN (${inScope})), (SELECT count(*) FROM (${inScope}) i WHERE i.k NOT IN (SELECT ${id(q(scope.own))} FROM (
 ${sql}
 ) WHERE ${q(scope.own)} IS NOT NULL)), (SELECT count(*) FROM (${inScope}))`;
 }
@@ -412,10 +417,11 @@ ${sql}
 
 /**
  * A reconciliation's counts (ADR 0014 §6), in one row: the rows, the distinct keys (blank ones left out), the rows with
- * a blank key, and with the other relation, its keys with no row here and the keys here not there.
+ * a blank key, and with the other relation, its keys with no row here and the keys here not there. With `loose`, ids
+ * are compared whatever their case and the spaces around them.
  */
-export function emitReconcileCounts(sql: string, key: readonly string[], of: string | null): string {
-  const k = (alias: string) => key.map((c) => `${alias}.${q(c)}`).join(' || \'\\u0001\' || ');
+export function emitReconcileCounts(sql: string, key: readonly string[], of: string | null, loose = false): string {
+  const k = (alias: string) => key.map((c) => (loose ? loosened(`${alias}.${q(c)}`) : `${alias}.${q(c)}`)).join(' || \'\\u0001\' || ');
   const blank = (alias: string) => key.map((c) => `${alias}.${q(c)} IS NULL`).join(' OR ');
   const keysHere = `SELECT DISTINCT ${k('s')} AS k FROM (\n${sql}\n) s WHERE NOT (${blank('s')})`;
   const counts = [

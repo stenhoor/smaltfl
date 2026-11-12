@@ -223,7 +223,17 @@ match smaltdb's `CLAUDE.md`.
   check (Q-172): a file exported before the day it covers is the last load's again (`FileFacts`, the `stale` finding in
   `news.ts`), told with the claim (`StoryClaim2.file`, checked by the run against the snapshot's file, re-told by
   `retell.ts`), from the data list's `exported_at` and `before` (`fileFacts` in the app; `fileTwins` in `viz.ts`); in
-  a gated flow a volume change under a twentieth isn't told.
+  a gated flow a volume change under a twentieth or its rows' floor isn't told, a new value or pair is unusual only on
+  the floor's rows, and a written band is read on a value's first day too. Slice 3, silver: the silver days planted too
+  (`LARKSPUR_SILVER`), and four notebooks: `org.nb.ts` (the walk up the chain, its rules `no_loop` and `one_root`),
+  `apps.nb.ts` (ids conformed, the newest record kept, owner chains with Unassigned, shadow tags), `evidence.nb.ts` (every
+  feed as one long table; the vulnerability SLA told from the ledger) and `posture.nb.ts` (what applies, coverage, the
+  effective status with its reason, remediation, `platform_impact`, `posture_wide` with the key-rotation needs rule).
+  Watched in the engine: `apps`, `effective`, `posture_wide`, `platform_impact`, `shadow_assets` (the world builds their
+  histories from runs of the flow, `stepsFrom`). An object type's `ids: 'loose'` (Q-176) matches ids whatever their
+  case and spaces in the scope and the ontology's one row an object (`looseIds`, `emitScopeCounts`); `publish.reach:
+  'downstream'` (Q-177) makes a step's hold reach the outputs built from it (`reachOf`); a refused file holds every
+  output, since nothing was built.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).

@@ -4,6 +4,6 @@
   "@smaltdb/io": {"repo": "stenhoor/smaltdb-io", "ref": "8e151de16f35c19c174a2387abb7f39c90a991e1"},
   "@smaltdb/external": {"repo": "stenhoor/smaltdb-external", "ref": "66c480c8b8eb76feccb6db0baae1796e704d16ca"},
   "@smaltdb/parquet": {"repo": "stenhoor/smaltdb-parquet", "ref": "c6ec00a720b590ee31f4f3544f657577a860c339"},
-  "smaltnb": {"repo": "stenhoor/smaltnb", "ref": "41349b919200de2468aaa42893a9e1ea084467dc"},
-  "smaltkit": {"repo": "stenhoor/smaltkit", "ref": "c7d9c5c49ce1e9e14b129a6fe7bf25bc36764b7b"}
+  "smaltnb": {"repo": "stenhoor/smaltnb", "ref": "41da96b672381e552c4dcd9ed378e470e5dc0ac0"},
+  "smaltkit": {"repo": "stenhoor/smaltkit", "ref": "357039a304a62227af07e8811b480616d3ec4333"}
 }

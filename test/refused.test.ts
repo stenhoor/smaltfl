@@ -89,6 +89,23 @@ describe('a refused file under a gate', () => {
     }
   });
 
+  it('holds every output under together: false, those that don’t read the refused file too: nothing was built', async () => {
+    const db = await setup('app_id,status\na1,pass\n');
+    try {
+      // A second output that reads only the inventory, which a hold on tls alone wouldn't reach.
+      const base = flow(true);
+      const source = base.notebooks![0]!.source!.replace("cell('published');\npublish(posture);", "cell('units', { lang: 'sql' });\nexport const units = sql`SELECT DISTINCT business_unit FROM ${apps}`;\ncell('published');\npublish(posture);\npublish(units);");
+      const doc = await expandNotebooks({ ...base, notebooks: [{ path: 'a.nb.ts', source }], publish: { ...base.publish!, together: false } } as FlowDocument, ts);
+      const r = await runFlow(db, doc, { smaltdb: SMALTDB, parameters: { day: '2024-03-01' } });
+      expect(r.holds.map((h) => [h.origin, h.reaches])).toEqual([['tls', ['posture', 'units']]]);
+      expect(r.published).toEqual([]);
+      expect(r.waiting).toEqual(['posture', 'units']);
+      expect((await verifyRun(db, r.run, { smaltdb: SMALTDB, level: 'rerun', manifest: r.hash })).ok).toBe(true);
+    } finally {
+      db.close();
+    }
+  });
+
   it('fails the run as it always did in a flow with no gate', async () => {
     const db = await setup('app_id,status\na1,pass\n');
     try {

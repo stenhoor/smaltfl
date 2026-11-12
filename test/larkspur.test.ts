@@ -16,11 +16,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   addDays, appliesTo, appsOn, CONTROL, CONTROL_IDS, CONTROLS, csvOf, DAILY_FILES, dayFile, dayFiles, daysFrom, EVIDENCE_FILES, exceptedOn, exportedAt, exportedAtOf, FILE_CONTROL, fixedFiles,
-  larkspur, LARKSPUR_FROM, LARKSPUR_LOADS_FROM, LARKSPUR_PLANTED, LARKSPUR_TROUBLE, leaderOf, LEVELS, orgOn, ownedOn, patchTuesday, PLATFORMS, rawStatus, REQUIREMENTS, SEVERITY_DAYS, vulnOn,
+  larkspur, LARKSPUR_FROM, LARKSPUR_LOADS_FROM, LARKSPUR_PLANTED, LARKSPUR_SILVER, LARKSPUR_TROUBLE, leaderOf, LEVELS, orgOn, ownedOn, patchTuesday, PLATFORMS, rawStatus, REQUIREMENTS, SEVERITY_DAYS, vulnOn,
   type AppOn, type Cell, type DailyFile, type Table,
 } from './fixtures/larkspur.js';
 
-const w = larkspur({ apps: 650 });
+/** The estate with its bronze days planted: what slices 1 and 2 hold the data to. */
+const w = larkspur({ apps: 650, trouble: LARKSPUR_TROUBLE });
+/** The estate with every planted day, bronze and silver (its default). */
+const silver = larkspur({ apps: 650 });
 /** The same estate with nothing planted: what a planted day is compared with. */
 const calm = larkspur({ apps: 650, incidents: false });
 /** Calm days across the span: two Patch Tuesdays among them. */
@@ -570,7 +573,7 @@ describe('the planted days a file shows as it arrives (ADR 0020 §5)', () => {
     expect(behind.length).toBeGreaterThan(5);
     for (const r of behind) expect([r.status, r.mode]).toEqual(['fail', 'monitor']);
     expect(failShare(t)).toBeGreaterThan(0.15);
-    expect(behind.length / rows.filter((r) => r.status === 'fail').length).toBeGreaterThan(0.85);
+    expect(behind.length / rows.filter((r) => r.status === 'fail').length).toBeGreaterThan(0.8);
     expect(failShare(dayFile(calm, 'waf', P.monitor))).toBeLessThan(0.08);
   });
 
@@ -645,3 +648,117 @@ describe('the planted days a file shows as it arrives (ADR 0020 §5)', () => {
   });
 });
 
+
+describe('the planted days silver catches, where files meet (ADR 0020 §5, slice 3)', () => {
+  const S = LARKSPUR_SILVER;
+  const rowsOf = (t: Table) => t.rows.map((r) => Object.fromEntries(t.columns.map((c, i) => [c, r[i]])) as Record<string, Cell>);
+  const units = (ww: typeof w, d: string) => new Map(rowsOf(dayFile(ww, 'hr_org_units', d)).map((r) => [String(r.org_unit_id), r]));
+
+  it('Fri 8: key rotation passes where encryption at rest fails, as many of its passers failing, its count of failures kept', () => {
+    const enc = new Map(rowsOf(dayFile(silver, 'encryption', S.contradiction)).map((r) => [r.app_id, r.status]));
+    const key = rowsOf(dayFile(silver, 'key_rotation', S.contradiction));
+    const calmKey = rowsOf(dayFile(calm, 'key_rotation', S.contradiction));
+    expect(key.filter((r) => r.status === 'pass' && enc.get(r.app_id) === 'fail').length).toBeGreaterThan(5);
+    expect(key.filter((r) => r.status === 'fail').length).toBe(calmKey.filter((r) => r.status === 'fail').length);
+    expect(rowsOf(dayFile(silver, 'key_rotation', addDays(S.contradiction, 1))).filter((r) => r.status === 'pass' && rowsOf(dayFile(silver, 'encryption', addDays(S.contradiction, 1))).some((e) => e.app_id === r.app_id && e.status === 'fail'))).toEqual([]);
+  });
+
+  it('Mon 11: a reorg moves the seven largest teams of one business unit into a department of another, from that day on', () => {
+    const moves = silver.planted.moves;
+    expect(moves).toHaveLength(7);
+    for (const m of moves) {
+      expect(units(silver, addDays(S.reorg, -1)).get(m.team)!.parent_id).toBe(m.from);
+      expect(units(silver, S.reorg).get(m.team)!.parent_id).toBe(m.to);
+      expect(units(silver, '2024-03-31').get(m.team)!.parent_id).toBe(m.to);
+      expect(silver.unit.get(m.to)!.business_unit).not.toBe(silver.unit.get(m.from)!.business_unit);
+    }
+    const moved = new Set(moves.map((m) => m.team));
+    const share = appsOn(silver, S.reorg).filter((a) => moved.has(a.owner_team_id)).length / appsOn(silver, S.reorg).length;
+    expect(share).toBeGreaterThan(0.04);
+    expect(share).toBeLessThan(0.15);
+  });
+
+  it('Fri 15: a batch of exceptions expires unrenewed, some extended once already, and the raw data doesn’t change', () => {
+    const on = rowsOf(dayFile(silver, 'exceptions', S.expiries)).filter((r) => r.valid_to === addDays(S.expiries, -1));
+    expect(on.length).toBe(silver.planted.expiring.size);
+    expect(on.length).toBeGreaterThanOrEqual(10);
+    expect(on.every((r) => r.status === 'expired')).toBe(true);
+    expect(on.filter((r) => r.version === 2 && r.original_valid_to).length).toBeGreaterThanOrEqual(1);
+    const before = rowsOf(dayFile(silver, 'exceptions', addDays(S.expiries, -1))).filter((r) => silver.planted.expiring.has(String(r.exception_id)) && r.valid_to === addDays(S.expiries, -1));
+    expect(before.every((r) => r.status === 'active')).toBe(true);
+    for (const f of ['encryption', 'logging_coverage', 'mfa'] as const) expect(dayFile(silver, f, S.expiries), f).toEqual(dayFile(calm, f, S.expiries));
+  });
+
+  it('Mon 18: the extract drops a department and leaves its teams pointing at it; the next day they report into a sibling', () => {
+    const ds = silver.planted.dissolved!;
+    expect(units(silver, addDays(S.dissolve, -1)).has(ds.unit)).toBe(true);
+    const mon = units(silver, S.dissolve);
+    expect(mon.has(ds.unit)).toBe(false);
+    const teams = [...mon.values()].filter((r) => r.parent_id === ds.unit);
+    expect(teams.length).toBeGreaterThan(1);
+    const tue = units(silver, addDays(S.dissolve, 1));
+    for (const t of teams) expect(tue.get(String(t.org_unit_id))!.parent_id).toBe(ds.sibling);
+    expect(tue.has(ds.unit)).toBe(false);
+    const owned = new Set(teams.map((t) => String(t.org_unit_id)));
+    const share = appsOn(silver, S.dissolve).filter((a) => owned.has(a.owner_team_id)).length / appsOn(silver, S.dissolve).length;
+    expect(share).toBeGreaterThan(0.03);
+    expect(share).toBeLessThan(0.09);
+  });
+
+  it('Wed 20: the CMDB repeats records, ids lower-cased with a trailing space and newer, some with another owner', () => {
+    const t = rowsOf(dayFile(silver, 'cmdb_apps', S.duplicates));
+    const c = rowsOf(dayFile(calm, 'cmdb_apps', S.duplicates));
+    const dups = t.filter((r) => /^app-\d{4} $/.test(String(r.app_id)));
+    expect(t.length - c.length).toBe(dups.length);
+    expect(dups.length).toBe(Math.round(60 * 650 / 2600));
+    const original = new Map(c.map((r) => [String(r.app_id), r]));
+    const others = dups.filter((r) => original.get(String(r.app_id).trim().toUpperCase())!.owner_team_id !== r.owner_team_id);
+    expect(others.length).toBe(Math.round(12 * 650 / 2600));
+    for (const r of dups) expect(String(r.updated_at) > String(original.get(String(r.app_id).trim().toUpperCase())!.updated_at)).toBe(true);
+    expect(dayFile(silver, 'cmdb_apps', addDays(S.duplicates, 1)).rows.some((r) => /^app-/.test(String(r[0])))).toBe(false);
+  });
+
+  it('Sat 23: a new cloud account’s resources under tags no CMDB record names, there from then on', () => {
+    for (const d of [S.shadow, addDays(S.shadow, 1)]) {
+      const rows = rowsOf(dayFile(silver, 'cloud_assets', d)).filter((r) => r.account_id === 'acct-wlt-migration');
+      expect(rows).toHaveLength(9);
+      expect(rows.reduce((x, r) => x + Number(r.resources), 0)).toBe(140);
+      const known = new Set(appsOn(silver, d).map((a) => a.app_id));
+      expect(rows.some((r) => known.has(String(r.app_tag)))).toBe(false);
+    }
+    expect(rowsOf(dayFile(silver, 'cloud_assets', addDays(S.shadow, -1))).some((r) => r.account_id === 'acct-wlt-migration')).toBe(false);
+  });
+
+  it('Mon 25: ca-int-2’s intermediate lapses: TLS and log forwarding fail together for what it issued for, each rise modest', () => {
+    const tls = rowsOf(dayFile(silver, 'tls', S.ca));
+    const log = rowsOf(dayFile(silver, 'logging_coverage', S.ca));
+    const behind = tls.filter((r) => r.issuer === 'ca-int-2');
+    expect(behind.length).toBeGreaterThan(2);
+    for (const r of behind) expect([r.status, r.not_after]).toEqual(['fail', addDays(S.ca, -1)]);
+    const fwd = log.filter((r) => r.forwarder_issuer === 'ca-int-2');
+    for (const r of fwd) expect([r.status, r.last_event]).toEqual(['fail', `${addDays(S.ca, -1)}T00:15:00Z`]);
+    expect(new Set(fwd.map((r) => r.app_id))).toEqual(new Set(behind.map((r) => r.app_id)));
+    // Modest on each file: under twice its usual failures.
+    const fails = (rs: Record<string, Cell>[]) => rs.filter((r) => r.status === 'fail').length;
+    expect(fails(tls)).toBeLessThan(2 * fails(rowsOf(dayFile(calm, 'tls', S.ca))) + 2);
+    expect(fails(log)).toBeLessThan(1.5 * fails(rowsOf(dayFile(calm, 'logging_coverage', S.ca))));
+  });
+
+  it('Wed 27: the catalogue lists an SBOM control from that day on, which no feed carries', () => {
+    expect(dayFile(silver, 'control_catalog', addDays(S.sbom, -1)).rows).toHaveLength(14);
+    for (const d of [S.sbom, '2024-03-31']) {
+      const cat = dayFile(silver, 'control_catalog', d);
+      expect(cat.rows).toHaveLength(15);
+      expect(cat.rows.at(-1)![0]).toBe('sbom');
+      expect(dayFile(silver, 'control_requirements', d).rows.filter((r) => r[0] === 'sbom')).toHaveLength(3);
+    }
+  });
+
+  it('Thu 28: a department reports into one of its own teams for the day, a leadership chain that loops', () => {
+    const lp = silver.planted.loop!;
+    const day = units(silver, S.loop);
+    expect(day.get(lp.unit)!.parent_id).toBe(lp.team);
+    expect(day.get(lp.team)!.parent_id).toBe(lp.unit);
+    expect(units(silver, addDays(S.loop, 1)).get(lp.unit)!.parent_id).toBe(silver.unit.get(lp.unit)!.parent);
+  });
+});

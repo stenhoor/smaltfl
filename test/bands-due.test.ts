@@ -159,6 +159,17 @@ describe('the judges (Q-114, ADR 0014 §3)', () => {
     expect(level!.band!.share[0]).toBeCloseTo(level!.band!.share[1] - 0.1, 5);
   });
 
+  it('judges a banded value by its band on the first day it is seen, and doesn’t tell it as new besides', () => {
+    const h = new HistoryRanges(historyWith({ '2023-10-11': { newValue: true } }));
+    const gated = { ...LEGACY_JUDGE, checks: LAYER_DEFAULTS.bronze };
+    // Without a band, vendor 6, never seen before, is a new value.
+    expect(newsOf(h, '2023-10-11', vendorNames, { judge: gated }).find((f) => f.kind === 'new')).toMatchObject({ title: 'New vendor: 6 · 500 trips' });
+    // A band of none at all (none should ever be there): the band tells it, and nothing else does.
+    const banded = newsOf(h, '2023-10-11', vendorNames, { judge: { ...gated, expect: new Map([['vendorid|6', [0, 0]]]) } });
+    expect(banded.find((f) => f.kind === 'band')).toMatchObject({ key: 'band:VendorID=6', severity: 'alert', check: 'values', band: [0, 0], values: ['6'] });
+    expect(banded.some((f) => f.kind === 'new')).toBe(false);
+  });
+
   it('tells a cluster of due dates with the usual share late as a note, and more than usual late as something wrong, in place of the bad value', () => {
     const judge = { ...LEGACY_JUDGE, checks: LAYER_DEFAULTS.bronze, bad: new Map([['status', new Set(['fail'])]]), pattern: 'none' as const, legacy: false, due: [{ column: 'next_due', status: 'status', miss: 'fail', within: 7 }], needs: [], reconcile: null };
     const first = slaMeasures('2024-01-01', { due: 10, late: 0 });

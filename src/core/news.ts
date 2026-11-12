@@ -466,13 +466,19 @@ export function newsOf(h: HistoryRanges, day: string, names: Names, options: { c
   const trips = judged({ of: 'trips' });
   // The floors, scaled in the general form with the day's expected rows (its rows, when they have no range).
   const M = materialFor(trips?.range.expected ?? rows, judge.scale);
+  // A value or combination never seen before is unusual on the floor's rows, or a thousandth of the day. In a flow with
+  // gates (ADR 0020 slice 3), on the floor alone: a thousandth of a small table (one row an application) is under a
+  // row, and the first application with a rare combination of statuses isn't something unusual about the day.
+  const newIsUnusual = (n: number): boolean => n >= M.newUnusual || (judge.checks === null && n >= 0.001 * rows);
   if (trips) {
     const { range, value } = trips;
     const like = `A day like it has ${fmtInt(range.low)} to ${fmtInt(range.high)}.`;
     // In a flow with gates (ADR 0020 §2, as built), a change under a twentieth of a day like it isn't told: an inventory
     // (the people in an HR extract, the applications in a CMDB, a feed with one row each) moves by a row or two a day by
     // design, and against a history with almost no spread one row reads as far out. A file all but empty still is.
-    const slight = judge.checks !== null && Math.abs(value / range.expected - 1) < MATERIAL.relative;
+    // In a gated flow a count that moved by under a twentieth isn't told, nor one that moved by less than its rows' floor
+    // (ADR 0020 slices 2 and 3): an inventory moves by a row or two by design, and three tags against four is counting.
+    const slight = judge.checks !== null && (Math.abs(value / range.expected - 1) < MATERIAL.relative || Math.abs(value - range.expected) < M.rows);
     if (value < MATERIAL.blank * range.expected) {
       out.push({ key: 'volume', kind: 'volume', severity: 'alert', score: 99, title: `Almost no ${noun()}: ${fmtInt(value)}`, detail: like, look: 'history', metric: { of: 'trips' }, value, range, rows: value, acts: ['incident', 'notify', 'expected'] });
     } else if (outside(trips) && !slight) {
@@ -616,7 +622,17 @@ export function newsOf(h: HistoryRanges, day: string, names: Names, options: { c
   (file.gate?.needs?.[k] ?? []).forEach((n, i) => {
     const rule = judge.needs[i];
     const said = (m: Record<string, string | string[]> | undefined) => (m ? Object.entries(m).map(([c, v]) => `${names.column(c)} ${(Array.isArray(v) ? v : [v]).join('/')}`).join(' and ') : `rule ${i + 1}`);
-    ruleCount(`needs:${i}`, 'needs', { of: 'needs', rule: i }, n, `${fmtInt(n)} ${noun(n)}: ${said(rule?.when)} needs ${said(rule?.then)}`, `${rule?.from ? `Read against ${rule.from} by ${rule.key}: ` : ''}rows matching the rule's condition whose required value isn't there.`);
+    // What must hold, said by what it leaves out where the list is long (more than three values) and the column's history
+    // has seen no more than two others: "encryption not fail".
+    const required = (m: Record<string, string | string[]> | undefined) => (m ? Object.entries(m).map(([c, v]) => {
+      const allowed = Array.isArray(v) ? v : [v];
+      const seen = (file.values?.[c]?.values ?? []).map((x) => { try { return JSON.parse(x) as unknown; } catch { return x; } }).filter((x): x is string => typeof x === 'string');
+      const left = seen.filter((x) => !allowed.includes(x));
+      return allowed.length > 3 && left.length >= 1 && left.length <= 2 ? `${names.column(c)} not ${left.join('/')}` : `${names.column(c)} ${allowed.join('/')}`;
+    }).join(' and ') : `rule ${i + 1}`);
+    // A condition read on another dataset's row names that dataset.
+    const when = rule?.from ? `${rule.from} ${said(rule.when)}` : said(rule?.when);
+    ruleCount(`needs:${i}`, 'needs', { of: 'needs', rule: i }, n, `${fmtInt(n)} ${noun(n)}: ${when} needs ${required(rule?.then)}`, `${rule?.from ? `Read against ${rule.from} by ${rule.key}: ` : ''}rows matching the rule's condition whose required value isn't there.`);
   });
 
   /** Whether a column's value is the miss a judged due mark tells: its rise is the due check's, not a bad value's. */
@@ -628,12 +644,14 @@ export function newsOf(h: HistoryRanges, day: string, names: Names, options: { c
     if (!vh.counts) continue;
     const badCodes = judge.bad.get(column.toLowerCase());
     vh.values.forEach((key, i) => {
-      // A value first seen today is told as new (below), not as a share against a history of none.
-      if (vh.first[i]! >= k) return;
-      if (dueMiss(column, key)) return;
       const bad = key !== 'null' && !!badCodes?.has(String(parse(key)));
-      // A written band (ADR 0014 §3): the share against the band, and nothing else; a value with a band is judged by it.
+      // A written band (ADR 0014 §3): the share against the band, and nothing else; a value with a band is judged by it,
+      // on the first day it is seen too (ADR 0020 slice 3: no application should have two owners, and the first day one
+      // does is the band's to tell).
       const band = judge.expect.get(`${column.toLowerCase()}|${String(parse(key))}`);
+      // A value first seen today is otherwise told as new (below), not as a share against a history of none.
+      if (!band && vh.first[i]! >= k) return;
+      if (!band && dueMiss(column, key)) return;
       if (band) {
         const share = rows ? (vh.counts![k]?.[i] ?? 0) / rows : 0;
         const [low, high] = band;
@@ -712,8 +730,11 @@ export function newsOf(h: HistoryRanges, day: string, names: Names, options: { c
   for (const [column, vh] of Object.entries(file.values ?? {})) {
     const found = newOn(vh, k);
     if (!found) continue;
-    // A judged due mark's miss first seen today is lateness, told by the due check (ADR 0014 §3), not a new value.
-    const fresh = found.keys.some((key) => dueMiss(column, key)) ? { ...found, keys: found.keys.filter((key) => !dueMiss(column, key)), rows: undefined } : found;
+    // A judged due mark's miss first seen today is lateness, told by the due check (ADR 0014 §3), not a new value; a value
+    // with a written band is the band's to tell.
+    const banded = (key: string) => judge.expect.has(`${column.toLowerCase()}|${String(parse(key))}`);
+    const told = (key: string) => dueMiss(column, key) || banded(key);
+    const fresh = found.keys.some(told) ? { ...found, keys: found.keys.filter((key) => !told(key)), rows: undefined } : found;
     if (fresh.keys.length === 0) continue;
     const n = fresh.rows ?? vh.fresh.find(([d]) => d === k)?.[1] ?? 0;
     // A serious column's new value is something wrong, however few rows bring it (ADR 0010 §4, the owner, Q-56).
@@ -733,7 +754,7 @@ export function newsOf(h: HistoryRanges, day: string, names: Names, options: { c
       out.push({ key: `missing:${column}`, kind: 'missing', severity: share >= 0.1 && n >= M.rows ? 'alert' : share >= MATERIAL.shareUnusual ? 'warn' : 'note', score: Math.min(99, share * 100), title: `${sentence(names.column(column))} blank: ${share >= 0.995 ? 'all' : `${Math.round(share * 100)}%`} (never before)`, detail: `${fmtInt(n)} ${noun(n)} without it today; never a blank in ${daysSeen(file, k)} days.`, look: 'columns', columns: [column], values: ['null'], value: share, rows: n, acts: ['incident', 'expected', 'rule', 'notify'] });
       continue;
     }
-    out.push({ key: `new:${column}`, kind: 'new', severity: alert ? 'alert' : n >= M.newUnusual || n >= 0.001 * rows ? 'warn' : 'note', score: alert ? 60 : Math.min(99, n / Math.max(1, rows) * 1000), title: fresh.keys.length === 1 ? `New ${names.column(column)}: ${label(column, fresh.keys[0]!)} · ${fmtInt(n)} ${noun(n)}` : `New ${names.column(column)} values: ${fresh.keys.length} · ${fmtInt(n)} ${noun(n)}`, detail: `${listed(said)}${fresh.keys.length > 5 ? ` and ${fresh.keys.length - 5} more` : ''}: never in ${daysSeen(file, k)} days of history.`, look: 'columns', columns: [column], values: fresh.keys, rows: n, acts: alert ? ['incident', 'quarantine', 'notify'] : ['expected', 'quarantine', 'rule', 'notify'], ...(bad ? { bad: true } : {}) });
+    out.push({ key: `new:${column}`, kind: 'new', severity: alert ? 'alert' : newIsUnusual(n) ? 'warn' : 'note', score: alert ? 60 : Math.min(99, n / Math.max(1, rows) * 1000), title: fresh.keys.length === 1 ? `New ${names.column(column)}: ${label(column, fresh.keys[0]!)} · ${fmtInt(n)} ${noun(n)}` : `New ${names.column(column)} values: ${fresh.keys.length} · ${fmtInt(n)} ${noun(n)}`, detail: `${listed(said)}${fresh.keys.length > 5 ? ` and ${fresh.keys.length - 5} more` : ''}: never in ${daysSeen(file, k)} days of history.`, look: 'columns', columns: [column], values: fresh.keys, rows: n, acts: alert ? ['incident', 'quarantine', 'notify'] : ['expected', 'quarantine', 'rule', 'notify'], ...(bad ? { bad: true } : {}) });
   }
   for (const [pair, vh] of Object.entries(file.pairs ?? {})) {
     const fresh = newOn(vh, k);
@@ -752,7 +773,7 @@ export function newsOf(h: HistoryRanges, day: string, names: Names, options: { c
       const [x, y] = parse(key) as [unknown, unknown];
       return `${names.column(a)} ${names.value(a, x)} with ${names.column(b)} ${names.value(b, y)}`;
     });
-    out.push({ key: `pair:${pair}`, kind: 'pair', severity: n >= M.newUnusual || n >= 0.001 * rows ? 'warn' : 'note', score: Math.min(99, n / Math.max(1, rows) * 1000), title: `New pair: ${names.column(a)} with ${names.column(b)} · ${fmtInt(n)} ${noun(n)}`, detail: `${sentence(listed(said))}${keys.length > 3 ? ` and ${keys.length - 3} more` : ''}: never together in ${daysSeen(file, k)} days.`, look: 'columns', columns: [a, b], values: keys, rows: n, acts: ['expected', 'quarantine', 'rule', 'notify'] });
+    out.push({ key: `pair:${pair}`, kind: 'pair', severity: newIsUnusual(n) ? 'warn' : 'note', score: Math.min(99, n / Math.max(1, rows) * 1000), title: `New pair: ${names.column(a)} with ${names.column(b)} · ${fmtInt(n)} ${noun(n)}`, detail: `${sentence(listed(said))}${keys.length > 3 ? ` and ${keys.length - 3} more` : ''}: never together in ${daysSeen(file, k)} days.`, look: 'columns', columns: [a, b], values: keys, rows: n, acts: ['expected', 'quarantine', 'rule', 'notify'] });
   }
 
   // Combinations (ADR 0013): a pair's cell against what its two columns alone predict, and the day as a whole against

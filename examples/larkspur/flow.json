@@ -2,7 +2,7 @@
   "smaltfl": 4,
   "id": "larkspur",
   "name": "Larkspur estate",
-  "description": "A fictional financial-services group's control posture as its systems export it each day (ADR 0020): the organisation and its leaders from HR, about 2,400 applications from the CMDB, the cloud inventory, 46 shared platforms, a catalogue of 14 controls mapped to the frameworks, the risk register, the findings ledger and twelve evidence feeds. This first notebook is the bronze layer: every feed judged as it arrives. A synthetic dataset: no real company or person is its subject.",
+  "description": "A fictional financial-services group's control posture as its systems export it each day (ADR 0020): the organisation and its leaders from HR, about 2,400 applications from the CMDB, the cloud inventory, 46 shared platforms, a catalogue of 14 controls mapped to the frameworks, the risk register, the findings ledger and twelve evidence feeds. The bronze notebook judges every feed as it arrives; the silver notebooks conform the organisation, the applications and the evidence, and tell the posture a person reads. A synthetic dataset: no real company or person is its subject.",
   "parameters": [
     {
       "name": "day",
@@ -138,7 +138,11 @@
     }
   ],
   "notebooks": [
-    "bronze.nb.ts"
+    "bronze.nb.ts",
+    "org.nb.ts",
+    "apps.nb.ts",
+    "evidence.nb.ts",
+    "posture.nb.ts"
   ],
   "ontology": {
     "objectTypes": [
@@ -169,8 +173,9 @@
         "key": [
           "app_id"
         ],
+        "ids": "loose",
         "title": "name",
-        "description": "An application of the CMDB: what every evidence feed’s rows are one each of"
+        "description": "An application of the CMDB: what every evidence feed’s rows are one each of. Its id is the same whatever its case and the spaces around it, as silver conforms it"
       },
       {
         "id": "platform",
@@ -349,6 +354,42 @@
       "platform_links": {
         "one": "link",
         "many": "links"
+      },
+      "org_chain": {
+        "one": "unit",
+        "many": "units"
+      },
+      "apps": {
+        "one": "application",
+        "many": "applications"
+      },
+      "app_owners": {
+        "one": "application",
+        "many": "applications"
+      },
+      "shadow_assets": {
+        "one": "tag",
+        "many": "tags"
+      },
+      "coverage": {
+        "one": "pair",
+        "many": "pairs"
+      },
+      "effective": {
+        "one": "result",
+        "many": "results"
+      },
+      "remediation": {
+        "one": "failure",
+        "many": "failures"
+      },
+      "platform_impact": {
+        "one": "result",
+        "many": "results"
+      },
+      "posture_wide": {
+        "one": "application",
+        "many": "applications"
       }
     },
     "rows": [
@@ -1272,6 +1313,480 @@
         "column": "target",
         "title": "Target",
         "description": "The platform depended on, or the control provided"
+      },
+      {
+        "column": "records",
+        "title": "Records",
+        "description": "How many CMDB records named the application today: more than one is the same application written again"
+      },
+      {
+        "column": "owner_conflict",
+        "title": "Two owners",
+        "description": "Whether its records named different owning teams; the newest record’s is kept. None should",
+        "values": {
+          "yes": "Two owners",
+          "no": "One owner"
+        },
+        "expect": [
+          {
+            "value": "yes",
+            "share": [
+              0,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "column": "in_cloud",
+        "title": "In the cloud",
+        "description": "Whether the cloud inventory has resources under its tag",
+        "values": {
+          "yes": "Yes",
+          "no": "No"
+        }
+      },
+      {
+        "column": "orphaned",
+        "title": "Orphaned",
+        "description": "Whether its owning team’s chain fails to reach the group: kept, under the Unassigned member",
+        "values": {
+          "yes": "Orphaned",
+          "no": "Owned"
+        }
+      },
+      {
+        "column": "chain",
+        "title": "Chain",
+        "description": "Whether the unit’s chain reaches the group, stops short at a parent the extract doesn’t list, or loops",
+        "values": {
+          "reaches the group": "Reaches the group",
+          "stops short": "Stops short",
+          "loops": "Loops"
+        }
+      },
+      {
+        "column": "depth",
+        "title": "Levels up",
+        "description": "How many levels the unit is below the group"
+      },
+      {
+        "column": "ancestor_id",
+        "title": "Unit above",
+        "description": "A unit above this one in its chain, or the unit itself"
+      },
+      {
+        "column": "leader_how",
+        "title": "Leader by",
+        "description": "Whom the unit answers to: its own leader, someone acting, or the leader above it",
+        "values": {
+          "leader": "Its leader",
+          "acting": "Acting",
+          "inherited": "Inherited"
+        }
+      },
+      {
+        "column": "segment_id",
+        "title": "Segment",
+        "description": "The segment the unit is in"
+      },
+      {
+        "column": "business_unit_id",
+        "title": "Business unit",
+        "description": "The business unit the unit is in"
+      },
+      {
+        "column": "department_id",
+        "title": "Department",
+        "description": "The department the unit is in"
+      },
+      {
+        "column": "team_id",
+        "title": "Team",
+        "description": "The team, where the unit is one"
+      },
+      {
+        "column": "team_leader_id",
+        "title": "Team leader",
+        "description": "The owning team’s leader in post, or whoever acts for one"
+      },
+      {
+        "column": "team",
+        "title": "Team",
+        "description": "The owning team’s name"
+      },
+      {
+        "column": "scan",
+        "title": "Scan",
+        "description": "Whether the scanner reached the application today and logged in",
+        "values": {
+          "logged in": "Logged in",
+          "could not log in": "Could not log in",
+          "not reached": "Not reached"
+        }
+      },
+      {
+        "column": "overdue",
+        "title": "Overdue findings",
+        "description": "Open critical and high findings past their SLA"
+      },
+      {
+        "column": "oldest_overdue",
+        "title": "Oldest overdue",
+        "description": "When the oldest overdue finding was first found"
+      },
+      {
+        "column": "detail",
+        "title": "Detail",
+        "description": "Why the ownership control passed or failed"
+      },
+      {
+        "column": "due_on",
+        "title": "Due",
+        "description": "The date the control falls due, where it has one: the next test, review, exercise or rotation, or the one missed",
+        "datasets": [
+          "results",
+          "coverage",
+          "effective",
+          "remediation"
+        ]
+      },
+      {
+        "column": "platform",
+        "title": "Platform",
+        "description": "The platform the row names: the ingress, the key store, the backup controller, the identity provider, the log pipeline, the vault or the scanner"
+      },
+      {
+        "column": "platform2",
+        "title": "Second platform",
+        "description": "The certificate authority behind the row, where it names one"
+      },
+      {
+        "column": "compensating",
+        "title": "Private link",
+        "description": "Whether a private link stands in for TLS",
+        "values": {
+          "yes": "Yes",
+          "no": "No"
+        }
+      },
+      {
+        "column": "evidence",
+        "title": "Evidence",
+        "description": "Whether what applies has a result, has none (no data, not a failure), or is a result nothing expects",
+        "values": {
+          "present": "Present",
+          "missing": "Missing",
+          "not expected": "Not expected"
+        }
+      },
+      {
+        "column": "raw_status",
+        "title": "As reported",
+        "description": "The status as the control’s own tool reports it",
+        "values": {
+          "pass": "Pass",
+          "fail": "Fail",
+          "not_assessed": "Not assessed"
+        }
+      },
+      {
+        "column": "status",
+        "title": "Status",
+        "description": "The status a person reads, after exceptions, compensation and dependencies",
+        "values": {
+          "pass": "Pass",
+          "fail": "Fail",
+          "excepted": "Excepted",
+          "compensated": "Compensated",
+          "not_assessed": "Not assessed",
+          "no_data": "No data"
+        },
+        "datasets": [
+          "effective"
+        ]
+      },
+      {
+        "column": "status",
+        "title": "Status",
+        "description": "The result as its tool reported it",
+        "values": {
+          "fail": "Fail",
+          "not_assessed": "Not assessed"
+        },
+        "datasets": [
+          "platform_impact"
+        ]
+      },
+      {
+        "column": "reason",
+        "title": "Why",
+        "description": "Why the status is what it is",
+        "values": {
+          "evidence": "Its evidence",
+          "exception": "An exception in force",
+          "compensated": "A compensating control",
+          "exception_expired": "Its exception expired",
+          "dependency_failed": "What it depends on fails",
+          "not_assessed": "Not assessed",
+          "no_evidence": "No evidence"
+        },
+        "datasets": [
+          "effective",
+          "remediation"
+        ]
+      },
+      {
+        "column": "days_overdue",
+        "title": "Days overdue",
+        "description": "Days since it fell due",
+        "unit": "days"
+      },
+      {
+        "column": "platform_id",
+        "title": "Platform",
+        "description": "A platform today’s failing or unassessed result names",
+        "datasets": [
+          "platform_impact"
+        ]
+      },
+      {
+        "column": "tls",
+        "title": "TLS on exposed endpoints",
+        "description": "The tls on exposed endpoints control’s status as a person reads it",
+        "values": {
+          "pass": "Pass",
+          "fail": "Fail",
+          "excepted": "Excepted",
+          "compensated": "Compensated",
+          "not_assessed": "Not assessed",
+          "no_data": "No data",
+          "not_applicable": "Not applicable"
+        },
+        "datasets": [
+          "posture_wide"
+        ]
+      },
+      {
+        "column": "waf",
+        "title": "Web application firewall in block mode",
+        "description": "The web application firewall in block mode control’s status as a person reads it",
+        "values": {
+          "pass": "Pass",
+          "fail": "Fail",
+          "excepted": "Excepted",
+          "compensated": "Compensated",
+          "not_assessed": "Not assessed",
+          "no_data": "No data",
+          "not_applicable": "Not applicable"
+        },
+        "datasets": [
+          "posture_wide"
+        ]
+      },
+      {
+        "column": "pentest",
+        "title": "Yearly penetration test",
+        "description": "The yearly penetration test control’s status as a person reads it",
+        "values": {
+          "pass": "Pass",
+          "fail": "Fail",
+          "excepted": "Excepted",
+          "compensated": "Compensated",
+          "not_assessed": "Not assessed",
+          "no_data": "No data",
+          "not_applicable": "Not applicable"
+        },
+        "datasets": [
+          "posture_wide"
+        ]
+      },
+      {
+        "column": "encryption",
+        "title": "Encryption at rest",
+        "description": "The encryption at rest control’s status as a person reads it",
+        "values": {
+          "pass": "Pass",
+          "fail": "Fail",
+          "excepted": "Excepted",
+          "compensated": "Compensated",
+          "not_assessed": "Not assessed",
+          "no_data": "No data",
+          "not_applicable": "Not applicable"
+        },
+        "datasets": [
+          "posture_wide"
+        ]
+      },
+      {
+        "column": "key_rotation",
+        "title": "Yearly key rotation",
+        "description": "The yearly key rotation control’s status as a person reads it",
+        "values": {
+          "pass": "Pass",
+          "fail": "Fail",
+          "excepted": "Excepted",
+          "compensated": "Compensated",
+          "not_assessed": "Not assessed",
+          "no_data": "No data",
+          "not_applicable": "Not applicable"
+        },
+        "datasets": [
+          "posture_wide"
+        ]
+      },
+      {
+        "column": "backup",
+        "title": "Backups within the recovery point",
+        "description": "The backups within the recovery point control’s status as a person reads it",
+        "values": {
+          "pass": "Pass",
+          "fail": "Fail",
+          "excepted": "Excepted",
+          "compensated": "Compensated",
+          "not_assessed": "Not assessed",
+          "no_data": "No data",
+          "not_applicable": "Not applicable"
+        },
+        "datasets": [
+          "posture_wide"
+        ]
+      },
+      {
+        "column": "dr_exercise",
+        "title": "Yearly disaster-recovery exercise",
+        "description": "The yearly disaster-recovery exercise control’s status as a person reads it",
+        "values": {
+          "pass": "Pass",
+          "fail": "Fail",
+          "excepted": "Excepted",
+          "compensated": "Compensated",
+          "not_assessed": "Not assessed",
+          "no_data": "No data",
+          "not_applicable": "Not applicable"
+        },
+        "datasets": [
+          "posture_wide"
+        ]
+      },
+      {
+        "column": "vuln_sla",
+        "title": "Vulnerabilities fixed within their SLA",
+        "description": "The vulnerabilities fixed within their sla control’s status as a person reads it",
+        "values": {
+          "pass": "Pass",
+          "fail": "Fail",
+          "excepted": "Excepted",
+          "compensated": "Compensated",
+          "not_assessed": "Not assessed",
+          "no_data": "No data",
+          "not_applicable": "Not applicable"
+        },
+        "datasets": [
+          "posture_wide"
+        ]
+      },
+      {
+        "column": "mfa",
+        "title": "MFA enforced",
+        "description": "The mfa enforced control’s status as a person reads it",
+        "values": {
+          "pass": "Pass",
+          "fail": "Fail",
+          "excepted": "Excepted",
+          "compensated": "Compensated",
+          "not_assessed": "Not assessed",
+          "no_data": "No data",
+          "not_applicable": "Not applicable"
+        },
+        "datasets": [
+          "posture_wide"
+        ]
+      },
+      {
+        "column": "access_review",
+        "title": "Quarterly access review",
+        "description": "The quarterly access review control’s status as a person reads it",
+        "values": {
+          "pass": "Pass",
+          "fail": "Fail",
+          "excepted": "Excepted",
+          "compensated": "Compensated",
+          "not_assessed": "Not assessed",
+          "no_data": "No data",
+          "not_applicable": "Not applicable"
+        },
+        "datasets": [
+          "posture_wide"
+        ]
+      },
+      {
+        "column": "logging",
+        "title": "Central logging",
+        "description": "The central logging control’s status as a person reads it",
+        "values": {
+          "pass": "Pass",
+          "fail": "Fail",
+          "excepted": "Excepted",
+          "compensated": "Compensated",
+          "not_assessed": "Not assessed",
+          "no_data": "No data",
+          "not_applicable": "Not applicable"
+        },
+        "datasets": [
+          "posture_wide"
+        ]
+      },
+      {
+        "column": "privileged_access",
+        "title": "Privileged accounts vaulted",
+        "description": "The privileged accounts vaulted control’s status as a person reads it",
+        "values": {
+          "pass": "Pass",
+          "fail": "Fail",
+          "excepted": "Excepted",
+          "compensated": "Compensated",
+          "not_assessed": "Not assessed",
+          "no_data": "No data",
+          "not_applicable": "Not applicable"
+        },
+        "datasets": [
+          "posture_wide"
+        ]
+      },
+      {
+        "column": "edr",
+        "title": "Endpoint detection on every host",
+        "description": "The endpoint detection on every host control’s status as a person reads it",
+        "values": {
+          "pass": "Pass",
+          "fail": "Fail",
+          "excepted": "Excepted",
+          "compensated": "Compensated",
+          "not_assessed": "Not assessed",
+          "no_data": "No data",
+          "not_applicable": "Not applicable"
+        },
+        "datasets": [
+          "posture_wide"
+        ]
+      },
+      {
+        "column": "ownership",
+        "title": "An accountable owner",
+        "description": "The an accountable owner control’s status as a person reads it",
+        "values": {
+          "pass": "Pass",
+          "fail": "Fail",
+          "excepted": "Excepted",
+          "compensated": "Compensated",
+          "not_assessed": "Not assessed",
+          "no_data": "No data",
+          "not_applicable": "Not applicable"
+        },
+        "datasets": [
+          "posture_wide"
+        ]
       }
     ]
   },
@@ -1309,6 +1824,7 @@
     ],
     "period": "day",
     "together": false,
+    "reach": "downstream",
     "watch": {
       "hr_org_units": {
         "history": "history.hr_org_units.json",
@@ -1389,6 +1905,37 @@
       "edr_coverage": {
         "history": "history.edr_coverage.json",
         "pattern": "none"
+      },
+      "apps": {
+        "history": "history.apps.json",
+        "pattern": "none",
+        "calendar": false
+      },
+      "effective": {
+        "history": "history.effective.json",
+        "pattern": "none",
+        "calendar": false
+      },
+      "posture_wide": {
+        "history": "history.posture_wide.json",
+        "pattern": "none",
+        "calendar": false
+      },
+      "platform_impact": {
+        "history": "history.platform_impact.json",
+        "pattern": "none",
+        "calendar": false,
+        "count": [
+          "platform_id",
+          "control_id",
+          "status"
+        ]
+      },
+      "shadow_assets": {
+        "history": "history.shadow_assets.json",
+        "pattern": "none",
+        "calendar": false,
+        "count": []
       }
     }
   }
