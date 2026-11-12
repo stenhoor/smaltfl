@@ -1,0 +1,121 @@
+[
+  {
+    "name": "lark-mar01-flow",
+    "what": "Larkspur, calm Fri Mar 1: the Flow view as a phone opens it (notebook boxes folded)",
+    "day": "Fri 1"
+  },
+  {
+    "name": "lark-mar12-flow",
+    "what": "Larkspur, Tue Mar 12 held: the Flow view",
+    "day": "Tue 12"
+  },
+  {
+    "name": "lark-mar12-waf-quality",
+    "what": "Walk 1, Tue Mar 12: the WAF file's Quality: one in five fail, outside the band",
+    "day": "Tue 12",
+    "card": "waf",
+    "tab": "Quality",
+    "full": true
+  },
+  {
+    "name": "lark-mar12-platform-happened",
+    "what": "Walk 1: silver's platform_impact, What happened: ing-east-3 behind the failures",
+    "day": "Tue 12",
+    "card": "platform_impact",
+    "tab": "What happened",
+    "full": true
+  },
+  {
+    "name": "lark-mar12-platform-news",
+    "what": "Walk 1: silver's platform_impact, News",
+    "day": "Tue 12",
+    "card": "platform_impact",
+    "tab": "News",
+    "full": true
+  },
+  {
+    "name": "lark-mar12-orgposture-data",
+    "what": "Walk 1: gold's org_posture, the leaders' units, Data",
+    "day": "Tue 12",
+    "card": "org_posture",
+    "tab": "Data",
+    "full": true
+  },
+  {
+    "name": "lark-mar12-queue-data",
+    "what": "Walk 1: gold's remediation_queue, one row a failing application with its team and leader",
+    "day": "Tue 12",
+    "card": "remediation_queue",
+    "tab": "Data",
+    "full": true
+  },
+  {
+    "name": "lark-mar18-flow",
+    "what": "Walk 2, Mon Mar 18: the Flow view",
+    "day": "Mon 18"
+  },
+  {
+    "name": "lark-mar18-orgchain-happened",
+    "what": "Walk 2: silver's org_chain, What happened: four teams no longer reach the group",
+    "day": "Mon 18",
+    "card": "org_chain",
+    "tab": "What happened",
+    "full": true
+  },
+  {
+    "name": "lark-mar18-appowners-happened",
+    "what": "Walk 2: app_owners, What happened: applications with no owner chain, kept under Unassigned",
+    "day": "Mon 18",
+    "card": "app_owners",
+    "tab": "What happened",
+    "full": true
+  },
+  {
+    "name": "lark-mar25-tls-quality",
+    "what": "Walk 3, Mon Mar 25: the TLS file's Quality, a rise within reason",
+    "day": "Mon 25",
+    "card": "tls",
+    "tab": "Quality",
+    "full": true
+  },
+  {
+    "name": "lark-mar25-platform-happened",
+    "what": "Walk 3: platform_impact names the certificate authority",
+    "day": "Mon 25",
+    "card": "platform_impact",
+    "tab": "What happened",
+    "full": true
+  },
+  {
+    "name": "lark-mar11-dimapp-news",
+    "what": "Mon Mar 11, the reorg: gold's dim_app News, told as following app_owners",
+    "day": "Mon 11",
+    "card": "dim_app",
+    "tab": "News",
+    "full": true
+  },
+  {
+    "name": "lark-mar11-fbu-contract",
+    "what": "Mon Mar 11: failing_by_unit's Contract, kept",
+    "day": "Mon 11",
+    "card": "failing_by_unit",
+    "tab": "Contract",
+    "full": true
+  },
+  {
+    "name": "lark-mar21-fbu-checks",
+    "what": "Thu Mar 21, the doubled TLS file: failing_by_unit's Checks, held by its key",
+    "day": "Thu 21",
+    "card": "failing_by_unit",
+    "tab": "Checks",
+    "full": true
+  },
+  {
+    "name": "lark-mar21-scorecard-contract",
+    "what": "Thu Mar 21: app_scorecard's Contract",
+    "day": "Thu 21",
+    "card": "app_scorecard",
+    "tab": "Contract",
+    "full": true
+  }
+]

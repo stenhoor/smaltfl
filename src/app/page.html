@@ -689,6 +689,24 @@ select.ch-mode.hold { color: var(--bad); } select.ch-mode.warn { color: var(--wa
 .ch-ok { color: var(--teal); display: inline-flex; align-items: center; gap: 4px; }
 .ch-quiet { color: var(--muted); }
 @media (max-width: 480px) { .checks-grid { grid-template-columns: minmax(0, 1fr) auto auto; } .checks-grid .ch-cell { grid-column: 1 / -1; padding-top: 0; } .checks-grid .ch-head:last-child { display: none; } }
+/* The Contract tab (Q-171, ADR 0020 §4): a published dataset's contract, and whether the run kept it. */
+.contract-tab { display: grid; gap: 14px; }
+.ct-today p:last-child { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 0; overflow-wrap: anywhere; }
+.ct-today.ok p:last-child { color: var(--teal); } .ct-today.alert p:last-child { color: var(--bad); } .ct-today.warn p:last-child { color: var(--warn); } .ct-today.quiet p:last-child { color: var(--muted); }
+.ct-about { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; margin: 0; font-size: 13px; }
+.ct-about dt { color: var(--muted); }
+.ct-about dd { margin: 0; overflow-wrap: anywhere; }
+.ct-cols { list-style: none; margin: 0; padding: 0; display: grid; }
+.ct-col { display: grid; gap: 3px; padding: 8px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.ct-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
+.ct-name { font-size: 13px; overflow-wrap: anywhere; }
+.ct-said, .ct-values { margin: 0; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.ct-k { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; }
+.ct-wrong { display: flex; align-items: center; gap: 4px; margin: 0; font-size: 12px; }
+.ct-col.alert .ct-wrong { color: var(--bad); } .ct-col.warn .ct-wrong { color: var(--warn); }
+.chip.ct-key { background: var(--smalt-wash); color: var(--smalt); }
+.chip.ct-class.confidential, .chip.ct-class.restricted { background: var(--warn-wash); color: var(--warn); }
+@media (min-width: 820px) { .ct-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; } }
 .load { position: relative; display: grid; justify-items: center; gap: 1px; min-height: 58px; padding: 6px 2px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--sunk); color: var(--ink-2); font: inherit; cursor: pointer; overflow: hidden; min-width: 0; }
 .load.ran { background: var(--surface); }
 /* A day after the one on screen: not arrived yet (ADR 0008 §10). */

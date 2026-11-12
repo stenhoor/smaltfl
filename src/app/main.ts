@@ -15,7 +15,7 @@ import { holidayOf, seasonOf, US_NYC_1, type Calendar } from '../core/calendar.j
  * among the taxi example's. */
 const calendarNow = (): Calendar => history?.calendar ?? US_NYC_1;
 import { canonicalJSON } from '../core/canonical.js';
-import type { FlowDocument, GroupDef, NotebookOutline, OutlineCell, ProfileDef, StepDef } from '../core/document.js';
+import type { ContractDef, FlowDocument, GroupDef, NotebookOutline, OutlineCell, ProfileDef, StepDef } from '../core/document.js';
 import { GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
 import { notebookSectionId } from '../core/notebook.js';
 import { briefOf, briefText, type BriefIn, type BriefOption } from '../core/brief.js';
@@ -29,7 +29,7 @@ import { writtenRules, CHECK_MODES, CHECK_NAMES, CHECK_SAID, checkOf, gateChecks
 import { toggleCheck } from '../core/gatecell.js';
 import { calendarHead, heldLoadLine, dayMid, dayShort, guessWords, judgedWords, lacked, MARK as REMEDY_MARK, noRowsBefore, reachLabel, readersOf as readersHad, readersSee, rowsFrom, shortfall, shownRun, stagedBar, stoppedLine as stoppedWords, toldLine, type DayState, type EpisodeDay, type KeptMark, type PauseState, type RemedyMark } from '../core/days.js';
 import { UNTIL, afterLine, betweenLine, dayPausedLine, daySentence, decidedLines, decisionDrawing, donorPicked, failLine, goShown, heldLine, outputPausedLine, passedLine, pausedChecks, pauseLines, pauseReasons, pickFails, receiptLines, remedyHead, ribbonOf, runFigures, sheetText, versionLines, checksSeen, filesSeen, findingOf, type RunSight, type AfterPart, type KeptLacks, type RemedySaid, type SheetIn, type SheetPick, type SheetText, type Sight } from '../core/decision.js';
-import { countedChecks, rangesFor, dayClaim, dayState, flowStory, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, tailPath, type Claim, decisionFor, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, lastPublished, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
+import { contractSaid, countedChecks, rangesFor, dayClaim, dayState, flowStory, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, tailPath, type Claim, decisionFor, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, lastPublished, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
 import { dayVersions, donorIdOf, fillCounts, levelOf as acceptedLevel, levelWays, partLabel as remedyPart, type Offer, type Repair, type Version } from '../core/fill.js';
 import { gridOf, shadeOf, shareOf, standOut } from './grid.js';
 import { setUpSplit, showWorkspace } from './split.js';
@@ -3116,8 +3116,8 @@ function renderFlowEdits(): void {
 // runs). Above the tabs: what it reads and what reads it, a tap away, and the day's load, to step through without
 // closing it. A card keeps its tab and its place in each tab.
 
-type Tab = 'happened' | 'quality' | 'notebook' | 'news' | 'data' | 'columns' | 'dropped' | 'odd' | 'history' | 'checks' | 'rules' | 'models' | 'integrity' | 'about';
-const TAB_LABEL: Record<Tab, string> = { happened: 'What happened', quality: 'Quality', notebook: 'Notebook', news: 'News', data: 'Data', columns: 'Columns', dropped: 'Dropped', odd: 'Odd rows', history: 'History', checks: 'Checks', rules: 'Rules', models: 'Models', integrity: 'Integrity', about: 'About' };
+type Tab = 'happened' | 'quality' | 'notebook' | 'news' | 'data' | 'columns' | 'dropped' | 'odd' | 'history' | 'checks' | 'contract' | 'rules' | 'models' | 'integrity' | 'about';
+const TAB_LABEL: Record<Tab, string> = { happened: 'What happened', quality: 'Quality', notebook: 'Notebook', news: 'News', data: 'Data', columns: 'Columns', dropped: 'Dropped', odd: 'Odd rows', history: 'History', checks: 'Checks', contract: 'Contract', rules: 'Rules', models: 'Models', integrity: 'Integrity', about: 'About' };
 const drill = {
   tab: new Map<string, Tab>(),
   scroll: new Map<string, number>(),
@@ -3162,6 +3162,8 @@ function tabsOf(card: string): Tab[] {
   if (historyOf(id)) out.push('history');
   // The gate's checks (ADR 0014 §7), on a node a flow with gates judges or lets out.
   if (!profileOf(card) && gateOn(id)) out.push('checks');
+  // Its contract (Q-171, ADR 0020 §4), on a published dataset that declares one: what its consumers rely on.
+  if (!profileOf(card) && contractOf(id)) out.push('contract');
   // The two models (ADR 0015 §6), on a node a watch judges: what each found, whether or not it speaks.
   if (!profileOf(card) && Object.keys(state.doc.publish?.watch ?? {}).some((w) => w.toLowerCase() === id.toLowerCase())) out.push('models');
   out.push('integrity', 'about');
@@ -3179,6 +3181,7 @@ const TABS: Record<Tab, (card: string, id: string, who: string) => Promise<HTMLE
   odd: oddTab,
   history: historyTab,
   checks: checksTab,
+  contract: contractTab,
   rules: rulesTab,
   models: modelsTab,
   integrity: integrityTab,
@@ -3529,7 +3532,13 @@ async function checksTab(card: string, id: string): Promise<HTMLElement> {
       return said ? h('span', { class: 'ch-found' }, h('span', { class: `ch-today ${checks.reconcile === 'hold' ? 'alert' : 'warn'}` }, glyphEl(checks.reconcile === 'hold' ? 'alert' : 'warn', 14), ` ${said.replace(/^rows don't reconcile: /, '')}`))
         : h('span', { class: 'ch-ok' }, glyphEl('publish', 14), ` rows reconcile: ${fmtInt(rc.rows)} rows, ${fmtInt(rc.keys)} ${rule.key.join(' and ')} values${rule.of ? `, every one in ${rule.of}` : ''}`);
     }
-    if (name === 'schema') return built ? h('span', { class: 'ch-ok' }, glyphEl('publish', 14), ' columns as declared') : h('span', { class: 'ch-quiet' }, 'not in this run');
+    if (name === 'schema') {
+      if (!built) return h('span', { class: 'ch-quiet' }, 'not in this run');
+      // With a contract (Q-171), the schema check is the contract's: its columns, blanks and values, as the run counted them.
+      const broke = built.contract ? contractSaid(built.contract) : null;
+      if (broke) return h('button', { type: 'button', class: `ch-today ${checks.schema === 'hold' ? 'alert' : 'warn'}`, onclick: () => openTab(card, 'contract') }, glyphEl(checks.schema === 'hold' ? 'alert' : 'warn', 14), ` ${broke}`);
+      return h('span', { class: 'ch-ok' }, glyphEl('publish', 14), built.contract ? ` as its contract ${built.contract.version} declares` : ' columns as declared');
+    }
     if (name === 'rules') {
       const e = built?.expectations;
       if (!e) return h('span', { class: 'ch-quiet' }, 'no rule on it');
@@ -3579,6 +3588,72 @@ async function checksTab(card: string, id: string): Promise<HTMLElement> {
       h('pre', { class: 'cell-code', tabindex: '0', 'aria-label': `The gate cell ${ref.cell} in ${ref.notebook}` }, h('code', {}, lines.join('\n'))),
       h('p', { class: 'foot' }, 'The gate is written here, and the plan carries it: to change a check, change the cell.')));
   } else box.append(h('p', { class: 'foot' }, `No gate cell yet: ${id} has the ${layer} layer’s defaults. A gate(${id}, { checks }) cell beside it sets them.`));
+  return box;
+}
+
+/** A published dataset's contract (Q-171), by its id as the flow names it. */
+const contractOf = (id: string): ContractDef | undefined => Object.entries(state.doc.contracts ?? {}).find(([k]) => k.toLowerCase() === id.toLowerCase())?.[1];
+
+/**
+ * The Contract tab (Q-171, ADR 0020 §4): what a published dataset's consumers rely on, in the Open Data Contract
+ * Standard's terms, and whether the run on screen kept it. Each column's type, whether it is required or part of the
+ * key, its classification and the values it may take, marked where the run found it otherwise; what it is for and how
+ * to use it; its service levels. Written in the flow document and checked by the gate's schema check: read-only here.
+ */
+async function contractTab(card: string, id: string): Promise<HTMLElement> {
+  const c = contractOf(id)!;
+  const run = onScreen() ?? latest();
+  const built = run?.result.manifest.nodes.find((n) => n.origin.toLowerCase() === id.toLowerCase());
+  const kept = built?.contract;
+  const day = run ? (dayOfRun(run) ?? null) : null;
+  const mode = gateOn(id)?.schema ?? 'hold';
+  const box = h('div', { class: 'contract-tab' });
+  box.append(h('p', { class: 'lede' }, `What ${id}’s consumers rely on: its columns by name and type, the ones never blank, the values they may take. A column renamed, retyped, dropped or added breaks it, and the gate’s schema check ${mode === 'hold' ? 'holds the day' : mode === 'warn' ? 'warns' : 'is off, so nothing does'}; a breaking change is a new major version.`));
+  // Today: the run's own count, as verify counts it again.
+  const broke = kept ? contractSaid(kept) : null;
+  const when = day ? ` on ${dayShort(day)}` : '';
+  box.append(h('div', { class: `part ct-today ${broke ? (mode === 'hold' ? 'alert' : 'warn') : kept ? 'ok' : 'quiet'}` },
+    h('p', { class: 'eyebrow' }, `Contract ${c.id} · version ${c.version} · ${c.status}`),
+    !run ? h('p', {}, 'Run the flow to check it.')
+      : !built ? h('p', {}, `Not built${when}: nothing to check.`)
+      : !kept ? h('p', {}, `Not checked by this run${when}.`)
+      : broke ? h('p', {}, glyphEl(mode === 'hold' ? 'alert' : 'warn', 14), ` ${broke[0]!.toUpperCase()}${broke.slice(1)}${when}.`)
+      : h('p', {}, glyphEl('publish', 14), ` Kept${when}: every column as declared, ${c.columns.some((x) => x.required) ? 'the required ones never blank, ' : ''}${c.columns.some((x) => x.values?.length) ? 'every value in its list' : 'no column listing its values'}.`)));
+  // What it is for, what it doesn't do, how to use it.
+  const d = c.description ?? {};
+  const said = ([['For', d.purpose], ['Not for', d.limitations], ['Use', d.usage]] as const).filter(([, t]) => !!t);
+  if (said.length) box.append(h('div', { class: 'part' }, h('p', { class: 'eyebrow' }, 'About it'), h('dl', { class: 'ct-about' }, ...said.flatMap(([k, t]) => [h('dt', {}, k), h('dd', {}, t!)]))));
+  // Each column, in order, marked where the run found it otherwise.
+  const issue = (name: string): string | null => {
+    if (!kept) return null;
+    const n = name.toLowerCase();
+    if (kept.missing.some((x) => x.toLowerCase() === n)) return 'not in the dataset';
+    const re = kept.retyped.find(([x]) => x.toLowerCase() === n);
+    if (re) return `built as ${re[2]}`;
+    const blank = kept.blank.find(([x]) => x.toLowerCase() === n);
+    const out = kept.outside.find(([x]) => x.toLowerCase() === n);
+    return [blank ? `blank on ${plural(blank[1], 'row')}` : '', out ? `outside its values on ${plural(out[1], 'row')}` : ''].filter(Boolean).join('; ') || null;
+  };
+  const list = h('ol', { class: 'ct-cols', 'aria-label': `${id}’s columns, as its contract declares them` });
+  for (const col of c.columns) {
+    const wrong = issue(col.name);
+    list.append(h('li', { class: `ct-col${wrong ? ` ${mode === 'hold' ? 'alert' : 'warn'}` : ''}` },
+      h('p', { class: 'ct-line' }, h('span', { class: 'mono ct-name' }, col.name), h('span', { class: 'chip' }, col.type),
+        col.key ? h('span', { class: 'chip ct-key', title: 'Part of the key its gate reconciles' }, 'key') : null,
+        col.required ? h('span', { class: 'chip', title: 'Never blank' }, 'required') : null,
+        col.classification ? h('span', { class: `chip ct-class ${col.classification}`, title: 'Its classification' }, col.classification) : null),
+      col.description ? h('p', { class: 'ct-said' }, col.description) : null,
+      col.values?.length ? h('p', { class: 'ct-values' }, h('span', { class: 'ct-k' }, 'Values '), col.values.join(' · ')) : null,
+      wrong ? h('p', { class: 'ct-wrong' }, glyphEl(mode === 'hold' ? 'alert' : 'warn', 12), ` ${wrong}`) : null));
+  }
+  // A column the dataset has that the contract doesn't name.
+  for (const extra of kept?.extra ?? []) list.append(h('li', { class: `ct-col ${mode === 'hold' ? 'alert' : 'warn'}` }, h('p', { class: 'ct-line' }, h('span', { class: 'mono ct-name' }, extra)), h('p', { class: 'ct-wrong' }, glyphEl(mode === 'hold' ? 'alert' : 'warn', 12), ' in the dataset, not in its contract')));
+  box.append(h('div', { class: 'part' }, h('p', { class: 'eyebrow' }, `${plural(c.columns.length, 'column')}`), list));
+  // Its service levels.
+  const sla = c.sla ?? {};
+  const levels = ([['Published', sla.frequency], ['Available by', sla.availableBy], ['Kept', sla.retention]] as const).filter(([, t]) => !!t);
+  if (levels.length) box.append(h('div', { class: 'part' }, h('p', { class: 'eyebrow' }, 'Service levels'), h('dl', { class: 'ct-about' }, ...levels.flatMap(([k, t]) => [h('dt', {}, k), h('dd', {}, t!)]))));
+  box.append(h('p', { class: 'foot' }, `Written in the flow document’s contracts, in the Open Data Contract Standard’s terms, and part of the flow’s hash. The run checks it after building ${id}, and verify checks it again.`));
   return box;
 }
 
