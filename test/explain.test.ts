@@ -97,3 +97,16 @@ describe('round 2: no statistics on the face', () => {
     expect(apartForColumn({ auc: 0.8, columns: [{ column: 'client', share: 0.6 }, { column: 'latency', share: 0.31 }] }, 'latency', 'sign-ins', 'Latency').part).toBe('Latency is part of the reason: it explains about a third of why today stands out.');
   });
 });
+
+describe('missing data, said the same way everywhere', () => {
+  it('groups days with no number by reason, counts them and says why', async () => {
+    const { gapsOf, gapSaid, daySpan } = await import('../src/core/explain.js');
+    const days = ['2024-02-26', '2024-02-27', '2024-02-28', '2024-02-29', '2024-03-01', '2024-03-02', '2024-03-03', '2024-03-04'];
+    const has = new Set(['2024-02-28', '2024-03-04']);
+    const gaps = gapsOf(days, (d) => has.has(d), (d) => (d < '2024-02-28' ? 'before-history' : 'not-run'));
+    expect(gaps.map((g) => [g.from, g.to, g.days, g.why])).toEqual([['2024-02-26', '2024-02-27', 2, 'before-history'], ['2024-02-29', '2024-03-03', 4, 'not-run']]);
+    expect(gapSaid(gaps, days.length)).toBe('No data for 6 of the 8 days shown: Feb 26–27, before the history and Feb 29 – Mar 3, not run yet.');
+    expect(gapSaid([], 8)).toBeNull();
+    expect(daySpan('2024-03-08', '2024-03-08')).toBe('Mar 8');
+  });
+});

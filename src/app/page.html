@@ -1626,6 +1626,11 @@ svg.viz { display: block; overflow: visible; max-width: 100%; height: auto; }
 .cp-vs thead th { font: 600 11px/1.2 var(--mono); text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 .cp-vs tbody th { color: var(--muted); }
 .cp-vs td { font-variant-numeric: tabular-nums; color: var(--ink); }
+/* Missing data, the same everywhere (amendment 3, round 4): hatched, named, counted, with what can be done. */
+.spark .gap { stroke: none; } .spark .hatch { stroke: var(--muted); stroke-width: 1.2; opacity: .45; }
+.spark .gap-t { font: 600 9px var(--mono); fill: var(--ink-2); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; }
+.gap-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 2px 0 0; font-size: 13px; color: var(--ink-2); }
+.gap-swatch { width: 14px; height: 10px; border-radius: 2px; background: repeating-linear-gradient(45deg, var(--muted) 0 1.5px, transparent 1.5px 4px); opacity: .7; flex: none; }
 /* Check visuals and explanations (ADR 0015 amendment 3). */
 .cv { display: grid; gap: 6px; }
 .cv-explain { display: grid; gap: 4px; margin: 6px 0 2px; padding: 8px 10px; border-radius: 8px; background: var(--sunk); font-size: 13.5px; line-height: 1.45; }

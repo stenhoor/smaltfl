@@ -58,3 +58,25 @@ is given.
 What it is (title, role, meaning or a line read from its values) → today → its values (filled bar, distinct count,
 shape or common values) → against a usual day (each common value's share against its range) → the checks on it, each
 with how it decides → who reads it (whether the models read it, and why not).
+
+## Missing data: the convention (2026-11-12)
+
+Every chart, table and sentence in the app treats a day, a value or a file with no data the same way:
+
+1. **Never invent it.** No line drawn across a gap, no zero, no carried-forward value. A line drawn across a gap reads
+   as a trend nobody measured (the maintainer's note on the four-weeks chart).
+2. **Show it as missing, not by colour alone.** Hatching across the stretch (diagonal lines), with its reason written
+   on it where there is room. In the day strip, a day not run is a dashed box. Both are shapes, readable in grey and by
+   colour-blind readers (WCAG 1.4.1).
+3. **Say why**, in words: *not run yet* (the file is here; the day hasn't been run), *held, waiting for a decision* (it
+   ran; its numbers count once someone decides), *no file* (nothing arrived), *file refused* (it arrived and couldn't be
+   read), *empty file* (it arrived with no rows), *before the history* (the history starts later). The reasons differ
+   in what they mean and what to do, so they are never merged into "no data".
+4. **Say how much**: "No data for 17 of the 28 days shown: Mar 2–18, not run yet."
+5. **Offer what can be done**, where something can: *Run Mar 2–18*, *Decide on Mar 15*. A gap with nothing to do
+   (before the history) says so and offers nothing.
+6. **Keep the comparison honest.** The usual band is drawn through a gap where the history has a range for those days,
+   so today is still read against what is usual.
+
+`src/core/explain.ts`: `GapWhy`, `GAP_SAID`, `gapsOf`, `gapSaid`, `daySpan`. In the app: `gapWhy` (the reason, from
+the data list and the runs), `weeksChart` (the hatched chart, its sentence and its buttons), and `runDays`.

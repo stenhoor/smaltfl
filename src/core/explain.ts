@@ -237,3 +237,62 @@ export const CHECK_PLAIN: Record<CheckName, string> = {
   reconcile: 'one row per item', shares: 'values as common as usual', shape: 'numbers spread as usual', hours: 'arrivals through the day as usual',
   pairs: 'columns go together as usual', forest: 'the day as a whole as usual', classifier: 'rows that look like earlier days’',
 };
+
+/**
+ * Missing data, said the same way everywhere (ADR 0015 amendment 3, round 4; docs/research/ui-check-visuals.md
+ * "Missing data"): a stretch of days with no number is never drawn as a line across or as a zero. It is hatched, named
+ * with why it is missing, counted, and given what can be done about it.
+ */
+export type GapWhy = 'not-run' | 'held' | 'no-file' | 'before-history' | 'refused' | 'empty';
+
+export const GAP_SAID: Record<GapWhy, { short: string; long: string }> = {
+  'not-run': { short: 'not run yet', long: 'the files are here, but these days haven’t been run yet' },
+  held: { short: 'held, waiting for a decision', long: 'the day ran but is held: its numbers count once someone decides' },
+  'no-file': { short: 'no file', long: 'no file arrived for these days' },
+  'before-history': { short: 'before the history', long: 'the history starts after these days' },
+  refused: { short: 'file refused', long: 'a file arrived but couldn’t be read' },
+  empty: { short: 'empty file', long: 'the file arrived with no rows' },
+};
+
+export interface Gap {
+  from: string;
+  to: string;
+  /** Days in the stretch, and their places in the list given. */
+  days: number;
+  at: [number, number];
+  why: GapWhy;
+}
+
+/** The stretches of days with no number, each one reason: consecutive days missing for the same reason. */
+export function gapsOf(days: readonly string[], has: (day: string, i: number) => boolean, why: (day: string) => GapWhy): Gap[] {
+  const out: Gap[] = [];
+  days.forEach((d, i) => {
+    if (has(d, i)) return;
+    const w = why(d);
+    const last = out.at(-1);
+    if (last && last.why === w && last.at[1] === i - 1) {
+      last.to = d;
+      last.days++;
+      last.at[1] = i;
+    } else out.push({ from: d, to: d, days: 1, at: [i, i], why: w });
+  });
+  return out;
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** Two days as a span people read: "Mar 8", "Mar 8–18", "Feb 27 – Mar 3". */
+export function daySpan(from: string, to: string): string {
+  const [, fm, fd] = from.split('-').map(Number) as [number, number, number];
+  const [, tm, td] = to.split('-').map(Number) as [number, number, number];
+  const a = `${MONTHS[fm - 1]} ${fd}`;
+  if (from === to) return a;
+  return fm === tm ? `${a}–${td}` : `${a} – ${MONTHS[tm - 1]} ${td}`;
+}
+
+/** The gaps in a sentence: how many of the days shown have no data, where, and why. Null where none is missing. */
+export function gapSaid(gaps: readonly Gap[], shown: number): string | null {
+  if (!gaps.length) return null;
+  const missing = gaps.reduce((n, g) => n + g.days, 0);
+  const parts = gaps.map((g) => `${daySpan(g.from, g.to)}, ${GAP_SAID[g.why].short}`);
+  return `No data for ${missing} of the ${shown} days shown: ${list(parts)}.`;
+}

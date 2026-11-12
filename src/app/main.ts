@@ -37,7 +37,7 @@ import { mark } from './perf.js';
 import { isRangesFile, rangesPath, type GivenRanges } from '../core/ranges.js';
 import { aheadServed, giveAhead } from '../core/ahead.js';
 import { modelLeftOut } from '../core/modelcols.js';
-import { apartForColumn, spanOf as unitSpan, apartSaid, differenceStep, DIFFERENCE_SAID, quantileSaid, columnGist, columnRole, ROLE_SAID, CHECK_EXPLAINED, MODE_EXPLAINED, gateNote, issueNote, issuesNote, rulesNote, sourceNote, timesTogether, unlikeSaid } from '../core/explain.js';
+import { apartForColumn, daySpan, gapSaid, gapsOf, GAP_SAID, type Gap, type GapWhy, spanOf as unitSpan, apartSaid, differenceStep, DIFFERENCE_SAID, quantileSaid, columnGist, columnRole, ROLE_SAID, CHECK_EXPLAINED, MODE_EXPLAINED, gateNote, issueNote, issuesNote, rulesNote, sourceNote, timesTogether, unlikeSaid } from '../core/explain.js';
 import { bronzeOf, verdictSaid, type Bronze, type BronzeCheck, type CheckState } from '../core/bronze.js';
 import { button as nbButton, formatMs, makeCell, showError, showMarkdown, showRows as showGridRows, type CellStatus, type CellUi } from './nbcells.js';
 import type { EditorSchema, SchemaColumn } from 'smaltkit/editor';
@@ -4765,8 +4765,8 @@ function columnProfile(card: string, id: string, p: Profile, type: string, m: Pr
   if (usual) box.append(part('Against a usual day', usual));
   // The last four weeks: a number's middle value, else its share left blank, each day against its usual range.
   const weekly = hr ? (p.kind === 'measure' && uq ? { m: { of: 'median', column: p.name } as Metric, label: 'Its middle value', fmt } : blank ? { m: { of: 'missing', column: p.name } as Metric, label: 'Its share left blank', fmt: pct } : null) : null;
-  const spark = weekly ? sparkBand(weekly.m, weekly.fmt, hr) : null;
-  if (weekly && spark) box.append(part(`${weekly.label}, the last four weeks`, spark, h('p', { class: 'cv-cap' }, 'The line is each day; the shaded band is what is usual for that day; the circle is today. A gap is a day with no data.')));
+  const weeks = weekly ? weeksChart(id, weekly.m, weekly.fmt, hr) : null;
+  if (weekly && weeks) box.append(part(`${weekly.label}, the last four weeks`, weeks));
   if (normal) for (const x of columnStoryUsual(id, p, m, normal)) if (x) box.append(x as Node);
   // 5. The checks that read it.
   if (mine.length) box.append(part('Checks on this column', h('ul', { class: 'bq-list' }, ...mine.map((c) => checkRow(card, id, c)))));
@@ -7248,7 +7248,7 @@ function metricFormat(m: Metric): (v: number) => string {
 }
 
 /** A metric's last four weeks and the day, against their normal ranges: small, for a finding or a column. */
-function sparkBand(m: Metric, fmt: (v: number) => string, given?: HistoryRanges | null): SVGSVGElement | null {
+function sparkBand(m: Metric, fmt: (v: number) => string, given?: HistoryRanges | null, gaps?: readonly Gap[]): SVGSVGElement | null {
   const ranges = given ? given.of(m) : rangesOf(m);
   const day = newsDay();
   if (!ranges || !day) return null;
@@ -7278,6 +7278,21 @@ function sparkBand(m: Metric, fmt: (v: number) => string, given?: HistoryRanges 
   flush();
   // The line: only between days next to each other that both have a number. A day with no number is a gap, never a
   // straight line across it (which would read as a trend that wasn't measured), and is ticked under the chart.
+  // Missing data (round 4): each stretch of days with no number hatched across the chart and named with why, never a
+  // line drawn across it. Without gaps given, a day with no number is ticked under the chart.
+  if (gaps?.length) {
+    const step = (W - R - 2 * P) / (days.length - 1);
+    const id = `gap-${++gapPatterns}`;
+    const defs = s('defs', {});
+    defs.innerHTML = `<pattern id="${id}" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line class="hatch" x1="0" y1="0" x2="0" y2="6"/></pattern>`;
+    svg.append(defs);
+    for (const g of gaps) {
+      const x0 = Math.max(0, X(g.at[0]) - step / 2);
+      const x1 = Math.min(W - R, X(g.at[1]) + step / 2);
+      svg.append(s('rect', { class: 'gap', x: x0.toFixed(1), y: 0, width: Math.max(2, x1 - x0).toFixed(1), height: H, fill: `url(#${id})` }));
+      if (x1 - x0 >= 52) svg.append(s('text', { class: 'gap-t', x: ((x0 + x1) / 2).toFixed(1), y: (H / 2 + 4).toFixed(1), 'text-anchor': 'middle' }, GAP_SAID[g.why].short));
+    }
+  }
   let seg: string[] = [];
   const draw = () => {
     if (seg.length > 1) svg.append(s('polyline', { class: 'line', points: seg.join(' ') }));
@@ -7286,7 +7301,7 @@ function sparkBand(m: Metric, fmt: (v: number) => string, given?: HistoryRanges 
   pts.forEach((p, i) => {
     if (p.v === null) {
       draw();
-      svg.append(s('line', { class: 'nodata', x1: X(i).toFixed(1), x2: X(i).toFixed(1), y1: H + 3, y2: H + 7 }));
+      if (!gaps?.length) svg.append(s('line', { class: 'nodata', x1: X(i).toFixed(1), x2: X(i).toFixed(1), y1: H + 3, y2: H + 7 }));
     } else seg.push(`${X(i).toFixed(1)},${Y(p.v).toFixed(1)}`);
   });
   draw();
@@ -7299,6 +7314,62 @@ function sparkBand(m: Metric, fmt: (v: number) => string, given?: HistoryRanges 
   const last = pts.at(-1)!;
   if (last.v !== null) svg.append(s('text', { class: 'tick spark-now', x: (X(pts.length - 1) + 7).toFixed(1), y: Math.min(H - 2, Math.max(10, Y(last.v) + 4)).toFixed(1) }, fmt(last.v)));
   return svg;
+}
+
+let gapPatterns = 0;
+
+/** Why a day has no number in a watched file's history (round 4): before the history starts; a day the data has a file
+ * for that hasn't been run here; or no file arrived. */
+function gapWhy(id: string, day: string, hr: HistoryRanges | null): GapWhy {
+  const first = hr?.file.days[0];
+  if (first && day < first) return 'before-history';
+  const k = loads.list.findIndex((l) => l.day === day && (id === loadSource() || !l.files || !!l.files[id]));
+  if (k >= 0) {
+    // A day that ran: held (its numbers wait for a decision), or its file refused; else not run here yet.
+    const ran = [...state.runs].reverse().find((r) => r.load === k);
+    if (ran) return ran.result.manifest.nodes.some((n) => n.origin === id && n.status === 'refused') ? 'refused' : 'held';
+    return 'not-run';
+  }
+  return 'no-file';
+}
+
+/**
+ * The last four weeks of a metric against its usual range, with missing data called out (round 4): the chart hatches and
+ * names each stretch with no number, a sentence under it counts them and says why, and days that only need running get a
+ * button that runs them and comes back to the day.
+ */
+function weeksChart(id: string, m: Metric, fmt: (v: number) => string, hr: HistoryRanges | null): HTMLElement | null {
+  const ranges = hr ? hr.of(m) : rangesOf(m);
+  const day = newsDay();
+  if (!ranges || !day) return null;
+  const days = daysFrom(dayPlus(day, -27), day);
+  const gaps = gapsOf(days, (d) => ranges.value(d) !== null, (d) => gapWhy(id, d, hr));
+  const svg = sparkBand(m, fmt, hr, gaps);
+  if (!svg) return null;
+  const said = gapSaid(gaps, days.length);
+  const runnable = gaps.filter((g) => g.why === 'not-run');
+  return h('div', { class: 'weeks' }, svg,
+    h('p', { class: 'cv-cap' }, 'The line is each day; the shaded band is what is usual for that day; the circle is today.'),
+    said ? h('p', { class: 'gap-line' }, h('span', { class: 'gap-swatch', 'aria-hidden': 'true' }), h('span', {}, said, runnable.length ? ' The line fills in once they are run.' : ''),
+      runnable.length ? h('button', { type: 'button', class: 'btn small', onclick: () => void runDays(runnable.flatMap((g) => days.slice(g.at[0], g.at[1] + 1))) }, `Run ${runnable.map((g) => daySpan(g.from, g.to)).join(', ')} ›`) : null,
+      gaps.some((g) => g.why === 'held') && anyDayWaits() ? h('button', { type: 'button', class: 'btn small', onclick: () => { const g = gaps.find((x) => x.why === 'held')!; decideDay(g.from); } }, `Decide on ${daySpan(gaps.find((x) => x.why === 'held')!.from, gaps.find((x) => x.why === 'held')!.from)} ›`) : null) : null);
+}
+
+/** Runs the given days' loads in order (the days a chart is missing), then goes back to the day that was on screen. */
+async function runDays(days: readonly string[]): Promise<void> {
+  if (state.running || loads.playing) return;
+  const back = loads.at;
+  const ks = days.map((d) => loads.list.findIndex((l) => l.day === d && l.episode === loads.list[back]?.episode)).filter((k) => k >= 0);
+  loads.playing = true;
+  renderLoads();
+  for (const k of ks) {
+    if (!loads.playing) break;
+    await useLoad(k);
+    if (state.failed) break;
+  }
+  loads.playing = false;
+  if (back >= 0 && !state.failed) await useLoad(back);
+  renderLoads();
 }
 
 /** A coded column's values today, each against its share on a day like it, the new ones marked. */

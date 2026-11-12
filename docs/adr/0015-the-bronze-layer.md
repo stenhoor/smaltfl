@@ -848,3 +848,9 @@ shown against a usual day, on calm days as well.
   data as a gap, ticked under the chart, instead of drawing a straight line across it. It draws today's usual range
   even after a gap.
 - **A spread finding** leads with what it means ("Its high values are much lower than usual"), then the numbers.
+
+Round 4 (the maintainer: "if we are missing data we should call that out better … a clear UI best practice now"): one
+convention for missing data, written down in docs/research/ui-check-visuals.md "Missing data". A stretch with no data
+is never drawn across or filled in. It is hatched and named with its reason (not run yet, held, no file, file refused,
+empty file, before the history), counted in a sentence, and offered what can be done about it (*Run …*, *Decide on …*).
+The four-weeks chart (`weeksChart`) is the first to follow it.
