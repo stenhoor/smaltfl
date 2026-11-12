@@ -34,7 +34,7 @@ import { canonicalJSON } from '../core/canonical.js';
 import type { Repair } from '../core/fill.js';
 import type { MeasureSettings, Measures } from '../core/measures.js';
 import { loadKey, loadsOf, type FillHold, type Hold, type Judged, type Load, type RunRef } from '../core/hold.js';
-import type { ExpectationResult, RunManifest } from '../core/manifest.js';
+import type { ExpectationResult, RunManifest, SourceFile, SourceIngestRecord } from '../core/manifest.js';
 import type { FlowPlan } from '../core/plan.js';
 import type { DecisionOption } from '../core/policy.js';
 import { quoteIdent as q } from '../core/sqltext.js';
@@ -53,6 +53,9 @@ export function ensureStore(db: Database): void {
   db.exec('CREATE TABLE IF NOT EXISTS _smaltfl_derived(run INTEGER PRIMARY KEY, from_run INTEGER NOT NULL, from_manifest TEXT NOT NULL, holds TEXT NOT NULL, donors TEXT NOT NULL, filled INTEGER)');
   db.exec('CREATE TABLE IF NOT EXISTS _smaltfl_repairs(release INTEGER PRIMARY KEY, run INTEGER NOT NULL, from_run INTEGER NOT NULL, from_manifest TEXT NOT NULL, repair TEXT NOT NULL, before TEXT NOT NULL)');
   db.exec('CREATE TABLE IF NOT EXISTS _smaltfl_withdrawals(release INTEGER PRIMARY KEY, withdraws INTEGER NOT NULL)');
+  // The bronze tables' metadata (ADR 0015 amendment 5): a row a source a run read from a file its host said where it got
+  // and when it pulled it in; with the run's code commit and ontology hash. Kept with the run; never part of a hash.
+  db.exec('CREATE TABLE IF NOT EXISTS _smaltfl_ingests(run INTEGER NOT NULL, source TEXT NOT NULL, ingested_at TEXT NOT NULL, source_path TEXT NOT NULL, made_by TEXT, file_location TEXT NOT NULL, file_sha256 TEXT NOT NULL, file_bytes INTEGER NOT NULL, rows INTEGER, content TEXT, code_commit TEXT NOT NULL, ontology_hash TEXT, flow_hash TEXT NOT NULL, plan_hash TEXT NOT NULL, PRIMARY KEY (run, source))');
   db.exec('CREATE TABLE IF NOT EXISTS _smaltfl_measures(run INTEGER NOT NULL, node INTEGER NOT NULL, slot TEXT NOT NULL, hash TEXT NOT NULL, measures TEXT NOT NULL, settings TEXT NOT NULL, PRIMARY KEY (run, node))');
 }
 
@@ -381,4 +384,9 @@ export function isFresh(db: Database, watch: string): boolean {
 export function resetWatch(db: Database, watch: string, source: string): void {
   const exists = db.query('SELECT 1 FROM information_schema.materialized_views WHERE table_name = ?', [watch]).rows.length > 0;
   db.exec(exists ? `REFRESH MATERIALIZED VIEW ${q(watch)}` : `CREATE MATERIALIZED VIEW ${q(watch)} AS SELECT count(*) AS n FROM ${q(source)}`);
+}
+
+/** A source's ingest, kept with its run (ADR 0015 amendment 5): what `_smaltfl_ingests` holds a row of. */
+export function recordIngest(db: Database, r: { run: number; source: string; ingest: SourceIngestRecord; file: SourceFile; rows: number | null; content: string | null; commit: string; ontology: string | null; flow: string; plan: string }): void {
+  db.run('INSERT INTO _smaltfl_ingests(run, source, ingested_at, source_path, made_by, file_location, file_sha256, file_bytes, rows, content, code_commit, ontology_hash, flow_hash, plan_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [r.run, r.source, r.ingest.at, r.ingest.path, r.ingest.from ?? null, r.file.location, r.file.sha256, r.file.bytes, r.rows, r.content, r.commit, r.ontology, r.flow, r.plan]);
 }

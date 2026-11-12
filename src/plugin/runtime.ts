@@ -21,7 +21,7 @@ import { hex, sha256Hex } from '../core/hash.js';
 import type { KeyEnv } from '../core/keys.js';
 import { nodeKey } from '../core/keys.js';
 import { FILLED_FROM, withoutDisplay, type FlowDocument } from '../core/document.js';
-import type { DatasetRecord, ExpectationResult, GateResult, ManifestNode, RunManifest, SourceFile } from '../core/manifest.js';
+import type { DatasetRecord, ExpectationResult, GateResult, ManifestNode, RunManifest, SourceFile, SourceIngestRecord } from '../core/manifest.js';
 import { MANIFEST_FORMAT, manifestHash, ontologyHash, planHash, policiesHash } from '../core/manifest.js';
 import { flowHash, translate } from '../core/plan.js';
 import { shapeOf } from '../core/optimize.js';
@@ -35,13 +35,13 @@ import { SAMPLE_KEEP, samplePath } from '../core/apart.js';
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 import { measureSnapshot, pinnedHeader, pinnedTail } from './measure.js';
-import type { RunOptions, RunResult } from '../core/protocol.js';
+import type { RunOptions, RunResult, SourceIngest } from '../core/protocol.js';
 import { quoteIdent as q, type ParamValue } from '../core/sqltext.js';
 import type { TableHash } from './dataset-hash.js';
 import { hashTable, sourceColumns } from './dataset-hash.js';
 import { pinned, pinnedLocation, takeOpened } from './pinned.js';
 
-import { carriedFrom, readBefore, currentOf, ensureStore, findCheck, findVersion, inTransaction, isFresh, lastSnapshot, measuresOfRun, nameInUse, pointDataset, recordCheck, recordDerived, recordHolds, recordMeasures, recordSnapshot, recordVersion, resetWatch, versionTable, watchable } from './store.js';
+import { carriedFrom, readBefore, currentOf, ensureStore, findCheck, findVersion, inTransaction, isFresh, lastSnapshot, measuresOfRun, nameInUse, pointDataset, recordCheck, recordDerived, recordHolds, recordIngest, recordMeasures, recordSnapshot, recordVersion, resetWatch, versionTable, watchable } from './store.js';
 
 export class RunError extends Error {
   override name = 'RunError';
@@ -128,7 +128,8 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
     n.schema = snap.schema;
     keys.set(i, snap.key);
     tables.set(i, snap.table);
-    record(i, snap.reused ? 'reused' : 'built', { content: snap.content, rows: snap.rows, ...(snap.file ? { file: snap.file } : {}) });
+    const ingest = snap.file ? ingestOf(context.sources?.[n.origin], snap.file.sha256) : null;
+    record(i, snap.reused ? 'reused' : 'built', { content: snap.content, rows: snap.rows, ...(snap.file ? { file: snap.file } : {}), ...(ingest ? { ingest } : {}) });
   }
 
   // 2. Types: every node's output columns, with everything folded onto the snapshots. A donor has its source's
@@ -340,6 +341,8 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
     if (plan.publish) recordHolds(db, id, holds, judged);
     if (derived) recordDerived(db, { run: id, ...derived });
     for (const [node, m] of measured) recordMeasures(db, { run: id, node, slot: m.measures.slot, hash: m.hash, measures: m.measures, settings: m.settings });
+    // The bronze tables' metadata (ADR 0015 amendment 5): a row a source the host said where it got and when, for SQL.
+    for (const m of manifest.nodes) if (m.ingest && m.file) recordIngest(db, { run: id, source: m.origin, ingest: m.ingest, file: m.file, rows: m.rows ?? null, content: m.content ?? null, commit: manifest.build?.smaltfl ?? commit, ontology: manifest.flow.ontology ?? null, flow: manifest.flow.hash, plan: manifest.plan });
     return id;
   });
   return {
@@ -647,4 +650,16 @@ function engine<T>(origin: string, work: () => T): T {
 
 export function aborted(signal: AbortSignal | undefined): void {
   if (signal?.aborted) throw new RunError('the run was cancelled');
+}
+
+/**
+ * A source's ingest as its host said it (ADR 0015 amendment 5), kept only when it is well formed and its sha256 is the
+ * file's the engine read: otherwise none, and the run records nothing it can't bind to the bytes.
+ */
+function ingestOf(said: unknown, sha256: string): SourceIngestRecord | null {
+  if (!said || typeof said !== 'object') return null;
+  const s = said as Partial<SourceIngest>;
+  if (typeof s.path !== 'string' || !s.path || typeof s.at !== 'string' || Number.isNaN(Date.parse(s.at)) || s.sha256 !== sha256) return null;
+  if (s.from !== undefined && typeof s.from !== 'string') return null;
+  return { path: s.path, ...(s.from ? { from: s.from } : {}), at: s.at };
 }

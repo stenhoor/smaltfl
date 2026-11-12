@@ -47,6 +47,24 @@ export interface RunContext {
    * the measures it takes of the built dataset, and this. A watched step with no entry is not judged, which holds.
    */
   tell?: Record<string, TellFor>;
+  /**
+   * What the host says of each source file it pinned (ADR 0015 amendment 5): where it fetched it from, what made it,
+   * when it pulled it in, and the sha256 of its bytes. The plugin keeps it with the source's entry in the run's
+   * manifest only where that sha256 is the file's the engine read, so the rest is bound to those exact bytes.
+   */
+  sources?: Record<string, SourceIngest>;
+}
+
+/** A source file as the host pulled it in (ADR 0015 amendment 5). */
+export interface SourceIngest {
+  /** Where the host fetched it from: the data list's path. */
+  path: string;
+  /** What made the file, where the data list says (a generator, the data branch's workflow). */
+  from?: string;
+  /** When the host pulled it in (fetched, checked and pinned it), as an ISO 8601 time. */
+  at: string;
+  /** The sha256 of the bytes it pinned. */
+  sha256: string;
 }
 
 /** What the page says of the record for a watched step the engine tells the claim of. */

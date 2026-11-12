@@ -38,7 +38,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString
 const list = (xs: readonly string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
 
 /** The cell that reads the file: what arrived. */
-export function sourceNote(o: { file: string; day?: string | null; rows?: number; columns: readonly string[]; noun?: { one: string; many: string } }): string {
+export function sourceNote(o: { file: string; day?: string | null; rows?: number; columns: readonly string[]; noun?: { one: string; many: string }; ingest?: { at: string; path: string; from?: string; commit: string; ontology?: string } }): string {
   const noun = o.noun ?? { one: 'row', many: 'rows' };
   const shown = o.columns.slice(0, 8).map(code);
   const more = o.columns.length > 8 ? ` and ${o.columns.length - 8} more` : '';
@@ -46,6 +46,7 @@ export function sourceNote(o: { file: string; day?: string | null; rows?: number
     `### 1 · The file as it arrived`,
     `${code(o.file)}${o.day ? `, as received on ${o.day},` : ''} is read here exactly as it arrived${o.rows !== undefined ? `: **${plural(o.rows, noun.one, noun.many)}**` : ''} in ${plural(o.columns.length, 'column')}${o.columns.length ? ` (${shown.join(', ')}${more})` : ''}.`,
     `Nothing is changed here. Every check below reads these rows.`,
+    ...(o.ingest ? [`Pulled in ${o.ingest.at.replace('T', ' ').replace(/\.\d+Z$|Z$/, ' UTC')} from ${code(o.ingest.path)}${o.ingest.from ? ` (made by ${o.ingest.from})` : ''}, run by smaltfl ${code(o.ingest.commit.split('+')[0]!.slice(0, 7))} under the ontology ${o.ingest.ontology ? code(o.ingest.ontology.slice(0, 12)) : '(not recorded)'}: the table’s metadata, kept with the run’s signed record.`] : []),
   ].join('\n\n');
 }
 

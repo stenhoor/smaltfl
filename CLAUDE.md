@@ -197,6 +197,9 @@ match smaltdb's `CLAUDE.md`.
   names, the models said honestly, `columnRole`/`columnGist`, the missing-data convention `GapWhy`/`gapsOf`, written in
   docs/research/ui-check-visuals.md) and the silver layer (`src/core/silver.ts` `stepStory`: each step's What happened tab,
   `rowFlow`, `RunResult.timings` outside the manifest, `notebookSummary` atop each notebook; `test/silver.test.ts`).
+  Amendment 5: the bronze tables' metadata (`RunContext.sources`, `ManifestNode.ingest` bound to the file's sha256,
+  `_smaltfl_ingests`; the app's `pulledIn`, `bronzeMeta`, `provenancePart`, metadata columns on a source's Data tab;
+  `test/ingest.test.ts`).
   The fixes a held day is offered (`ontology.fixes`, `FIX_KINDS`, `fixesOf`, `fixOfDonor` in `rules.ts`; forward,
   backward, impute, part, replace), filtered in `donorsOf`/`offersOf`, a whole empty day fillable (`missingOf`), Replace
   the file on the decision sheet (`replaceDayFile`); the sign-ins allow forward, backward and replace (`test/fixes.test.ts`,
