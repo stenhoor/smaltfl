@@ -268,7 +268,7 @@ describe('a document that says what holds its publication (ADR 0009 §2)', () =>
 
   it('says each problem with its block', () => {
     const issues = (publish: unknown) => validateDocument(holding(publish));
-    expect(issues('all')).toEqual([{ path: '$.publish', message: '{ hold, watch, period, together, donor, meanwhile, until }' }]);
+    expect(issues('all')).toEqual([{ path: '$.publish', message: '{ hold, watch, period, together, reach, donor, meanwhile, until }' }]);
     expect(issues({ hold: [] })).toEqual([{ path: '$.publish.hold', message: 'a list of what holds: checks, short, unlearned, wrong' }]);
     expect(issues({ hold: ['checks', 'late', 'checks'] })).toEqual([
       { path: '$.publish.hold[1]', message: 'one of checks, short, unlearned, wrong' },
@@ -291,7 +291,7 @@ describe('a document that says what holds its publication (ADR 0009 §2)', () =>
     expect(issues({ ...PUBLISH, watch: { trips: 'history.json', TRIPS: 'other.json' } })).toEqual([{ path: '$.publish.watch.TRIPS', message: 'trips is watched twice (ids are compared without case)' }]);
     expect(issues({ ...PUBLISH, together: 'yes' })).toEqual([{ path: '$.publish.together', message: 'true or false' }]);
     // A setting this version doesn't know is refused, never ignored: this version wouldn't keep it.
-    expect(issues({ ...PUBLISH, calendar: 'us' })).toEqual([{ path: '$.publish.calendar', message: 'not a field this version reads (hold, watch, period, together, donor, meanwhile, until): refused rather than ignored' }]);
+    expect(issues({ ...PUBLISH, calendar: 'us' })).toEqual([{ path: '$.publish.calendar', message: 'not a field this version reads (hold, watch, period, together, reach, donor, meanwhile, until): refused rather than ignored' }]);
     // checks alone needs neither a watch nor a period: a fail rule over a count is a fixed threshold.
     expect(issues({ hold: ['checks'] })).toEqual([]);
   });

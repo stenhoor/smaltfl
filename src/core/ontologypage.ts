@@ -21,6 +21,9 @@ import { ACTION_SAID, checkStepOf, ruleOn, rulesOf, ruleSaid, type OntologyRule 
  * other ways are the next pieces' to fill (ADR 0015 amendment 1, Q-142): a range derived from the last days of the
  * history, fixed once set or rolling over those days, and a rule the app discovered in the data.
  */
+
+/** How a rule over loose ids (`ObjectType.ids`) says so. */
+const LOOSE_SAID = '; an id is the same whatever its case and the spaces around it';
 export type RuleOrigin =
   | { how: 'set'; in: 'ontology' | 'notebook' }
   | { how: 'derived'; days: number; kept: 'fixed' | 'rolling' }
@@ -187,9 +190,9 @@ export function ontologyPage(doc: PageDoc, columns: (file: string) => readonly s
     if (written.scope) {
       const sc = written.scope;
       const many = nounFor(sc.of).many;
-      const said = sc.from === 'gate' ? `Covers the ${many} where ${sc.where}, and no others`
+      const said = (sc.from === 'gate' ? `Covers the ${many} where ${sc.where}, and no others`
         : sc.match.length ? `Covers the ${many} where ${where(sc.of, sc.match)}, and no others`
-        : `Covers every ${nounFor(sc.of).one}, and no others`;
+        : `Covers every ${nounFor(sc.of).one}, and no others`) + (sc.loose ? LOOSE_SAID : '');
       const rule: Rule = { id: `${id}/covers`, kind: 'covers', said, against: sc.of, againstSaid: `the list of ${many} (${sc.of})`, columns: [sc.own], origin: { how: 'set', in: sc.from === 'gate' ? 'notebook' : 'ontology' }, ...quiet('scope') };
       onCard.set(rule, `Must be one of the ${many} this file covers`);
       rules.push(rule);
@@ -198,7 +201,7 @@ export function ontologyPage(doc: PageDoc, columns: (file: string) => readonly s
       const rc = written.reconcile;
       const keys = either(rc.key.map((c) => title(id, c)), 'and');
       const origin: RuleOrigin = { how: 'set', in: rc.from === 'gate' ? 'notebook' : 'ontology' };
-      rules.push({ id: `${id}/key`, kind: 'key', said: `No ${keys} blank or repeated`, columns: [...rc.key], origin, ...quiet('reconcile') });
+      rules.push({ id: `${id}/key`, kind: 'key', said: `No ${keys} blank or repeated${rc.loose ? LOOSE_SAID : ''}`, columns: [...rc.key], origin, ...quiet('reconcile') });
       if (rc.of !== undefined) rules.push({ id: `${id}/same`, kind: 'same', said: `The same ${keys} values as ${rc.of}: none missing, none extra`, against: rc.of, againstSaid: rc.of, columns: [...rc.key], origin, ...quiet('reconcile') });
     }
     written.needs.forEach((n, k) => {

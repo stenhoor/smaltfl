@@ -8,7 +8,8 @@
  *   claim, or as not judged when the claim is missing or doesn't match the run. It reads the manifest only, so a check
  *   reused by key holds again, and verify can compute the holds again from what was stored.
  * - What waits (`reachOf`, `heldOutputs`, `waitingOf`): every output while anything holds, or with `together: false`
- *   the outputs that read what the holding step reads; of those, the ones whose staged key isn't the current one.
+ *   the outputs that read what the holding step reads (with `reach: downstream`, the outputs built from the step); of
+ *   those, the ones whose staged key isn't the current one.
  * - What the record says (`inputsOf`, `pausesOf`, `standingFor`, `decisionFor`): the record outlives the engine, so a
  *   pause opened by a held run is found again by the run's inputs (the flow, its parameters and its files), closed by a
  *   decision or by a passing run of the same inputs, and a decision is applied again only to the keys it named.
@@ -133,7 +134,8 @@ export interface Hold {
   /** What it says: the checks' counts, the story's head, why the source wasn't judged, what a derived run fills, or
    * why its donor isn't good. */
   said: string;
-  /** The outputs that read any source the holding node reads (`reachOf`); every output, for a derived run. */
+  /** The outputs that read any source the holding node reads (`reachOf`), or under `reach: downstream` the outputs built
+   * from the node; every output for a derived run, and for a refused file. */
   reaches: string[];
   /** A story hold: the claim it rests on; a donor hold whose claim says something wrong: the donor's claim. */
   claim?: Claim;
@@ -736,8 +738,10 @@ export function holdsOf(plan: Pick<FlowPlan, 'nodes' | 'outputs' | 'publish'>, m
   const out: RunHold[] = [];
   // A source the engine couldn't read as declared (plan/4, ADR 0014 §2): the schema check's hold, said with the file's
   // columns; nothing was built, so nothing else was judged.
+  // The run built nothing after it, so the refusal reaches every output, those that don't read the file too: under
+  // `together: false` there is still nothing of the day to publish.
   const refused = manifest.nodes.filter((m) => m.status === 'refused');
-  for (const m of refused) out.push({ by: 'checks', node: m.node, origin: m.origin, said: refusedSaid(m.refused ?? 'the file was refused'), reaches: reachOf(plan, m.node) });
+  for (const m of refused) out.push({ by: 'checks', node: m.node, origin: m.origin, said: refusedSaid(m.refused ?? 'the file was refused'), reaches: plan.outputs.map((o) => o.name) });
   // Nothing was built after a refusal: no check was counted, and none is held for it.
   if (pub.hold.includes('checks') && !refused.length)
     plan.nodes.forEach((n, i) => {
@@ -832,8 +836,11 @@ function upstream(plan: Pick<FlowPlan, 'nodes'>, node: number): Set<number> {
   return seen;
 }
 
-/** The outputs that read any source the node reads (a source reads itself), in the plan's order (by name). */
-export function reachOf(plan: Pick<FlowPlan, 'nodes' | 'outputs'>, node: number): string[] {
+/** The outputs that read any source the node reads (a source reads itself), in the plan's order (by name); under
+ * `reach: downstream`, the outputs built from the node itself. */
+export function reachOf(plan: Pick<FlowPlan, 'nodes' | 'outputs'> & Partial<Pick<FlowPlan, 'publish'>>, node: number): string[] {
+  // `reach: downstream` (ADR 0020 slice 3): the outputs built from the node itself.
+  if (plan.publish && isPublish2(plan.publish) && plan.publish.reach === 'downstream') return plan.outputs.filter((o) => upstream(plan, o.node).has(node)).map((o) => o.name);
   const sources = [...upstream(plan, node)].filter((i) => plan.nodes[i]!.op === 'table');
   return plan.outputs.filter((o) => {
     const up = upstream(plan, o.node);

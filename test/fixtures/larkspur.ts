@@ -45,7 +45,8 @@ export interface LarkspurOptions {
   /** How many applications are drawn across the span, created before it or during it (default 2,600: about 2,400 are
    * in the CMDB in March 2024, the rest not yet created or retired and gone; the tests draw 650 for about 600). */
   apps?: number;
-  /** The trouble planted (default LARKSPUR_TROUBLE); `incidents: false` plants none. */
+  /** The trouble planted (default the bronze days and the silver ones, LARKSPUR_TROUBLE and LARKSPUR_SILVER_TROUBLE);
+   * `incidents: false` plants none. */
   incidents?: boolean;
   trouble?: readonly Trouble[];
 }
@@ -90,7 +91,26 @@ export type Trouble =
   /** No rows for one business unit's internet-facing applications. */
   | { day: string; file: EvidenceFile; kind: 'scope_loss'; business_unit: string }
   /** An SLA control's completions due on the day run late at this rate, against its usual. */
-  | { day: string; file: EvidenceFile; kind: 'late'; control: ControlId; rate: number };
+  | { day: string; file: EvidenceFile; kind: 'late'; control: ControlId; rate: number }
+  /** Silver's days (ADR 0020 §5, slice 3): what goes wrong when files meet, each file well formed. */
+  /** Key rotation passes for the applications failing encryption at rest, and fails for as many of its passers. */
+  | { day: string; file: 'key_rotation'; kind: 'contradiction' }
+  /** From the day on, the largest teams of one business unit report into a department of another. */
+  | { day: string; file: 'hr_org_units'; kind: 'reorg'; teams: number; from: string; to: string }
+  /** Exceptions expire unrenewed the day before: as many as `count` at the demo's scale, `extended` of them extended once. */
+  | { day: string; file: 'exceptions'; kind: 'expiries'; count: number; extended: number }
+  /** The department the extract drops without moving its teams; the next day its teams report into a sibling. */
+  | { day: string; file: 'hr_org_units'; kind: 'dissolve' }
+  /** The CMDB's sync writes some records again, ids lower-cased with a trailing space, some with another owner. */
+  | { day: string; file: 'cmdb_apps'; kind: 'duplicates'; count: number; conflicts: number }
+  /** From the day on, a team's new cloud account with resources under tags no CMDB record names. */
+  | { day: string; file: 'cloud_assets'; kind: 'shadow'; tags: number; resources: number }
+  /** A certificate authority's intermediate expires: TLS and log forwarding fail for what it issued for. */
+  | { day: string; file: 'tls' | 'logging_coverage'; kind: 'ca'; ca: string }
+  /** From the day on, the catalogue lists a control no feed yet carries. */
+  | { day: string; file: 'control_catalog'; kind: 'sbom' }
+  /** A department reports into one of its own teams for a day: a leadership chain that loops. */
+  | { day: string; file: 'hr_org_units'; kind: 'loop' };
 
 const P = LARKSPUR_PLANTED;
 export const LARKSPUR_TROUBLE: readonly Trouble[] = [
@@ -107,6 +127,33 @@ export const LARKSPUR_TROUBLE: readonly Trouble[] = [
   { day: P.double, file: 'tls', kind: 'double' },
   { day: P.drLate, file: 'dr_exercises', kind: 'late', control: 'dr_exercise', rate: 0.6 },
   { day: P.scopeLoss, file: 'tls', kind: 'scope_loss', business_unit: 'BU-01' },
+];
+
+/** The days ADR 0020 §5 plants that silver catches, where files meet (slice 3), by the names the tests use. */
+export const LARKSPUR_SILVER = {
+  contradiction: '2024-03-08',
+  reorg: '2024-03-11',
+  expiries: '2024-03-15',
+  dissolve: '2024-03-18',
+  duplicates: '2024-03-20',
+  shadow: '2024-03-23',
+  ca: '2024-03-25',
+  sbom: '2024-03-27',
+  loop: '2024-03-28',
+} as const;
+
+const S = LARKSPUR_SILVER;
+export const LARKSPUR_SILVER_TROUBLE: readonly Trouble[] = [
+  { day: S.contradiction, file: 'key_rotation', kind: 'contradiction' },
+  { day: S.reorg, file: 'hr_org_units', kind: 'reorg', teams: 7, from: 'BU-02', to: 'BU-05' },
+  { day: S.expiries, file: 'exceptions', kind: 'expiries', count: 46, extended: 6 },
+  { day: S.dissolve, file: 'hr_org_units', kind: 'dissolve' },
+  { day: S.duplicates, file: 'cmdb_apps', kind: 'duplicates', count: 60, conflicts: 12 },
+  { day: S.shadow, file: 'cloud_assets', kind: 'shadow', tags: 9, resources: 140 },
+  { day: S.ca, file: 'tls', kind: 'ca', ca: 'ca-int-2' },
+  { day: S.ca, file: 'logging_coverage', kind: 'ca', ca: 'ca-int-2' },
+  { day: S.sbom, file: 'control_catalog', kind: 'sbom' },
+  { day: S.loop, file: 'hr_org_units', kind: 'loop' },
 ];
 
 // ------------------------------------------------------------------ draws
@@ -367,7 +414,7 @@ export function platformsOf(seed: number, id: string, a: AppAttrs, segment: stri
     : a.site === 'DC-EAST' ? weighted([['ocp-east-1', 0.4], ['vmf-east-1', 0.35], ['vmf-east-2', 0.25]], u('runtime'))
     : a.site === 'DC-WEST' ? weighted([['ocp-west-1', 0.4], ['vmf-west-1', 0.3], ['vmf-west-2', 0.3]], u('runtime'))
     : null;
-  const ingress = a.exposure !== 'internal' && !saas ? (east ? weighted([['ing-east-1', 0.36], ['ing-east-2', 0.3], ['ing-east-3', 0.34]], u('ingress')) : weighted([['ing-west-1', 0.38], ['ing-west-2', 0.32], ['ing-west-3', 0.3]], u('ingress'))) : null;
+  const ingress = a.exposure !== 'internal' && !saas ? (east ? weighted([['ing-east-1', 0.36], ['ing-east-2', 0.3], ['ing-east-3', 0.34]], u('ingress')) : weighted([['ing-west-1', 0.12], ['ing-west-2', 0.46], ['ing-west-3', 0.42]], u('ingress'))) : null;
   const store = a.datastore === 'yes';
   return {
     runtime,
@@ -497,6 +544,19 @@ export const CONTROLS: readonly Control[] = [
 ];
 export const CONTROL: Record<ControlId, Control> = Object.fromEntries(CONTROLS.map((x) => [x.id, x])) as Record<ControlId, Control>;
 
+/** The control the catalogue adds mid-month (ADR 0020 §5, Wed 27), with no feed yet: an SBOM for every application we
+ * host. Not a `ControlId`: nothing carries its evidence, so silver says it has none. */
+export const SBOM = { ...c('vuln_sla', 'Software bill of materials', 'ID.AM', 2, 'daily', { hosting: NOT_SAAS }, { feed: null }), id: 'sbom' } as unknown as Control;
+const SBOM_REQUIREMENTS: readonly { control: string; framework: string; requirement: string; relationship: Relationship }[] = [
+  { control: 'sbom', framework: 'NIST CSF 2.0', requirement: 'ID.AM-02', relationship: 'intersects with' },
+  { control: 'sbom', framework: 'ISO/IEC 27001:2022', requirement: 'A.5.9', relationship: 'intersects with' },
+  { control: 'sbom', framework: 'PCI DSS v4.0.1', requirement: '6.3.2', relationship: 'intersects with' },
+];
+/** The catalogue as its file lists it on a day: the fourteen, and the SBOM control from its day. */
+export function catalogueOn(w: Larkspur, d: string): readonly Control[] {
+  return w.trouble.some((t) => t.kind === 'sbom' && t.day <= d) ? [...CONTROLS, SBOM] : CONTROLS;
+}
+
 /** How a control relates to a framework's requirement, in NIST IR 8477's words. */
 export type Relationship = 'subset of' | 'intersects with' | 'equal' | 'superset of';
 export interface Requirement {
@@ -569,6 +629,9 @@ export interface Larkspur {
   exceptions: readonly ExceptionDraw[];
   exceptionsOf: ReadonlyMap<string, readonly ExceptionDraw[]>;
   trouble: readonly Trouble[];
+  /** What the planted silver days chose, once: the teams a reorg moves, the department dissolved and the one that loops,
+   * and the exceptions that expire unrenewed. */
+  planted: { moves: { team: string; to: string; from: string }[]; dissolved: { unit: string; sibling: string; day: string } | null; loop: { unit: string; team: string; day: string } | null; expiring: Set<string> };
   cache: { findings: Map<string, Finding[]>; cycles: Map<string, Cycle[]>; apps: Map<string, AppOn[]> };
 }
 
@@ -636,14 +699,89 @@ export function larkspur(o: LarkspurOptions = {}): Larkspur {
   }
   const exceptionsOf = new Map<string, ExceptionDraw[]>();
   for (const e of exceptions) exceptionsOf.set(`${e.app}|${e.control}`, [...(exceptionsOf.get(`${e.app}|${e.control}`) ?? []), e]);
-  const trouble = o.incidents === false ? [] : (o.trouble ?? LARKSPUR_TROUBLE);
-  return { seed, units, unit, children, apps, people, tenures, vacancies, exceptions, exceptionsOf, trouble, cache: { findings: new Map(), cycles: new Map(), apps: new Map() } };
+  const trouble = o.incidents === false ? [] : (o.trouble ?? [...LARKSPUR_TROUBLE, ...LARKSPUR_SILVER_TROUBLE]);
+  const w: Larkspur = { seed, units, unit, children, apps, people, tenures, vacancies, exceptions, exceptionsOf, trouble, planted: { moves: [], dissolved: null, loop: null, expiring: new Set() }, cache: { findings: new Map(), cycles: new Map(), apps: new Map() } };
+  plantOrg(w);
+  return w;
 }
 
 // ------------------------------------------------------------------ the organisation on a day
 
 /** An application's draw, by its id: what never changes with the day it is read on. */
 const drawOf = (w: Larkspur, id: string): AppDraw => w.apps[Number(id.slice(4)) - 1]!;
+
+/**
+ * What the planted silver days change in the organisation, chosen once from the draw: the largest teams of one business
+ * unit that a reorg moves into a department of another; the department, nearest to holding 5.75% of the applications,
+ * that the extract drops (its teams report into a sibling the day after); the department that loops into one of its own
+ * teams; and the exceptions that expire unrenewed.
+ */
+function plantOrg(w: Larkspur): void {
+  const find = <K extends Trouble['kind']>(kind: K) => w.trouble.find((t): t is Extract<Trouble, { kind: K }> => t.kind === kind);
+  const teamsOf = (dept: string) => w.units.filter((u) => u.level === 'team' && u.parent === dept);
+  const appsByTeam = (d: string) => {
+    const n = new Map<string, number>();
+    for (const a of appsOn(w, d)) n.set(a.owner_team_id, (n.get(a.owner_team_id) ?? 0) + 1);
+    return n;
+  };
+  const reorg = find('reorg');
+  if (reorg) {
+    const n = appsByTeam(reorg.day);
+    const to = w.units.find((u) => u.level === 'department' && u.business_unit === reorg.to)!;
+    w.planted.moves = w.units.filter((u) => u.level === 'team' && u.business_unit === reorg.from).sort((x, y) => (n.get(y.id) ?? 0) - (n.get(x.id) ?? 0) || (x.id < y.id ? -1 : 1)).slice(0, reorg.teams).map((t) => ({ team: t.id, from: t.parent!, to: to.id }));
+  }
+  const touched = new Set([...w.planted.moves.flatMap((m) => [m.from, m.to])]);
+  const dissolve = find('dissolve');
+  if (dissolve) {
+    const n = appsByTeam(dissolve.day);
+    const target = 0.0575 * appsOn(w, dissolve.day).length;
+    const size = (dept: Unit) => teamsOf(dept.id).reduce((x, t) => x + (n.get(t.id) ?? 0), 0);
+    const dept = w.units.filter((u) => u.level === 'department' && !touched.has(u.id)).sort((x, y) => Math.abs(size(x) - target) - Math.abs(size(y) - target) || (x.id < y.id ? -1 : 1))[0]!;
+    const sibling = w.units.find((u) => u.level === 'department' && u.parent === dept.parent && u.id !== dept.id)!;
+    w.planted.dissolved = { unit: dept.id, sibling: sibling.id, day: dissolve.day };
+    touched.add(dept.id).add(sibling.id);
+  }
+  const loop = find('loop');
+  if (loop) {
+    const dept = w.units.filter((u) => u.level === 'department' && !touched.has(u.id) && teamsOf(u.id).length).sort((x, y) => uniform(w.seed, x.id, 'loop') - uniform(w.seed, y.id, 'loop'))[0]!;
+    w.planted.loop = { unit: dept.id, team: teamsOf(dept.id)[0]!.id, day: loop.day };
+  }
+  const expiries = find('expiries');
+  if (expiries) {
+    const day0 = addDays(expiries.day, -1);
+    const scale = w.apps.length / 2600;
+    const want = Math.max(1, Math.round(expiries.count * scale));
+    const extended = Math.round(expiries.extended * scale);
+    // The oldest of what is in force through the day, on an application the CMDB still has, covering a control that fails
+    // that day as its tool reports it (what an exception is for): last year's approvals. The vulnerability SLA, told in
+    // silver from the findings, isn't among them.
+    const there = new Map(appsOn(w, expiries.day).map((a) => [a.app_id, a]));
+    const live = w.exceptions.filter((e) => {
+      const v = e.versions[e.versions.length - 1]!;
+      const a = there.get(e.app);
+      return !!a && v.approved <= day0 && v.from <= day0 && v.to >= expiries.day && e.control !== 'vuln_sla' && appliesTo(e.control, a) && rawStatus(w, e.control, a, expiries.day) === 'fail';
+    }).sort((x, y) => (x.versions[0]!.from < y.versions[0]!.from ? -1 : x.versions[0]!.from > y.versions[0]!.from ? 1 : uniform(w.seed, x.id, 'expires') - uniform(w.seed, y.id, 'expires')));
+    const twice = live.filter((e) => e.versions.length === 2).slice(0, extended);
+    const once = live.filter((e) => e.versions.length === 1).slice(0, want - twice.length);
+    w.planted.expiring = new Set([...twice, ...once].map((e) => e.id));
+  }
+}
+
+/** A unit's parent on a day, as the extract has it: the reorg's new department from its day, the dissolved department
+ * still named on its day (it isn't listed) and its sibling after, a department looping into its own team on its day. */
+function parentOn(w: Larkspur, unit: string, d: string): string | null {
+  const u = w.unit.get(unit)!;
+  const lp = w.planted.loop;
+  if (lp && lp.unit === unit && d === lp.day) return lp.team;
+  const ds = w.planted.dissolved;
+  if (ds && u.parent === ds.unit && d > ds.day) return ds.sibling;
+  const mv = w.planted.moves.find((m) => m.team === unit);
+  const reorg = w.trouble.find((t) => t.kind === 'reorg');
+  if (mv && reorg && d >= reorg.day) return mv.to;
+  return u.parent;
+}
+/** Whether the extract lists a unit on a day: all but the dissolved department, from its day. */
+const listedOn = (w: Larkspur, unit: string, d: string): boolean => !(w.planted.dissolved && w.planted.dissolved.unit === unit && d >= w.planted.dissolved.day);
 
 const holderOf = (w: Larkspur, unit: string, d: string): Tenure | null => w.tenures.get(unit)!.find((t) => (t.from === null || t.from <= d) && (t.to === null || d < t.to)) ?? null;
 const onLeave = (t: Tenure, d: string) => !!t.leave && t.leave.from <= d && d < t.leave.to;
@@ -665,14 +803,15 @@ function actingFor(w: Larkspur, unit: string, d: string): string | null {
   return above ? above.person : null;
 }
 
-/** The person a unit answers to on a day: its leader (on leave or not), else whoever acts, else the leader above. */
-export function leaderOf(w: Larkspur, unit: string, d: string): string | null {
+/** The person a unit answers to on a day: its leader (on leave or not), else whoever acts, else the leader above, as
+ * the extract's parents run that day (a walk round a loop gives up). */
+export function leaderOf(w: Larkspur, unit: string, d: string, hops = 0): string | null {
   const h = holderOf(w, unit, d);
   if (h) return h.person;
   const acting = actingFor(w, unit, d);
   if (acting) return acting;
-  const parent = w.unit.get(unit)!.parent;
-  return parent ? leaderOf(w, parent, d) : null;
+  const parent = parentOn(w, unit, d);
+  return parent && hops < 8 ? leaderOf(w, parent, d, hops + 1) : null;
 }
 
 export interface UnitOn {
@@ -702,8 +841,9 @@ export function orgOn(w: Larkspur, d: string): { units: UnitOn[]; people: Person
   const people: PersonOn[] = [];
   for (const u of w.units) {
     const h = holderOf(w, u.id, d);
-    units.push({ org_unit_id: u.id, parent_id: u.parent ?? '', name: u.name, level: u.level, leader_id: h?.person ?? '', acting_leader_id: actingFor(w, u.id, d) ?? '', cost_centre: u.cost_centre });
-    const manager = u.parent ? leaderOf(w, u.parent, d) ?? '' : '';
+    const parent = parentOn(w, u.id, d);
+    if (listedOn(w, u.id, d)) units.push({ org_unit_id: u.id, parent_id: parent ?? '', name: u.name, level: u.level, leader_id: h?.person ?? '', acting_leader_id: actingFor(w, u.id, d) ?? '', cost_centre: u.cost_centre });
+    const manager = parent ? leaderOf(w, parent, d) ?? '' : '';
     if (h) people.push({ person_id: h.person, display_name: w.people.get(h.person)!, title: TITLES[u.level], manager_id: manager, org_unit_id: u.id, status: onLeave(h, d) ? 'leave' : 'active', in_role_since: h.since });
     for (const t of w.tenures.get(u.id)!) {
       if (t.to && t.to <= d && d < addDays(t.to, 30)) people.push({ person_id: t.person, display_name: w.people.get(t.person)!, title: TITLES[u.level], manager_id: u.parent ? leaderOf(w, u.parent, addDays(t.to, -1)) ?? '' : '', org_unit_id: u.id, status: 'left', in_role_since: t.since });
@@ -777,11 +917,11 @@ export function exceptedOn(w: Larkspur, app: string, control: ControlId, d: stri
 }
 
 /** A scan's standing: a fortnight at a time (each application's fortnights starting on its own day), a rare daily flip.
- * A failure under an exception is five times as likely to stand: what is accepted is left unfixed. Encryption and backup
- * share the datastore's health, TLS and the WAF the endpoint's. */
+ * Under an exception in force the control fails six times in seven: an exception is granted for a failure, and what is
+ * accepted is left unfixed. Encryption and backup share the datastore's health, TLS and the WAF the endpoint's. */
 function scanFails(w: Larkspur, a: AppOn, control: ControlId, d: string): boolean {
   const seed = w.seed;
-  const rate = Math.min(0.9, (SCAN_FAIL[control] ?? 0.08) * riskOf(w, a, control) * (exceptedOn(w, a.app_id, control, d) ? 5 : 1));
+  const rate = exceptedOn(w, a.app_id, control, d) ? 6 / 7 : Math.min(0.9, (SCAN_FAIL[control] ?? 0.08) * riskOf(w, a, control));
   const block = (x: ControlId) => Math.floor((dayNumber(d) + Math.floor(uniform(seed, a.app_id, x, 'offset') * 14)) / 14);
   const own = uniform(seed, a.app_id, control, 'block', block(control));
   const draw = control === 'backup' ? 0.5 * uniform(seed, a.app_id, 'encryption', 'block', block('encryption')) + 0.5 * own : control === 'waf' ? 0.4 * uniform(seed, a.app_id, 'tls', 'block', block('tls')) + 0.6 * own : own;
@@ -1079,17 +1219,33 @@ function drawnFile(w: Larkspur, file: DailyFile, d: string, planted: readonly Tr
     case 'hr_people':
       for (const x of orgOn(w, d).people.sort((a, b) => (a.person_id < b.person_id ? -1 : 1))) rows.push([x.person_id, x.display_name, x.title, x.manager_id, x.org_unit_id, x.status, x.in_role_since]);
       break;
-    case 'cmdb_apps':
-      for (const a of apps) rows.push([a.app_id, a.name, a.owner_team_id, a.tier, a.exposure, a.data_class, a.datastore, a.hosting, a.site, a.platform_id, a.lifecycle, a.created_on, a.go_live, a.retire_by, a.updated_at]);
+    case 'cmdb_apps': {
+      const row = (a: AppOn, id = a.app_id, owner = a.owner_team_id, updated = a.updated_at): Cell[] => [id, a.name, owner, a.tier, a.exposure, a.data_class, a.datastore, a.hosting, a.site, a.platform_id, a.lifecycle, a.created_on, a.go_live, a.retire_by, updated];
+      for (const a of apps) rows.push(row(a));
+      // A sync that writes records again (ADR 0020 §5, Wed 20): ids lower-cased with a trailing space, newer than the
+      // record they repeat, a few naming another team of the same department.
+      const dup = planted.find((t) => t.kind === 'duplicates');
+      if (dup && dup.kind === 'duplicates') {
+        const scale = w.apps.length / 2600;
+        const again = apps.filter((a) => a.lifecycle !== 'retired').sort((x, y) => uniform(w.seed, x.app_id, 'dup', d) - uniform(w.seed, y.app_id, 'dup', d)).slice(0, Math.max(1, Math.round(dup.count * scale)));
+        const conflicts = Math.max(1, Math.round(dup.conflicts * scale));
+        again.forEach((a, i) => {
+          const team = w.unit.get(a.owner_team_id)!;
+          const other = i < conflicts ? w.units.find((u) => u.level === 'team' && u.parent === team.parent && u.id !== team.id) : undefined;
+          rows.push(row(a, `${a.app_id.toLowerCase()} `, other?.id ?? a.owner_team_id, `${d}T01:30:00Z`));
+        });
+      }
       break;
+    }
     case 'cloud_assets':
       rows.push(...cloudRows(w, apps, d));
       break;
     case 'control_catalog':
-      for (const x of CONTROLS) rows.push([x.id, x.name, x.csf_function, x.csf_category, x.weight, x.cadence, list(x.applies.exposure), list(x.applies.tier), list(x.applies.data_class), list(x.applies.datastore), list(x.applies.hosting), list(x.applies.lifecycle), x.depends_on ?? '', x.compensated_by ?? '', x.provided_by ?? '', x.allocation]);
+      for (const x of catalogueOn(w, d)) rows.push([x.id, x.name, x.csf_function, x.csf_category, x.weight, x.cadence, list(x.applies.exposure), list(x.applies.tier), list(x.applies.data_class), list(x.applies.datastore), list(x.applies.hosting), list(x.applies.lifecycle), x.depends_on ?? '', x.compensated_by ?? '', x.provided_by ?? '', x.allocation]);
       break;
     case 'control_requirements':
       for (const r of REQUIREMENTS) rows.push([r.control, r.framework, r.requirement, r.relationship]);
+      if (catalogueOn(w, d).length > CONTROLS.length) for (const r of SBOM_REQUIREMENTS) rows.push([r.control, r.framework, r.requirement, r.relationship]);
       break;
     case 'exceptions':
       rows.push(...exceptionRows(w, d));
@@ -1129,11 +1285,31 @@ function drawnFile(w: Larkspur, file: DailyFile, d: string, planted: readonly Tr
       }
       const monitor = planted.find((t) => t.kind === 'monitor');
       const down = planted.find((t) => t.kind === 'controller');
+      const expired = planted.find((t) => t.kind === 'ca');
+      const status = new Map(covered.map((a) => [a.app_id, rawStatus(w, control, a, d)]));
+      // Key rotation passing where encryption at rest fails (ADR 0020 §5, Fri 8), as many of its passers failing instead,
+      // so its own count of failures is what it was.
+      if (planted.some((t) => t.kind === 'contradiction')) {
+        let moved = 0;
+        for (const a of covered) if (status.get(a.app_id) === 'fail' && rawStatus(w, 'encryption', a, d) === 'fail') (status.set(a.app_id, 'pass'), moved++);
+        for (const a of covered) {
+          if (moved === 0) break;
+          if (status.get(a.app_id) === 'pass' && rawStatus(w, 'encryption', a, d) === 'pass') (status.set(a.app_id, 'fail'), moved--);
+        }
+      }
       for (const a of covered) {
         const behind = !!monitor && monitor.kind === 'monitor' && a.deps.ingress === monitor.ingress;
         const unreached = !!down && down.kind === 'controller' && a.deps.backup === down.backup;
-        const row = evidenceRow(w, file, a, d, behind ? 'fail' : unreached ? 'not_assessed' : rawStatus(w, control, a, d));
+        const lapsed = !!expired && expired.kind === 'ca' && a.deps.issuer === expired.ca;
+        const row = evidenceRow(w, file, a, d, behind || lapsed ? 'fail' : unreached ? 'not_assessed' : status.get(a.app_id)!);
         if (behind) row[columns.indexOf('mode')] = 'monitor';
+        // A certificate authority's intermediate expired the day before (ADR 0020 §5, Mon 25): the endpoint's certificate
+        // has lapsed, and the log forwarder, whose certificate it issued too, has sent nothing since.
+        if (lapsed && file === 'tls') (row[columns.indexOf('protocol')] = 'TLS1.2'), (row[columns.indexOf('not_after')] = addDays(d, -1));
+        if (lapsed && file === 'logging_coverage') {
+          row[columns.indexOf('last_event')] = `${addDays(d, -1)}T00:15:00Z`;
+          row[columns.indexOf('retention_days')] = a.data_class === 'pci' ? 365 : int(90, 400, uniform(w.seed, a.app_id, file, 'retention'));
+        }
         rows.push(row);
       }
     }
@@ -1165,10 +1341,15 @@ function exceptionRows(w: Larkspur, d: string): Cell[][] {
     e.versions.forEach((v, i) => {
       if (v.approved > d || d > addDays(v.to, 90)) return;
       const next = e.versions[i + 1];
-      const status = next && next.approved <= d ? 'superseded' : d < v.from ? 'approved' : d <= v.to ? 'active' : 'expired';
+      // An exception planted to expire unrenewed (ADR 0020 §5, Fri 15) was approved to end the day before: the register
+      // says so from its approval, and the raw data, drawn as it always was, doesn't change when it lapses.
+      const expiry = w.trouble.find((t) => t.kind === 'expiries');
+      const to = expiry && !next && w.planted.expiring.has(e.id) ? addDays(expiry.day, -1) : v.to;
+      if (d > addDays(to, 90)) return;
+      const status = next && next.approved <= d ? 'superseded' : d < v.from ? 'approved' : d <= to ? 'active' : 'expired';
       const team = app.move && app.move.at <= v.approved ? app.move.to : app.owner;
       const approver = leaderOf(w, w.unit.get(team)!.department!, v.approved) ?? '';
-      rows.push([e.id, v.version, e.app, e.control, approver, e.reason, e.compensating ?? '', v.from, v.to, v.original ?? '', v.approved, status]);
+      rows.push([e.id, v.version, e.app, e.control, approver, e.reason, e.compensating ?? '', v.from, to, v.original ?? '', v.approved, status]);
     });
   }
   return rows.sort((x, y) => (String(x[0]) < String(y[0]) ? -1 : String(x[0]) > String(y[0]) ? 1 : Number(x[1]) - Number(y[1])));
@@ -1189,9 +1370,15 @@ function cloudRows(w: Larkspur, apps: readonly AppOn[], d: string): Cell[][] {
     rows.push([`acct-${segCode(a.owner_team_id)}-prod`, region(a.site), a.platform_id, a.app_id, int(3, 120, uniform(seed, a.app_id, 'resources', month))]);
     if (uniform(seed, a.app_id, 'nonprod') < 0.6) rows.push([`acct-${segCode(a.owner_team_id)}-nonprod`, region(a.site), '', a.app_id, int(1, 40, uniform(seed, a.app_id, 'resources-np', month))]);
   }
-  const week = Math.floor(dayNumber(d) / 7);
+  // A team's new cloud account (ADR 0020 §5, Sat 23 on): resources under tags no CMDB record names.
+  const shadow = w.trouble.find((t) => t.kind === 'shadow' && t.day <= d);
+  if (shadow && shadow.kind === 'shadow') {
+    for (let i = 0; i < shadow.tags; i++) rows.push(['acct-wlt-migration', 'us-east-1', '', `APP-77${pad(i + 10, 2)}`, Math.floor(shadow.resources / shadow.tags) + (i < shadow.resources % shadow.tags ? 1 : 0)]);
+  }
+  // Each segment's sandbox account, most days, with resources under a tag no one registered: what a usual day's
+  // shadow tags are.
   for (const [, code] of SEGMENTS) {
-    if (uniform(seed, code, 'sandbox', week) < 0.7) rows.push([`acct-${code.toLowerCase()}-sandbox`, 'us-east-1', '', `APP-${9000 + int(0, 999, uniform(seed, code, 'sandbox-tag', week))}`, int(1, 15, uniform(seed, code, 'sandbox-n', week))]);
+    if (uniform(seed, code, 'sandbox', d) < 0.7) rows.push([`acct-${code.toLowerCase()}-sandbox`, 'us-east-1', '', `APP-${9000 + int(0, 999, uniform(seed, code, 'sandbox-tag', d))}`, int(1, 15, uniform(seed, code, 'sandbox-n', d))]);
   }
   return rows.sort((x, y) => (String(x[0]) + String(x[3]) < String(y[0]) + String(y[3]) ? -1 : 1));
 }

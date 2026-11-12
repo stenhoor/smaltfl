@@ -623,6 +623,82 @@ planted bronze days (`LARKSPUR_TROUBLE`), `test/helpers/larkspur-world.ts`, `tes
     moved; no test vector pinned one.
   - **The picture** is today's file beside the last load's, joined by "=" (`fileTwins` in `viz.ts`).
 
+**Slice 3, silver (2026-11-12):** the generator's planted silver days (`LARKSPUR_SILVER`), four notebooks
+(`org.nb.ts`, `apps.nb.ts`, `evidence.nb.ts`, `posture.nb.ts`), the watched steps' histories in
+`test/helpers/larkspur-world.ts` (`stepsFrom`: six weeks of runs of the flow), and the silver days in
+`test/larkspur-flow.test.ts`.
+- **The notebooks:**
+  - `org.nb.ts`: `org_units` and `leaders`; `org_closure`, the walk up from every unit, capped at eight levels and
+    stopping at a parent the extract doesn't list; `org_chain`, one row a unit with its levels, the leader it answers to
+    and how (its own, acting, inherited), and whether its chain reaches the group, stops short or loops. Its rules
+    `no_loop` and `one_root` fail the step.
+  - `apps.nb.ts`: `apps_clean` (ids upper-cased and trimmed, the newest record kept, `records` and `owner_conflict`
+    beside it); `apps`; `app_owners` with the Unassigned member and the rule that every active application has an owner
+    chain; `app_platforms`; `shadow_assets`.
+  - `evidence.nb.ts`: `vuln_status` from the ledger (one finding an application and CVE, its earliest first-found
+    date; not assessed where the scanner didn't reach or couldn't log in) and `results`, every feed as one long table.
+  - `posture.nb.ts`: `ownership` (the team itself: in the extract, with a leader in post or acting), `expected` (the
+    catalogue's lists read as written), `coverage`, `effective` with its `reason`, `remediation`, `platform_impact`
+    and `posture_wide`.
+- **What silver does with March, through the engine** (about 600 applications; a run of the flow takes about 4 s):
+  - **Holds:**
+    - Fri 8, the posture by its needs rule: "18 applications: key_rotation status pass needs encryption not fail";
+    - Mon 18 and Thu 28, `org_chain` and `app_owners` by their rules (`one_root`, then `no_loop`), and nothing else:
+      the per-application statuses publish;
+    - Thu 21, `effective` by its key as well as the TLS file: the doubled rows flow through, and silver's own rule
+      (one result an application and control) says so, as the control estate's posture does.
+  - **Warns and publishes:**
+    - Tue 12: `platform_impact` names the ingress, "Platform_id ing-east-3: 5.5% (usually 0.2–0.4%)", while bronze
+      holds the WAF file;
+    - Wed 20: bronze is calm; silver keeps the newest of 15 records written twice and says "Owner_conflict yes: 0.5%
+      (band 0%–0%)", three applications with two owners;
+    - Fri 15: the expired exceptions, "Reason exception_expired: 0.3% (usually 0.042%)";
+    - Sat 23: the unregistered tags, "More tags: 13 (+333%)";
+    - Wed 27: the new control's missing evidence, "Status no_data: 9.3%", beside the amount it adds.
+  - **Told, as a note only:** Mon 25. `platform_impact` says "Platform_id ca-int-2: 3.1% (usually 0.00–0.01%)", and
+    the pairs check sees TLS and logging failing together on five applications. At the tests' scale ca-int-2 is behind
+    five applications. A share judged on the log-odds scale reads a platform that is usually absent as noisy, and a pair
+    is unusual only at two points of the day's rows (twelve applications here). The answer key's "warns" isn't reached at
+    this scale; it is measured again at the demo's in slice 5.
+  - **The consequences of other days, said as unusual and published:** the posture's statuses move with the MFA file
+    gone (Mon 4), the findings and pentests falling due (Fri 15 to Mon 18), the controller down (Tue 19), the DR
+    exercises late (Sat 23 on) and the quarter's access reviews (Sat 30, Sun 31).
+- **Where the text changed as it was built:**
+  - **The application's id is loose (Q-176).** The CMDB's duplicates are new ids to a check that compares them as
+    written: every feed's scope counted them as applications in scope with no row, and held. The object type now says
+    its ids are the same whatever their case and spaces (`ids: 'loose'`), so the checks that count objects compare them
+    that way. The CMDB's own key is judged as written, and silver conforms the records.
+  - **A step's hold reaches what is built from it (Q-177).** ADR 0009 §4 reaches every output that reads a source the
+    holding step reads, so the organisation's rules held the posture too: `ownership` reads the HR extract. The flow
+    says `reach: 'downstream'`, and a step's hold keeps back only the outputs built from the step.
+  - **A refused file holds every output.** Nothing is built after a refusal; with `together: false` the outputs that
+    don't read the file were published unbuilt, which failed the run (a bug no flow had met: bronze had no outputs).
+  - **The needs rule is on `posture_wide`, read against key rotation's file.** `effective` already reads a pass whose
+    dependency fails as a failure, which hides the contradiction; the rule reads what key rotation's tool reported, so
+    "key rotation passes while encryption fails" is counted as the feeds say it. A long list of allowed values is said
+    by what it leaves out ("encryption not fail").
+  - **`org_chain` is the per-unit view; `org_closure` is the closure.** The rules read one row a unit.
+  - **Not built:** `pentest_status` (the schedule's status is the pentest's; the ledger's pentest findings are a
+    column of it), and silver's scope on `results` (each feed's bronze scope already counts it, and `coverage` keeps a
+    result nothing expects).
+  - **Watched:** `apps` too, so the owner conflicts are told. Learned checks follow §3: `posture_wide` keeps shares,
+    pairs and the forest; the others turn the forest off, `platform_impact` judges its shares and not its amount, and
+    `effective`'s amount and blanks only warn: its amount follows the catalogue, and a blank raw status is missing
+    evidence its status already says.
+  - **A new value or combination in a gated flow** is unusual on the scaled floor of rows alone. A thousandth of a
+    table of six hundred rows is under a row, and one application with a combination of statuses never seen before
+    made `posture_wide` unusual almost every day.
+  - **A count in a gated flow** is told only past its rows' floor as well as a twentieth: three sandbox tags against
+    four is counting. The catalogue's one new control on Wed 27 is now said by silver (no data), not by the
+    catalogue's amount.
+  - **A written band is read on a value's first day too.** A value first seen was told as new and the band skipped;
+    "none should have two owners" is the band's to say (`news.ts`).
+  - **The steps' watches leave the calendar out** (`calendar: false`): the posture doesn't move with Patch Tuesday,
+    and six weeks of history held one, so Tue 12 read as not judged yet.
+  - **Generator:** an exception in force leaves the control failing six times in seven, since an exception is granted
+    for a failure; the exceptions that expire on Fri 15 are ones covering a failing control; the sandbox accounts'
+    stray tags vary by day, not by week. At the tests' scale ing-east-3 is behind 83% of Tue 12's WAF failures.
+
 ## Consequences
 
 - **The demo can show what each layer is for:**

@@ -118,6 +118,13 @@ export interface PublishDef {
   /** Nothing goes out while any output waits (the default); with false, a hold reaches only the outputs that read
    * what the holding step reads, and the rest publish. */
   together?: boolean;
+  /**
+   * With `together: false`, what a hold keeps back (ADR 0020 slice 3): `sources` (the default, ADR 0009 §4), every
+   * output that reads a source the holding node reads; or `downstream`, the outputs built from the holding node itself.
+   * A hold on a source reaches the same outputs either way; a step's hold, under `downstream`, leaves the outputs that
+   * don't read the step to publish.
+   */
+  reach?: Reach;
   /** The flow's own donor rule (ADR 0009 amendment 1 S3): the same weekday, or the nearest good day. */
   donor?: DonorRule;
   /** What readers get while a held day waits (S5): the last day published (the default), its fill, or the part that
@@ -135,8 +142,11 @@ export type Meanwhile = (typeof MEANWHILES)[number];
 export const UNTILS = ['decision', 'normal'] as const;
 export type Until = (typeof UNTILS)[number];
 
+export const REACHES = ['sources', 'downstream'] as const;
+export type Reach = (typeof REACHES)[number];
+
 /** The publish block's fields this version knows: any other is refused, never ignored. */
-const PUBLISH_FIELDS = ['hold', 'watch', 'period', 'together', 'donor', 'meanwhile', 'until'];
+const PUBLISH_FIELDS = ['hold', 'watch', 'period', 'together', 'reach', 'donor', 'meanwhile', 'until'];
 
 export interface FlowDocument {
   smaltfl: DocumentFormat;
@@ -608,7 +618,7 @@ function validateGates(doc: Record<string, unknown>, add: (path: string, message
 function validatePublish(doc: Record<string, unknown>, params: Map<string, ParameterDef>, add: (path: string, message: string) => void): void {
   const p = doc.publish;
   if (p === undefined) return;
-  if (!isRecord(p)) return add('$.publish', '{ hold, watch, period, together, donor, meanwhile, until }');
+  if (!isRecord(p)) return add('$.publish', '{ hold, watch, period, together, reach, donor, meanwhile, until }');
   for (const k of Object.keys(p)) if (!PUBLISH_FIELDS.includes(k)) add(`$.publish.${k}`, `not a field this version reads (${PUBLISH_FIELDS.join(', ')}): refused rather than ignored`);
   const hold = new Set<HoldKind>();
   if (!Array.isArray(p.hold) || p.hold.length === 0) add('$.publish.hold', `a list of what holds: ${HOLD_KINDS.join(', ')}`);
@@ -658,6 +668,9 @@ function validatePublish(doc: Record<string, unknown>, params: Map<string, Param
   if (p.period !== undefined) textParam(p.period, '$.publish.period', 'the period is a text parameter, such as a day');
   else if (unperiod > 0) add('$.publish.period', 'a watch needs a period: the parameter whose value is the day a claim names');
   if (p.together !== undefined && typeof p.together !== 'boolean') add('$.publish.together', 'true or false');
+  if (p.reach !== undefined && !(REACHES as readonly unknown[]).includes(p.reach)) add('$.publish.reach', `one of ${REACHES.join(', ')}`);
+  else if (p.reach !== undefined && p.together !== false) add('$.publish.reach', 'what a hold reaches matters only where outputs publish apart: it needs together: false');
+  else if (p.reach !== undefined && documentFormat(doc) < 3) add('$.publish.reach', 'a format-3 or later document’s: refused rather than ignored');
   if (p.donor !== undefined && !(DONOR_RULES as readonly unknown[]).includes(p.donor)) add('$.publish.donor', `one of ${DONOR_RULES.join(', ')}`);
   // Format 3 says how each source is judged in its watch, its donor among it (C1): a flow-wide rule there is refused.
   else if (p.donor !== undefined && documentFormat(doc) === 3) add('$.publish.donor', 'in format 3 each watch names its own donor (publish.watch.<source>.donor, a watch given as an object): refused rather than ignored');
@@ -727,6 +740,7 @@ function validateExtras(doc: Record<string, unknown>, ids: Map<string, string>, 
         if (types.has(t.id)) add(`$.ontology.objectTypes[${i}].id`, `duplicate object type ${t.id}`);
         types.add(t.id);
         if (!known(t.dataset)) add(`$.ontology.objectTypes[${i}].dataset`, `no source or step ${String(t.dataset)}`);
+        if (t.ids !== undefined && t.ids !== 'exact' && t.ids !== 'loose') add(`$.ontology.objectTypes[${i}].ids`, 'exact, or loose: the same id whatever its case and the spaces around it');
       });
       o.linkTypes.forEach((l: unknown, i: number) => {
         if (!isRecord(l) || !types.has(String(l.from)) || !types.has(String(l.to))) add(`$.ontology.linkTypes[${i}]`, 'a link between two object types');

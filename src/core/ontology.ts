@@ -17,6 +17,13 @@ export interface ObjectType {
   /** The column people call an object by. */
   title: string;
   description?: string;
+  /**
+   * When two ids name the same object (ADR 0020 slice 3): `exact` (the default), or `loose`, whatever their case and
+   * the spaces around them, as a person reads an id. The checks that count objects read it: the scope over the type's
+   * dataset and one row an object of a dataset its `rows` tie to the type. The type's own dataset is judged as written:
+   * two of its records whose ids differ only in case are two records there, which a later step conforms.
+   */
+  ids?: 'exact' | 'loose';
 }
 
 export interface LinkType {
@@ -188,6 +195,13 @@ export function conditionOf(where: Condition | undefined): [column: string, valu
   return Object.entries(where ?? {})
     .map(([c, v]): [string, string[]] => [c, [...new Set(Array.isArray(v) ? v : [v])].sort()])
     .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+}
+
+/** Whether a dataset's key names objects of a type whose ids are loose (`ObjectType.ids`): the type backed by the dataset
+ * with that one column as its key. */
+export function looseIds(ontology: Ontology | undefined, dataset: string, key: string): boolean {
+  const d = dataset.toLowerCase();
+  return (ontology?.objectTypes ?? []).some((t) => t.ids === 'loose' && t.dataset.toLowerCase() === d && t.key.length === 1 && t.key[0]!.toLowerCase() === key.toLowerCase());
 }
 
 /** A dataset's rows entry with its object type resolved (`rowsOf`). */

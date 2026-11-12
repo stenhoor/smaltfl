@@ -1,8 +1,10 @@
 /**
  * The Larkspur estate (examples/larkspur/) through the engine, as the app runs it (ADR 0020): every watched file's
- * history built from the days before, then each day's files arriving one a day, each file measured and its claim told
- * as the page tells it, and the flow run on them. The claims told and the measures taken are kept, so a test can ask
- * what a watch said of a day that published as well as what held it.
+ * history built from the days before, and every watched silver step's from runs of the flow on the last of them; then
+ * each day's files arriving one a day, each file measured and its claim told as the page tells it, the flow run on
+ * them, and each watched step's claim told in the engine. The claims told and the measures taken are kept (a step's
+ * claim told again from the run's measures, as the engine told it), so a test can ask what a watch said of a day that
+ * published as well as what held it.
  */
 import { readFileSync } from 'node:fs';
 import { Database } from 'smaltdb/engine';
@@ -30,10 +32,13 @@ export interface LarkspurWorld {
   doc: FlowDocument;
   db: Database;
   estate: Larkspur;
+  /** The watched steps (silver's), judged in the engine. */
+  steps: string[];
   bases: Record<string, HistoryFile>;
   /** Each day's run, or the error that stopped it. */
   results: Map<string, RunResult | Error>;
-  /** Each day's claims as the page told them, by file: null where the file couldn't be read as declared. */
+  /** Each day's claims as the page told them, by file (null where the file couldn't be read as declared), and each
+   * watched step's as the engine told it. */
   claims: Map<string, Record<string, StoryClaim2 | null>>;
   /** Each day's measures, and each file's story as the page told it (its head, its findings), by file. The ranges a
    * story was told from aren't kept: six months of history for twenty files a day is more than a test needs to hold. */
@@ -43,12 +48,20 @@ export interface LarkspurWorld {
   close(): void;
 }
 
-/** A world: the histories from `baseFrom` to `baseTo`, then every day after `baseTo` to `loadsTo` run as it arrives. */
-export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; baseTo: string; loadsTo: string; warmup?: number }): Promise<LarkspurWorld> {
+/**
+ * A world: the files' histories from `baseFrom` to `baseTo` and the steps' from `stepsFrom` (six weeks before `baseTo`
+ * unless said), then every day after `baseTo` to `loadsTo` run as it arrives.
+ */
+export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; baseTo: string; loadsTo: string; stepsFrom?: string; warmup?: number }): Promise<LarkspurWorld> {
   const doc = await loadFlowDir(larkspurDir);
   const data = JSON.parse(readFileSync(new URL('data.json', larkspurDir), 'utf8')) as DataBindings;
   const estate = larkspur(o);
   const watched = DAILY_FILES.filter((f) => doc.publish?.watch?.[f]);
+  const steps = Object.keys(doc.publish?.watch ?? {}).filter((x) => !(DAILY_FILES as readonly string[]).includes(x));
+  const stepsFrom = o.stepsFrom ?? addDays(o.baseTo, -41);
+  /** The flow without its publish block: how a step's history is built, a run of each base day. */
+  const bare: FlowDocument = { ...doc };
+  delete bare.publish;
   /** An engine with the architecture inventory pinned and every file's table declared. A base day runs in one of its
    * own, dropped after, so the catalog doesn't grow with every run. */
   const open = async (): Promise<Database> => {
@@ -87,22 +100,30 @@ export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; bas
     const c = watchColumns(doc, w);
     return { plan, s: { ...s, counted: c.count, followed: c.follow, paired: c.pair } };
   };
-  const tails: Record<string, Measures[]> = Object.fromEntries(watched.map((w) => [w, []]));
+  const tails: Record<string, Measures[]> = Object.fromEntries([...watched, ...steps].map((w) => [w, []]));
   const results = new Map<string, RunResult | Error>();
   const claimsTold = new Map<string, Record<string, StoryClaim2 | null>>();
   const measuresTaken = new Map<string, Record<string, Measures>>();
   const storiesTold = new Map<string, Record<string, Story>>();
 
-  // The histories: each watched file measured on each base day.
-  const periods: Record<string, Measures[]> = Object.fromEntries(watched.map((w) => [w, []]));
+  // The histories: each watched file measured on each base day, and each watched step on the base's last weeks, from
+  // a run of the flow on the day's files.
+  const periods: Record<string, Measures[]> = Object.fromEntries([...watched, ...steps].map((w) => [w, []]));
   for (let day = o.baseFrom; day <= o.baseTo; day = addDays(day, 1)) {
     const d = await open();
     await pinDay(day, d);
     for (const w of watched) periods[w]!.push(await measureLoad(d, data.sources[w]!.table, (await settingsOf(day, w)).s));
+    if (steps.length && day >= stepsFrom) {
+      const r = await runFlow(d, bare, { smaltdb: SMALTDB, parameters: { day } });
+      for (const st of steps) {
+        if (!r.published.includes(st)) throw new Error(`${day}: the bare run didn't publish ${st}`);
+        periods[st]!.push(await measureLoad(d, st, (await settingsOf(day, st)).s));
+      }
+    }
     d.close();
   }
   const db = await open();
-  for (const w of watched) {
+  for (const w of [...watched, ...steps]) {
     const ms = periods[w]!;
     const m0 = ms[0]!;
     const c = watchColumns(doc, w);
@@ -136,11 +157,27 @@ export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; bas
       told[w] = t?.claim ?? null;
       if (t) (claims.push(t.claim), (stories[w] = flowStory(t.ranges, day, doc, w, undefined, undefined, facts[w])));
     }
+    // Each watched step's tail, pinned for the engine to tell its claim from, with what the page says of the record.
+    for (const st of steps) await pinFile(db, tailPath(st), utf8(canonicalJSON(tailBefore(tails[st]!, '9999') as unknown as Parameters<typeof canonicalJSON>[0])));
+    const tell = Object.fromEntries(steps.map((st) => [st, { skip: [], levels: [] }]));
+    const r = await runFlow(db, doc, { smaltdb: SMALTDB, parameters: { day }, claims, sources, tell });
+    for (const w of watched) if (measured[w]) tails[w]!.push(measured[w]!);
+    // Each step's claim told again from the run's measures of it, as the engine told it: the same history, tail and
+    // upstream claims.
+    const upstream = claims.flatMap((c) => ('source' in c && typeof c.source === 'string' ? [{ source: c.source, state: c.state, head: c.head }] : []));
+    for (const st of steps) {
+      const m = r.measures?.find((x) => x.source === st);
+      if (!m) continue;
+      const { plan, s } = await settingsOf(day, st);
+      measured[st] = m;
+      const t = await loadClaim({ doc, source: st, flow: plan.flow.hash, base: bases[st]!, baseRef: refs[st]!, tail: tails[st]!, measures: m, settings: s, skip: [], levels: [], build: 'dev', upstream });
+      told[st] = t?.claim ?? null;
+      if (t) stories[st] = flowStory(t.ranges, day, doc, st);
+      tails[st]!.push(m);
+    }
     claimsTold.set(day, told);
     measuresTaken.set(day, measured);
     storiesTold.set(day, stories);
-    const r = await runFlow(db, doc, { smaltdb: SMALTDB, parameters: { day }, claims, sources });
-    for (const w of watched) if (measured[w]) tails[w]!.push(measured[w]!);
     return r;
   };
   for (let day = addDays(o.baseTo, 1); day <= o.loadsTo; day = addDays(day, 1)) {
@@ -151,7 +188,7 @@ export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; bas
     }
   }
   return {
-    doc, db, estate, bases, results, claims: claimsTold, measures: measuresTaken, stories: storiesTold,
+    doc, db, estate, steps, bases, results, claims: claimsTold, measures: measuresTaken, stories: storiesTold,
     result(day) {
       const r = results.get(day);
       if (!r || r instanceof Error) throw new Error(`${day}: ${r ? r.message : 'not run'}`);

@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import { plusDays } from '../src/core/calendar.js';
 import { validateDocument, type FlowDocument } from '../src/core/document.js';
-import { emitMatch, emitScopeCounts } from '../src/core/emit.js';
+import { emitMatch, emitReconcileCounts, emitScopeCounts } from '../src/core/emit.js';
 import { acceptable } from '../src/core/fill.js';
 import { LAYER_DEFAULTS, writtenRules } from '../src/core/gates.js';
 import { HistoryRanges } from '../src/core/history.js';
@@ -18,6 +18,7 @@ import { expandNotebooks } from '../src/core/notebook.js';
 import { judgeOf, LEGACY_JUDGE, newsOf } from '../src/core/news.js';
 import { conditionOf, nounOf, rowsOf, type Ontology, type RowsDef } from '../src/core/ontology.js';
 import { translate, validatePlan } from '../src/core/plan.js';
+import { reachOf } from '../src/core/hold.js';
 import { storyOf } from '../src/core/story.js';
 import { measureLoad, runFlow } from '../src/index.js';
 import { openEngine, SMALTDB } from './helpers/engine.js';
@@ -301,6 +302,102 @@ describe('the condition in the engine', () => {
       expect((await measure('mfa')).gate).toEqual({ scope: { out: 0, missing: 0, inScope: 4 }, reconcile: { rows: 4, keys: 4, blank: 0, missing: 0, extra: 0 } });
     } finally {
       db.close();
+    }
+  });
+});
+
+describe('loose ids: an object named whatever its case and the spaces around it', () => {
+  const LOOSE: Ontology = { ...ONTOLOGY, objectTypes: [{ ...APPLICATION, ids: 'loose' }] };
+
+  it('is said on the type, and refused as anything but exact or loose', async () => {
+    expect(validateDocument(await doc({ ontology: LOOSE }))).toEqual([]);
+    expect(validateDocument(await doc({ ontology: { ...ONTOLOGY, objectTypes: [{ ...APPLICATION, ids: 'exact' }] } }))).toEqual([]);
+    expect(validateDocument(await doc({ ontology: { ...ONTOLOGY, objectTypes: [{ ...APPLICATION, ids: 'any case' as 'loose' }] } }))).toEqual([
+      { path: '$.ontology.objectTypes[0].ids', message: 'exact, or loose: the same id whatever its case and the spaces around it' },
+    ]);
+  });
+
+  it('makes the scope over the type’s dataset and the ontology’s one row an object loose; a gate cell’s own key stays as written', async () => {
+    const d = await doc({ ontology: LOOSE });
+    expect(writtenRules(d, 'tls')).toEqual({
+      scope: { from: 'ontology', of: 'apps', key: 'app_id', own: 'app_id', match: [['internet_facing', ['yes']]], type: 'application', loose: true },
+      needs: [],
+      reconcile: { key: ['app_id'], from: 'ontology', loose: true },
+    });
+    const w = await watches(d);
+    expect(w.tls!.scope).toEqual({ table: 'apps_file', key: 'app_id', own: 'app_id', where: `"internet_facing" IN ('yes')`, loose: true });
+    expect(w.tls!.reconcile).toEqual({ key: ['app_id'], table: null, loose: true });
+    // A gate cell's scope over the type's dataset by its key names the same objects: loose too. Its own key is the
+    // rows as written.
+    const cell = await doc({ ontology: LOOSE, nb: nb("cell('tls_gate');\nexport const tls_gate = gate(tls, { scope: { of: apps, key: 'app_id', where: \"internet_facing = 'yes'\" }, reconcile: { key: 'app_id' } });\n") });
+    expect(writtenRules(cell, 'tls').scope).toMatchObject({ from: 'gate', loose: true });
+    expect(writtenRules(cell, 'tls').reconcile).toEqual({ key: ['app_id'], from: 'gate' });
+    // Exact ids, the default, write the plan they always wrote: no field for it.
+    expect((await watches(await doc())).tls!.scope).not.toHaveProperty('loose');
+  });
+
+  it('counts the inventory’s records naming one id once, and a row whose id differs only in case or spaces as that object’s', () => {
+    const db = openEngine();
+    try {
+      // a1 written again by a sync, lower-cased with a trailing space; a2 once.
+      db.exec("CREATE TABLE apps_file(app_id TEXT, internet_facing TEXT); INSERT INTO apps_file VALUES ('A1','yes'),('a1 ','yes'),('A2','yes'),('A3','no')");
+      db.exec("CREATE TABLE tls_file(app_id TEXT, status TEXT); INSERT INTO tls_file VALUES ('A1','pass'),(' a2','fail'),('A3','pass')");
+      const counts = (loose: boolean) => db.query(emitScopeCounts('SELECT * FROM tls_file', { table: 'apps_file', key: 'app_id', own: 'app_id', where: `"internet_facing" IN ('yes')`, loose })).rows[0]!.map(Number);
+      // As written: 'a1 ' is an application in scope with no row, ' a2' a row out of scope and A2 in scope with none.
+      expect(counts(false)).toEqual([2, 2, 3]);
+      // Loose: two objects in scope, each with its row; A3 is the one row out of scope.
+      expect(counts(true)).toEqual([1, 0, 2]);
+      const keys = (loose: boolean) => db.query(emitReconcileCounts("SELECT * FROM apps_file", ['app_id'], null, loose)).rows[0]!.map(Number);
+      // The inventory's own records: three keys as written, A1 on two records when ids are loose.
+      expect(keys(false)).toEqual([4, 4, 0, 0, 0]);
+      expect(keys(true)).toEqual([4, 3, 0, 0, 0]);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('measures a load by the loose rules the plan carries', async () => {
+    const db = openEngine();
+    try {
+      db.exec("CREATE TABLE apps_file(app_id TEXT, internet_facing TEXT); INSERT INTO apps_file VALUES ('A1','yes'),('a1 ','yes'),('A2','yes')");
+      db.exec("CREATE TABLE tls_file(app_id TEXT, status TEXT); INSERT INTO tls_file VALUES ('A1','pass'),('A2','fail')");
+      db.exec("CREATE TABLE mfa_file(application_id TEXT, status TEXT); INSERT INTO mfa_file VALUES ('A1','pass'),('a2','pass')");
+      const d = await doc({ ontology: LOOSE });
+      const plan = await translate(d, { day: '2024-03-01' });
+      const measure = (id: string) => measureLoad(db, `${id}_file`, settingsFor(plan, plan.nodes.findIndex((n) => n.origin === id), null, d.steps)!);
+      expect((await measure('tls')).gate).toEqual({ scope: { out: 0, missing: 0, inScope: 2 }, reconcile: { rows: 2, keys: 2, blank: 0, missing: 0, extra: 0 } });
+      expect((await measure('mfa')).gate).toEqual({ scope: { out: 0, missing: 0, inScope: 2 }, reconcile: { rows: 2, keys: 2, blank: 0, missing: 0, extra: 0 } });
+    } finally {
+      db.close();
+    }
+  });
+});
+
+describe('what a step’s hold reaches under reach: downstream', () => {
+  // A second output that reads the inventory alone, and a third built from posture.
+  const more = "cell('units', { lang: 'sql' });\nexport const units = sql`SELECT DISTINCT internet_facing FROM ${apps}`;\ncell('summary', { lang: 'sql' });\nexport const summary = sql`SELECT tls, count(*) AS n FROM ${posture} GROUP BY tls`;\ncell('more');\npublish(units);\npublish(summary);\n";
+  const apart = (reach?: 'sources' | 'downstream') => doc({ nb: nb(TLS_GATE, more) }).then((d) => ({ ...d, publish: { ...d.publish!, together: false, ...(reach ? { reach } : {}) } }) as FlowDocument);
+
+  it('is refused unless outputs publish apart, and only as sources or downstream', async () => {
+    expect(validateDocument(await apart('downstream'))).toEqual([]);
+    const d = await apart('downstream');
+    expect(validateDocument({ ...d, publish: { ...d.publish!, together: true } })).toEqual([{ path: '$.publish.reach', message: 'what a hold reaches matters only where outputs publish apart: it needs together: false' }]);
+    expect(validateDocument({ ...d, publish: { ...d.publish!, reach: 'nodes' as 'downstream' } })).toEqual([{ path: '$.publish.reach', message: 'one of sources, downstream' }]);
+  });
+
+  it('keeps back the outputs built from the holding step; a source’s hold reaches what reads it either way', async () => {
+    const byStep = await translate(await apart('downstream'), { day: '2024-03-01' });
+    validatePlan(byStep);
+    expect((byStep.publish as { reach?: string }).reach).toBe('downstream');
+    const at = (p: typeof byStep, origin: string) => p.nodes.findIndex((n) => n.origin === origin);
+    expect(reachOf(byStep, at(byStep, 'posture'))).toEqual(['posture', 'summary']);
+    expect(reachOf(byStep, at(byStep, 'tls'))).toEqual(['posture', 'summary']);
+    expect(reachOf(byStep, at(byStep, 'apps'))).toEqual(['posture', 'summary', 'units']);
+    // As ADR 0009 §4 has it, the default: posture reads apps, so its hold reaches units too. The plan says nothing.
+    for (const d of [await apart(), await apart('sources')]) {
+      const bySource = await translate(d, { day: '2024-03-01' });
+      expect(bySource.publish).not.toHaveProperty('reach');
+      expect(reachOf(bySource, at(bySource, 'posture'))).toEqual(['posture', 'summary', 'units']);
     }
   });
 });

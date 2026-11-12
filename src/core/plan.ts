@@ -180,6 +180,9 @@ export interface WatchPlan {
 export interface ReconcilePlan {
   key: string[];
   table: string | null;
+  /** Ids compared whatever their case and the spaces around them (`ObjectType.ids`); only when so, so every plan made
+   * before it hashes as it did. */
+  loose?: true;
 }
 
 /** plan/4 (ADR 0014 §6): a gate on a published node the plan doesn't watch (gold): its checks and its reconciliation,
@@ -194,6 +197,8 @@ export interface ScopePlan {
   key: string;
   own: string;
   where: string;
+  /** Ids compared whatever their case and the spaces around them (`ObjectType.ids`); only when so. */
+  loose?: true;
 }
 
 export interface NeedsPlan {
@@ -212,6 +217,9 @@ export interface PlanPublish2 {
   hold: HoldKind[];
   period: string | null;
   together: boolean;
+  /** What a hold keeps back with `together: false`: present only as `downstream` (the document's `reach`), so every plan
+   * made before it hashes as it did. */
+  reach?: 'downstream';
   calendar: Calendar;
   watch: [node: number, watch: WatchPlan][];
   meanwhile: Meanwhile;
@@ -372,9 +380,9 @@ export async function translate(doc: FlowDocument, values: Readonly<Record<strin
     // A dependency's conditions are kept in one order as the ontology's is (`conditionOf`): by column, each column's
     // values sorted, each once.
     return {
-      scope: r.scope ? { table: tableOf(r.scope.of), key: r.scope.key, own: r.scope.own, where: r.scope.from === 'gate' ? bind(r.scope.where, `$.gates.${id}.scope.where`) : emitMatch(r.scope.match) } : null,
+      scope: r.scope ? { table: tableOf(r.scope.of), key: r.scope.key, own: r.scope.own, where: r.scope.from === 'gate' ? bind(r.scope.where, `$.gates.${id}.scope.where`) : emitMatch(r.scope.match), ...(r.scope.loose ? { loose: true as const } : {}) } : null,
       needs: r.needs.map((n): NeedsPlan => ({ table: n.from ? tableOf(n.from) : null, key: n.key ?? null, when: conditionOf(n.when), then: conditionOf(n.then) })),
-      reconcile: r.reconcile ? { key: [...r.reconcile.key], table: r.reconcile.of ? tableOf(r.reconcile.of) : null } : null,
+      reconcile: r.reconcile ? { key: [...r.reconcile.key], table: r.reconcile.of ? tableOf(r.reconcile.of) : null, ...(r.reconcile.loose ? { loose: true as const } : {}) } : null,
     };
   };
   const watch = entries.map((e): [number, WatchPlan] => [e.node, { ...watchPlan(e.w, e.id, p.period ?? null, doc.ontology, gates), ...(gates ? { checks: gateChecksOf(doc, e.id)!, ...rulesOf(e.id) } : {}) }]);
@@ -387,7 +395,7 @@ export async function translate(doc: FlowDocument, values: Readonly<Record<strin
       return [o.node, { checks: gateChecksOf(doc, o.name)!, reconcile: g?.reconcile ? { key: [...g.reconcile.key], of: of ?? null } : null }];
     }).sort((a, b) => a[0] - b[0])
     : [];
-  return { ...plan, smaltflPlan: gates ? 4 : notebooks ? 3 : 2, publish: { hold, period: p.period ?? null, together: p.together ?? true, calendar: { ...calendar }, watch, meanwhile: p.meanwhile ?? 'last', until: p.until ?? 'decision', ...(gates ? { gates: goldGates } : {}) } };
+  return { ...plan, smaltflPlan: gates ? 4 : notebooks ? 3 : 2, publish: { hold, period: p.period ?? null, together: p.together ?? true, ...(p.reach === 'downstream' ? { reach: 'downstream' as const } : {}), calendar: { ...calendar }, watch, meanwhile: p.meanwhile ?? 'last', until: p.until ?? 'decision', ...(gates ? { gates: goldGates } : {}) } };
 }
 
 /** Whether a document judges its watched sources other than every flow did before ADR 0010: a plan/2. */
@@ -555,8 +563,9 @@ const WATCH_PLAN_FIELDS_4 = [...WATCH_PLAN_FIELDS, 'checks', 'due', 'expect', 'n
 function validatePublish2(p: FlowPlan, fail: (message: string) => never, gated = false): void {
   const pub = p.publish as unknown;
   if (typeof pub !== 'object' || pub === null || Array.isArray(pub)) return fail('a format-2 plan says what holds it: publish { hold, period, together, calendar, watch, meanwhile, until }');
-  const { hold, period, together, calendar, watch, meanwhile, until, gates: goldGates, ...rest } = pub as Record<string, unknown>;
+  const { hold, period, together, reach, calendar, watch, meanwhile, until, gates: goldGates, ...rest } = pub as Record<string, unknown>;
   if (Object.keys(rest).length) fail(`publish has ${Object.keys(rest).join(', ')}, which this version doesn't read`);
+  if (reach !== undefined && (reach !== 'downstream' || together !== false)) fail('publish.reach is downstream, with together false, or absent');
   if (goldGates !== undefined && !gated) fail('publish.gates is plan/4’s: a plan/3 publish block has none');
   if (gated) {
     if (!Array.isArray(goldGates)) fail('publish.gates is a list of [node, gate]');
@@ -624,11 +633,13 @@ function validatePublish2(p: FlowPlan, fail: (message: string) => never, gated =
       rows('expect', (r) => r.length === 4 && typeof r[1] === 'string' && typeof r[2] === 'number' && typeof r[3] === 'number' && (r[2] as number) >= 0 && (r[2] as number) <= (r[3] as number) && (r[3] as number) <= 1);
       rows('due', (r) => r.length === 4 && typeof r[1] === 'string' && typeof r[2] === 'string' && Number.isInteger(r[3]) && (r[3] as number) >= 1);
       const sc = w.scope as Record<string, unknown> | null;
-      if (sc !== null && (typeof sc !== 'object' || typeof sc.table !== 'string' || typeof sc.key !== 'string' || typeof sc.own !== 'string' || typeof sc.where !== 'string' || Object.keys(sc).sort().join() !== 'key,own,table,where')) fail(`${at}.scope is null or { table, key, own, where }`);
+      // `loose` only where ids are (`ObjectType.ids`), and then true.
+      const loose = (x: Record<string, unknown>, fields: string) => Object.keys(x).sort().join() === fields || (x.loose === true && Object.keys(x).filter((k) => k !== 'loose').sort().join() === fields);
+      if (sc !== null && (typeof sc !== 'object' || typeof sc.table !== 'string' || typeof sc.key !== 'string' || typeof sc.own !== 'string' || typeof sc.where !== 'string' || !loose(sc, 'key,own,table,where'))) fail(`${at}.scope is null or { table, key, own, where, loose? }`);
       const match = (m: unknown) => Array.isArray(m) && m.length > 0 && m.every((x) => Array.isArray(x) && x.length === 2 && typeof x[0] === 'string' && Array.isArray(x[1]) && (x[1] as unknown[]).length > 0 && (x[1] as unknown[]).every((v) => typeof v === 'string'));
       if (!Array.isArray(w.needs) || (w.needs as unknown[]).some((n) => typeof n !== 'object' || n === null || !('table' in n) || !match((n as NeedsPlan).when) || !match((n as NeedsPlan).then) || Object.keys(n).sort().join() !== 'key,table,then,when')) fail(`${at}.needs is a list of { table, key, when, then }`);
       const rc = w.reconcile as Record<string, unknown> | null;
-      if (rc !== null && (typeof rc !== 'object' || !Array.isArray(rc.key) || (rc.key as unknown[]).length === 0 || (rc.key as unknown[]).some((k) => typeof k !== 'string') || !(rc.table === null || typeof rc.table === 'string') || Object.keys(rc).sort().join() !== 'key,table')) fail(`${at}.reconcile is null or { key, table }`);
+      if (rc !== null && (typeof rc !== 'object' || !Array.isArray(rc.key) || (rc.key as unknown[]).length === 0 || (rc.key as unknown[]).some((k) => typeof k !== 'string') || !(rc.table === null || typeof rc.table === 'string') || !loose(rc, 'key,table'))) fail(`${at}.reconcile is null or { key, table, loose? }`);
     }
     if (w.holds) holding++;
   });
