@@ -6,7 +6,8 @@ import { describe, expect, it } from 'vitest';
 import { plusDays } from '../src/core/calendar.js';
 import { HistoryRanges } from '../src/core/history.js';
 import { LEGACY_JUDGE, newsOf, type JudgeSettings, type Names } from '../src/core/news.js';
-import { followsCause, ACT_VERB, CELL_KINDS, CONTEXT_TAG, HEALTH_HEAD, KEPT_SHARE, axisShare, recentSpan, SETTLE_LINE, STRIP_KEY, approx, cardWords, compact, countLabel, gateLabels, glanceStrings, keptOf, partLabel, ruleOrder, ruleUsual, rowName, shortWho, splitOf, splitSentence, stepLabels, storyOf, wordsIn, type Gate, type HourValues, type Story, type StoryOptions } from '../src/core/story.js';
+import { LAYER_DEFAULTS } from '../src/core/gates.js';
+import { followsCause, saidOf, ACT_VERB, CELL_KINDS, CONTEXT_TAG, HEALTH_HEAD, KEPT_SHARE, axisShare, recentSpan, SETTLE_LINE, STRIP_KEY, approx, cardWords, compact, countLabel, gateLabels, glanceStrings, keptOf, partLabel, ruleOrder, ruleUsual, rowName, shortWho, splitOf, splitSentence, stepLabels, storyOf, wordsIn, type Gate, type HourValues, type Story, type StoryOptions } from '../src/core/story.js';
 import { historyWith, vendorNames, type Trouble } from './helpers/history.js';
 
 const DAY = '2023-10-11'; // a Wednesday
@@ -564,5 +565,34 @@ describe('a story on any dataset (ADR 0010 §1, §4, §8)', () => {
     const calm = told({}, DAY, vendorNames);
     expect(followsCause(effect, { held: false, story: calm, anchor: null })).toBe(false);
     expect(followsCause(effect, { held: false, story: { severity: 'warn' }, anchor: cause })).toBe(false);
+  });
+});
+
+describe('a change that follows a step upstream (Q-173, ADR 0020 slice 4)', () => {
+  const day = '2023-10-11';
+  const h = new HistoryRanges(historyWith({ [day]: { vendorShare: 0.15 } }));
+  const gold = { ...LEGACY_JUDGE, checks: { ...LAYER_DEFAULTS.gold, shares: 'warn' as const } };
+  const found = newsOf(h, day, vendorNames, { judge: gold });
+  const share = (s: Story) => [...(s.cause ? [s.cause] : []), ...s.stories, ...s.more, ...s.follows, ...s.sameDay, ...s.absorbed, ...s.notes].find((f) => f.key === 'share:VendorID=1');
+
+  it('names the step whose story said the same column and value, and keeps its own severity', () => {
+    const plain = storyOf(h, day, found, { names: vendorNames, judge: gold });
+    const said = storyOf(h, day, found, { names: vendorNames, judge: gold, upstream: [{ source: 'app_owners', state: 'unusual', head: 'Vendor 1: 15%', said: [['VendorID', '1']] }] });
+    expect(share(said)).toMatchObject({ because: 'upstream:app_owners', tier: share(plain)!.tier, severity: share(plain)!.severity });
+    expect(said.state).toBe(plain.state);
+    expect(said.head).toBe(plain.head);
+  });
+
+  it('names none where the step said another value, or where the entry is a source’s', () => {
+    const other = storyOf(h, day, found, { names: vendorNames, judge: gold, upstream: [{ source: 'app_owners', state: 'unusual', head: 'Vendor 2', said: [['VendorID', '2']] }] });
+    expect(share(other)!.because).not.toBe('upstream:app_owners');
+    const source = storyOf(h, day, found, { names: vendorNames, judge: gold, upstream: [{ source: 'payments', state: 'unusual', head: 'Something' }] });
+    expect(share(source)!.because).not.toBe('upstream:payments');
+  });
+
+  it('gives what a story told, each column and value once, for the steps after it', () => {
+    const s = storyOf(h, day, found, { names: vendorNames, judge: gold });
+    expect(saidOf(s)).toContainEqual(['VendorID', '1']);
+    expect(new Set(saidOf(s).map(([c, v]) => `${c}=${v}`)).size).toBe(saidOf(s).length);
   });
 });

@@ -238,7 +238,14 @@ match smaltdb's `CLAUDE.md`.
   `org_posture`, `exceptions_register`, `remediation_queue`), each with a gold gate's key, a check step's rules and a
   contract. Contracts (Q-171): the document's `contracts` (`ContractDef`, ODCS v3's fields), plan/4's
   `publish.contracts` only where declared, `countContract` in the run into `ManifestNode.contract`, `contractSaid` under
-  the schema check, verify's `contract` check (`test/contract.test.ts`).
+  the schema check, verify's `contract` check (`test/contract.test.ts`). Slice 4's second part: the gold days
+  (`LARKSPUR_GOLD`: the remediation push, the handover after the reorg, the change freeze, planted through
+  `goldFactor`), `failing_by_unit` (each failure with its owner chain), the watches `app_owners`, `dim_app` and
+  `failing_by_unit` counted by business unit, and attribution through silver (Q-173): a watched step's story says the
+  column and value of each finding (`saidOf`, `Upstream.said`), and a step told after it that reads it
+  (`upstreamSteps` in `flowStory`) follows it on the same column and value, keeping its own severity. In a gated flow a
+  value back after days of none, on fewer rows than a new value needs to be unusual, is worth knowing; the push isn't
+  told by a day's judge (Q-178).
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).

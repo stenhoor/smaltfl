@@ -703,7 +703,11 @@ export function newsOf(h: HistoryRanges, day: string, names: Names, options: { c
       if (!outside(j) && !relative) return;
       if (!relative && (Math.abs(delta) < MATERIAL.share || Math.abs(delta) * rows < M.rows)) return;
       if (!relative && Math.abs(delta) < MATERIAL.shareRelative * Math.min(j.range.expected, 1 - j.range.expected)) return;
-      const atLeast = (sv: Severity): Severity => (relative && RANK[sv] > RANK.warn ? 'warn' : sv);
+      // In a gated flow a value its days had on under a row, back on fewer than a new value needs to be unusual, is worth
+      // knowing and no more, as a new value would be (ADR 0020 slice 4): the few applications a reorg left in a business
+      // unit, three of them failing after two weeks of none, are counting.
+      const back = judge.checks !== null && place === 'above' && j.range.expected * rows < 1 && !newIsUnusual(j.value * rows);
+      const atLeast = (sv: Severity): Severity => (back ? 'note' : relative && RANK[sv] > RANK.warn ? 'warn' : sv);
       if (j.value === 0) {
         out.push(marked(quiet({ key: `gone:${column}=${key}`, kind: 'gone', severity: atLeast(j.range.expected >= 0.2 ? 'alert' : 'warn'), score: cap(j.d), title: `${sentence(names.column(column))} ${said}: none`, detail: `Usually on ${w.range} of ${noun()}; none today.`, look: 'columns', columns: [column], values: [key], metric: { of: 'value', column, value: key }, value: j.value, range: j.range, rows: Math.round(-delta * rows), acts: ['incident', 'notify', 'expected'] }, j)));
       } else {

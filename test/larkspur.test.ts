@@ -16,14 +16,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   addDays, appliesTo, appsOn, CONTROL, CONTROL_IDS, CONTROLS, csvOf, DAILY_FILES, dayFile, dayFiles, daysFrom, EVIDENCE_FILES, exceptedOn, exportedAt, exportedAtOf, FILE_CONTROL, fixedFiles,
-  larkspur, LARKSPUR_FROM, LARKSPUR_LOADS_FROM, LARKSPUR_PLANTED, LARKSPUR_SILVER, LARKSPUR_TROUBLE, leaderOf, LEVELS, orgOn, ownedOn, patchTuesday, PLATFORMS, rawStatus, REQUIREMENTS, SEVERITY_DAYS, vulnOn,
+  findingsOf, goldFactor, larkspur, LARKSPUR_FROM, LARKSPUR_GOLD, LARKSPUR_GOLD_TROUBLE, LARKSPUR_LOADS_FROM, LARKSPUR_PLANTED, LARKSPUR_SILVER, LARKSPUR_SILVER_TROUBLE, LARKSPUR_TROUBLE, leaderOf, LEVELS, orgOn, ownedOn, patchTuesday, PLATFORMS, rawStatus, REQUIREMENTS, SEVERITY_DAYS, vulnOn,
   type AppOn, type Cell, type DailyFile, type Table,
 } from './fixtures/larkspur.js';
 
 /** The estate with its bronze days planted: what slices 1 and 2 hold the data to. */
 const w = larkspur({ apps: 650, trouble: LARKSPUR_TROUBLE });
-/** The estate with every planted day, bronze and silver (its default). */
-const silver = larkspur({ apps: 650 });
+/** The estate with its bronze and silver days planted. */
+const silver = larkspur({ apps: 650, trouble: [...LARKSPUR_TROUBLE, ...LARKSPUR_SILVER_TROUBLE] });
+/** The estate with every planted day, bronze, silver and gold (its default). */
+const gold = larkspur({ apps: 650 });
 /** The same estate with nothing planted: what a planted day is compared with. */
 const calm = larkspur({ apps: 650, incidents: false });
 /** Calm days across the span: two Patch Tuesdays among them. */
@@ -760,5 +762,61 @@ describe('the planted days silver catches, where files meet (ADR 0020 §5, slice
     expect(day.get(lp.unit)!.parent_id).toBe(lp.team);
     expect(day.get(lp.team)!.parent_id).toBe(lp.unit);
     expect(units(silver, addDays(S.loop, 1)).get(lp.unit)!.parent_id).toBe(silver.unit.get(lp.unit)!.parent);
+  });
+});
+
+describe('the planted days gold catches, over the month (ADR 0020 §5, slice 4)', () => {
+  const G = LARKSPUR_GOLD;
+  const S = LARKSPUR_SILVER;
+  /** Each application's controls failing on a day as their tools report them, for the applications a team test picks. */
+  const failing = (world: typeof gold, d: string, owned: (team: string) => boolean) => {
+    let n = 0;
+    for (const a of appsOn(world, d)) {
+      if (!owned(a.owner_team_id)) continue;
+      for (const c of CONTROL_IDS) if (CONTROL[c].feed && appliesTo(c, a) && rawStatus(world, c, a, d) === 'fail') n++;
+    }
+    return n;
+  };
+  const inPush = (team: string) => gold.unit.get(team)!.business_unit === gold.planted.push;
+  const moved = (team: string) => gold.planted.moves.some((m) => m.team === team);
+  /** The estate with every planted day but one: what that day is compared with. */
+  const without = (kind: string) => larkspur({ apps: 650, trouble: [...LARKSPUR_TROUBLE, ...LARKSPUR_SILVER_TROUBLE, ...LARKSPUR_GOLD_TROUBLE.filter((t) => t.kind !== kind)] });
+  const noPush = without('push');
+  const noHandover = without('handover');
+  const noFreeze = without('freeze');
+
+  it('the push: a business unit the other planted days leave alone fails less and less through March', () => {
+    expect(gold.planted.push).not.toBeNull();
+    expect([gold.trouble.find((t) => t.kind === 'reorg')].flatMap((t) => (t && t.kind === 'reorg' ? [t.from, t.to] : []))).not.toContain(gold.planted.push);
+    // As without it on its first day; well under its failures without it by its last; the business units it doesn't
+    // touch as without it.
+    expect(failing(gold, G.push, inPush)).toBe(failing(noPush, G.push, inPush));
+    expect(failing(gold, G.pushUntil, inPush)).toBeLessThan(0.6 * failing(noPush, G.pushUntil, inPush));
+    expect(failing(gold, G.pushUntil, (t) => !inPush(t))).toBe(failing(noPush, G.pushUntil, (t) => !inPush(t)));
+    expect(goldFactor(gold, [...gold.unit.values()].find((u) => u.level === 'team' && u.business_unit === gold.planted.push)!.id, '2024-02-29', 'tls')).toBe(1);
+  });
+
+  it('the handover: the teams the reorg moved fail more for two weeks from Mon 11, then as before', () => {
+    const excess = (d: string) => failing(gold, d, moved) - failing(noHandover, d, moved);
+    expect(failing(gold, '2024-03-18', moved)).toBeGreaterThan(1.5 * failing(noHandover, '2024-03-18', moved));
+    expect(excess(addDays(G.handover, -1))).toBe(0);
+    // After it, back near as before: what fell due late in the handover is late a while longer.
+    expect(excess(addDays(G.handover, 14))).toBeLessThan(excess('2024-03-18') / 3);
+    expect(S.reorg).toBe(G.handover);
+  });
+
+  it('the freeze: no vulnerability fix ships Mon 25 to Sun 31; each that would have ships the week after', () => {
+    let held = 0;
+    for (const a of appsOn(gold, G.freeze)) {
+      const mine = findingsOf(gold, a);
+      expect(mine.filter((f) => f.fixed >= G.freeze && f.fixed <= G.freezeUntil), a.app_id).toEqual([]);
+      const before = findingsOf(noFreeze, a);
+      held += before.filter((f) => f.fixed >= G.freeze && f.fixed <= G.freezeUntil).length;
+    }
+    expect(held).toBeGreaterThan(20);
+    // Before the freeze the ledgers are the same; by its end more is open.
+    expect(dayFile(gold, 'findings', addDays(G.freeze, -1))).toEqual(dayFile(noFreeze, 'findings', addDays(G.freeze, -1)));
+    const open = (t: Table) => t.rows.filter((r) => ['active', 're-opened', 'new'].includes(String(r[t.columns.indexOf('status')]).toLowerCase())).length;
+    expect(open(dayFile(gold, 'findings', G.freezeUntil))).toBeGreaterThan(open(dayFile(noFreeze, 'findings', G.freezeUntil)) + 20);
   });
 });

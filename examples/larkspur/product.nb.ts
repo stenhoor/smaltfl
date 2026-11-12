@@ -46,7 +46,7 @@ cell('dim_org_gate');
 export const dim_org_gate = gate(dim_org, { layer: 'gold', reconcile: { key: 'org_unit_id' } });
 
 cell('about_dim_app', { lang: 'md' });
-md`The applications, one row each: their attributes, owning team and owner chain, platform and lifecycle. Two members say what is unknown: an owner chain that doesn't resolve is **Unassigned**, never blank, and the cloud's resources under tags no CMDB record names belong to the **Unregistered** application, owned by no one, visibly`;
+md`The applications, one row each: their attributes, owning team and owner chain, platform and lifecycle. Two members say what is unknown: an owner chain that doesn't resolve is **Unassigned**, never blank, and the cloud's resources under tags no CMDB record names belong to the **Unregistered** application, owned by no one, visibly. Its business units' shares are watched: a reorg that moves applications between leaders warns here, said as following the owner chains it comes from`;
 
 cell('dim_app_rows', { lang: 'sql' });
 export const dim_app_rows = sql`
@@ -67,7 +67,7 @@ export const dim_app = check(dim_app_rows, {
 });
 
 cell('dim_app_gate');
-export const dim_app_gate = gate(dim_app, { layer: 'gold', reconcile: { key: 'app_id' } });
+export const dim_app_gate = gate(dim_app, { layer: 'gold', reconcile: { key: 'app_id' }, checks: { shares: 'warn' } });
 
 cell('about_dim_control', { lang: 'md' });
 md`The controls of today's catalogue, one row each: their CSF 2.0 function and category, the framework requirements they map to, their weight and cadence, and the kind of platform that provides them`;
@@ -245,6 +245,25 @@ export const org_posture = check(org_posture_rows, {
 cell('org_posture_gate');
 export const org_posture_gate = gate(org_posture, { layer: 'gold', reconcile: { key: 'org_unit_id', of: dim_org } });
 
+cell('about_failing', { lang: 'md' });
+md`What is failing, by the units that own it, for the leaders' weekly digest: one row a failing control of an application, with its owning team, department, business unit and segment. Its business units' shares are watched, so a unit improving or slipping against its usual share is said, and its amount, so the items failing piling up across every unit is too`;
+
+cell('failing_rows', { lang: 'sql' });
+export const failing_rows = sql`
+  SELECT f.app_id, f.control_id, f.status, a.owner_team_id, a.department_id, a.business_unit_id, a.segment_id
+  FROM ${fact_control_status} f
+  JOIN ${dim_app} a ON a.app_id = f.app_id
+  WHERE f.status = 'fail'`;
+
+cell('failing_by_unit');
+export const failing_by_unit = check(failing_rows, {
+  rules: [{ name: 'owned_or_unassigned', check: 'business_unit_id IS NOT NULL AND department_id IS NOT NULL', onFail: 'fail' }],
+  maxDropped: 0,
+});
+
+cell('failing_by_unit_gate');
+export const failing_by_unit_gate = gate(failing_by_unit, { layer: 'gold', reconcile: { key: ['app_id', 'control_id'] }, checks: { shares: 'warn', amount: 'warn' } });
+
 cell('about_register', { lang: 'md' });
 md`# For the people who act
 
@@ -295,3 +314,4 @@ publish(app_scorecard, { description: 'Control Posture v1: each application’s 
 publish(org_posture, { description: 'Control Posture v1: every unit, over the applications beneath it' });
 publish(exceptions_register, { description: 'Control Posture v1: the risk register, one row an exception' });
 publish(remediation_queue, { description: 'Control Posture v1: what is failing, for ticketing' });
+publish(failing_by_unit, { description: 'Control Posture v1: what is failing, by the units that own it' });

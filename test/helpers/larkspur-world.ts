@@ -16,7 +16,7 @@ import type { FlowDocument } from '../../src/core/document.js';
 import { sha256Hex, utf8 } from '../../src/core/hash.js';
 import type { HistoryFile } from '../../src/core/history.js';
 import { flowStory, loadClaim, tailPath, type Claim, type HistoryRef, type StoryClaim2 } from '../../src/core/hold.js';
-import type { Story } from '../../src/core/story.js';
+import { saidOf, type Story, type Upstream } from '../../src/core/story.js';
 import { appendPeriods, emptyHistory, settingsFor, tailBefore, watchColumns, type Measures } from '../../src/core/measures.js';
 import type { RunResult } from '../../src/core/protocol.js';
 import { measureLoad, pinFile, runFlow, translate } from '../../src/index.js';
@@ -163,16 +163,21 @@ export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; bas
     const r = await runFlow(db, doc, { smaltdb: SMALTDB, parameters: { day }, claims, sources, tell });
     for (const w of watched) if (measured[w]) tails[w]!.push(measured[w]!);
     // Each step's claim told again from the run's measures of it, as the engine told it: the same history, tail and
-    // upstream claims.
-    const upstream = claims.flatMap((c) => ('source' in c && typeof c.source === 'string' ? [{ source: c.source, state: c.state, head: c.head }] : []));
-    for (const st of steps) {
+    // upstream claims, the steps in the plan's order, each with what the steps told before it said (Q-173).
+    const upstream: Upstream[] = claims.flatMap((c) => ('source' in c && typeof c.source === 'string' ? [{ source: c.source, state: c.state, head: c.head }] : []));
+    const { plan: dayPlan } = await settingsOf(day, steps[0] ?? watched[0]!);
+    const ordered = [...steps].sort((a, b) => dayPlan.nodes.findIndex((n) => n.origin === a) - dayPlan.nodes.findIndex((n) => n.origin === b));
+    for (const st of ordered) {
       const m = r.measures?.find((x) => x.source === st);
       if (!m) continue;
       const { plan, s } = await settingsOf(day, st);
       measured[st] = m;
-      const t = await loadClaim({ doc, source: st, flow: plan.flow.hash, base: bases[st]!, baseRef: refs[st]!, tail: tails[st]!, measures: m, settings: s, skip: [], levels: [], build: 'dev', upstream });
+      const t = await loadClaim({ doc, source: st, flow: plan.flow.hash, base: bases[st]!, baseRef: refs[st]!, tail: tails[st]!, measures: m, settings: s, skip: [], levels: [], build: 'dev', upstream: [...upstream] });
       told[st] = t?.claim ?? null;
-      if (t) stories[st] = flowStory(t.ranges, day, doc, st);
+      if (t) {
+        stories[st] = t.story;
+        upstream.push({ source: st, state: t.claim.state, head: t.claim.head, said: saidOf(t.story) });
+      }
       tails[st]!.push(m);
     }
     claimsTold.set(day, told);

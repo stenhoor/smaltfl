@@ -6,6 +6,7 @@
  * step's tail path, the measures it has just taken of the built dataset, and what the page said of the record
  * (RunContext.tell: the days left out, the levels accepted). The claim then goes through the same judge as any.
  */
+import { saidOf, type Upstream } from '../core/story.js';
 import { isSample, samplePath, type SampleFile } from '../core/apart.js';
 import type { FlowDocument } from '../core/document.js';
 import { isHistory, type HistoryFile } from '../core/history.js';
@@ -27,8 +28,9 @@ export interface TellInput {
   settings: MeasureSettings;
   tell: TellFor;
   build: string;
-  /** The claims the page told for the watched sources (ADR 0014 §2): what each said of the day. */
-  upstream?: readonly { source: string; state: string; head: string }[];
+  /** The claims the page told for the watched sources (ADR 0014 §2): what each said of the day; and what each watched
+   * step told before this one said (Q-173): the column and value of each of its findings. */
+  upstream?: readonly Upstream[];
   /** The load's kept rows (ADR 0014 §5), for the classifier, with the sample pinned under `samplePath(source)`. */
   kept?: readonly (readonly unknown[])[];
 }
@@ -59,7 +61,7 @@ const parsed = new Map<string, unknown>();
  * The step's claim/2, or null with why when it can't be told: a pinned history that isn't one, a pinned tail that
  * isn't measures, or a load the ranges can't take (loadClaim's own refusals).
  */
-export async function tellClaim(o: TellInput): Promise<{ claim: StoryClaim2 } | { problem: string }> {
+export async function tellClaim(o: TellInput): Promise<{ claim: StoryClaim2; said: [column: string, value: string][] } | { problem: string }> {
   const h = pinnedJSON(o.history);
   if (h && !isHistory(h.value)) return { problem: `${o.history} is pinned but isn't a history file` };
   const base: HistoryFile | null = h ? (h.value as HistoryFile) : null;
@@ -82,5 +84,5 @@ export async function tellClaim(o: TellInput): Promise<{ claim: StoryClaim2 } | 
   // The classifier's answers judged ahead for the first day: taken by their inputs' sha256 alone.
   if (r && isRangesFile(r.value)) giveAhead(r.value.apart);
   const told = await loadClaim({ ...given, doc: o.doc, source: o.source, flow: o.flow, base, baseRef: h ? { path: o.history, sha256: h.sha256, bytes: h.bytes } : null, tail, measures: o.measures, settings: o.settings, skip: o.tell.skip, levels: o.tell.levels, build: o.build, ...(o.upstream ? { upstream: o.upstream } : {}), ...(sp && o.kept ? { sample: sp.value as SampleFile, kept: o.kept } : {}) });
-  return told ? { claim: told.claim } : { problem: `${o.source}'s load can't be judged against its history (its slot is in the base already, or before its last period, with other numbers)` };
+  return told ? { claim: told.claim, said: saidOf(told.story) } : { problem: `${o.source}'s load can't be judged against its history (its slot is in the base already, or before its last period, with other numbers)` };
 }

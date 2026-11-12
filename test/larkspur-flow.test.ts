@@ -17,20 +17,23 @@
  *
  * Slice 4, gold: Control Posture v1 keeps every contract on every day it is built; what reads the chain holds where it
  * breaks, the scorecards and facts publish; the vulnerability SLA the scanner couldn't assess is left out of the scores
- * with coverage falling beside them, and the new control's missing evidence lowers coverage, not the score. Slow
- * (vitest.config.ts SLOW): about seven minutes.
+ * with coverage falling beside them, and the new control's missing evidence lowers coverage, not the score. Over the
+ * month: the reorg told in gold as following silver's owner chains (Q-173), the handover's failures with it, the push in
+ * what is failing (no day says it: Q-178), the freeze's overdue vulnerabilities within what the failures vary by, and
+ * the reorg's leftovers worth knowing. Slow (vitest.config.ts SLOW): about eight minutes.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { checkOf } from '../src/core/gates.js';
 import type { Finding } from '../src/core/news.js';
-import { addDays, LARKSPUR_PLANTED, LARKSPUR_SILVER } from './fixtures/larkspur.js';
+import { addDays, LARKSPUR_GOLD, LARKSPUR_PLANTED, LARKSPUR_SILVER } from './fixtures/larkspur.js';
 import { larkspurHolds, larkspurWorld, type LarkspurWorld } from './helpers/larkspur-world.js';
 
 const P = LARKSPUR_PLANTED;
 const S = LARKSPUR_SILVER;
+const G = LARKSPUR_GOLD;
 let w: LarkspurWorld;
 /** Each day's group roll-up and coverage of the vulnerability SLA, read from gold while it is the day's. */
-const gold = new Map<string, { score: number | null; coverage: number | null; vulnAssessed: number }>();
+const gold = new Map<string, { score: number | null; coverage: number | null; vulnAssessed: number; vulnFailing: number }>();
 
 beforeAll(async () => {
   w = await larkspurWorld({
@@ -39,7 +42,8 @@ beforeAll(async () => {
       if (!r.published.includes('org_posture') || !r.published.includes('fact_control_status')) return;
       const [score, coverage] = (await db.queryAsync("SELECT score, coverage FROM org_posture WHERE level = 'group'")).rows[0]! as [number | null, number | null];
       const assessed = Number((await db.queryAsync("SELECT count(*) FROM fact_control_status WHERE control_id = 'vuln_sla' AND status <> 'not_assessed'")).rows[0]![0]);
-      gold.set(day, { score, coverage, vulnAssessed: assessed });
+      const failingVuln = Number((await db.queryAsync("SELECT count(*) FROM fact_control_status WHERE control_id = 'vuln_sla' AND status = 'fail'")).rows[0]![0]);
+      gold.set(day, { score, coverage, vulnAssessed: assessed, vulnFailing: failingVuln });
     },
   });
 }, 900_000);
@@ -134,12 +138,13 @@ describe('silver: the company conformed, and the rules applied (ADR 0020 §5)', 
   const node = (day: string, origin: string) => result(day).manifest.nodes.find((n) => n.origin === origin)!;
   const STEPS_HELD: Record<string, Record<string, string>> = {
     [S.contradiction]: { posture_wide: 'needs' },
-    // The doubled TLS file flows through: silver's own key (one result an application and control) says so too.
-    [P.double]: { effective: 'reconcile' },
+    // The doubled TLS file flows through: silver's own key (one result an application and control) says so too, and
+    // so does gold's on what is failing.
+    [P.double]: { effective: 'reconcile', failing_by_unit: 'reconcile' },
   };
 
-  it('watches the five steps silver judges, each with a history from runs of the flow', () => {
-    expect(w.steps).toEqual(['apps', 'effective', 'posture_wide', 'platform_impact', 'shadow_assets']);
+  it('watches the steps silver and gold judge, each with a history from runs of the flow', () => {
+    expect(w.steps).toEqual(['apps', 'effective', 'posture_wide', 'platform_impact', 'shadow_assets', 'app_owners', 'dim_app', 'failing_by_unit']);
     for (const st of w.steps) expect(w.bases[st]!.days.length, st).toBe(42);
   });
 
@@ -148,7 +153,8 @@ describe('silver: the company conformed, and the rules applied (ADR 0020 §5)', 
   });
 
   it('holds the posture where key rotation passes while encryption fails (Fri 8), and publishes the statuses', () => {
-    expect(said(S.contradiction, 'posture_wide').head).toBe('18 applications: key_rotation status pass needs encryption not fail');
+    // 17 at the tests' scale: the remediation push (ADR 0020 §5, all March) lowers one of them its encryption failure.
+    expect(said(S.contradiction, 'posture_wide').head).toBe('17 applications: key_rotation status pass needs encryption not fail');
     expect(result(S.contradiction).published).toEqual(expect.arrayContaining(['apps', 'coverage', 'effective', 'remediation']));
     expect(result(S.contradiction).published).not.toContain('posture_wide');
   });
@@ -157,7 +163,7 @@ describe('silver: the company conformed, and the rules applied (ADR 0020 §5)', 
     for (const day of [S.dissolve, S.loop]) {
       expect(checkHolds(day), day).toEqual(['checks:app_owners', 'checks:org_chain']);
       // What reads the chain, through gold: the owner chains and the dimensions and roll-ups built on them.
-      expect(result(day).holds.find((h) => h.origin === 'org_chain')!.reaches, day).toEqual(['app_owners', 'dim_app', 'dim_org', 'org_chain', 'org_posture']);
+      expect(result(day).holds.find((h) => h.origin === 'org_chain')!.reaches, day).toEqual(['app_owners', 'dim_app', 'dim_org', 'failing_by_unit', 'org_chain', 'org_posture']);
       expect(result(day).published, day).toEqual(expect.arrayContaining(['apps', 'coverage', 'effective', 'platform_impact', 'posture_wide', 'remediation', 'shadow_assets']));
     }
     expect(result(S.dissolve).holds.find((h) => h.origin === 'org_chain')!.said).toBe('expectations failed: one_root (4 rows)');
@@ -211,8 +217,8 @@ describe('silver: the company conformed, and the rules applied (ADR 0020 §5)', 
 
 describe('gold: Control Posture v1, its contracts and its gates (ADR 0020 §4, §5)', () => {
   const result = (day: string) => w.result(day);
-  const GOLD = ['app_scorecard', 'dim_app', 'dim_control', 'dim_org', 'exceptions_register', 'fact_control_status', 'fact_finding', 'org_posture', 'remediation_queue'];
-  const CHAIN = ['dim_app', 'dim_org', 'org_posture'];
+  const GOLD = ['app_scorecard', 'dim_app', 'dim_control', 'dim_org', 'exceptions_register', 'fact_control_status', 'fact_finding', 'failing_by_unit', 'org_posture', 'remediation_queue'];
+  const CHAIN = ['dim_app', 'dim_org', 'failing_by_unit', 'org_posture'];
 
   it('publishes every gold dataset on a day nothing upstream holds', () => {
     for (const day of ['2024-03-01', '2024-03-02', P.capitals, P.reinstall, '2024-03-11', S.expiries, S.duplicates, S.sbom]) expect(GOLD.filter((g) => !result(day).published.includes(g)), day).toEqual([]);
@@ -227,9 +233,10 @@ describe('gold: Control Posture v1, its contracts and its gates (ADR 0020 §4, �
       for (const n of nodes) expect(n.contract, `${day} ${n.origin}`).toEqual({ version: '1.0.0', missing: [], extra: [], retyped: [], blank: [], outside: [] });
       const own = [...new Set(r.holds.filter((h) => GOLD.includes(h.origin)).map((h) => `${h.origin}: ${h.said}`))];
       if (day === P.double) {
-        // The doubled rows flow through to gold, whose own keys say so too (one status an application and control).
-        expect(own.map((x) => x.split(':')[0])).toEqual(expect.arrayContaining(['fact_control_status']));
-        for (const x of own) expect(x, day).toMatch(/: rows don't reconcile: \d+ rows repeat a key/);
+        // The doubled rows flow through to gold, whose own keys say so too (one status an application and control): the
+        // run's count where nothing watches the node, the story's where something does (`failing_by_unit`).
+        expect(own.map((x) => x.split(':')[0])).toEqual(expect.arrayContaining(['fact_control_status', 'failing_by_unit']));
+        for (const x of own) expect(x, day).toMatch(/: (rows don't reconcile: \d+ rows|\d+ failures) repeat a key/);
       } else expect(own, day).toEqual([]);
     }
   });
@@ -261,5 +268,62 @@ describe('gold: Control Posture v1, its contracts and its gates (ADR 0020 §4, �
     const g = gold.get(S.sbom)!;
     expect(g.coverage!).toBeLessThan(before.coverage! - 5);
     expect(Math.abs(g.score! - before.score!)).toBeLessThan(1);
+  });
+});
+
+describe('gold over the month: the reorg, the handover, the push and the freeze (ADR 0020 §5, slice 4)', () => {
+  const result = (day: string) => w.result(day);
+  const said = (day: string, step: string) => w.claims.get(day)![step]!;
+  const told = (day: string, step: string) => {
+    const t = w.stories.get(day)?.[step];
+    if (!t) return [];
+    return [...(t.cause ? [t.cause] : []), ...t.stories, ...t.more, ...t.follows, ...t.sameDay, ...t.absorbed, ...t.notes];
+  };
+  // Read once the world is built: the business unit the reorg's teams left, and the one they joined.
+  const reorg = () => w.estate.trouble.find((t) => t.kind === 'reorg') as { from: string; to: string };
+
+  it('tells the reorg (Mon 11) in gold as following the owner chains it comes from, and publishes', () => {
+    expect(said(S.reorg, 'app_owners').state).toBe('unusual');
+    for (const step of ['dim_app', 'failing_by_unit']) {
+      expect(said(S.reorg, step).state, step).toBe('unusual');
+      const moved = told(S.reorg, step).filter((f) => f.columns?.[0] === 'business_unit_id');
+      expect(moved.map((f) => f.values?.[0]).sort(), step).toEqual([JSON.stringify(reorg().from), JSON.stringify(reorg().to)].sort());
+      for (const f of moved) expect(f.because, `${step} ${f.key}`).toBe('upstream:app_owners');
+    }
+    expect(result(S.reorg).holds).toEqual([]);
+  });
+
+  it('says the handover’s failures, the moved teams’ new business unit above its usual share, as following the reorg', () => {
+    const f = told(addDays(G.handover, 1), 'failing_by_unit').find((x) => x.values?.[0] === JSON.stringify(reorg().to));
+    expect(f).toMatchObject({ because: 'upstream:app_owners' });
+  });
+
+  it('shows the push in what is failing, its business unit’s share falling by two fifths, and no day says so (Q-178)', () => {
+    const push = JSON.stringify(w.estate.planted.push!);
+    const share = (day: string) => {
+      const m = w.measures.get(day)!.failing_by_unit!;
+      return (m.values.business_unit_id!.find(([v]) => v === push)?.[1] ?? 0) / m.rows;
+    };
+    expect(share(G.pushUntil)).toBeLessThan(0.6 * share(addDays(G.push, 1)));
+    // Day by day it moves within reason: the judges compare a day with the same weekday over the weeks before it, which
+    // move with it.
+    for (const day of MARCH) expect(told(day, 'failing_by_unit').filter((f) => f.values?.[0] === push && f.was !== 'note'), day).toEqual([]);
+  });
+
+  it('shows the freeze’s overdue vulnerabilities rising, within what the failures vary by: calm or notes, published', () => {
+    expect(gold.get(G.freezeUntil)!.vulnFailing).toBeGreaterThan(gold.get(addDays(G.freeze, -1))!.vulnFailing);
+    // Thu 28 is the loop's, which holds what reads the chain (silver); every other day of the freeze publishes.
+    for (let d: string = G.freeze; d <= G.freezeUntil; d = addDays(d, 1)) {
+      if (d === S.loop) continue;
+      expect(result(d).published, d).toContain('failing_by_unit');
+      expect(['calm', 'notes'], d).toContain(said(d, 'failing_by_unit').state);
+    }
+    // The reorg's leftovers, the few applications still in the business unit it emptied, failing again after two weeks
+    // of none, are worth knowing, not unusual.
+    const left = JSON.stringify(reorg().from);
+    const above = (f: Finding) => f.values?.[0] === left && f.kind === 'share' && f.value !== undefined && !!f.range && f.value > f.range.high;
+    const back = MARCH.filter((d) => d > S.reorg && told(d, 'failing_by_unit').some(above));
+    expect(back.length).toBeGreaterThan(0);
+    for (const d of back) expect(told(d, 'failing_by_unit').find(above)!.severity, d).toBe('note');
   });
 });

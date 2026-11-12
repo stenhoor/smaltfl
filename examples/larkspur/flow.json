@@ -392,6 +392,10 @@
         "one": "application",
         "many": "applications"
       },
+      "failing_by_unit": {
+        "one": "failure",
+        "many": "failures"
+      },
       "dim_org": {
         "one": "unit",
         "many": "units"
@@ -2831,6 +2835,77 @@
         "retention": "13 months"
       }
     },
+    "failing_by_unit": {
+      "id": "control-posture/failing_by_unit",
+      "version": "1.0.0",
+      "status": "active",
+      "description": {
+        "purpose": "What is failing, by the units that own it, for the leaders’ weekly digest",
+        "limitations": "Held on a day the organisation’s chain breaks; applications whose chain doesn’t resolve count under Unassigned",
+        "usage": "Count failures by business unit, department or team"
+      },
+      "columns": [
+        {
+          "name": "app_id",
+          "type": "TEXT",
+          "description": "The application",
+          "classification": "internal",
+          "required": true,
+          "key": true
+        },
+        {
+          "name": "control_id",
+          "type": "TEXT",
+          "description": "The control failing",
+          "classification": "internal",
+          "required": true,
+          "key": true
+        },
+        {
+          "name": "status",
+          "type": "TEXT",
+          "description": "Its status",
+          "classification": "internal",
+          "required": true,
+          "values": [
+            "fail"
+          ]
+        },
+        {
+          "name": "owner_team_id",
+          "type": "TEXT",
+          "description": "The owning team",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "department_id",
+          "type": "TEXT",
+          "description": "Its department, or UNASSIGNED",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "business_unit_id",
+          "type": "TEXT",
+          "description": "Its business unit, or UNASSIGNED",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "segment_id",
+          "type": "TEXT",
+          "description": "Its segment, or UNASSIGNED",
+          "classification": "internal",
+          "required": true
+        }
+      ],
+      "sla": {
+        "frequency": "daily",
+        "availableBy": "07:00 UTC",
+        "retention": "13 months"
+      }
+    },
     "remediation_queue": {
       "id": "control-posture/remediation_queue",
       "version": "1.0.0",
@@ -3057,6 +3132,30 @@
         "pattern": "none",
         "calendar": false,
         "count": []
+      },
+      "app_owners": {
+        "history": "history.app_owners.json",
+        "pattern": "none",
+        "calendar": false,
+        "count": [
+          "business_unit_id"
+        ]
+      },
+      "dim_app": {
+        "history": "history.dim_app.json",
+        "pattern": "none",
+        "calendar": false,
+        "count": [
+          "business_unit_id"
+        ]
+      },
+      "failing_by_unit": {
+        "history": "history.failing_by_unit.json",
+        "pattern": "none",
+        "calendar": false,
+        "count": [
+          "business_unit_id"
+        ]
       }
     }
   }
