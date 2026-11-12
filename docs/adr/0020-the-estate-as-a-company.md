@@ -1,6 +1,7 @@
 # ADR 0020: The estate as a company: an organisation, shared infrastructure, and a real bronze, silver and gold
 
-- **Status:** proposed, 2026-11-12 (Q-169 to Q-175 open: the maintainers' to decide before it is built)
+- **Status:** accepted, 2026-11-12: the maintainer took the recommended answer to each of Q-169 to Q-175
+  (docs/OPEN_QUESTIONS.md). It is built in the slices of §8.
 - **Date:** 2026-11-12
 - **Builds on:**
   - [ADR 0013 §8](0013-discovered-checks.md): the control estate.
@@ -30,7 +31,7 @@ So the What happened tab has little to tell, and the checks never meet the failu
 data that drifts, joins that orphan rows, rules that change a status without the raw data changing, shared
 infrastructure that fails many things at once, and a product schema that must not break.
 
-## Decision (proposed)
+## Decision
 
 Build a new example, **the Larkspur estate** (`examples/larkspur/`, a fictional financial-services group; no real
 company or person is its subject), as a real medallion pipeline. Keep the control estate as it is until Larkspur
@@ -46,7 +47,7 @@ passes its own answer key, then make Larkspur the demo (Q-169).
 | **Platforms** | ~45: clusters, VM farms, ingresses, identity providers, key stores, backup systems, log pipelines, certificate authorities, vaults, scanners | Shared infrastructure, as a dependency graph. Every application depends on a chain of them, and a platform's trouble reaches every application above it. A platform can also provide a control that its applications inherit (§10) |
 | **Control catalogue** | 14 controls (12 with their own feed, 2 told in silver: the vulnerability SLA from the findings, ownership from the CMDB and HR), a 15th added mid-month | Its NIST CSF 2.0 function and category (2.0 adds Govern, where ownership sits), its framework requirements as a bridge (ISO 27001:2022 Annex A, PCI DSS v4.0.1, SOC 2's CC1 to CC9; each mapping says how the two relate, as NIST IR 8477 does), weight, cadence, applicability, dependencies, what compensates for it, and the platform that provides it, if any |
 | **Exceptions** | ~1% of what applies | Risk acceptances with an approver, a reason, a compensating control, and an expiry date. One row a version, so an extension keeps the first expiry (`original_valid_to`) |
-| **Findings** | ~3,000 open | Vulnerability and penetration-test findings, each with a severity, found and due dates, and a status as scanners write it (new, active, fixed, re-opened). SLA by severity (critical 15 days, high 30). The scanner also reports, as an informational finding, each application whose hosts it couldn't log in to (local checks not run) |
+| **Findings** | ~3,000 open | Vulnerability and penetration-test findings, each with a severity, found and due dates, and a status as scanners write it (new, active, fixed, re-opened). SLA by severity (critical 15 days, high 30). The scanner also writes one informational row for each application it scanned, saying whether it logged in, so an application never scanned, or scanned without logging in, is told from a clean one |
 
 The behaviour behind the data, none of it known to any judge:
 
@@ -59,7 +60,7 @@ The behaviour behind the data, none of it known to any judge:
   - the vulnerability SLA needs the scanner's agent to be present (else no evidence).
 - **Compensation and exceptions:**
   - a WAF in block mode compensates for an overdue pentest on an internet-facing application;
-  - network isolation compensates for internal TLS;
+  - a private link compensates for TLS on a partner-facing application;
   - an exception turns a failure into an accepted risk until the day it expires.
 - **Shared infrastructure:** some controls are inherited, as NIST SP 800-37 allocates them. A control is *common*
   when a platform provides it (TLS ends at the ingress), *hybrid* when the two share it (logging: the pipeline and the
@@ -84,9 +85,10 @@ The behaviour behind the data, none of it known to any judge:
 
 ### 2. Bronze: every feed as it arrived, with its metadata
 
-About 19 daily files plus one fixed one. Each is a snapshot as its system would export it. Each is judged as today's
+Twenty daily files and two fixed ones. Each is a snapshot as its system would export it. Each is judged as today's
 twelve are (schema, amount, blanks, values, key, scope; learned shares, shape, pairs, forest, classifier). Each
-carries the bronze metadata (ADR 0015 amendment 5) and the source's own export time (`exported_at`).
+carries the bronze metadata (ADR 0015 amendment 5), and its source's own export time is said beside it (`exported_at`
+in the data list), never in its rows.
 
 | File | Grain | From |
 |---|---|---|
@@ -97,11 +99,11 @@ carries the bronze metadata (ADR 0015 amendment 5) and the source's own export t
 | `control_catalog` | a control | the GRC tool's catalogue |
 | `control_requirements` | a control and a framework requirement | the GRC tool's mappings: framework, requirement, and how the two relate (subset, intersects, equal, superset) |
 | `exceptions` | a version of an exception | the risk register |
-| `findings` | an open or recently closed finding | the scanners and pentest reports, with the scanner's own note of each application it couldn't log in to |
-| `platforms` (fixed) | a platform, what it depends on, and the controls it provides | the architecture inventory |
+| `findings` | an open or recently closed finding | the scanners and pentest reports, with one scan-information row an application scanned (`credentialed`: yes or no) |
+| `platforms`, `platform_links` (fixed) | a platform; a dependency or a control a platform provides | the architecture inventory |
 | twelve evidence feeds | an application a control applies to | as today (certificate inventory, WAF, encryption, key rotation, backup jobs, DR exercises, MFA, access reviews, logging coverage, privileged vault, pentest schedule), plus `edr_coverage`. `mfa` says registered and enforced apart; `edr_coverage` says when a sensor runs in reduced functionality, which isn't coverage |
 
-A new bronze check is proposed (Q-172): **fresh**, the file isn't yesterday's again. It holds when today's file has
+A new bronze check (Q-172): **fresh**, the file isn't yesterday's again. It holds when today's file has
 the same sha256 as the last load's, or its `exported_at` is older than its cadence allows. It is told from the ingest
 record that amendment 5 now keeps. It reads the file's own bytes and export time, not when the file arrived: a file
 that lands on time but is byte for byte yesterday's hides whatever changed since (a stale HR export hides leavers).
@@ -151,8 +153,8 @@ Each step's What happened has something real to say.
   detail).
 - `vuln_status` and `pentest_status`: told from the findings ledger by severity SLA, not taken from a scanner's own
   verdict. A finding seen again after an agent is reinstalled keeps its earliest first-found date (one finding an asset
-  and CVE), so its SLA clock doesn't start over. An application the scanner couldn't log in to (its own
-  local-checks-not-run finding) is not assessed, never clean: fewer findings count only behind an authenticated scan,
+  and CVE), so its SLA clock doesn't start over. An application the scanner didn't reach, or reached without
+  logging in (its scan-information row), is not assessed, never clean: fewer findings count only behind an authenticated scan,
   which is why PCI DSS v4.0.1 (11.3.1.2) asks for authenticated internal scans.
 
 **The posture** (`posture.nb.ts`):
@@ -235,8 +237,8 @@ Standard (ODCS v3) where they fit:
 - the service levels: daily, available by 07:00 UTC, kept for 13 months.
 
 As in dbt's enforced contracts, a column renamed or retyped fails the build. A breaking change is a new major version,
-published beside the old one until its deprecation date. Until Q-171 is decided, the schema check compares against
-the dataset's declared columns, as the data list's are today.
+published beside the old one until its deprecation date. Until the contract field is built (slice 4), the schema
+check compares against the dataset's declared columns, as the data list's are today.
 
 ### The flow at a glance
 
@@ -365,8 +367,8 @@ The month is March 2024, the estate's month. Its calendar has three real dates:
 
 ### 6. What the tool needs that it doesn't have
 
-The example is built with the tool as it stands wherever it can. Four additions are proposed, each the maintainers' to
-decide:
+The example is built with the tool as it stands wherever it can. Four additions were proposed, and the maintainer
+accepted all four:
 
 - **Gold contracts** (Q-171): a published dataset's declared contract, with ODCS v3's fields where they fit (§4),
   checked by gold's schema check and shown on a Contract tab. Adding a document field moves plan hashes only for
@@ -379,8 +381,8 @@ decide:
 
 ### 7. Scale and the first load
 
-At 2,400 applications a day's files hold about 25,000 rows (about 1.8 MB of CSV, a few hundred KB compressed). A
-month is about 55 MB on the static host, fetched a day at a time. Learned checks watch the evidence feeds, the
+At about 2,400 applications a day's files hold about 28,000 rows: about 2 MB of CSV, about 330 KB compressed (measured
+with slice 1). March is 61 MB on the static host, fetched a day at a time. Learned checks watch the evidence feeds, the
 findings, the CMDB, the HR extract and silver's `effective`, `platform_impact` and `shadow_assets`, with six months of
 history. Histories are built on the runner in parallel and cached as today (ADR 0019).
 
@@ -389,20 +391,20 @@ run on 600 applications (Q-170).
 
 ### 8. The slices
 
-1. **The generator:**
+1. **The generator** (built, see As built):
    - the organisation, people, applications, platforms, catalogue, exceptions, findings and cloud assets;
    - calm days only;
    - `test/fixtures/larkspur.ts` and a test of the data's facts: hierarchy integrity, applicability, the dependency
      graph, rates.
 2. **Bronze:** the feeds, their ontology (object types for the organisational unit, the person, the application, the
-   platform and the control, with their links), their checks, the bronze metadata, `fresh` if decided, and the bronze
-   days of the answer key.
+   platform and the control, with their links), their checks, the bronze metadata, `fresh`, and the bronze days of the
+   answer key.
 3. **Silver:** the four notebooks, their gates, and the silver days.
-4. **Gold:** Control Posture v1, its contracts if decided, its gates and the seal, and the gold days.
+4. **Gold:** Control Posture v1, its contracts, its gates and the seal, and the gold days.
 5. **The answer key through the engine:** `test/larkspur-flow.test.ts` (slow set), the histories, the app build and
    the browser stops.
-6. **The product view**, if decided.
-7. **The switch:** Larkspur becomes the demo. The control estate stays as a regression, or is retired (Q-169).
+6. **The product view** (Q-174).
+7. **The switch:** Larkspur becomes the demo. The control estate stays as a regression (Q-169).
 
 ### 9. Three walks through the demo
 
@@ -547,6 +549,36 @@ marked *(secondary)*. Vendors' column layouts are borrowed as formats only: ever
 | Thu 28, a loop in the organisation | HR tools refuse a [cyclic organisation tree](https://help.lattice.com/hc/en-us/articles/9809709979671-Upload-Error-CyclicOrgTreeError) on upload: a loop is a known failure of organisation data |
 | The IdP alternate | Azure AD's MFA [outage of 19 November 2018](https://www.theregister.com/2018/11/27/microsoft_azure_outage_postmortem/), about 14 hours while its monitors reported healthy; Okta's [2024 advisory](https://trust.okta.com/security-advisories/okta-ad-ldap-delegated-authentication-username/) on long usernames that skipped MFA |
 
+## As built
+
+**Slice 1, the generator (2026-11-12):** `test/fixtures/larkspur.ts`, `test/larkspur.test.ts` (31 tests, about 3 s) and
+`node scripts/data/larkspur.mjs OUT_DIR`.
+- **The world:** 246 units (176 teams), 46 platforms, 14 controls and 57 requirement mappings. 2,600 applications are
+  drawn across the span, and about 2,400 are in the CMDB in March 2024.
+- **The files:** twenty daily files and two fixed ones, about 28,000 rows and 2 MB a day. March is 61 MB, written in
+  7 s.
+- **Where the text changed as it was built:**
+  - a file's export time is said beside it (`exported_at` in the data list), never in its rows: a constant column
+    would add a fifth to every day's bytes, and every check would see it;
+  - the scanner writes one scan-information row an application scanned, saying whether it logged in (`credentialed`),
+    in place of a separate local-checks-not-run finding. An application never scanned has no row at all, so the three
+    cases are told apart;
+  - a private link compensates for TLS on a partner-facing application. TLS applies only to what is exposed, so
+    internal TLS had nothing to compensate;
+  - the architecture inventory is two files: the platforms, and a row for each dependency and each control a platform
+    provides.
+- **What the tests hold the data to:**
+  - the organisation is one tree, led every day, by a leader in post, someone acting, or the leader above;
+  - a leaver is listed as left for thirty days, and a post stands vacant three to nine weeks;
+  - every application is typed and owned by a team that day;
+  - the catalogue's applicability, written as data in its file, selects exactly what each feed covers;
+  - each feed's columns agree with its status, and the feeds name the platforms;
+  - key rotation never passes where encryption fails;
+  - an exception leaves a failure standing more often;
+  - the SLA clusters fall where §5 needs them (February's high findings due Thu 14 March);
+  - re-opened findings keep their first-found date, and the register keeps a row a version;
+  - the draw is the same whatever order the days are read in.
+
 ## Consequences
 
 - **The demo can show what each layer is for:**
@@ -565,14 +597,17 @@ marked *(secondary)*. Vendors' column layouts are borrowed as formats only: ever
 - ADR 0014's answer key stays the control estate's. Larkspur's is new, and a planted day that moves is a decision, not
   a fix.
 
-## Open questions
+## The questions, decided
 
-- **Q-169:** a new example (`examples/larkspur/`) beside the control estate, made the demo once its answer key passes;
-  or the control estate evolved in place (its answer key moves).
-- **Q-170:** scale: 2,400 applications for the demo, 600 for the tests?
-- **Q-171:** gold contracts as a document field (ODCS v3's fields where they fit), and a Contract tab.
-- **Q-172:** the `fresh` check.
+The maintainer, 2026-11-12, took the recommended answer to each:
+
+- **Q-169:** a new example, `examples/larkspur/`, beside the control estate. The control estate stays ADR 0014's answer
+  key and a regression; Larkspur becomes the demo once its own answer key passes through the engine.
+- **Q-170:** about 2,400 applications for the demo and 600 for the tests, the first day in 5 s, measured once silver is
+  built.
+- **Q-171:** gold contracts as a document field, with ODCS v3's fields where they fit, and a Contract tab.
+- **Q-172:** the `fresh` check, bronze, holding by default.
 - **Q-173:** attribution through silver steps.
-- **Q-174:** a product view (the posture dashboard) over gold in the app.
-- **Q-175:** fictional names: the company and people are generated from neutral word lists; product names for
-  platforms (an IdP, a SIEM) stay generic as today's do (okta, splunk).
+- **Q-174:** a product view (the posture dashboard) over gold in the app, after slice 4.
+- **Q-175:** fictional names: the company and people are generated from neutral word lists; platforms are named by
+  generic kinds, as today's estate names them (okta, splunk).

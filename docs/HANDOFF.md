@@ -218,6 +218,10 @@ Results on 2026-11-09, at `e42d9ec` on data `0ca4dd1`:
 
 ## What is not done
 
+**First: [ADR 0020](adr/0020-the-estate-as-a-company.md), the Larkspur estate** (accepted 2026-11-12, Q-169 to
+Q-175). It is built in the slices of its §8: the generator, bronze, silver, gold, the answer key through the engine,
+the product view, then the switch that makes it the demo. The items below follow it.
+
 Parked behind the notebook surface by the maintainer's decision of 2026-11-09 (Q-87, ADR 0011 §9). In priority order:
 
 1. **The owner's answer of 2026-11-09 isn't built yet** (Q-86): a deliberate (lasting) change that nobody accepts must

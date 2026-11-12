@@ -213,6 +213,10 @@ match smaltdb's `CLAUDE.md`.
   classifier judged ahead (amendment 1): the builder records its first-day answers by their inputs' sha256 into the ranges
   file (`src/core/ahead.ts`, `RangesFile.apart`, `judgedAhead` in `apartEvidence`); `tools/browser/load.cjs APP` times each
   phase.
+- The Larkspur estate (ADR 0020): `test/fixtures/larkspur.ts` draws a fictional group's organisation and leaders over
+  time, its applications, 46 platforms, a 14-control catalogue mapped to the frameworks, and twenty daily feeds and two
+  fixed ones (slice 1: calm days, nothing planted); `test/larkspur.test.ts` holds the data to ADR 0020 §1; `node
+  scripts/data/larkspur.mjs OUT_DIR` writes it, each file's export time in `loads.json`, never in its rows.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -226,6 +230,9 @@ match smaltdb's `CLAUDE.md`.
   gates (bronze, silver, gold checks as a `gate()` cell in the notebook, written bands and due marks in the ontology,
   scope and dependency rules, the classifier on a kept sample, a sealed gold), in its seven slices, judged against the
   control estate's answer key (its §"The answer key"); all seven slices are built (its §"As built").
+  **Next:** [ADR 0020](docs/adr/0020-the-estate-as-a-company.md), the Larkspur estate (`examples/larkspur/`): a
+  fictional company with an organisation, shared infrastructure, a real silver and a gold data product, built in the
+  slices of its §8 and judged against its own answer key (§5); the control estate stays as ADR 0014's.
 
 ## Rules for this repository
 
