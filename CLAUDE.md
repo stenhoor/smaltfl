@@ -21,6 +21,10 @@ match smaltdb's `CLAUDE.md`.
 | `npm run build:app` | The app in `dist/app` on `examples/nyc-taxis-weather/` (its notebooks expanded, shipped as `data/flow.json`), with the `data` branch's daily loads if fetched (else the XS fixtures); `-- --flow examples/security-signins/flow.json --out dist/app-signins` for the sign-ins (its generator's `--demo` days from the data list's `generateArgs`). Bundles are named by content (`bundles.json`). A generated flow's days, histories and samples are kept in `node_modules/.cache/smaltfl/data/<hash of what makes them>/`: after a change to the app alone the build takes seconds, not minutes (the docs deploy caches the same folder) | Changes to `src/app` |
 | `node tools/browser/regress.cjs APP OUT estate notebook split@desktop,tablet-wide,wide` | The browser regression: each stop set at every size (phone, tablet, tablet-wide, desktop, wide), as many at once as there are cores, one table of what passed; `--devices` narrows the sizes. Copy the built app out of `dist/` first | Before a PR that touches `src/app`; one set and its sizes while iterating |
 
+`npm run typecheck` runs on TypeScript 7: `typescript7`, an npm alias, run as `node node_modules/typescript7/bin/tsc`.
+The declarations `npm run build` emits stay on TypeScript 6.0.3 (`typescript`, so `npx tsc` is 6.0.3) for one more
+release (smaltty ADR 0030).
+
 ## Layout
 
 - `src/core/`: pure TypeScript, no DOM or engine imports. `document.ts`: the flow document, what people write.
