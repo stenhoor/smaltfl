@@ -25,6 +25,11 @@ describe('a step’s story', () => {
     expect(f.head).toBe("80 rows of 100 kept; 20 (20%) left out where status = 'active' isn’t true.");
     const e = stepStory(base({ op: 'expect', rowsOut: 97, expect: { dropped: 3, flagged: 5, rules: [], maxDropped: 0.05 } }));
     expect(e.head).toBe('3 of 100 rows broke a rule and were left out (3%; the limit is 5%). 5 were flagged and kept.');
+    expect(e.stops).toEqual([]);
+    // A rule that stops the day (ADR 0020 §9, Mon 18's owner chains): its rows kept, the step failed, never "kept the rules".
+    const stop = stepStory(base({ op: 'expect', rowsOut: 100, expect: { dropped: 0, flagged: 0, rules: [{ name: 'owner_chain', failed: 96, onFail: 'fail' }, { name: 'known', failed: 0, onFail: 'drop' }], maxDropped: 0 } }));
+    expect(stop.head).toBe('96 of 100 rows broke owner_chain, a rule that stops the day: they were kept, and the step failed.');
+    expect(stop.stops).toEqual([{ name: 'owner_chain', rows: 96 }]);
   });
 
   it('never says a query that adds rows up left them out, with or without GROUP BY', () => {
