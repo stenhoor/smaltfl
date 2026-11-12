@@ -245,7 +245,13 @@ match smaltdb's `CLAUDE.md`.
   column and value of each finding (`saidOf`, `Upstream.said`), and a step told after it that reads it
   (`upstreamSteps` in `flowStory`) follows it on the same column and value, keeping its own severity. In a gated flow a
   value back after days of none, on fewer rows than a new value needs to be unusual, is worth knowing; the push isn't
-  told by a day's judge (Q-178).
+  told by a day's judge (Q-178). Slice 5, the app on Larkspur (`npm run build:app -- --flow examples/larkspur/flow.json
+  --out dist/app-larkspur`, about 5 minutes made, cached by the data's hash): the generator's `base.json` (six months of
+  every day's files) and `base.steps.json` (six weeks), `history.mjs --watch a,b,c` (the watched steps measured from one
+  run of the flow a day; a file's load pins beside it the daily files its rules read), each load's `exported_at` and a
+  source's `before` in the data list; a watched step the views don't follow tells its own day in its News and What
+  happened (`watchedStory`, `flowStory` as the engine tells its claim); a check step's broken stopping rule is said
+  (`StepStory.stops`); the Contract tab (`contractTab`); `tools/browser/stops/larkspur.json` (ADR 0020 §9's walks).
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).

@@ -1,0 +1,230 @@
+[
+  {
+    "name": "lark-mar01-flow",
+    "what": "Larkspur, calm Fri Mar 1: the Flow view as a phone opens it (notebook boxes folded)",
+    "day": "Fri 1",
+    "expect": {
+      "state": "done"
+    }
+  },
+  {
+    "name": "lark-mar11-dimapp-news",
+    "what": "Mon Mar 11, the reorg: gold's dim_app News, its business units' shares told as following app_owners (Q-173)",
+    "day": "Mon 11",
+    "card": "dim_app",
+    "tab": "News",
+    "full": true,
+    "unfold": [
+      "nb-product"
+    ],
+    "expect": {
+      "text": [
+        "follows app_owners",
+        "Business_unit_id BU-05"
+      ]
+    }
+  },
+  {
+    "name": "lark-mar11-fbu-contract",
+    "what": "Mon Mar 11: failing_by_unit's Contract, kept, with its columns and service levels",
+    "day": "Mon 11",
+    "card": "failing_by_unit",
+    "tab": "Contract",
+    "full": true,
+    "unfold": [
+      "nb-product"
+    ],
+    "expect": {
+      "text": [
+        "Kept on Mon 11",
+        "Available by",
+        "07:00 UTC"
+      ],
+      "count": {
+        "#sheet .ct-col": 7,
+        "#sheet .ct-col.alert": 0
+      }
+    }
+  },
+  {
+    "name": "lark-mar12-flow",
+    "what": "Walk 1, Tue Mar 12: held by the WAF file's band, the Flow view",
+    "day": "Tue 12",
+    "expect": {
+      "state": "held",
+      "status": "waf: Status fail"
+    }
+  },
+  {
+    "name": "lark-mar12-waf-quality",
+    "what": "Walk 1: the WAF file's Quality, one in five fail, outside the band",
+    "day": "Tue 12",
+    "card": "waf",
+    "tab": "Quality",
+    "full": true,
+    "expect": {
+      "text": [
+        "(band 0%–15%)"
+      ]
+    }
+  },
+  {
+    "name": "lark-mar12-platform-happened",
+    "what": "Walk 1: silver's platform_impact, What happened, naming ing-east-3 behind the failures",
+    "day": "Tue 12",
+    "card": "platform_impact",
+    "tab": "What happened",
+    "full": true,
+    "unfold": [
+      "nb-posture"
+    ],
+    "expect": {
+      "text": [
+        "Platform_id ing-east-3"
+      ]
+    }
+  },
+  {
+    "name": "lark-mar12-platform-news",
+    "what": "Walk 1: platform_impact's News, its own day against its own history",
+    "day": "Tue 12",
+    "card": "platform_impact",
+    "tab": "News",
+    "full": true,
+    "unfold": [
+      "nb-posture"
+    ],
+    "expect": {
+      "text": [
+        "Platform_id ing-east-3"
+      ]
+    }
+  },
+  {
+    "name": "lark-mar12-orgposture-data",
+    "what": "Walk 1: gold's org_posture, the leaders' units, Data",
+    "day": "Tue 12",
+    "card": "org_posture",
+    "tab": "Data",
+    "full": true,
+    "unfold": [
+      "nb-product"
+    ]
+  },
+  {
+    "name": "lark-mar12-queue-data",
+    "what": "Walk 1: gold's remediation_queue, one row a failing application with its team and leader",
+    "day": "Tue 12",
+    "card": "remediation_queue",
+    "tab": "Data",
+    "full": true,
+    "unfold": [
+      "nb-product"
+    ]
+  },
+  {
+    "name": "lark-mar18-flow",
+    "what": "Walk 2, Mon Mar 18: held by the organisation's chain, the Flow view",
+    "day": "Mon 18",
+    "expect": {
+      "state": "held"
+    }
+  },
+  {
+    "name": "lark-mar18-orgchain-happened",
+    "what": "Walk 2: silver's org_chain, What happened: units no longer reach the group, a rule that stops the day",
+    "day": "Mon 18",
+    "card": "org_chain",
+    "tab": "What happened",
+    "full": true,
+    "unfold": [
+      "nb-org"
+    ],
+    "expect": {
+      "text": [
+        "broke one_root, a rule that stops the day"
+      ],
+      "noText": [
+        "kept the rules"
+      ]
+    }
+  },
+  {
+    "name": "lark-mar18-appowners-happened",
+    "what": "Walk 2: app_owners, What happened: applications with no owner chain, kept under Unassigned",
+    "day": "Mon 18",
+    "card": "app_owners",
+    "tab": "What happened",
+    "full": true,
+    "unfold": [
+      "nb-apps"
+    ],
+    "expect": {
+      "text": [
+        "broke owner_chain, a rule that stops the day",
+        "UNASSIGNED",
+        "the step failed, and the day stops"
+      ],
+      "noText": [
+        "kept the rules"
+      ]
+    }
+  },
+  {
+    "name": "lark-mar21-fbu-checks",
+    "what": "Thu Mar 21, the doubled TLS file: failing_by_unit's Checks, held by its key",
+    "day": "Thu 21",
+    "card": "failing_by_unit",
+    "tab": "Checks",
+    "full": true,
+    "unfold": [
+      "nb-product"
+    ],
+    "expect": {
+      "text": [
+        "repeat a key"
+      ]
+    }
+  },
+  {
+    "name": "lark-mar21-scorecard-contract",
+    "what": "Thu Mar 21: app_scorecard's Contract",
+    "day": "Thu 21",
+    "card": "app_scorecard",
+    "tab": "Contract",
+    "full": true,
+    "unfold": [
+      "nb-product"
+    ],
+    "expect": {
+      "text": [
+        "What app_scorecard’s consumers rely on",
+        "Available by"
+      ]
+    }
+  },
+  {
+    "name": "lark-mar25-tls-quality",
+    "what": "Walk 3, Mon Mar 25: the TLS file's Quality, a rise within reason",
+    "day": "Mon 25",
+    "card": "tls",
+    "tab": "Quality",
+    "full": true
+  },
+  {
+    "name": "lark-mar25-platform-happened",
+    "what": "Walk 3: platform_impact names the certificate authority behind TLS and logging",
+    "day": "Mon 25",
+    "card": "platform_impact",
+    "tab": "What happened",
+    "full": true,
+    "unfold": [
+      "nb-posture"
+    ],
+    "expect": {
+      "text": [
+        "Platform_id ca-int-2"
+      ]
+    }
+  }
+]

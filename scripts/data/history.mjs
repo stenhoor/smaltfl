@@ -3,12 +3,15 @@
 //
 //   node scripts/data/history.mjs DAYS_DIR OUT.json
 import { build } from 'esbuild';
-import { readFileSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
 const smaltdb = JSON.parse(readFileSync('node_modules/smaltdb/package.json', 'utf8')).version;
-const outfile = 'node_modules/.cache/smaltfl/history.mjs';
+// Each run its own bundle, removed when it ends: the app build runs two histories at once, and neither may import the
+// other's half-written file (its worker threads load the bundle again while the run lasts).
+const outfile = `node_modules/.cache/smaltfl/history.${process.pid}.mjs`;
+process.on('exit', () => rmSync(outfile, { force: true }));
 await build({
   entryPoints: ['scripts/data/history.ts'],
   bundle: true,

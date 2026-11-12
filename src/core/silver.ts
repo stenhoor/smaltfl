@@ -53,6 +53,8 @@ export interface StepStory {
   /** Its rows against its usual; or why there is nothing to compare with. */
   usual: string;
   flow: RowFlow | null;
+  /** A check step's rules that stop the day and that rows broke today, each with its rows: kept, and the step failed. */
+  stops: { name: string; rows: number }[];
 }
 
 const n = (x: number) => x.toLocaleString('en-US');
@@ -99,6 +101,7 @@ export function stepStory(f: StepFacts): StepStory {
   const out = f.rowsOut;
   let head = out === null ? `${f.origin} is closed to you: its rows can’t be counted.` : `${rows(out)} out.`;
   const lost: RowFlow['lost'] = [];
+  let stops: StepStory['stops'] = [];
   let gained = 0;
   if (out !== null && inn !== null) {
     if (f.op === 'join' && f.join) {
@@ -115,7 +118,10 @@ export function stepStory(f: StepFacts): StepStory {
     } else if (f.op === 'expect' && f.expect) {
       const e = f.expect;
       if (e.dropped) lost.push({ why: 'broke a rule', rows: e.dropped });
-      head = e.dropped ? `${n(e.dropped)} of ${rows(inn)} broke a rule and were left out (${pct(e.dropped / Math.max(1, inn))}${e.maxDropped !== null ? `; the limit is ${pct(e.maxDropped)}` : ''}).` : `Every one of ${rows(inn)} kept the rules.`;
+      // A rule that stops the day (onFail 'fail'): its rows are kept, and the step fails, which holds what reads it.
+      stops = e.rules.filter((r) => r.onFail === 'fail' && r.failed > 0).map((r) => ({ name: r.name, rows: r.failed }));
+      const stopped = stops.length ? `${list(stops.map((r) => `${n(r.rows)} of ${rows(inn)} broke ${r.name}`))}, ${stops.length === 1 ? 'a rule that stops' : 'rules that stop'} the day: they were kept, and the step failed.` : null;
+      head = e.dropped ? `${n(e.dropped)} of ${rows(inn)} broke a rule and were left out (${pct(e.dropped / Math.max(1, inn))}${e.maxDropped !== null ? `; the limit is ${pct(e.maxDropped)}` : ''}).${stopped ? ` ${stopped}` : ''}` : stopped ?? `Every one of ${rows(inn)} kept the rules.`;
       if (e.flagged) head += ` ${n(e.flagged)} were flagged and kept.`;
     } else if (out < inn && (f.op === 'filter' || f.op === 'fill' || (f.op === 'sql' && sqlDoes(f.sql ?? '').where && !sqlDoes(f.sql ?? '').joins && !sqlDoes(f.sql ?? '').union))) {
       lost.push({ why: f.op === 'filter' ? `the condition isn’t true` : 'left out by the query', rows: inn - out });
@@ -142,7 +148,7 @@ export function stepStory(f: StepFacts): StepStory {
   }
   const flow: RowFlow | null = out === null || f.inputs.some((i) => i.rows === null) || !f.inputs.length ? null
     : { inputs: f.inputs.map((i) => ({ label: i.name, rows: i.rows! })), out, lost, gained };
-  return { head, does: opDoes(f), columns, time, usual, flow };
+  return { head, does: opDoes(f), columns, time, usual, flow, stops };
 }
 
 /** The rows a step's earlier days had, as a range (the lowest and the highest), from its rows on each day run here. */
