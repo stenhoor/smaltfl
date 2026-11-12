@@ -89,6 +89,7 @@ one (0015) is to be written from them. Nothing here is built.
 | Q-164 | Should the page show the flow before the first day's judging finishes? | Yes, filling in as judging ends (ADR 0019) | decided |
 | Q-165 | Which of the next first-load steps to take? | The maintainer, 2026-11-11: all of them at once; each measured first, and the ones that don't pay said so (ADR 0019 amendment 1) | decided |
 | Q-166 | How should the bronze card explain its checks and columns? | The maintainer, 2026-11-11: a text cell before each notebook cell; the Columns tab told as a story; learned and written checks explained visually, from research; all of it for any dataset (ADR 0015 amendment 3) | decided |
+| Q-167 | How should the steps after the files explain what they did? | The maintainer, 2026-11-12: as the bronze card does: what the transformations are, how long they take, what happens to the data, what gets dropped; each step's What happened and each notebook's summary, every number against its usual (ADR 0015 amendment 4) | decided |
 
 ## The bronze layer: the maintainer's request, and what is open (ADR 0015)
 

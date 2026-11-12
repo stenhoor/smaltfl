@@ -1833,3 +1833,48 @@ export function differenceMeter(o: { step: 0 | 1 | 2 | 3; aria: string; w?: numb
   s += `<path class="dm-mark" d="M${f1(mx - 5)} 1 L${f1(mx + 5)} 1 L${f1(mx)} 6 Z"/>`;
   return `${s}</svg>`;
 }
+
+/**
+ * What a step did to the rows (ADR 0015 amendment 4): each input as a bar of its rows, then what came out, with the rows
+ * left out as an outlined stretch at the end of the first input's length and why, and rows added beyond it lighter. One
+ * scale for every bar, from 0, so a step that keeps everything shows two bars the same length.
+ */
+export function rowFlow(o: { inputs: readonly { label: string; rows: number }[]; out: number; outLabel: string; lost: readonly { why: string; rows: number }[]; gained: number; aria: string; w?: number; fmt?: (n: number) => string }): string {
+  const w = o.w ?? 334;
+  const fmt = o.fmt ?? ((x: number) => x.toLocaleString('en-US'));
+  const rh = 22;
+  const short = (t: string) => (t.length > 18 ? `${t.slice(0, 17)}…` : t);
+  const lw = Math.min(140, Math.max(56, ...o.inputs.map((i) => short(i.label).length * 6.8), short(o.outLabel).length * 7.6) + 6);
+  const lostTotal = o.lost.reduce((a, b) => a + b.rows, 0);
+  const max = Math.max(1, ...o.inputs.map((i) => i.rows), o.out + lostTotal);
+  const bw = w - lw - 56;
+  const x = (v: number) => lw + (v / max) * bw;
+  const lines = o.lost.length + (o.gained ? 1 : 0);
+  const h = (o.inputs.length + 1) * rh + 14 + lines * 16;
+  let s = open(w, h, o.aria);
+  o.inputs.forEach((inp, i) => {
+    const y = i * rh + 4;
+    s += `<text x="0" y="${y + 12}" class="lbl-m">${esc(short(inp.label))}</text>`;
+    s += `<rect class="ghost-2" x="${lw}" y="${y + 3}" width="${f1(Math.max(2, x(inp.rows) - lw))}" height="12" rx="2"/>`;
+    s += `<text x="${f1(x(inp.rows) + 5)}" y="${y + 12}" class="lbl-m">${esc(fmt(inp.rows))}</text>`;
+  });
+  const y = o.inputs.length * rh + 10;
+  s += `<line class="hair" x1="${lw}" x2="${w - 4}" y1="${y - 4}" y2="${y - 4}"/>`;
+  s += `<text x="0" y="${y + 12}" class="lbl-b">${esc(short(o.outLabel))}</text>`;
+  const kept = Math.max(0, o.out - o.gained);
+  s += `<rect class="ink-teal" x="${lw}" y="${y + 3}" width="${f1(Math.max(2, x(kept) - lw))}" height="12" rx="2"/>`;
+  if (o.gained) s += `<rect class="ink-teal light" x="${f1(x(kept))}" y="${y + 3}" width="${f1(Math.max(2, x(o.out) - x(kept)))}" height="12" rx="2"/>`;
+  let at = o.out - o.gained;
+  for (const l of o.lost) {
+    s += `<rect class="lost" x="${f1(x(at))}" y="${y + 3}" width="${f1(Math.max(2, x(at + l.rows) - x(at)))}" height="12" rx="2"/>`;
+    at += l.rows;
+  }
+  s += `<text x="${f1(Math.min(w - 40, x(Math.max(o.out, at)) + 5))}" y="${y + 12}" class="lbl-b">${esc(fmt(o.out))}</text>`;
+  let ly = y + rh + 8;
+  for (const l of o.lost) {
+    s += `<rect class="lost" x="${lw}" y="${ly - 8}" width="12" height="9" rx="2"/><text x="${lw + 16}" y="${ly}" class="lbl-m">${esc(`${fmt(l.rows)} left out: ${l.why}`)}</text>`;
+    ly += 16;
+  }
+  if (o.gained) s += `<rect class="ink-teal light" x="${lw}" y="${ly - 8}" width="12" height="9" rx="2"/><text x="${lw + 16}" y="${ly}" class="lbl-m">${esc(`${fmt(o.gained)} added: rows that matched more than once`)}</text>`;
+  return `${s}</svg>`;
+}

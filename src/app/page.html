@@ -1173,6 +1173,7 @@ svg.viz { display: block; overflow: visible; max-width: 100%; height: auto; }
 .viz .brk { fill: none; stroke: var(--muted); stroke-width: 1.2; }
 .viz .dumb { stroke: var(--ink); stroke-width: 1.6; }
 .viz .dot { fill: var(--ink); stroke: var(--surface); stroke-width: 2; }
+.viz .ink-teal { fill: var(--teal-fill); } .viz .ink-teal.light { fill: var(--teal-fill); opacity: .4; } .viz .lost { fill: var(--bad-wash); stroke: var(--bad); stroke-width: 1.2; stroke-dasharray: 3 2; }
 .viz .dm-off { fill: var(--sunk); } .viz .dm-past { fill: var(--line); } .viz .dm-on { fill: var(--ink-2); } .viz .dm-on.warn { fill: var(--warn); } .viz .dm-mark { fill: var(--ink); }
 .viz .dot-alert { fill: var(--bad); } .viz .dot-warn { fill: var(--warn); }
 .viz .gone-x { stroke: var(--bad); stroke-width: 2; stroke-linecap: round; }
@@ -1633,8 +1634,28 @@ svg.viz { display: block; overflow: visible; max-width: 100%; height: auto; }
 .viz .nodata { stroke: none; }
 .spark .gap-t { font: 600 9px var(--mono); fill: var(--ink-2); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; }
 .gap-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 2px 0 0; font-size: 13px; color: var(--ink-2); }
+.gap-swatch.notrun { background: none; border: 1.2px dashed var(--muted); opacity: 1; }
 .vf-key .gap-swatch { display: inline-block; width: 12px; height: 9px; vertical-align: -1px; margin-right: 4px; }
 .gap-swatch { width: 14px; height: 10px; border-radius: 2px; background: repeating-linear-gradient(45deg, var(--muted) 0 1.5px, transparent 1.5px 4px); opacity: .7; flex: none; }
+/* The silver card: what a step did (ADR 0015 amendment 4). */
+.sv { display: grid; gap: 12px; }
+.sv-head { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--radius); background: var(--teal-wash); }
+.sv-head.look { background: var(--warn-wash); }
+.sv-head h3 { margin: 0; font-size: 16px; line-height: 1.35; } .sv-head p { margin: 4px 0 0; font-size: 13px; color: var(--ink-2); }
+.sv-checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13.5px; }
+.sv-checks li { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.sv-sum { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); margin-bottom: 12px; }
+.sv-sum-h { margin: 0; font-size: 15px; } .sv-sum p { margin: 0; font-size: 13.5px; }
+.sv-rows { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 2px; }
+.sv-row { display: grid; grid-template-columns: minmax(80px, 1.2fr) minmax(60px, 2fr) auto 52px; gap: 8px; align-items: center; width: 100%; border: 0; background: none; padding: 5px 4px; border-radius: 6px; text-align: left; font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; }
+.sv-row:hover, .sv-row:focus-visible { background: var(--sunk); }
+.sv-name { font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sv-bar { display: flex; height: 8px; border-radius: 4px; background: var(--sunk); overflow: hidden; }
+.sv-bar .on { background: var(--teal-fill); } .sv-bar .lost { background: var(--bad-wash); outline: 1px dashed var(--bad); outline-offset: -1px; }
+.sv-blanks { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
+.sv-blanks li { display: grid; grid-template-columns: minmax(80px, 1fr) minmax(60px, 2fr) auto; gap: 8px; align-items: center; font-size: 13px; }
+.sv-bar .blank { background: repeating-linear-gradient(45deg, var(--muted) 0 1.5px, transparent 1.5px 4px); opacity: .7; }
+.sv-n, .sv-ms { font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 12.5px; text-align: right; }
 /* Check visuals and explanations (ADR 0015 amendment 3). */
 .cv { display: grid; gap: 6px; }
 .cv-explain { display: grid; gap: 4px; margin: 6px 0 2px; padding: 8px 10px; border-radius: 8px; background: var(--sunk); font-size: 13.5px; line-height: 1.45; }

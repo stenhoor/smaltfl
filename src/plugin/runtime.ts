@@ -105,13 +105,19 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
   // engine can't read as declared is the schema check's hold, not a failed run: it is recorded as refused, nothing is
   // built, and the run is held (core/hold.ts holdsOf). Any other flow fails as it always did.
   const refused = new Map<number, string>();
+  // How long each step took to read or build, in milliseconds (ADR 0015 amendment 4): returned with the run, never in
+  // its manifest or any hash, since it depends on the machine. A step reused or folded took no time of its own.
+  const timings: Record<string, number> = {};
+  const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
   for (const i of needed) {
     const n = plan.nodes[i]!;
     if (n.op !== 'table') continue;
     aborted(signal);
     let snap: Snapshot;
+    const t0 = clock();
     try {
       snap = await snapshot(db, n, env);
+      timings[n.origin] = Math.round((clock() - t0) * 10) / 10;
     } catch (e) {
       if (!(e instanceof RunError) || plan.smaltflPlan !== 4) throw e;
       refused.set(i, e.message);
@@ -178,6 +184,7 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
       continue;
     }
     const table = versionTable(key);
+    const t0 = clock();
     engine(n.origin, () =>
       inTransaction(db, () => {
         db.exec(`DROP TABLE IF EXISTS ${q(table)}`);
@@ -185,6 +192,7 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
         db.run(`INSERT INTO ${q(table)} ${emitSelect(plan, i, ctx)}`);
       }),
     );
+    timings[n.origin] = Math.round((clock() - t0) * 10) / 10;
     const h = await hashTable(db, table);
     recordVersion(db, { key, table, content: h.content, rows: h.rows });
     tables.set(i, table);
@@ -339,6 +347,7 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
     ...(derived ? { derived: { holds: derived.holds, filled: derived.filled } } : {}),
     ...(measured.size ? { measures: [...measured.values()].map((m) => m.measures) } : {}),
     ...(Object.keys(kept).length ? { kept } : {}),
+    timings,
   };
 }
 
