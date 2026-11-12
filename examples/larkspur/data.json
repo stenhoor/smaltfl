@@ -2,6 +2,7 @@
   "smaltflData": 1,
   "flow": "larkspur",
   "generate": "scripts/data/larkspur.mjs",
+  "judged": "effective",
   "sources": {
     "hr_org_units": {
       "table": "hr_org_units_file",

@@ -207,17 +207,33 @@ if (days.length) {
     const listed = JSON.parse(readFileSync(base, 'utf8'));
     const shape = Array.isArray(listed) ? listed.at(-1) : null;
     if (!shape) return null;
-    if (shape.file !== undefined) return firstLoad.files[w] ? { slot: firstLoad.slot, file: firstLoad.files[w].file } : null;
-    return { slot: firstLoad.slot, files: { ...Object.fromEntries(Object.keys(shape.files ?? {}).map((id) => [id, firstLoad.files[id]?.file ?? shape.files[id]])) } };
+    // The first day's files as the history's last day lists them: a fixed file is the same file.
+    const files = shape.files ? { files: Object.fromEntries(Object.keys(shape.files).map((id) => [id, firstLoad.files[id]?.file ?? shape.files[id]])) } : {};
+    if (shape.file !== undefined) return firstLoad.files[w] ? { slot: firstLoad.slot, file: firstLoad.files[w].file, ...files } : null;
+    return { slot: firstLoad.slot, ...files };
   };
+  // A watch's days: its own list (base.<watch>.json); for a watched step, the steps' (base.steps.json), where the
+  // generator gives them fewer days than the files, since each is a run of the flow; else the files' (base.json).
+  const isStep = (w) => flowDoc.steps.some((s) => s.id === w && s.dataset !== undefined);
+  const baseOf = (w) => [`base.${w}.json`, ...(isStep(w) ? ['base.steps.json'] : []), 'base.json'].map((f) => join(work, f)).find((f) => existsSync(f)) ?? join(work, 'base.json');
   if (!cached) {
-    // Two histories at a time (each runs its days on every core); the longest first.
-    const runs = watches.map((w) => {
-      const base = existsSync(join(work, `base.${w}.json`)) ? join(work, `base.${w}.json`) : join(work, 'base.json');
-      const next = nextOf(w, base);
-      const ahead = next ? ['--next', JSON.stringify(next), '--ranges', join(work, rangesName(w))] : [];
-      return { w, size: statSync(base).size, argv: ['scripts/data/history.mjs', '--flow', flowPath, '--watch', w, '--files', base, ...fixedArgs, ...(sampled ? ['--sample', join(work, sampleName(w))] : []), ...ahead, join(work, historyName(w))] };
-    }).sort((a, b) => b.size - a.size);
+    // Two histories at a time (each runs its days on every core); the longest first, the watched steps' (a run of the
+    // flow a day) before any file's. The watched steps on the same days are measured from one run of the flow a day
+    // (history.mjs --watch a,b,c), each still its own history.
+    const groups = [];
+    for (const w of watches) {
+      const base = baseOf(w);
+      const same = isStep(w) && watches.length > 1 ? groups.find((g) => g.step && g.base === base) : undefined;
+      if (same) same.ws.push(w);
+      else groups.push({ ws: [w], base, step: isStep(w) });
+    }
+    const runs = groups.map(({ ws, base, step }) => {
+      const several = ws.length > 1;
+      const name = (of) => (several ? of('{watch}') : of(ws[0]));
+      const next = nextOf(ws[0], base);
+      const ahead = next ? ['--next', JSON.stringify(next), '--ranges', join(work, name(rangesName))] : [];
+      return { w: ws.join(', '), step, size: statSync(base).size, argv: ['scripts/data/history.mjs', '--flow', flowPath, '--watch', ws.join(','), '--files', base, ...fixedArgs, ...(sampled ? ['--sample', join(work, name(sampleName))] : []), ...ahead, join(work, name(historyName))] };
+    }).sort((a, b) => Number(b.step) - Number(a.step) || b.size - a.size);
     await inParallel(runs, 2, ({ w, argv }) => new Promise((done, fail) => {
       const child = spawn('node', argv, { stdio: 'inherit' });
       child.on('close', (code) => (code === 0 ? done() : fail(new Error(`the history of ${w} failed (${code})`))));
@@ -256,9 +272,13 @@ if (days.length) {
           const f = l.files[id];
           if (!f) return [];
           const e = entry(`loads/${basename(f.file)}`, readFileSync(f.file), bind.generate);
-          return [{ slot: l.slot, file: e.path, rows: f.rows, sha256: e.sha256, bytes: e.bytes }];
+          // When its system exported it, where the generator says (Q-172: what `fresh` is told from).
+          return [{ slot: l.slot, file: e.path, rows: f.rows, sha256: e.sha256, bytes: e.bytes, ...(f.exported_at ? { exported_at: f.exported_at } : {}) }];
         });
-        sources[id] = { ...b, from: bind.generate, loads: list, donors: [] };
+        // The history's last file of the source, the first load's previous (Q-172), by its sha256: never shipped.
+        const prior = made.before?.[id];
+        const before = prior ? { before: { day: prior.slot, sha256: sha256(readFileSync(prior.file)) } } : {};
+        sources[id] = { ...b, from: bind.generate, loads: list, donors: [], ...before };
       }
     }
     days = made.loads.length;
