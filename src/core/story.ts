@@ -79,6 +79,29 @@ export interface Told extends Finding {
   predicted?: number;
 }
 
+/**
+ * What a node upstream said of the day (ADR 0014 §2; Q-173, ADR 0020 slice 4): a watched source, by its name; a watched
+ * step, by the column and value of each finding its story told (`said`, `saidOf`). A finding here about the same column
+ * and value follows that step's ("the reorg moved these applications"): it keeps its own severity, since the change is
+ * this node's consumers' too, and says what it follows.
+ */
+export interface Upstream {
+  source: string;
+  state: string;
+  head: string;
+  said?: readonly (readonly [column: string, value: string])[];
+}
+
+/** The column and value of each finding a story told, each once: what a node downstream may follow (`Upstream.said`). */
+export function saidOf(s: Pick<Story, 'cause' | 'stories' | 'more' | 'follows' | 'sameDay' | 'absorbed' | 'notes'>): [column: string, value: string][] {
+  const out = new Map<string, [string, string]>();
+  for (const t of [...(s.cause ? [s.cause] : []), ...s.stories, ...s.more, ...s.follows, ...s.sameDay, ...s.absorbed, ...s.notes]) {
+    const pairs = t.members?.map((m): [string, string] => [m.column, m.value]) ?? (t.columns ?? []).map((c, i): [string, string] => [c, t.values?.[i] ?? 'null']);
+    for (const [c, v] of pairs) if (v !== 'null' && (t.values?.length || t.members?.length)) out.set(`${c.toLowerCase()}\u0001${v}`, [c, v]);
+  }
+  return [...out.values()];
+}
+
 export type Hero = 'split' | 'hours' | 'amount' | 'gate' | 'finding' | 'calm' | 'refused';
 export type Cell = 'file' | 'amount' | 'hours' | 'values' | 'shape';
 
@@ -163,7 +186,7 @@ export interface StoryOptions {
    * and what moved with it follow from the source. Only what the joins introduce is the step's own. Read only under a
    * gate (`judge.checks`): a flow with no gate is judged as it always was (ADR 0013's controls example).
    */
-  upstream?: readonly { source: string; state: string; head: string }[];
+  upstream?: readonly Upstream[];
   /** Whether to look at the days before for an episode or a recovery (default true; a calendar of every day skips it). */
   episode?: boolean;
   /** How the source is judged (ADR 0010 §4, §8): the legacy form by default. */
@@ -766,6 +789,14 @@ export function storyOf(h: HistoryRanges, day: string, findings: readonly Findin
     const u = upstream.find((x) => columns.some((c) => c === x.source.toLowerCase() || c.startsWith(`${x.source.toLowerCase()}_`)));
     return u ? `upstream:${u.source}` : null;
   };
+  // What an upstream step's own day said (Q-173): a finding about the same column and value follows it, keeping its own
+  // severity. Its key is the finding's `because`.
+  const fromStep = (f: Finding): string | null => {
+    if (!upstream?.length || WRITTEN_RULES.has(f.kind) || !(f.values?.length || f.members?.length)) return null;
+    const mine = new Set(members(f).map((m) => `${m.column.toLowerCase()}\u0001${m.value}`));
+    const u = upstream.find((x) => x.said?.some(([c, v]) => mine.has(`${c.toLowerCase()}\u0001${v}`)));
+    return u ? `upstream:${u.source}` : null;
+  };
   const tierOf = (f: Finding): { tier: Tier; predicted?: number } => {
     if (ack.has(f.key)) return { tier: 'note' };
     if (upstreamOf(f) || viaRows(f)) return { tier: 'follows' };
@@ -813,10 +844,10 @@ export function storyOf(h: HistoryRanges, day: string, findings: readonly Findin
   const told: Told[] = live.map((f) => {
     const t = tierOf(f);
     const severity: Severity = t.tier === 'cause' || t.tier === 'standalone' ? f.severity : f.severity === 'ok' ? 'ok' : 'note';
-    const up = upstreamOf(f) ?? viaRows(f);
-    // What it follows from: the source upstream; the amount, for the keys an empty file leaves without a row; the
-    // repeated key, for the amount it explains; the rows with no key, for the scope's count of them; else the day's
-    // cause.
+    const up = upstreamOf(f) ?? viaRows(f) ?? fromStep(f);
+    // What it follows from: the source upstream, or the step upstream that said the same; the amount, for the keys an
+    // empty file leaves without a row; the repeated key, for the amount it explains; the rows with no key, for the
+    // scope's count of them; else the day's cause.
     const from = ack.has(f.key) ? null : emptied(f) ? volume!.key : repeated(f) ? repeats!.key : keyless(f) ? noKey!.key : null;
     return { ...f, severity, was: f.severity, tier: t.tier, ...(ack.has(f.key) ? { acknowledged: true } : {}), ...(t.predicted !== undefined ? { predicted: t.predicted } : {}), ...(up ? { because: up } : from ? { because: from } : t.tier === 'absorbed' || t.tier === 'follows' || t.tier === 'sameDay' ? { because: (hoursF ?? popFinding ?? volume)?.key ?? 'split' } : {}) };
   });

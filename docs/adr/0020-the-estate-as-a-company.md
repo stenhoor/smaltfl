@@ -741,6 +741,59 @@ freeze) and attribution through silver (Q-173) are the second part.
   - A contract's types are the engine's (TEXT, INTEGER, REAL): a computed column is cast where it must be, and a column
     whose type changes breaks the contract.
 
+**Slice 4, gold, second part (2026-11-12):** the gold days planted in the generator (`LARKSPUR_GOLD`), three gold
+watches, and attribution through silver (Q-173).
+- **The gold days**, planted through `goldFactor(w, team, d, control)`, which scales a team's failures (`riskOf`), its
+  findings' lateness and its review cycles' (`test/larkspur.test.ts` holds each to a world without it):
+  - **the remediation push**, all March: the business unit with the most failing pairs on Mar 1 (BU-01 at the tests'
+    scale) fixes faster, its failures falling to 35% of their usual by Sun 31, on every control (its leader chases
+    the platforms too);
+  - **the handover**, 14 days from the reorg (Mon 11): the seven teams moved fail two and a half times as often on the
+    controls they keep themselves. The common ones a platform provides (TLS, the WAF, backups, MFA: the catalogue's
+    `allocation`) don't move, since the reorg doesn't move their owners; at first it moved them too, and the TLS file
+    held on Wed 13, where the calm world's own mid-March rise met the handover's;
+  - **the change freeze**, Mon 25 to Sun 31: a fix due in the freeze waits until after it, so overdue vulnerabilities
+    rise.
+- **What gold watches:** `app_owners` (silver's owner chains), `dim_app`, and a new gold dataset, `failing_by_unit`:
+  each failing application and control with its chain, every failure owned or Unassigned (a check step's rule), one
+  row a pair (its gold gate's key) and a contract. Each is counted by business unit. `org_posture` isn't watched: the
+  judges compare a column's shares from day to day, and the posture's rows are units, whose shares don't move when
+  applications do; `dim_app`'s rows are applications and `failing_by_unit`'s are failures.
+- **Attribution through silver (Q-173):** a watched step's story says the column and value of each finding it told
+  (`saidOf`). The steps are told in the plan's order, each given what the steps it reads said (`Upstream.said`;
+  `upstreamSteps` in `flowStory`, the run's `stepsSaid`). A finding about the same column and value follows that step
+  (`because: 'upstream:app_owners'`) and keeps its own severity: the reorg moving applications is news to gold's
+  consumers too, where a file's change a step follows is told once, at the file.
+- **A value back on a few rows, in a gated flow** (`news.ts`): a value its days had on under a row, back on fewer
+  rows than a new value needs to be unusual, is worth knowing and no more, as a new value would be. The few
+  applications the reorg left in BU-02, three of them failing after two weeks of none, read as unusual on Tue 26 and
+  Fri 29. The control estate's answer key doesn't move.
+- **What gold says of March, through the engine:**
+  - Mon 11: `app_owners` is unusual (seven teams moved from BU-02 to BU-05), and `dim_app` and `failing_by_unit` tell
+    both business units' shares as following it. The day publishes;
+  - Tue 12: BU-05's share of the failures, above its usual with the teams the reorg brought it and their handover, is
+    told as following `app_owners`. The handover's part isn't told apart from the move's;
+  - Thu 21: the doubled TLS file holds `failing_by_unit` by its key, as it holds silver's `effective`;
+  - the push: BU-01's share of the failures falls by more than two fifths over the month, and no day says so;
+  - the freeze: the vulnerability SLA's failures rise from Sun 24 to Sun 31, within what the failures vary by:
+    `failing_by_unit` holds nothing itself, and is calm or has notes on each day it publishes (Tue 26's hold is the
+    TLS file's scope, Thu 28's the loop's, and both reach it).
+- **Where the text changed as it was built:**
+  - The answer key's Mon 11 row names `org_posture` and two VPs. It is `dim_app` and `failing_by_unit` (the shares
+    above), and the two business units: the seven teams came from several of BU-02's departments.
+  - **The push isn't said** (§5's last row has it warn until the new level is accepted). The steps' judges compare a
+    day with the same weekday over the weeks just before it, which move with a steady change, so a month's slide is
+    never far from its own last weeks. Saying it would need a judge that keeps the level it learned until someone
+    accepts another (Q-178). The push is in gold's numbers, and the product view (slice 6) shows it as a trend.
+  - **The freeze isn't named** (§5 has it told as notes, the freeze): what it adds stays within what the failures vary
+    by, and nothing in the files says a freeze is on.
+  - The reorg is told Mon 11 to Thu 14 and is calm from Fri 15, its days having become the usual; nobody accepts it.
+    Q-86 (a lasting change keeps pausing until accepted) isn't built, and would matter only for a change that holds.
+  - Fri 8's contradiction is 17 applications at the tests' scale, not 18: the push lowers one of them its encryption
+    failure.
+  - The seal is as today (the app's `sealOfRun`, ADR 0014 §6): nothing in it is Larkspur's own, and it is seen with the
+    app in slice 5.
+
 ## Consequences
 
 - **The demo can show what each layer is for:**

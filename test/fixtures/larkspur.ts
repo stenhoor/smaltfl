@@ -45,7 +45,7 @@ export interface LarkspurOptions {
   /** How many applications are drawn across the span, created before it or during it (default 2,600: about 2,400 are
    * in the CMDB in March 2024, the rest not yet created or retired and gone; the tests draw 650 for about 600). */
   apps?: number;
-  /** The trouble planted (default the bronze days and the silver ones, LARKSPUR_TROUBLE and LARKSPUR_SILVER_TROUBLE);
+  /** The trouble planted (default the bronze, silver and gold days, LARKSPUR_TROUBLE, LARKSPUR_SILVER_TROUBLE and LARKSPUR_GOLD_TROUBLE);
    * `incidents: false` plants none. */
   incidents?: boolean;
   trouble?: readonly Trouble[];
@@ -97,6 +97,14 @@ export type Trouble =
   | { day: string; file: 'key_rotation'; kind: 'contradiction' }
   /** From the day on, the largest teams of one business unit report into a department of another. */
   | { day: string; file: 'hr_org_units'; kind: 'reorg'; teams: number; from: string; to: string }
+  /** A new SVP's remediation push (ADR 0020 §5, all month): their business unit's failures and late fixes fall steadily
+   * from `day` to `until`, to `to` of what they were. Planted on the busiest business unit nothing else touches. */
+  | { day: string; file: 'findings'; kind: 'push'; until: string; to: number }
+  /** The handover (ADR 0020 §5): the teams the reorg moved fail and fix late `by` times as often for `days` from `day`. */
+  | { day: string; file: 'findings'; kind: 'handover'; days: number; by: number }
+  /** The quarter-end change freeze (ADR 0020 §5): from `day` to `until`, no vulnerability fix ships; each that would
+   * have ships in the week after. */
+  | { day: string; file: 'findings'; kind: 'freeze'; until: string }
   /** Exceptions expire unrenewed the day before: as many as `count` at the demo's scale, `extended` of them extended once. */
   | { day: string; file: 'exceptions'; kind: 'expiries'; count: number; extended: number }
   /** The department the extract drops without moving its teams; the next day its teams report into a sibling. */
@@ -143,6 +151,15 @@ export const LARKSPUR_SILVER = {
 } as const;
 
 const S = LARKSPUR_SILVER;
+/** The gold days of ADR 0020 §5 (slice 4): the push all month, the handover from the reorg, the freeze at quarter end. */
+export const LARKSPUR_GOLD = { push: '2024-03-01', pushUntil: '2024-03-31', handover: '2024-03-11', freeze: '2024-03-25', freezeUntil: '2024-03-31' } as const;
+const G = LARKSPUR_GOLD;
+export const LARKSPUR_GOLD_TROUBLE: readonly Trouble[] = [
+  { day: G.push, file: 'findings', kind: 'push', until: G.pushUntil, to: 0.35 },
+  { day: G.handover, file: 'findings', kind: 'handover', days: 14, by: 2.5 },
+  { day: G.freeze, file: 'findings', kind: 'freeze', until: G.freezeUntil },
+];
+
 export const LARKSPUR_SILVER_TROUBLE: readonly Trouble[] = [
   { day: S.contradiction, file: 'key_rotation', kind: 'contradiction' },
   { day: S.reorg, file: 'hr_org_units', kind: 'reorg', teams: 7, from: 'BU-02', to: 'BU-05' },
@@ -631,7 +648,7 @@ export interface Larkspur {
   trouble: readonly Trouble[];
   /** What the planted silver days chose, once: the teams a reorg moves, the department dissolved and the one that loops,
    * and the exceptions that expire unrenewed. */
-  planted: { moves: { team: string; to: string; from: string }[]; dissolved: { unit: string; sibling: string; day: string } | null; loop: { unit: string; team: string; day: string } | null; expiring: Set<string> };
+  planted: { moves: { team: string; to: string; from: string }[]; dissolved: { unit: string; sibling: string; day: string } | null; loop: { unit: string; team: string; day: string } | null; expiring: Set<string>; push: string | null };
   cache: { findings: Map<string, Finding[]>; cycles: Map<string, Cycle[]>; apps: Map<string, AppOn[]> };
 }
 
@@ -699,8 +716,8 @@ export function larkspur(o: LarkspurOptions = {}): Larkspur {
   }
   const exceptionsOf = new Map<string, ExceptionDraw[]>();
   for (const e of exceptions) exceptionsOf.set(`${e.app}|${e.control}`, [...(exceptionsOf.get(`${e.app}|${e.control}`) ?? []), e]);
-  const trouble = o.incidents === false ? [] : (o.trouble ?? [...LARKSPUR_TROUBLE, ...LARKSPUR_SILVER_TROUBLE]);
-  const w: Larkspur = { seed, units, unit, children, apps, people, tenures, vacancies, exceptions, exceptionsOf, trouble, planted: { moves: [], dissolved: null, loop: null, expiring: new Set() }, cache: { findings: new Map(), cycles: new Map(), apps: new Map() } };
+  const trouble = o.incidents === false ? [] : (o.trouble ?? [...LARKSPUR_TROUBLE, ...LARKSPUR_SILVER_TROUBLE, ...LARKSPUR_GOLD_TROUBLE]);
+  const w: Larkspur = { seed, units, unit, children, apps, people, tenures, vacancies, exceptions, exceptionsOf, trouble, planted: { moves: [], dissolved: null, loop: null, expiring: new Set(), push: null }, cache: { findings: new Map(), cycles: new Map(), apps: new Map() } };
   plantOrg(w);
   return w;
 }
@@ -745,6 +762,18 @@ function plantOrg(w: Larkspur): void {
   if (loop) {
     const dept = w.units.filter((u) => u.level === 'department' && !touched.has(u.id) && teamsOf(u.id).length).sort((x, y) => uniform(w.seed, x.id, 'loop') - uniform(w.seed, y.id, 'loop'))[0]!;
     w.planted.loop = { unit: dept.id, team: teamsOf(dept.id)[0]!.id, day: loop.day };
+  }
+  // The push: the business unit with the most applications that the reorg, the dissolved department and the loop leave
+  // alone.
+  if (find('push')) {
+    const reorgOf = find('reorg');
+    const left = new Set([reorgOf?.from, reorgOf?.to, w.planted.dissolved ? w.unit.get(w.planted.dissolved.unit)!.business_unit : null, w.planted.loop ? w.unit.get(w.planted.loop.unit)!.business_unit : null]);
+    const count = new Map<string, number>();
+    for (const a of w.apps) {
+      const bu = w.unit.get(a.owner)!.business_unit;
+      if (bu && !left.has(bu)) count.set(bu, (count.get(bu) ?? 0) + 1);
+    }
+    w.planted.push = [...count.entries()].sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : 1))[0]?.[0] ?? null;
   }
   const expiries = find('expiries');
   if (expiries) {
@@ -897,8 +926,26 @@ export type Status = 'pass' | 'fail' | 'not_assessed';
  * The controls a platform provides fail rarely on their own: their failures come together, when the platform does. */
 const SCAN_FAIL: Partial<Record<ControlId, number>> = { tls: 0.04, waf: 0.05, encryption: 0.1, backup: 0.08, mfa: 0.05, logging: 0.08, privileged_access: 0.1, edr: 0.06 };
 
-function riskOf(w: Larkspur, a: AppOn, control: ControlId): number {
-  let r = w.unit.get(a.owner_team_id)!.propensity;
+/**
+ * How a team's failures and late fixes of a control move on a day with the gold days (ADR 0020 §5): the push's business
+ * unit falls steadily from its first day to its last, to its floor, on everything it fails (its leader chases the
+ * platforms too); the teams the reorg moved rise for the handover's days on the controls they keep themselves, not the
+ * common ones a platform provides (TLS, the WAF, backups, MFA), whose owners the reorg doesn't move.
+ */
+export function goldFactor(w: Larkspur, team: string, d: string, control: ControlId): number {
+  let f = 1;
+  const push = w.trouble.find((t) => t.kind === 'push');
+  if (push && push.kind === 'push' && w.planted.push && w.unit.get(team)?.business_unit === w.planted.push && d >= push.day) {
+    const span = Math.max(1, dayNumber(push.until) - dayNumber(push.day));
+    f *= 1 - (1 - push.to) * Math.min(1, (dayNumber(d) - dayNumber(push.day)) / span);
+  }
+  const handover = w.trouble.find((t) => t.kind === 'handover');
+  if (CONTROL[control].allocation !== 'common' && handover && handover.kind === 'handover' && d >= handover.day && d < addDays(handover.day, handover.days) && w.planted.moves.some((m) => m.team === team)) f *= handover.by;
+  return f;
+}
+
+function riskOf(w: Larkspur, a: AppOn, control: ControlId, d: string): number {
+  let r = w.unit.get(a.owner_team_id)!.propensity * goldFactor(w, a.owner_team_id, d, control);
   if (a.tier === 1) r *= 0.55;
   else if (a.tier === 2) r *= 0.8;
   if (a.lifecycle === 'retiring') r *= 2.2;
@@ -921,7 +968,7 @@ export function exceptedOn(w: Larkspur, app: string, control: ControlId, d: stri
  * accepted is left unfixed. Encryption and backup share the datastore's health, TLS and the WAF the endpoint's. */
 function scanFails(w: Larkspur, a: AppOn, control: ControlId, d: string): boolean {
   const seed = w.seed;
-  const rate = exceptedOn(w, a.app_id, control, d) ? 6 / 7 : Math.min(0.9, (SCAN_FAIL[control] ?? 0.08) * riskOf(w, a, control));
+  const rate = exceptedOn(w, a.app_id, control, d) ? 6 / 7 : Math.min(0.9, (SCAN_FAIL[control] ?? 0.08) * riskOf(w, a, control, d));
   const block = (x: ControlId) => Math.floor((dayNumber(d) + Math.floor(uniform(seed, a.app_id, x, 'offset') * 14)) / 14);
   const own = uniform(seed, a.app_id, control, 'block', block(control));
   const draw = control === 'backup' ? 0.5 * uniform(seed, a.app_id, 'encryption', 'block', block('encryption')) + 0.5 * own : control === 'waf' ? 0.4 * uniform(seed, a.app_id, 'tls', 'block', block('tls')) + 0.6 * own : own;
@@ -962,7 +1009,9 @@ function cycles(w: Larkspur, a: { app_id: string }, control: ControlId): Cycle[]
   const out = dues.map((due) => {
     // A planted late day: the completions due on it run late at its rate.
     const planted = w.trouble.find((t) => t.kind === 'late' && t.control === control && t.day === due);
-    const late = uniform(seed, a.app_id, control, 'late', due) < (planted && planted.kind === 'late' ? planted.rate : lateRate);
+    // At the planted rate on a planted late day; else the team's, moved by the push or the handover as they stand when it
+    // falls due (ADR 0020 §5).
+    const late = uniform(seed, a.app_id, control, 'late', due) < (planted && planted.kind === 'late' ? planted.rate : Math.min(0.9, lateRate * goldFactor(w, drawOf(w, a.app_id).owner, due, control)));
     const u = uniform(seed, a.app_id, control, 'when', due);
     return { due, done: late ? addDays(due, int(3, 45, u)) : addDays(due, -int(5, 40, u)) };
   });
@@ -1018,7 +1067,12 @@ export function findingsOf(w: Larkspur, a: { app_id: string }): Finding[] {
     if (found < draw.goLive || (draw.retireBy && found >= draw.retireBy)) return;
     const u = (k: string) => uniform(seed, a.app_id, key, k);
     const due = addDays(found, SEVERITY_DAYS[sev]);
-    const fixed = u('late') < lateRate ? addDays(due, int(2, 40, u('late-by'))) : addDays(found, int(2, Math.max(2, SEVERITY_DAYS[sev] - 1), u('fix')));
+    // Late at the team's rate, moved by the push or the handover as they stand when it falls due (ADR 0020 §5).
+    const late = u('late') < Math.min(0.9, lateRate * goldFactor(w, draw.owner, due, 'vuln_sla'));
+    let fixed = late ? addDays(due, int(2, 40, u('late-by'))) : addDays(found, int(2, Math.max(2, SEVERITY_DAYS[sev] - 1), u('fix')));
+    // No fix ships in the freeze: one that would have ships in the week after it.
+    const freeze = w.trouble.find((t) => t.kind === 'freeze');
+    if (freeze && freeze.kind === 'freeze' && fixed >= freeze.day && fixed <= freeze.until) fixed = addDays(freeze.until, int(1, 7, u('thaw')));
     const reopenAt = addDays(fixed, int(10, 40, u('reopen-at')));
     out.push({ id: `F-${a.app_id.slice(4)}-${pad(out.length + 1, 3)}`, app: a.app_id, source, plugin: `VUL-${int(10000, 99999, u('plugin'))}`, cve: `CVE-${found.slice(0, 4)}-${int(10000, 49999, u('cve'))}`, severity: sev, found, due, fixed, reopen: u('reopen') < 0.03 ? { at: reopenAt, fixed: addDays(reopenAt, int(5, 30, u('refix'))) } : null });
   };

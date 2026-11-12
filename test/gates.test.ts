@@ -5,9 +5,11 @@
  * nothing is told; a flow with no gate is judged as it always was.
  */
 import { describe, expect, it } from 'vitest';
+import { plusDays } from '../src/core/calendar.js';
 import { validateDocument, type FlowDocument } from '../src/core/document.js';
-import { CHECK_NAMES, checkOf, gateChecksOf, gated, LAYER_DEFAULTS, resolveGate } from '../src/core/gates.js';
+import { CHECK_NAMES, checkOf, gateChecksOf, gated, LAYER_DEFAULTS, resolveGate, type GateChecks } from '../src/core/gates.js';
 import { HistoryRanges } from '../src/core/history.js';
+import { appendPeriods, emptyHistory, measuresOf, type MeasureSettings, type Measures } from '../src/core/measures.js';
 import { planKind } from '../src/core/manifest.js';
 import { expandNotebooks, stepsOfNotebooks } from '../src/core/notebook.js';
 import { judgeOf, LEGACY_JUDGE, newsOf } from '../src/core/news.js';
@@ -187,5 +189,33 @@ describe('the judges read the gate (Q-114)', () => {
     expect(gated({ key: 'x', kind: 'share', severity: 'alert', score: 1, title: '', detail: '', look: 'columns', acts: [] }, LAYER_DEFAULTS.silver)).toMatchObject({ severity: 'warn', check: 'shares' });
     expect(gated({ key: 'x', kind: 'calm', severity: 'ok', score: 0, title: '', detail: '', look: 'history', acts: [] }, LAYER_DEFAULTS.gold)).toMatchObject({ severity: 'ok' });
     expect(gated({ key: 'x', kind: 'share', severity: 'alert', score: 1, title: '', detail: '', look: 'columns', acts: [] }, LAYER_DEFAULTS.gold)).toBeNull();
+  });
+});
+
+describe('a value back on a few rows, in a gated flow (ADR 0020 slice 4)', () => {
+  /** A small table's day, one row a failure: each business unit's rows. */
+  const day = (d: string, units: Record<string, number>): Measures => {
+    const scan: unknown[][] = [];
+    for (const [u, n] of Object.entries(units)) for (let i = 0; i < n; i++) scan.push([u]);
+    const s: MeasureSettings = { source: 'failing', slot: d, every: 'day', checks: null, counting: null, counted: ['unit'], followed: [], paired: [], time: null, zone: null, sample: 2000 };
+    return measuresOf(s, { file: null, snapshot: 'x', schema: [['unit', 'text']], facts: [scan.length, scan.length, Object.keys(units).length, null, null, null], sample: [], scan, checks: null });
+  };
+  /** Sixty days of three business units, the third emptied after thirty (a reorg moved its teams), then the day it's
+   * back on `back` rows. */
+  const today = plusDays('2024-01-01', 60);
+  const told = (back: number, checks: GateChecks | null) => {
+    const ms: Measures[] = [];
+    for (let i = 0; i < 60; i++) ms.push(day(plusDays('2024-01-01', i), { a: 150 + (i % 7) * 3, b: 140 - (i % 5) * 2, ...(i < 30 ? { c: 30 + (i % 3) } : {}) }));
+    ms.push(day(today, { a: 150, b: 140, c: back }));
+    const start = emptyHistory({ flow: 'f', source: 'failing', settings: { checks: null, counted: ['unit'], followed: [], paired: [], time: null, zone: null, sample: 2000 }, columns: ms[0]!.columns, types: ms[0]!.types, kinds: ms[0]!.kinds, warmup: 3 });
+    const h = new HistoryRanges(appendPeriods(start, ms), { pattern: 'none' });
+    const judge = { ...LEGACY_JUDGE, legacy: false, scale: 'volume' as const, pattern: 'none' as const, checks };
+    return newsOf(h, today, vendorNames, { judge }).find((f) => f.values?.[0] === '"c"');
+  };
+
+  it('tells it as worth knowing under the rows a new value needs to be unusual, unusual from them, and as before without gates', () => {
+    expect(told(3, LAYER_DEFAULTS.silver)).toMatchObject({ kind: 'share', severity: 'note', check: 'shares', rows: 3 });
+    expect(told(20, LAYER_DEFAULTS.silver)).toMatchObject({ kind: 'share', severity: 'warn', check: 'shares' });
+    expect(told(3, null)).toMatchObject({ kind: 'share', severity: 'warn' });
   });
 });

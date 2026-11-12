@@ -24,6 +24,7 @@ import { FILLED_FROM, withoutDisplay, type FlowDocument } from '../core/document
 import type { ContractCounts, DatasetRecord, ExpectationResult, GateResult, ManifestNode, RunManifest, SourceFile, SourceIngestRecord } from '../core/manifest.js';
 import { MANIFEST_FORMAT, manifestHash, ontologyHash, planHash, policiesHash } from '../core/manifest.js';
 import { flowHash, translate } from '../core/plan.js';
+import type { Upstream } from '../core/story.js';
 import { shapeOf } from '../core/optimize.js';
 import type { Column, ColumnType, ExpectNode, FillNode, FlowPlan, PlanNode, TableNode } from '../core/plan.js';
 import { isPublish2, validatePlan, watchesOf } from '../core/plan.js';
@@ -281,6 +282,9 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
         measured.set(donor, { hash: await measuresHash(m), measures: m, settings });
       }
     } else {
+      // What each watched step told says of the day (Q-173), for the steps after it: they are told in the plan's order,
+      // which is the order they are built in.
+      const stepsSaid: Upstream[] = [];
       for (const w of watchesOf(plan.publish)) {
         const table = tables.get(w.node);
         const rec = records.get(w.node);
@@ -300,13 +304,16 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
           }
           // What the page said of each watched source's day (ADR 0014 §2): a finding of the step that repeats a source's
           // is told as following from it.
-          const upstream = (context.claims ?? []).flatMap((c) => (isRecord(c) && typeof c.source === 'string' && typeof c.state === 'string' && typeof c.head === 'string' ? [{ source: c.source, state: c.state, head: c.head }] : []));
+          const upstream: Upstream[] = [...(context.claims ?? []).flatMap((c) => (isRecord(c) && typeof c.source === 'string' && typeof c.state === 'string' && typeof c.head === 'string' ? [{ source: c.source, state: c.state, head: c.head }] : [])), ...stepsSaid];
           // The step's kept rows (ADR 0014 §5): the classifier's today, when a sample is pinned for the step.
           const sampled = pinned(samplePath(n.origin)) ? (await sampleTable(db, table, { keep: SAMPLE_KEEP, strata: settings.counted })).rows : null;
           if (sampled) kept[n.origin] = sampled;
           const told = await tellClaim({ doc: context.doc as FlowDocument, source: n.origin, history: w.history, flow: plan.flow.hash, measures: m, settings, tell, build: commit, upstream, ...(sampled ? { kept: sampled } : {}) });
           if ('problem' in told) untold.set(w.node, told.problem);
-          else engineClaims.push(told.claim);
+          else {
+            engineClaims.push(told.claim);
+            stepsSaid.push({ source: n.origin, state: told.claim.state, head: told.claim.head, said: told.said });
+          }
         }
       }
     }

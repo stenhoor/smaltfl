@@ -30,7 +30,7 @@ import type { SampleFile } from './apart.js';
 import { flowNames, judgeOf, newsOf, type FileFacts } from './news.js';
 import { isPublish2, watchesOf, type ExpectNode, type FlowPlan, type WatchPlan } from './plan.js';
 import { DECIDE_OPTIONS, type DecisionOption } from './policy.js';
-import { storyOf, type Story } from './story.js';
+import { storyOf, type Story, type Upstream } from './story.js';
 
 export { DECIDE, DECIDE_OPTIONS, checkDecision, type DecideOption, type DecisionOption } from './policy.js';
 
@@ -250,16 +250,17 @@ export type FlowFor = Pick<FlowDocument, 'steps' | 'ontology' | 'publish' | 'cal
  * names): leaving incident days out is one browser's choice, not the flow's. It must have the flow's calendar for the
  * source.
  */
-export function flowStory(h: HistoryRanges, day: string, doc: FlowFor, source: string, upstream?: readonly { source: string; state: string; head: string }[], apart?: { sample: SampleFile; today: readonly (readonly unknown[])[] }, file?: FileFacts): Story {
+export function flowStory(h: HistoryRanges, day: string, doc: FlowFor, source: string, upstream?: readonly Upstream[], apart?: { sample: SampleFile; today: readonly (readonly unknown[])[] }, file?: FileFacts): Story {
   if (h.skipped > 0) throw new Error("the flow's verdict learns from every day of the history but those the record leaves out: these ranges leave out days one viewer marked");
   const judge = judgeOf(doc, source);
   if (h.calendar.base !== judge.calendar.base) throw new Error(`the flow judges ${source} by the ${judge.calendar.base} calendar: these ranges were made with ${h.calendar.base}`);
   if (canonicalJSON(h.calendar as never) !== canonicalJSON(judge.calendar as never)) throw new Error(`the flow judges ${source} by its own calendar's days: these ranges were made with other days`);
   if (h.settings !== rangeSettings(rangesFor(doc, source))) throw new Error(`the flow judges ${source} by its watch's pattern and re-learning: these ranges were made with other settings`);
   const names = flowNames(doc, source);
-  // Only the sources this node reads may explain its findings (ADR 0014 §2).
-  const reads = upstream?.length ? new Set([...upstreamSources(doc, source)].map((x) => x.toLowerCase())) : null;
-  const up = reads ? upstream!.filter((u) => reads.has(u.source.toLowerCase())) : undefined;
+  // Only the sources this node reads may explain its findings (ADR 0014 §2), and the watched steps it is built from
+  // (Q-173): a step's own entry says what it said, never this node.
+  const reads = upstream?.length ? new Set([...upstreamSources(doc, source), ...upstreamSteps(doc, source)].map((x) => x.toLowerCase())) : null;
+  const up = reads ? upstream!.filter((u) => reads.has(u.source.toLowerCase()) && u.source.toLowerCase() !== source.toLowerCase()) : undefined;
   return storyOf(h, day, newsOf(h, day, names, { checks: countedChecks(doc, h, source), judge, ...(apart ? { apart } : {}), ...(file ? { file } : {}) }), { names, episode: false, judge, ...(up?.length ? { upstream: up } : {}) });
 }
 
@@ -275,6 +276,20 @@ export function upstreamSources(doc: Pick<FlowDocument, 'steps'>, id: string): S
     const step = doc.steps.find((s) => s.id.toLowerCase() === x.toLowerCase());
     if (!step) out.add(x);
     else stack.push(...step.inputs);
+  }
+  return out;
+}
+
+/** The steps a step is built from, directly or through other steps; never itself. */
+export function upstreamSteps(doc: Pick<FlowDocument, 'steps'>, id: string): Set<string> {
+  const out = new Set<string>();
+  const stack = [...(doc.steps.find((s) => s.id.toLowerCase() === id.toLowerCase())?.inputs ?? [])];
+  while (stack.length) {
+    const x = stack.pop()!;
+    const step = doc.steps.find((s) => s.id.toLowerCase() === x.toLowerCase());
+    if (!step || out.has(step.id)) continue;
+    out.add(step.id);
+    stack.push(...step.inputs);
   }
   return out;
 }
@@ -351,7 +366,7 @@ export interface LoadClaimInput {
   build: string;
   /** For a watched step (ADR 0014 §2): what each watched source upstream of it said of the day, so a finding that
    * repeats a source's is told as following from it. */
-  upstream?: readonly { source: string; state: string; head: string }[];
+  upstream?: readonly Upstream[];
   /** The classifier's rows (ADR 0014 §5): the node's kept sample (its base and the days appended since) and the
    * load's own kept rows. Without them, the classifier is silent. */
   sample?: SampleFile;
@@ -367,7 +382,7 @@ export interface LoadClaimInput {
  * told from it, and a slot inside the base that the base lacks can't be added after it. Null in either case: the run
  * holds the source as not judged.
  */
-export async function loadClaim(o: LoadClaimInput): Promise<{ claim: StoryClaim2; ranges: HistoryRanges; tail: Measures[] } | null> {
+export async function loadClaim(o: LoadClaimInput): Promise<{ claim: StoryClaim2; ranges: HistoryRanges; tail: Measures[]; story: Story } | null> {
   const slot = o.measures.slot;
   const every = o.measures.every;
   const ms = tailBefore(o.tail, slot);
@@ -400,7 +415,7 @@ export async function loadClaim(o: LoadClaimInput): Promise<{ claim: StoryClaim2
     measured: await measuresHash(o.measures), rows: o.measures.rows, skip, levels: claimLevels(levels, slot),
     ...(o.file ? { file: copyFile(o.file) } : {}),
   };
-  return { claim, ranges, tail: ms };
+  return { claim, ranges, tail: ms, story: s };
 }
 
 /** Whether a claim holds under the flow's hold kinds: `wrong` on any day the story says something wrong, `short` only
