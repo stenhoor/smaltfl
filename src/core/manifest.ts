@@ -107,6 +107,12 @@ export interface RunManifest {
   log?: { origin: string; size: number; root: string } | null;
   /** The previous run of this flow in the same database, by manifest hash. */
   previous: string | null;
+  /**
+   * A later delivery of its day (ADR 0021 §2, Q-183): the run it corrects, by manifest hash, and the sources whose files
+   * were sent again. Every output those files reach is held until a decision, whatever its checks say. Absent from every
+   * other run, so their manifests hash as before.
+   */
+  correction?: { of: string; sources: string[] };
 }
 
 /**

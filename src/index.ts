@@ -99,11 +99,11 @@ export type { ParamType, ParamValue } from './core/sqltext.js';
  * with `stage` and `from`, the held run it repairs, its claims the day's and each donor's (ADR 0009 amendment 1 S4):
  * held whatever else holds, until a release of its decision.
  */
-export async function runFlow(db: PluginCaller, doc: FlowDocument, options: { smaltdb: string; parameters?: Readonly<Record<string, ParamValue>>; data?: RunContext['data']; log?: RunContext['log']; claims?: RunContext['claims']; tell?: RunContext['tell']; sources?: RunContext['sources']; stage?: boolean; from?: RunOptions['from']; typed?: boolean }): Promise<RunResult> {
+export async function runFlow(db: PluginCaller, doc: FlowDocument, options: { smaltdb: string; parameters?: Readonly<Record<string, ParamValue>>; data?: RunContext['data']; log?: RunContext['log']; claims?: RunContext['claims']; tell?: RunContext['tell']; sources?: RunContext['sources']; stage?: boolean; from?: RunOptions['from']; correction?: RunOptions['correction']; typed?: boolean }): Promise<RunResult> {
   const plan = await translate(doc, options.parameters ?? {});
   const context: RunContext = { doc, data: options.data ?? null, log: options.log ?? null, ...(options.claims !== undefined ? { claims: options.claims } : {}), ...(options.tell !== undefined ? { tell: options.tell } : {}), ...(options.sources !== undefined ? { sources: options.sources } : {}) };
   const stage = options.stage ? { stage: true, ...(options.from ? { from: options.from } : {}) } : options.from ? { from: options.from } : {};
-  return (await db.callPlugin(PLUGIN_NAME, 'run', [plan, { smaltdb: options.smaltdb, context, ...stage, ...(options.typed ? { typed: true } : {}) }], { lock: true })) as RunResult;
+  return (await db.callPlugin(PLUGIN_NAME, 'run', [plan, { smaltdb: options.smaltdb, context, ...stage, ...(options.correction ? { correction: options.correction } : {}), ...(options.typed ? { typed: true } : {}) }], { lock: true })) as RunResult;
 }
 
 /**

@@ -77,6 +77,7 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
   const plan = structuredClone(input) as FlowPlan;
   const env: KeyEnv = { smaltdb: options.smaltdb, smaltfl: version };
   const stage = stageOf(plan, options);
+  const correction = correctionOf(plan, options);
   ensureStore(db);
   // The flow document, when given, must be the one the plan was translated from: it is kept with the run.
   const context = options.context ?? {};
@@ -259,6 +260,7 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
     data: context.data ?? null,
     log: context.log ?? null,
     previous: typeof previous === 'string' ? previous : null,
+    ...(correction ? { correction } : {}),
   };
   const hash = await manifestHash(manifest);
 
@@ -500,6 +502,23 @@ function stageOf(plan: FlowPlan, options: RunOptions): RunRef | null {
   const f = options.from;
   if (typeof f !== 'object' || f === null || !Number.isSafeInteger(f.run) || typeof f.manifest !== 'string' || !/^[0-9a-f]{64}$/.test(f.manifest)) throw new RunError('a derived run names the held run it repairs: from { run, manifest }');
   return { run: f.run, manifest: f.manifest };
+}
+
+/**
+ * A later delivery of its day (ADR 0021 §2, Q-183), as the manifest keeps it: the run it corrects, by manifest hash, and
+ * the sources whose files were sent again, each a source the plan reads, sorted. Null for a run that corrects none.
+ */
+function correctionOf(plan: FlowPlan, options: RunOptions): RunManifest['correction'] | null {
+  const c = options.correction;
+  if (c === undefined) return null;
+  if (!plan.publish) throw new RunError('a later delivery waits for a decision, and this plan says nothing of what holds it');
+  if (options.stage) throw new RunError('a later delivery is a run of its day, not a derived run');
+  const of = c?.of;
+  if (typeof of !== 'object' || of === null || !Number.isSafeInteger(of.run) || typeof of.manifest !== 'string' || !/^[0-9a-f]{64}$/.test(of.manifest)) throw new RunError('a later delivery names the run it corrects: correction { of: { run, manifest }, sources }');
+  const sources = Array.isArray(c.sources) ? [...new Set(c.sources)].sort() : [];
+  if (!sources.length || sources.some((x) => typeof x !== 'string')) throw new RunError('a later delivery names the sources whose files were sent again');
+  for (const x of sources) if (!plan.nodes.some((n) => n.op === 'table' && n.origin === x)) throw new RunError(`${x} isn't a source the plan reads`);
+  return { of: of.manifest, sources };
 }
 
 /** A donor has its source's columns, with their types (ADR 0009 amendment 1 S4), or its rows can't be taken by name. */

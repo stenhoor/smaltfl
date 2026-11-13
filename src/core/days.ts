@@ -212,6 +212,7 @@ export function heldLoadLine(holds: readonly { by: string; claim?: { state: stri
   const story = holds.find((x) => x.by === 'story')?.claim;
   if (story?.below) return 'Built from a short load';
   if (story) return 'Built from a load with something wrong';
+  if (holds.some((x) => x.by === 'correction')) return 'Built from a later file for its day, waiting for a decision';
   if (holds.some((x) => x.by === 'checks')) return 'Built from a load its checks held';
   if (holds.some((x) => x.by === 'unjudged')) return 'Built from a load not yet judged';
   return null;
