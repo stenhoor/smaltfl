@@ -1,5 +1,5 @@
 {
-  "built": "2026-11-13T17:33:16+00:00",
+  "built": "2026-11-13T18:00:47+00:00",
   "month": "2024-01",
   "sources": {
     "trips": "https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2024-01.parquet",
@@ -141,7 +141,7 @@
     {
       "path": "history.json",
       "bytes": 3581237,
-      "sha256": "f5d4ed1923ead4b0061e4bb24d88b67852ffc7a59b6c044f14d1b422f4588641"
+      "sha256": "6864002f9d9aadcc3a901b1267b561a926c2dce2149c875877568a130f974036"
     },
     {
       "path": "loads/yellow_tripdata_2022-09-10.parquet",
