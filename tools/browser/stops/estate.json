@@ -1,8 +1,13 @@
 [
  {
   "name": "mar06-flow",
-  "what": "Control estate, calm Wed Mar 6: the Flow view as a phone opens it (notebook boxes folded)",
-  "day": "Wed 6"
+  "what": "Control estate, calm Wed Mar 6: the Flow view as a phone opens it (notebook boxes folded); the strip counts the posture, one row an application",
+  "day": "Wed 6",
+  "expect": {
+   "loads": {
+    "Wed 6": "Wed Mar 6: 600 apps"
+   }
+  }
  },
  {
   "name": "mar06-results",
