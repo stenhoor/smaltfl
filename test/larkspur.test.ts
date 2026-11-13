@@ -11,12 +11,13 @@
  * - the findings ledger tells a clean application from one the scanner never reached or couldn't log in to;
  * - the risk register keeps a row a version, an extension keeping the first expiry;
  * - a day at the demo's scale is about 2,400 applications and 25,000 rows;
- * - each bronze day ADR 0020 §5 plants is in its file as the table says, and in no other file that day.
+ * - each bronze day ADR 0020 §5 plants is in its file as the table says, and in no other file that day;
+ * - a file sent again later (ADR 0021 §6) is the file as it should have been, or a doubled one with half its repeats out.
  */
 import { describe, expect, it } from 'vitest';
 import {
   addDays, appliesTo, appsOn, CONTROL, CONTROL_IDS, CONTROLS, csvOf, DAILY_FILES, dayFile, dayFiles, daysFrom, EVIDENCE_FILES, exceptedOn, exportedAt, exportedAtOf, FILE_CONTROL, fixedFiles,
-  findingsOf, goldFactor, larkspur, LARKSPUR_FROM, LARKSPUR_GOLD, LARKSPUR_GOLD_TROUBLE, LARKSPUR_LOADS_FROM, LARKSPUR_PLANTED, LARKSPUR_SILVER, LARKSPUR_SILVER_TROUBLE, LARKSPUR_TROUBLE, leaderOf, LEVELS, orgOn, ownedOn, patchTuesday, PLATFORMS, rawStatus, REQUIREMENTS, SEVERITY_DAYS, vulnOn,
+  findingsOf, goldFactor, larkspur, LARKSPUR_FROM, LARKSPUR_GOLD, LARKSPUR_GOLD_TROUBLE, LARKSPUR_LOADS_FROM, LARKSPUR_PLANTED, LARKSPUR_SILVER, LARKSPUR_SILVER_TROUBLE, LARKSPUR_TROUBLE, leaderOf, LEVELS, orgOn, ownedOn, patchTuesday, PLATFORMS, rawStatus, REQUIREMENTS, sentAgain, SEVERITY_DAYS, vulnOn,
   type AppOn, type Cell, type DailyFile, type Table,
 } from './fixtures/larkspur.js';
 
@@ -818,5 +819,66 @@ describe('the planted days gold catches, over the month (ADR 0020 §5, slice 4)'
     expect(dayFile(gold, 'findings', addDays(G.freeze, -1))).toEqual(dayFile(noFreeze, 'findings', addDays(G.freeze, -1)));
     const open = (t: Table) => t.rows.filter((r) => ['active', 're-opened', 'new'].includes(String(r[t.columns.indexOf('status')]).toLowerCase())).length;
     expect(open(dayFile(gold, 'findings', G.freezeUntil))).toBeGreaterThan(open(dayFile(noFreeze, 'findings', G.freezeUntil)) + 20);
+  });
+});
+
+describe('a day’s file sent again (ADR 0021 §6, Q-194, Q-195)', () => {
+  const P = LARKSPUR_PLANTED;
+  const all = [...LARKSPUR_TROUBLE, ...LARKSPUR_SILVER_TROUBLE, ...LARKSPUR_GOLD_TROUBLE];
+  /** The estate as it would have been with nothing wrong with the file that day: what a right file sent again is. */
+  const without = (file: DailyFile, d: string) => larkspur({ apps: 650, trouble: all.filter((t) => !(t.day === d && t.file === file)) });
+  const key = (t: Table, n = 1) => t.rows.map((r) => r.slice(0, n).join('|'));
+
+  it('sends a file right: the MFA file with its rows, the backup file of its own day, the logging file with its column', () => {
+    expect(dayFile(gold, 'mfa', P.empty).rows).toHaveLength(0);
+    const mfa = sentAgain(gold, 'mfa', P.empty);
+    expect(mfa).toEqual(dayFile(without('mfa', P.empty), 'mfa', P.empty));
+    expect(mfa.rows.length).toBeGreaterThan(100);
+    // The stale backup file was Tuesday's again; the one sent again is Wednesday's own.
+    const backup = sentAgain(gold, 'backup_jobs', P.stale);
+    expect(dayFile(gold, 'backup_jobs', P.stale)).toEqual(dayFile(gold, 'backup_jobs', addDays(P.stale, -1)));
+    expect(backup).toEqual(dayFile(without('backup_jobs', P.stale), 'backup_jobs', P.stale));
+    expect(backup).not.toEqual(dayFile(gold, 'backup_jobs', addDays(P.stale, -1)));
+    const logging = sentAgain(gold, 'logging_coverage', P.column);
+    expect(dayFile(gold, 'logging_coverage', P.column).columns).not.toContain('retention_days');
+    expect(logging.columns).toContain('retention_days');
+    expect(logging).toEqual(dayFile(without('logging_coverage', P.column), 'logging_coverage', P.column));
+  });
+
+  it('sends the doubled TLS file twice: half its repeats out, still wrong; then each row once', () => {
+    const right = sentAgain(gold, 'tls', P.double);
+    expect(right).toEqual(dayFile(without('tls', P.double), 'tls', P.double));
+    expect(new Set(key(right)).size).toBe(right.rows.length);
+    expect(dayFile(gold, 'tls', P.double).rows).toHaveLength(2 * right.rows.length);
+    const half = sentAgain(gold, 'tls', P.double, 'half');
+    expect(half.rows).toHaveLength(right.rows.length + Math.ceil(right.rows.length / 2));
+    expect(new Set(key(half))).toEqual(new Set(key(right)));
+  });
+
+  it('sends the HR extract of Mon 18 right: the dropped department’s teams under its sibling that day, as from Tue 19', () => {
+    const ds = gold.planted.dissolved!;
+    const d = LARKSPUR_SILVER.dissolve;
+    expect(ds.day).toBe(d);
+    const parents = (t: Table) => new Map(t.rows.map((r) => [String(r[col(t, 'org_unit_id')]), String(r[col(t, 'parent_id')])]));
+    const first = parents(dayFile(gold, 'hr_org_units', d));
+    const again = parents(sentAgain(gold, 'hr_org_units', d));
+    const teams = gold.units.filter((u) => u.parent === ds.unit).map((u) => u.id);
+    expect(teams.length).toBeGreaterThan(0);
+    // As it arrived, its teams named a department the extract no longer listed; sent again, its sibling.
+    for (const t of teams) {
+      expect(first.get(t)).toBe(ds.unit);
+      expect(again.get(t)).toBe(ds.sibling);
+    }
+    expect(again.has(ds.unit)).toBe(false);
+    expect([...again.values()].every((p) => p === '' || again.has(p))).toBe(true);
+    expect([...first.values()].every((p) => p === '' || first.has(p))).toBe(false);
+    // Every other unit as it arrived.
+    for (const [u, p] of first) if (!teams.includes(u)) expect(again.get(u)).toBe(p);
+  });
+
+  it('has nothing to send again for a file that was fine, or one drawn as it was that day', () => {
+    expect(() => sentAgain(gold, 'mfa', addDays(P.empty, 1))).toThrow(/nothing was wrong/);
+    expect(() => sentAgain(gold, 'waf', P.monitor)).toThrow(/drawn as it was/);
+    expect(() => sentAgain(gold, 'mfa', P.empty, 'half')).toThrow(/wasn't doubled/);
   });
 });

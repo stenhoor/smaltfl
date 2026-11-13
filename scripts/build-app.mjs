@@ -199,7 +199,8 @@ if (days.length) {
   if (!cached) {
     rmSync(work, { recursive: true, force: true });
     mkdirSync(work, { recursive: true });
-    execFileSync('node', [bind.generate, work, ...(bind.generateArgs ?? [])], { stdio: 'inherit' });
+    // The recorded story's later deliveries are written by the generator too (ADR 0021 §6).
+    execFileSync('node', [bind.generate, work, ...(bind.generateArgs ?? []), ...(bind.story ? ['--story', bind.story] : [])], { stdio: 'inherit' });
   }
   // One history a watch (ADR 0013 §5): a control's from its own files (base.<watch>.json, else base.json), a watched
   // step's from a run of the flow on each day's files.
@@ -260,7 +261,8 @@ if (days.length) {
     }
     // The month recorded (ADR 0021 §6): every loads day run in order as the page runs one, each run recorded as the page
     // records one, at the story's time; the page draws the month from it and layers it under its own record.
-    if (watches.length) execFileSync('node', ['scripts/data/record.mjs', '--flow', flowPath, '--work', work, '--build', commit, join(work, 'month.json')], { stdio: 'inherit' });
+    // With a story, its deliveries and decisions too, at their times.
+    if (watches.length) execFileSync('node', ['scripts/data/record.mjs', '--flow', flowPath, '--work', work, '--build', commit, ...(bind.story ? ['--story', bind.story] : []), join(work, 'month.json')], { stdio: 'inherit' });
     // A run that ended without writing its history is a broken build, never a finished one the next build reuses.
     const unwritten = watches.filter((w) => !existsSync(join(work, historyName(w))));
     if (unwritten.length) throw new Error(`no history written for ${unwritten.join(', ')}: ${work} is left unfinished, and is made again`);
@@ -306,7 +308,12 @@ if (days.length) {
         // The history's last file of the source, the first load's previous (Q-172), by its sha256: never shipped.
         const prior = made.before?.[id];
         const before = prior ? { before: { day: prior.slot, sha256: sha256(readFileSync(prior.file)) } } : {};
-        sources[id] = { ...b, from: bind.generate, loads: list, donors: [], ...before };
+        // The story's later deliveries of the source's days (ADR 0021 §6), each a version of its day, shipped beside it.
+        const deliveries = (made.deliveries ?? []).filter((x) => x.source === id).map((x) => {
+          const e = entry(`loads/${basename(x.file)}`, readFileSync(x.file), bind.generate);
+          return { slot: x.day, n: x.n, file: e.path, rows: x.rows, sha256: e.sha256, bytes: e.bytes, ...(x.exported_at ? { exported_at: x.exported_at } : {}), arrived: x.arrived, why: x.why };
+        });
+        sources[id] = { ...b, from: bind.generate, loads: list, donors: [], ...before, ...(deliveries.length ? { deliveries } : {}) };
       }
     }
     days = made.loads.length;

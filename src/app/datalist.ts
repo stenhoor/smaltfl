@@ -21,6 +21,14 @@ export interface Listed {
   files?: Record<string, Listed>;
 }
 
+/** A later delivery of a day's file (ADR 0021 §2, §6): its number that day, in the order they arrived; when it arrived
+ * and why it was sent. */
+export interface Delivered extends Listed {
+  n: number;
+  arrived: string;
+  why: string;
+}
+
 /** A fixed file's entry: where the page fetches it, the sha256 and size the list gives, and where it came from. */
 export type FileEntry = Expected & { path: string };
 
@@ -32,6 +40,8 @@ export interface ListedSource extends Binding {
   /** The file of the last day before the loads, the history's last (ADR 0020 §2): what the first load's `fresh` is
    * told against. */
   before?: { day: string; sha256: string };
+  /** Its days' files sent again later (ADR 0021 §2): each a version of its day. */
+  deliveries?: Delivered[];
 }
 
 /** A data list, read. */
@@ -94,6 +104,8 @@ const postureOf = (v: unknown): PostureProduct | undefined => {
 type RawLoad = { day?: string; slot?: string; file: string; sha256: string; bytes?: number; rows: number; exported_at?: string; exported?: string };
 const listedOf = (l: RawLoad): Listed => ({ day: l.slot ?? l.day ?? '', file: l.file, sha256: l.sha256, ...(l.bytes !== undefined ? { bytes: l.bytes } : {}), rows: l.rows, ...((l.exported_at ?? l.exported) ? { exported: (l.exported_at ?? l.exported)! } : {}) });
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+const deliveredOf = (l: RawLoad & { n?: unknown; arrived?: unknown; why?: unknown }): Delivered | null =>
+  Number.isInteger(l.n) && typeof l.arrived === 'string' && typeof l.why === 'string' ? { ...listedOf(l), n: l.n as number, arrived: l.arrived, why: l.why } : null;
 
 /**
  * A loads.json read: format 2 as it says; format 1 bound by the example's bindings (`fallback`), each of its files found
@@ -107,7 +119,8 @@ export function readDataList(raw: unknown, fallback: DataBindings): DataList {
     const sources: Record<string, ListedSource> = {};
     for (const [id, s] of Object.entries((index.sources ?? {}) as Record<string, Record<string, unknown>>)) {
       const before = isRecord(s.before) && typeof s.before.day === 'string' && typeof s.before.sha256 === 'string' ? { day: s.before.day, sha256: s.before.sha256 } : null;
-      sources[id] = { ...(s as unknown as Binding), ...(s.entry ? { entry: s.entry as FileEntry } : {}), ...(Array.isArray(s.loads) ? { loads: (s.loads as RawLoad[]).map(listedOf) } : {}), ...(Array.isArray(s.donors) ? { donors: (s.donors as RawLoad[]).map(listedOf) } : {}), ...(before ? { before } : {}) };
+      const deliveries = Array.isArray(s.deliveries) ? (s.deliveries as RawLoad[]).flatMap((l) => deliveredOf(l) ?? []) : [];
+      sources[id] = { ...(s as unknown as Binding), ...(s.entry ? { entry: s.entry as FileEntry } : {}), ...(Array.isArray(s.loads) ? { loads: (s.loads as RawLoad[]).map(listedOf) } : {}), ...(Array.isArray(s.donors) ? { donors: (s.donors as RawLoad[]).map(listedOf) } : {}), ...(before ? { before } : {}), ...(deliveries.length ? { deliveries } : {}) };
     }
     const histories = (index.histories ?? {}) as Record<string, FileEntry>;
     const samples = (isRecord(index.samples) ? index.samples : {}) as Record<string, FileEntry>;
@@ -177,6 +190,22 @@ export function namedFiles(list: DataList): { path: string; sha256: string; byte
   // branch's: it is checked against loads.json's entry when it is read, not against MANIFEST.json. So are the types
   // computed ahead (ADR 0019 amendment 2), which the build makes from it.
   const fixed = Object.entries(list.files).filter(([k]) => k !== 'flow' && k !== 'types' && k !== 'recorded').map(([, f]) => ({ path: f.from ?? f.path, sha256: f.sha256, bytes: f.bytes }));
-  const days = [...list.loads, ...list.episodes.flatMap((e) => e.loads), ...list.donors].flatMap((l) => (l.files ? Object.values(l.files) : [l])).map((l) => ({ path: l.file, sha256: l.sha256, bytes: l.bytes ?? -1 }));
+  const days = [...list.loads, ...list.episodes.flatMap((e) => e.loads), ...list.donors, ...Object.values(list.sources).flatMap((s) => s.deliveries ?? [])].flatMap((l) => (l.files ? Object.values(l.files) : [l])).map((l) => ({ path: l.file, sha256: l.sha256, bytes: l.bytes ?? -1 }));
   return [...fixed, ...days];
+}
+
+/** A day's later deliveries (ADR 0021 §2), every source's, in the order they arrived. */
+export function deliveriesOf(list: Pick<DataList, 'sources'>, day: string): (Delivered & { source: string })[] {
+  return Object.entries(list.sources).flatMap(([source, s]) => (s.deliveries ?? []).filter((d) => d.day === day).map((d) => ({ ...d, source }))).sort((a, b) => a.n - b.n);
+}
+
+/**
+ * A day's versions (ADR 0021 §2): its first files, by source, then the files as each later delivery left them, the file
+ * sent again in its source's place. Version v is `versions[v - 1]`.
+ */
+export function versionsOfDay(load: Pick<Listed, 'files'> & Listed, deliveries: readonly (Delivered & { source: string })[]): Record<string, Listed>[] {
+  const first: Record<string, Listed> = load.files ? { ...load.files } : {};
+  const out = [first];
+  for (const d of deliveries) out.push({ ...out.at(-1)!, [d.source]: d });
+  return out;
 }

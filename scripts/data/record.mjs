@@ -1,7 +1,7 @@
 // Runs scripts/data/record.ts: bundles it for Node with esbuild (the smaltdb packages stay in node_modules), then runs
 // the bundle, which records a generated flow's month (ADR 0021 §6).
 //
-//   node scripts/data/record.mjs --flow DOC --work DIR --build COMMIT [--bind DATA.json] OUT.json
+//   node scripts/data/record.mjs --flow DOC --work DIR --build COMMIT [--bind DATA.json] [--story STORY.json] OUT.json
 import { build } from 'esbuild';
 import { readFileSync, rmSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';

@@ -1262,6 +1262,34 @@ export function exportedAtOf(w: Larkspur, file: DailyFile, d: string): string {
   return w.trouble.some((t) => t.day === d && t.file === file && t.kind === 'stale') ? exportedAtOf(w, file, addDays(d, -1)) : exportedAt(file, d);
 }
 
+/** How a day's file is sent again (ADR 0021 §6): as it should have been, or a doubled file with half its repeats out. */
+export type SentAgain = 'right' | 'half';
+/** The trouble a file sent again can take out: what was done to the file as drawn, and the department dropped without
+ * its teams. What is drawn into the file itself (an ingress in monitor mode, a controller down) was so that day. */
+const SENDS_AGAIN = new Set<Trouble['kind']>(['empty', 'double', 'capitals', 'column', 'stale', 'dissolve']);
+
+/**
+ * A day's file sent again, later (ADR 0021 §6, Q-194, Q-195): `right`, as it should have been, the day's trouble on the
+ * file taken out (a stale file drawn for its own day, an empty one with its rows, a doubled one once, its column back,
+ * capitals as written; the dropped department's teams under its sibling on its day, as the extract reads them from the
+ * day after); `half`, a doubled file with every other repeated row taken out. A file nothing was wrong with on its day,
+ * or one whose trouble was drawn into it, has nothing to send again.
+ */
+export function sentAgain(w: Larkspur, file: DailyFile, d: string, how: SentAgain = 'right'): Table {
+  const planted = w.trouble.filter((t) => t.day === d && t.file === file);
+  if (!planted.length) throw new Error(`nothing was wrong with ${file} on ${d}: there is nothing to send again`);
+  const drawn = planted.filter((t) => !SENDS_AGAIN.has(t.kind));
+  if (drawn.length) throw new Error(`${file} on ${d} was drawn as it was (${drawn.map((t) => t.kind).join(', ')}): sending it again changes nothing`);
+  if (how === 'half') {
+    if (!planted.some((t) => t.kind === 'double')) throw new Error(`${file} on ${d} wasn't doubled: there are no repeats to take half of out`);
+    const { columns, rows } = drawnFile(w, file, d, []);
+    return { columns, rows: [...rows, ...rows.filter((_, i) => i % 2 === 0).map((r) => [...r])] };
+  }
+  const ds = w.planted.dissolved;
+  const moved: Larkspur = planted.some((t) => t.kind === 'dissolve') && ds ? { ...w, planted: { ...w.planted, dissolved: { ...ds, day: addDays(ds.day, -1) } } } : w;
+  return drawnFile(moved, file, d, []);
+}
+
 function drawnFile(w: Larkspur, file: DailyFile, d: string, planted: readonly Trouble[]): Table {
   const columns = columnsOf(file);
   const rows: Cell[][] = [];

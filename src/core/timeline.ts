@@ -11,12 +11,17 @@ import { DECIDE_OPTIONS, type DecisionOption } from './policy.js';
 
 export const STORY_FORMAT = 'smaltfl-story/1';
 
-/** A later delivery of a day's file: the day it covers, the source whose file it is, when it arrived and why. */
+/**
+ * A later delivery of a day's file: the day it covers, the source whose file it is, when it arrived and why. `variant`
+ * is what the flow's generator draws for it (Larkspur's: `right`, the default, the file as it should have been, or
+ * `half`, a doubled file with half its repeats out), for a generated example; a delivery of real data has none.
+ */
 export interface Delivery {
   day: string;
   file: string;
   at: string;
   why: string;
+  variant?: string;
 }
 
 /**
@@ -64,6 +69,7 @@ export function storyProblems(v: unknown, o: { sources?: readonly string[]; prin
     if (typeof d.file !== 'string' || !d.file) out.push(`${at}: it names its file's source`);
     else if (o.sources && !o.sources.includes(d.file)) out.push(`${at}: ${d.file} isn't a source of the flow`);
     if (typeof d.why !== 'string' || !d.why.trim()) out.push(`${at}: it says why it was sent`);
+    if (d.variant !== undefined && (typeof d.variant !== 'string' || !d.variant)) out.push(`${at}: its variant is a name`);
   });
   decisions.forEach((d, i) => {
     const at = `decision ${i + 1}`;

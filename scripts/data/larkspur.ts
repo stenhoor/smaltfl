@@ -5,7 +5,7 @@
  * through, March 2024.
  *
  *   node scripts/data/larkspur.mjs OUT_DIR [--from 2023-09-01] [--steps-from 2024-01-19] [--base-to 2024-02-29]
- *        [--to 2024-03-31] [--apps 2600] [--seed 7]
+ *        [--to 2024-03-31] [--apps 2600] [--seed 7] [--story examples/larkspur/story.json]
  *
  * Writes OUT_DIR/fixed/<file>.csv (platforms, platform_links), OUT_DIR/days/<file>_<day>.csv and:
  * - OUT_DIR/base.json, each file's history: `[{ slot, files: { <file>: path, … } }]` from `--from`, six months, every
@@ -14,11 +14,16 @@
  * - OUT_DIR/base.steps.json, the watched steps': the same from `--steps-from`, six weeks (each day a run of the flow);
  * - OUT_DIR/loads.json, the app's loads: `{ fixed: { <file>: path }, loads: [{ slot, files: { <file>: { file, rows,
  *   exported_at } } }], before: { <file>: { slot, file } } }`, each file's export time said beside it, never in its
- *   rows (ADR 0015 amendment 5), and `before` the history's last file of each, the first load's previous (Q-172).
+ *   rows (ADR 0015 amendment 5), and `before` the history's last file of each, the first load's previous (Q-172);
+ *   with `--story`, `deliveries` too: each later delivery the story tells of a loads day's file (ADR 0021 §6), drawn by
+ *   the fixture (`sentAgain`) and written as OUT_DIR/days/<file>_<day>.v<k>.csv (its k-th version that day, the first
+ *   file being the first), `[{ day, n, source, file, rows, exported_at, arrived, why }]`, `n` its number that day in the
+ *   order they arrived, exported as it was sent.
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { csvOf, DAILY_FILES, dayFile, exportedAtOf, fixedFiles, larkspur, larkspurDays, LARKSPUR_TO } from '../../test/fixtures/larkspur.js';
+import { storyProblems, timelineOf, type StoryFile } from '../../src/core/timeline.js';
+import { csvOf, DAILY_FILES, dayFile, exportedAtOf, fixedFiles, larkspur, larkspurDays, LARKSPUR_TO, sentAgain, type DailyFile, type SentAgain } from '../../test/fixtures/larkspur.js';
 
 const args = process.argv.slice(2);
 const flag = (name: string, fallback: string) => {
@@ -26,7 +31,7 @@ const flag = (name: string, fallback: string) => {
   return at >= 0 ? args[at + 1]! : fallback;
 };
 const out = args.find((a, i) => !a.startsWith('--') && !args[i - 1]?.startsWith('--'));
-if (!out) throw new Error('usage: node scripts/data/larkspur.mjs OUT_DIR [--from DAY] [--steps-from DAY] [--base-to DAY] [--to DAY] [--apps N] [--seed N]');
+if (!out) throw new Error('usage: node scripts/data/larkspur.mjs OUT_DIR [--from DAY] [--steps-from DAY] [--base-to DAY] [--to DAY] [--apps N] [--seed N] [--story STORY.json]');
 const from = flag('from', '2023-09-01');
 const stepsFrom = flag('steps-from', '2024-01-19');
 const baseTo = flag('base-to', '2024-02-29');
@@ -63,8 +68,28 @@ for (const day of larkspurDays(from, to)) {
 }
 const last = base.at(-1)!;
 const before = Object.fromEntries(DAILY_FILES.map((name) => [name, { slot: last.slot, file: last.files[name]! }]));
+// The story's later deliveries (ADR 0021 §6): each a loads day's file sent again, numbered within its day as it arrived.
+const deliveries: { day: string; n: number; source: string; file: string; rows: number; exported_at: string; arrived: string; why: string }[] = [];
+const storyPath = args.includes('--story') ? flag('story', '') : '';
+if (storyPath) {
+  const story = JSON.parse(readFileSync(storyPath, 'utf8')) as StoryFile;
+  const problems = storyProblems(story, { sources: [...DAILY_FILES] });
+  if (problems.length) throw new Error(`${storyPath}: ${problems.join('; ')}`);
+  const versions = new Map<string, number>();
+  for (const e of timelineOf([], () => '', story)) {
+    if (e.kind !== 'delivery') continue;
+    const { day, file, at, why, variant } = e.delivery;
+    if (!loads.some((l) => l.slot === day)) throw new Error(`${storyPath}: ${file} is sent again for ${day}, which isn't a loads day (${loads[0]?.slot} to ${to})`);
+    const t = sentAgain(w, file as DailyFile, day, (variant ?? 'right') as SentAgain);
+    const k = (versions.get(`${file}|${day}`) ?? 1) + 1;
+    versions.set(`${file}|${day}`, k);
+    const path = resolve(out, 'days', `${file}_${day}.v${k}.csv`);
+    writeFileSync(path, csvOf(t.columns, t.rows));
+    deliveries.push({ day, n: e.n, source: file, file: path, rows: t.rows.length, exported_at: new Date(Date.parse(at)).toISOString().replace('.000Z', 'Z'), arrived: new Date(Date.parse(at)).toISOString(), why });
+  }
+}
 writeFileSync(join(out, 'base.json'), JSON.stringify(base));
 writeFileSync(join(out, 'base.steps.json'), JSON.stringify(base.filter((b) => b.slot >= stepsFrom)));
-writeFileSync(join(out, 'loads.json'), JSON.stringify({ fixed, loads, before }));
+writeFileSync(join(out, 'loads.json'), JSON.stringify({ fixed, loads, before, ...(deliveries.length ? { deliveries } : {}) }));
 const days = base.length + loads.length;
-console.log(`${out}: ${days} days (${from} to ${to}), ${DAILY_FILES.length} files a day and ${Object.keys(fixed).length} fixed; ${base.length} days for the files' histories and ${base.filter((b) => b.slot >= stepsFrom).length} for the steps' (to ${baseTo}), ${loads.length} loads; ${Math.round(rows / days)} rows and ${(bytes / days / 1e6).toFixed(2)} MB a day, ${(bytes / 1e6).toFixed(0)} MB in all, in ${((Date.now() - started) / 1000).toFixed(0)} s`);
+console.log(`${out}: ${days} days (${from} to ${to}), ${DAILY_FILES.length} files a day and ${Object.keys(fixed).length} fixed; ${base.length} days for the files' histories and ${base.filter((b) => b.slot >= stepsFrom).length} for the steps' (to ${baseTo}), ${loads.length} loads${deliveries.length ? ` and ${deliveries.length} later deliveries` : ''}; ${Math.round(rows / days)} rows and ${(bytes / days / 1e6).toFixed(2)} MB a day, ${(bytes / 1e6).toFixed(0)} MB in all, in ${((Date.now() - started) / 1000).toFixed(0)} s`);

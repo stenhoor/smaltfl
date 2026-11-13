@@ -4,7 +4,7 @@
  * bindings. Either way the page and the real-data tests get one shape.
  */
 import { describe, expect, it } from 'vitest';
-import { namedFiles, readDataList } from '../src/app/datalist.js';
+import { deliveriesOf, namedFiles, readDataList, versionsOfDay } from '../src/app/datalist.js';
 import { ddlOf, donorBinding, EXAMPLE_DATA, pinnedDdl } from '../examples/sources.js';
 
 const SHA = (c: string) => c.repeat(64);
@@ -66,6 +66,28 @@ describe('readDataList', () => {
     expect(list.files.apps).toBeDefined();
     // Every file of every day is in the list to check: each source's.
     expect(namedFiles(list).map((f) => f.path)).toEqual(['apps.csv', 'history.tls.json', 'history.tls.json', 'history.mfa.json', 'history.posture.json', 'loads/tls_2024-03-04.csv', 'loads/tls_2024-03-05.csv', 'loads/mfa_2024-03-05.csv']);
+  });
+
+  it('reads a day’s files sent again later, each a version of the day: the first files, then each delivery in its place (ADR 0021 §2)', () => {
+    const l = (id: string, slot: string, c: string, v = '') => ({ slot, file: `loads/${id}_${slot}${v}.csv`, sha256: SHA(c), bytes: 1, rows: 400 });
+    const list = readDataList({
+      format: 2, data: null, flow: null,
+      sources: {
+        tls: { table: 'tls_file', format: 'csv', file: 'tls.csv', header: true, loads: [l('tls', '2024-03-21', 'a')], donors: [], deliveries: [
+          { ...l('tls', '2024-03-21', 'c', '.v3'), n: 2, exported_at: '2024-03-22T03:30:00Z', arrived: '2024-03-22T03:30:00.000Z', why: 'every certificate once' },
+          { ...l('tls', '2024-03-21', 'b', '.v2'), n: 1, arrived: '2024-03-21T14:10:00.000Z', why: 'repeats taken out' },
+          { ...l('tls', '2024-03-21', 'x', '.v9'), n: 'one', why: 'not a delivery' },
+        ] },
+        mfa: { table: 'mfa_file', format: 'csv', file: 'mfa.csv', header: true, loads: [l('mfa', '2024-03-21', 'm')], donors: [] },
+      },
+      histories: {}, episodes: [],
+    }, EXAMPLE_DATA);
+    const ds = deliveriesOf(list, '2024-03-21');
+    expect(ds.map((d) => [d.source, d.n, d.file, d.exported ?? null, d.why])).toEqual([['tls', 1, 'loads/tls_2024-03-21.v2.csv', null, 'repeats taken out'], ['tls', 2, 'loads/tls_2024-03-21.v3.csv', '2024-03-22T03:30:00Z', 'every certificate once']]);
+    expect(deliveriesOf(list, '2024-03-22')).toEqual([]);
+    const vs = versionsOfDay(list.loads[0]!, ds);
+    expect(vs.map((v) => [v.tls!.sha256, v.mfa!.sha256])).toEqual([[SHA('a'), SHA('m')], [SHA('b'), SHA('m')], [SHA('c'), SHA('m')]]);
+    expect(namedFiles(list).map((f) => f.path)).toContain('loads/tls_2024-03-21.v3.csv');
   });
 });
 
