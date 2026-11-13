@@ -3,6 +3,14 @@
   "flow": "larkspur",
   "generate": "scripts/data/larkspur.mjs",
   "judged": "effective",
+  "posture": {
+    "title": "Control Posture v1",
+    "units": "org_posture",
+    "org": "dim_org",
+    "apps": "app_scorecard",
+    "owners": "dim_app",
+    "queue": "remediation_queue"
+  },
   "sources": {
     "hr_org_units": {
       "table": "hr_org_units_file",
