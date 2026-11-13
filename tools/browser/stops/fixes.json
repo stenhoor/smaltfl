@@ -93,7 +93,7 @@
   },
   {
     "name": "fixes-replace-published",
-    "what": "The corrected file published as is, with a reason: readers now see Fri 15 as re-sent",
+    "what": "The corrected file published as is, with a reason: readers now see Fri 15 as re-sent, and the day is told from the version they got, a normal Friday, not the empty first file (ADR 0021 §1)",
     "day": "Fri 15",
     "clicks": [
       ".vf-decide-day",
@@ -107,11 +107,13 @@
         "Published as is"
       ],
       "noPageText": [
-        "refused"
+        "refused",
+        "Almost no sign-ins"
       ],
       "loads": {
         "Fri 15": ", published as is"
-      }
+      },
+      "status": "A normal Friday"
     }
   }
 ]

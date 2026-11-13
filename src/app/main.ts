@@ -29,7 +29,7 @@ import { writtenRules, CHECK_MODES, CHECK_NAMES, CHECK_SAID, checkOf, gateChecks
 import { toggleCheck } from '../core/gatecell.js';
 import { calendarHead, heldLoadLine, dayMid, dayShort, guessWords, judgedWords, lacked, MARK as REMEDY_MARK, noRowsBefore, reachLabel, readersOf as readersHad, readersSee, rowsFrom, shortfall, shownRun, stagedBar, stoppedLine as stoppedWords, toldLine, type DayState, type EpisodeDay, type KeptMark, type PauseState, type RemedyMark } from '../core/days.js';
 import { UNTIL, afterLine, betweenLine, dayPausedLine, daySentence, decidedLines, decisionDrawing, donorPicked, failLine, goShown, heldLine, outputPausedLine, passedLine, pausedChecks, pauseLines, pauseReasons, pickFails, receiptLines, remedyHead, ribbonOf, runFigures, sheetText, versionLines, checksSeen, filesSeen, findingOf, type RunSight, type AfterPart, type KeptLacks, type RemedySaid, type SheetIn, type SheetPick, type SheetText, type Sight } from '../core/decision.js';
-import { contractSaid, countedChecks, rangesFor, dayClaim, dayState, flowStory, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, upstreamSteps, tailPath, type Claim, decisionFor, decisionForLoad, standingForLoad, heldLoadsOf, dayPauseOfLoads, loadDecisions, keysForLoads, loadKey, loadsOf, byLoad, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, lastPublished, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
+import { contractSaid, countedChecks, rangesFor, dayClaim, dayState, flowStory, learnedMeasures, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, upstreamSteps, tailPath, type Claim, decisionFor, decisionForLoad, standingForLoad, heldLoadsOf, dayPauseOfLoads, loadDecisions, keysForLoads, loadKey, loadsOf, byLoad, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, lastPublished, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
 import { checkAgainst as againstRecord, endOfDay, gridOf as monthGrid, isMonthFile, knownOn, layered, monthOf, runDay, runsByDay, type CellState, type DayState as MonthState, type GridRow as MonthRow, type MonthDay, type MonthFile, type RecordCheck, type RunAbout } from '../core/month.js';
 import { dayVersions, donorIdOf, fillCounts, levelOf as acceptedLevel, levelWays, partLabel as remedyPart, type Offer, type Repair, type Version } from '../core/fill.js';
 import { gridOf, shadeOf, shareOf, standOut } from './grid.js';
@@ -3488,7 +3488,7 @@ function rangesForLoad(id: string): HistoryRanges | null {
   const tail = tailBefore(tails.get(id) ?? [], '\uffff');
   const skips = recordedSkips();
   const levels = levelsOf(allEntries(), id);
-  const key = JSON.stringify([tail.map((m) => m.slot), skips, levels, givens.has(id)]);
+  const key = JSON.stringify([tail.map((m) => `${m.slot}:${m.snapshot}`), skips, levels, givens.has(id)]);
   const known = otherRanges.get(id);
   if (known && known.key === key) return known.h;
   let h: HistoryRanges;
@@ -11365,13 +11365,11 @@ function addToTail(m: Measures): boolean {
   tails.set(m.source, [...tail, m]);
   return true;
 }
-/** The tails again, from the record's run entries (their `measures`), as they arrived. */
+/** The tails again, from the record's run entries (their `measures`): each slot as readers got it, a correction once it
+ * is published, else as it first arrived (ADR 0021 §1, core/hold.ts learnedMeasures). */
 function rebuildTails(): void {
   tails.clear();
-  for (const e of allEntries()) {
-    const a = e.about as { outcome?: string; measures?: Measures[] } | null;
-    if (e.kind === 'run' && (a?.outcome === 'ok' || a?.outcome === 'held') && Array.isArray(a.measures)) for (const m of a.measures) addToTail(m);
-  }
+  for (const m of learnedMeasures<Measures>(allEntries())) addToTail(m);
 }
 /** The days the record leaves out of learning (ADR 0010 §5, C5, Q-80): held and not published as is. */
 const recordedSkips = (): string[] => skipOf(allEntries(), periodOfFlow());
@@ -11388,7 +11386,7 @@ function refreshRanges(): void {
   // The levels accepted (ADR 0010 §5, C6): from each, the metrics it names are learned anew, in the flow's verdict and
   // in what this browser shows.
   const levels = levelsOf(allEntries(), source);
-  const key = JSON.stringify([tail.map((m) => m.slot), skips, levels, givens.has(source)]);
+  const key = JSON.stringify([tail.map((m) => `${m.slot}:${m.snapshot}`), skips, levels, givens.has(source)]);
   if (key === rangesKey && flowHistory) return;
   rangesKey = key;
   const file = tail.length ? appendPeriods(baseHistory, tail) : baseHistory;
@@ -12356,6 +12354,12 @@ async function release(r: RunRecord, decision: RecordEntry, keys: Record<string,
   noteShown(r, out.published);
   const about: ReleaseAbout = { run: r.result.run, manifest: r.result.hash, outputs: keys, decision: decision.seq, ...(cited.length ? { decisions: cited.map((d) => d.seq) } : {}), leaf, outcome: out.outcome, why: out.why };
   await ledger.append('release', decision.by.as, about as unknown as JSONValue);
+  // Published, its day is learned from this version now (ADR 0021 §1): a correction's rows replace its first file's in
+  // the history before anything says the day again.
+  if (out.outcome === 'applied') {
+    rebuildTails();
+    refreshRanges();
+  }
   // Its holds decided and published: sealed, signed again after the decision (ADR 0014 §6).
   if (out.outcome === 'applied') await sealIfReady(r);
   return out;

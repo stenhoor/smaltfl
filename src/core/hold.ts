@@ -1163,8 +1163,22 @@ export function pausesOf(entries: readonly EntryLike[], period?: string | null):
       if (p) p.state = 'passed';
     }
   };
+  // Every pause each held run opened, by its manifest: a later delivery of its day closes those of the files it sent
+  // again (ADR 0021 §2), so the day waits on the correction alone.
+  const opened = new Map<string, Set<string>>();
+  const open = (manifest: string, key: string) => opened.set(manifest, (opened.get(manifest) ?? new Set()).add(key));
+  const supersede = (c: unknown) => {
+    if (!isRecord(c) || typeof c.of !== 'string' || !Array.isArray(c.sources)) return;
+    const sent = new Set(c.sources.flatMap((x) => (typeof x === 'string' ? [x.toLowerCase()] : [])));
+    for (const key of opened.get(c.of) ?? []) {
+      const p = pauses.get(key);
+      // With several watched sources, only the loads of the files sent again: another file's load is carried on.
+      if (p && p.state === 'open' && (!p.load || sent.has(p.load.source.toLowerCase()))) p.state = 'passed';
+    }
+  };
   for (const e of entries) {
     const a = e.about as JSONValue;
+    if (e.kind === 'run' && isRecord(a)) supersede(a.correction);
     if (!isRecord(a)) continue;
     if (e.kind === 'run' && isHeld(a) && Array.isArray(a.holds) && a.holds.some((h) => isLoad(h.load))) {
       // Several watched sources: a pause a load, keyed by it (ADR 0010 §7). Each load's holds keep back the outputs
@@ -1179,6 +1193,7 @@ export function pausesOf(entries: readonly EntryLike[], period?: string | null):
         if (waiting.length === 0 || Object.keys(keys).length === 0) continue;
         const key = `load:${lk}`;
         held.set(a.manifest, key);
+        open(a.manifest, key);
         const p = pauses.get(key) ?? blank(key, a.inputs, e.seq, a.run, a.manifest);
         Object.assign(p, { load: { source: load.source, slot: load.slot, sha256: load.sha256 }, day: load.slot, inputs: a.inputs, run: a.run, manifest: a.manifest, keys, waiting, holds, seq: e.seq });
         p.otherBuild = false;
@@ -1194,6 +1209,7 @@ export function pausesOf(entries: readonly EntryLike[], period?: string | null):
       pass(a.loads, new Set());
       if (waiting.length === 0 || Object.keys(a.keys).length === 0) continue;
       held.set(a.manifest, key);
+      open(a.manifest, key);
       const p = pauses.get(key) ?? blank(key, a.inputs, e.seq, a.run, a.manifest);
       Object.assign(p, { day: dayOf(a, period), run: a.run, manifest: a.manifest, keys: { ...a.keys }, waiting: [...waiting], holds: Array.isArray(a.holds) ? a.holds : [], seq: e.seq });
       p.otherBuild = !!p.decision && !sameKeys(p.decision.about.outputs, p.keys);
@@ -1345,6 +1361,28 @@ export function standingForLoad(entries: readonly EntryLike[], load: Load): Deci
     }
   }
   return best;
+}
+
+/**
+ * The measures the history learns from, a watched load a slot (ADR 0021 §1, §2): the slot's version readers got, the
+ * latest run of it that published or whose release applied (a correction published, say), else its first run's. In the
+ * record's order.
+ */
+export function learnedMeasures<M extends { source: string; slot: string }>(entries: readonly EntryLike[]): M[] {
+  const released = new Set(entries.flatMap((e) => (e.kind === 'release' && isRecord(e.about) && e.about.outcome === 'applied' && typeof e.about.manifest === 'string' ? [e.about.manifest] : [])));
+  const first = new Map<string, M>();
+  const went = new Map<string, M>();
+  for (const e of entries) {
+    const a = e.about as JSONValue;
+    if (e.kind !== 'run' || !isRecord(a) || (a.outcome !== 'ok' && a.outcome !== 'held') || !Array.isArray(a.measures)) continue;
+    const published = a.outcome === 'ok' || (typeof a.manifest === 'string' && released.has(a.manifest));
+    for (const m of a.measures as unknown as M[]) {
+      const k = `${m.source.toLowerCase()}|${m.slot}`;
+      if (!first.has(k)) first.set(k, m);
+      if (published) went.set(k, m);
+    }
+  }
+  return [...first].map(([k, m]) => went.get(k) ?? m);
 }
 
 /**
