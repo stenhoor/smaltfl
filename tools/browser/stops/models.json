@@ -38,7 +38,7 @@
         "#sheet .md-part .dot-warn": 1
       }
     },
-    "waitFor": ".md-record:not(:has(.mini-wait))"
+    "waitFor": "#sheet:has(.md-record):not(:has(.md-record .mini-wait))"
   },
   {
     "name": "models-classifier",

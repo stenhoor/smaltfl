@@ -32,7 +32,7 @@ version). Your cells are kept in your browser and change nothing the flow comput
 
 ## A calm day
 
-Choose **Wed 6** in the strip. The status line says *A normal Wednesday*: every watched dataset is within what the
+Open **Wed 6** from the month. The status line says *A normal Wednesday*: every watched dataset is within what the
 year taught it, and everything published.
 
 Open the **summary** box, or tap the **control_by_type** card and its **Data** tab. **At a glance** is a heat table:
@@ -94,8 +94,8 @@ days it learned from (a tick a day, the cut, today), with what moved most. The c
 can be told from like days' (an AUC from 0.5, can't tell apart, to 1), with the columns that give today away. Each
 shows its record over the days it has run. Neither holds a day. Ids, keys and free text are left out by default.
 
-## Runs and the record
+## The record
 
-**Runs** lists every run with its manifest's hash, and **verify** recomputes a run from its inputs. Every decision is
-an entry in a hash-chained record; the audit bag downloads the run, the record and the files for an offline check
-(`node scripts/audit.mjs check BAG.zip`).
+The **Record** view lists every run made in your browser with its manifest's hash, and **verify** recomputes a run from
+its inputs. Every decision is an entry in a hash-chained record; the audit bag downloads the run, the record and the
+files for an offline check (`node scripts/audit.mjs check BAG.zip`).

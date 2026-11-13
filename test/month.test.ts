@@ -1,0 +1,118 @@
+/**
+ * The recorded month (ADR 0021 §6, core/month.ts): each day as known on a moment, by its latest run then; what a run
+ * says of its day and of each dataset (the grid); the build's entries layered under this browser's; a run made here
+ * checked against the recorded one.
+ */
+import { describe, expect, it } from 'vitest';
+import { cellOf, checkAgainst, endOfDay, gridOf, isMonthFile, knownOn, layered, MONTH_FORMAT, monthOf, runsByDay, stateOfRun, worseCell, type MonthFile } from '../src/core/month.js';
+import type { LogEntry } from '../src/core/log.js';
+import type { RunManifest } from '../src/core/manifest.js';
+
+const entry = (seq: number, at: string, about: Record<string, unknown>, as = 'build', kind = 'run'): LogEntry => ({
+  smaltflLog: 1, origin: 'build:larkspur', seq, kind, at, by: { card: null, as }, about: about as LogEntry['about'], reason: null, amends: null, nonce: '0'.repeat(32),
+} as unknown as LogEntry);
+
+const hold = (origin: string, said: string, by: 'checks' | 'story' = 'checks') => ({ by, node: 1, origin, said, reaches: ['posture'] });
+const node = (origin: string, extra: Record<string, unknown> = {}) => ({ node: 0, origin, op: 'table', key: `k-${origin}`, status: 'built', content: `c-${origin}`, rows: 10, ...extra });
+const manifest = (nodes: unknown[], plan = 'p1') => ({ plan, nodes } as unknown as RunManifest);
+
+const entries: LogEntry[] = [
+  entry(0, '2024-03-01T06:05:00Z', { day: '2024-03-01', outcome: 'ok', manifest: 'm1', claims: [{ source: 'effective', state: 'calm', head: 'A normal Friday' }] }),
+  entry(1, '2024-03-02T06:05:00Z', { day: '2024-03-02', outcome: 'ok', manifest: 'm2', claims: [{ source: 'effective', state: 'unusual', head: 'Why: 0.3%' }] }),
+  entry(2, '2024-03-03T06:05:00Z', { day: '2024-03-03', outcome: 'held', manifest: 'm3', holds: [hold('waf', 'Status fail: 22.7% (band 0%–15%)')], waiting: ['posture'] }),
+  entry(3, '2024-03-04T06:05:00Z', { day: '2024-03-04', outcome: 'ok', manifest: 'm4', claims: [{ source: 'effective', state: 'calm', head: 'calm' }, { source: 'tls', state: 'unusual', head: 'Status fail: 8.9%' }] }),
+  entry(4, '2024-03-05T06:05:00Z', { day: '2024-03-05', outcome: 'ok', manifest: 'm5', claims: [{ source: 'effective', state: 'unlearned', head: 'Not judged yet' }] }),
+  entry(5, '2024-03-06T06:05:00Z', { run: null, load: '2024-03-06', outcome: 'failed', error: 'no such table' }),
+];
+
+describe('the month, day by day', () => {
+  const days = ['2024-03-01', '2024-03-02', '2024-03-03', '2024-03-04', '2024-03-05', '2024-03-06', '2024-03-07'];
+
+  it('says what became of each day by its latest run, never an average', () => {
+    const m = monthOf(days, entries, { judged: 'effective' });
+    expect(m.map((d) => d.state)).toEqual(['published', 'unusual', 'paused', 'unusual', 'unlearned', 'failed', 'notRun']);
+    expect(m.map((d) => d.headline)).toEqual([null, 'Why: 0.3%', 'waf: Status fail: 22.7% (band 0%–15%)', 'tls: Status fail: 8.9%', 'Not judged yet', 'no such table', null]);
+    expect(m[0]).toMatchObject({ at: '2024-03-01T06:05:00Z', runs: 1, manifest: 'm1', by: 'build' });
+  });
+
+  it('as known on a moment: a day recorded after it hasn’t arrived; a later run of a day is the day’s state then', () => {
+    const more = [...entries, entry(6, '2024-03-04T09:00:00Z', { day: '2024-03-03', outcome: 'ok', manifest: 'm3b', claims: [] }, 'owner')];
+    const before = monthOf(days, more, { at: endOfDay('2024-03-03'), judged: 'effective' });
+    expect(before.map((d) => d.state)).toEqual(['published', 'unusual', 'paused', 'notArrived', 'notArrived', 'notArrived', 'notRun']);
+    const now = monthOf(days, more, { judged: 'effective' });
+    expect(now[2]).toMatchObject({ state: 'published', runs: 2, manifest: 'm3b', by: 'here', at: '2024-03-03T06:05:00Z' });
+    expect(knownOn(more, '2024-03-02T23:00:00Z')).toHaveLength(2);
+    expect(knownOn(more, null)).toHaveLength(more.length);
+  });
+
+  it('leaves a derived run (a fill) out of its day’s runs', () => {
+    const fill = entry(7, '2024-03-03T10:00:00Z', { day: '2024-03-03', outcome: 'derived' }, 'owner');
+    expect(runsByDay([...entries, fill]).get('2024-03-03')).toHaveLength(1);
+  });
+
+  it('leads a held day with its hold and an unusual day with the judged dataset’s own head', () => {
+    expect(stateOfRun({ outcome: 'held', holds: [hold('logging_coverage', 'file has 4 of 5 columns')] }, 'effective')).toEqual({ state: 'paused', headline: 'logging_coverage: file has 4 of 5 columns' });
+    expect(stateOfRun({ outcome: 'ok', claims: [{ source: 'Effective', state: 'wrong', head: 'Too few' }] }, 'effective')).toEqual({ state: 'unusual', headline: 'Too few' });
+    expect(stateOfRun({ outcome: 'ok', claims: [{ source: 'effective', state: 'notes', head: 'noted' }] }, 'effective')).toEqual({ state: 'published', headline: null });
+  });
+});
+
+describe('the grid: each dataset on each day', () => {
+  const manifests: Record<string, RunManifest> = {
+    m1: manifest([node('waf'), node('tls'), node('effective')]),
+    m3: manifest([node('waf'), node('tls'), node('effective')]),
+    m7: manifest([node('logging_coverage', { status: 'refused', content: undefined, refused: 'the header has 4 fields but 5 columns are declared' })]),
+  };
+
+  it('says refused, held, unusual, not judged, fine or absent, the worst first', () => {
+    expect(cellOf({ holds: [hold('waf', 'x')] }, manifests.m3, ['waf'])).toBe('held');
+    expect(cellOf({ holds: [hold('waf', 'x')] }, manifests.m3, ['tls'])).toBe('ok');
+    expect(cellOf({}, manifests.m7, ['logging_coverage'])).toBe('refused');
+    expect(cellOf({}, manifests.m7, ['waf'])).toBe('absent');
+    expect(cellOf({ claims: [{ source: 'tls', state: 'unusual' }] }, manifests.m1, ['tls', 'waf'])).toBe('unusual');
+    expect(cellOf({ claims: [{ source: 'tls', state: 'unlearned' }] }, manifests.m1, ['tls'])).toBe('unlearned');
+    expect(worseCell('ok', 'held')).toBe('held');
+    expect(worseCell('absent', 'ok')).toBe('ok');
+  });
+
+  it('puts the rows against the days by each day’s latest run, null where none', () => {
+    const g = gridOf([{ id: 'bronze', label: 'bronze', origins: ['waf', 'tls'] }, { id: 'posture', label: 'posture', origins: ['effective'] }], ['2024-03-01', '2024-03-03', '2024-03-09'], entries, (h) => manifests[h]);
+    expect(g).toEqual([['ok', 'held', null], ['ok', 'ok', null]]);
+  });
+});
+
+describe('the build’s entries under this browser’s', () => {
+  it('renumbers them below every entry recorded here, in order, amendments with them', () => {
+    const file = { entries: [entries[0]!, { ...entries[1]!, amends: 0 }] };
+    const l = layered(file);
+    expect(l.map((e) => e.seq)).toEqual([-2, -1]);
+    expect(l[1]!.amends).toBe(-2);
+    expect(file.entries[0]!.seq).toBe(0);
+  });
+
+  it('takes only a recorded month', () => {
+    const good: MonthFile = { format: MONTH_FORMAT, flow: 'larkspur', build: 'abc', now: '2024-04-01T08:00:00Z', entries, manifests: {} };
+    expect(isMonthFile(good)).toBe(true);
+    expect(isMonthFile({ ...good, format: 'smaltfl-month/2' })).toBe(false);
+    expect(isMonthFile({ ...good, entries: [{ kind: 'run' }] })).toBe(false);
+    expect(isMonthFile('nope')).toBe(false);
+  });
+});
+
+describe('a run made here against its record', () => {
+  const recorded = { manifest: manifest([node('waf'), node('effective'), node('folded', { content: undefined, status: 'folded' })]), holds: [hold('waf', 'x')] };
+
+  it('matches on the same plan, contents and holds, whatever else differs', () => {
+    const here = { manifest: manifest([node('waf', { ingest: { at: 'now' } }), node('effective'), node('folded', { content: undefined, status: 'folded' })]), holds: [hold('waf', 'said otherwise')] };
+    expect(checkAgainst(recorded, here)).toEqual({ matches: true, plan: null, differs: [], holds: { recorded: ['checks:waf'], here: ['checks:waf'] } });
+  });
+
+  it('says which dataset differs, a hold that differs, or another plan', () => {
+    const here = { manifest: manifest([node('waf'), node('effective', { content: 'c-other' })], 'p2'), holds: [] };
+    const c = checkAgainst(recorded, here);
+    expect(c.matches).toBe(false);
+    expect(c.plan).toEqual({ recorded: 'p1', here: 'p2' });
+    expect(c.differs).toEqual([{ origin: 'effective', recorded: 'c-effective', here: 'c-other' }]);
+    expect(c.holds).toEqual({ recorded: ['checks:waf'], here: [] });
+  });
+});

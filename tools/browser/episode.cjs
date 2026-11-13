@@ -20,22 +20,31 @@ const checks = []; const ok = (name, cond, more = '') => { checks.push([name, !!
   const runNo = () => p.evaluate(() => document.querySelector('#status').dataset.run ?? '');
   const ran = async (before) => { await p.waitForFunction((b) => (document.querySelector('#status').dataset.run ?? '') !== b && !!document.querySelector('#status').dataset.state, before, { timeout: 180000 }); await p.waitForTimeout(1500); };
   await ran('');
+  // The episodes are the month's chips, and a day is opened by its link (ADR 0021 §3, §4).
+  await p.evaluate(() => { location.hash = '#month'; });
+  await p.waitForSelector('#view-month .episodes button', { timeout: 30000 });
   const chips = await p.locator('.episodes button').allTextContents();
   ok('three incidents to choose', chips.length === 4, chips.join(', '));
   let b = await runNo();
   await p.locator('.episodes button', { hasText: 'September 2023' }).click();
   await ran(b);
-  const day = (wd, date) => p.locator('#loads button').filter({ has: p.locator('.ld-day', { hasText: new RegExp(`^${wd}$`) }) }).filter({ has: p.locator('.ld-date', { hasText: new RegExp(`^${date}$`) }) }).first();
+  const dayOf = (wd, date) => p.evaluate((src) => { const re = new RegExp(src); const m = window.__smaltflMonth ? window.__smaltflMonth() : {}; return Object.keys(m).find((k) => re.test(m[k])) ?? null; }, `^${wd} [A-Z][a-z]{2} ${date}\\b`);
   b = await runNo();
-  await day('Thu', '21').click();
+  const thu = await dayOf('Thu', '21');
+  await p.evaluate((d) => { location.hash = `#day/${d}`; }, thu);
   await ran(b);
   await p.waitForTimeout(1500);
   const status = await p.locator('#status').textContent();
   // Round 4 (truth #1): everything but Flex Fare stopped by 13:06 and Flex Fare kept arriving, which the day's own rows
   // by hour and payment type say: the head names it, as Fri's "Only Flex Fare records arrived" does.
   ok('the header says the day’s head', /^Thu Sep 21: Only Flex Fare after 13:00$/.test(status), status);
-  const marks = await p.$$eval('#loads button.load', (xs) => xs.map((x) => `${x.querySelector('.ld-date')?.textContent}:${x.querySelector('.ld-marks .g-alert') ? 'alert' : x.querySelector('.ld-marks .g-warn') ? 'warn' : '-'}${x.querySelector('.ld-marks .g-held') ? '‖' : ''}:${x.querySelector('svg.ld-bar') ? 'bar' : 'nobar'}`));
-  ok('the strip marks Thu something wrong and paused, and leaves the days after it unmarked (ADR 0008 §10, 0009)', ['21:alert‖:bar', '22:-:bar', '23:-:bar', '24:-:bar', '19:-:bar'].every((m) => marks.includes(m)), marks.join(' '));
+  // The month marks each day by what became of it here: Thu paused, the days after it not run (ADR 0008 §10, 0009).
+  await p.evaluate(() => { location.hash = '#month'; });
+  await p.waitForSelector('#view-month .mo-d', { timeout: 30000 });
+  const marks = await p.$$eval('#view-month .mo-d', (xs) => xs.map((x) => `${x.querySelector('.mo-date')?.textContent}:${(x.className.match(/st-(\w+)/) || [])[1]}`));
+  ok('the month marks Thu paused, and leaves the days after it not run (ADR 0008 §10, 0009)', ['21:paused', '22:notRun', '23:notRun', '24:notRun'].every((m) => marks.includes(m)), marks.join(' '));
+  await p.evaluate((d) => { location.hash = `#day/${d}`; }, thu);
+  await p.waitForTimeout(1500);
   const dots = await p.$$eval('.health-dot', (xs) => xs.map((x) => `${x.closest('g.card').dataset.card}:${x.getAttribute('class').replace('health-dot ', '')}`));
   ok('the trips card has a red dot', dots.includes('trips:alert'), dots.join(', '));
   await p.locator('g.card[data-card="trips"]').focus(); await p.keyboard.press('Enter');

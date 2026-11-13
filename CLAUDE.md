@@ -268,6 +268,19 @@ release (smaltty ADR 0030).
   published names alone (`readPublished`); `src/core/posture.ts` (`postureTree`, the worst first; `trendSaid`) and
   `scoreTrend`/`scoreSpark` in viz.ts; each segment's and business unit's change beside its sparkline, where the push
   shows (Q-178); `tools/browser/stops/posture.json`.
+- Time (ADR 0021): two screens, the month and the day, over a month the build records. Slice 1: `src/core/month.ts`
+  (`smaltfl-month/1`: the build's `run` entries at the story's times, each manifest by hash, the posture's marks;
+  `layered` numbers them below the browser's own entries, `knownOn`/`endOfDay` read as known on a moment, `monthOf`,
+  `stateOfRun`, `gridOf`/`cellOf`, `checkAgainst` a run here against its record; `test/month.test.ts`);
+  `scripts/data/record.ts` (`record.mjs`: each generated month run in order as the page runs a day, the steps' claims
+  from `RunResult.told`, written as `month.json`, listed in loads.json as `recorded`, cached with the data). The app
+  layers it under its record (`allEntries`, `entryOf`: tails, skips, pauses, levels and readers-see read it; a wait
+  from a recorded moment runs to the record's `now`, `storyMs`), opens on the month (`renderMonth`: for the day, as
+  known on, the trend band, the calendar by `calendarDay`, the day picked, the grid from 820 px, **Check every day
+  here ▶**) and gives each day its screen (`#day/YYYY-MM-DD`, `routeOf`, `openDay`; `renderLoads` is the day's head:
+  back, neighbours, `lifecycleOf`, `recordLine`, the pause and Decide, `storyOfDay`). `window.__smaltflMonth` says each
+  day as the month does: tools/browser/tour.cjs finds a stop's day by it and opens it by its link;
+  `tools/browser/stops/month.json`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -288,7 +301,8 @@ release (smaltty ADR 0030).
   **Next:** [ADR 0021](docs/adr/0021-time.md), time: a month screen to pick a day (calendar, grid, trend, *for the day*
   and *as known on*) and a day screen (flow, lifecycle, story, versions); March recorded by the build; every version of
   a day kept like a commit, corrections decided; the ontology effective-dated and hashed to each run; what-if runs. In
-  the slices of its §9, the two screens and the recorded runs first.
+  the slices of its §9: slice 1, the two screens and the recorded runs, is built (its §"As built"); slice 2, the
+  recorded story (deliveries, Larkspur's `story.json`, a day's versions), is next.
 
 ## Rules for this repository
 
