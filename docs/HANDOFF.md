@@ -227,7 +227,11 @@ what-if runs. Built in the slices of its §9, the two screens and the recorded r
 (Q-180). Slice 1 is built (2026-11-13, its §"As built"): the build records each generated month (`month.json`,
 `scripts/data/record.mjs`), the app opens on the month (`#month`) and gives each day its own screen (`#day/…`), and a
 day opened is run here and checked against its record. Next is slice 2, the recorded story: deliveries (late and
-corrected files, a day corrected twice), Larkspur's `story.json`, and a day's versions.
+corrected files, a day corrected twice), Larkspur's `story.json`, and a day's versions. Found before it and fixed first
+(Q-193, ADR 0010 §16): on a flow that watches several datasets (Larkspur, the control estate), Publish as is was refused
+by the engine, because the app recorded one decision for the day and released without citing loads. One choice for the
+day is now recorded as a decision for each held file and one release citing them all (`tools/browser/stops/decide.json`).
+Mon 4 in the story is kept back, then corrected (Q-194).
 
 **Then (built): [ADR 0020](adr/0020-the-estate-as-a-company.md), the Larkspur estate** (accepted 2026-11-12, Q-169 to
 Q-175). It is built in the slices of its §8: the generator, bronze, silver, gold, the answer key through the engine,

@@ -95,8 +95,9 @@ In **product**:
 
 Nothing that reads the WAF is published while the day waits. Results shows the posture its consumers kept, *as
 published* on the last day that went out. **Decide ›** opens the choices the day allows, each with what it publishes
-and whether it can be undone: publish as is, keep it back, or fill from another day. The fix itself is one
-configuration change at the ingress.
+and whether it can be undone: publish as is, with a reason, or keep it back. One choice decides every file that holds
+the day. Larkspur's flow has no fill step, so no file is filled from another day. The fix itself is one configuration
+change at the ingress.
 
 ## The join that lost 95 applications
 

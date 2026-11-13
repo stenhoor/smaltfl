@@ -29,7 +29,7 @@ import { writtenRules, CHECK_MODES, CHECK_NAMES, CHECK_SAID, checkOf, gateChecks
 import { toggleCheck } from '../core/gatecell.js';
 import { calendarHead, heldLoadLine, dayMid, dayShort, guessWords, judgedWords, lacked, MARK as REMEDY_MARK, noRowsBefore, reachLabel, readersOf as readersHad, readersSee, rowsFrom, shortfall, shownRun, stagedBar, stoppedLine as stoppedWords, toldLine, type DayState, type EpisodeDay, type KeptMark, type PauseState, type RemedyMark } from '../core/days.js';
 import { UNTIL, afterLine, betweenLine, dayPausedLine, daySentence, decidedLines, decisionDrawing, donorPicked, failLine, goShown, heldLine, outputPausedLine, passedLine, pausedChecks, pauseLines, pauseReasons, pickFails, receiptLines, remedyHead, ribbonOf, runFigures, sheetText, versionLines, checksSeen, filesSeen, findingOf, type RunSight, type AfterPart, type KeptLacks, type RemedySaid, type SheetIn, type SheetPick, type SheetText, type Sight } from '../core/decision.js';
-import { contractSaid, countedChecks, rangesFor, dayClaim, dayState, flowStory, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, upstreamSteps, tailPath, type Claim, decisionFor, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, lastPublished, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
+import { contractSaid, countedChecks, rangesFor, dayClaim, dayState, flowStory, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, upstreamSteps, tailPath, type Claim, decisionFor, decisionForLoad, standingForLoad, heldLoadsOf, dayPauseOfLoads, loadDecisions, keysForLoads, loadKey, loadsOf, byLoad, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, lastPublished, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
 import { checkAgainst as againstRecord, endOfDay, gridOf as monthGrid, isMonthFile, knownOn, layered, monthOf, runDay, runsByDay, type CellState, type DayState as MonthState, type GridRow as MonthRow, type MonthDay, type MonthFile, type RecordCheck, type RunAbout } from '../core/month.js';
 import { dayVersions, donorIdOf, fillCounts, levelOf as acceptedLevel, levelWays, partLabel as remedyPart, type Offer, type Repair, type Version } from '../core/fill.js';
 import { gridOf, shadeOf, shareOf, standOut } from './grid.js';
@@ -556,7 +556,10 @@ const isOut = (s: DayState | null | undefined): boolean => s === 'asis' || s ===
  */
 function pauseOf(r: RunRecord | undefined): PauseNow | null {
   if (!r || !r.result.holds?.length) return null;
-  const p = pauseByInputs(r.inputs);
+  // With several watched sources a pause is a held load's (ADR 0010 §7): the day's is its held loads' read as one, as
+  // one choice decides them all (Q-193).
+  const held = heldLoadsOf(r.result.holds);
+  const p = held.length ? (pauses(), dayPauseOfLoads(pauseCache.byKey, held)) : pauseByInputs(r.inputs);
   const now = dayState({ holds: r.result.holds.length, waiting: r.result.waiting.length, released: !r.derived && r.release?.outcome === 'applied' }, p);
   return now ? { state: now, pause: p, remedy: now === 'fill' || now === 'complete' ? remedyOf(p) : null, withdrawn: now === 'dont' ? withdrawnOf(p) : null } : null;
 }
@@ -6957,7 +6960,10 @@ function decisionSheet(shown0: RunRecord, story: Story | null): void {
   // Keep is off until the plugin's withdrawals of a chain of fills are recorded as one (left for later).
   if (withdraws && back?.day === day) can.dont = { allowed: false, reason: 'a refill is replaced by another fill, not withdrawn' };
   // With a later day current, a withdrawal moves no name back: readers keep that day (S5), and the Keep row says so.
-  const readers = withdraws && !later ? (back?.day === day ? null : back) : readersOn(r, shown);
+  // The record may say readers had a later day than this engine shows (ADR 0021 §6: a day opened out of order): the Keep
+  // row is that day, with its rows as the build recorded its run.
+  const then = !withdraws && recorded ? readersAsOf(r).day : null;
+  const readers = withdraws && !later ? (back?.day === day ? null : back) : (then && (!shown || then > shown) ? recordedKept(then) : null) ?? readersOn(r, shown);
   const rem = remediesFor(r);
   /** The option the sheet recommends (set once the recommendation is worked out, below). */
   let recommendedOption = (): DecisionOption | null => null;
@@ -7032,7 +7038,10 @@ function decisionSheet(shown0: RunRecord, story: Story | null): void {
   // Replace the file (the ontology's `replace` fix): a corrected file for the day, checked in the page, pinned as the
   // day's load and run: the held run stays as it was, and the new run is judged as any day is.
   const allowed = src ? fixesOf(state.doc.ontology, src) : new Set<FixKind>();
-  const replaceRow = anyone && day && allowed.has('replace') && loads.list.some((l) => l.day === day)
+  // It replaces the primary source's file (runLoad), so it is offered only where that file is what holds the day: with
+  // several watched files held by another, a corrected file waits for the deliveries of ADR 0021 slice 2.
+  const replaces = heldLoadsOf(r.result.holds).every((l) => l.source.toLowerCase() === (primarySource() ?? '').toLowerCase());
+  const replaceRow = anyone && day && replaces && allowed.has('replace') && loads.list.some((l) => l.day === day)
     ? (() => {
         const input = h('input', { type: 'file', accept: '.csv,.parquet,.json,text/csv', class: 'vf-file', 'aria-label': `A corrected file for ${dayMid(day)}` }) as HTMLInputElement;
         input.addEventListener('change', () => {
@@ -7153,6 +7162,15 @@ interface Kept {
   /** Filled (◧), the part alone (◐), or published as is (⚑, round 3 #3). */
   mark?: KeptMark;
   repair?: Repair;
+}
+/** A day readers kept as the recorded month has it (ADR 0021 §6): its rows of the dataset the views follow, from the
+ * build's run of it; null when the build recorded none. */
+function recordedKept(day: string): Kept | null {
+  const hash = (recordedRunOf(day)?.about as { manifest?: string } | undefined)?.manifest;
+  const m = hash ? manifestOf(hash) : null;
+  const src = loadSource();
+  const rows = m && src ? m.nodes.find((n) => n.origin === src && n.rows !== undefined)?.rows : undefined;
+  return rows === undefined ? null : { day, rows };
 }
 function keptOf(theirs: RunRecord, day: string): Kept | null {
   const d = theirs.derived;
@@ -12275,6 +12293,8 @@ async function recordRun(rec: RunRecord | null, error: string | null): Promise<v
       await ledger.append('run', state.viewer, {
         run: result.run, manifest: result.hash, blob, plan, load, outcome: held ? 'held' : 'ok', files: files as unknown as JSONValue, data: result.manifest.data ?? null,
         day, inputs: inputsOf(result.manifest) as unknown as JSONValue,
+        // With several watched sources, every load it read (ADR 0010 §7): a load it read and didn't hold passes its pause.
+        ...(typed && byLoad(typed.publish) ? { loads: [...loadsOf(typed, result.manifest).values()] as unknown as JSONValue } : {}),
         ...(held ? { holds: result.holds as unknown as JSONValue, waiting: result.waiting, keys } : {}),
         // Its watched loads' measures (ADR 0010 §6): the tail is rebuilt from them when the page opens.
         ...(result.measures?.length ? { measures: result.measures as unknown as JSONValue } : {}),
@@ -12312,13 +12332,15 @@ const heldRunOf = (day: string): RunRecord | undefined => {
  * the policies stored with it, then the record keeps what came of it, citing the decision by its leaf. A refusal is
  * kept too.
  */
-async function release(r: RunRecord, decision: RecordEntry, keys: Record<string, string>, option: 'asis' | 'accept' = 'asis'): Promise<ReleaseResult | null> {
+async function release(r: RunRecord, decision: RecordEntry, keys: Record<string, string>, option: 'asis' | 'accept' = 'asis', cited: readonly RecordEntry[] = []): Promise<ReleaseResult | null> {
   if (!ledger || !state.engine) return null;
   const leaf = entryLeaf(decision);
-  const out = await releaseRun(state.engine, { run: r.result.run, manifest: r.result.hash, keys, option, actor: decision.by.as, reason: decision.reason, decision: leaf });
+  // With several watched sources it cites each held load's decision by its leaf (ADR 0010 §7); `decision` is the first.
+  const loadsIn = cited.map((d) => ({ load: (d.about as unknown as DecideAbout).load!, option: (d.about as unknown as DecideAbout).option, actor: d.by.as, reason: d.reason, decision: entryLeaf(d) }));
+  const out = await releaseRun(state.engine, { run: r.result.run, manifest: r.result.hash, keys, option, actor: decision.by.as, reason: decision.reason, decision: leaf, ...(loadsIn.length ? { loads: loadsIn } : {}) });
   r.release = out;
   noteShown(r, out.published);
-  const about: ReleaseAbout = { run: r.result.run, manifest: r.result.hash, outputs: keys, decision: decision.seq, leaf, outcome: out.outcome, why: out.why };
+  const about: ReleaseAbout = { run: r.result.run, manifest: r.result.hash, outputs: keys, decision: decision.seq, ...(cited.length ? { decisions: cited.map((d) => d.seq) } : {}), leaf, outcome: out.outcome, why: out.why };
   await ledger.append('release', decision.by.as, about as unknown as JSONValue);
   // Its holds decided and published: sealed, signed again after the decision (ADR 0014 §6).
   if (out.outcome === 'applied') await sealIfReady(r);
@@ -12336,6 +12358,32 @@ async function applyDecided(r: RunRecord): Promise<void> {
   try {
     const keys = await keysOf(r);
     const inputs = inputsOf(r.result.manifest);
+    // Several watched sources (ADR 0010 §7, Q-193): each held load's decision is found by its load. Published again when
+    // every held load has one and all of them publish (one choice decided the day), unless a later day is current; a load
+    // with none falls under a standing decision not to publish about an earlier load of its source, recorded under it.
+    const held = heldLoadsOf(r.result.holds);
+    if (held.length) {
+      const all = allEntries();
+      const ds = held.map((l) => decisionForLoad(all, l));
+      if (ds.every((d) => d !== null)) {
+        const o = ds[0]!.about.option;
+        const day = await periodDay(r);
+        const shown = readersDay(r);
+        const cited = ds.flatMap((d) => entryOf(d!.seq) ?? []);
+        if ((o === 'asis' || o === 'accept') && ds.every((d) => d!.about.option === o) && !(day && shown && shown > day) && cited.length === ds.length) await release(r, cited[0]!, keysForLoads(keys, r.result.holds, held), o, cited);
+        return;
+      }
+      for (const l of held) {
+        if (decisionForLoad(all, l)) continue;
+        const standing = standingForLoad(all, l);
+        if (standing?.about.option !== 'dont') continue;
+        const may = checkDecision(policies(), standing.by, 'dont');
+        if (!may.allowed) continue;
+        const [d] = loadDecisions({ run: r.result.run, manifest: r.result.hash, inputs, loads: [l], option: 'dont', scope: 'day', policies: await policiesHash(policies() ?? null), rule: may.rule ?? null });
+        await ledger.append('decide', standing.by, { ...d, under: standing.seq } as unknown as JSONValue, standing.reason);
+      }
+      return;
+    }
     const found = decisionFor(ledger.entries, inputs, keys);
     if (found?.kind === 'same') {
       // Published as is, again: unless a later day is what readers see now (stepping back to a day decided before), as a
@@ -12482,10 +12530,19 @@ async function decideNow(target: RunRecord | string, option: DecisionOption, sco
     ...(derived && dkeys ? { repair: derived.derived!.repair, derived: { run: derived.result.run, manifest: derived.result.hash, keys: dkeys } } : {}),
     ...(level ? { level } : {}),
   };
-  const entry = await ledger.append('decide', state.viewer, about as unknown as JSONValue, reason?.trim() || null, p?.decision?.seq ?? null);
+  // With several watched sources (ADR 0010 §7) the day's one choice is recorded as one decision a held load (Q-193),
+  // each about its load, naming no keys, and amending its load's own decision when it had one; the release cites them.
+  const held = heldLoadsOf(r.result.holds);
+  const cited: RecordEntry[] = [];
+  for (const d of held.length ? loadDecisions({ run: r.result.run, manifest: r.result.hash, inputs: about.inputs, loads: held, option, scope: about.scope, policies: about.policies, rule: about.rule, level }) : []) {
+    const lp = pauseByInputs(`load:${loadKey(d.load!)}`);
+    const remedyOf = about.repair ? { repair: about.repair, derived: about.derived } : {};
+    cited.push(await ledger.append('decide', state.viewer, { ...d, ...remedyOf } as unknown as JSONValue, reason?.trim() || null, lp?.decision?.seq ?? null));
+  }
+  const entry = cited[0] ?? (await ledger.append('decide', state.viewer, about as unknown as JSONValue, reason?.trim() || null, p?.decision?.seq ?? null));
   let refused: string | null = null;
   if (option === 'asis' || option === 'accept') {
-    const out = await release(r, entry, keys, option);
+    const out = await release(r, entry, cited.length ? keysForLoads(keys, r.result.holds, held) : keys, option, cited);
     if (out?.outcome === 'refused') refused = out.why;
     // The band accepted is written into the ontology (ADR 0014 §3): the decision is recorded, the document edited from it.
     else if (option === 'accept' && level?.band && loadSource()) {
@@ -12498,7 +12555,7 @@ async function decideNow(target: RunRecord | string, option: DecisionOption, sco
       }
     }
   } else if (derived && dkeys) {
-    const out = await releaseDerived(derived, entry, dkeys);
+    const out = await releaseDerived(derived, entry, dkeys, undefined, cited);
     if (out?.outcome === 'refused') refused = out.why;
   } else if (fillShown && !keepLater) {
     const out = await withdrawFill(fillShown, entry);
@@ -12692,14 +12749,16 @@ const shownBefore = new Map<number, Map<string, RunRecord | undefined>>();
  * names then show its versions, and the record keeps the release with the repair and the rows it took from another
  * day. A refusal is kept too.
  */
-async function releaseDerived(d: RunRecord, decision: RecordEntry, keys: Record<string, string>, under?: number): Promise<ReleaseResult | null> {
+async function releaseDerived(d: RunRecord, decision: RecordEntry, keys: Record<string, string>, under?: number, cited: readonly RecordEntry[] = []): Promise<ReleaseResult | null> {
   if (!ledger || !state.engine || !d.derived) return null;
   const held = d.derived.from;
   const repair = d.derived.repair;
   const leaf = entryLeaf(decision);
   const before = new Map(Object.keys(keys).map((n) => [n, state.names.get(n)]));
   const from = { run: held.result.run, manifest: held.result.hash };
-  const out = await releaseRun(state.engine, { run: d.result.run, manifest: d.result.hash, keys, option: repair.kind, actor: decision.by.as, reason: decision.reason, decision: leaf, from, repair });
+  // With several watched sources a fill is about one load, and cites its decision (ADR 0010 §7).
+  const loadsIn = cited.map((x) => ({ load: (x.about as unknown as DecideAbout).load!, option: (x.about as unknown as DecideAbout).option, actor: x.by.as, reason: x.reason, decision: entryLeaf(x) }));
+  const out = await releaseRun(state.engine, { run: d.result.run, manifest: d.result.hash, keys, option: repair.kind, actor: decision.by.as, reason: decision.reason, decision: leaf, from, repair, ...(loadsIn.length ? { loads: loadsIn } : {}) });
   // A refusal never hides the release that applied before it: kept apart, as the receipt cites the decision that applied.
   if (out.outcome === 'applied' || d.derived.release?.outcome !== 'applied') d.derived.release = out;
   else d.derived.refused = out;
@@ -12708,7 +12767,7 @@ async function releaseDerived(d: RunRecord, decision: RecordEntry, keys: Record<
     shownBefore.set(out.release, before);
     noteShown(d, out.published);
   }
-  const about: ReleaseAbout = { run: d.result.run, manifest: d.result.hash, outputs: keys, decision: decision.seq, leaf, outcome: out.outcome, why: out.why, from, repair, filled: out.filled ?? 0, ...(under !== undefined ? { under } : {}) };
+  const about: ReleaseAbout = { run: d.result.run, manifest: d.result.hash, outputs: keys, decision: decision.seq, ...(cited.length ? { decisions: cited.map((x) => x.seq) } : {}), leaf, outcome: out.outcome, why: out.why, from, repair, filled: out.filled ?? 0, ...(under !== undefined ? { under } : {}) };
   const e = await ledger.append('release', decision.by.as, about as unknown as JSONValue);
   if (out.outcome === 'applied') d.derived.releaseSeq = e.seq;
   return out;

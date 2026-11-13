@@ -49,7 +49,8 @@ Choose **Mon 4**. The status line says the day is paused: the MFA file came with
 posture, the scores and the summaries wait) and the fix. Readers keep Fri 1's version until someone decides.
 
 The decision sheet opens the choices the file allows, each with what it publishes and whether it can be undone:
-publish as is, keep it back, or fill from another day (a file with no rows is never offered a new level to accept).
+publish as is, with a reason, or keep it back (a file with no rows is never offered a new level to accept). One choice
+decides every file that holds the day; the estate's flow has no fill step.
 One is recommended, with its reason. The sign-in
 demo's ontology allows only carrying a day forward or back, or replacing the file: a choice it doesn't allow is not
 offered.
