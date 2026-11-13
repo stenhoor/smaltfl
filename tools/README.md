@@ -45,6 +45,10 @@ Build the app first (`npm run build:app`) and copy `dist/app` somewhere, because
   day, on Thu Mar 14 (the forest speaks) and Tue Mar 19 (the classifier speaks, the client first), and dark.
 - `fixes.json`: the fixes the sign-in file allows, on Fri Mar 15 (its file came empty): the fill carrying Thu 14
   forward, Replace the file, no like day offered as an estimate.
+- `decide.json`: deciding held days on Larkspur, a flow that watches several datasets (Q-193, ADR 0010 §16; same build
+  as `month.json`). Tue Mar 12 and Mon Mar 18 are published as is, each one choice recorded as a decision for each held
+  file and one release citing them, and Wed Mar 13 is kept back. After a reload, the decisions are applied again from
+  the record. It must report `problems: none`.
 - `month.json`: the month and the day screens on Larkspur (ADR 0021; `npm run build:app -- --flow
   examples/larkspur/flow.json --out dist/app-larkspur`): the recorded March with its trend band, Tue Mar 12 picked and
   opened (run here and checked against its record), Mon Mar 18 by its link with its story, and the month as known at

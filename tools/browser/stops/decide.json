@@ -1,0 +1,64 @@
+[
+  {
+    "name": "decide-tue12-sheet",
+    "what": "Larkspur, Tue Mar 12, held by the WAF file: the decision sheet with Publish as is picked and a reason chosen, before it goes out; Keep names Mon 11, the day the record says readers have, and Replace the file isn't offered, since the WAF file isn't the one it would replace",
+    "day": "Tue 12",
+    "clicks": [".vf-decide-day", ".vf-option[data-option=asis]", ".vf-reason"],
+    "full": true,
+    "expect": {
+      "state": "held",
+      "pageText": ["Publish as is", "Keep Mon 11"],
+      "noPageText": ["Keep Fri 1", "Replace the file"],
+      "enabled": [".vf-go"]
+    }
+  },
+  {
+    "name": "decide-tue12-published",
+    "what": "Publish as is: one choice for the day, recorded as a decision for each held file and one release citing them (Q-193); the engine publishes the day, and readers now see Tue 12",
+    "day": "Tue 12",
+    "clicks": [".vf-decide-day", ".vf-option[data-option=asis]", ".vf-reason", ".vf-go"],
+    "waitFor": "#loads .vf-rc-head",
+    "full": true,
+    "expect": {
+      "pageText": ["Published as is"],
+      "noPageText": ["refused", "watches several sources"],
+      "loads": { "Tue 12": ", published as is" }
+    }
+  },
+  {
+    "name": "decide-mon18-published",
+    "what": "Mon Mar 18, held by the broken org chain and the owner chains it feeds: several held files, one choice, published as is",
+    "day": "Mon 18",
+    "clicks": [".vf-decide-day", ".vf-option[data-option=asis]", ".vf-reason", ".vf-go"],
+    "waitFor": "#loads .vf-rc-head",
+    "full": true,
+    "expect": {
+      "pageText": ["Published as is"],
+      "noPageText": ["refused", "watches several sources"],
+      "loads": { "Mon 18": ", published as is" }
+    }
+  },
+  {
+    "name": "decide-wed13-kept",
+    "what": "Wed Mar 13, the WAF file off again: kept back, readers keep Tue 12",
+    "day": "Wed 13",
+    "clicks": [".vf-decide-day", ".vf-option[data-option=dont]", ".vf-go"],
+    "full": true,
+    "expect": {
+      "noPageText": ["refused", "watches several sources"],
+      "loads": { "Wed 13": ", not published" }
+    }
+  },
+  {
+    "name": "decide-reload",
+    "what": "After a reload, Tue 12 runs again and its decisions are applied again from the record: still published as is",
+    "reload": true,
+    "day": "Tue 12",
+    "waitFor": "#loads .vf-rc-head",
+    "expect": {
+      "pageText": ["Published as is"],
+      "noPageText": ["refused"],
+      "loads": { "Tue 12": ", published as is", "Wed 13": ", not published" }
+    }
+  }
+]

@@ -1248,6 +1248,52 @@ export function pausesOf(entries: readonly EntryLike[], period?: string | null):
   return out;
 }
 
+/** The loads that hold a run (ADR 0010 §7), each once, in the order its holds name them: what a decision on its day
+ * decides, one decision a load (Q-193). A hold of no load (a file refused, which built nothing) adds none. */
+export function heldLoadsOf(holds: readonly Pick<Hold, 'load'>[]): Load[] {
+  const out = new Map<string, Load>();
+  for (const h of holds) if (isLoad(h.load) && !out.has(loadKey(h.load))) out.set(loadKey(h.load), { source: h.load.source, slot: h.load.slot, sha256: h.load.sha256 });
+  return [...out.values()];
+}
+
+/**
+ * A run's pause on a flow that watches several sources, read as one for its day (Q-193): its held loads' pauses, each
+ * keyed by its load (`pausesOf`). Open while any of them is; else the first's, with its decision, published only when
+ * every load's release published it. Null when the record keeps a pause for none of them.
+ */
+export function dayPauseOfLoads(pauses: ReadonlyMap<string, Pause>, loads: readonly Load[]): Pause | null {
+  const list = loads.flatMap((l) => pauses.get(`load:${loadKey(l)}`) ?? []);
+  if (!list.length) return null;
+  const open = list.find((p) => p.state === 'open');
+  if (open) return open;
+  const released = list.every((p) => p.released === true) ? true : list.some((p) => p.released === false) ? false : null;
+  return { ...list[0]!, released };
+}
+
+/**
+ * A day's decision on a flow that watches several sources, as the app takes it (Q-193): one choice, recorded as one
+ * decision a held load, each about its load and naming no keys (ADR 0010 §7), all with the same option, scope and rule.
+ * An Accept carries its level on every one (an Accept names its level), the decision about the level's own source
+ * first: a release cites it as its decision, which is what `levelsOf` reads.
+ */
+export function loadDecisions(o: { run: number; manifest: string; inputs: Inputs; loads: readonly Load[]; option: DecisionOption; scope: 'day' | 'untilPass'; policies: string; rule: string | null; level?: NonNullable<DecideAbout['level']> | null }): DecideAbout[] {
+  const lv = o.level ?? null;
+  const at = lv ? o.loads.findIndex((l) => l.source.toLowerCase() === lv.source.toLowerCase()) : -1;
+  const loads = at > 0 ? [o.loads[at]!, ...o.loads.filter((_, i) => i !== at)] : [...o.loads];
+  return loads.map((load) => ({
+    day: load.slot, run: o.run, manifest: o.manifest, inputs: o.inputs, outputs: {}, option: o.option, scope: o.scope, policies: o.policies, rule: o.rule, load,
+    ...(lv ? { level: lv } : {}),
+  }));
+}
+
+/** The held outputs a release citing these loads may publish (ADR 0010 §7): those every hold of which is about one of
+ * them. A name a hold of no load or of another load reaches stays back. */
+export function keysForLoads(keys: Readonly<Record<string, string>>, holds: readonly Pick<Hold, 'load' | 'reaches'>[], loads: readonly Load[]): Record<string, string> {
+  const cited = new Set(loads.map(loadKey));
+  const back = new Set(holds.filter((h) => !isLoad(h.load) || !cited.has(loadKey(h.load))).flatMap((h) => h.reaches));
+  return Object.fromEntries(Object.entries(keys).filter(([n]) => !back.has(n)));
+}
+
 /**
  * The latest decision about a load (ADR 0010 §7), amendments included: what every run that carries the load applies
  * again, whatever its other sources' loads (their keys change with each). Null when the load was never decided.

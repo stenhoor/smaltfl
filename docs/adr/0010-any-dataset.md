@@ -878,6 +878,32 @@ app work, for the fills.
   hours; a burst of a bad value is told by its share (and with no range, by the rule above), and a burst of ordinary
   rows by the day's amount.
 
+### 16. Amendment: one choice for the day, a decision a load (Q-193, 2026-11-13)
+
+Larkspur and the control estate watch several datasets (28 and 13), so their holds are about loads (§7). The app still
+recorded one decision for the day, naming its keys, and released without citing loads, so the plugin refused every
+publish as is on them ("run 2 watches several sources: a release of it names the decisions it applies, one a load").
+Only "don't publish" worked. The maintainer chose, when asked:
+
+- **One choice for the day.** The decision sheet is unchanged: one choice and one reason. The app records it as one
+  decision for each load that holds the run (`heldLoadsOf`, `loadDecisions`), each about its load (its slot as the
+  day) and naming no keys. Each one amends its load's own decision when there was one.
+- **One release citing them all.** The release names each decision by its leaf (`loads`), and the record keeps them as
+  `decisions`. It releases the held outputs every hold of which is about a cited load (`keysForLoads`). A name that a
+  hold of no load reaches (a refused file) stays back.
+- **The day's pause is its held loads' pauses read as one** (`dayPauseOfLoads`). It is open while any of them is, and
+  published once every load's decision has been released. The day screens, the decision sheet and the receipt read it
+  as before.
+- **After a reload,** a run that holds the same loads applies their decisions again when every held load has one and
+  they all publish. A held load with no decision of its own falls under a standing decision not to publish about an
+  earlier load of its source (`standingForLoad`), recorded as applied under it.
+- **A run's entry lists the loads it read** (`loads`), so a load that a later run read and didn't hold passes its pause.
+- **Not built:** a choice per load (the lanes of §7), which stays possible later on the same record. Fills and Accept
+  for several held loads are also not built: a fill is about one load, as §7 has it.
+
+`test/day-decision.test.ts` checks the shapes. `tools/browser/stops/decide.json` publishes held days on Larkspur as is,
+and keeps one back.
+
 ## Encodings
 
 **Unchanged:** `key/0`, `plan/0`, `plan/1`, `flow/1`, `dataset/0`, `run/1`, `log/1`, `checkpoint/0`, `edit/0`,
