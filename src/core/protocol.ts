@@ -28,6 +28,11 @@ export interface RunOptions {
    */
   stage?: boolean;
   from?: RunRef;
+  /**
+   * A later delivery of the day (ADR 0021 §2, Q-183): the run it corrects, and the sources whose files were sent again.
+   * Recorded in the manifest; every output those files reach is held until a decision, even when its checks pass.
+   */
+  correction?: { of: RunRef; sources: string[] };
   /** Return the run's typing (`RunResult.typed`, core/typed.ts): what the build keeps as the types computed ahead. */
   typed?: boolean;
 }

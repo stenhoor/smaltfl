@@ -280,7 +280,12 @@ release (smaltty ADR 0030).
   here ▶**) and gives each day its screen (`#day/YYYY-MM-DD`, `routeOf`, `openDay`; `renderLoads` is the day's head:
   back, neighbours, `lifecycleOf`, `recordLine`, the pause and Decide, `storyOfDay`). `window.__smaltflMonth` says each
   day as the month does: tools/browser/tour.cjs finds a stop's day by it and opens it by its link;
-  `tools/browser/stops/month.json`.
+  `tools/browser/stops/month.json`. Slice 2, first part: a run can correct an earlier run of its day
+  (`RunOptions.correction`, the manifest's `correction`), held `by: 'correction'` in `holdsOf` until a decision whatever
+  its checks say (Q-183; `test/correction.test.ts`); Replace the file runs as such a correction (Q-155), the day screen
+  saying *Sent again* (`tools/browser/stops/fixes.json`, tour.cjs's `upload`). Decisions on a flow watching several
+  datasets are one choice recorded as a decision a held load (`heldLoadsOf`, `loadDecisions`, `keysForLoads`,
+  `dayPauseOfLoads`; Q-193, ADR 0010 §16; `tools/browser/stops/decide.json`).
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).

@@ -22,6 +22,8 @@
 //     "click": "#sheet .vf-hero",         optional: tap this first (a detail sheet opens), then capture
 //     "clicks": ["sel", ...],             optional: tap each in order, settling ~900 ms (or a run) after each; an entry
 //                                         ["sel", "text"] types the text into that field instead (a form's input)
+//     "upload": ["sel", "file"],          optional: after the taps, choose this file (relative to the stops file) in a
+//                                         file input, and wait for the run it starts (Replace the file)
 //     "waitFor": "sel",                   optional: after the taps, wait until this shows (what a tap draws once the engine answers)
 //     "reload": true,                     optional: reload the page first, keeping IndexedDB, and settle
 //     "view": "runs",                     optional: show a view (#runs, #policies, ...) before capturing
@@ -261,6 +263,18 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
           await target.click();
           await quiet(2000);
           if ((await status()).split('|')[0] !== before.split('|')[0] || /Running|Fetching/.test(await status())) await settled(before);
+        }
+      }
+      // A file chosen in a file input (Replace the file), relative to the stops file: the run it starts is waited for.
+      if (stop.upload) {
+        const [sel, file] = stop.upload;
+        const target = p.locator(sel).first();
+        if (!(await target.count())) problems.push(`${stop.name}: nothing to choose a file in at ${sel}`);
+        else {
+          const before = await status();
+          await target.setInputFiles(path.resolve(path.dirname(stopsFile), file));
+          await quiet(2000);
+          await settled(before);
         }
       }
       if (stop.view && !stop.viewFirst) {

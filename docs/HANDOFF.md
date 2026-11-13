@@ -231,7 +231,9 @@ corrected files, a day corrected twice), Larkspur's `story.json`, and a day's ve
 (Q-193, ADR 0010 §16): on a flow that watches several datasets (Larkspur, the control estate), Publish as is was refused
 by the engine, because the app recorded one decision for the day and released without citing loads. One choice for the
 day is now recorded as a decision for each held file and one release citing them all (`tools/browser/stops/decide.json`).
-Mon 4 in the story is kept back, then corrected (Q-194).
+Mon 4 in the story is kept back, then corrected (Q-194). Slice 2's first part is built (ADR 0021 §"As built"): a later
+delivery of a day waits for a decision (the correction hold), and Replace the file is one. Its second part is next: what
+we went with feeding the history, a past day's correction with a later day current, and the recorded story.
 
 **Then (built): [ADR 0020](adr/0020-the-estate-as-a-company.md), the Larkspur estate** (accepted 2026-11-12, Q-169 to
 Q-175). It is built in the slices of its §8: the generator, bronze, silver, gold, the answer key through the engine,

@@ -128,7 +128,7 @@ export type Judged = { node: number; claim: Claim } | { node: number; unjudged: 
  * 1), a derived run, held until a decision releases it, and a donor not judged good; and the outputs it reaches.
  */
 export interface Hold {
-  by: 'checks' | 'story' | 'unjudged';
+  by: 'checks' | 'story' | 'unjudged' | 'correction';
   node: number;
   origin: string;
   /** What it says: the checks' counts, the story's head, why the source wasn't judged, what a derived run fills, or
@@ -812,13 +812,19 @@ export function holdsOf(plan: Pick<FlowPlan, 'nodes' | 'outputs' | 'publish'>, m
     if ('unjudged' in j) out.push({ by: 'donor', node: j.node, origin, said: j.unjudged, reaches: reachOf(plan, j.node) });
     else if (!donorGood(j.claim)) out.push({ by: 'donor', node: j.node, origin, said: `the donor day ${claimDay(j.claim)}: ${j.claim.head}`, reaches: reachOf(plan, j.node), claim: j.claim });
   }
+  // A later delivery of its day (ADR 0021 §2, Q-183): each source whose file was sent again holds every output it reaches
+  // until a decision, whatever its checks say. Only a day's first files publish on their own.
+  for (const origin of (manifest as Pick<RunManifest, 'correction'>).correction?.sources ?? []) {
+    const node = plan.nodes.findIndex((n) => n.op === 'table' && n.origin === origin);
+    if (node >= 0) out.push({ by: 'correction', node, origin, said: 'a later file for its day: it waits for a decision', reaches: reachOf(plan, node) });
+  }
   // Several watched sources (ADR 0010 §7): each hold of a source, and each check that reads one watched source, is about
   // its load.
   if (byLoad(pub)) {
     const loads = loadsOf(plan, manifest as Pick<RunManifest, 'nodes' | 'parameters'>);
     const watched = new Set(loads.keys());
     for (const h of out) {
-      if (h.by === 'story' || h.by === 'unjudged') {
+      if (h.by === 'story' || h.by === 'unjudged' || h.by === 'correction') {
         const l = loads.get(h.node);
         if (l) h.load = { ...l };
       } else if (h.by === 'checks') {

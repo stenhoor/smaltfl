@@ -100,7 +100,7 @@ function loadsProblem(r: ReleaseInput, run: Stored, holds: readonly Hold[], doc:
   if ((r.option === 'fill' || r.option === 'complete') && ls.length !== 1) return `${r.option === 'fill' ? 'a fill' : 'the part that arrived'} is about one load, and it cites ${ls.length}`;
   for (const name of Object.keys(r.keys).sort()) {
     const other = holds.find((h) => h.reaches.includes(name) && !(h.load && cited.has(loadKey(h.load))));
-    if (other) return `${name} waits for ${other.origin} (${other.by === 'checks' ? 'its checks' : other.by === 'story' ? other.said : 'not judged'}${other.load ? `, its ${other.load.slot} load` : ''}), which no decision it cites is about`;
+    if (other) return `${name} waits for ${other.origin} (${other.by === 'checks' ? 'its checks' : other.by === 'story' || other.by === 'correction' ? other.said : 'not judged'}${other.load ? `, its ${other.load.slot} load` : ''}), which no decision it cites is about`;
   }
   return null;
 }

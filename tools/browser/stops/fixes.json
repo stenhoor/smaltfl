@@ -70,5 +70,48 @@
         ".vf-donor[data-day=\"2024-03-16\"]": 1
       }
     }
+  },
+  {
+    "name": "fixes-replace",
+    "what": "Replace the file on Fri Mar 15: the sign-ins re-sent for the day (a full Friday) is a later delivery of it (ADR 0021 §2, Q-155). It passes its checks and still waits for a decision (Q-183), its story naming the file sent again",
+    "day": "Fri 15",
+    "clicks": [
+      ".vf-decide-day"
+    ],
+    "upload": [
+      ".vf-file",
+      "files/auth_2024-03-15.csv"
+    ],
+    "element": "#loads",
+    "expect": {
+      "state": "held",
+      "text": [
+        "Sent again: auth",
+        "A later file for Fri 15: auth sent again. It waits for a decision"
+      ]
+    }
+  },
+  {
+    "name": "fixes-replace-published",
+    "what": "The corrected file published as is, with a reason: readers now see Fri 15 as re-sent",
+    "day": "Fri 15",
+    "clicks": [
+      ".vf-decide-day",
+      ".vf-option[data-option=asis]",
+      ".vf-reason",
+      ".vf-go"
+    ],
+    "waitFor": "#loads .vf-rc-head",
+    "expect": {
+      "pageText": [
+        "Published as is"
+      ],
+      "noPageText": [
+        "refused"
+      ],
+      "loads": {
+        "Fri 15": ", published as is"
+      }
+    }
   }
 ]

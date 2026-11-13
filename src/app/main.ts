@@ -10765,10 +10765,14 @@ function lifecycleOf(day: string): HTMLElement | null {
   const decided = dayPause(day);
   const arrived = runs[0]!.at;
   const steps: [string, string][] = [['', `Arrived ${arrived.slice(0, 10) === day ? `${arrived.slice(11, 16)} UTC` : whenMin(arrived, day)}`], ['', 'Checked']];
+  // A later delivery of the day (ADR 0021 §2): held first by what held its first files, then its files sent again.
+  const sent = (a as { correction?: { sources?: string[] } }).correction?.sources ?? [];
+  const before = sent.length ? (runs.find((e) => (e.about as unknown as RunAbout).outcome === 'held')?.about as unknown as RunAbout | undefined) : undefined;
   if (a.outcome === 'failed') steps.push(['bad', 'The run failed']);
   else if (a.outcome === 'held' || decided) {
-    const first = a.holds?.[0];
+    const first = (before ?? a).holds?.[0];
     steps.push(['bad', `Held${first ? `: ${first.origin}` : ''}`]);
+    if (sent.length) steps.push(['wait', `Sent again: ${sent.join(', ')}`]);
     steps.push(!decided || decided === 'waiting' ? ['wait', DECIDED_WORD.waiting] : ['ok', `Decided: ${DECIDED_WORD[decided]}`]);
   } else steps.push(['ok', 'Published']);
   return h('ol', { class: 'dh-life', 'aria-label': `What happened to ${dayLabel(day)}` }, ...steps.map(([c, t]) => h('li', c ? { class: c } : {}, t)));
@@ -10784,9 +10788,11 @@ function storyOfDay(day: string): HTMLElement | null {
       const d = e.about as { option?: DecisionOption } | null;
       return h('li', {}, h('span', { class: 'ds-when' }, whenMin(e.at, day)), ` ${who} decided: ${d?.option ? (DECIDED_WORD[d.option as DayState] ?? d.option) : 'something'}${e.reason ? ` (“${e.reason}”)` : ''}.`);
     }
-    const a = e.about as unknown as RunAbout;
+    const a = e.about as unknown as RunAbout & { correction?: { sources?: string[] } };
     const said = a.outcome === 'failed' ? `failed: ${a.error ?? 'no reason given'}` : a.outcome === 'derived' ? 'a fill from another day' : a.outcome === 'held' ? `held${a.holds?.[0] ? `: ${a.holds[0].origin}: ${a.holds[0].said}` : ''}` : 'published';
-    return h('li', {}, h('span', { class: 'ds-when' }, whenMin(e.at, day)), ` ${who} ran the day: ${said}.`);
+    // A later delivery of the day (ADR 0021 §2): its files sent again, run, and waiting for a decision.
+    const sent = a.correction?.sources?.length ? ` on ${a.correction.sources.join(', ')} sent again` : '';
+    return h('li', {}, h('span', { class: 'ds-when' }, whenMin(e.at, day)), ` ${who} ran the day${sent}: ${said}.`);
   };
   return h('details', { class: 'dh-story' }, h('summary', {}, `The day’s story · ${items.length} ${items.length === 1 ? 'entry' : 'entries'}`), h('ol', {}, ...items.map(line)));
 }
@@ -11018,6 +11024,8 @@ function renderLoads(): void {
       (top && counted) || statusPause ? null : h('p', { 'aria-live': 'polite' }, top && (top.severity === 'alert' || top.severity === 'warn') ? glyphEl(top.severity, 14) : '', ' ', loadSummary()),
       // Once decided, the decision's receipt, as the sheet collapses to it: what readers now see, who, when, the record.
       pl && held && held.state === 'waiting' && !(statusPause && !pl.verb) ? h('p', { class: `loads-pause ${held.state}` }, glyphEl(PAUSE_MARK[held.state], 14), h('b', {}, pl.text)) : null,
+      // A later delivery waiting (ADR 0021 §2, Q-183): said plainly, whatever its checks say.
+      own && held?.state === 'waiting' && own.result.manifest.correction ? h('p', { class: 'loads-pause waiting resent' }, `A later file for ${dayShort(now!.day)}: ${own.result.manifest.correction.sources.join(', ')} sent again. It waits for a decision, as every correction does.`) : null,
       own && held && held.state !== 'waiting' ? receiptOf(own, may) : null,
       after ? h('p', { class: `loads-pause after${waitingDay ? ' waiting' : ''}` }, h('b', {}, afterParts(after))) : null,
       h('div', { class: 'loads-acts' },
@@ -12163,7 +12171,11 @@ async function run(early?: EarlyClaims): Promise<void> {
     const told = asked?.claims;
     const data = integrity.data ? { commit: integrity.data.commit, manifest: integrity.data.manifest } : null;
     const sources = Object.fromEntries([...ingested].filter(([id]) => state.doc.sources.some((x) => x.id === id)));
-    const result = await runFlow(engine, state.doc, { smaltdb: SMALTDB, parameters, data, log: recordHead(), ...(told ? { claims: told } : {}), ...(asked && Object.keys(asked.tell).length ? { tell: asked.tell } : {}), ...(Object.keys(sources).length ? { sources } : {}) });
+    // A day's file replaced (the `replace` fix) is a later delivery of the day (ADR 0021 §2, Q-155): it corrects the day's
+    // latest run here, and waits for a decision whatever its checks say (Q-183).
+    const before = loads.replaced.has(loads.pinned) && loadDay ? state.runs.find((x) => dayOfRun(x) === loadDay && !x.derived) : undefined;
+    const correction = before && primarySource() ? { of: { run: before.result.run, manifest: before.result.hash }, sources: [primarySource()!] } : undefined;
+    const result = await runFlow(engine, state.doc, { smaltdb: SMALTDB, parameters, data, log: recordHead(), ...(told ? { claims: told } : {}), ...(asked && Object.keys(asked.tell).length ? { tell: asked.tell } : {}), ...(Object.keys(sources).length ? { sources } : {}), ...(correction ? { correction } : {}) });
     const ms = performance.now() - t;
     mark('run: flow run');
     // A held run returns, built, checked and recorded, its versions staged: only `published` names show it. A watched
@@ -12293,6 +12305,8 @@ async function recordRun(rec: RunRecord | null, error: string | null): Promise<v
       await ledger.append('run', state.viewer, {
         run: result.run, manifest: result.hash, blob, plan, load, outcome: held ? 'held' : 'ok', files: files as unknown as JSONValue, data: result.manifest.data ?? null,
         day, inputs: inputsOf(result.manifest) as unknown as JSONValue,
+        // A later delivery of its day (ADR 0021 §2): the run it corrects and the files sent again.
+        ...(result.manifest.correction ? { correction: result.manifest.correction as unknown as JSONValue } : {}),
         // With several watched sources, every load it read (ADR 0010 §7): a load it read and didn't hold passes its pause.
         ...(typed && byLoad(typed.publish) ? { loads: [...loadsOf(typed, result.manifest).values()] as unknown as JSONValue } : {}),
         ...(held ? { holds: result.holds as unknown as JSONValue, waiting: result.waiting, keys } : {}),
