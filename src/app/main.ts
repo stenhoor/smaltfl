@@ -34,7 +34,8 @@ import { dayVersions, donorIdOf, fillCounts, levelOf as acceptedLevel, levelWays
 import { gridOf, shadeOf, shareOf, standOut } from './grid.js';
 import { setUpSplit, showWorkspace } from './split.js';
 import { mark } from './perf.js';
-import { isRangesFile, rangesPath, type GivenRanges } from '../core/ranges.js';
+import { isRangesFile, measuredAhead, rangesPath, type GivenRanges } from '../core/ranges.js';
+import { TYPES_PATH } from '../core/typed.js';
 import { aheadServed, giveAhead } from '../core/ahead.js';
 import { modelLeftOut } from '../core/modelcols.js';
 import { msSaid, sqlDoes, stepStory, usualMs, usualRows, type StepFacts, type StepStory } from '../core/silver.js';
@@ -61,7 +62,7 @@ import { flowHash, isPublish2, planPeriod, translate, type Column, type FlowPlan
 import { checksOver, clockText, columnSql, fillGaps, growForest, isolationPath, madsOf, minuteOfDay, needOf, needWords, pathLength, principalComponents, profileColumn, quantile, renamesOf, scoreOf, secondsText, suggestChecks, unusual, type Cut, type Drift, type Forest, type Judge, type Profile, type Suggestion, type Unusual } from '../core/quality.js';
 import type { ReleaseResult, RunResult, SourceIngest, TellFor, VerifyLevel, VerifyResult } from '../core/protocol.js';
 import { identifiers, literal, quoteIdent } from '../core/sqltext.js';
-import { measureLoad, pinFile, releaseRun, runFlow, sampleLoad, verifyRun } from '../index.js';
+import { measureLoad, pinFile, pinFiles, prepareRun, releaseRun, runFlow, sampleLoad, verifyRun } from '../index.js';
 import { apartColumns, apartEvidence, appendSample, isSample, SAMPLE_KEEP, samplePath, type SampleFile } from '../core/apart.js';
 import { forestEvidence } from '../core/combos.js';
 import { appendPeriods, hourValuesOf, settingsFor, tailBefore, type Measures } from '../core/measures.js';
@@ -10816,19 +10817,23 @@ async function runLoad(k: number): Promise<void> {
       loads.bytes.set(k, bytes);
       for (const old of [...loads.bytes.keys()].slice(0, Math.max(0, loads.bytes.size - 3))) loads.bytes.delete(old);
     }
-    // The engine hashes the bytes again as it pins them, kept ones included, and refuses them if they don't match.
-    await pinFile(engine, loadFile(), bytes, replaced?.sha256 ?? l.sha256);
+    // The engine hashes the bytes again as it pins them, kept ones included, and refuses them if they don't match. The
+    // day's files go to it in one call (ADR 0019 amendment 2), the loads' source first.
+    const day: { name: string; bytes: Uint8Array; sha256: string }[] = [{ name: loadFile(), bytes, sha256: replaced?.sha256 ?? l.sha256 }];
     const main = primarySource();
-    if (main) pulledIn(main, replaced ? replaced.name : l.file, replaced?.sha256 ?? l.sha256, replaced ? `uploaded by ${state.viewer} in place of ${l.file}` : madeBy(main));
     // The other daily sources' files for the day (ADR 0013 §5), each checked and pinned under its binding's name.
     const others = loads.others.get(k) ?? {};
+    const pulled: [string, string, string][] = [];
     for (const [id, f] of Object.entries(l.files ?? {})) {
       const b = bindingOf(id);
       if (!b || id === primarySource()) continue;
       others[id] ??= await checked(f.file, { sha256: f.sha256, bytes: f.bytes ?? -1, from: f.file });
-      await pinFile(engine, b.file, others[id], f.sha256);
-      pulledIn(id, f.file, f.sha256, madeBy(id));
+      day.push({ name: b.file, bytes: others[id], sha256: f.sha256 });
+      pulled.push([id, f.file, f.sha256]);
     }
+    await pinFiles(engine, day);
+    if (main) pulledIn(main, replaced ? replaced.name : l.file, replaced?.sha256 ?? l.sha256, replaced ? `uploaded by ${state.viewer} in place of ${l.file}` : madeBy(main));
+    for (const [id, file, sha256] of pulled) pulledIn(id, file, sha256, madeBy(id));
     loads.others.set(k, others);
     for (const old of [...loads.others.keys()].slice(0, Math.max(0, loads.others.size - 3))) loads.others.delete(old);
   } catch (e) {
@@ -10842,6 +10847,7 @@ async function runLoad(k: number): Promise<void> {
   loads.week = mondayOf(l.day);
   normalView.focus = '';
   historyFocus.clear();
+  prepareDay(engine);
   renderLoads();
   await run();
   renderLoads();
@@ -10990,6 +10996,9 @@ const madeBy = (id: string): string | undefined => (dataList?.sources[id] as { f
 const bases = new Map<string, { file: HistoryFile; ref: HistoryRef }>();
 /** Each watched node's kept sample (ADR 0014 §5), by id: the build's, with the days run in this browser appended. */
 const samples = new Map<string, SampleFile>();
+/** Each sample as it was last pinned for the engine: pinned again only once a day appended to it made another
+ * (`appendSample` returns a new file). */
+const pinnedSamples = new Map<string, SampleFile>();
 /** The kept rows of each load run in this browser (ADR 0014 §5), by watched id and day: the classifier's today. */
 const keptRows = new Map<string, Map<string, unknown[][]>>();
 /** A day's kept rows added to a node's sample, once, in order; a day out of order is kept for its own story only. */
@@ -11104,9 +11113,13 @@ async function claimsForRun(engine: Engine, day: string | undefined, parameters:
   // page judges each load as its numbers come back, instead of the page and the engine waiting on each other in turns.
   const asked = new Map<string, { m: Promise<Measures>; kept?: Promise<unknown[][]> }>();
   const ask = (source: string, table: string, settings: NonNullable<ReturnType<typeof settingsFor>>) => {
-    const m = measureLoad(engine, table, settings);
+    // Its first day measured ahead (ADR 0019 amendment 2): taken for the very file pinned for it, under these settings;
+    // the run takes the same record for the snapshot it reads of it.
+    const ahead = measuredAhead(givens.get(source)?.file, settings, { file: ingested.get(source)?.sha256 ?? null });
+    const m = ahead ? Promise.resolve(structuredClone(ahead.measures)) : measureLoad(engine, table, settings);
     m.catch(() => undefined);
-    const kept = samples.has(source) ? m.then(() => sampleLoad(engine, table, { keep: SAMPLE_KEEP, strata: settings.counted })).then((r) => r.rows) : undefined;
+    const keptAhead = ahead?.kept && ahead.keep === SAMPLE_KEEP ? structuredClone(ahead.kept) : null;
+    const kept = samples.has(source) ? (keptAhead ? Promise.resolve(keptAhead) : m.then(() => sampleLoad(engine, table, { keep: SAMPLE_KEEP, strata: settings.counted })).then((r) => r.rows)) : undefined;
     kept?.catch(() => undefined);
     asked.set(source, { m, ...(kept ? { kept } : {}) });
   };
@@ -11136,10 +11149,15 @@ async function claimsForRun(engine: Engine, day: string | undefined, parameters:
       // A watched step (ADR 0013 §4): its load is the dataset the run builds, so the engine tells its claim, from the
       // history and tail pinned under the watch's names and what the record says; its tail is pinned here.
       const tail = tailBefore(tails.get(source) ?? [], day);
-      await pinFile(engine, tailPath(source), tail.length ? utf8(canonicalJSON(tail as unknown as Parameters<typeof canonicalJSON>[0])) : null);
-      // The step's sample with the days run here appended (ADR 0014 §5), pinned again, so the engine's reference is current.
+      // Pinned while the page goes on telling the sources' claims; each is waited for before the run (`pins`).
+      pins.push(pinFile(engine, tailPath(source), tail.length ? utf8(canonicalJSON(tail as unknown as Parameters<typeof canonicalJSON>[0])) : null));
+      // The step's sample with the days run here appended (ADR 0014 §5), pinned again, so the engine's reference is
+      // current: only once a day has been appended to it since it was last pinned.
       const sample = samples.get(source);
-      if (sample) await pinFile(engine, samplePath(source), utf8(JSON.stringify(sample)));
+      if (sample && pinnedSamples.get(source) !== sample) {
+        pinnedSamples.set(source, sample);
+        pins.push(pinFile(engine, samplePath(source), utf8(JSON.stringify(sample))));
+      }
       tell[source] = { skip: recordedSkips(), levels: levelsOf(ledger?.entries ?? [], source) };
       continue;
     }
@@ -11749,7 +11767,48 @@ function syncRun(): void {
   }
 }
 
-async function run(): Promise<void> {
+/** The day pinned and the parameters a run of it takes. */
+function runParameters(): { loadDay: string | undefined; parameters: Record<string, string> } {
+  // A load's own month, for the checks that ask which month a trip is in: last year's loads are a year back.
+  const loadDay = loads.list.length > 1 ? loads.list[loads.pinned]?.day : undefined;
+  const has = (name: string) => !!state.doc.parameters?.some((x) => x.name === name);
+  const parameters: Record<string, string> = has('month') && loadDay ? { month: loadDay.slice(0, 7) } : {};
+  // The day the trips are from: the period that orders the days a flow holds, and the day its claims name (ADR 0009).
+  const period = periodOfFlow();
+  if (period && has(period) && loadDay) parameters[period] = loadDay;
+  return { loadDay, parameters };
+}
+
+/**
+ * The pinned day's sources snapshotted ahead of its run (ADR 0019 amendment 2): asked as soon as its files are pinned and
+ * not waited for, so the engine copies and hashes them while the page tells the day's claims; the run takes them while
+ * they still hold. A flow that can't be planned is left to the run, which says why.
+ */
+function prepareDay(engine: Engine): void {
+  void prepareRun(engine, state.doc, { smaltdb: SMALTDB, parameters: runParameters().parameters }).catch(() => undefined);
+}
+
+/** A day's claims told ahead of its run, with what they were told for. */
+interface EarlyClaims {
+  day: string | undefined;
+  parameters: string;
+  doc: FlowDocument;
+  claims: Promise<Awaited<ReturnType<typeof claimsForRun>>>;
+}
+
+/**
+ * The pinned day's claims, told ahead of its run (the first day's, while the engine finishes its pins and snapshots the
+ * sources): the run takes them for the very day, parameters and document they were told for, and tells them again
+ * otherwise.
+ */
+function claimsEarly(engine: Engine): EarlyClaims {
+  const { loadDay, parameters } = runParameters();
+  const claims = claimsForRun(engine, loadDay, parameters);
+  claims.catch(() => undefined);
+  return { day: loadDay, parameters: JSON.stringify(parameters), doc: state.doc, claims };
+}
+
+async function run(early?: EarlyClaims): Promise<void> {
   const engine = state.engine;
   if (!engine || state.running) return;
   // Only someone who may decide runs the flow: a day that passes publishes, and the record names who ran it (round 3,
@@ -11767,16 +11826,10 @@ async function run(): Promise<void> {
   renderCanvas();
   const t = performance.now();
   try {
-    // A load's own month, for the checks that ask which month a trip is in: last year's loads are a year back.
-    const loadDay = loads.list.length > 1 ? loads.list[loads.pinned]?.day : undefined;
-    const has = (name: string) => !!state.doc.parameters?.some((x) => x.name === name);
-    const parameters: Record<string, string> = has('month') && loadDay ? { month: loadDay.slice(0, 7) } : {};
-    // The day the trips are from: the period that orders the days a flow holds, and the day its claims name (ADR 0009).
-    const period = periodOfFlow();
-    if (period && has(period) && loadDay) parameters[period] = loadDay;
+    const { loadDay, parameters } = runParameters();
     refreshRanges();
     mark('run: ranges');
-    const asked = await claimsForRun(engine, loadDay, parameters);
+    const asked = early && early.day === loadDay && early.parameters === JSON.stringify(parameters) && early.doc === state.doc ? await early.claims : await claimsForRun(engine, loadDay, parameters);
     mark('run: claims told');
     const told = asked?.claims;
     const data = integrity.data ? { commit: integrity.data.commit, manifest: integrity.data.manifest } : null;
@@ -11806,6 +11859,12 @@ async function run(): Promise<void> {
     // What is shown is what ran: after a refused day, a run on the day still pinned shows that day.
     if (loads.pinned >= 0) loads.at = loads.pinned;
     mark('run: tails and samples');
+    // The run's columns and the edits' chain asked of the engine now, while the page records the run; each is waited for
+    // where it was needed.
+    const columnsLearned = learnColumns();
+    const editsRead = refreshEdits();
+    columnsLearned.catch(() => undefined);
+    editsRead.catch(() => undefined);
     await recordRun(rec, null);
     mark('run: recorded');
     // The day just measured (and the record's new days left out) in the ranges before anything is said or drawn of it:
@@ -11816,10 +11875,10 @@ async function run(): Promise<void> {
     // A run whose gates all passed, or whose holds a standing decision published, is sealed (ADR 0014 §6).
     await sealIfReady(rec);
     mark('run: decided and sealed');
-    await learnColumns();
+    await columnsLearned;
     mark('run: columns learned');
     void computeChanges();
-    await refreshEdits();
+    await editsRead;
     mark('run: edits');
     // The day's own rows by hour and value, before anything says the day: an hour fall names the part that kept arriving.
     const ranDay = dayOfRun(rec);
@@ -13014,6 +13073,9 @@ async function start(): Promise<void> {
   if (!document.getElementById('viz-defs')) document.body.insertAdjacentHTML('beforeend', VIZ_DEFS.replace('<svg ', '<svg id="viz-defs" '));
   // The desktop split: the flow on the left, the workspace on the right, a bar between them (ADR 0018).
   if (!document.getElementById('split')) setUpSplit($('sheet'));
+  // The engine's worker started first, so it loads while the page reads its lists and its record; waited for below.
+  const engineReady = connect();
+  engineReady.catch(() => undefined);
   // The data list first (ADR 0010 §9): it binds each source by id, and names the flow when the page runs another than
   // the built example, which is checked against the list before it is read.
   mark('start');
@@ -13070,7 +13132,7 @@ async function start(): Promise<void> {
     // A day held in an earlier visit still waits (ADR 0009 §10): the tab says so before anything runs.
     syncTitle();
     if (opening) throw opening;
-    const engine = await connect();
+    const engine = await engineReady;
     mark('engine started');
     // The daily loads the data has, if any: the flow starts on the first.
     const list = dataList;
@@ -13109,6 +13171,7 @@ async function start(): Promise<void> {
     }
     for (const entry of Object.values(list.histories)) fetchAhead(entry.path, entry);
     for (const entry of Object.values(list.ranges)) fetchAhead(entry.path, entry);
+    if (list.types) fetchAhead(list.types.path, list.types);
     for (const [id, entry] of Object.entries(list.samples)) if (Object.keys(state.doc.publish?.watch ?? {}).some((w) => w.toLowerCase() === id.toLowerCase())) fetchAhead(entry.path, entry);
     const got = (path: string, entry: Expected | undefined) => ahead.get(path) ?? checked(path, entry);
     // The data's list first: it must be the one this app was built with, and say what loads.json says of each file.
@@ -13127,9 +13190,15 @@ async function start(): Promise<void> {
     const first = loads.list[0];
     const noun = rowNoun(watched ?? '');
     setStatus(first ? `Loading ${dayLabel(first.day)}: ${fmtInt(first.rows)} ${first.rows === 1 ? noun.one : noun.many}, and the other sources, each checked against the data's list…` : `Loading the ${noun.many} and the other sources…`);
-    // Each source's file, by its binding, checked here and pinned in the engine, which hashes it again and reads it as
-    // smaltfl:<file>: the loads' source its first load.
+    // What every pin is: put to the engine in order without waiting, each waited for before anything runs. The day's
+    // files and their tables first; then what the claims and the run read (`readFiles`), pinned together after them.
     const pinning: Promise<unknown>[] = [];
+    const dayFiles: { name: string; bytes: Uint8Array; sha256: string }[] = [];
+    const tablesDdl: string[] = [];
+    const readFiles: { name: string; bytes: Uint8Array; sha256: string }[] = [];
+    // Each source's file, by its binding, checked here and pinned in the engine, which hashes it again and reads it as
+    // smaltfl:<file>: the loads' source its first load. The files first, then their sources snapshotted for the run
+    // (`prepareDay`, ADR 0019 amendment 2), while the page reads the histories, samples and ranges and tells the claims.
     for (const [id, b] of Object.entries(list.sources)) {
       if (!state.doc.sources.some((x) => x.id === id)) continue;
       // A daily source's first load (with several daily sources, the first day's file of each, ADR 0013 §5).
@@ -13138,11 +13207,20 @@ async function start(): Promise<void> {
       if (!want) throw new Error(`no hash for ${b.file} in the data's list: it can't be checked, so it isn't used`);
       const bytes = await got(want.path, want);
       pulledIn(id, want.path, want.sha256, madeBy(id));
-      // Pinned without waiting: the engine takes the pins in order while the page reads the next file; every pin is
-      // waited for before anything runs (`pinning`).
-      pinning.push(pinFile(engine, b.file, bytes, want.sha256).then(() => engine.exec(pinnedDdl(b))));
+      // Pinned with the day's other files in one call, and its table defined with theirs (below).
+      dayFiles.push({ name: b.file, bytes, sha256: want.sha256 });
+      tablesDdl.push(pinnedDdl(b));
       if (id === list.loadSource && first) loads.bytes.set(0, bytes);
       else if (day) loads.others.set(0, { ...(loads.others.get(0) ?? {}), [id]: bytes });
+    }
+    // In one round trip each (a call that holds the engine's lock waits for the one before it to be answered): every
+    // file, then every table over them, in one statement list.
+    pinning.push(pinFiles(engine, dayFiles));
+    if (tablesDdl.length) pinning.push(engine.exec(tablesDdl.join(';\n')));
+    if (first) {
+      loads.pinned = 0;
+      loads.at = 0;
+      prepareDay(engine);
     }
     mark('files pinned');
     // Each history pinned in the engine as the flow's watch names it (ADR 0009 §3): a claim told from it is checked
@@ -13154,11 +13232,12 @@ async function start(): Promise<void> {
       if (!bytes || !named.includes(entry.path)) continue;
       const file = id === watched ? past : (JSON.parse(new TextDecoder().decode(bytes)) as HistoryFile);
       if (!isHistory(file) || !file.days.length) continue;
-      pinning.push(pinFile(engine, entry.path, bytes, entry.sha256).then((pin) => {
-        const ref = { path: pin.name, sha256: pin.sha256, bytes: pin.bytes };
-        bases.set(id, { file, ref });
-        if (id === watched && flowHistory) historyPin = ref;
-      }));
+      // Its reference as the pin will confirm it (the name, the sha256 the engine checks the bytes against, their size),
+      // so the claims can be told while the engine is still at work; a pin that fails stops the page before any run.
+      const ref = { path: entry.path, sha256: entry.sha256, bytes: bytes.length };
+      bases.set(id, { file, ref });
+      if (id === watched && flowHistory) historyPin = ref;
+      readFiles.push({ name: entry.path, bytes, sha256: entry.sha256 });
     }
     mark('histories pinned');
     // Each kept sample (ADR 0014 §5), checked, kept here and pinned for the engine under the node's sample path, so a
@@ -13169,10 +13248,12 @@ async function start(): Promise<void> {
       const file = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
       if (!isSample(file)) continue;
       samples.set(id, file);
-      pinning.push(pinFile(engine, samplePath(id), bytes, entry.sha256));
+      // The engine reads a watched step's sample, to tell the step's claim; a source's is the page's alone.
+      if (!state.doc.sources.some((x) => x.id.toLowerCase() === id.toLowerCase())) {
+        pinnedSamples.set(id, file);
+        readFiles.push({ name: samplePath(id), bytes, sha256: entry.sha256 });
+      }
     }
-    if (first) loads.pinned = 0;
-    if (first) loads.at = 0;
     mark('samples pinned');
     // Each watch's ranges computed ahead for the first day (ADR 0019): checked like every file, taken only on the history
     // whose sha256 it names, and pinned for the engine's own judging of a watched step.
@@ -13184,14 +13265,21 @@ async function start(): Promise<void> {
       if (!isRangesFile(file) || file.history.sha256 !== h.sha256) continue;
       givens.set(id, { file, sha256: h.sha256 });
       giveAhead(file.apart);
-      pinning.push(pinFile(engine, rangesPath(id), bytes, entry.sha256));
+      readFiles.push({ name: rangesPath(id), bytes, sha256: entry.sha256 });
     }
-    await Promise.all(pinning);
+    // The first loads day's types computed ahead (ADR 0019 amendment 2): checked like every file and pinned for the
+    // engine, which takes them only for a typing with their key, and types the flow itself otherwise.
+    if (list.types) readFiles.push({ name: TYPES_PATH, bytes: await got(list.types.path, list.types), sha256: list.types.sha256 });
+    pinning.push(pinFiles(engine, readFiles));
     if (givens.size) refreshRanges();
+    // The first day's claims told now, while the engine finishes the pins and the snapshots: the run waits for both. The
+    // engine is the page's (and Run on) only once every pin is in.
+    const early = claimsEarly(engine);
+    await Promise.all(pinning);
     mark('ranges pinned');
     state.engine = engine;
     renderLoads();
-    await run();
+    await run(early);
     renderLoads();
     mark(`first day shown (${aheadServed()} judged ahead)`);
     mark('first day shown');

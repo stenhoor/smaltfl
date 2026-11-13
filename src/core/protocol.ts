@@ -6,6 +6,7 @@ import type { Repair } from './fill.js';
 import type { Claim, ClaimLevel, FillHold, Hold, Load, RunRef } from './hold.js';
 import type { RunManifest } from './manifest.js';
 import type { Measures } from './measures.js';
+import type { Column } from './plan.js';
 import type { DecisionOption } from './policy.js';
 
 /** The plugin's name, as `callPlugin` addresses it. */
@@ -27,6 +28,8 @@ export interface RunOptions {
    */
   stage?: boolean;
   from?: RunRef;
+  /** Return the run's typing (`RunResult.typed`, core/typed.ts): what the build keeps as the types computed ahead. */
+  typed?: boolean;
 }
 
 export interface RunContext {
@@ -114,6 +117,9 @@ export interface RunResult {
   /** How long each step took to read (a source) or build (a stored step), in milliseconds, by its origin (ADR 0015
    * amendment 4): for people, never in the manifest or a hash. A step reused or folded has none of its own. */
   timings?: Record<string, number>;
+  /** With `typed` (core/typed.ts): the typing's key and every needed node's columns but the snapshots', and whether
+   * they were given by a pinned types file rather than typed here. Never in the manifest or a hash. */
+  typed?: { key: string; schemas: [node: number, columns: Column[]][]; given: boolean };
 }
 
 /**

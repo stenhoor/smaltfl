@@ -227,7 +227,8 @@ on Larkspur (`npm run build:app -- --flow examples/larkspur/flow.json --out dist
 the maintainers to confirm: an object type's loose ids (Q-176) and `publish.reach: 'downstream'` (Q-177) in slice 3,
 and in slice 4 a steady change in gold left to the product view (Q-178: the remediation push isn't told by a day's
 judge), and in slice 5 that the switch waits on a faster first day (Q-179: 11 s against a 5 s budget, the engine's
-run of the flow 7.3 s of it). Next is the first day's speed (Q-179), then the switch (slice 7: the docs deploy builds
+run of the flow 7.3 s of it). The first day's speed is built (ADR 0019 amendment 2: 4.5 s on a desktop, 4.8 s on a
+phone, from about 10 s); a first day near 1 s is Q-180, open. Next is the switch (slice 7: the docs deploy builds
 Larkspur and it becomes the demo). The items below follow it.
 
 Parked behind the notebook surface by the maintainer's decision of 2026-11-09 (Q-87, ADR 0011 §9). In priority order:

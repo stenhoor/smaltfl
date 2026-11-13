@@ -75,3 +75,83 @@ As built: the estate's first day 3.4 s → 3.06 s on the machine measured (the s
 the 4.0 s above was another session's machine), 12 classifier answers served. The engine's own work remains:
 compiling the run's SQL (0.4 s in smaltdb, `compileProgram`), the first queries on a cold engine, and the posture's
 forest and pair ranges. `tools/browser/load.cjs APP [runs]` prints each phase's median.
+
+## Amendment 2: the first day computed ahead and overlapped (2026-11-13, Q-179)
+
+Larkspur's first day was shown at 11.0 s (ADR 0020 slice 5; 10.0 s on this session's machine), against ADR 0020 §7's
+5 s. Q-179 kept the scale and the budget and asked for this ADR's kind of work. Measured first (a profile of the page
+with the engine in it, `?engine=page`; the runtime's phases timed in Node; the engine's own timeline stamped in a
+scratch build), the first day went on:
+
+- typing every step: each compiled with every step above it folded onto the snapshots, twice (its columns, then what
+  it reads), 2.2 s, the gold steps compiling 15,000 to 25,000 characters each;
+- the engine measuring and sampling the twenty files before the run so the page could tell their claims, 1.9 s; the run
+  then copied and hashed every file again as its snapshot;
+- one step, Larkspur's `coverage`, 1.4 s: its ownership check ran a correlated `EXISTS` over the leaders for every
+  application, and the statement evaluated it twice;
+- the run's own work: building 2.8 s, counting checks 0.7 s, hashing 0.5 s;
+- before the run, some 45 requests that hold the engine's lock (a pin, a table), each sent only once the one before it
+  was answered, which the page, busy parsing, took late.
+
+Decided, and built (every hash as it was; only Larkspur's flow moved, by its SQL):
+
+1. **Types computed ahead** (`src/core/typed.ts`). The types are a pure function of the nodes as they stand when typing
+   starts (the snapshots' columns filled in), the nodes the run needs and the engine and smaltfl versions: `typesKey`
+   hashes exactly those. The build runs the first loads day once (`history.mjs --types`, the whole document with its
+   parameters as the page sets them) and keeps every node's columns under that key (`types.json`, listed in loads.json,
+   checked like every file, pinned as `TYPES_PATH`); the run takes them only under its own key (`givenTypes`), and types
+   every node itself otherwise. The checks typing makes were made by the build on the very same nodes.
+   `test/typed.test.ts`: the same manifest with and without, and a miss on other parameters, another document, other
+   source columns, an entry that leaves a node out, or a file that isn't one.
+2. **The first day measured ahead** (`RangesFile.measured`, `measuredAhead`). The history builder measures the first day
+   under the settings the page and the run take from the history (`settingsFor` on the history just folded: the
+   builder's own settings name every column the ontology lists values for, and the page's only the file's), and ships
+   the measures and kept rows in the ranges file. A load's measures are its snapshot's rows in the order they were
+   written: a file's order is its bytes', so the page takes them for the very file (its sha256) and settings, and the
+   run for the very snapshot (its content hash), settings and file; a step's order is its plan's, so the run takes a
+   step's also by its node key. The page asks the engine nothing before the first run.
+3. **Sources snapshotted ahead** (`src/plugin/prepared.ts`, the plugin's `prepare`, `prepareRun`). The page asks for
+   the day's sources to be snapshotted as soon as its files are pinned, while it reads its histories and tells the
+   claims; the run takes each snapshot (and a measure reads it) while the table still reads a pinned file with the
+   same sha256 through the same definition and its version is stored, once (`test/prepare.test.ts`: the same manifest;
+   other bytes or a table defined again, and the run reads the file). A sample still reads the file: a file's columns
+   read as untyped, and the kept rows are what the classifier's keys are made of.
+4. **Fewer round trips, sooner.** The engine's worker starts first, while the page reads its lists. A day's files go to
+   it in one call (`pinFiles`, the plugin's `pinMany`) and their tables in one statement list; then what the claims and
+   the run read, in one more. A history's reference is set when its pin is sent (the pin confirms that sha256 or stops
+   the page). The first day's claims are told while the engine finishes (`claimsEarly`): the run takes them for the
+   same day, parameters and document. A source's sample isn't pinned (the engine reads only a watched step's), and a
+   step's is pinned again only once a day was added to it. The run's columns and the edits' chain are asked while the
+   page records the run.
+5. **A check that drops nothing reads its folded input once.** A stored check over a folded input read it twice, to
+   count its rules and to build its rows; it is evaluated once into a temporary table whose columns are declared `ANY`,
+   so no value is converted, and both read it, the rows going into the version in the order they came.
+6. **Larkspur's SQL.** The ownership check's correlated `EXISTS` is two `IN` lists of the active leaders, and
+   `coverage` is one full join of what applies and the evidence, each side marked, so the evidence is read once. The
+   same rows and types on the first day (content hashes compared), and the answer key holds
+   (`test/larkspur-flow.test.ts`).
+7. **One smaltdb in each bundle** (`scripts/build-app.mjs`). The app's own imports took smaltdb's source by
+   tsconfig.json's paths and smaltql took its dist build: two language registries, so the in-page engine
+   (`?engine=page`, the fallback without workers) found no SQL, and the worker carried the client twice. Every import
+   of smaltdb now resolves to the source.
+8. **The dataset hash's text** is written byte by byte while it is plain ASCII, and by TextEncoder from the first unit
+   past it (`writeUtf8`): TextEncoder's bytes exactly. `test/dataset-hash.test.ts` holds the hash to its encoding as
+   the module's header writes it, against a plain implementation.
+9. **The measuring tool** (`tools/browser/load.cjs`) compressed every file before sending it, for its report, which
+   delayed the responses a page waits for; it now measures a file's compressed size once, after sending it.
+
+Measured and not taken: column storage (inserting is slower than rows, 95 against 56 ms for 19,000 rows), the
+organisation's walk with its parent check moved out of the recursion (slower), a reconciliation's key sets read back
+from a table (a key compared under `NOT IN` could compare otherwise).
+
+As built (`tools/browser/load.cjs`'s marks, seven loads of each build interleaved with main's on the same machine, the
+median): Larkspur's first day 9.77 s → 4.53 s on a desktop and 10.26 s → 4.80 s on a phone; the control estate's
+2.70 s → 1.99 s. On a busier hour the same builds read 0.3 to 0.6 s slower each, which interleaving cancels and a
+single batch does not. The types, every watch's first day and every source's snapshot are taken: the engine compiles no
+step to type it, measures nothing before the run and copies no file twice.
+
+What is left is the engine's own work, in order: starting (0.3 s), the day's files and their snapshots (about 0.9 s,
+while the page reads its histories and tells the claims), then the run (about 3 s: building some 45 datasets, counting
+their checks and hashing every one, and telling the watched steps' claims). A first day near 1 s would need the page to
+show a day before the browser has run it, the build's run of the same files and flow, and confirm it with its own run
+after: a change to what a first day shown means, open as Q-180.

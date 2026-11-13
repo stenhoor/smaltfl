@@ -99,11 +99,21 @@ export type { ParamType, ParamValue } from './core/sqltext.js';
  * with `stage` and `from`, the held run it repairs, its claims the day's and each donor's (ADR 0009 amendment 1 S4):
  * held whatever else holds, until a release of its decision.
  */
-export async function runFlow(db: PluginCaller, doc: FlowDocument, options: { smaltdb: string; parameters?: Readonly<Record<string, ParamValue>>; data?: RunContext['data']; log?: RunContext['log']; claims?: RunContext['claims']; tell?: RunContext['tell']; sources?: RunContext['sources']; stage?: boolean; from?: RunOptions['from'] }): Promise<RunResult> {
+export async function runFlow(db: PluginCaller, doc: FlowDocument, options: { smaltdb: string; parameters?: Readonly<Record<string, ParamValue>>; data?: RunContext['data']; log?: RunContext['log']; claims?: RunContext['claims']; tell?: RunContext['tell']; sources?: RunContext['sources']; stage?: boolean; from?: RunOptions['from']; typed?: boolean }): Promise<RunResult> {
   const plan = await translate(doc, options.parameters ?? {});
   const context: RunContext = { doc, data: options.data ?? null, log: options.log ?? null, ...(options.claims !== undefined ? { claims: options.claims } : {}), ...(options.tell !== undefined ? { tell: options.tell } : {}), ...(options.sources !== undefined ? { sources: options.sources } : {}) };
   const stage = options.stage ? { stage: true, ...(options.from ? { from: options.from } : {}) } : options.from ? { from: options.from } : {};
-  return (await db.callPlugin(PLUGIN_NAME, 'run', [plan, { smaltdb: options.smaltdb, context, ...stage }], { lock: true })) as RunResult;
+  return (await db.callPlugin(PLUGIN_NAME, 'run', [plan, { smaltdb: options.smaltdb, context, ...stage, ...(options.typed ? { typed: true } : {}) }], { lock: true })) as RunResult;
+}
+
+/**
+ * A flow's sources snapshotted ahead of its run (ADR 0019 amendment 2): every source that reads a pinned file, copied and
+ * hashed now, as the run would, which then takes them while they still hold (the same pinned bytes through the same
+ * definition). For a page to ask as soon as a day's files are pinned, while it tells the day's claims.
+ */
+export async function prepareRun(db: PluginCaller, doc: FlowDocument, options: { smaltdb: string; parameters?: Readonly<Record<string, ParamValue>> }): Promise<{ prepared: string[] }> {
+  const plan = await translate(doc, options.parameters ?? {});
+  return (await db.callPlugin(PLUGIN_NAME, 'prepare', [plan, { smaltdb: options.smaltdb }], { lock: true })) as { prepared: string[] };
 }
 
 /**
@@ -136,6 +146,16 @@ export async function measureLoad(db: PluginCaller, table: string, settings: Mea
 /** A table's kept rows (ADR 0014 §5): a few hundred, stratified by the columns given, as the classifier learns from them. */
 export async function sampleLoad(db: PluginCaller, table: string, settings: { keep: number; strata: string[] }): Promise<{ columns: string[]; rows: unknown[][] }> {
   return (await db.callPlugin(PLUGIN_NAME, 'sample', [{ table, settings }], { lock: true })) as { columns: string[]; rows: unknown[][] };
+}
+
+/**
+ * Several files pinned in one call (ADR 0019 amendment 2): each refused unless its bytes hash to its `sha256` when given,
+ * as `pinFile` pins it, in order. One round trip to the engine: a call that holds the engine's lock waits for the one
+ * before it to be answered, so a day's files pinned one by one take a round trip each.
+ */
+export async function pinFiles(db: PluginCaller, files: readonly { name: string; bytes: Uint8Array; sha256?: string }[]): Promise<{ name: string; sha256: string; bytes: number }[]> {
+  if (!files.length) return [];
+  return (await db.callPlugin(PLUGIN_NAME, 'pinMany', [files.map((f) => [f.name, f.bytes, f.sha256 ?? null])], { lock: true, replay: `smaltfl-pins:${files.map((f) => f.name).join('\u0000')}` })) as { name: string; sha256: string; bytes: number }[];
 }
 
 /** Pin a source file's bytes in the engine (served as smaltfl:<name>), refused unless they hash to `sha256` when given. */

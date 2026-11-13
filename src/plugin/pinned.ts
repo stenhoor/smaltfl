@@ -47,10 +47,48 @@ export async function pin(name: unknown, bytes: unknown, expected: unknown): Pro
   return { name, sha256, bytes: own.byteLength };
 }
 
+/**
+ * Several files pinned in one call (ADR 0019 amendment 2): each as `pin` pins it, in order, so a page pins a day's
+ * files in one round trip to the engine rather than one each. The first that fails stops the call, the ones before it
+ * pinned, as pins one after another would leave them.
+ */
+export async function pinMany(files: unknown): Promise<{ name: string; sha256: string; bytes: number }[]> {
+  if (!Array.isArray(files)) throw new PinError('pinMany takes a list of [name, bytes, sha256]');
+  const out: { name: string; sha256: string; bytes: number }[] = [];
+  for (const f of files) {
+    if (!Array.isArray(f)) throw new PinError('pinMany takes a list of [name, bytes, sha256]');
+    out.push(await pin(f[0], f[1], f[2]));
+  }
+  return out;
+}
+
 /** The bytes pinned under a name, with their hash, for verify to decode again. */
 export function pinned(name: string): Pinned | undefined {
   return pins.get(name);
 }
+
+/** The pinned file's JSON, or undefined when none is pinned or it isn't JSON. A pinned file is content-addressed, so its
+ * parse is kept by its sha256 and read again by the next run, not parsed again (it is only read, never changed). */
+export function pinnedJSON(path: string): { value: unknown; sha256: string; bytes: number } | undefined {
+  const p = pinned(path);
+  if (!p) return undefined;
+  const key = `${p.sha256}:${p.bytes.byteLength}`;
+  if (!parsed.has(key)) {
+    let value: unknown;
+    try {
+      value = JSON.parse(new TextDecoder().decode(p.bytes)) as unknown;
+    } catch {
+      value = NOT_JSON;
+    }
+    parsed.set(key, value);
+    // Room for a large flow's every watch: its ranges, and a step's history, tail and sample, read by every run.
+    if (parsed.size > 64) parsed.delete(parsed.keys().next().value!);
+  }
+  const value = parsed.get(key);
+  return value === NOT_JSON ? undefined : { value, sha256: p.sha256, bytes: p.bytes.byteLength };
+}
+const NOT_JSON = Symbol('not JSON');
+const parsed = new Map<string, unknown>();
 
 /**
  * The pinned file a source table reads, or null when it reads none. Only an external table whose one location is a

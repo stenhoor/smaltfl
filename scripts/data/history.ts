@@ -13,6 +13,8 @@
  *   beside the history (ADR 0014 §5: the last eight weeks' loads, a few hundred rows each, stratified by the counted columns)
  *   --watch a,b,c: several watched steps, measured from one run of the flow a day; OUT, --sample and --ranges then name
  *   each watch's file with {watch} (history.{watch}.json)
+ *   node scripts/data/history.mjs --types OUT --flow DOC --next '{ slot, files: { source: path, … } }'
+ *        the first loads day's types computed ahead (typesAhead)
  *   node scripts/data/history.mjs DAYS_DIR OUT.json      the taxi example, as before: its trips, its legacy columns
  *
  * LIST.json is `[{ "file": path, "slot": "2024-01-31" }, …]`, or each load the day's files (`{ slot, files: { source:
@@ -40,7 +42,10 @@ import parquet from '@smaltdb/parquet';
 import smaltfl from '../../src/plugin/index.js';
 import { measureLoad, pinFile, runFlow, sampleLoad, translate, type FlowDocument, type WatchDef } from '../../src/index.js';
 import { appendSample, emptySample, SAMPLE_KEEP, type SampleFile } from '../../src/core/apart.js';
+import { canonicalJSON } from '../../src/core/canonical.js';
 import { bindingsPath, readFlow } from '../flow.js';
+import { periodOf } from '../../src/core/document.js';
+import type { TypesFile } from '../../src/core/typed.js';
 import { type DayError, type HistoryFile } from '../../src/core/history.js';
 import { appendPeriods, checksOf, emptyHistory, SAMPLE, settingsFor, watchColumns, type MeasureSettings, type Measures } from '../../src/core/measures.js';
 import { pinnedDdl, type Binding, type DataBindings } from '../../examples/sources.js';
@@ -90,6 +95,10 @@ interface Job {
 interface Measured {
   measures: Measures;
   kept?: unknown[][];
+  /** The settings it was measured under, and for a watched step its node's key: what the first day's measures are
+   * shipped with, to be taken for that very load alone (ADR 0019 amendment 2). */
+  settings: MeasureSettings;
+  key?: string;
 }
 
 /** What a worker says of a day: each watch's measures of it, by the watch's id. */
@@ -120,8 +129,8 @@ function rulesFor(plan: Awaited<ReturnType<typeof translate>>, node: number, ste
  * One load measured: a source's file pinned under its binding's name, read through the binding's table, measured by
  * the plugin, with what its rules read beside it; a watched step's load as `measureSteps` measures it.
  */
-async function measure(job: Job, load: LoadFiles): Promise<Measured> {
-  if (!job.binding) return (await measureSteps([job], load))[job.source]!;
+async function measure(job: Job, load: LoadFiles, given?: MeasureSettings): Promise<Measured> {
+  if (!job.binding) return (await measureSteps([job], load, given ? new Map([[job.source, given]]) : undefined))[job.source]!;
   const db = Database.openMemory({ plugins: [io, external, parquet, smaltfl] });
   try {
     const plan = await translate(job.doc, valuesFor(job, load.slot));
@@ -150,8 +159,9 @@ async function measure(job: Job, load: LoadFiles): Promise<Measured> {
       await db.execAsync(pinnedDdl(b));
     }
     const c = checksOf(plan, node, job.doc.steps);
-    const measures = await measureLoad(db, job.binding.table, { ...job.settings, slot: load.slot, checks: c?.checks ?? null, counting: c?.counting ?? null, ...rules });
-    return { measures, ...(job.sample ? { kept: (await sampleLoad(db, job.binding.table, { keep: SAMPLE_KEEP, strata: job.settings.counted })).rows } : {}) };
+    const settings: MeasureSettings = given ?? { ...job.settings, slot: load.slot, checks: c?.checks ?? null, counting: c?.counting ?? null, ...rules };
+    const measures = await measureLoad(db, job.binding.table, settings);
+    return { measures, settings, ...(job.sample ? { kept: (await sampleLoad(db, job.binding.table, { keep: SAMPLE_KEEP, strata: settings.counted })).rows } : {}) };
   } finally {
     db.close();
   }
@@ -163,7 +173,7 @@ async function measure(job: Job, load: LoadFiles): Promise<Measured> {
  * the same numbers, so the history's period and the run's own measures agree. Several steps measured from one run (a
  * run of a large flow takes seconds) share its parameters.
  */
-async function measureSteps(jobs: Job[], load: LoadFiles): Promise<Record<string, Measured>> {
+async function measureSteps(jobs: Job[], load: LoadFiles, given?: ReadonlyMap<string, MeasureSettings>): Promise<Record<string, Measured>> {
   const db = Database.openMemory({ plugins: [io, external, parquet, smaltfl] });
   try {
     const job = jobs[0]!;
@@ -184,8 +194,10 @@ async function measureSteps(jobs: Job[], load: LoadFiles): Promise<Record<string
       if (!r.published.includes(j.source)) throw new Error(`${load.slot}: the run didn't publish ${j.source}`);
       const node = plan.nodes.findIndex((n) => n.origin === j.source);
       const c = checksOf(plan, node, j.doc.steps);
-      const measures = await measureLoad(db, j.source, { ...j.settings, slot: load.slot, checks: c?.checks ?? null, counting: c?.counting ?? null, ...rulesFor(plan, node, j.doc.steps) });
-      out[j.source] = { measures, ...(j.sample ? { kept: (await sampleLoad(db, j.source, { keep: SAMPLE_KEEP, strata: j.settings.counted })).rows } : {}) };
+      const settings: MeasureSettings = given?.get(j.source) ?? { ...j.settings, slot: load.slot, checks: c?.checks ?? null, counting: c?.counting ?? null, ...rulesFor(plan, node, j.doc.steps) };
+      const measures = await measureLoad(db, j.source, settings);
+      const key = r.manifest.nodes.find((x) => x.origin === j.source)?.key;
+      out[j.source] = { measures, settings, ...(key ? { key } : {}), ...(j.sample ? { kept: (await sampleLoad(db, j.source, { keep: SAMPLE_KEEP, strata: settings.counted })).rows } : {}) };
     }
     return out;
   } finally {
@@ -194,7 +206,7 @@ async function measureSteps(jobs: Job[], load: LoadFiles): Promise<Record<string
 }
 
 /** A day of every job measured: a watched source's load, or every watched step's from one run. */
-const measureAll = async (jobs: Job[], load: LoadFiles): Promise<Record<string, Measured>> => (jobs[0]!.binding ? { [jobs[0]!.source]: await measure(jobs[0]!, load) } : measureSteps(jobs, load));
+const measureAll = async (jobs: Job[], load: LoadFiles, settings?: ReadonlyMap<string, MeasureSettings>): Promise<Record<string, Measured>> => (jobs[0]!.binding ? { [jobs[0]!.source]: await measure(jobs[0]!, load, settings?.get(jobs[0]!.source)) } : measureSteps(jobs, load, settings));
 
 async function worker(): Promise<void> {
   const { jobs, mine } = workerData as { jobs: Job[]; mine: LoadFiles[] };
@@ -278,7 +290,57 @@ async function jobOf(args: string[]): Promise<{ jobs: Job[]; out: string; sample
   return { jobs, out, samplePath: one('sample'), next, rangesPath: one('ranges') };
 }
 
+/**
+ * The first loads day's types computed ahead (ADR 0019 amendment 2, core/typed.ts): the flow run once on the day's
+ * files, as the page runs it (the whole document, its parameters as the page sets them), and every node's columns kept
+ * under the typing's key. `--types OUT --flow DOC --next '{ slot, files: { source: path, … } }' [--bind DATA.json]`.
+ */
+async function typesAhead(args: string[]): Promise<void> {
+  const one = (k: string) => {
+    const at = args.lastIndexOf(`--${k}`);
+    return at >= 0 ? args[at + 1] : undefined;
+  };
+  const out = one('types')!;
+  const flowPath = one('flow');
+  const nextArg = one('next');
+  if (!flowPath || !nextArg) throw new Error("--types OUT needs --flow DOC and --next '{ slot, files: { source: path, … } }'");
+  const doc = await readFlow(flowPath);
+  const bindPath = one('bind') ?? bindingsPath(flowPath);
+  const data = JSON.parse(readFileSync(bindPath, 'utf8')) as DataBindings;
+  const next = JSON.parse(nextArg.trim().startsWith('{') ? nextArg : readFileSync(nextArg, 'utf8')) as LoadFiles;
+  // The parameters as the page sets them for a load (src/app/main.ts run): its month where the flow has one, and the
+  // day under the watches' period; watches with different periods can't be typed ahead for one page.
+  const has = (name: string) => !!doc.parameters?.some((x) => x.name === name);
+  const periods = new Set(Object.keys(doc.publish?.watch ?? {}).map((w) => periodOf(doc, w)).filter((x): x is string => !!x));
+  if (periods.size > 1) {
+    console.log(`${out}: not written: the watches' periods differ (${[...periods].join(', ')})`);
+    return;
+  }
+  const parameters: Record<string, string> = has('month') ? { month: next.slot.slice(0, 7) } : {};
+  const period = [...periods][0] ?? doc.publish?.period;
+  if (period && has(period)) parameters[period] = next.slot;
+  const db = Database.openMemory({ plugins: [io, external, parquet, smaltfl] });
+  try {
+    for (const [source, b] of Object.entries(data.sources)) {
+      if (!doc.sources.some((x) => x.id === source)) continue;
+      const path = next.files?.[source];
+      if (!path) throw new Error(`${next.slot}: no file for ${source}`);
+      await pinFile(db, b.file, new Uint8Array(readFileSync(path)));
+      await db.execAsync(pinnedDdl(b));
+    }
+    const t0 = Date.now();
+    const r = await runFlow(db, doc, { smaltdb: SMALTDB, parameters, typed: true });
+    if (!r.typed) throw new Error('the run returned no typing');
+    const file: TypesFile = { format: 'smaltfl-types/0', entries: [{ key: r.typed.key, day: next.slot, schemas: r.typed.schemas }] };
+    writeFileSync(out, JSON.stringify(file) + '\n');
+    console.log(`${out}: ${r.typed.schemas.length} nodes typed for ${next.slot} in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+  } finally {
+    db.close();
+  }
+}
+
 async function main(): Promise<void> {
+  if (process.argv.includes('--types')) return typesAhead(process.argv.slice(2));
   const { jobs, out, samplePath, next, rangesPath } = await jobOf(process.argv.slice(2));
   const nameOf = (template: string, job: Job) => (jobs.length > 1 ? template.replaceAll('{watch}', job.source) : template);
   const files = [...jobs[0]!.files].sort((a, b) => (a.slot < b.slot ? -1 : a.slot > b.slot ? 1 : 0));
@@ -313,13 +375,31 @@ async function main(): Promise<void> {
   failures.sort((a, b) => (a.day < b.day ? -1 : 1));
   // A few loads that couldn't be measured are gaps a normal range steps over; more than a few is a broken history.
   if (!measured || failures.length > files.length / 50) throw new Error(`${failures.length} of ${files.length} loads not measured`);
-  // The first load after the history (ADR 0019), measured once for every watch.
-  const after = rangesPath && next ? await measureAll(jobs, next) : null;
-  for (const job of jobs) await write(job, results.get(job.source)!, kept.get(job.source)!, failures, nameOf(out, job), samplePath === undefined ? undefined : nameOf(samplePath, job), rangesPath === undefined ? undefined : nameOf(rangesPath, job), after?.[job.source], { started, threads: n });
+  const folded = new Map<string, Folded>();
+  for (const job of jobs) folded.set(job.source, await fold(job, results.get(job.source)!, failures));
+  // The first load after the history (ADR 0019), measured once for every watch, under the settings the page and the run
+  // take from the history just folded (ADR 0019 amendment 2).
+  let after: Record<string, Measured> | null = null;
+  if (rangesPath && next) {
+    const settings = new Map<string, MeasureSettings>();
+    for (const job of jobs) {
+      const want = await pageSettings(job, folded.get(job.source)!, next.slot);
+      if (want) settings.set(job.source, want);
+    }
+    after = await measureAll(jobs, next, settings);
+  }
+  for (const job of jobs) await write(job, folded.get(job.source)!, kept.get(job.source)!, nameOf(out, job), samplePath === undefined ? undefined : nameOf(samplePath, job), rangesPath === undefined ? undefined : nameOf(rangesPath, job), after?.[job.source], { started, threads: n });
 }
 
-/** A watch's history folded from its loads' measures and written, with its sample and its first day's ranges. */
-async function write(job: Job, measured: Measures[], keptOf: Map<string, unknown[][]>, failures: DayError[], out: string, samplePath: string | undefined, rangesPath: string | undefined, after: Measured | undefined, run: { started: number; threads: number }): Promise<void> {
+/** A watch's history folded from its loads' measures, as `write` writes it. */
+interface Folded {
+  results: Measures[];
+  history: HistoryFile;
+  text: string;
+  kinds: Kind[];
+}
+
+async function fold(job: Job, measured: Measures[], failures: DayError[]): Promise<Folded> {
   const results = [...measured].sort((a, b) => (a.slot < b.slot ? -1 : 1));
   const first = results[0]!;
   const odd = results.find((r) => JSON.stringify([r.columns, r.types]) !== JSON.stringify([first.columns, first.types]));
@@ -339,7 +419,23 @@ async function write(job: Job, measured: Measures[], keptOf: Map<string, unknown
   // The columns asked for that the files don't have: said, not left out quietly.
   const have = new Set(first.columns);
   history.skipped = [...s.counted, ...s.followed, ...(s.time ? [s.time] : [])].filter((c) => !have.has(c)).map((c): [string, string] => [c, 'not in the files']);
-  const text = JSON.stringify(history) + '\n';
+  return { results, history, text: JSON.stringify(history) + '\n', kinds };
+}
+
+/**
+ * The settings the page and the run measure a watch's load under, from its folded history (core/measures.ts
+ * settingsFor): what its first day is measured under, so the day's measures are the ones they would take (ADR 0019
+ * amendment 2). Null where the plan doesn't watch it as a load.
+ */
+async function pageSettings(job: Job, folded: Folded, slot: string): Promise<MeasureSettings | null> {
+  const plan = await translate(job.doc, valuesFor(job, slot));
+  return settingsFor(plan, plan.nodes.findIndex((n) => n.origin === job.source), folded.history, job.doc.steps);
+}
+
+/** A watch's folded history written, with its sample and its first day's ranges. */
+async function write(job: Job, folded: Folded, keptOf: Map<string, unknown[][]>, out: string, samplePath: string | undefined, rangesPath: string | undefined, after: Measured | undefined, run: { started: number; threads: number }): Promise<void> {
+  const { results, history, text, kinds } = folded;
+  const first = results[0]!;
   if (text.length > LIMIT) throw new Error(`${out} would be ${(text.length / 1048576).toFixed(1)} MB, past the ${LIMIT / 1048576} MB a page fetches`);
   writeFileSync(out, text);
   // The kept sample (ADR 0014 §5): the last eight weeks' loads' kept rows, in the loads' columns.
@@ -360,11 +456,17 @@ async function write(job: Job, measured: Measures[], keptOf: Map<string, unknown
     const ranges = new HistoryRanges(appendPeriods(history, [measures]), rangesFor(job.doc, job.source));
     const sha256 = createHash('sha256').update(text).digest('hex');
     const made = rangesOf(ranges, measures.slot, { sha256, days: history.days.length, last: history.days.at(-1)! });
+    // The day's load measured ahead (ADR 0019 amendment 2), under the settings the page and the run compute for it from
+    // this history (settingsFor), which are the ones it was measured under, or it isn't shipped.
+    const plan = await translate(job.doc, valuesFor(job, measures.slot));
+    const want = settingsFor(plan, plan.nodes.findIndex((n) => n.origin === job.source), history, job.doc.steps);
+    if (want && canonicalJSON(want as unknown as Parameters<typeof canonicalJSON>[0]) === canonicalJSON(after.settings as unknown as Parameters<typeof canonicalJSON>[0])) {
+      made.measured = { settings: want, measures, ...(after.key ? { key: after.key } : {}), ...(nextKept ? { kept: nextKept, keep: SAMPLE_KEEP } : {}) };
+    } else console.log(`${rangesPath}: the first day's measures aren't shipped: the page would measure ${job.source} under other settings than the history's`);
     // The classifier's answers for the day, judged ahead (ADR 0019 amendment 1): the day's claim told as the page and
     // the engine tell it, from the history, the sample and the day's kept rows, and every call the classifier made kept
     // by its inputs' sha256.
     if (sampleFile && nextKept) {
-      const plan = await translate(job.doc, valuesFor(job, measures.slot));
       const apart = await recordAhead(() => loadClaim({ given: { file: made, sha256 }, doc: job.doc, source: job.source, flow: plan.flow.hash, base: history, baseRef: { path: 'history.json', sha256, bytes: text.length }, tail: [], measures, settings: settingsFor(plan, plan.nodes.findIndex((n) => n.origin === job.source), history, job.doc.steps) ?? { ...job.settings, slot: measures.slot, checks: null, counting: null }, skip: [], levels: [], build: 'ahead', sample: sampleFile, kept: nextKept }));
       if (apart.length) made.apart = apart;
     }

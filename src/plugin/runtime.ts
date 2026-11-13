@@ -16,7 +16,7 @@
 import type { Database } from 'smaltdb/engine';
 import { canonicalJSON } from '../core/canonical.js';
 import type { EmitContext } from '../core/emit.js';
-import { createTable, emitContractCounts, emitExpectCounts, emitRead, emitReconcileCounts, emitSelect } from '../core/emit.js';
+import { createTable, emitContractCounts, emitExpectCounts, emitRead, emitReconcileCounts, emitRuleCounts, emitSelect } from '../core/emit.js';
 import { hex, sha256Hex } from '../core/hash.js';
 import type { KeyEnv } from '../core/keys.js';
 import { nodeKey } from '../core/keys.js';
@@ -40,7 +40,10 @@ import type { RunOptions, RunResult, SourceIngest } from '../core/protocol.js';
 import { quoteIdent as q, type ParamValue } from '../core/sqltext.js';
 import type { TableHash } from './dataset-hash.js';
 import { hashTable, sourceColumns } from './dataset-hash.js';
-import { pinned, pinnedLocation, takeOpened } from './pinned.js';
+import { pinned, pinnedJSON, pinnedLocation, takeOpened } from './pinned.js';
+import { keepPrepared, pinnedSha, preparedFor } from './prepared.js';
+import { givenTypes, isTypesFile, TYPES_PATH, typesKey } from '../core/typed.js';
+import { isRangesFile, measuredAhead, rangesPath, type MeasuredAhead } from '../core/ranges.js';
 
 import { carriedFrom, readBefore, currentOf, ensureStore, findCheck, findVersion, inTransaction, isFresh, lastSnapshot, measuresOfRun, nameInUse, pointDataset, recordCheck, recordDerived, recordHolds, recordIngest, recordMeasures, recordSnapshot, recordVersion, resetWatch, versionTable, watchable } from './store.js';
 
@@ -109,7 +112,6 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
   // How long each step took to read or build, in milliseconds (ADR 0015 amendment 4): returned with the run, never in
   // its manifest or any hash, since it depends on the machine. A step reused or folded took no time of its own.
   const timings: Record<string, number> = {};
-  const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
   for (const i of needed) {
     const n = plan.nodes[i]!;
     if (n.op !== 'table') continue;
@@ -117,8 +119,10 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
     let snap: Snapshot;
     const t0 = clock();
     try {
-      snap = await snapshot(db, n, env);
-      timings[n.origin] = Math.round((clock() - t0) * 10) / 10;
+      // Snapshotted ahead of the run (`prepareRun`), from the same pinned bytes through the same definition: taken.
+      const ready = preparedFor(db, n.table, true);
+      snap = ready ? ready.snap : await snapshot(db, n, env);
+      timings[n.origin] = Math.round((ready ? ready.ms : clock() - t0) * 10) / 10;
     } catch (e) {
       if (!(e instanceof RunError) || plan.smaltflPlan !== 4) throw e;
       refused.set(i, e.message);
@@ -138,12 +142,17 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
   const unreadable = refused.size > 0;
   const columns = (i: number) => plan.nodes[i]!.schema!.map(([name]) => name);
   const onSnapshots: EmitContext = { table: (i) => (plan.nodes[i]!.op === 'table' ? tables.get(i) : undefined), columns };
+  // The types computed ahead for exactly this typing (core/typed.ts, ADR 0019 amendment 2), when the page pinned a
+  // types file with an entry under its key: every node's columns as the build typed them on the same nodes.
+  const typing = unreadable || (!options.typed && !pinned(TYPES_PATH)) ? null : await typesKey(plan, needed, env);
+  const givenSchemas = typing ? typesPinned(typing, plan, needed) : null;
   for (const i of unreadable ? [] : needed) {
     const n = plan.nodes[i]!;
     if (n.op === 'table') continue;
     if (n.op === 'fill' && n.inputs.length === 2) sameColumnsAsSource(plan, n);
-    n.schema = typeNode(db, emitSelect(plan, i, onSnapshots), n, snapshotsRead(plan, i, tables));
+    n.schema = givenSchemas?.get(i) ?? typeNode(db, emitSelect(plan, i, onSnapshots), n, snapshotsRead(plan, i, tables));
   }
+  const typedOut = options.typed && typing ? { key: typing, schemas: needed.filter((i) => plan.nodes[i]!.op !== 'table').map((i): [number, Column[]] => [i, plan.nodes[i]!.schema!]), given: givenSchemas !== null } : null;
   if (!unreadable) marked(plan, needed);
   // Nothing typed after a refusal: the refused source and every step have no columns to say, and the stored plan says so
   // (an empty schema), so what reads the plan for the day finds columns, none.
@@ -167,38 +176,47 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
     if (n.op === 'table') continue;
     aborted(signal);
     const key = keys.get(i)!;
-    let expectations: ExpectationResult | undefined;
-    if (n.op === 'expect') {
-      const known = findCheck(db, key);
-      expectations = known ?? countExpectations(db, plan, i, ctx);
-      if (!holdsChecks) enforce(n, expectations);
-      if (!known) recordCheck(db, key, expectations);
+    // A stored check that drops nothing over a folded input reads that input twice, to count its rules and to build its
+    // rows (ADR 0019 amendment 2): the input is evaluated once, into a temporary table that keeps its values as they
+    // come (its columns declared ANY, so nothing is converted), and both read it; the rows go into the version in the
+    // order they came, as they would from the input itself.
+    const once = n.op === 'expect' && stored.has(i) && !n.rules.some(([, , onFail]) => onFail === 'drop') && !stored.has(n.inputs[0]!) && !findCheck(db, key) && !findVersion(db, key) ? onceTable(db, plan, n.inputs[0]!, ctx, n.origin) : null;
+    try {
+      let expectations: ExpectationResult | undefined;
+      if (n.op === 'expect') {
+        const known = findCheck(db, key);
+        expectations = known ?? (once ? countRules(db, n, `SELECT * FROM ${q(once)}`) : countExpectations(db, plan, i, ctx));
+        if (!holdsChecks) enforce(n, expectations);
+        if (!known) recordCheck(db, key, expectations);
+      }
+      const checked = expectations ? { expectations } : {};
+      if (!stored.has(i)) {
+        record(i, 'folded', checked);
+        continue;
+      }
+      const existing = findVersion(db, key);
+      if (existing) {
+        tables.set(i, existing.table);
+        record(i, 'reused', { content: existing.content, rows: existing.rows, ...checked });
+        continue;
+      }
+      const table = versionTable(key);
+      const t0 = clock();
+      engine(n.origin, () =>
+        inTransaction(db, () => {
+          db.exec(`DROP TABLE IF EXISTS ${q(table)}`);
+          db.exec(createTable(table, n.schema!, n.storage ? { storage: n.storage } : {}));
+          db.run(`INSERT INTO ${q(table)} ${once ? `SELECT * FROM ${q(once)}` : emitSelect(plan, i, ctx)}`);
+        }),
+      );
+      timings[n.origin] = Math.round((clock() - t0) * 10) / 10;
+      const h = await hashTable(db, table);
+      recordVersion(db, { key, table, content: h.content, rows: h.rows });
+      tables.set(i, table);
+      record(i, 'built', { content: h.content, rows: h.rows, ...checked });
+    } finally {
+      if (once) db.exec(`DROP TABLE IF EXISTS ${q(once)}`);
     }
-    const checked = expectations ? { expectations } : {};
-    if (!stored.has(i)) {
-      record(i, 'folded', checked);
-      continue;
-    }
-    const existing = findVersion(db, key);
-    if (existing) {
-      tables.set(i, existing.table);
-      record(i, 'reused', { content: existing.content, rows: existing.rows, ...checked });
-      continue;
-    }
-    const table = versionTable(key);
-    const t0 = clock();
-    engine(n.origin, () =>
-      inTransaction(db, () => {
-        db.exec(`DROP TABLE IF EXISTS ${q(table)}`);
-        db.exec(createTable(table, n.schema!, n.storage ? { storage: n.storage } : {}));
-        db.run(`INSERT INTO ${q(table)} ${emitSelect(plan, i, ctx)}`);
-      }),
-    );
-    timings[n.origin] = Math.round((clock() - t0) * 10) / 10;
-    const h = await hashTable(db, table);
-    recordVersion(db, { key, table, content: h.content, rows: h.rows });
-    tables.set(i, table);
-    record(i, 'built', { content: h.content, rows: h.rows, ...checked });
   }
 
   // 4b. The gold gates (ADR 0014 §6, plan/4): each gate on a published node the plan doesn't watch is counted over the
@@ -291,11 +309,14 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
         const settings = settingsFor(plan, w.node, pinnedHeader(w.history), steps);
         if (!table || !rec?.content || !settings) continue;
         aborted(signal);
-        const m = await measureSnapshot(db, table, settings, rec.file?.sha256 ?? null, rec.content);
+        // Its first day measured ahead (ADR 0019 amendment 2), when the ranges pinned for it have this very load: a
+        // file's by its sha256, a step's by its node key, either by its snapshot's content hash and the settings.
+        const n = plan.nodes[w.node]!;
+        const ahead = measuredPinned(n.origin, settings, n.op === 'table' ? { file: rec.file?.sha256 ?? null, snapshot: rec.content } : { key: keys.get(w.node)!, snapshot: rec.content });
+        const m = ahead ? structuredClone(ahead.measures) : await measureSnapshot(db, table, settings, rec.file?.sha256 ?? null, rec.content);
         measured.set(w.node, { hash: await measuresHash(m), measures: m, settings });
         // A watched step (ADR 0013 §4): its load is the dataset just built, so the engine tells its claim, from the
         // pinned history and tail and what the page said of the record (context.tell). Without that, it isn't judged.
-        const n = plan.nodes[w.node]!;
         if (n.op !== 'table' && context.doc !== undefined) {
           const tell = context.tell?.[n.origin] ?? Object.entries(context.tell ?? {}).find(([id]) => id.toLowerCase() === n.origin.toLowerCase())?.[1];
           if (!tell) {
@@ -306,7 +327,8 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
           // is told as following from it.
           const upstream: Upstream[] = [...(context.claims ?? []).flatMap((c) => (isRecord(c) && typeof c.source === 'string' && typeof c.state === 'string' && typeof c.head === 'string' ? [{ source: c.source, state: c.state, head: c.head }] : [])), ...stepsSaid];
           // The step's kept rows (ADR 0014 §5): the classifier's today, when a sample is pinned for the step.
-          const sampled = pinned(samplePath(n.origin)) ? (await sampleTable(db, table, { keep: SAMPLE_KEEP, strata: settings.counted })).rows : null;
+          const keptAhead = ahead?.kept && ahead.keep === SAMPLE_KEEP ? structuredClone(ahead.kept) : null;
+          const sampled = pinned(samplePath(n.origin)) ? (keptAhead ?? (await sampleTable(db, table, { keep: SAMPLE_KEEP, strata: settings.counted })).rows) : null;
           if (sampled) kept[n.origin] = sampled;
           const told = await tellClaim({ doc: context.doc as FlowDocument, source: n.origin, history: w.history, flow: plan.flow.hash, measures: m, settings, tell, build: commit, upstream, ...(sampled ? { kept: sampled } : {}) });
           if ('problem' in told) untold.set(w.node, told.problem);
@@ -368,8 +390,57 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
     ...(measured.size ? { measures: [...measured.values()].map((m) => m.measures) } : {}),
     ...(Object.keys(kept).length ? { kept } : {}),
     timings,
+    ...(typedOut ? { typed: typedOut } : {}),
   };
 }
+
+/** A watched load's measures given ahead in the ranges pinned for it, when they are of this very load (core/ranges.ts). */
+function measuredPinned(origin: string, settings: MeasureSettings, at: { file?: string | null; snapshot?: string; key?: string }): MeasuredAhead | null {
+  const r = pinnedJSON(rangesPath(origin));
+  return r && isRangesFile(r.value) ? measuredAhead(r.value, settings, at) : null;
+}
+
+/** The pinned types file's columns for this typing, when it has them (core/typed.ts); null otherwise. */
+function typesPinned(key: string, plan: FlowPlan, needed: readonly number[]): Map<number, Column[]> | null {
+  const f = pinnedJSON(TYPES_PATH);
+  return f && isTypesFile(f.value) ? givenTypes(f.value, key, plan, needed) : null;
+}
+
+/**
+ * The plugin's `prepare` (ADR 0019 amendment 2, plugin/prepared.ts): a plan's sources that read pinned files snapshotted
+ * now, as its run would snapshot them, so the run (and a measure before it) takes them instead of copying and hashing
+ * the files again. The page asks for it as soon as a day's files are pinned, while it tells the day's claims. A
+ * source the engine can't read as declared is left for the run, which says why.
+ */
+export async function prepareRun(db: Database, input: unknown, options: { smaltdb?: unknown }, version: string): Promise<{ prepared: string[] }> {
+  validatePlan(input);
+  if (typeof options?.smaltdb !== 'string' || options.smaltdb === '') throw new RunError('prepare needs the engine version: { smaltdb: "0.9.0" }');
+  const actual = engineVersion(db);
+  if (actual && actual !== 'unknown' && actual !== options.smaltdb) throw new RunError(`the engine is smaltdb ${actual}, not the ${options.smaltdb} the run was asked to record`);
+  const plan = input as FlowPlan;
+  const env: KeyEnv = { smaltdb: options.smaltdb, smaltfl: version };
+  ensureStore(db);
+  const out: string[] = [];
+  for (const i of shapeOf(plan).needed) {
+    const n = plan.nodes[i]!;
+    if (n.op !== 'table' || !pinnedSha(db, n.table)) continue;
+    if (preparedFor(db, n.table, false)) {
+      out.push(n.origin);
+      continue;
+    }
+    const t0 = clock();
+    try {
+      const snap = await snapshot(db, n, env);
+      if (keepPrepared(db, n.table, snap, clock() - t0)) out.push(n.origin);
+    } catch {
+      // Read again by the run, which records it refused or fails, as it would have.
+    }
+  }
+  return { prepared: out };
+}
+
+/** Milliseconds, for the timings a run returns beside its manifest. */
+const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 /** A plan's parameter values as its document types them (an integer is recorded as text, to keep its digits). */
 function typedValues(doc: FlowDocument, values: Readonly<Record<string, string | number | null>>): Record<string, ParamValue> {
@@ -624,12 +695,37 @@ function snapshotsRead(plan: FlowPlan, node: number, tables: ReadonlyMap<number,
 /** An expectation's counts, from one statement over its input. */
 export function countExpectations(db: Database, plan: FlowPlan, node: number, ctx: EmitContext): ExpectationResult {
   const n = plan.nodes[node] as ExpectNode;
-  const row = engine(n.origin, () => db.query(emitExpectCounts(plan, node, ctx)).rows[0]!);
-  return {
-    rows: Number(row[0]),
-    dropped: Number(row[n.rules.length + 1]),
-    rules: n.rules.map(([name, , onFail], k) => ({ name, onFail, failed: Number(row[k + 1]) })),
-  };
+  return resultOf(n, engine(n.origin, () => db.query(emitExpectCounts(plan, node, ctx)).rows[0]!));
+}
+
+/** An expectation's counts over a relation that holds its input's rows (`onceTable`): the same counts, as one row. */
+function countRules(db: Database, n: ExpectNode, relation: string): ExpectationResult {
+  return resultOf(n, engine(n.origin, () => db.query(emitRuleCounts(relation, n.rules)).rows[0]!));
+}
+
+const resultOf = (n: ExpectNode, row: readonly unknown[]): ExpectationResult => ({
+  rows: Number(row[0]),
+  dropped: Number(row[n.rules.length + 1]),
+  rules: n.rules.map(([name, , onFail], k) => ({ name, onFail, failed: Number(row[k + 1]) })),
+});
+
+/**
+ * A folded node's rows evaluated once into a temporary table, its columns declared ANY so that every value is kept as
+ * the node gave it, in the order it gave them; the caller drops it. Its name is the table's.
+ */
+function onceTable(db: Database, plan: FlowPlan, node: number, ctx: EmitContext, origin: string): string {
+  const name = `_smaltfl_once_${hex(crypto.getRandomValues(new Uint8Array(8)))}`;
+  const cols = plan.nodes[node]!.schema!.map(([c]) => `${q(c)} ANY`).join(', ');
+  engine(origin, () => {
+    db.exec(`CREATE TEMP TABLE ${q(name)}(${cols})`);
+    try {
+      db.run(`INSERT INTO ${q(name)} ${emitRead(plan, node, ctx)}`);
+    } catch (e) {
+      db.exec(`DROP TABLE IF EXISTS ${q(name)}`);
+      throw e;
+    }
+  });
+  return name;
 }
 
 /**

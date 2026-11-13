@@ -216,7 +216,14 @@ release (smaltty ADR 0030).
   `givenApplies` (`RangeOptions.given`, `loadClaim`'s `given`, the engine's `rangesPath`); `test/ranges.test.ts`. The
   classifier judged ahead (amendment 1): the builder records its first-day answers by their inputs' sha256 into the ranges
   file (`src/core/ahead.ts`, `RangesFile.apart`, `judgedAhead` in `apartEvidence`); `tools/browser/load.cjs APP` times each
-  phase.
+  phase. The first day computed ahead and overlapped (amendment 2, Q-179): types computed ahead (`src/core/typed.ts`:
+  `history.mjs --types` writes `types.json`, loads.json's `types`, pinned as `TYPES_PATH`; the run takes `givenTypes` under
+  its own `typesKey`), the first day measured ahead (`RangesFile.measured`, `measuredAhead`: the page asks the engine
+  nothing before the first run), sources snapshotted ahead (`src/plugin/prepared.ts`, `prepareRun`, the plugin's
+  `prepare`, taken by the run for the same pinned bytes through the same definition), a day's files pinned in one call
+  (`pinFiles`, the plugin's `pinMany`), the first day's claims told while the engine finishes (`claimsEarly`), a check
+  that drops nothing reading its folded input once (`onceTable`); `test/typed.test.ts`, `test/prepare.test.ts`,
+  `test/dataset-hash.test.ts`. The app's bundles take one smaltdb (`oneSmaltdb` in `scripts/build-app.mjs`).
 - The Larkspur estate (ADR 0020): `test/fixtures/larkspur.ts` draws a fictional group's organisation and leaders over
   time, its applications, 46 platforms, a 14-control catalogue mapped to the frameworks, and twenty daily feeds and two
   fixed ones, with the bronze days of its answer key planted (`LARKSPUR_TROUBLE`); `test/larkspur.test.ts` holds the data

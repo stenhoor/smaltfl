@@ -21,6 +21,7 @@ import type { Column } from '../core/plan.js';
 import { quoteIdent as q } from '../core/sqltext.js';
 import { hashTable, sourceColumns } from './dataset-hash.js';
 import { pinned, pinnedLocation, PINNED_PREFIX } from './pinned.js';
+import { preparedFor } from './prepared.js';
 
 const NUMERIC = new Set(['int', 'real', 'num']);
 /** Files' measures, by sha256 and settings; the oldest goes first past the limit. */
@@ -106,6 +107,13 @@ export async function measure(db: Database, input: unknown): Promise<Measures> {
   const key = pin ? keyOf(pin.sha256, s) : null;
   const known = key ? cache.get(key) : undefined;
   if (known) return structuredClone(known);
+  // A snapshot prepared for the run from these very bytes (plugin/prepared.ts) is the copy this would make: read it.
+  const ready = pin ? preparedFor(db, i.table, false) : null;
+  if (ready && pin) {
+    const m = await measureTable(db, ready.snap.table, s, pin.sha256, ready.snap.content);
+    if (key) remember(key, m);
+    return structuredClone(m);
+  }
   const columns = sourceColumns(db, i.table, db.prepare(`SELECT * FROM ${q(i.table)}`)) as Column[];
   const stage = `_smaltfl_measure_${hex(crypto.getRandomValues(new Uint8Array(8)))}`;
   db.exec(createTable(stage, columns));

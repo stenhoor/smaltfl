@@ -842,7 +842,10 @@ reorg and the contracts at every size, each stop with its checks.
   day is shown at 11.0 s on a desktop and 11.4 s on a phone, where the estate's is at 3.17 s on the same machine (ADR
   0019's 3.06 s). The engine's run of the flow is 7.3 s of it (the estate's 1.05 s): some hundred steps over 28,000 rows
   of twenty files; telling the day's claims 2.0 s (the estate's 0.63 s); 31 MB fetched, 3.75 MB compressed. Q-170 said
-  the budget is revised if it doesn't fit: Q-179 decides what follows.
+  the budget is revised if it doesn't fit: Q-179 decides what follows. As built (ADR 0019 amendment 2, 2026-11-13): the
+  first day at 4.5 s on a desktop and 4.8 s on a phone, every hash as it was. Two changes to the flow's own SQL came
+  with it: the ownership check reads two lists of the active leaders instead of a correlated `EXISTS`, and `coverage` is
+  one full join of what applies and the evidence (the same rows; the answer key holds).
 
 **Slice 6, the product view (2026-11-13):** the posture dashboard (Q-174) at the top of Results, where the data list
 names a posture product (`posture`: its title, and the published names of its roll-up, organisation, scorecards, owners

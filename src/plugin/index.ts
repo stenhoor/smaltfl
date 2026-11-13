@@ -6,6 +6,8 @@
  *   run [plan, { smaltdb, context,    → RunResult     run a flow plan; only what changed is rebuilt, and with a
  *        stage, from }]                               publish block only what nothing holds is published (ADR 0009);
  *                                                     staged, a derived run, held until its decision is released
+ *   prepare [plan, { smaltdb }]       → { prepared }  the plan's sources over pinned files snapshotted now, for its run
+ *                                                     (and a measure before it) to take (ADR 0019 amendment 2)
  *   release [ReleaseInput]            → ReleaseResult publish a held run's outputs as a recorded decision says (a
  *                                                     fill or the part that arrived: its derived run; a withdrawal:
  *                                                     the versions before a fill), or refuse, saying why; refusals
@@ -16,6 +18,7 @@
  *                                                     sha256 and the settings, which the run takes
  *   pin [name, bytes, sha256]         → { sha256 }    hash a source file in the engine, refuse a mismatch, serve it
  *                                                     as smaltfl:<name> (ADR 0006 §3); null bytes unpin it
+ *   pinMany [[[name, bytes, sha256]]] → [{ sha256 }]  several files pinned in one call, each as pin pins it
  *   manifest [run]                    → RunManifest   a stored run's manifest
  *   names                             → { datasets, releases, holds, repairs }  what each dataset name shows,
  *                                                     by which run and release, every release, what held each run,
@@ -32,9 +35,9 @@ import { PLUGIN_NAME, type RunOptions, type VerifyOptions } from '../core/protoc
 import { act, listEdits, verifyEdits, type ActInput } from './actions.js';
 import { measure } from './measure.js';
 import { sample } from './sample.js';
-import { pin, pinnedSource } from './pinned.js';
+import { pin, pinMany, pinnedSource } from './pinned.js';
 import { release } from './release.js';
-import { RunError, runPlan } from './runtime.js';
+import { prepareRun, RunError, runPlan } from './runtime.js';
 import { engineNames, ensureStore } from './store.js';
 import { verifyRun } from './verify.js';
 
@@ -52,11 +55,13 @@ const smaltfl: SmaltPlugin = {
   setup(host) {
     host.addSource(pinnedSource);
     host.addMethod('run', (ctx, [plan, options]) => runPlan(ctx.db, plan, options as RunOptions, VERSION, ctx.signal, COMMIT));
+    host.addMethod('prepare', (ctx, [plan, options]) => prepareRun(ctx.db, plan, options as { smaltdb?: unknown }, VERSION));
     host.addMethod('release', (ctx, [input]) => release(ctx.db, input));
     host.addMethod('verify', (ctx, [run, options]) => verifyRun(ctx.db, Number(run), options as VerifyOptions, ctx.signal));
     host.addMethod('measure', (ctx, [input]) => measure(ctx.db, input));
     host.addMethod('sample', (ctx, [input]) => sample(ctx.db, input));
     host.addMethod('pin', (_ctx, [name, bytes, sha256]) => pin(name, bytes, sha256));
+    host.addMethod('pinMany', (_ctx, [files]) => pinMany(files));
     host.addMethod('act', (ctx, [input]) => act(ctx.db, input as ActInput));
     host.addMethod('edits', (ctx) => listEdits(ctx.db));
     host.addMethod('verifyEdits', (ctx) => verifyEdits(ctx.db));

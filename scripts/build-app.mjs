@@ -33,6 +33,17 @@ try {
   // Not a git checkout: dev.
 }
 const smaltdb = JSON.parse(readFileSync('node_modules/smaltdb/package.json', 'utf8')).version;
+// One smaltdb in each bundle: the app's own imports take its source by tsconfig.json's paths, and so must every package
+// that imports it (smaltql's `smaltdb/language` and `smaltdb`). From node_modules they resolved to its dist build, a second
+// copy: its registry is not the engine's (the in-page engine found no SQL), and the worker carried the client twice.
+const smaltdbPaths = Object.entries(JSON.parse(readFileSync('tsconfig.json', 'utf8')).compilerOptions.paths).filter(([k]) => k === 'smaltdb' || k.startsWith('smaltdb/'));
+const oneSmaltdb = {
+  name: 'one-smaltdb',
+  setup(b) {
+    const to = new Map(smaltdbPaths.map(([k, [v]]) => [k, join(process.cwd(), v)]));
+    b.onResolve({ filter: /^smaltdb(\/[a-z-]+)?$/ }, (a) => (to.has(a.path) ? { path: to.get(a.path) } : undefined));
+  },
+};
 const common = {
   bundle: true,
   format: 'esm',
@@ -44,6 +55,7 @@ const common = {
   define: { __PLUGIN_VERSION__: JSON.stringify(pkg.version), __SMALTDB_VERSION__: JSON.stringify(smaltdb), __SMALTFL_COMMIT__: JSON.stringify(commit), __SMALTFL_DATA__: 'null' },
   // Only codecs other than Snappy need it (the example's files are Snappy), and the plugin loads it only then.
   external: ['hyparquet-compressors'],
+  plugins: [oneSmaltdb],
   logLevel: 'warning',
 };
 
@@ -238,6 +250,12 @@ if (days.length) {
       const child = spawn('node', argv, { stdio: 'inherit' });
       child.on('close', (code) => (code === 0 ? done() : fail(new Error(`the history of ${w} failed (${code})`))));
     }));
+    // The first loads day's types computed ahead (ADR 0019 amendment 2): one run of the flow on the day's files, every
+    // source's (a daily one's first file, a fixed one's own), as the page runs it.
+    if (firstLoad?.files && watches.length) {
+      const files = { ...Object.fromEntries(Object.entries(firstLoad.files).map(([id, f]) => [id, f.file])), ...(generated.fixed ?? {}) };
+      execFileSync('node', ['scripts/data/history.mjs', '--types', join(work, 'types.json'), '--flow', flowPath, '--next', JSON.stringify({ slot: firstLoad.slot, files })], { stdio: 'inherit' });
+    }
     // A run that ended without writing its history is a broken build, never a finished one the next build reuses.
     const unwritten = watches.filter((w) => !existsSync(join(work, historyName(w))));
     if (unwritten.length) throw new Error(`no history written for ${unwritten.join(', ')}: ${work} is left unfinished, and is made again`);
@@ -253,6 +271,7 @@ if (days.length) {
   const histories = Object.fromEntries(watches.map((w) => [w, entry(historyName(w), readFileSync(join(work, historyName(w))), `${bind.generate}, scripts/data/history.mjs`)]));
   const samples = sampled ? Object.fromEntries(watches.map((w) => [w, entry(sampleName(w), readFileSync(join(work, sampleName(w))), `${bind.generate}, scripts/data/history.mjs --sample`)])) : {};
   const ranges = Object.fromEntries(watches.filter((w) => existsSync(join(work, rangesName(w)))).map((w) => [w, entry(rangesName(w), readFileSync(join(work, rangesName(w))), 'scripts/data/history.mjs --ranges')]));
+  const types = existsSync(join(work, 'types.json')) ? entry('types.json', readFileSync(join(work, 'types.json')), 'scripts/data/history.mjs --types') : null;
   // The generator's loads: a list of one source's files (`[{ file, slot, rows }]`), or days of several daily sources
   // with the fixed files beside them (`{ fixed: { id: path }, loads: [{ slot, files: { id: { file, rows } } }] }`).
   const made = JSON.parse(readFileSync(join(work, 'loads.json'), 'utf8'));
@@ -291,7 +310,7 @@ if (days.length) {
   const kept = readdirSync(root).map((k) => ({ k, t: statSync(join(root, k)).mtimeMs })).sort((a, b) => b.t - a.t);
   for (const { k } of kept.slice(3)) if (k !== key) rmSync(join(root, k), { recursive: true, force: true });
   const first = Object.values(sources).find((s) => s.loads)?.loads[0];
-  const index = { format: 2, month: first?.slot.slice(0, 7), built: new Date().toISOString().slice(0, 19) + 'Z', data: null, flow: flowEntry, sources, histories, ...(Object.keys(samples).length ? { samples } : {}), ...(Object.keys(ranges).length ? { ranges } : {}), episodes: [], ...(bind.judged ? { judged: bind.judged } : {}), ...(bind.posture ? { posture: bind.posture } : {}) };
+  const index = { format: 2, month: first?.slot.slice(0, 7), built: new Date().toISOString().slice(0, 19) + 'Z', data: null, flow: flowEntry, sources, histories, ...(Object.keys(samples).length ? { samples } : {}), ...(Object.keys(ranges).length ? { ranges } : {}), ...(types ? { types } : {}), episodes: [], ...(bind.judged ? { judged: bind.judged } : {}), ...(bind.posture ? { posture: bind.posture } : {}) };
   writeFileSync(`${out}/data/loads.json`, JSON.stringify(index, null, 2) + '\n');
   console.log(`built ${out} (${commit.slice(0, 12)}) with ${flowPath}: ${days} days of ${Object.values(sources).filter((s) => s.loads).length} daily source(s) and ${watches.length} histories, generated by ${bind.generate}`);
 } else {

@@ -15,7 +15,7 @@ import { giveAhead } from '../core/ahead.js';
 import { isRangesFile, rangesPath } from '../core/ranges.js';
 import { measuresProblem, type MeasureSettings, type Measures } from '../core/measures.js';
 import type { TellFor } from '../core/protocol.js';
-import { pinned } from './pinned.js';
+import { pinnedJSON } from './pinned.js';
 
 export interface TellInput {
   doc: FlowDocument;
@@ -35,27 +35,6 @@ export interface TellInput {
   kept?: readonly (readonly unknown[])[];
 }
 
-/** The pinned file's JSON, or undefined when none is pinned or it isn't JSON. A pinned file is content-addressed, so its
- * parse is kept by its sha256 and read again by the next run, not parsed again (it is only read, never changed). */
-function pinnedJSON(path: string): { value: unknown; sha256: string; bytes: number } | undefined {
-  const p = pinned(path);
-  if (!p) return undefined;
-  const key = `${p.sha256}:${p.bytes.byteLength}`;
-  if (!parsed.has(key)) {
-    let value: unknown;
-    try {
-      value = JSON.parse(new TextDecoder().decode(p.bytes)) as unknown;
-    } catch {
-      value = NOT_JSON;
-    }
-    parsed.set(key, value);
-    if (parsed.size > 16) parsed.delete(parsed.keys().next().value!);
-  }
-  const value = parsed.get(key);
-  return value === NOT_JSON ? undefined : { value, sha256: p.sha256, bytes: p.bytes.byteLength };
-}
-const NOT_JSON = Symbol('not JSON');
-const parsed = new Map<string, unknown>();
 
 /**
  * The step's claim/2, or null with why when it can't be told: a pinned history that isn't one, a pinned tail that
