@@ -3,8 +3,8 @@
 A flow is a folder: a `flow.json` that says what the flow reads, who may do what and what it watches, and the
 [smaltnb](https://stenhoor.github.io/smaltnb/) notebooks (`*.nb.ts`) whose cells are its steps
 ([ADR 0011](../adr/0011-notebooks-as-the-step-surface.md)). The examples are in
-[`examples/`](../../examples/): `control-estate/`, `security-signins/`, `security-lockouts/`, `controls/` and
-`nyc-taxis-weather/`.
+[`examples/`](../../examples/): `larkspur/` (the demo), `control-estate/`, `security-signins/`, `security-lockouts/`,
+`controls/` and `nyc-taxis-weather/`.
 
 ## flow.json
 

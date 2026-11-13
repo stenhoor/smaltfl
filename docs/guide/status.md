@@ -1,6 +1,6 @@
 # Status
 
-smaltfl is in early development and not published. This page says what is in, as of 2026-11-11. What is built in
+smaltfl is in early development and not published. This page says what is in, as of 2026-11-13. What is built in
 detail, how to check it and what is left are in [where the work stands](../HANDOFF).
 
 | Piece | What | State |
@@ -14,19 +14,23 @@ detail, how to check it and what is left are in [where the work stands](../HANDO
 | Checks nobody wrote | Pair associations, the isolation forest, the classifier on a kept sample ([ADR 0013](../adr/0013-discovered-checks)) | In |
 | Gates | Bronze, silver and gold checks, bands, due dates, scope, dependency and reconciliation rules, the seal ([ADR 0014](../adr/0014-gates)) | In |
 | The bronze layer and the ontology | What a dataset's rows are, rules people set, shared ontologies, allowed fixes, the models' columns ([ADR 0015](../adr/0015-the-bronze-layer)) | In |
-| SQL through smaltql | smaltdb runs plans and smaltql reads the SQL smaltfl writes ([ADR 0017](../adr/ 0017-stenhoors-repositories-at-main)); next, SQL steps bound to plans through smaltql | In part |
+| The estate as a company | Larkspur: an organisation and its leaders, shared platforms, a conformed silver and a gold data product with contracts, judged against its own answer key; the posture dashboard over it ([ADR 0020](../adr/0020-the-estate-as-a-company)) | In |
+| The first load | The first day computed ahead by the build and checked by the page and the run, hash for hash: Larkspur's first day in about 4.5 s ([ADR 0019](../adr/0019-ranges-computed-ahead)) | In |
+| SQL through smaltql | smaltdb runs plans and smaltql reads the SQL smaltfl writes ([ADR 0017](../adr/0017-stenhoors-repositories-at-main)); next, SQL steps bound to plans through smaltql | In part |
 | Publishing to npm | `smaltfl` and `smaltfl/notebook` | After smaltdb 0.9.0 |
 
 ## Demos
 
-- [The control estate](/app/){target="_self"}: 600 applications, twelve controls, a year of history and a planted
-  March.
+- [Larkspur](/app/){target="_self"}: a fictional financial-services group, about 2,400 applications, its organisation
+  and shared platforms, six months of history and a planted March at every layer, bronze to gold.
+- [The control estate](/estate/){target="_self"}: 600 applications, twelve controls, a year of history and a planted
+  March; the answer key the gates were built against, kept as a regression.
 - [The sign-in log](/signins/){target="_self"}: a year of generated sign-ins, the shared ontology's rules and fixes, and
   two days only the models see.
 
 ## Depends on
 
 stenhoor's smalt repositories, each pinned in `packed.json` to the latest commit of its main
-([ADR 0017](../adr/ 0017-stenhoors-repositories-at-main)) until they are on npm: smaltdb 0.9.0 and its plugins, smaltql
+([ADR 0017](../adr/0017-stenhoors-repositories-at-main)) until they are on npm: smaltdb 0.9.0 and its plugins, smaltql
 for SQL, smaltnb and smaltkit (smaltty) for the notebooks. A change smaltfl needs in another smalt repository is discussed with its owner first
 ([ADR 0001](../adr/0001-initial-decisions)).

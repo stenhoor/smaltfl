@@ -1,8 +1,9 @@
 name: Docs
 
-# The site (VitePress, docs/) and the two demos beside it, deployed to GitHub Pages at stenhoor.github.io/smaltfl/:
-# the control estate at /app/ and the sign-in log at /signins/. Each demo's data is generated from its fixed seed by
-# the build (scripts/data/estate.ts, scripts/data/security.ts), its history measured on the runtime.
+# The site (VitePress, docs/) and the three demos beside it, deployed to GitHub Pages at stenhoor.github.io/smaltfl/:
+# Larkspur at /app/ (ADR 0020), the control estate at /estate/ (ADR 0014's answer key, kept as a regression, Q-169) and
+# the sign-in log at /signins/. Each demo's data is generated from its fixed seed by the build
+# (scripts/data/larkspur.mjs, scripts/data/estate.ts, scripts/data/security.ts), its histories measured on the runtime.
 on:
   push:
     branches: [main]
@@ -43,11 +44,12 @@ jobs:
           key: demo-data-${{ hashFiles('scripts/data/**', 'scripts/flow.ts', 'src/core/**', 'src/plugin/**', 'src/notebook.ts', 'src/index.ts', 'examples/**', 'test/fixtures/**', 'packed.json', 'package-lock.json') }}
           restore-keys: demo-data-
       - run: npm run docs:build
-      - run: npm run build:app -- --flow examples/control-estate/flow.json --out docs/.vitepress/dist/app
+      - run: npm run build:app -- --flow examples/larkspur/flow.json --out docs/.vitepress/dist/app
+      - run: npm run build:app -- --flow examples/control-estate/flow.json --out docs/.vitepress/dist/estate
       - run: npm run build:app -- --flow examples/security-signins/flow.json --out docs/.vitepress/dist/signins
       # Every page and file the demos load answers: a demo that can't load its data is a broken site.
       - run: |
-          for d in app signins; do
+          for d in app estate signins; do
             test -f docs/.vitepress/dist/$d/index.html
             test -f docs/.vitepress/dist/$d/data/flow.json
           done

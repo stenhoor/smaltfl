@@ -1,10 +1,13 @@
 [
   {
     "name": "lark-mar01-flow",
-    "what": "Larkspur, calm Fri Mar 1: the Flow view as a phone opens it (notebook boxes folded)",
+    "what": "Larkspur, calm Fri Mar 1: the Flow view as a phone opens it (notebook boxes folded); the strip counts the statuses the views follow, not the first file's rows",
     "day": "Fri 1",
     "expect": {
-      "state": "done"
+      "state": "done",
+      "loads": {
+        "Fri 1": "Fri Mar 1: 19,248 results"
+      }
     }
   },
   {

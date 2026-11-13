@@ -10496,6 +10496,19 @@ const dayLabel = (day: string) => {
 };
 /** The latest run on a load. */
 const runOfLoad = (k: number) => state.runs.find((r) => r.load === k);
+/**
+ * A day's count, as the strip draws and says it: the load's own rows where the views follow its file; else (they follow
+ * a step, or another of several daily files: the posture, Larkspur's statuses) the rows the day's run gave that dataset,
+ * as a step's What happened counts them, against that dataset's usual. Null for a day not run here, or whose run built
+ * nothing (a refused file).
+ */
+const countOfLoad = (k: number): number | null => {
+  const l = loads.list[k];
+  if (!l) return null;
+  const src = loadSource();
+  if (!src || !dataList || src === dataList.loadSource) return l.rows;
+  return [...state.runs].reverse().find((r) => r.load === k && !r.derived)?.result.manifest.nodes.find((x) => x.origin === src)?.rows ?? null;
+};
 const dayPlus = (day: string, n: number) => new Date(dateOf(day).getTime() + n * 864e5).toISOString().slice(0, 10);
 /** A day's week, by its Monday. */
 const mondayOf = (day: string) => dayPlus(day, -((dateOf(day).getUTCDay() + 6) % 7));
@@ -10573,7 +10586,8 @@ function loadSummary(): string {
   void list;
   void st;
   const src = loadSource();
-  return top ? `${dayLabel(l.day).replace(/, \d{4}$/, '')}: ${top.title}` : !src || visible(src) ? `${dayLabel(l.day)}: ${rowsSaid(l.rows)}` : dayLabel(l.day);
+  const n = countOfLoad(k);
+  return top ? `${dayLabel(l.day).replace(/, \d{4}$/, '')}: ${top.title}` : (!src || visible(src)) && n !== null ? `${dayLabel(l.day)}: ${rowsSaid(n)}` : dayLabel(l.day);
 }
 
 function renderLoads(): void {
@@ -10600,7 +10614,7 @@ function renderLoads(): void {
   // Each day a micro bar of its trips against its own usual range, on one scale for the week, and its mark: a filled
   // hexagon for something wrong, an outlined triangle for unusual, ‖ where the checks held the run (ADR 0008).
   const tripsRanges = history && historyOpen() ? rangesOf({ of: 'trips' }) : null;
-  const ymax = Math.max(1, ...list.flatMap((k) => [loads.list[k]!.day > (now?.day ?? '9') ? 0 : loads.list[k]!.rows, tripsRanges?.at(loads.list[k]!.day)?.high ?? 0]));
+  const ymax = Math.max(1, ...list.flatMap((k) => [loads.list[k]!.day > (now?.day ?? '9') ? 0 : (countOfLoad(k) ?? 0), tripsRanges?.at(loads.list[k]!.day)?.high ?? 0]));
   // One scrolling row for the whole episode (ADR 0008), the loaded day in view.
   // A day after the one on screen hasn't arrived yet, as a feed brings them (ADR 0008 §10): lighter, its usual range
   // (made from the days before) but no count and no mark, whatever this visit ran.
@@ -10628,11 +10642,12 @@ function renderLoads(): void {
     const pm = later ? null : dayPause(l.day);
     const held = !later && !absent && !state.doc.publish && !!(history && historyOpen() && storyFor(l.day)?.gate?.held);
     const range = tripsRanges?.at(l.day);
-    const label = later ? `${dayLabel(l.day)}${l.note ? `, ${l.note}` : ''}: after this day` : absent ? `${dayLabel(l.day)}${l.note ? `, ${l.note}` : ''}: not run` : `${dayLabel(l.day)}${l.note ? `, ${l.note}` : ''}${counted ? `: ${rowsSaid(l.rows)}` : ''}${top ? (top.kind === 'unlearned' ? `, not judged yet${top.detail ? `: ${top.detail}` : ''}` : `, ${VERDICT_WORD[top.severity]}${saysHead(top) ? `: ${top.title}` : ''}`) : ''}${held ? ', held' : ''}${pm ? pauseSaid(l.day, pm) : ''}${r ? '' : top?.key.startsWith('failed:') ? ', the run failed: nothing published' : ', not run yet'}`;
+    const count = later || absent ? null : countOfLoad(k);
+    const label = later ? `${dayLabel(l.day)}${l.note ? `, ${l.note}` : ''}: after this day` : absent ? `${dayLabel(l.day)}${l.note ? `, ${l.note}` : ''}: not run` : `${dayLabel(l.day)}${l.note ? `, ${l.note}` : ''}${counted && count !== null ? `: ${rowsSaid(count)}` : ''}${top ? (top.kind === 'unlearned' ? `, not judged yet${top.detail ? `: ${top.detail}` : ''}` : `, ${VERDICT_WORD[top.severity]}${saysHead(top) ? `: ${top.title}` : ''}`) : ''}${held ? ', held' : ''}${pm ? pauseSaid(l.day, pm) : ''}${r ? '' : top?.key.startsWith('failed:') ? ', the run failed: nothing published' : ', not run yet'}`;
     return h('button', { type: 'button', class: ['load', `sev-${sev}`, k === loads.at ? 'at' : '', r ? 'ran' : '', later ? 'later' : '', absent ? 'notrun' : '', holidayOf(l.day, calendarNow()) ? 'holiday' : l.note ? 'holiday season' : ''].filter(Boolean).join(' '), 'aria-pressed': String(k === loads.at), 'aria-label': label, title: label, disabled: busy || loads.playing || !runs, onclick: () => void useLoad(k) },
       h('span', { class: 'ld-day' }, weekday(l.day)),
       h('span', { class: 'ld-date' }, String(dateOf(l.day).getUTCDate())),
-      svgNode(stripBar({ v: later || absent || !counted ? 0 : l.rows, low: range?.low ?? null, high: range?.high ?? null, ymax, sev: sev === 'alert' || sev === 'warn' ? sev : null })),
+      svgNode(stripBar({ v: later || absent || !counted ? 0 : (count ?? 0), low: range?.low ?? null, high: range?.high ?? null, ymax, sev: sev === 'alert' || sev === 'warn' ? sev : null })),
       h('span', { class: 'ld-marks', 'aria-hidden': 'true' }, sev === 'alert' || sev === 'warn' ? glyphEl(sev, 14) : top?.kind === 'unlearned' ? glyphEl('unlearned', 14) : '',
         // A mark about the values or the hours, under a bar within its range, says so (the two-minute test, round 1):
         // the bar is the amount; the mark is the day's story.
@@ -10812,7 +10827,7 @@ async function runLoad(k: number): Promise<void> {
   let bytes = replaced?.bytes ?? loads.bytes.get(k);
   try {
     if (!bytes) {
-      setStatus(`Fetching ${dayLabel(l.day)}${sourceOpen() ? `: ${rowsSaid(l.rows)}` : ''}, checked against the data's list…`);
+      setStatus(`Fetching ${dayLabel(l.day)}${l.files ? `: ${fmtInt(Object.keys(l.files).length)} files` : sourceOpen() ? `: ${rowsSaid(l.rows)}` : ''}, checked against the data's list…`);
       bytes = await checked(l.file, { sha256: l.sha256, bytes: l.bytes ?? -1, from: l.file });
       loads.bytes.set(k, bytes);
       for (const old of [...loads.bytes.keys()].slice(0, Math.max(0, loads.bytes.size - 3))) loads.bytes.delete(old);

@@ -14,7 +14,7 @@ export default defineConfig({
   cleanUrls: true,
   // The demos are deployed beside the site (.github/workflows/docs.yml), not built by VitePress; the design records
   // link into the repository's sources, which the markdown hook below sends to GitHub.
-  ignoreDeadLinks: [/^\/app\//, /^\/signins\//, /^\.\.?\//, /localhost/],
+  ignoreDeadLinks: [/^\/app\//, /^\/estate\//, /^\/signins\//, /^\.\.?\//, /localhost/],
   srcExclude: ['brand/**', 'research/**'],
   lastUpdated: false,
   head: [
@@ -32,6 +32,9 @@ export default defineConfig({
       const fallback = md.renderer.rules.link_open ?? ((t, i, o, _e, s) => s.renderToken(t, i, o))
       md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
         const href = tokens[idx].attrGet('href')
+        // VitePress leaves a link with a target as written, without the base: the demos' links (`{target="_self"}`, a page
+        // VitePress doesn't build) get it here, so /app/ is /smaltfl/app/ on GitHub Pages and not the host's /app/.
+        if (href && tokens[idx].attrGet('target') && /^\/(?!\/)/.test(href)) tokens[idx].attrSet('href', `${base}${href.slice(1)}`)
         if (href && !/^[a-z]+:|^#|^\//i.test(href) && env?.relativePath) {
           const target = path.posix.normalize(path.posix.join(path.posix.dirname(env.relativePath), href))
           if (target.startsWith('../')) {
@@ -60,6 +63,7 @@ export default defineConfig({
         items: [
           { text: 'Quick start', link: '/guide/' },
           { text: 'A walk through the demo', link: '/guide/demo' },
+          { text: 'The control estate', link: '/guide/estate' },
           { text: 'Working in the app', link: '/guide/app' },
           { text: 'Writing a flow', link: '/guide/flows' },
           { text: 'Status', link: '/guide/status' },

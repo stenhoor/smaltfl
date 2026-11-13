@@ -870,6 +870,56 @@ and queue). It reads the published names alone, as its consumers would (`readPub
 - **What it doesn't do:** it reads only the days run in this browser. "Play the rest ›" runs the month, and the trend says
   how many days it is over. It writes nothing back: a leader's view, not a workflow.
 
+**Slice 7, the switch (2026-11-13):** Larkspur is the demo (Q-169).
+- **The site:** `.github/workflows/docs.yml` builds Larkspur at `/app/`, the control estate at `/estate/` (ADR 0014's
+  answer key, kept as a regression) and the sign-ins at `/signins/`. Made cold on four cores, the data take 298 s for
+  Larkspur, 240 s for the estate and 42 s for the sign-ins; the demos are 90, 23 and 12 MB. The deploy keeps the data
+  sets in its cache, and a data set used from the cache now counts as used (`scripts/build-app.mjs`), so the three the
+  deploy uses are the three it keeps.
+- **The walk:** `docs/guide/demo.md` walks Larkspur in date order: Fri 1 calm, with the posture in Results; Mon 11, the
+  reorg; Tue 12, walk 1; Mon 18, walk 2; Thu 21, the doubled file and the contracts; Mon 25, walk 3; then the month's
+  trend. That is the path `tools/browser/stops/larkspur.json` checks at every size. A table gives every other planted
+  day as the app says it when the days are run in order. The estate's walk moved to `docs/guide/estate.md`, and the
+  quick start, the status page and the README name Larkspur.
+- **March run in order in the browser** (the 31 days at desktop size, no page error):
+  - **Paused:**
+    - Mon 4, "mfa: Almost no apps: 0";
+    - Wed 6, "backup_jobs: The same file as Tue 5’s";
+    - Thu 7, the logging file refused;
+    - Fri 8, "57 applications: key_rotation status pass needs encryption not fail";
+    - Tue 12, "waf: Status fail: 22.7% (band 0%–15%)";
+    - Wed 13, "waf: 50 apps out of scope";
+    - Mon 18, the chain;
+    - Tue 19, "backup_jobs: Status not_assessed: 23.2% (band 0%–5%)";
+    - Thu 21, "tls: 815 apps repeat a key";
+    - Sat 23, "dr_exercises: Late: 111 of 193 due";
+    - Tue 26, "tls: 39 in scope with no app";
+    - Thu 28, "6 of 245 rows broke no_loop".
+  - **Unusual and published:** Fri 15 (the expired exceptions), Sat 16 and Sun 17 (not assessed, 2.7 and 2.8 times the
+    usual), and Wed 27, Fri 29 and Sat 30 (the new control's results; Thu 28 has them too, and is paused by the loop).
+  - **Calm or with a note:** every other day.
+  - **Results at Sun 31:** a score of 92.0 (A) with coverage 91%, 2,420 applications, 187 critical ones failing, 254
+    items overdue and 14 exceptions expiring. The group's score is down 1.6 points over the 20 days published.
+- **Found while switching:**
+  - **The guide's demo links left the site.** VitePress adds the base only to a link without a target, so
+    `[Open the demo](/app/){target="_self"}` was built as `/app/`, the host's root, and not `/smaltfl/app/`. On GitHub
+    Pages, every demo link in the guide (the quick start, the walk, the status page) led to a page that isn't there;
+    only the nav's Demo link was right. The site's config now gives such a link the base (`docs/.vitepress/config.ts`).
+  - **The strip counted the wrong rows.** With several daily files it counted the day's first file and named the count
+    with the noun of the dataset the views follow, against that dataset's usual band. On Larkspur that was the HR
+    extract's 246 units drawn under `effective`'s band of about 19,000, so every day read as nearly empty; on the
+    estate, the TLS file's rows under the posture's 600. Now a run day counts the followed dataset's rows from its run
+    (`countOfLoad` in `src/app/main.ts`, as a step's What happened counts them): "Fri Mar 1: 19,248 results", "Wed Mar
+    6: 600 apps", checked by the two stop sets.
+  - **What a day says depends on the days run before it** (slice 5 said so). A late day chosen with weeks not run
+    before it reads "Not judged yet": the history ends before it. That is why the walk takes its days in date order.
+    "Play the rest ▶" stops at every day that waits for a decision (ADR 0009), so the month takes a press for each
+    paused day. Slice 6's "runs the month" holds only once the paused days are decided or stepped past.
+  - **Not fixed here: a refused file's day doesn't say why.** On Thu 7 the status line, the strip and the decision bar
+    say only that the day is paused, and the file's Quality tab reads "Not judged yet", every check not judged. The run
+    records the reason ("file has 4 of 5 columns", `refusedSaid`), and the Ontology view's row says "file refused". The
+    estate's Thu 7 is the same. It is the next fix.
+
 ## Consequences
 
 - **The demo can show what each layer is for:**
