@@ -219,7 +219,14 @@ Results on 2026-11-09, at `e42d9ec` on data `0ca4dd1`:
 
 ## What is not done
 
-**First: [ADR 0020](adr/0020-the-estate-as-a-company.md), the Larkspur estate** (accepted 2026-11-12, Q-169 to
+**First: [ADR 0021](adr/0021-time.md), time** (accepted 2026-11-13, Q-181 to Q-192): two screens, a month to pick a
+day from (a calendar, a grid of files and steps by day, the posture's trend, *for the day* and *as known on*) and the
+day itself (its flow, lifecycle, story and versions); March as recorded history; every version of a day kept like a
+commit, corrections decided, compared by summary and by rows; the ontology effective-dated and hashed to each run;
+what-if runs. Built in the slices of its §9, the two screens and the recorded runs first. A first day near 1 s waits
+(Q-180).
+
+**Then (built): [ADR 0020](adr/0020-the-estate-as-a-company.md), the Larkspur estate** (accepted 2026-11-12, Q-169 to
 Q-175). It is built in the slices of its §8: the generator, bronze, silver, gold, the answer key through the engine,
 the product view, then the switch that makes it the demo. Slices 1 to 6 are built (its §"As built"): the app builds
 on Larkspur (`npm run build:app -- --flow examples/larkspur/flow.json --out dist/app-larkspur`),
