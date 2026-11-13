@@ -228,12 +228,13 @@ async function main(): Promise<void> {
     const filesNow = new Map<string, Day>();
     let defined = false;
 
-    // The group's score and coverage, on a day its roll-up and organisation were published (ADR 0021 §3): what readers
-    // see of the product now, after a run that published them or a release.
+    // The group's score and coverage, on a day its roll-up was published (ADR 0021 §3): what readers see of the product
+    // now, after a run that published it or a release. The organisation is the one readers have then: a release names
+    // only what changed, and never moves a name back.
     const markPosture = (day: string, published: readonly string[]) => {
       const units = bind.posture?.units;
       const org = bind.posture?.org;
-      if (!units || !org || !published.includes(units) || !published.includes(org)) return;
+      if (!units || !org || !published.includes(units)) return;
       const row = db.query(`SELECT p.score, p.coverage FROM ${units} p JOIN ${org} o ON o.org_unit_id = p.org_unit_id WHERE o.level = 'group' AND o.parent_id IS NULL`).rows[0];
       if (row) posture[day] = { score: row[0] === null ? null : Number(row[0]), coverage: row[1] === null ? null : Number(row[1]) };
     };
