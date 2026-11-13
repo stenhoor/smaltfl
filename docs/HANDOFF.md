@@ -187,7 +187,8 @@ Each piece has its ADR, tests, and a line in CLAUDE.md's layout.
   page with each step's callouts, output and models under it, and the reader's own SQL and note cells at the bottom
   (kept in the browser). The site (`docs/`, VitePress with smalt-brand's kit copied unchanged): home, Quick start, A walk
   through the demo, Working in the app, Writing a flow, Status, and the design records; `.github/workflows/docs.yml`
-  deploys it with the estate demo at `/app/` and the sign-ins at `/signins/`. Waiting on the owners: Pages turned on
+  deploys it with the estate demo at `/app/` and the sign-ins at `/signins/` (since ADR 0020's slice 7, 2026-11-13:
+  Larkspur at `/app/`, the control estate at `/estate/`). Waiting on the owners: Pages turned on
   for the repository (Source: GitHub Actions), and smalt-brand's product page, status row and `FAMILY` entry for
   smaltfl (its mark and positioning line are owner decisions).
 - **Round-3 fixes, partly done** (the last three commits, `f76107b`, `791d07b` and `e42d9ec`):
@@ -228,8 +229,11 @@ the maintainers to confirm: an object type's loose ids (Q-176) and `publish.reac
 and in slice 4 a steady change in gold left to the product view (Q-178: the remediation push isn't told by a day's
 judge), and in slice 5 that the switch waits on a faster first day (Q-179: 11 s against a 5 s budget, the engine's
 run of the flow 7.3 s of it). The first day's speed is built (ADR 0019 amendment 2: 4.5 s on a desktop, 4.8 s on a
-phone, from about 10 s); a first day near 1 s is Q-180, open. Next is the switch (slice 7: the docs deploy builds
-Larkspur and it becomes the demo). The items below follow it.
+phone, from about 10 s); a first day near 1 s is Q-180, open. Slice 7, the switch, is built (2026-11-13): the docs
+deploy builds Larkspur at `/app/` and keeps the control estate at `/estate/`, and the site walks Larkspur
+(`docs/guide/demo.md`; the estate's walk is `docs/guide/estate.md`). All seven slices are built. Next, found while
+switching: a refused file's day doesn't say why it is paused (Thu 7 on both estates; ADR 0020 slice 7, "Not fixed
+here"). The items below follow.
 
 Parked behind the notebook surface by the maintainer's decision of 2026-11-09 (Q-87, ADR 0011 §9). In priority order:
 

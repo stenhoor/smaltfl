@@ -12,11 +12,12 @@ Each day is judged against the days before it: a day that is off is **paused, no
 what it reaches, until someone with the right to decides (publish as is, keep it back, fill it from another day, accept
 a new level). Everything runs in the browser, on [smaltdb](https://github.com/stenhoor/smaltdb).
 
-> **Status: early development.** [Try the live demo →](https://stenhoor.github.io/smaltfl/app/) (the control estate:
-> 600 applications, twelve security controls, a year of history and a planted March) ·
+> **Status: early development.** [Try the live demo →](https://stenhoor.github.io/smaltfl/app/) (Larkspur: a fictional
+> financial-services group's March of security controls, about 2,400 applications through bronze, silver and a gold
+> data product) ·
 > [Read the docs →](https://stenhoor.github.io/smaltfl/) · [A walk through the demo](https://stenhoor.github.io/smaltfl/guide/demo)
 > - **Where the work stands:** [docs/HANDOFF.md](docs/HANDOFF.md) (what is built, how to check it, what is left)
-> - Decisions: [docs/adr/](docs/adr/README.md) (ADR 0001 to 0015)
+> - Decisions: [docs/adr/](docs/adr/README.md) (ADR 0001 to 0020)
 > - The architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); the scenario it is measured against: [docs/SCENARIO.md](docs/SCENARIO.md)
 > - The owner's answers and the questions still open: [docs/OPEN_QUESTIONS.md](docs/OPEN_QUESTIONS.md)
 > - Brand: [docs/brand/DECISIONS.md](docs/brand/DECISIONS.md) (the mark is the Twin, in the user-tool layer's cerulean: ADR 0016)
@@ -29,7 +30,7 @@ npm run deps:latest      # move the pins to the latest of stenhoor's repositorie
 npm run check            # typecheck and tests
 npm run bench            # the scenario benchmarks (bench/results/node.json)
 npm run build:app        # the app, in dist/app (with the data branch's loads when fetched: git fetch origin data --depth 1)
-npm run build:app -- --flow examples/control-estate/flow.json --out dist/app-estate   # the demo
+npm run build:app -- --flow examples/larkspur/flow.json --out dist/app-larkspur     # the demo
 npm run docs:dev         # the site (VitePress), with live reload
 ```
 

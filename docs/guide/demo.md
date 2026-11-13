@@ -1,100 +1,210 @@
 # A walk through the demo
 
-**[Open the demo](/app/){target="_self"}** beside this page. It is the **control estate**: an inventory of 600
-applications, each typed (internet-facing or not, critical, high or standard, the data it holds, where it runs:
-cloud, on premises or SaaS), and twelve security controls, each its own daily file covering only the applications it
-applies to. Five controls run on dates (a pentest or a DR exercise a year, access reviews a quarter, vulnerabilities
-thirty days after Patch Tuesday), so a pass rate can flip for a day without anything being wrong.
+**[Open the demo](/app/){target="_self"}** beside this page. It is **Larkspur**, a fictional financial-services group,
+as its systems export it each day:
 
-The data is synthetic, from a fixed seed, with a year of history before March 2024 and trouble planted in March in
-three layers: the obvious, contradictions and scope, and look-alikes beside one real problem. Nothing that judges the
-days knows where it is planted.
+- from HR, the organisation and its leaders: five segments, sixteen business units and about 250 units in all;
+- from the CMDB, about 2,400 applications, each owned by a team;
+- the cloud inventory;
+- 46 shared platforms: clusters, ingresses, certificate authorities, backup controllers, scanners;
+- a catalogue of 14 controls mapped to the frameworks;
+- the risk register and the findings ledger;
+- twelve evidence feeds, one a control.
+
+Twenty of these files arrive each day, about 28,000 rows; the platforms' two files are fixed. All of it runs in your
+browser.
+
+The data is synthetic, from a fixed seed, with six months of history before March 2024. Trouble is planted in March at
+every layer:
+
+- files that arrive wrong;
+- files that are fine alone but wrong together;
+- look-alikes: days that look like trouble and aren't, which must publish.
+
+Nothing that judges the days knows where the trouble is planted. The first day takes a few seconds while the engine
+starts and runs the whole flow, about a hundred steps.
+
+Choose the days in the order this page takes them. Each day is judged against the days run before it in your browser,
+so a day chosen weeks after the last one run can read *Not judged yet*.
 
 ## The flow
 
-The canvas shows the flow as four notebooks:
+The canvas shows six notebooks, bronze to gold:
 
-- **controls**: the twelve control files and the inventory (`apps`), each checked at **bronze** (the file as it came:
-  its columns, its amount, its key, the applications it should cover).
-- **posture**: every application's standing on every control, one row an application, joined from the checked
-  controls (**silver**). Key rotation needs encryption at rest: an application passing one while failing the other is
-  counted as a contradiction.
-- **scores**: each application scored: the controls that apply, passed, failed by name, excepted, not assessed, and a
-  standing (passing, failing one or two, at risk with three or more).
-- **summary**: what leadership reads (**gold**): failing applications by business unit, by control and by type of
-  application; standings by hosting and criticality; each control's failures by hosting and criticality; the controls
-  failed together.
+- **bronze**: every daily file as it arrived, each with a gate. The gate checks the file's columns, its amount, its
+  key and the applications it should cover. It also checks values against the bands the ontology writes, and that
+  the file is a fresh export, not yesterday's file again.
+- **org**: the organisation, conformed. Each unit has its chain up to the group, and the leader it answers to: its
+  own, someone acting, or the one above. Its rules: no loop, one root.
+- **apps**: the applications, conformed: ids cleaned, the newest record kept.
+  - Each application has an owner chain through its team. One whose chain doesn't resolve is kept under
+    **Unassigned**.
+  - Cloud resources tagged with an application nobody registered are listed apart.
+- **evidence**: every evidence feed as one long table, and the vulnerability SLA, told from the findings ledger.
+- **posture**: what applies to each application and the evidence for it.
+  - Each pair of an application and a control gets an effective status with its reason: pass, fail, compensated,
+    excepted or not assessed.
+  - What to fix.
+  - Each platform's share of the day's failures (`platform_impact`).
+- **product**: the gold data product, Control Posture v1. It holds:
+  - the organisation, the applications and the controls;
+  - each pair's status, and the findings;
+  - a scorecard an application, and the posture a unit;
+  - the exceptions and the remediation queue.
 
-Tap a notebook's box to read it as a page: each step's SQL, its output under it, what a rule caught, and the day's
-news about it. At the bottom, **Your cells** lets you write SQL of your own over any dataset by name (today's
-version). Your cells are kept in your browser and change nothing the flow computes.
+  Each dataset has a contract.
+
+Tap a notebook's box to read it as a page: each step's code, its output under it, what a rule caught and the day's
+news about it. **Your cells** at the bottom take SQL of your own over any dataset by name. They are kept in your
+browser and change nothing the flow computes.
 
 ## A calm day
 
-Choose **Wed 6** in the strip. The status line says *A normal Wednesday*: every watched dataset is within what the
-year taught it, and everything published.
+**Fri 1** opens first: *A normal Friday*. Open **Results**, which starts with **Control Posture v1** as its consumers
+read it, from the published datasets alone:
 
-Open the **summary** box, or tap the **control_by_type** card and its **Data** tab. **At a glance** is a heat table:
-each control's failure rate by hosting and criticality, the darkest the worst, and the cells most out of line with
-their row named in words: MFA fails on SaaS applications, backups and central logging on premises. **failed_together**
-shows which controls fail together: of the applications failing key rotation, all fail encryption at rest.
+- six tiles: the group's score and grade, coverage beside it, the applications and the critical ones, the critical
+  applications failing, the items overdue and the exceptions expiring;
+- the score on each day published;
+- the organisation as a tree, the lowest scores first.
 
-**app_scores** lists the worst applications first, with the controls each fails.
+A team opens to its applications' scorecards and its remediation queue, each application with what it fails.
+Unassigned opens to the applications whose owner chain doesn't resolve.
+
+## A look-alike: the reorg
+
+**Mon 11.** Seven teams move from one business unit to another. Unfold **product** and open **dim_app**. Its **News**
+says BU-05's share of the applications doubled and BU-02's fell, and that this *follows app_owners*, where the teams'
+new chain shows. Nothing is wrong, and the day publishes.
 
 ## A held day
 
-Choose **Mon 4**. The status line says the day is paused: the MFA file came with no rows. Tap the **mfa** card: its
-**News** leads with what happened in one sentence, the picture against the learned band, what it reaches (the
-posture, the scores and the summaries wait) and the fix. Readers keep Fri 1's version until someone decides.
+**Tue 12: a platform, not a hundred applications.** Choose Tue 12 in the strip. The status line says the day is
+paused: *waf: Status fail: 22.7% (band 0%–15%)*. The WAF file's **Quality** tab draws its failing share against the
+band the ontology writes: 22.7% of its applications fail, where the band allows 15%.
 
-The decision sheet opens the choices the file allows, each with what it publishes and whether it can be undone:
-publish as is, keep it back, or fill from another day (a file with no rows is never offered a new level to accept).
-One is recommended, with its reason. The sign-in
-demo's ontology allows only carrying a day forward or back, or replacing the file: a choice it doesn't allow is not
-offered.
+Unfold **posture** and open **platform_impact**. Its **What happened** names the cause, `ing-east-3`. That ingress
+carries 7.6% of the day's failing and unassessed results, where 0.5–2.0% is usual. A configuration push put its WAF in
+monitor mode, so every application behind it fails the WAF at once.
+
+In **product**:
+
+- **org_posture** has each unit's score, with its leader;
+- **remediation_queue** has a row for each failing application, with its owning team.
+
+Nothing that reads the WAF is published while the day waits. Results shows the posture its consumers kept, *as
+published* on the last day that went out. **Decide ›** opens the choices the day allows, each with what it publishes
+and whether it can be undone: publish as is, keep it back, or fill from another day. The fix itself is one
+configuration change at the ingress.
+
+## The join that lost 95 applications
+
+**Mon 18.** Every file arrived well formed; the day is held in silver.
+
+1. Unfold **org** and open **org_chain**: *4 of 245 rows broke one_root, a rule that stops the day*. A department was
+   dissolved in the HR system and its four teams weren't moved, so they no longer reach the group.
+2. Unfold **apps** and open **app_owners**: *95 of 2,410 rows broke owner_chain*. Those applications lost their owner
+   chain. They are kept under UNASSIGNED, not dropped, and the step fails.
+
+What reads the chain waits: the organisation, the applications and the posture by unit. What doesn't read it
+publishes: each application's statuses and scorecard read its team, which is still there. The next day's extract moves
+the four teams under another department, and the chain is whole again.
+
+## Contracts
+
+**Thu 21.** The TLS file arrives with its rows twice, and bronze holds it by its key: *tls: 815 apps repeat a key*. The
+doubled rows flow through: in **product**, **failing_by_unit**'s **Checks** say its rows repeat a key too.
+
+Its **Contract** tab, like every gold dataset's, says what its consumers rely on:
+
+- its id, version and status, and whether the run on screen kept it;
+- what it is for;
+- each column: its type, whether it is part of the key or required, its classification and its values;
+- its service levels: daily, available by 07:00 UTC.
+
+## One cause behind two controls
+
+**Mon 25.** The **tls** card warns: 8.9% of its applications fail, above their usual share. On its own, that is a rise
+within reason.
+
+Open **platform_impact**: it names `ca-int-2`, a certificate authority whose intermediate certificate expired behind
+an ingress. TLS ends at that ingress, and log forwarding uses the same certificates, so the applications behind it fail
+both controls. Nothing holds the day: the platform says what the failures have in common.
+
+## The posture over the month
+
+**Play the rest ▶** runs the days in order. It stops at each day that waits for a decision, as a person would; press
+it again to go on. Once Sun 31 has run, Results reads the whole month:
+
+- The group's score falls 1.6 points, from 93.6 on Fri 1 to 92.0 on Sun 31.
+- Each segment's and business unit's change sits beside its sparkline.
+- One business unit's score rises: Underwriting's, from 94.7 to 95.8. That is a new leader's remediation push.
+- The other fifteen fall, from 0.1 to 5.1 points:
+  - the change freeze's late fixes;
+  - the teams moved in the reorg fixing more slowly while they are handed over;
+  - the new control's missing evidence.
+
+No day's judge says the push: it is too steady to stand out on any one day, so it shows as a trend.
 
 ## The other planted days
 
-| Day | What happened | What holds it |
-|---|---|---|
-| Mon 4 | The MFA file has no rows | its amount (bronze) |
-| Thu 7 | The logging file lacks a column | the schema check: the file is refused and nothing is built |
-| Fri 8 | Key rotation passes for 41 applications failing encryption at rest | the posture's dependency rule (silver) |
-| Tue 12 | Three in five WAF rows fail | the WAF's written band, 0–15% |
-| Wed 13 | WAF rows for 40 applications that aren't internet-facing | the scope the ontology gives the file |
-| Thu 14 | Vulnerability due dates cluster after Patch Tuesday | nothing: a look-alike, published |
-| Fri 15 | Half the pentests are due, the usual one in ten late | nothing: a look-alike, published |
-| Tue 19 | A scanner outage: 45% of backups not assessed | the not-assessed band every control shares |
-| Thu 21 | The TLS file came twice | its key: 203 applications repeat it |
-| Sat 23 on | Six in ten DR exercises due Fri 22 ran late | the DR file, day after day, until they complete |
-| Tue 26 | No TLS rows for Payments' internet-facing applications | the scope rule: 50 applications with no row |
-| Fri 29 | Quarterly access reviews due, the usual lateness | nothing of its own: a look-alike (the DR backlog still holds the day) |
+As the app says them when the days are run in order:
 
-The DR backlog is the one SLA day that is a real problem. Late exercises take weeks to complete, so the file stays
-off and each day after it is held too: decide Sat 23 and see what the next days say.
+| Day | What happened | What the app says |
+|---|---|---|
+| Mon 4 | The MFA file arrives empty | Paused: *mfa: Almost no apps: 0* (bronze, its amount) |
+| Tue 5 | The scanner's upgrade writes statuses and severities in capitals | The findings file warns of new values. Silver lower-cases them, so the day publishes |
+| Wed 6 | The backup file is Tue 5's again | Paused: *backup_jobs: The same file as Tue 5's* (bronze, `fresh`) |
+| Thu 7 | The logging file lacks a column | Paused: the file is refused and nothing is built (bronze, the schema). The Ontology view's row for the file says *file refused* |
+| Fri 8 | Key rotation passes where encryption fails | Paused: *57 applications: key_rotation status pass needs encryption not fail* (silver, the needs rule) |
+| Sat 9 | An agent reinstall makes old findings look new | The findings file warns: *Status new: 3.2%*. Silver keeps each finding's first date, so nothing becomes less overdue. Published |
+| Wed 13 | WAF rows for applications that aren't internet-facing | Paused: *waf: 50 apps out of scope* (bronze, the scope) |
+| Thu 14 | February's Patch Tuesday findings fall due | Published |
+| Fri 15 | 46 exceptions expire unrenewed | Unusual: failures whose reason is the expired exception, not a regression. Published |
+| Sat 16, Sun 17 | A site's scanner can't log in | Unusual: those applications are not assessed, not clean. Published |
+| Tue 19 | A site's backup controller is down | Paused: *backup_jobs: Status not_assessed: 23.2% (band 0%–5%)*. platform_impact names `bkp-dc-east` |
+| Wed 20 | A CMDB sync writes duplicates, a few with another owner | apps keeps the newest record and notes the conflicts (*Owner_conflict yes: 0.5%*, band 0%). Published |
+| Thu 21 | The TLS file arrives twice | Paused: *tls: 815 apps repeat a key* |
+| Sat 23 | DR exercises due Fri 22 ran late; a new cloud account tags resources with an application nobody registered | Paused: *dr_exercises: Late: 111 of 193 due*. shadow_assets warns of the new tags, which gold counts under Unregistered |
+| Tue 26 | No TLS rows for one business unit's internet-facing applications | Paused: *tls: 39 in scope with no app* (the scope) |
+| Wed 27 on | The catalogue adds a control with no evidence feed yet | Unusual until Sat 30: more results, said as no data and not as failing. Published |
+| Thu 28 | An HR error makes a VP report to one of their own directors | Paused: *6 of 245 rows broke no_loop* (silver, org_chain) |
+| Fri 29 | Quarter-end access reviews | The access reviews file has no quality issues. Published |
+
+Days that are paused stay paused until someone decides. Decide one and step on to see what the next days say.
 
 ## Checks
 
-A card's **Checks** tab shows its gate: each check, written or learned, and whether it holds, warns or is off. A
-written check holds a day; a learned one warns unless the value is one the ontology marks bad. On a gold card the
-seal says the run's gates passed (or its holds were decided) and is signed by the owner.
+A bronze file opens to **Quality**: a verdict, a card for each thing to look at with its picture, and every check by
+where it comes from (the ontology, the file's contract, its own history), each with its mode. A step's or a gold
+dataset's **Checks** tab shows its gate the same way. A written check holds a day. A learned one warns, unless the
+value is one the ontology marks bad. On a gold card, the seal says the run's gates passed, or its holds were decided,
+and is signed by the owner.
 
 ## The ontology
 
-The **Ontology** view lists each file with what its columns mean and the rules its rows are held to, each saying how
-it came to be. The owner can rename a column, reword its meaning, label its values and add a rule (required, one of,
-a range, when … then), with an action (flag, drop, hold). A source's **Rules** tab switches each rule on or off for
-this flow, which writes the check cell in its notebook.
+The **Ontology** view lists each file with what its columns mean and the checks its rows are held to, each saying how
+it came to be. Larkspur's ontology has the organisational unit, the person, the application, the platform and the
+control, with their links. An application's id is the same whatever its case and the spaces around it. The owner can
+rename a column, reword its meaning, label its values and add a rule.
 
 ## Models
 
-On a watched dataset, **Models** shows the two checks nobody wrote. The isolation forest scores the day against the
-days it learned from (a tick a day, the cut, today), with what moved most. The classifier asks whether today's rows
-can be told from like days' (an AUC from 0.5, can't tell apart, to 1), with the columns that give today away. Each
-shows its record over the days it has run. Neither holds a day. Ids, keys and free text are left out by default.
+On a watched dataset, **Models** shows the two checks nobody wrote:
+
+- The isolation forest scores the day against the days it learned from, with what moved most.
+- The classifier asks whether today's rows can be told apart from like days'. On Tue 5 it tells the scanner's capitals
+  apart at once.
+
+Neither holds a day.
 
 ## Runs and the record
 
 **Runs** lists every run with its manifest's hash, and **verify** recomputes a run from its inputs. Every decision is
-an entry in a hash-chained record; the audit bag downloads the run, the record and the files for an offline check
+an entry in a hash-chained record. The audit bag downloads the run, the record and the files for an offline check
 (`node scripts/audit.mjs check BAG.zip`).
+
+## The control estate
+
+**[The control estate](/estate/){target="_self"}** is the month the gates were built against (ADR 0014): 600
+applications and twelve controls, kept as a regression. [Its walk](./estate) goes day by day.

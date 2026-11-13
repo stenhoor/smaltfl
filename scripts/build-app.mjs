@@ -14,7 +14,7 @@
 import { build } from 'esbuild';
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -194,6 +194,8 @@ if (days.length) {
   const work = join('node_modules/.cache/smaltfl/data', key);
   const cached = existsSync(join(work, '.done'));
   const t0 = Date.now();
+  // Used now: the cache keeps the data sets used last (below), and the site's deploy uses three.
+  if (cached) utimesSync(work, new Date(), new Date());
   if (!cached) {
     rmSync(work, { recursive: true, force: true });
     mkdirSync(work, { recursive: true });
@@ -305,7 +307,8 @@ if (days.length) {
     }
     days = made.loads.length;
   }
-  // The cache keeps the three data sets made last (each a few tens of MB): an older one is made again if it is needed.
+  // The cache keeps the three data sets used last (the site deploys three demos; Larkspur's is about 430 MB, the others
+  // tens of MB): an older one is made again if it is needed.
   const root = 'node_modules/.cache/smaltfl/data';
   const kept = readdirSync(root).map((k) => ({ k, t: statSync(join(root, k)).mtimeMs })).sort((a, b) => b.t - a.t);
   for (const { k } of kept.slice(3)) if (k !== key) rmSync(join(root, k), { recursive: true, force: true });

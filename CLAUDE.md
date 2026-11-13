@@ -16,7 +16,7 @@ match smaltdb's `CLAUDE.md`.
 | `npm run check` | `npm run typecheck` then `npm test` (vitest, under a minute on four cores) | Before every commit |
 | `npm run test:slow` | The month-long engine runs `npm test` leaves out (`SLOW` in `vitest.config.ts`: `test/estate-flow.test.ts`, about 90 s). CI runs it, and `npm run test:isolated` (every file in a fresh module graph), in a job beside `test` | Changes to the runtime, the gates or the estate |
 | `npm run build` | `dist/`: the core (`index.js`), the runtime plugin (`plugin/index.js`) and their declarations | Packaging checks |
-| `npm run docs:dev` | The site (VitePress, `docs/`, the brand kit copied unchanged into `docs/.vitepress/theme/`); `.github/workflows/docs.yml` deploys it to GitHub Pages with the estate demo at `/app/` and the sign-ins at `/signins/` (each build writes `index.html` beside `page.html`) | Docs and site changes |
+| `npm run docs:dev` | The site (VitePress, `docs/`, the brand kit copied unchanged into `docs/.vitepress/theme/`); `.github/workflows/docs.yml` deploys it to GitHub Pages with Larkspur at `/app/` (the demo, ADR 0020), the control estate at `/estate/` and the sign-ins at `/signins/` (each build writes `index.html` beside `page.html`) | Docs and site changes |
 | `npm run bench` | The scenario benchmarks in `bench/`, written to `bench/results/node.json` | Changes that could affect speed |
 | `npm run build:app` | The app in `dist/app` on `examples/nyc-taxis-weather/` (its notebooks expanded, shipped as `data/flow.json`), with the `data` branch's daily loads if fetched (else the XS fixtures); `-- --flow examples/security-signins/flow.json --out dist/app-signins` for the sign-ins (its generator's `--demo` days from the data list's `generateArgs`). Bundles are named by content (`bundles.json`). A generated flow's days, histories and samples are kept in `node_modules/.cache/smaltfl/data/<hash of what makes them>/`: after a change to the app alone the build takes seconds, not minutes (the docs deploy caches the same folder) | Changes to `src/app` |
 | `node tools/browser/regress.cjs APP OUT estate notebook split@desktop,tablet-wide,wide` | The browser regression: each stop set at every size (phone, tablet, tablet-wide, desktop, wide), as many at once as there are cores, one table of what passed; `--devices` narrows the sizes. Copy the built app out of `dist/` first | Before a PR that touches `src/app`; one set and its sizes while iterating |
@@ -281,9 +281,10 @@ release (smaltty ADR 0030).
   gates (bronze, silver, gold checks as a `gate()` cell in the notebook, written bands and due marks in the ontology,
   scope and dependency rules, the classifier on a kept sample, a sealed gold), in its seven slices, judged against the
   control estate's answer key (its §"The answer key"); all seven slices are built (its §"As built").
-  **Next:** [ADR 0020](docs/adr/0020-the-estate-as-a-company.md), the Larkspur estate (`examples/larkspur/`): a
+  **Then:** [ADR 0020](docs/adr/0020-the-estate-as-a-company.md), the Larkspur estate (`examples/larkspur/`): a
   fictional company with an organisation, shared infrastructure, a real silver and a gold data product, built in the
-  slices of its §8 and judged against its own answer key (§5); the control estate stays as ADR 0014's.
+  slices of its §8 and judged against its own answer key (§5); all seven are built, and Larkspur is the demo at `/app/`
+  (`docs/guide/demo.md`). The control estate stays as ADR 0014's, deployed at `/estate/` (`docs/guide/estate.md`).
 
 ## Rules for this repository
 
