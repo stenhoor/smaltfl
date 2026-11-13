@@ -25,3 +25,4 @@ records start from the answers to the questions in [../OPEN_QUESTIONS.md](../OPE
 | [0019](0019-ranges-computed-ahead.md) | Ranges computed ahead, and a first load measured | accepted (Q-163, Q-164, 2026-11-11) |
 | [0018](0018-phone-tablet-and-desktop.md) | Phone, tablet and desktop | accepted (Q-157, 2026-11-11); amendment 1, the desktop split (Q-159) |
 | [0020](0020-the-estate-as-a-company.md) | The estate as a company: an organisation, shared infrastructure, and a real bronze, silver and gold | accepted (the maintainer's answers to Q-169–Q-175, 2026-11-12) |
+| [0021](0021-time.md) | Time: a month to pick a day from, the day itself, and every version of it | accepted (the maintainer's answers to Q-181–Q-192, 2026-11-13); built in the slices of §9 |

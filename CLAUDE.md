@@ -285,6 +285,10 @@ release (smaltty ADR 0030).
   fictional company with an organisation, shared infrastructure, a real silver and a gold data product, built in the
   slices of its §8 and judged against its own answer key (§5); all seven are built, and Larkspur is the demo at `/app/`
   (`docs/guide/demo.md`). The control estate stays as ADR 0014's, deployed at `/estate/` (`docs/guide/estate.md`).
+  **Next:** [ADR 0021](docs/adr/0021-time.md), time: a month screen to pick a day (calendar, grid, trend, *for the day*
+  and *as known on*) and a day screen (flow, lifecycle, story, versions); March recorded by the build; every version of
+  a day kept like a commit, corrections decided; the ontology effective-dated and hashed to each run; what-if runs. In
+  the slices of its §9, the two screens and the recorded runs first.
 
 ## Rules for this repository
 
