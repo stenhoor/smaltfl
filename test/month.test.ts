@@ -138,6 +138,13 @@ describe('a run made here against its record', () => {
     expect(checkAgainst(recorded, here)).toEqual({ matches: true, plan: null, differs: [], holds: { recorded: ['checks:waf'], here: ['checks:waf'] } });
   });
 
+  it('takes each hold once: a check held by load, or spared on loads read before, is the same hold of the day', () => {
+    const byLoad = (load: string) => ({ ...hold('app_owners', 'x'), load: { source: load, slot: '2024-03-18', sha256: load } });
+    const recordedSplit = { manifest: recorded.manifest, holds: [hold('org_chain', 'y'), byLoad('hr_org_units'), byLoad('cmdb_apps'), byLoad('apps')] };
+    const hereSpared = { manifest: recorded.manifest, holds: [hold('org_chain', 'y'), byLoad('hr_org_units')] };
+    expect(checkAgainst(recordedSplit, hereSpared)).toMatchObject({ matches: true, holds: { recorded: ['checks:app_owners', 'checks:org_chain'], here: ['checks:app_owners', 'checks:org_chain'] } });
+  });
+
   it('says which dataset differs, a hold that differs, or another plan', () => {
     const here = { manifest: manifest([node('waf'), node('effective', { content: 'c-other' })], 'p2'), holds: [] };
     const c = checkAgainst(recorded, here);

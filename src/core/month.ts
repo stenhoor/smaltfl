@@ -261,12 +261,14 @@ export interface RecordCheck {
   holds: { recorded: string[]; here: string[] };
 }
 
-const holdKeys = (holds: readonly Pick<Hold, 'by' | 'origin'>[]): string[] => holds.map((h) => `${h.by}:${h.origin}`).sort();
+/** What held a run, each check or claim once: a hold split by load, or spared on a load an earlier run here read while
+ * the same check passed (ADR 0010 §7, Q-55), is the same hold of the day, whatever order its versions ran in. */
+const holdKeys = (holds: readonly Pick<Hold, 'by' | 'origin'>[]): string[] => [...new Set(holds.map((h) => `${h.by}:${h.origin}`))].sort();
 
 /**
  * A run made here of a recorded day, checked against the recorded run (ADR 0021 §4): the same plan, the same content in
- * every dataset either stored, and the same holds. When a file was pulled in and the run's own id are this browser's,
- * so the manifests' hashes always differ and aren't compared.
+ * every dataset either stored, and the same holds, each check or claim once. When a file was pulled in and the run's own
+ * id are this browser's, so the manifests' hashes always differ and aren't compared.
  */
 export function checkAgainst(recorded: { manifest: Pick<RunManifest, 'plan' | 'nodes'>; holds: readonly Pick<Hold, 'by' | 'origin'>[] }, here: { manifest: Pick<RunManifest, 'plan' | 'nodes'>; holds: readonly Pick<Hold, 'by' | 'origin'>[] }): RecordCheck {
   const plan = recorded.manifest.plan === here.manifest.plan ? null : { recorded: recorded.manifest.plan, here: here.manifest.plan };

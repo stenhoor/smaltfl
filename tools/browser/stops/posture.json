@@ -42,29 +42,28 @@
     "waitFor": "#posture-panel[data-shows=\"Mon 11\"]"
   },
   {
-    "name": "posture-mar12-held",
-    "what": "Tue Mar 12, held by the WAF: its consumers keep Mon 11's posture, and the dashboard says so",
+    "name": "posture-mar12-asis",
+    "what": "Tue Mar 12, held by the WAF and published as is in the recorded story: its consumers have Tue 12's posture",
     "day": "Tue 12",
     "view": "results",
     "element": "#posture-panel",
     "expect": {
-      "state": "held",
       "text": [
-        "as published · Mon 11"
+        "as published · Tue 12"
       ]
     },
-    "waitFor": "#posture-panel[data-shows=\"Mon 11\"]"
+    "waitFor": "#posture-panel[data-shows=\"Tue 12\"]"
   },
   {
     "name": "posture-mar31",
-    "what": "Sun Mar 31: the group's score over the days published so far, the held day a gap",
+    "what": "Sun Mar 31: the group's score over the days published so far, the days still held gaps",
     "day": "Sun 31",
     "view": "results",
     "element": "#posture-panel",
     "expect": {
       "text": [
         "as published · Sun 31",
-        "over 4 days published"
+        "over 5 days published"
       ]
     },
     "waitFor": "#posture-panel[data-shows=\"Sun 31\"]"

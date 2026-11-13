@@ -1,64 +1,64 @@
 [
   {
-    "name": "decide-tue12-sheet",
-    "what": "Larkspur, Tue Mar 12, held by the WAF file: the decision sheet with Publish as is picked and a reason chosen, before it goes out; Keep names Mon 11, the day the record says readers have, and Replace the file isn't offered, since the WAF file isn't the one it would replace",
+    "name": "decide-tue12-recorded",
+    "what": "Larkspur, Tue Mar 12, held by the WAF file: decided in the recorded story (ADR 0021 §6), published as is by the security lead with her reason; the record's decision is applied again here, and the day isn't the visitor's to decide",
     "day": "Tue 12",
-    "clicks": [".vf-decide-day", ".vf-option[data-option=asis]", ".vf-reason"],
-    "full": true,
-    "expect": {
-      "state": "held",
-      "pageText": ["Publish as is", "Keep Mon 11"],
-      "noPageText": ["Keep Fri 1", "Replace the file"],
-      "enabled": [".vf-go"]
-    }
-  },
-  {
-    "name": "decide-tue12-published",
-    "what": "Publish as is: one choice for the day, recorded as a decision for each held file and one release citing them (Q-193); the engine publishes the day, and readers now see Tue 12",
-    "day": "Tue 12",
-    "clicks": [".vf-decide-day", ".vf-option[data-option=asis]", ".vf-reason", ".vf-go"],
     "waitFor": "#loads .vf-rc-head",
     "full": true,
     "expect": {
-      "pageText": ["Published as is"],
-      "noPageText": ["refused", "watches several sources"],
+      "pageText": ["Published as is", "The east ingress really was in monitor mode overnight", "Sloane Marsden"],
+      "noPageText": ["refused"],
+      "count": { ".vf-decide-day": 0 },
       "loads": { "Tue 12": ", published as is" }
     }
   },
   {
-    "name": "decide-mon18-published",
-    "what": "Mon Mar 18, held by the broken org chain and the owner chains it feeds: several held files, one choice, published as is",
-    "day": "Mon 18",
+    "name": "decide-thu28-sheet",
+    "what": "Thu Mar 28, held by the org chain that loops and the owner chains it feeds, still waiting for the visitor: the decision sheet with Publish as is picked and a reason chosen, before it goes out; Keep names Wed 27, the day readers have, and Replace the file isn't offered, since the held files aren't one file",
+    "day": "Thu 28",
+    "clicks": [".vf-decide-day", ".vf-option[data-option=asis]", ".vf-reason"],
+    "full": true,
+    "expect": {
+      "state": "held",
+      "pageText": ["Publish as is", "Keep Wed 27"],
+      "noPageText": ["Replace the file"],
+      "enabled": [".vf-go"]
+    }
+  },
+  {
+    "name": "decide-thu28-published",
+    "what": "Publish as is: one choice for the day, recorded as a decision for each held file and one release citing them (Q-193); the engine publishes the day, and readers now see Thu 28",
+    "day": "Thu 28",
     "clicks": [".vf-decide-day", ".vf-option[data-option=asis]", ".vf-reason", ".vf-go"],
     "waitFor": "#loads .vf-rc-head",
     "full": true,
     "expect": {
       "pageText": ["Published as is"],
       "noPageText": ["refused", "watches several sources"],
-      "loads": { "Mon 18": ", published as is" }
+      "loads": { "Thu 28": ", published as is" }
     }
   },
   {
-    "name": "decide-wed13-kept",
-    "what": "Wed Mar 13, the WAF file off again: kept back, readers keep Tue 12",
-    "day": "Wed 13",
+    "name": "decide-sat23-kept",
+    "what": "Sat Mar 23, the DR exercises late, waiting for the visitor: kept back, readers keep Fri 22",
+    "day": "Sat 23",
     "clicks": [".vf-decide-day", ".vf-option[data-option=dont]", ".vf-go"],
     "full": true,
     "expect": {
       "noPageText": ["refused", "watches several sources"],
-      "loads": { "Wed 13": ", not published" }
+      "loads": { "Sat 23": ", not published" }
     }
   },
   {
     "name": "decide-reload",
-    "what": "After a reload, Tue 12 runs again and its decisions are applied again from the record: still published as is",
+    "what": "After a reload, Thu 28 runs again and its decisions are applied again from the record: still published as is, and Sat 23 still kept back",
     "reload": true,
-    "day": "Tue 12",
+    "day": "Thu 28",
     "waitFor": "#loads .vf-rc-head",
     "expect": {
       "pageText": ["Published as is"],
       "noPageText": ["refused"],
-      "loads": { "Tue 12": ", published as is", "Wed 13": ", not published" }
+      "loads": { "Thu 28": ", published as is", "Sat 23": ", not published" }
     }
   }
 ]

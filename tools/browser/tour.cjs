@@ -13,6 +13,7 @@
 //   { "name": "sep22-trips-news",        file name for the screenshot and the metrics
 //     "episode": "September 2023",       optional: the episode chip to pick ("January 2024" for the month)
 //     "day": "Fri 22",                    optional: the day ("<Weekday> <date>"), found by what the month says of it and opened by its link
+//     "version": 1,                       optional: with "day", the day's version to open (`#day/…/v1`, ADR 0021 §4); none: the one readers got
 //     "card": "trips_profile",           optional: the card whose drill-down to open (none: the canvas)
 //     "tab": "News",                      optional: the drill-down tab
 //     "full": true,                       optional: capture the whole sheet, not just the first screen
@@ -188,10 +189,12 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
         const iso = await p.evaluate((src) => { const re = new RegExp(src); const m = window.__smaltflMonth ? window.__smaltflMonth() : {}; return Object.keys(m).find((k) => re.test(m[k])) ?? null; }, want.source);
         if (!iso) problems.push(`no day "${stop.day}" in the month (${Object.values(await p.evaluate(() => (window.__smaltflMonth ? window.__smaltflMonth() : {}))).slice(0, 4).join(' | ')})`);
         else {
+          // A day's version (ADR 0021 §2): another than the one on screen runs again, whatever day the status names.
           const before = await status();
-          const shown = before.split('|').slice(2).join('|');
-          await p.evaluate((d) => { location.hash = `#day/${d}`; }, iso);
-          if (want.test(shown) && !/Running|Fetching/.test(shown)) await quiet(1500);
+          const target = `#day/${iso}${stop.version ? `/v${stop.version}` : ''}`;
+          const was = await p.evaluate(() => location.hash);
+          await p.evaluate((h) => { location.hash = h; }, target);
+          if (was === target) await quiet(1500);
           else await settled(before);
         }
       }
