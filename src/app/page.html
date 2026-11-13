@@ -689,6 +689,49 @@ select.ch-mode.hold { color: var(--bad); } select.ch-mode.warn { color: var(--wa
 .ch-ok { color: var(--teal); display: inline-flex; align-items: center; gap: 4px; }
 .ch-quiet { color: var(--muted); }
 @media (max-width: 480px) { .checks-grid { grid-template-columns: minmax(0, 1fr) auto auto; } .checks-grid .ch-cell { grid-column: 1 / -1; padding-top: 0; } .checks-grid .ch-head:last-child { display: none; } }
+/* The posture dashboard (ADR 0020 §6, Q-174): a posture product as its consumers read it. */
+.posture .pv-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 10px 0 14px; }
+.posture .pv-tile { background: var(--sunk); border-radius: var(--radius); padding: 10px 12px; min-width: 0; }
+.posture .pv-k { margin: 0; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.posture .pv-v { margin: 2px 0 0; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.posture .pv-sub { margin: 0; font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
+.posture .pv-trend { margin: 0 0 14px; } .posture .pv-trend svg { max-width: 100%; height: auto; }
+.posture .pv-trend .foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.posture .pv-tree-h { margin-top: 6px; }
+.posture .pu > summary { list-style: none; cursor: pointer; }
+.posture .pu > summary::-webkit-details-marker { display: none; }
+.posture .pu-row { color: var(--ink); display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "grade main spark" "grade score score" "grade counts counts"; gap: 3px 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.posture .pu-row > .pv-grade { grid-area: grade; align-self: start; }
+.posture .pu-main { grid-area: main; display: grid; min-width: 0; }
+.posture .pu-name { font-weight: 600; overflow-wrap: anywhere; }
+.posture .pu > summary .pu-name::after { content: ' ›'; color: var(--muted); }
+.posture .pu[open] > summary .pu-name::after { content: ' ⌄'; }
+.posture .pu-meta { font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
+.posture .pu-spark { grid-area: spark; display: inline-flex; align-items: center; gap: 4px; line-height: 0; }
+.posture .pu-delta { font-size: 12px; line-height: 1; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.posture .pu-delta.up { color: var(--teal); font-weight: 600; } .posture .pu-delta.down { color: var(--ink-2); }
+.posture .pu-score { grid-area: score; display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; font-variant-numeric: tabular-nums; }
+.posture .pu-counts { grid-area: counts; font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
+.posture .pv-bar { display: inline-block; flex: 0 1 140px; min-width: 32px; height: 6px; border-radius: 3px; background: var(--sunk); overflow: hidden; }
+.posture .pv-bar .on { display: block; height: 100%; background: var(--ink-2); }
+.posture .pu-kids { margin-left: 6px; padding-left: 8px; border-left: 1px solid var(--line); }
+.posture .pu-nums { white-space: nowrap; }
+.posture .pv-grade { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 6px; font-family: var(--mono); font-size: 13px; font-weight: 700; background: var(--sunk); color: var(--ink-2); }
+.posture .pv-grade.g-a, .posture .pv-grade.g-b { background: var(--teal-wash); color: var(--teal); }
+.posture .pv-grade.g-d { background: var(--warn-wash); color: var(--warn); }
+.posture .pv-grade.g-f { background: var(--bad-wash); color: var(--bad); }
+.posture .pu-apps { padding: 6px 0 10px; }
+.posture .pv-apps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.posture .pv-apps li { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "grade main" "grade nums" "grade counts"; gap: 1px 10px; font-size: 13px; }
+.posture .pv-apps li > .pv-grade { grid-area: grade; }
+.posture .pv-apps .pu-nums { grid-area: nums; font-variant-numeric: tabular-nums; } .posture .pv-apps .pu-counts { grid-area: counts; }
+.viz .line.cov { stroke: var(--muted); stroke-width: 1.2; } .viz .line.gap { stroke-dasharray: 3 3; } .viz .pt { fill: var(--ink); }
+@media (min-width: 820px) {
+  .posture .pv-tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .posture .pu-kids { margin-left: 12px; padding-left: 12px; }
+  .posture .pu-row { grid-template-columns: auto minmax(0, 1.5fr) 112px minmax(150px, 1fr) minmax(0, 1.4fr); grid-template-areas: "grade main spark score counts"; }
+  .posture .pv-apps li { grid-template-columns: auto minmax(0, 1.5fr) minmax(150px, 1fr) minmax(0, 1.4fr); grid-template-areas: "grade main nums counts"; align-items: center; }
+}
 /* A watched step's own day in its News (ADR 0014 §2): every finding it told, with what it follows. */
 .wn-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
 .wn-list li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px; align-items: start; overflow-wrap: anywhere; }
@@ -1828,6 +1871,7 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
   </section>
 
   <section class="view" id="view-results" aria-label="Results" hidden>
+    <div class="panel posture" id="posture-panel" hidden></div>
     <div class="panel chart" id="effect-panel">
       <h2>When it rains or snows, how many taxis do people take?</h2>
       <p class="sub" id="effect-sub">Trips per hour in each kind of weather, against dry hours at the same hour of day.</p>

@@ -8,7 +8,7 @@
  */
 import exampleDoc from '../../examples/nyc-taxis-weather.smaltfl.json';
 import { donorBinding, EXAMPLE_DATA, EXAMPLE_SOURCES, pinnedDdl, type Binding } from '../../examples/sources.js';
-import { namedFiles, readDataList, type DataList } from './datalist.js';
+import { namedFiles, readDataList, type DataList, type PostureProduct } from './datalist.js';
 import { holidayOf, seasonOf, US_NYC_1, type Calendar } from '../core/calendar.js';
 
 /** The calendar the watched source is judged by (ADR 0010 §2): its days marked on the strips and charts, Election Day
@@ -45,8 +45,9 @@ import type { EditorSchema, SchemaColumn } from 'smaltkit/editor';
 import type { GridRow } from 'smaltkit/grid';
 import { derivedAbout, derivedFails, derivedKeys, derivedWhy, donorsOf, filledRows, pinDonor, repairOf, stageRepair, type Listed, type Remedies } from './fills.js';
 import { followsCause as followsFrom, ACT_VERB, CELL_KINDS, CELL_NAMES, CONTEXT_TAG, HEALTH_HEAD, STRIP_KEY, approx, axisShare, recentSpan, cardWords, changeLabel, compact, countLabel, countRange, fallSteps, gateHead, overLabel, gateLabels, gateOf, partLabel, ruleOrder, ruleUsual, shortWho, splitSentence, splitSteps, saidOf, storyOf, type Cell, type DayStep, type Gate, type HourValues, type Story, type Told, type Upstream } from '../core/story.js';
-import { rowFlow, differenceMeter, fileTwins, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, degrees, weatherHours, chain, composition, contextBars, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
+import { scoreSpark, scoreTrend, type ScorePoint, rowFlow, differenceMeter, fileTwins, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, degrees, weatherHours, chain, composition, contextBars, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
 import { sha256Hex } from '../core/hash.js';
+import { LEVEL_NAME, leaderSaid, postureTree, scoreSaid, trendSaid, unitCounts, type PostureNode } from '../core/posture.js';
 import { counted, glossOf, meaningOf, nounOf as ontologyNoun, propertyOf, saysMore, type Edit, type Noun, type PropertyType } from '../core/ontology.js';
 import { ontologyPage, originSaid, typesShown, type ColumnCard, type FileSection, type Rule } from '../core/ontologypage.js';
 import { applyBand, asShipped, keptOf as keptFlow, nameColumn, removeRule, restoreKept, setRule, switchRule, type FlowEdit, type RuleInput } from '../core/flowedit.js';
@@ -9283,6 +9284,7 @@ async function renderResults(): Promise<void> {
   // not decide reads them as readers have them, under that day (round 3, #2).
   const readers = outputs.some(([name]) => asReaders(name, state.viewer));
   const bar = () => (readers ? readersBar() : rowsFromBar());
+  void renderPosture();
   $('datasets').replaceChildren(
     bar() ?? '',
     outputs.length
@@ -9331,6 +9333,177 @@ async function renderResults(): Promise<void> {
     $('effect-chart').replaceChildren(bar() ?? '', effectChart(effect.rows as [string, string, number, number, number][], dry.rows as [string, number, number][], width, empty));
   } catch (e) {
     $('effect-chart').replaceChildren(h('p', { class: 'foot' }, message(e)));
+  }
+}
+
+// ------------------------------------------------------------------ the posture dashboard
+
+/**
+ * The posture dashboard (ADR 0020 §6, Q-174): a posture product read as its consumers read it, from the names it is
+ * published under alone (`readPublished`, as the viewer may read them; on a held day, the version readers have). The
+ * group's roll-up, its score always beside its coverage; its score over the days published (Q-178: a steady change is
+ * a trend to show, never a day's news); and the organisation as a tree, the lowest scores first, each unit with its
+ * leader and roll-up and, for a segment or business unit, its own trend. A team opens to its applications' scorecards
+ * and what its remediation queue holds; Unassigned to the applications whose owner chain doesn't resolve.
+ */
+async function renderPosture(): Promise<void> {
+  const box = $('posture-panel');
+  const p = dataList?.posture;
+  const engine = state.engine;
+  if (!p || !engine) return void (box.hidden = true);
+  box.hidden = false;
+  const head = h('h2', {}, p.title);
+  const units = readPublished(p.units);
+  const org = readPublished(p.org);
+  if (!units || !org) {
+    box.replaceChildren(head, h('p', { class: 'foot' }, state.names.has(p.units) ? `${p.title} isn’t open to ${personName(state.viewer)}.` : 'Nothing is published yet: the first day that passes publishes it.'));
+    return;
+  }
+  const day = showsDay(p.units);
+  try {
+    const tree = postureTree(await rowsAsObjects(engine, `SELECT org_unit_id, name, level, parent_id, leader_name, leader_how FROM (${org})`), await rowsAsObjects(engine, `SELECT org_unit_id, applications, critical, score, coverage, failing_critical, overdue, expiring FROM (${units})`));
+    const trends = await postureTrends(p);
+    const days = loads.list.length > 1 ? loads.list.map((l) => l.day) : [...new Set([...trends.values()].flatMap((t) => t.map((x) => x.day)))].sort();
+    const root = tree.root;
+    const tile = (k: string, v: string, sub: string) => h('div', { class: 'pv-tile' }, h('p', { class: 'pv-k' }, k), h('p', { class: 'pv-v' }, v), h('p', { class: 'pv-sub' }, sub));
+    const unitEl = (n: PostureNode): HTMLElement => {
+      const led = leaderSaid(n);
+      const trend = trends.get(n.id) ?? [];
+      const spark = n.level === 'segment' || n.level === 'business_unit' ? scoreSpark({ days, points: trend, aria: `${n.name}: its score each day published` }) : '';
+      // Its change over the days published, printed beside the line (Q-178: the trend legible without reading the line).
+      const known = trend.filter((x) => x.score !== null);
+      const change = known.length >= 2 ? known.at(-1)!.score! - known[0]!.score! : null;
+      const delta = change === null ? null : h('span', { class: `pu-delta ${Math.abs(change) < 0.5 ? 'flat' : change > 0 ? 'up' : 'down'}`, title: trendSaid(trend) }, `${change > 0 ? '+' : change < 0 ? '−' : ''}${Math.abs(change).toFixed(1)}`);
+      const d = h('details', { class: `pu lv-${n.level}`, 'data-unit': n.id },
+        h('summary', { class: 'pu-row' },
+          h('span', { class: `pv-grade g-${(n.grade ?? 'none').toLowerCase()}`, title: n.grade ? `Grade ${n.grade}` : 'No score' }, n.grade ?? '–'),
+          h('span', { class: 'pu-main' }, h('span', { class: 'pu-name' }, n.name), h('span', { class: 'pu-meta' }, `${LEVEL_NAME[n.level]}${led ? ` · ${led}` : ''}`)),
+          spark ? h('span', { class: 'pu-spark' }, h('span', { 'aria-hidden': 'true' }, svgNode(spark)), delta) : null,
+          h('span', { class: 'pu-score' }, h('span', { class: 'pv-bar', 'aria-hidden': 'true' }, h('span', { class: 'on', style: `width:${Math.max(0, Math.min(100, n.score ?? 0))}%` })), h('span', { class: 'pu-nums' }, scoreSaid(n))),
+          h('span', { class: 'pu-counts' }, unitCounts(n))));
+      if (n.children.length) d.append(h('div', { class: 'pu-kids' }, ...n.children.map(unitEl)));
+      else if (n.level === 'team') d.addEventListener('toggle', () => {
+        if (!d.open || d.dataset.loaded) return;
+        d.dataset.loaded = '1';
+        void teamPosture(p, n, d);
+      });
+      return d;
+    };
+    const parts: (Node | string)[] = [head, h('p', { class: 'sub' }, `Read as its consumers read it: the published gold datasets alone (${[p.units, p.org, p.apps].join(', ')}), ${day ? `as published · ${dayShort(day)}` : 'nothing published yet'}.`)];
+    if (root) {
+      const gp = trends.get(root.id) ?? [];
+      parts.push(
+        h('div', { class: 'pv-tiles' },
+          tile('Score', root.score === null ? '–' : root.score.toFixed(1), root.grade ? `grade ${root.grade}` : 'no score'),
+          tile('Coverage', root.coverage === null ? '–' : `${root.coverage.toFixed(0)}%`, 'of what applies has evidence'),
+          tile('Applications', fmtInt(root.applications), `${fmtInt(root.critical)} critical`),
+          tile('Critical failing', fmtInt(root.failingCritical), 'failing a control'),
+          tile('Overdue', fmtInt(root.overdue), 'past their due date'),
+          tile('Expiring', fmtInt(root.expiring), 'exceptions within 30 days')),
+        h('div', { class: 'pv-trend' }, h('p', { class: 'eyebrow' }, `${root.name}’s score, each day published`), svgNode(scoreTrend({ days, points: gp, w: Math.min(720, Math.max(300, (box.clientWidth || 366) - 32)), aria: `${root.name}: its score and coverage each day published` })),
+          h('p', { class: 'foot' }, trendSaid(gp), gp.length < 2 && loads.list.length > 1 ? h('button', { type: 'button', class: 'btn small pv-play', onclick: () => void playLoads() }, 'Play the rest ›') : null)),
+        h('p', { class: 'eyebrow pv-tree-h' }, 'The organisation, the lowest scores first'),
+        h('div', { class: 'pv-tree' }, ...root.children.map(unitEl)));
+    }
+    if (tree.unassigned) {
+      const u = tree.unassigned;
+      const d = h('details', { class: 'pu lv-unassigned', 'data-unit': u.id },
+        h('summary', { class: 'pu-row' },
+          h('span', { class: `pv-grade g-${(u.grade ?? 'none').toLowerCase()}` }, u.grade ?? '–'),
+          h('span', { class: 'pu-main' }, h('span', { class: 'pu-name' }, 'Unassigned'), h('span', { class: 'pu-meta' }, 'applications whose owner chain doesn’t resolve')),
+          h('span', { class: 'pu-score' }, h('span', { class: 'pv-bar', 'aria-hidden': 'true' }, h('span', { class: 'on', style: `width:${Math.max(0, Math.min(100, u.score ?? 0))}%` })), h('span', { class: 'pu-nums' }, scoreSaid(u))),
+          h('span', { class: 'pu-counts' }, unitCounts(u))));
+      d.addEventListener('toggle', () => {
+        if (!d.open || d.dataset.loaded) return;
+        d.dataset.loaded = '1';
+        void teamPosture(p, u, d);
+      });
+      parts.push(d);
+    }
+    if (tree.strays.length) parts.push(h('p', { class: 'foot' }, `${plural(tree.strays.length, 'unit')} the roll-up counts aren’t in the organisation as published: ${tree.strays.slice(0, 5).join(', ')}${tree.strays.length > 5 ? ' and more' : ''}.`));
+    box.replaceChildren(...parts);
+    // The day it shows, once drawn: what a test waits on, and what it reads.
+    box.dataset.shows = day ? dayShort(day) : 'none';
+  } catch (e) {
+    box.replaceChildren(head, h('p', { class: 'status bad' }, message(e)));
+  }
+}
+
+/** A query's rows as objects by column, for the posture's model. */
+async function rowsAsObjects(engine: Engine, sql: string): Promise<Record<string, unknown>[]> {
+  const r = await engine.query(sql);
+  return r.rows.map((row) => Object.fromEntries(r.columns.map((c, i) => [c, row[i]])));
+}
+
+/**
+ * Each unit's score and coverage on every day published in this visit (Q-178): read from that day's own published
+ * roll-up, the run of the flow on screen's version, so the days mean the same; the group, its segments and business
+ * units. A day held and not released is not a day its consumers had: left out, a gap in the line.
+ */
+async function postureTrends(p: PostureProduct): Promise<Map<string, ScorePoint[]>> {
+  const out = new Map<string, ScorePoint[]>();
+  const engine = state.engine;
+  const now = latest();
+  if (!engine || !now) return out;
+  for (const [k, l] of loads.list.entries()) {
+    // Published that day: the roll-up itself (a hold elsewhere in the flow keeps back only what it reaches), or the whole
+    // run released as a recorded decision says.
+    const r = state.runs.find((x) => x.load === k && (x.result.published.includes(p.units) || isPublished(x)) && x.result.manifest.flow.hash === now.result.manifest.flow.hash);
+    if (!r) continue;
+    const insp = await inspect(r);
+    const i = insp.index.get(p.units);
+    const read = i === undefined ? null : readIn(insp, i);
+    if (!read) continue;
+    const res = await engine.query(`SELECT org_unit_id, score, coverage FROM (${read}) WHERE level IN ('group', 'segment', 'business_unit')`);
+    for (const [id, score, coverage] of res.rows as [string, number | null, number | null][]) {
+      const list = out.get(String(id)) ?? [];
+      list.push({ day: l.day, score: score === null ? null : Number(score), coverage: coverage === null ? null : Number(coverage) });
+      out.set(String(id), list);
+    }
+  }
+  return out;
+}
+
+/**
+ * A team's applications, each with its scorecard, the lowest first, and what its remediation queue holds; for
+ * Unassigned, the applications whose owner chain doesn't resolve. Read when it is first opened, from the published
+ * names alone.
+ */
+async function teamPosture(p: PostureProduct, n: PostureNode, into: HTMLElement): Promise<void> {
+  const engine = state.engine;
+  const apps = readPublished(p.apps);
+  const box = h('div', { class: 'pu-apps' }, h('p', { class: 'foot' }, 'Reading its applications…'));
+  into.append(box);
+  if (!engine || !apps) return void box.replaceChildren(h('p', { class: 'foot' }, `${p.apps} isn’t open to ${personName(state.viewer)}.`));
+  try {
+    const owners = n.level === 'unassigned' && p.owners ? readPublished(p.owners) : null;
+    const which = n.level === 'unassigned'
+      ? owners ? `app_id IN (SELECT app_id FROM (${owners}) WHERE orphaned = 'yes' AND member = 'application')` : 'FALSE'
+      : `owner_team_id = ${literal(n.id, 'text')}`;
+    const r = await rowsAsObjects(engine, `SELECT app_id, name, tier, score, coverage, grade, failing_controls, overdue, expiring FROM (${apps}) WHERE ${which} ORDER BY score IS NULL, score, name`);
+    const list = h('ul', { class: 'pv-apps', 'aria-label': `${n.name}: its applications’ scorecards` }, ...r.map((a) => {
+      const score = a.score === null || a.score === undefined ? null : Number(a.score);
+      const coverage = a.coverage === null || a.coverage === undefined ? null : Number(a.coverage);
+      const grade = a.grade ? String(a.grade) : null;
+      const failing = String(a.failing_controls ?? '').trim();
+      return h('li', {},
+        h('span', { class: `pv-grade g-${(grade ?? 'none').toLowerCase()}` }, grade ?? '–'),
+        h('span', { class: 'pu-main' }, h('span', { class: 'pu-name' }, String(a.name ?? a.app_id)), h('span', { class: 'pu-meta' }, `${String(a.app_id)}${String(a.tier) === '1' ? ' · critical' : ''}`)),
+        h('span', { class: 'pu-nums' }, scoreSaid({ score, coverage })),
+        failing || Number(a.overdue) || Number(a.expiring)
+          ? h('span', { class: 'pu-counts' }, [failing ? `failing ${failing.split(' ').join(', ')}` : '', Number(a.overdue) ? `${fmtInt(Number(a.overdue))} overdue` : '', Number(a.expiring) ? `${plural(Number(a.expiring), 'exception')} expiring` : ''].filter(Boolean).join(' · '))
+          : null);
+    }));
+    const parts: (Node | string)[] = [r.length ? list : h('p', { class: 'foot' }, 'No application is owned here.')];
+    const queue = p.queue && n.level !== 'unassigned' ? readPublished(p.queue) : null;
+    if (queue) {
+      const q = await engine.query(`SELECT count(*), COALESCE(sum(CASE WHEN days_overdue > 0 THEN 1 ELSE 0 END), 0) FROM (${queue}) WHERE owner_team_id = ${literal(n.id, 'text')}`);
+      const [items, late] = (q.rows[0] ?? [0, 0]).map(Number) as [number, number];
+      parts.push(h('p', { class: 'foot' }, items ? `${plural(items, 'item')} in its remediation queue${late ? `, ${fmtInt(late)} overdue` : ''}.` : 'Nothing in its remediation queue.'));
+    }
+    box.replaceChildren(...parts);
+  } catch (e) {
+    box.replaceChildren(h('p', { class: 'status bad' }, message(e)));
   }
 }
 

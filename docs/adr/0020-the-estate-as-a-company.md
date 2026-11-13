@@ -844,6 +844,29 @@ reorg and the contracts at every size, each stop with its checks.
   of twenty files; telling the day's claims 2.0 s (the estate's 0.63 s); 31 MB fetched, 3.75 MB compressed. Q-170 said
   the budget is revised if it doesn't fit: Q-179 decides what follows.
 
+**Slice 6, the product view (2026-11-13):** the posture dashboard (Q-174) at the top of Results, where the data list
+names a posture product (`posture`: its title, and the published names of its roll-up, organisation, scorecards, owners
+and queue). It reads the published names alone, as its consumers would (`readPublished`, as the viewer may read them).
+- **What it shows:**
+  - the group's roll-up as six tiles: the score with its grade, coverage beside it, applications and critical ones,
+    critical applications failing, items overdue, exceptions expiring;
+  - the group's score and coverage, each day published (`scoreTrend`), a day held or not run a gap;
+  - the organisation as a tree, the lowest scores first (`src/core/posture.ts` `postureTree`): each unit with its grade,
+    leader (acting, or from the unit above, marked), score bar, score beside coverage and counts; a segment or business
+    unit with its own sparkline and its change over the days published;
+  - a team opens to its applications' scorecards, the lowest first, each with what it fails, and what its remediation
+    queue holds; Unassigned opens to the applications whose owner chain doesn't resolve;
+  - on a held day, the posture its consumers kept: Tue 12's dashboard is Mon 11's, "as published · Mon 11".
+- **The push, as a trend (Q-178):** at the demo's scale the push is Underwriting (BU-12). Over the days the stops publish
+  (Fri 1, Fri 8, Mon 11, Sun 31) it is the one business unit whose score rises, 94.7 to 95.8, "+1.1" beside its line,
+  while the other fifteen fall 0.1 to 5.1 points (the freeze's late fixes, the handover, the new control's missing
+  evidence). Its raw failures fall a quarter (75 to 56 of about 1,240), not to 35%: the push scales a team's risk, and
+  what every unit shares pulls it down with the rest.
+- **Trend days:** a day counts where the roll-up itself was published. On Fri 8 the run is held for `posture_wide` alone,
+  and `org_posture` publishes, so Fri 8 is in the line.
+- **What it doesn't do:** it reads only the days run in this browser. "Play the rest ›" runs the month, and the trend says
+  how many days it is over. It writes nothing back: a leader's view, not a workflow.
+
 ## Consequences
 
 - **The demo can show what each layer is for:**

@@ -1905,3 +1905,81 @@ export function rowFlow(o: { inputs: readonly { label: string; rows: number }[];
   if (o.gained) s += `<rect class="ink-teal light" x="${lw}" y="${ly - 8}" width="12" height="9" rx="2"/><text x="${lw + 16}" y="${ly}" class="lbl-m">${esc(`${fmt(o.gained)} added: rows that matched more than once`)}</text>`;
   return `${s}</svg>`;
 }
+
+/** A day's score and coverage on the posture's trend (core/posture.ts TrendPoint). */
+export interface ScorePoint {
+  day: string;
+  score: number | null;
+  coverage: number | null;
+}
+
+/**
+ * A unit's score over the month's days (ADR 0020 §6, Q-178: a steady change is a trend, the product view's to show),
+ * its coverage beside it as a lighter line: each day published a point, a day not run or not published a gap crossed
+ * by a dashed line (the missing-data convention), the axis zoomed to the values and printed at its ends, the last
+ * score labelled.
+ */
+export function scoreTrend(o: { days: readonly string[]; points: readonly ScorePoint[]; w?: number; h?: number; aria: string }): string {
+  const w = o.w ?? 334;
+  const h = o.h ?? 132;
+  const at = new Map(o.points.map((p) => [p.day, p]));
+  const known = o.days.map((d, i) => ({ i, p: at.get(d) })).filter((x): x is { i: number; p: ScorePoint } => !!x.p && x.p.score !== null);
+  const vals = known.flatMap(({ p }) => [p.score!, ...(p.coverage !== null ? [p.coverage] : [])]);
+  const lo = vals.length ? Math.max(0, Math.floor((Math.min(...vals) - 4) / 5) * 5) : 0;
+  const hi = 100;
+  const gx = 26;
+  const top = 22;
+  const base = h - 16;
+  const cw = (w - gx - 8) / Math.max(1, o.days.length - 1);
+  const x = (i: number) => gx + i * cw;
+  const y = (v: number) => base - ((v - lo) / Math.max(1, hi - lo)) * (base - top);
+  let s = open(w, h, o.aria);
+  s += `<text x="${gx}" y="10" class="key">— score</text><text x="${gx + 64}" y="10" class="key lbl-m">— coverage</text><text x="${gx + 146}" y="10" class="key lbl-m">┄ not run</text>`;
+  s += `<line class="base" x1="${gx}" x2="${w - 4}" y1="${f1(base)}" y2="${f1(base)}"/><line class="hair" x1="${gx}" x2="${w - 4}" y1="${f1(top)}" y2="${f1(top)}"/>`;
+  s += `<text x="0" y="${f1(top + 4)}" class="lbl-m">${hi}</text><text x="0" y="${f1(base + 4)}" class="lbl-m">${lo}</text>`;
+  const series = (pick: (p: ScorePoint) => number | null, cls: string) => {
+    let out = '';
+    const pts = known.map(({ i, p }) => ({ i, v: pick(p) })).filter((q): q is { i: number; v: number } => q.v !== null);
+    for (let k = 1; k < pts.length; k++) {
+      const a = pts[k - 1]!;
+      const b = pts[k]!;
+      out += `<line class="${b.i - a.i > 1 ? `${cls} gap` : cls}" x1="${f1(x(a.i))}" y1="${f1(y(a.v))}" x2="${f1(x(b.i))}" y2="${f1(y(b.v))}"/>`;
+    }
+    return { out, pts };
+  };
+  const cov = series((p) => p.coverage, 'line cov');
+  const score = series((p) => p.score, 'line');
+  s += cov.out + score.out;
+  for (const { i, v } of score.pts) s += `<circle class="pt" cx="${f1(x(i))}" cy="${f1(y(v))}" r="2.6"/>`;
+  const last = score.pts.at(-1);
+  if (last) s += `<text x="${f1(Math.min(w - 30, x(last.i) + 5))}" y="${f1(Math.max(top + 10, y(last.v) - 6))}" class="lbl-b">${last.v.toFixed(1)}</text>`;
+  if (o.days.length) {
+    const day = (d: string) => `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(`${d}T00:00:00Z`).getUTCDay()]} ${Number(d.slice(8, 10))}`;
+    s += `<text x="${gx}" y="${h - 2}" class="lbl-m">${esc(day(o.days[0]!))}</text><text x="${w - 4}" y="${h - 2}" text-anchor="end" class="lbl-m">${esc(day(o.days.at(-1)!))}</text>`;
+  }
+  return `${s}</svg>`;
+}
+
+/** A unit's score as a sparkline beside its row (ADR 0020 §6): a point a day published, a dashed line across a gap. */
+export function scoreSpark(o: { days: readonly string[]; points: readonly ScorePoint[]; w?: number; h?: number; aria: string }): string {
+  const w = o.w ?? 72;
+  const h = o.h ?? 20;
+  const at = new Map(o.points.map((p) => [p.day, p]));
+  const pts = o.days.map((d, i) => ({ i, v: at.get(d)?.score ?? null })).filter((q): q is { i: number; v: number } => q.v !== null);
+  if (!pts.length) return '';
+  const vs = pts.map((p) => p.v);
+  const lo = Math.min(...vs) - 1;
+  const hi = Math.max(...vs) + 1;
+  const cw = (w - 4) / Math.max(1, o.days.length - 1);
+  const x = (i: number) => 2 + i * cw;
+  const y = (v: number) => h - 3 - ((v - lo) / Math.max(1, hi - lo)) * (h - 6);
+  let s = open(w, h, o.aria);
+  for (let k = 1; k < pts.length; k++) {
+    const a = pts[k - 1]!;
+    const b = pts[k]!;
+    s += `<line class="${b.i - a.i > 1 ? 'line gap' : 'line'}" x1="${f1(x(a.i))}" y1="${f1(y(a.v))}" x2="${f1(x(b.i))}" y2="${f1(y(b.v))}"/>`;
+  }
+  const last = pts.at(-1)!;
+  s += `<circle class="pt" cx="${f1(x(last.i))}" cy="${f1(y(last.v))}" r="2.2"/>`;
+  return `${s}</svg>`;
+}

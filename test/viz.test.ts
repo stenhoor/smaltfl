@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { DEFS, aucTrack, fileTwins, forestTicks, rankBars, amountLine, bandSpan, notJudgedMark, degrees, weatherHours, bulletTrack, composition, contextBars, dayStrip, decisionRow, dumbbellRows, episodeBars, episodeChip, episodeDays, episodeIcon, esc, episodeLine, gateBars, glyph, hourBars, learnStrip, lineage, niceMax, partBar, quantileStrip, reachIcon, ruleRows, splitRows, stripBar, trendPips, waterfall, wrapName } from '../src/app/viz.js';
+import { DEFS, aucTrack, fileTwins, forestTicks, rankBars, scoreSpark, scoreTrend, amountLine, bandSpan, notJudgedMark, degrees, weatherHours, bulletTrack, composition, contextBars, dayStrip, decisionRow, dumbbellRows, episodeBars, episodeChip, episodeDays, episodeIcon, esc, episodeLine, gateBars, glyph, hourBars, learnStrip, lineage, niceMax, partBar, quantileStrip, reachIcon, ruleRows, splitRows, stripBar, trendPips, waterfall, wrapName } from '../src/app/viz.js';
 
 const hours = Array.from({ length: 24 }, (_, h) => (h < 13 ? 5000 : 300));
 const usual = Array.from({ length: 24 }, () => 5000);
@@ -938,5 +938,36 @@ describe('a file that isn’t fresh (fileTwins, ADR 0020 §2)', () => {
     expect(early).not.toContain('Tue 5’s');
     expect(early).toContain('class="lbl-bad"');
     expect(early.match(/<path class="base"/g)).toHaveLength(1);
+  });
+});
+
+describe('a unit’s score over the month (scoreTrend, scoreSpark; ADR 0020 §6)', () => {
+  const days = ['2024-03-01', '2024-03-02', '2024-03-03', '2024-03-04', '2024-03-05'];
+  const points = [
+    { day: '2024-03-01', score: 80, coverage: 95 },
+    { day: '2024-03-02', score: 81.5, coverage: 95 },
+    { day: '2024-03-05', score: 86.2, coverage: 96 },
+  ];
+  it('draws a point a day published, a dashed line across days not run, the axis at its ends and the last score', () => {
+    const svg = scoreTrend({ days, points, aria: 'Payments: its score over March' });
+    expect(svg).toContain('aria-label="Payments: its score over March"');
+    expect(svg.match(/class="pt"/g)).toHaveLength(3);
+    // Two score segments and two coverage ones: the second of each crosses the days not run, dashed.
+    expect(svg.match(/class="line gap"/g)).toHaveLength(1);
+    expect(svg.match(/class="line cov gap"/g)).toHaveLength(1);
+    expect(svg).toContain('>86.2</text>');
+    expect(svg).toContain('>Fri 1</text>');
+    expect(svg).toContain('>Tue 5</text>');
+    // The axis zoomed to the values (80 at least), printed at 75 and 100.
+    expect(svg).toContain('>75</text>');
+    expect(svg).toContain('>100</text>');
+  });
+
+  it('draws nothing but its frame with no day published, and a spark only with one', () => {
+    expect(scoreTrend({ days, points: [], aria: 'x' }).match(/class="pt"/g)).toBeNull();
+    expect(scoreSpark({ days, points: [], aria: 'x' })).toBe('');
+    const spark = scoreSpark({ days, points, aria: 'Payments' });
+    expect(spark.match(/class="pt"/g)).toHaveLength(1);
+    expect(spark.match(/class="line gap"/g)).toHaveLength(1);
   });
 });

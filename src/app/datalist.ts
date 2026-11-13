@@ -59,12 +59,33 @@ export interface DataList {
   /** The watched source or step the page's views follow (the list's `judged`; else the loads' source): whose
    * history the strip and the news read, whose card carries the day's story. */
   judged: string | null;
+  /** The posture dashboard's datasets (ADR 0020 §6, Q-174), where the flow publishes a posture product: the units'
+   * roll-up, the organisation, the applications' scorecards, the applications with their owners, the remediation queue.
+   * Read as a consumer reads them, the published names alone. */
+  posture?: PostureProduct;
   loads: Listed[];
   episodes: { name: string; about?: string; loads: Listed[] }[];
   donors: Listed[];
   /** Every fixed file by key: each source's by its id, each history as `history` (the first) and `history:<id>`. */
   files: Record<string, FileEntry>;
 }
+
+/** A posture product's datasets, by the names the flow publishes them under (the data list's `posture`). */
+export interface PostureProduct {
+  title: string;
+  units: string;
+  org: string;
+  apps: string;
+  owners?: string;
+  queue?: string;
+}
+const postureOf = (v: unknown): PostureProduct | undefined => {
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) return undefined;
+  const o = v as Record<string, unknown>;
+  const name = (k: string) => (typeof o[k] === 'string' && o[k] ? (o[k] as string) : undefined);
+  const title = name('title'), units = name('units'), org = name('org'), apps = name('apps');
+  return title && units && org && apps ? { title, units, org, apps, ...(name('owners') ? { owners: name('owners')! } : {}), ...(name('queue') ? { queue: name('queue')! } : {}) } : undefined;
+};
 
 type RawLoad = { day?: string; slot?: string; file: string; sha256: string; bytes?: number; rows: number; exported_at?: string; exported?: string };
 const listedOf = (l: RawLoad): Listed => ({ day: l.slot ?? l.day ?? '', file: l.file, sha256: l.sha256, ...(l.bytes !== undefined ? { bytes: l.bytes } : {}), rows: l.rows, ...((l.exported_at ?? l.exported) ? { exported: (l.exported_at ?? l.exported)! } : {}) });
@@ -112,6 +133,7 @@ export function readDataList(raw: unknown, fallback: DataBindings): DataList {
     if (flow) files.flow = flow;
     return {
       format: 2, ...(typeof index.month === 'string' ? { month: index.month } : {}), ...(typeof index.built === 'string' ? { built: index.built } : {}), data, flow, sources, histories, samples, ranges, loadSource, daily, judged,
+      ...(postureOf(index.posture) ? { posture: postureOf(index.posture)! } : {}),
       loads, episodes: episodesOf(index.episodes), donors: loadSource ? sources[loadSource]!.donors ?? [] : [], files,
     };
   }

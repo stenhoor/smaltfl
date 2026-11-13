@@ -256,6 +256,11 @@ release (smaltty ADR 0030).
   source's `before` in the data list; a watched step the views don't follow tells its own day in its News and What
   happened (`watchedStory`, `flowStory` as the engine tells its claim); a check step's broken stopping rule is said
   (`StepStory.stops`); the Contract tab (`contractTab`); `tools/browser/stops/larkspur.json` (ADR 0020 §9's walks).
+  Slice 6, the posture dashboard (Q-174) atop Results where the data list names a `posture` product
+  (`PostureProduct` in `src/app/datalist.ts`; `renderPosture`, `postureTrends`, `teamPosture` in main.ts): the
+  published names alone (`readPublished`); `src/core/posture.ts` (`postureTree`, the worst first; `trendSaid`) and
+  `scoreTrend`/`scoreSpark` in viz.ts; each segment's and business unit's change beside its sparkline, where the push
+  shows (Q-178); `tools/browser/stops/posture.json`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).

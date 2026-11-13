@@ -1,0 +1,110 @@
+[
+  {
+    "name": "posture-mar01",
+    "what": "Larkspur, Fri Mar 1: Control Posture in Results, as its consumers read it: the group's roll-up, its first day, and the organisation as a tree",
+    "day": "Fri 1",
+    "view": "results",
+    "element": "#posture-panel",
+    "expect": {
+      "text": [
+        "Control Posture v1",
+        "as published · Fri 1",
+        "Read as its consumers read it",
+        "One day so far"
+      ]
+    },
+    "waitFor": "#posture-panel[data-shows=\"Fri 1\"]"
+  },
+  {
+    "name": "posture-mar08",
+    "what": "Fri Mar 8: the posture holds, the roll-up publishes (the contradiction holds posture_wide alone)",
+    "day": "Fri 8",
+    "view": "results",
+    "element": "#posture-panel",
+    "expect": {
+      "text": [
+        "as published · Fri 8"
+      ]
+    },
+    "waitFor": "#posture-panel[data-shows=\"Fri 8\"]"
+  },
+  {
+    "name": "posture-mar11",
+    "what": "Mon Mar 11, the reorg: the organisation as published that day",
+    "day": "Mon 11",
+    "view": "results",
+    "element": "#posture-panel",
+    "expect": {
+      "text": [
+        "as published · Mon 11"
+      ]
+    },
+    "waitFor": "#posture-panel[data-shows=\"Mon 11\"]"
+  },
+  {
+    "name": "posture-mar12-held",
+    "what": "Tue Mar 12, held by the WAF: its consumers keep Mon 11's posture, and the dashboard says so",
+    "day": "Tue 12",
+    "view": "results",
+    "element": "#posture-panel",
+    "expect": {
+      "state": "held",
+      "text": [
+        "as published · Mon 11"
+      ]
+    },
+    "waitFor": "#posture-panel[data-shows=\"Mon 11\"]"
+  },
+  {
+    "name": "posture-mar31",
+    "what": "Sun Mar 31: the group's score over the days published so far, the held day a gap",
+    "day": "Sun 31",
+    "view": "results",
+    "element": "#posture-panel",
+    "expect": {
+      "text": [
+        "as published · Sun 31",
+        "over 4 days published"
+      ]
+    },
+    "waitFor": "#posture-panel[data-shows=\"Sun 31\"]"
+  },
+  {
+    "name": "posture-mar31-team",
+    "what": "Sun Mar 31: a segment opened down to a team, its applications' scorecards and its remediation queue",
+    "day": "Sun 31",
+    "view": "results",
+    "viewFirst": true,
+    "clicks": [
+      "#posture-panel .pu.lv-segment > summary",
+      "#posture-panel .pu.lv-segment[open] .pu.lv-business_unit > summary",
+      "#posture-panel .pu.lv-business_unit[open] .pu.lv-department > summary",
+      "#posture-panel .pu.lv-department[open] .pu.lv-team > summary"
+    ],
+    "waitFor": "#posture-panel .pu.lv-team[open] .pu-apps .pv-apps",
+    "element": "#posture-panel",
+    "expect": {
+      "text": [
+        "remediation queue"
+      ]
+    }
+  },
+  {
+    "name": "posture-mar31-push",
+    "what": "Sun Mar 31, Q-178: the remediation push as a trend. Insurance opened: Underwriting, the push's business unit at the demo's scale, is the one whose score rises over March while the others fall",
+    "day": "Sun 31",
+    "view": "results",
+    "viewFirst": true,
+    "clicks": [
+      "#posture-panel .pu.lv-segment:has(.pu[data-unit=\"BU-12\"]) > summary"
+    ],
+    "element": "#posture-panel .pu.lv-segment:has(.pu[data-unit=\"BU-12\"])",
+    "expect": {
+      "text": [
+        "Underwriting",
+        "95.8 · coverage 91%",
+        "+1.1"
+      ]
+    }
+  }
+]
