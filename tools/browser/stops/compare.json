@@ -1,0 +1,78 @@
+[
+  {
+    "name": "compare-thu21",
+    "what": "Thu Mar 21, the version readers got (v3), compared with the file as it arrived (v1), from their two runs' manifests alone (ADR 0021 §4): the TLS file differs, the same rules, what was decided of each, and the outputs that changed",
+    "day": "Thu 21",
+    "click": ".dv[data-version=\"1\"] .dv-compare",
+    "element": "#loads .dh-compare",
+    "expect": {
+      "text": [
+        "tls’s file differs",
+        "tls: 1,630 rows in v1, 815 rows in v3",
+        "The 20 others the same.",
+        "The same flow and rules",
+        "v1 replaced before a decision; v3 published",
+        "fact_control_status",
+        "20,097 → 19,282 rows",
+        "tls’s file differs; 9 of 19 outputs changed."
+      ],
+      "count": {
+        "#loads .dh-compare": 1
+      }
+    }
+  },
+  {
+    "name": "compare-thu21-rows-need",
+    "what": "fact_control_status's rows: read from both versions run in this browser, so v1, not run yet, is a tap away",
+    "day": "Thu 21",
+    "click": ".dv[data-version=\"1\"] .dv-compare",
+    "clicks": [
+      ".dc-out[data-output=\"fact_control_status\"] .dc-rows"
+    ],
+    "element": "#loads .dh-compare",
+    "expect": {
+      "text": [
+        "Rows are read from both versions run in this browser",
+        "Run v1 here ›"
+      ]
+    }
+  },
+  {
+    "name": "compare-thu21-rows",
+    "what": "v1 run here, the comparison kept: fact_control_status's rows by its key, app_id and control_id: 815 keys on two rows in v1 and one in v3, the doubled TLS file's repeats",
+    "day": "Thu 21",
+    "click": ".dv[data-version=\"1\"] .dv-compare",
+    "clicks": [
+      ".dc-out[data-output=\"fact_control_status\"] .dc-rows",
+      ".dc-run"
+    ],
+    "waitFor": "#loads .dc-rowdiff",
+    "element": "#loads .dh-compare",
+    "expect": {
+      "text": [
+        "By app_id and control_id: 815 keys on another number of rows (815 rows more in v1)",
+        "rows in v1",
+        "rows in v3",
+        "The next 40"
+      ],
+      "count": {
+        "#loads .dc-rowdiff": 1
+      }
+    }
+  },
+  {
+    "name": "compare-mon04",
+    "what": "Mon Mar 4: the empty MFA file (v1) against the one sent again (v2), the version readers got, and the outputs it changed",
+    "day": "Mon 4",
+    "click": ".dv[data-version=\"1\"] .dv-compare",
+    "element": "#loads .dh-compare",
+    "expect": {
+      "text": [
+        "mfa’s file differs",
+        "mfa: 0 rows in v1, 2,320 rows in v2",
+        "v1 kept back by Sloane Marsden; v2 published",
+        "mfa’s file differs; 10 of 19 outputs changed."
+      ]
+    }
+  }
+]

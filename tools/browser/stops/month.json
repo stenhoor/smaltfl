@@ -16,6 +16,23 @@
     }
   },
   {
+    "name": "month-grid-corrected",
+    "what": "The grid's filters (ADR 0021 §3), from tablet width: Corrected shows the five days sent again and published, Waiting the two still the visitor's",
+    "view": "month",
+    "viewFirst": true,
+    "devices": ["tablet", "tablet-wide", "desktop", "wide"],
+    "click": "#view-month .mg-filter[data-filter=\"corrected\"]",
+    "full": true,
+    "element": "#view-month .mo-grid",
+    "expect": {
+      "text": ["Corrected (5)", "Waiting for a decision (2)", "Held (12)"],
+      "count": {
+        "#view-month .mo-gt thead th": 6,
+        "#view-month .mg-filter[aria-pressed=\"true\"][data-filter=\"corrected\"]": 1
+      }
+    }
+  },
+  {
     "name": "month-pick",
     "what": "Tue Mar 12 picked on the month: its summary under the calendar, from the recorded run and the recorded decision alone",
     "view": "month",
