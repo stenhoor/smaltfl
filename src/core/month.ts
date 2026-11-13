@@ -48,13 +48,28 @@ export function isMonthFile(v: unknown): v is MonthFile {
   return v.entries.every((e) => isRecord(e) && typeof e.kind === 'string' && typeof e.at === 'string' && typeof e.seq === 'number' && isRecord(e.by) && typeof (e.by as Record<string, unknown>).as === 'string');
 }
 
+/** The fields of a decision or a release that cite another entry by its seq: the decision a release applies (and, by
+ * load, every one), the standing decision either applies, the release a withdrawal takes back. */
+const CITES = ['decision', 'under', 'withdraws'] as const;
+
 /**
  * The build's entries as the record's first layer: renumbered below every entry this browser records (its own `seq`s
- * start at 0), in the order recorded, so no two entries share a number and the recorded ones sort first.
+ * start at 0), in the order recorded, so no two entries share a number and the recorded ones sort first. What an entry
+ * cites by seq (an amendment, a release's decisions, a standing decision) is renumbered with it.
  */
 export function layered(file: Pick<MonthFile, 'entries'>): LogEntry[] {
   const n = file.entries.length;
-  return file.entries.map((e, i) => ({ ...e, seq: i - n, amends: e.amends === null ? null : e.amends - n }));
+  const shift = (v: unknown) => (typeof v === 'number' && Number.isInteger(v) ? v - n : v);
+  return file.entries.map((e, i) => {
+    let about = e.about;
+    if ((e.kind === 'decide' || e.kind === 'release') && isRecord(about)) {
+      const a: Record<string, unknown> = { ...about };
+      for (const k of CITES) if (k in a) a[k] = shift(a[k]);
+      if (Array.isArray(a.decisions)) a.decisions = a.decisions.map(shift);
+      about = a as unknown as JSONValue;
+    }
+    return { ...e, seq: i - n, amends: e.amends === null ? null : e.amends - n, about };
+  });
 }
 
 /** The entries recorded by a moment: as known on it. Without one, all of them. */
@@ -142,6 +157,9 @@ export interface MonthDay {
   at: string | null;
   /** How many runs it has, as known then. */
   runs: number;
+  /** How many versions it has, as known then (ADR 0021 §2): its first files, and each later set of files sent for it;
+   * a run again on the same files isn't another version. */
+  versions: number;
   /** The latest run's manifest hash, and who recorded it: the build, or this browser. */
   manifest: string | null;
   by: 'build' | 'here' | null;
@@ -158,11 +176,34 @@ export function monthOf(days: readonly string[], entries: readonly Pick<LogEntry
   return days.map((day): MonthDay => {
     const runs = known.get(day) ?? [];
     const last = runs.at(-1);
-    if (!last) return { day, state: all.has(day) ? 'notArrived' : 'notRun', headline: null, at: null, runs: 0, manifest: null, by: null };
+    if (!last) return { day, state: all.has(day) ? 'notArrived' : 'notRun', headline: null, at: null, runs: 0, versions: 0, manifest: null, by: null };
     const about = aboutOf(last);
     const { state, headline } = stateOfRun(about, o.judged);
-    return { day, state, headline, at: runs[0]!.at, runs: runs.length, manifest: typeof about.manifest === 'string' ? about.manifest : null, by: last.by.as === 'build' ? 'build' : 'here' };
+    return { day, state, headline, at: runs[0]!.at, runs: runs.length, versions: versionsOf(runs).length, manifest: typeof about.manifest === 'string' ? about.manifest : null, by: last.by.as === 'build' ? 'build' : 'here' };
   });
+}
+
+/** The files a run read, by source and sha256, in one string: what tells one version of a day from another. */
+const filesKey = (e: Pick<LogEntry, 'about'>): string => {
+  const files = (aboutOf(e) as { inputs?: { files?: Record<string, string> } }).inputs?.files ?? {};
+  return JSON.stringify(Object.keys(files).sort().map((k) => [k, files[k]]));
+};
+
+/**
+ * A day's versions (ADR 0021 §2), in the order they first ran: each set of files run for it, with every run of it. The
+ * first is its first files; each later one a set of files sent again for it (a run with `correction`), or a run here on
+ * other files. A run that failed, with no files, is a version of none.
+ */
+export function versionsOf<E extends Pick<LogEntry, 'about'>>(runs: readonly E[]): { files: string; runs: E[] }[] {
+  const out: { files: string; runs: E[] }[] = [];
+  for (const e of runs) {
+    if (aboutOf(e).outcome === 'failed') continue;
+    const k = filesKey(e);
+    const v = out.find((x) => x.files === k);
+    if (v) v.runs.push(e);
+    else out.push({ files: k, runs: [e] });
+  }
+  return out;
 }
 
 /** One row of the grid: a notebook (or a group) and the datasets it holds, by origin. */
@@ -182,14 +223,15 @@ export const worseCell = (a: CellState, b: CellState): CellState => (CELL_RANK[a
 /**
  * What a run says of some datasets on its day (ADR 0021 §3, the grid): refused where the engine couldn't read one; held
  * where a hold names one; unusual or not judged where its claim said so; fine where the run built or reused it; absent
- * where the run built none of them.
+ * where the run built none of them. A file sent again later is held for a decision whatever it holds (Q-183): that says
+ * nothing of its data, so it doesn't make its cell held.
  */
 export function cellOf(about: RunAbout, manifest: Pick<RunManifest, 'nodes'> | null | undefined, origins: readonly string[]): CellState {
   const mine = new Set(origins.map((o) => o.toLowerCase()));
   const has = (o: string | undefined) => !!o && mine.has(o.toLowerCase());
   const nodes = (manifest?.nodes ?? []).filter((n) => has(n.origin));
   if (nodes.some((n) => n.status === 'refused')) return 'refused';
-  if ((about.holds ?? []).some((h) => has(h.origin))) return 'held';
+  if ((about.holds ?? []).some((h) => h.by !== 'correction' && has(h.origin))) return 'held';
   const claims = (about.claims ?? []).filter((c) => has(c.source));
   if (claims.some((c) => c.state && WRONG.has(c.state))) return 'unusual';
   if (claims.some((c) => c.state === 'unlearned')) return 'unlearned';
@@ -219,12 +261,14 @@ export interface RecordCheck {
   holds: { recorded: string[]; here: string[] };
 }
 
-const holdKeys = (holds: readonly Pick<Hold, 'by' | 'origin'>[]): string[] => holds.map((h) => `${h.by}:${h.origin}`).sort();
+/** What held a run, each check or claim once: a hold split by load, or spared on a load an earlier run here read while
+ * the same check passed (ADR 0010 §7, Q-55), is the same hold of the day, whatever order its versions ran in. */
+const holdKeys = (holds: readonly Pick<Hold, 'by' | 'origin'>[]): string[] => [...new Set(holds.map((h) => `${h.by}:${h.origin}`))].sort();
 
 /**
  * A run made here of a recorded day, checked against the recorded run (ADR 0021 §4): the same plan, the same content in
- * every dataset either stored, and the same holds. When a file was pulled in and the run's own id are this browser's,
- * so the manifests' hashes always differ and aren't compared.
+ * every dataset either stored, and the same holds, each check or claim once. When a file was pulled in and the run's own
+ * id are this browser's, so the manifests' hashes always differ and aren't compared.
  */
 export function checkAgainst(recorded: { manifest: Pick<RunManifest, 'plan' | 'nodes'>; holds: readonly Pick<Hold, 'by' | 'origin'>[] }, here: { manifest: Pick<RunManifest, 'plan' | 'nodes'>; holds: readonly Pick<Hold, 'by' | 'origin'>[] }): RecordCheck {
   const plan = recorded.manifest.plan === here.manifest.plan ? null : { recorded: recorded.manifest.plan, here: here.manifest.plan };

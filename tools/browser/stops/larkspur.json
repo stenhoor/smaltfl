@@ -51,11 +51,15 @@
   },
   {
     "name": "lark-mar12-flow",
-    "what": "Walk 1, Tue Mar 12: held by the WAF file's band, the Flow view",
+    "what": "Walk 1, Tue Mar 12: held by the WAF file's band and published as is in the recorded story (ADR 0021 §6), the Flow view",
     "day": "Tue 12",
     "expect": {
-      "state": "held",
-      "status": "waf: Status fail"
+      "status": "waf: Status fail",
+      "pageText": [
+        "Held: waf",
+        "Decided: published as is",
+        "The east ingress really was in monitor mode overnight"
+      ]
     }
   },
   {
@@ -127,8 +131,9 @@
   },
   {
     "name": "lark-mar18-flow",
-    "what": "Walk 2, Mon Mar 18: held by the organisation's chain, the Flow view",
+    "what": "Walk 2, Mon Mar 18 as it arrived (version 1): held by the organisation’s chain, the Flow view; HR sent the extract again that morning, and readers got version 2",
     "day": "Mon 18",
+    "version": 1,
     "expect": {
       "state": "held"
     }
@@ -137,6 +142,7 @@
     "name": "lark-mar18-orgchain-happened",
     "what": "Walk 2: silver's org_chain, What happened: units no longer reach the group, a rule that stops the day",
     "day": "Mon 18",
+    "version": 1,
     "card": "org_chain",
     "tab": "What happened",
     "full": true,
@@ -156,6 +162,7 @@
     "name": "lark-mar18-appowners-happened",
     "what": "Walk 2: app_owners, What happened: applications with no owner chain, kept under Unassigned",
     "day": "Mon 18",
+    "version": 1,
     "card": "app_owners",
     "tab": "What happened",
     "full": true,
@@ -175,8 +182,9 @@
   },
   {
     "name": "lark-mar21-fbu-checks",
-    "what": "Thu Mar 21, the doubled TLS file: failing_by_unit's Checks, held by its key",
+    "what": "Thu Mar 21 as it arrived (version 1), the doubled TLS file: failing_by_unit’s Checks, held by its key",
     "day": "Thu 21",
+    "version": 1,
     "card": "failing_by_unit",
     "tab": "Checks",
     "full": true,
@@ -193,6 +201,7 @@
     "name": "lark-mar21-scorecard-contract",
     "what": "Thu Mar 21: app_scorecard's Contract",
     "day": "Thu 21",
+    "version": 1,
     "card": "app_scorecard",
     "tab": "Contract",
     "full": true,

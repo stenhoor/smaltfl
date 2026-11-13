@@ -1,7 +1,7 @@
 [
   {
     "name": "month-home",
-    "what": "Larkspur's month (ADR 0021 §3): for the day and as known on, the posture's trend, the calendar of the recorded March, the day picked and, from tablet width, the grid",
+    "what": "Larkspur's month (ADR 0021 §3): for the day and as known on, the posture's trend, the calendar of the recorded March with its story (five days corrected, five decided, two waiting), the day picked and, from tablet width, the grid",
     "view": "month",
     "viewFirst": true,
     "full": true,
@@ -10,33 +10,33 @@
       "text": ["FOR THE DAY", "AS KNOWN ON", "March 2024", "CONTROL POSTURE V1 · THE GROUP’S SCORE ON EACH DAY PUBLISHED", "93.6 on Fri 1, 92.0 on Sun 31"],
       "count": {
         "#view-month .mo-d": 31,
-        "#view-month .mo-d.st-paused": 12
+        "#view-month .mo-d.st-paused": 7,
+        "#view-month .mo-d.corrected": 5
       }
     }
   },
   {
     "name": "month-pick",
-    "what": "Tue Mar 12 picked on the month: its summary under the calendar, from the recorded run alone",
+    "what": "Tue Mar 12 picked on the month: its summary under the calendar, from the recorded run and the recorded decision alone",
     "view": "month",
     "viewFirst": true,
     "click": "#view-month .mo-d[data-day=\"2024-03-12\"]",
     "element": "#view-month .mo-sum",
     "expect": {
-      "text": ["Tue Mar 12", "paused, waiting on a decision", "waf: Status fail: 22.7% (band 0%–15%)", "Recorded by the build", "Open the day ›"]
+      "text": ["Tue Mar 12", "published as is", "waf: Status fail: 22.7% (band 0%–15%)", "Recorded by the build", "Open the day ›"]
     }
   },
   {
     "name": "month-open",
-    "what": "Open the day ›: the day screen on Tue Mar 12, run here and checked against its recorded run",
+    "what": "Open the day ›: the day screen on Tue Mar 12, run here and checked against its recorded run; the recorded decision applied again",
     "view": "month",
     "viewFirst": true,
     "click": "#view-month .mo-d[data-day=\"2024-03-12\"]",
     "clicks": ["#view-month .mo-open"],
     "waitFor": ".dh-rec[data-check=\"matches\"]",
     "expect": {
-      "state": "held",
       "status": "waf: Status fail",
-      "text": ["‹ March 2024", "Tue Mar 12", "Held: waf", "waiting on a decision", "Recorded by the build", "the same datasets and holds as the record"],
+      "text": ["‹ March 2024", "Tue Mar 12", "Held: waf", "Decided: published as is", "Recorded by the build", "the same datasets and holds as the record"],
       "count": {
         ".dh-rec[data-check=\"matches\"]": 1
       }
@@ -44,26 +44,79 @@
   },
   {
     "name": "day-story",
-    "what": "Mon Mar 18 by its link: the day's story, the build's recorded run and the run here",
+    "what": "Mon Mar 18 by its link: the version readers got (the HR extract sent again), its story from the build's record (each version, the decision, the release) and the run here, checked against the recorded run of the same version",
     "day": "Mon 18",
     "click": ".dh-story summary",
     "element": "#loads",
     "expect": {
-      "state": "held",
-      "text": ["Mon Mar 18", "The build ran the day: held: org_chain", "Run here: the same datasets and holds as the record"]
+      "text": ["Mon Mar 18", "The build ran the day (version 1): held: org_chain", "The build ran the day on hr_org_units sent again (version 2)", "Sloane Marsden decided version 2: published", "Published version 2.", "Run here: the same datasets and holds as the record"]
     }
   },
   {
-    "name": "month-held-here",
-    "what": "Back on the month once Mon Mar 18 has run here: the day is headed by what holds it (org_chain's written rule), as its recorded run is, not by the followed dataset's verdict",
+    "name": "month-corrected",
+    "what": "Back on the month once Mon Mar 18 has run here: the day is corrected, its HR extract sent again and published (ADR 0021 §2, §3), whatever version ran here",
     "view": "month",
     "viewFirst": true,
     "click": "#view-month .mo-d[data-day=\"2024-03-18\"]",
     "element": "#view-month .mo-sum",
     "expect": {
-      "text": ["Mon Mar 18", "org_chain: expectations failed: one_root (4 rows)", "run here, the same as the record"],
+      "text": ["Mon Mar 18", "corrected: version 2 of 2 published", "Corrected: hr_org_units sent again", "hr_org_units sent again Mon, Mar 18, 11:20 UTC: version 2, published", "run here, the same as the record"],
       "loads": {
-        "Mon 18": "org_chain: expectations failed: one_root"
+        "Mon 18": "corrected: hr_org_units sent again"
+      },
+      "noText": ["What waits"]
+    }
+  },
+  {
+    "name": "day-versions",
+    "what": "Mon Mar 4 by its link: the day's versions like commits (ADR 0021 §2, §4): the empty MFA file kept back, the real one sent again overnight and published; the version readers got runs here, a correction checked against its recorded run",
+    "day": "Mon 4",
+    "waitFor": ".dh-rec[data-check=\"matches\"]",
+    "element": "#loads",
+    "expect": {
+      "text": ["Mon Mar 4", "Held: mfa", "Decided: kept back", "Sent again: mfa", "Decided: published", "2 VERSIONS OF THE DAY", "As it arrived", "kept back by Sloane Marsden", "mfa sent again Tue, Mar 5, 02:40 UTC", "what readers got", "Published version 2"],
+      "count": {
+        ".dh-versions .dv": 2,
+        ".dh-versions .dv.on.got": 1
+      }
+    }
+  },
+  {
+    "name": "day-v1",
+    "what": "Mon Mar 18's first version by its link (#day/2024-03-18/v1): the extract as it arrived, held by the org chain, replaced by the one sent again; not the visitor's to decide, and checked against the recorded run of the same version",
+    "day": "Mon 18",
+    "version": 1,
+    "element": "#loads",
+    "expect": {
+      "state": "held",
+      "text": ["Version 1, as it arrived: replaced by version 2", "hr_org_units sent again", "Readers got version 2", "Run here: the same datasets and holds as the record"],
+      "count": {
+        ".vf-decide-day": 0,
+        ".dh-versions .dv.on": 1
+      }
+    }
+  },
+  {
+    "name": "day-thu28",
+    "what": "Thu Mar 28 by its link: the org chain loops, and the day still waits for the visitor",
+    "day": "Thu 28",
+    "element": "#loads",
+    "expect": {
+      "state": "held",
+      "text": ["Thu Mar 28", "Held: org_chain", "waiting on a decision", "Run here: the same datasets and holds as the record"]
+    }
+  },
+  {
+    "name": "month-held-here",
+    "what": "Back on the month once Thu Mar 28 has run here: the day is headed by what holds it (org_chain's written rule), as its recorded run is, not by the followed dataset's verdict",
+    "view": "month",
+    "viewFirst": true,
+    "click": "#view-month .mo-d[data-day=\"2024-03-28\"]",
+    "element": "#view-month .mo-sum",
+    "expect": {
+      "text": ["Thu Mar 28", "org_chain: expectations failed", "run here, the same as the record"],
+      "loads": {
+        "Thu 28": "org_chain: expectations failed"
       }
     }
   },

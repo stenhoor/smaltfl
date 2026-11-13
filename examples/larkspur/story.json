@@ -1,0 +1,27 @@
+{
+  "format": "smaltfl-story/1",
+  "flow": "larkspur",
+  "deliveries": [
+    { "day": "2024-03-04", "file": "mfa", "at": "2024-03-05T02:40:00Z", "why": "The MFA vendor ran Monday's export again overnight" },
+    { "day": "2024-03-06", "file": "backup_jobs", "at": "2024-03-07T03:05:00Z", "why": "The backup team ran Wednesday's export, which hadn't run" },
+    { "day": "2024-03-07", "file": "logging_coverage", "at": "2024-03-07T09:40:00Z", "why": "The logging team sent the file again with retention_days back" },
+    { "day": "2024-03-18", "file": "hr_org_units", "at": "2024-03-18T11:20:00Z", "why": "HR ran the extract again with the dissolved department's teams under their new department" },
+    { "day": "2024-03-21", "file": "tls", "at": "2024-03-21T14:10:00Z", "why": "The TLS team took repeated rows out", "variant": "half" },
+    { "day": "2024-03-21", "file": "tls", "at": "2024-03-22T03:30:00Z", "why": "The TLS team deduplicated the file again, every certificate once" }
+  ],
+  "decisions": [
+    { "day": "2024-03-04", "at": "2024-03-04T08:10:00Z", "by": "ciso", "option": "dont", "reason": "The MFA export came through empty: the vendor runs it again tonight" },
+    { "day": "2024-03-04", "delivery": 1, "at": "2024-03-05T04:50:00Z", "by": "ciso", "option": "asis", "reason": "The full export, checked against the directory" },
+    { "day": "2024-03-06", "at": "2024-03-06T08:30:00Z", "by": "ciso", "option": "dont", "reason": "The backup file is Tuesday's again: the export job didn't run" },
+    { "day": "2024-03-06", "delivery": 1, "at": "2024-03-07T04:40:00Z", "by": "ciso", "option": "asis", "reason": "Wednesday's own backup jobs, exported after the day" },
+    { "day": "2024-03-07", "delivery": 1, "at": "2024-03-07T10:05:00Z", "by": "ciso", "option": "asis", "reason": "retention_days is back, and the rows are the morning's" },
+    { "day": "2024-03-08", "at": "2024-03-08T09:15:00Z", "by": "ciso", "option": "dont", "reason": "Key rotation passes where encryption at rest fails: the vault team is checking their feed" },
+    { "day": "2024-03-12", "at": "2024-03-12T08:45:00Z", "by": "ciso", "option": "asis", "reason": "The east ingress really was in monitor mode overnight: these failures are real" },
+    { "day": "2024-03-13", "at": "2024-03-13T09:05:00Z", "by": "ciso", "option": "asis", "reason": "The extra rows are applications the WAF doesn't cover, and the posture reads only those it applies to" },
+    { "day": "2024-03-18", "delivery": 1, "at": "2024-03-18T11:45:00Z", "by": "ciso", "option": "asis", "reason": "Every team has a department again, and every owner chain is whole" },
+    { "day": "2024-03-19", "at": "2024-03-19T08:20:00Z", "by": "ciso", "option": "asis", "reason": "The east backup controller is down for maintenance: not assessed is the truth today" },
+    { "day": "2024-03-21", "delivery": 1, "at": "2024-03-21T14:35:00Z", "by": "ciso", "option": "dont", "reason": "Still repeated rows: sent back to the TLS team" },
+    { "day": "2024-03-21", "delivery": 2, "at": "2024-03-22T04:45:00Z", "by": "ciso", "option": "asis", "reason": "Every certificate once" },
+    { "day": "2024-03-26", "at": "2024-03-26T09:30:00Z", "by": "ciso", "option": "dont", "reason": "BU-01's internet-facing applications are missing from the TLS scan: the scanner team is looking" }
+  ]
+}

@@ -14,7 +14,7 @@
 
 import type { DrawCause, ReaderRows } from '../core/decision.js';
 
-export type Mark = 'alert' | 'warn' | 'note' | 'held' | 'flag' | 'closed' | 'explained' | 'info' | 'chev' | 'more' | 'seal' | 'ack' | 'publish' | 'keep' | 'unlearned' | 'fill' | 'part' | 'level' | 'lock';
+export type Mark = 'alert' | 'warn' | 'note' | 'held' | 'flag' | 'closed' | 'explained' | 'info' | 'chev' | 'more' | 'seal' | 'ack' | 'publish' | 'keep' | 'unlearned' | 'fill' | 'part' | 'level' | 'lock' | 'corrected';
 
 export const esc = (s: unknown): string => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const sum = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0);
@@ -54,6 +54,10 @@ export function glyph(kind: Mark, size = 16): string {
     // ink, never a severity's colour; a dot where the step was taken.
     case 'level':
       return `<svg ${a}><path class="g-level" d="M1.5 12.2h5V4.6h8"/><circle class="g-levdot" cx="6.5" cy="12.2" r="1.6"/></svg>`;
+    // A day corrected (ADR 0021 §3): a file sent again later and published by a decision, an arrow coming round, in the
+    // ink, never a severity's colour; its count of versions is said beside it.
+    case 'corrected':
+      return `<svg ${a}><path class="g-corr" d="M13.1 9.2A5.2 5.2 0 1 1 11.6 4.3"/><path class="g-corr" d="M12.4 1.6v3.3H9.1"/></svg>`;
     case 'explained':
       return `<svg ${a}><path class="g-arrow" d="M4 2.5v6.5h8M9.2 6.2L12 9l-2.8 2.8"/></svg>`;
     case 'note':

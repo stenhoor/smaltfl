@@ -27,6 +27,9 @@ export interface DataBindings {
   generateArgs?: string[];
   /** The watched source or step the app's views follow (ADR 0013 §5), when it isn't the first daily source. */
   judged?: string;
+  /** A generated example's recorded story (ADR 0021 §6, core/timeline.ts): its later deliveries, which the generator
+   * writes, and its decisions, which the recorder takes at their times. */
+  story?: string;
 }
 
 /** A source as the engine reads it: its file, its table, and the table's DDL. */

@@ -8,7 +8,7 @@
  */
 import exampleDoc from '../../examples/nyc-taxis-weather.smaltfl.json';
 import { donorBinding, EXAMPLE_DATA, EXAMPLE_SOURCES, pinnedDdl, type Binding } from '../../examples/sources.js';
-import { namedFiles, readDataList, type DataList, type PostureProduct } from './datalist.js';
+import { deliveriesOf, namedFiles, readDataList, versionsOfDay, type DataList, type Delivered, type PostureProduct } from './datalist.js';
 import { holidayOf, seasonOf, US_NYC_1, type Calendar } from '../core/calendar.js';
 
 /** The calendar the watched source is judged by (ADR 0010 §2): its days marked on the strips and charts, Election Day
@@ -30,7 +30,7 @@ import { toggleCheck } from '../core/gatecell.js';
 import { calendarHead, heldLoadLine, dayMid, dayShort, guessWords, judgedWords, lacked, MARK as REMEDY_MARK, noRowsBefore, reachLabel, readersOf as readersHad, readersSee, rowsFrom, shortfall, shownRun, stagedBar, stoppedLine as stoppedWords, toldLine, type DayState, type EpisodeDay, type KeptMark, type PauseState, type RemedyMark } from '../core/days.js';
 import { UNTIL, afterLine, betweenLine, dayPausedLine, daySentence, decidedLines, decisionDrawing, donorPicked, failLine, goShown, heldLine, outputPausedLine, passedLine, pausedChecks, pauseLines, pauseReasons, pickFails, receiptLines, remedyHead, ribbonOf, runFigures, sheetText, versionLines, checksSeen, filesSeen, findingOf, type RunSight, type AfterPart, type KeptLacks, type RemedySaid, type SheetIn, type SheetPick, type SheetText, type Sight } from '../core/decision.js';
 import { contractSaid, countedChecks, rangesFor, dayClaim, dayState, flowStory, learnedMeasures, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, upstreamSteps, tailPath, type Claim, decisionFor, decisionForLoad, standingForLoad, heldLoadsOf, dayPauseOfLoads, loadDecisions, keysForLoads, loadKey, loadsOf, byLoad, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, lastPublished, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
-import { checkAgainst as againstRecord, endOfDay, gridOf as monthGrid, isMonthFile, knownOn, layered, monthOf, runDay, runsByDay, type CellState, type DayState as MonthState, type GridRow as MonthRow, type MonthDay, type MonthFile, type RecordCheck, type RunAbout } from '../core/month.js';
+import { checkAgainst as againstRecord, endOfDay, gridOf as monthGrid, isMonthFile, knownOn, layered, monthOf, runDay, runsByDay, versionsOf, type CellState, type DayState as MonthState, type GridRow as MonthRow, type MonthDay, type MonthFile, type RecordCheck, type RunAbout } from '../core/month.js';
 import { dayVersions, donorIdOf, fillCounts, levelOf as acceptedLevel, levelWays, partLabel as remedyPart, type Offer, type Repair, type Version } from '../core/fill.js';
 import { gridOf, shadeOf, shareOf, standOut } from './grid.js';
 import { setUpSplit, showWorkspace } from './split.js';
@@ -3282,6 +3282,9 @@ function outputPause(id: string): HTMLElement | null {
   if (!own || (out !== 'waiting' && out !== 'dont' && !isOut(out as DayState | null))) return null;
   const now = pauseOf(own);
   const d = now?.pause?.decision ?? null;
+  // A version a later delivery replaced (ADR 0021 §2): said so, and decided as that later version.
+  const later = supersededBy(own);
+  if (later) return h('div', { class: 'paused-line superseded', role: 'status' }, glyphEl('corrected', 15), h('b', {}, `Replaced by version ${later.v}: ${later.delivery?.source} sent again`));
   const may = (['asis', 'dont'] as const).some((o) => checkDecision(policies(), state.viewer, o).allowed);
   const l = outputPausedLine({ state: out as DayState, may, deciders: deciders(), standing: standsOn(d), remedy: now?.remedy ?? null, withdrawn: now?.withdrawn ?? null });
   const day = dayOfRun(own);
@@ -3485,7 +3488,7 @@ function rangesForLoad(id: string): HistoryRanges | null {
   if (id === loadSource()) return history;
   const b = bases.get(id);
   if (!b) return null;
-  const tail = tailBefore(tails.get(id) ?? [], '\uffff');
+  const tail = tailBefore(viewTail(id), '\uffff');
   const skips = recordedSkips();
   const levels = levelsOf(allEntries(), id);
   const key = JSON.stringify([tail.map((m) => `${m.slot}:${m.snapshot}`), skips, levels, givens.has(id)]);
@@ -6870,6 +6873,8 @@ function pauseBanner(): HTMLElement | null {
   const now = own ? pauseOf(own) : null;
   const day = own ? dayOfRun(own) : undefined;
   if (!own || !day || now?.state !== 'waiting') return null;
+  // A version a later delivery replaced isn't decided (ADR 0021 §2): the day head says which version replaced it.
+  if (supersededBy(own)) return null;
   const kept = readersAsOf(own);
   const may = (['asis', 'dont'] as const).some((o) => checkDecision(policies(), state.viewer, o).allowed);
   const l = dayPausedLine({ state: 'waiting', readers: kept.day, past: kept.past, may, standing: false, day, readersMark: kept.past ? null : readersMarkOf(own) });
@@ -6936,6 +6941,9 @@ function askPanel(r: RunRecord, el: HTMLElement): void {
 function decisionSheet(shown0: RunRecord, story: Story | null): void {
   // On a day readers have a fill of, the views show its derived run: the decision is the held run's (amendment 1 S9).
   const r = shown0.derived?.from ?? shown0;
+  // A version a later delivery replaced isn't decided (ADR 0021 §2): the later one is.
+  const later0 = supersededBy(r);
+  if (later0) return void setStatus(`${dayLabel(dayOfRun(r) ?? '')}: this version was replaced by version ${later0.v} (${later0.delivery?.source} sent again): decide that one.`, true);
   const day = dayOfRun(r) ?? null;
   const first = pauseOf(r);
   // Readers have this day's fill (or its part alone): Keep withdraws it, back to the day they had before it (Q-61).
@@ -7205,6 +7213,10 @@ function keptBefore(r: RunRecord): Kept | null {
   return back && day ? keptOf(back, day) : null;
 }
 
+/** A record entry's name: this browser's by its number; the build's (the recorded month, ADR 0021 §6) by its number in
+ * the build's record, which the page layers below its own. */
+const recordName = (seq: number): string => (seq < 0 ? `The build’s record #${seq + recordedEntries.length}` : `Record #${seq}`);
+
 /** A held run's receipt once decided, on the canvas: as the decision sheet collapses to it. */
 function receiptOf(r: RunRecord, may: boolean): HTMLElement | null {
   const now = pauseOf(r);
@@ -7218,6 +7230,9 @@ function receiptOf(r: RunRecord, may: boolean): HTMLElement | null {
   // A fill or the part alone readers have is cited by the decision whose release applied, never a later one refused.
   const cites = (now.state === 'fill' || now.state === 'complete') && now.pause?.repaired?.decision !== undefined ? now.pause.repaired.decision : (d?.seq ?? null);
   const l = receiptLines({ state: now.state, day, readers: out ? day : kept.day, past: !out && kept.past, released: out ? (now.pause?.waiting ?? r.result.waiting).length : 0, who: d ? personName(d.by) : null, at: d && !underDay ? decidedAt(d.at) : null, seq: cites, under: underDay ? dayShort(underDay).split(' ')[0]! : null, standing: standsOn(d), remedy: now.remedy ? { ...now.remedy, ...remedyCounts(now.pause) } : null, withdrawn: now.withdrawn, level: d?.about.level?.from ?? null, reason: d?.reason ?? null });
+  // A later version published (ADR 0021 §2): published by its decision, as that version.
+  const v = versionOfRun(r);
+  if (v !== null && v > 1 && now.state === 'asis') l.head = l.head.replace(/^Published as is/, `Published version ${v}`);
   const box = receiptBox(l, now.state, d?.seq ?? null, null, l.change && may ? () => decisionSheet(r, day ? storyFor(day) : null) : null, day, l.versions && day ? () => versionsSheet(day) : null);
   box.classList.add('loads-receipt');
   // Under the loads strip, its links are the canvas's: the sheet's and the card's keep their own names.
@@ -7231,9 +7246,9 @@ function receiptOf(r: RunRecord, may: boolean): HTMLElement | null {
 function receiptBox(l: { head: string; sub: string; change: string | null; versions?: true; note?: string }, st: DayState, seq: number | null, hash: string | null, change: (() => void) | null, day: string | null, versions: (() => void) | null = null): HTMLElement {
   return h('div', { class: `vf-receipt-box ${st}` },
     h('p', { class: 'vf-rc-head' }, glyphEl(PAUSE_MARK[st], 16), h('b', {}, l.head)),
-    h('p', { class: 'vf-rc-sub' }, seq !== null ? l.sub.replace(/ · record #\d+$/, '') : l.sub, hash ? h('code', { class: 'vf-hash', title: 'The manifest of what went out' }, ` · manifest ${hash}`) : ''),
+    h('p', { class: 'vf-rc-sub' }, seq !== null ? l.sub.replace(/ · record #-?\d+$/, '') : l.sub, hash ? h('code', { class: 'vf-hash', title: 'The manifest of what went out' }, ` · manifest ${hash}`) : ''),
     h('div', { class: 'vf-rc-acts' },
-      seq !== null ? h('button', { type: 'button', class: 'linkish', onclick: () => ((ribbonPick = day), document.querySelector('.vf-detail-wrap')?.remove(), (location.hash = '#runs')) }, `Record #${seq} ✓`) : '',
+      seq !== null ? h('button', { type: 'button', class: 'linkish', onclick: () => ((ribbonPick = day), document.querySelector('.vf-detail-wrap')?.remove(), (location.hash = '#runs')) }, `${recordName(seq)} ✓`) : '',
       versions ? h('button', { type: 'button', class: 'linkish vf-versions', onclick: versions }, 'Versions ›') : '',
       l.change && change ? h('button', { type: 'button', class: 'linkish vf-change', onclick: change }, `${l.change} ›`) : '',
       l.note ? h('span', { class: 'vf-rc-note' }, glyphEl('lock', 12), l.note) : ''));
@@ -10475,8 +10490,14 @@ const loads = {
   /** Days whose file a person replaced with a corrected one (the `replace` fix), by place in the list: its bytes, their
    * sha256 as the page hashed them, and the file's name. A run of the day reads it in place of the listed file. */
   replaced: new Map<number, { bytes: Uint8Array<ArrayBuffer>; sha256: string; name: string }>(),
-  /** The other daily sources' bytes for the same loads (ADR 0013 §5), by source id. */
+  /** The other daily sources' bytes for the same loads (ADR 0013 §5), by source id and sha256 (`id:sha256`): a day's
+   * version may read another file of a source (ADR 0021 §2). */
   others: new Map<number, Record<string, Uint8Array>>(),
+  /** The version of a day a link asked for (`#day/2024-03-18/v1`, ADR 0021 §4), by place in the list; none: the version
+   * readers got (`wentWith`). */
+  version: new Map<number, number>(),
+  /** The version of the pinned load its files are (1: its first files): a run of a later one is a correction. */
+  pinnedVersion: 1,
   /** The days a paused day may be filled from that aren't loads (loads.json `donors`, ADR 0009 amendment 1 S13): never
    * stepped through, checked against the data's list, and pinned only when a fill needs one. */
   donors: [] as Listed[],
@@ -10662,8 +10683,13 @@ const whenMin = (at: string, day: string) => `${new Date(at).toLocaleString('en-
 /** Who did something, by the record's principal: a person's name, or the build. */
 const whoSaid = (as: string) => (as === 'build' ? 'The build' : (policies()?.principals.find((p) => p.id === as)?.name ?? as));
 
-/** The day's run recorded by the build: its latest. */
-const recordedRunOf = (day: string): RecordEntry | undefined => [...recordedEntries].reverse().find((e) => runDay(e) === day);
+/** The day's run recorded by the build: its latest, or the latest on the same files (a version of the day, ADR 0021 §2). */
+function recordedRunOf(day: string, files?: Readonly<Record<string, string>>): RecordEntry | undefined {
+  const runs = recordedEntries.filter((e) => runDay(e) === day);
+  const same = files ? runs.filter((e) => sameFiles((e.about as { inputs?: Inputs } | null)?.inputs?.files ?? {}, files)) : [];
+  return (same.length ? same : runs).at(-1);
+}
+const sameFiles = (a: Readonly<Record<string, string>>, b: Readonly<Record<string, string>>) => Object.keys(a).length === Object.keys(b).length && Object.entries(b).every(([k, v]) => a[k] === v);
 
 /** A day's count, from its latest run's manifest: the rows of the dataset the views follow. */
 function countOfDay(d: MonthDay): number | null {
@@ -10677,8 +10703,10 @@ const MONTH_WORD: Record<MonthState, string> = { published: VERDICT_WORD.ok, unu
 /** What a decision made of a held day, in a word. */
 const DECIDED_WORD: Record<DayState, string> = { waiting: 'waiting on a decision', asis: 'published as is', dont: 'not published', fill: 'filled', complete: 'the part that arrived published', accepted: 'published as a new level' };
 
-/** A day's mark: what a decision made of it, else what became of it; never a colour alone (ADR 0021 §3). */
-function dayMark(state: MonthState, decided: DayState | null, size = 14): Node | null {
+/** A day's mark: corrected, with its count of versions; what a decision made of it; else what became of it; never a
+ * colour alone (ADR 0021 §3). */
+function dayMark(state: MonthState, decided: DayState | null, size = 14, corrected = 0): Node | null {
+  if (corrected > 1) return h('span', { class: 'mo-corr' }, glyphEl('corrected', size), h('span', { class: 'mo-vn' }, String(corrected)));
   if (decided && decided !== 'waiting') return glyphEl(PAUSE_MARK[decided], size);
   if (state === 'paused') return glyphEl('held', size);
   if (state === 'unusual') return glyphEl('warn', size);
@@ -10693,13 +10721,26 @@ function dayMark(state: MonthState, decided: DayState | null, size = 14): Node |
  * by the build's recorded run (its holds, its claims); else not run. As known on a past moment, by the recorded runs
  * alone: this browser's are all after it.
  */
-function calendarDay(d: MonthDay): { label: string; decided: DayState | null; state: MonthState; headline: string | null; sev: Severity | null } {
+function calendarDay(d: MonthDay): { label: string; decided: DayState | null; state: MonthState; headline: string | null; sev: Severity | null; corrected: number } {
   const k = loads.list.findIndex((l) => l.day === d.day);
   const l = loads.list[k];
   const note = l?.note ? `, ${l.note}` : '';
   const src = loadSource();
   const counted = !src || visible(src);
-  if (monthView.at === null && k >= 0 && runOfLoad(k)) {
+  // A day corrected (ADR 0021 §2, §3): a file sent again later, and a later version published by a decision. Said with
+  // its versions, whatever version a run here read.
+  const fixed = monthView.at === null ? correctedOf(k) : null;
+  if (fixed) {
+    const sent = sentSources(fixed.versions, fixed.got.v + 1);
+    const count = countOfDay(d);
+    const headline = `Corrected: ${sent.join(', ')} sent again`;
+    return { label: `${dayLabel(d.day)}${note}${counted && count !== null ? `: ${rowsSaid(count)}` : ''}, corrected: ${sent.join(', ')} sent again, version ${fixed.got.v} of ${fixed.versions.length} published`, decided: null, state: 'published', headline, sev: null, corrected: fixed.versions.length };
+  }
+  // A run here is the day's state only when it read the version readers got (a later or earlier version opened is
+  // that version's).
+  const here = k >= 0 ? runOfLoad(k) : undefined;
+  const ofDay = !!here && (loads.replaced.has(k) || versionsOfLoad(k).length <= 1 || versionOfRun(here) === wentWith(k));
+  if (monthView.at === null && k >= 0 && here && ofDay) {
     const top = verdictOf(d.day);
     const pm = dayPause(d.day);
     const count = countOfLoad(k);
@@ -10710,35 +10751,35 @@ function calendarDay(d: MonthDay): { label: string; decided: DayState | null; st
     const label = `${dayLabel(d.day)}${note}${counted && count !== null ? `: ${rowsSaid(count)}` : ''}${hold ? `, ${VERDICT_WORD.alert}: ${hold.origin}: ${hold.said}` : top ? (top.kind === 'unlearned' ? `, not judged yet${top.detail ? `: ${top.detail}` : ''}` : `, ${VERDICT_WORD[top.severity]}${saysHead(top) ? `: ${top.title}` : ''}`) : ''}${held ? ', held' : ''}${pm ? pauseSaid(d.day, pm) : ''}`;
     const st: MonthState = pm ? 'paused' : top?.severity === 'alert' && top.key.startsWith('failed:') ? 'failed' : top?.severity === 'alert' || top?.severity === 'warn' ? 'unusual' : top?.kind === 'unlearned' ? 'unlearned' : 'published';
     const headline = hold ? `${hold.origin}: ${hold.said}` : top && saysHead(top) ? top.title : null;
-    return { label, decided: pm, state: held ? 'paused' : st, headline, sev: hold ? 'alert' : top ? top.severity : null };
+    return { label, decided: pm, state: held ? 'paused' : st, headline, sev: hold ? 'alert' : top ? top.severity : null, corrected: 0 };
   }
-  const decided = monthView.at === null ? dayPause(d.day) : null;
-  if (d.state === 'notRun' || d.state === 'notArrived') return { label: `${dayLabel(d.day)}${note}: ${MONTH_WORD[d.state]}`, decided: null, state: d.state, headline: null, sev: null };
+  const decided = monthView.at === null ? (ofDay || !here ? dayPause(d.day) : dayState(null, latestPause(d.day))) : null;
+  if (d.state === 'notRun' || d.state === 'notArrived') return { label: `${dayLabel(d.day)}${note}: ${MONTH_WORD[d.state]}`, decided: null, state: d.state, headline: null, sev: null, corrected: 0 };
   const count = countOfDay(d);
   const label = `${dayLabel(d.day)}${note}${counted && count !== null ? `: ${rowsSaid(count)}` : ''}, ${MONTH_WORD[d.state]}${d.headline && d.state !== 'published' ? `: ${d.headline}` : ''}${decided ? pauseSaid(d.day, decided) : ''}`;
-  return { label, decided, state: d.state, headline: d.state !== 'published' ? d.headline : null, sev: d.state === 'paused' || d.state === 'failed' ? 'alert' : d.state === 'unusual' ? 'warn' : null };
+  return { label, decided, state: d.state, headline: d.state !== 'published' ? d.headline : null, sev: d.state === 'paused' || d.state === 'failed' ? 'alert' : d.state === 'unusual' ? 'warn' : null, corrected: 0 };
 }
 
 /** A run made here of a day the build recorded, checked against the recorded run (ADR 0021 §4): on the same files under
  * the same flow, the same plan, datasets and holds; on other files or under another flow, said so and not compared. */
 function checkRecorded(rec: RunRecord): void {
   const day = dayOfRun(rec);
-  const e = day ? recordedRunOf(day) : undefined;
+  const mine = inputsOf(rec.result.manifest);
+  // The recorded run of the same version: a day sent again has a recorded run of each (ADR 0021 §2).
+  const e = day ? recordedRunOf(day, mine.files) : undefined;
   if (!day || !e || !recorded) return;
   const a = e.about as unknown as RunAbout & { inputs?: { flow?: string; files?: Record<string, string> } };
   if (a.outcome === 'failed' || !a.manifest) return;
-  const mine = inputsOf(rec.result.manifest);
   if (a.inputs?.flow !== mine.flow) return void recordChecks.set(day, 'flow');
-  const files = a.inputs?.files ?? {};
-  const same = Object.keys(files).length === Object.keys(mine.files).length && Object.entries(mine.files).every(([k, v]) => files[k] === v);
-  if (!same) return void recordChecks.set(day, 'inputs');
+  if (!sameFiles(a.inputs?.files ?? {}, mine.files)) return void recordChecks.set(day, 'inputs');
   const m = recorded.manifests[a.manifest];
   if (m) recordChecks.set(day, againstRecord({ manifest: m, holds: a.holds ?? [] }, { manifest: rec.result.manifest, holds: rec.result.holds }));
 }
 
 /** The record's line for a day (ADR 0021 §4): recorded by the build, and what its run here found against the record. */
 function recordLine(day: string): HTMLElement | null {
-  const e = recordedRunOf(day);
+  const shown = state.runs.find((r) => dayOfRun(r) === day && !r.derived);
+  const e = recordedRunOf(day, shown ? inputsOf(shown.result.manifest).files : undefined);
   const ran = state.runs.some((r) => dayOfRun(r) === day);
   if (!e) return ran && recorded ? h('p', { class: 'dh-rec' }, 'Run in this browser: the build recorded no run of this day.') : null;
   const head = `Recorded by the build, ${whenMin(e.at, day)}.`;
@@ -10756,6 +10797,37 @@ function recordLine(day: string): HTMLElement | null {
   return h('p', { class: 'dh-rec bad', 'data-check': 'differs' }, head, ' ', h('b', {}, `Run here, it differs from the record: ${parts.join('; ')}.`));
 }
 
+/**
+ * A day's versions, listed like commits (ADR 0021 §2, §4): each with when it arrived (a delivery, why it was sent), what
+ * held it and what was decided of it, by whom and why; the one readers got and the one on screen marked, and a link to
+ * open any other. None for a day sent once.
+ */
+function versionsPart(k: number): HTMLElement | null {
+  const facts = versionFacts(k);
+  const l = loads.list[k];
+  if (facts.length < 2 || !l) return null;
+  const shown = runOfLoad(k);
+  const on = shown && !loads.replaced.has(k) ? versionOfRun(shown) : null;
+  const got = [...facts].reverse().find((f) => f.published)?.v ?? null;
+  const said = (f: VersionFact): string => {
+    const a = f.first?.about as unknown as RunAbout | undefined;
+    const parts = [f.delivery ? `${f.delivery.source} sent again ${whenMin(f.delivery.arrived, l.day)}: “${f.delivery.why}”` : `As it arrived${f.first ? `, ${whenMin(f.first.at, l.day)}` : ''}`];
+    // What held it, a correction's own hold aside: every later file waits for a decision (Q-183).
+    const hold = a?.outcome === 'held' ? a.holds?.find((x) => x.by !== 'correction') : undefined;
+    if (hold) parts.push(`held: ${hold.origin}: ${hold.said}`);
+    if (f.decided) parts.push(`${f.decided.option === 'dont' ? 'kept back' : f.published ? (f.delivery ? 'published' : DECIDED_WORD.asis) : (DECIDED_WORD[f.decided.option as DayState] ?? f.decided.option)} by ${whoSaid(f.decided.by)}, ${whenMin(f.decided.at, l.day)}${f.decided.reason ? ` (“${f.decided.reason}”)` : ''}`);
+    else if (f.published) parts.push('published');
+    else if (a?.outcome === 'held') parts.push(f.v < facts.length ? `replaced by version ${f.v + 1} before a decision` : DECIDED_WORD.waiting);
+    return parts.join(' · ');
+  };
+  return h('div', { class: 'dh-versions' }, h('p', { class: 'eyebrow' }, `${facts.length} versions of the day`),
+    h('ol', {}, ...facts.map((f) => h('li', { class: `dv${f.v === on ? ' on' : ''}${f.v === got ? ' got' : ''}`, 'data-version': String(f.v) },
+      h('b', { class: 'dv-n' }, `v${f.v}`),
+      h('span', { class: 'dv-said' }, said(f)),
+      f.v === got ? h('span', { class: 'dv-got' }, 'what readers got') : null,
+      f.v === on ? h('span', { class: 'dv-on' }, 'on screen') : h('a', { class: 'dv-open', href: dayHash(l.day, f.v === got ? null : f.v), 'aria-label': `Open version ${f.v} of ${dayLabel(l.day)}` }, 'Open ›')))));
+}
+
 /** What happened to a day, as a short line of steps (ADR 0021 §4): arrived, checked, held or published, decided. */
 function lifecycleOf(day: string): HTMLElement | null {
   const runs = runsByDay(allEntries()).get(day) ?? [];
@@ -10765,6 +10837,21 @@ function lifecycleOf(day: string): HTMLElement | null {
   const decided = dayPause(day);
   const arrived = runs[0]!.at;
   const steps: [string, string][] = [['', `Arrived ${arrived.slice(0, 10) === day ? `${arrived.slice(11, 16)} UTC` : whenMin(arrived, day)}`], ['', 'Checked']];
+  // A day sent again (ADR 0021 §2): each version in turn, what held it and what was decided of it, then each delivery.
+  const k = loads.list.findIndex((l) => l.day === day);
+  const facts = k >= 0 ? versionFacts(k) : [];
+  if (facts.length > 1) {
+    for (const f of facts) {
+      const fa = f.first?.about as unknown as RunAbout | undefined;
+      if (f.delivery) steps.push(['wait', `Sent again: ${f.delivery.source}`]);
+      else if (fa?.outcome === 'held') steps.push(['bad', `Held${fa.holds?.[0] ? `: ${fa.holds[0].origin}` : ''}`]);
+      if (f.published) steps.push(['ok', !f.delivery && fa?.outcome === 'held' ? `Decided: ${DECIDED_WORD.asis}` : f.delivery ? 'Decided: published' : 'Published']);
+      else if (f.decided?.option === 'dont') steps.push(['', 'Decided: kept back']);
+    }
+    const latest = facts.at(-1)!;
+    if (!latest.published && !latest.decided) steps.push(['wait', DECIDED_WORD.waiting]);
+    return h('ol', { class: 'dh-life', 'aria-label': `What happened to ${dayLabel(day)}` }, ...steps.map(([c, t]) => h('li', c ? { class: c } : {}, t)));
+  }
   // A later delivery of the day (ADR 0021 §2): held first by what held its first files, then its files sent again.
   const sent = (a as { correction?: { sources?: string[] } }).correction?.sources ?? [];
   const before = sent.length ? (runs.find((e) => (e.about as unknown as RunAbout).outcome === 'held')?.about as unknown as RunAbout | undefined) : undefined;
@@ -10778,23 +10865,52 @@ function lifecycleOf(day: string): HTMLElement | null {
   return h('ol', { class: 'dh-life', 'aria-label': `What happened to ${dayLabel(day)}` }, ...steps.map(([c, t]) => h('li', c ? { class: c } : {}, t)));
 }
 
-/** A day's story (ADR 0021 §4): each run and decision of the day, recorded or made here, in the order recorded. */
+/**
+ * A day's story (ADR 0021 §4): each run of the day (a later delivery's, with its version), each decision and each
+ * release, recorded or made here, in the order recorded. One choice recorded as a decision a held load (Q-193) is said
+ * once.
+ */
 function storyOfDay(day: string): HTMLElement | null {
-  const items = allEntries().filter((e) => (e.kind === 'run' ? runDay(e) === day : e.kind === 'decide' && (e.about as { day?: string } | null)?.day === day));
+  const all = allEntries();
+  const k = loads.list.findIndex((l) => l.day === day);
+  const runs = all.filter((e) => e.kind === 'run' && runDay(e) === day);
+  const manifests = new Set(runs.map((e) => String((e.about as unknown as RunAbout).manifest)));
+  const versionOf = (manifest: unknown) => {
+    const e = runs.find((x) => (x.about as unknown as RunAbout).manifest === manifest);
+    return e && k >= 0 && versionsOfLoad(k).length > 1 ? versionOfFiles(k, (e.about as { inputs?: Inputs }).inputs?.files) : null;
+  };
+  const items = all.filter((e) => e.kind === 'run' ? runDay(e) === day : e.kind === 'decide' ? (e.about as { day?: string } | null)?.day === day : e.kind === 'release' && manifests.has(String((e.about as Partial<ReleaseAbout> | null)?.manifest)));
   if (!items.length) return null;
-  const line = (e: RecordEntry): HTMLElement => {
+  const li = (e: RecordEntry, text: string) => h('li', {}, h('span', { class: 'ds-when' }, whenMin(e.at, day)), ` ${text}`);
+  const lines: HTMLElement[] = [];
+  let same = '';
+  for (const e of items) {
     const who = whoSaid(e.by.as);
     if (e.kind === 'decide') {
-      const d = e.about as { option?: DecisionOption } | null;
-      return h('li', {}, h('span', { class: 'ds-when' }, whenMin(e.at, day)), ` ${who} decided: ${d?.option ? (DECIDED_WORD[d.option as DayState] ?? d.option) : 'something'}${e.reason ? ` (“${e.reason}”)` : ''}.`);
+      const d = e.about as Partial<DecideAbout> | null;
+      const key = `${d?.manifest}|${d?.option}|${e.at}|${e.by.as}|${e.reason}`;
+      if (key === same) continue;
+      same = key;
+      const v = versionOf(d?.manifest);
+      lines.push(li(e, `${who} decided${v ? ` version ${v}` : ''}: ${d?.option === 'dont' ? 'kept back' : d?.option === 'asis' && v && v > 1 ? 'published' : d?.option ? (DECIDED_WORD[d.option as DayState] ?? d.option) : 'something'}${e.reason ? ` (“${e.reason}”)` : ''}.`));
+      continue;
+    }
+    same = '';
+    if (e.kind === 'release') {
+      const r = e.about as Partial<ReleaseAbout>;
+      const v = versionOf(r.manifest);
+      lines.push(li(e, r.outcome === 'applied' ? `Published${v ? ` version ${v}` : ''}${e.seq >= 0 ? ' again in this browser' : ''}.` : `The release was refused: ${r.why ?? 'no reason given'}.`));
+      continue;
     }
     const a = e.about as unknown as RunAbout & { correction?: { sources?: string[] } };
-    const said = a.outcome === 'failed' ? `failed: ${a.error ?? 'no reason given'}` : a.outcome === 'derived' ? 'a fill from another day' : a.outcome === 'held' ? `held${a.holds?.[0] ? `: ${a.holds[0].origin}: ${a.holds[0].said}` : ''}` : 'published';
+    const hold = a.holds?.find((x) => x.by !== 'correction') ?? a.holds?.[0];
+    const said = a.outcome === 'failed' ? `failed: ${a.error ?? 'no reason given'}` : a.outcome === 'derived' ? 'a fill from another day' : a.outcome === 'held' ? `held${hold ? `: ${hold.origin}: ${hold.said}` : ''}` : 'published';
     // A later delivery of the day (ADR 0021 §2): its files sent again, run, and waiting for a decision.
-    const sent = a.correction?.sources?.length ? ` on ${a.correction.sources.join(', ')} sent again` : '';
-    return h('li', {}, h('span', { class: 'ds-when' }, whenMin(e.at, day)), ` ${who} ran the day${sent}: ${said}.`);
-  };
-  return h('details', { class: 'dh-story' }, h('summary', {}, `The day’s story · ${items.length} ${items.length === 1 ? 'entry' : 'entries'}`), h('ol', {}, ...items.map(line)));
+    const v = versionOf(a.manifest);
+    const sent = a.correction?.sources?.length ? ` on ${a.correction.sources.join(', ')} sent again${v ? ` (version ${v})` : ''}` : v ? ` (version ${v})` : '';
+    lines.push(li(e, `${who} ran the day${sent}: ${said}.`));
+  }
+  return h('details', { class: 'dh-story' }, h('summary', {}, `The day’s story · ${lines.length} ${lines.length === 1 ? 'entry' : 'entries'}`), h('ol', {}, ...lines));
 }
 
 /** The grid's rows (ADR 0021 §3): each notebook and the datasets it makes, by the cells the flow keeps, after the files
@@ -10883,20 +10999,21 @@ function renderMonth(): void {
         cells.push(h('span', { class: 'mo-pad', 'aria-hidden': 'true' }));
         continue;
       }
-      cells.push(h('button', { type: 'button', class: `mo-d st-${f.state}${f.decided && f.decided !== 'waiting' ? ` dec-${f.decided}` : ''}${d === now ? ' at' : ''}`, 'data-day': d, 'aria-pressed': String(d === pick), 'aria-label': f.label, title: f.label, onclick: () => {
+      cells.push(h('button', { type: 'button', class: `mo-d st-${f.state}${f.decided && f.decided !== 'waiting' ? ` dec-${f.decided}` : ''}${f.corrected ? ' corrected' : ''}${d === now ? ' at' : ''}`, 'data-day': d, 'aria-pressed': String(d === pick), 'aria-label': f.label, title: f.label, onclick: () => {
         monthView.pick = d;
         renderMonth();
       }, ondblclick: () => (location.hash = dayHash(d)) },
         h('span', { class: 'mo-date' }, String(dateOf(d).getUTCDate())),
-        h('span', { class: 'mo-mark' }, dayMark(f.state, f.decided)),
+        h('span', { class: 'mo-mark' }, dayMark(f.state, f.decided, 14, f.corrected)),
         f.headline ? h('span', { class: 'mo-hl' }, f.headline) : null));
     }
   }
   const cal = h('div', { class: 'mo-cal', role: 'group', 'aria-label': `${loads.episode}: each day and what became of it` },
     ...['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((w) => h('span', { class: 'mo-wd', 'aria-hidden': 'true' }, w)), ...cells);
   // The key: each mark the calendar draws, with its word.
-  const shownStates = new Set(month.map((d) => facts.get(d.day)!).map((f) => (f.decided && f.decided !== 'waiting' ? `dec-${f.decided}` : f.state)));
-  const key = h('p', { class: 'mo-key' }, ...(['published', 'unusual', 'unlearned', 'paused', 'failed', 'dec-asis', 'dec-dont', 'dec-fill', 'dec-complete', 'dec-accepted', 'notRun', 'notArrived'] as const).filter((s) => shownStates.has(s)).map((s) => {
+  const shownStates = new Set(month.map((d) => facts.get(d.day)!).map((f) => (f.corrected ? 'corrected' : f.decided && f.decided !== 'waiting' ? `dec-${f.decided}` : f.state)));
+  const key = h('p', { class: 'mo-key' }, ...(['published', 'unusual', 'unlearned', 'paused', 'failed', 'dec-asis', 'corrected', 'dec-dont', 'dec-fill', 'dec-complete', 'dec-accepted', 'notRun', 'notArrived'] as const).filter((s) => shownStates.has(s)).map((s) => {
+    if (s === 'corrected') return h('span', { class: 'mk st-published' }, dayMark('published', null, 12, 2), 'corrected: sent again, with its count of versions');
     const dec = s.startsWith('dec-') ? (s.slice(4) as DayState) : null;
     const st = (dec ? 'published' : s) as MonthState;
     return h('span', { class: `mk st-${st}` }, s === 'notRun' || s === 'notArrived' ? h('span', { class: 'mk-dash', 'aria-hidden': 'true' }) : dayMark(st, dec, 12), dec ? DECIDED_WORD[dec] : s === 'paused' ? 'paused' : MONTH_WORD[st]);
@@ -10911,13 +11028,19 @@ function renderMonth(): void {
     const a = last ? (last.about as unknown as RunAbout) : null;
     const count = countOfDay(pd);
     const src = loadSource();
-    const waiting = a?.outcome === 'held' ? (a.waiting ?? []) : [];
+    // What waits, while the day waits: a day decided, or corrected and published, has nothing waiting.
+    const waiting = a?.outcome === 'held' && !pf.corrected && (!pf.decided || pf.decided === 'waiting') ? (a.waiting ?? []) : [];
     const c = recordChecks.get(pd.day);
+    // Its versions, where it was sent again (ADR 0021 §2): each delivery, when it arrived, and the one readers got.
+    const kd = loads.list.findIndex((l) => l.day === pd.day);
+    const vfs = at === null && kd >= 0 ? versionFacts(kd) : [];
+    const shown = pf.corrected ? correctedOf(kd)?.got.v ?? null : null;
     summary = h('div', { class: 'panel mo-sum', 'aria-live': 'polite', 'data-day': pd.day },
-      h('div', { class: 'mo-sum-head' }, h('h3', {}, dayLabel(pd.day)), dayMark(pf.state, pf.decided, 16), h('span', { class: 'mo-word' }, pf.decided && pf.decided !== 'waiting' ? DECIDED_WORD[pf.decided] : pf.state === 'paused' ? 'paused, waiting on a decision' : MONTH_WORD[pf.state])),
+      h('div', { class: 'mo-sum-head' }, h('h3', {}, dayLabel(pd.day)), dayMark(pf.state, pf.decided, 16, pf.corrected), h('span', { class: 'mo-word' }, pf.corrected ? `corrected: version ${shown} of ${pf.corrected} published` : pf.decided && pf.decided !== 'waiting' ? DECIDED_WORD[pf.decided] : pf.state === 'paused' ? 'paused, waiting on a decision' : MONTH_WORD[pf.state])),
       pf.headline ? h('p', { class: 'mo-sum-hl' }, pf.headline) : null,
       h('ul', { class: 'mo-facts' },
         pd.at ? h('li', {}, `Arrived ${whenMin(pd.at, pd.day)}`) : null,
+        ...vfs.slice(1).map((f) => h('li', {}, `${f.delivery!.source} sent again ${whenMin(f.delivery!.arrived, pd.day)}: version ${f.v}${f.published ? ', published' : f.decided?.option === 'dont' ? ', kept back' : ', waiting on a decision'}`)),
         count !== null && (!src || visible(src)) ? h('li', {}, rowsSaid(count)) : null,
         waiting.length ? h('li', {}, `What waits: ${waiting.slice(0, 4).join(', ')}${waiting.length > 4 ? ` and ${waiting.length - 4} more` : ''}`) : null,
         last ? h('li', {}, runs.some((e) => e.by.as === 'build') ? `Recorded by the build${c && c !== 'flow' && c !== 'inputs' ? (c.matches ? ' · run here, the same as the record ✓' : ' · run here, it differs from the record') : ''}` : 'Run in this browser') : null),
@@ -11012,28 +11135,34 @@ function renderLoads(): void {
   const waitingDay = after?.verb && nowStory ? firstWaiting(nowStory) : null;
   const md = now ? monthOf([now.day], allEntries(), { judged: loadSource() })[0] : undefined;
   const f = md && md.state !== 'notRun' ? calendarDay(md) : undefined;
+  // A version a later delivery replaced, on screen (ADR 0021 §2): said so, and not decided here.
+  const replacedBy = own ? supersededBy(own) : null;
+  const onVersion = own ? versionOfRun(own) : null;
+  const gotVersion = loads.at >= 0 ? correctedOf(loads.at)?.got.v ?? null : null;
   box.replaceChildren(
     h('div', { class: 'dh-nav' },
       h('a', { class: 'dh-back', href: '#month' }, `‹ ${loads.episode}`),
       h('div', { class: 'dh-step' }, step(prev, 'The day before', `‹ ${prev ? dayShort(prev) : ''}`), step(next, 'The day after', `${next ? dayShort(next) : ''} ›`))),
-    now ? h('div', { class: 'dh-title' }, h('h2', {}, dayLabel(now.day)), f ? dayMark(f.state, f.decided, 16) : null) : '',
+    now ? h('div', { class: 'dh-title' }, h('h2', {}, dayLabel(now.day)), f ? dayMark(f.state, f.decided, 16, f.corrected) : null) : '',
     (now ? lifecycleOf(now.day) : null) ?? '',
     (now ? recordLine(now.day) : null) ?? '',
+    (loads.at >= 0 ? versionsPart(loads.at) : null) ?? '',
+    replacedBy && onVersion ? h('p', { class: 'loads-pause superseded', role: 'status' }, h('b', {}, `Version ${onVersion}, ${onVersion === 1 ? 'as it arrived' : 'sent again'}: replaced by version ${replacedBy.v}`), `, ${replacedBy.delivery?.source} sent again ${whenMin(replacedBy.delivery!.arrived, now!.day)}.${gotVersion ? ` Readers got version ${gotVersion}.` : ''} It isn’t decided: the later version is.`) : '',
     h('div', { class: `loads-now${top ? ` sev-${top.severity}` : ''}` },
       // The day's head is the status line's, just above: said once (a day with no news says its trips here).
       (top && counted) || statusPause ? null : h('p', { 'aria-live': 'polite' }, top && (top.severity === 'alert' || top.severity === 'warn') ? glyphEl(top.severity, 14) : '', ' ', loadSummary()),
       // Once decided, the decision's receipt, as the sheet collapses to it: what readers now see, who, when, the record.
-      pl && held && held.state === 'waiting' && !(statusPause && !pl.verb) ? h('p', { class: `loads-pause ${held.state}` }, glyphEl(PAUSE_MARK[held.state], 14), h('b', {}, pl.text)) : null,
+      pl && held && held.state === 'waiting' && !replacedBy && !(statusPause && !pl.verb) ? h('p', { class: `loads-pause ${held.state}` }, glyphEl(PAUSE_MARK[held.state], 14), h('b', {}, pl.text)) : null,
       // A later delivery waiting (ADR 0021 §2, Q-183): said plainly, whatever its checks say.
-      own && held?.state === 'waiting' && own.result.manifest.correction ? h('p', { class: 'loads-pause waiting resent' }, `A later file for ${dayShort(now!.day)}: ${own.result.manifest.correction.sources.join(', ')} sent again. It waits for a decision, as every correction does.`) : null,
-      own && held && held.state !== 'waiting' ? receiptOf(own, may) : null,
+      own && held?.state === 'waiting' && !replacedBy && own.result.manifest.correction ? h('p', { class: 'loads-pause waiting resent' }, `A later file for ${dayShort(now!.day)}: ${own.result.manifest.correction.sources.join(', ')} sent again. It waits for a decision, as every correction does.`) : null,
+      own && held && held.state !== 'waiting' && !replacedBy ? receiptOf(own, may) : null,
       after ? h('p', { class: `loads-pause after${waitingDay ? ' waiting' : ''}` }, h('b', {}, afterParts(after))) : null,
       h('div', { class: 'loads-acts' },
-        pl?.verb && own ? h('button', { type: 'button', class: 'btn small primary vf-decide-day', 'aria-label': `Decide what readers get for ${dayMid(now!.day)}`, onclick: () => decisionSheet(own, storyFor(now!.day)) }, `${pl.verb} ›`) : null,
+        pl?.verb && own && !replacedBy ? h('button', { type: 'button', class: 'btn small primary vf-decide-day', 'aria-label': `Decide what readers get for ${dayMid(now!.day)}`, onclick: () => decisionSheet(own, storyFor(now!.day)) }, `${pl.verb} ›`) : null,
         waitingDay && after?.verb ? h('button', { type: 'button', class: 'btn small primary vf-decide-day', 'aria-label': `Decide what readers get for ${dayMid(waitingDay)}`, onclick: () => decideDay(waitingDay) }, `${after.verb} ›`) : null,
         lens && top && visible(src!) ? h('button', { type: 'button', class: 'btn small', onclick: () => openTab(lens, 'news') }, 'The news ›') : null)),
     (now ? storyOfDay(now.day) : null) ?? '');
-  if (now) $('tab-flow').setAttribute('href', dayHash(now.day));
+  if (now) $('tab-flow').setAttribute('href', dayHash(now.day, loads.version.get(loads.at) ?? null));
 }
 
 /** The worst an episode's days are told, by the history's verdict (only to someone the trips are open to): its chip's
@@ -11138,6 +11267,124 @@ async function replaceDayFile(day: string, bytes: Uint8Array<ArrayBuffer>, name:
 }
 
 /** Put a load in the engine as the trips source and run the flow on it. Only the last few loads' bytes are kept. */
+// ------------------------------------------------------------------ a day's versions (ADR 0021 §2)
+
+/** A load's versions (ADR 0021 §2): its first files, by source, then the files as each later delivery left them, each
+ * with the delivery that made it. */
+function versionsOfLoad(k: number): { files: Record<string, Listed>; delivery: (Delivered & { source: string }) | null }[] {
+  const l = loads.list[k];
+  if (!l) return [];
+  const main = primarySource();
+  const first: Record<string, Listed> = l.files ?? (main ? { [main]: l } : {});
+  const ds = dataList ? deliveriesOf(dataList, l.day) : [];
+  return versionsOfDay({ ...l, files: first }, ds).map((files, i) => ({ files, delivery: i ? ds[i - 1]! : null }));
+}
+
+/** Which version of a load a run read, by its files' sha256 (1: its first files); null for files no version has (a
+ * file the viewer put in its place). */
+function versionOfFiles(k: number, files: Readonly<Record<string, string>> | undefined): number | null {
+  if (!files) return null;
+  const i = versionsOfLoad(k).findIndex((v) => Object.entries(v.files).every(([id, f]) => files[id] === undefined || files[id] === f.sha256));
+  return i >= 0 ? i + 1 : null;
+}
+
+/** The version of its load a run here read. */
+const versionOfRun = (r: RunRecord | undefined): number | null => (r?.load === undefined ? null : versionOfFiles(r.load, inputsOf(r.result.manifest).files));
+
+/** Every run of a day the record holds, recorded or made here, with the version of its load it read, in order. */
+function runsOfVersions(k: number): { e: RecordEntry; v: number | null }[] {
+  const l = loads.list[k];
+  if (!l) return [];
+  return allEntries().filter((e) => e.kind === 'run' && runDay(e) === l.day && (e.about as unknown as RunAbout).outcome !== 'derived').map((e) => ({ e, v: versionOfFiles(k, (e.about as { inputs?: Inputs } | null)?.inputs?.files) }));
+}
+
+/** The manifests a release applied in the record: what a decision published. */
+function releasedManifests(): Set<string> {
+  return new Set(allEntries().flatMap((e) => (e.kind === 'release' && (e.about as Partial<ReleaseAbout> | null)?.outcome === 'applied' ? [String((e.about as Partial<ReleaseAbout>).manifest)] : [])));
+}
+
+/**
+ * The version of a day readers got, by the record (ADR 0021 §1): the latest that was published, by a run of it that
+ * passed or a decision that released it; else the latest version sent (waiting for a decision, or kept back). 1 for a
+ * day sent once.
+ */
+function wentWith(k: number): number {
+  const n = versionsOfLoad(k).length;
+  if (n <= 1) return 1;
+  const released = releasedManifests();
+  let got = 0;
+  for (const { e, v } of runsOfVersions(k)) {
+    const a = e.about as unknown as RunAbout;
+    if (v && (a.outcome === 'ok' || (a.manifest && released.has(a.manifest)))) got = v;
+  }
+  return got || n;
+}
+
+/**
+ * What a run of a load's later version corrects (ADR 0021 §2, Q-183): the latest run of the day of an earlier version,
+ * recorded or made here, and the sources whose files differ from it. Null for a load's first files, or a later version
+ * whose day nothing ran before.
+ */
+function correctionFor(k: number, v: number): { of: { run: number; manifest: string }; sources: string[] } | null {
+  if (v <= 1) return null;
+  const vs = versionsOfLoad(k);
+  const prior = runsOfVersions(k).filter((x) => x.v !== null && x.v < v).at(-1);
+  const a = prior?.e.about as (RunAbout & { run?: unknown }) | undefined;
+  if (!prior || !a || typeof a.run !== 'number' || typeof a.manifest !== 'string') return null;
+  const was = vs[prior.v! - 1]!.files;
+  const now = vs[v - 1]!.files;
+  const sources = Object.keys(now).filter((id) => was[id]?.sha256 !== now[id]!.sha256).sort();
+  return sources.length ? { of: { run: a.run, manifest: a.manifest }, sources } : null;
+}
+
+/** What a version of a day was (ADR 0021 §2, §4), from the record: the delivery that made it, its first run, the latest
+ * decision about it (one choice for the day, Q-193) and whether readers got it. */
+interface VersionFact {
+  v: number;
+  delivery: (Delivered & { source: string }) | null;
+  first: RecordEntry | null;
+  decided: { at: string; by: string; option: DecisionOption; reason: string | null } | null;
+  published: boolean;
+}
+
+/** Every version of a day and what became of it (ADR 0021 §2), in order: the first files, then each delivery. */
+function versionFacts(k: number): VersionFact[] {
+  const runs = runsOfVersions(k);
+  const released = releasedManifests();
+  const all = allEntries();
+  return versionsOfLoad(k).map((ver, i) => {
+    const mine = runs.filter((x) => x.v === i + 1).map((x) => x.e);
+    const manifests = new Set(mine.map((e) => (e.about as unknown as RunAbout).manifest).filter((m): m is string => typeof m === 'string'));
+    const last = all.filter((e) => e.kind === 'decide' && manifests.has(String((e.about as Partial<DecideAbout> | null)?.manifest))).at(-1);
+    return {
+      v: i + 1, delivery: ver.delivery, first: mine[0] ?? null,
+      decided: last ? { at: last.at, by: last.by.as, option: (last.about as unknown as DecideAbout).option, reason: last.reason } : null,
+      published: mine.some((e) => (e.about as unknown as RunAbout).outcome === 'ok' || released.has(String((e.about as unknown as RunAbout).manifest))),
+    };
+  });
+}
+
+/** A day corrected (ADR 0021 §2, §3): sent again later, and a later version published. Its versions and the one
+ * readers got; null for any other day. */
+function correctedOf(k: number): { versions: VersionFact[]; got: VersionFact } | null {
+  const versions = k >= 0 ? versionFacts(k) : [];
+  const got = [...versions].reverse().find((f) => f.published);
+  return versions.length > 1 && got && got.v > 1 ? { versions, got } : null;
+}
+
+/** The sources a version's delivery and those before it sent again, in order, once each. */
+const sentSources = (versions: readonly VersionFact[], upTo: number): string[] => [...new Set(versions.slice(1, upTo).flatMap((f) => (f.delivery ? [f.delivery.source] : [])))];
+
+/** A run here of a version a later delivery replaced (ADR 0021 §2): the later version, which waits or was decided in
+ * its place. Null for the latest version, or a file the viewer put in place of the day's. A superseded version isn't
+ * decided: the day is the later version's to decide. */
+function supersededBy(r: RunRecord | undefined): VersionFact | null {
+  if (!r || r.load === undefined || r.derived || loads.replaced.has(r.load)) return null;
+  const v = versionOfRun(r);
+  const facts = versionFacts(r.load);
+  return v !== null && v < facts.length ? facts[v]! : null;
+}
+
 async function runLoad(k: number): Promise<void> {
   const engine = state.engine;
   const l = loads.list[k];
@@ -11145,31 +11392,47 @@ async function runLoad(k: number): Promise<void> {
   // A day stepped to is a run (round 3, #7): only someone who may decide steps days, before anything is fetched.
   if (!mayRun()) return void run();
   const replaced = loads.replaced.get(k);
-  let bytes = replaced?.bytes ?? loads.bytes.get(k);
+  // The version a link asked for, else the one readers got (ADR 0021 §1, §4): its files, a delivery's in place of the
+  // day's first file of its source. A file the viewer put in place of the day's is the first version's, replaced.
+  const vs = versionsOfLoad(k);
+  const version = replaced ? 1 : Math.min(Math.max(1, loads.version.get(k) ?? wentWith(k)), Math.max(1, vs.length));
+  const files = vs[version - 1]?.files ?? {};
+  const main = primarySource();
+  const top = (main && files[main]) || l;
+  let bytes = replaced?.bytes ?? (top.sha256 === l.sha256 ? loads.bytes.get(k) : undefined);
   try {
     if (!bytes) {
-      setStatus(`Fetching ${dayLabel(l.day)}${l.files ? `: ${fmtInt(Object.keys(l.files).length)} files` : sourceOpen() ? `: ${rowsSaid(l.rows)}` : ''}, checked against the data's list…`);
-      bytes = await checked(l.file, { sha256: l.sha256, bytes: l.bytes ?? -1, from: l.file });
-      loads.bytes.set(k, bytes);
-      for (const old of [...loads.bytes.keys()].slice(0, Math.max(0, loads.bytes.size - 3))) loads.bytes.delete(old);
+      setStatus(`Fetching ${dayLabel(l.day)}${version > 1 ? ` as sent again (version ${version})` : ''}${l.files ? `: ${fmtInt(Object.keys(l.files).length)} files` : sourceOpen() ? `: ${rowsSaid(top.rows)}` : ''}, checked against the data's list…`);
+      bytes = await checked(top.file, { sha256: top.sha256, bytes: top.bytes ?? -1, from: top.file });
+      if (top.sha256 === l.sha256) {
+        loads.bytes.set(k, bytes);
+        for (const old of [...loads.bytes.keys()].slice(0, Math.max(0, loads.bytes.size - 3))) loads.bytes.delete(old);
+      }
     }
     // The engine hashes the bytes again as it pins them, kept ones included, and refuses them if they don't match. The
     // day's files go to it in one call (ADR 0019 amendment 2), the loads' source first.
-    const day: { name: string; bytes: Uint8Array; sha256: string }[] = [{ name: loadFile(), bytes, sha256: replaced?.sha256 ?? l.sha256 }];
-    const main = primarySource();
+    const day: { name: string; bytes: Uint8Array; sha256: string }[] = [{ name: loadFile(), bytes, sha256: replaced?.sha256 ?? top.sha256 }];
     // The other daily sources' files for the day (ADR 0013 §5), each checked and pinned under its binding's name.
     const others = loads.others.get(k) ?? {};
     const pulled: [string, string, string][] = [];
-    for (const [id, f] of Object.entries(l.files ?? {})) {
+    for (const [id, f] of Object.entries(l.files ? files : {})) {
       const b = bindingOf(id);
-      if (!b || id === primarySource()) continue;
-      others[id] ??= await checked(f.file, { sha256: f.sha256, bytes: f.bytes ?? -1, from: f.file });
-      day.push({ name: b.file, bytes: others[id], sha256: f.sha256 });
+      if (!b || id === main) continue;
+      const at = `${id}:${f.sha256}`;
+      others[at] ??= await checked(f.file, { sha256: f.sha256, bytes: f.bytes ?? -1, from: f.file });
+      day.push({ name: b.file, bytes: others[at], sha256: f.sha256 });
       pulled.push([id, f.file, f.sha256]);
     }
     await pinFiles(engine, day);
-    if (main) pulledIn(main, replaced ? replaced.name : l.file, replaced?.sha256 ?? l.sha256, replaced ? `uploaded by ${state.viewer} in place of ${l.file}` : madeBy(main));
-    for (const [id, file, sha256] of pulled) pulledIn(id, file, sha256, madeBy(id));
+    // Where each file came from: a file sent again says so, with when it arrived (ADR 0015 amendment 5, ADR 0021 §2).
+    const sentAgain = (id: string) => vs.slice(1, version).map((v) => v.delivery).filter((d) => d?.source === id && d.sha256 === files[id]?.sha256).at(-1);
+    const fromOf = (id: string) => {
+      const d = sentAgain(id);
+      return d ? `${madeBy(id) ?? 'its system'}, sent again ${whenMin(d.arrived, l.day)}` : madeBy(id);
+    };
+    if (main) pulledIn(main, replaced ? replaced.name : top.file, replaced?.sha256 ?? top.sha256, replaced ? `uploaded by ${state.viewer} in place of ${l.file}` : fromOf(main));
+    for (const [id, file, sha256] of pulled) pulledIn(id, file, sha256, fromOf(id));
+    loads.pinnedVersion = version;
     loads.others.set(k, others);
     for (const old of [...loads.others.keys()].slice(0, Math.max(0, loads.others.size - 3))) loads.others.delete(old);
   } catch (e) {
@@ -11322,8 +11585,11 @@ function fileFacts(source: string, day: string): FileFacts | undefined {
   if (!sha256) return undefined;
   const prev = i > 0 ? { slot: list[i - 1]!.day, sha256: list[i - 1]!.sha256 } : i === 0 && s?.before ? { slot: s.before.day, sha256: s.before.sha256 } : undefined;
   // The export time is what freshness is told from: a file the list gives none for (or one put in its place) isn't judged.
-  if (!listed?.exported || listed.sha256 !== sha256) return undefined;
-  return { sha256, exported: listed.exported, ...(prev ? { previous: prev } : {}) };
+  // A file sent again later for the day (ADR 0021 §2) is told from its own.
+  const sent = s?.deliveries?.find((d) => d.day === day && d.sha256 === sha256);
+  const exported = sent ? sent.exported : listed?.sha256 === sha256 ? listed.exported : undefined;
+  if (!exported) return undefined;
+  return { sha256, exported, ...(prev ? { previous: prev } : {}) };
 }
 function pulledIn(id: string, path: string, sha256: string, from?: string): void {
   ingested.set(id, { path, sha256, at: new Date().toISOString(), ...(from ? { from } : {}) });
@@ -11365,6 +11631,17 @@ function addToTail(m: Measures): boolean {
   tails.set(m.source, [...tail, m]);
   return true;
 }
+/**
+ * A watched dataset's tail as the views read it (ADR 0021 §2): the history's, but the day on screen is the run on
+ * screen's own numbers. A version a later delivery replaced is drawn as it was, not as the version readers got; later
+ * days are judged by the history's (`tails`, as readers got each day).
+ */
+function viewTail(id: string): Measures[] {
+  const tail = tails.get(id) ?? [];
+  const r = loads.at >= 0 ? runOfLoad(loads.at) : undefined;
+  const mine = r?.result.measures?.find((m) => m.source.toLowerCase() === id.toLowerCase());
+  return mine && tail.some((m) => m.slot === mine.slot && m.snapshot !== mine.snapshot) ? tail.map((m) => (m.slot === mine.slot ? mine : m)) : tail;
+}
 /** The tails again, from the record's run entries (their `measures`): each slot as readers got it, a correction once it
  * is published, else as it first arrived (ADR 0021 §1, core/hold.ts learnedMeasures). */
 function rebuildTails(): void {
@@ -11381,7 +11658,7 @@ let rangesKey = '';
 function refreshRanges(): void {
   const source = loadSource();
   if (!baseHistory || !source) return;
-  const tail = tailBefore(tails.get(source) ?? [], '\uffff');
+  const tail = tailBefore(viewTail(source), '\uffff');
   const skips = recordedSkips();
   // The levels accepted (ADR 0010 §5, C6): from each, the metrics it names are learned anew, in the flow's verdict and
   // in what this browser shows.
@@ -12172,7 +12449,9 @@ async function run(early?: EarlyClaims): Promise<void> {
     // A day's file replaced (the `replace` fix) is a later delivery of the day (ADR 0021 §2, Q-155): it corrects the day's
     // latest run here, and waits for a decision whatever its checks say (Q-183).
     const before = loads.replaced.has(loads.pinned) && loadDay ? state.runs.find((x) => dayOfRun(x) === loadDay && !x.derived) : undefined;
-    const correction = before && primarySource() ? { of: { run: before.result.run, manifest: before.result.hash }, sources: [primarySource()!] } : undefined;
+    // A day's later version from the data list (ADR 0021 §2) corrects the latest run of an earlier one, recorded or here.
+    const sent = !before && loads.pinned >= 0 && loads.pinnedVersion > 1 ? correctionFor(loads.pinned, loads.pinnedVersion) : null;
+    const correction = before && primarySource() ? { of: { run: before.result.run, manifest: before.result.hash }, sources: [primarySource()!] } : (sent ?? undefined);
     const result = await runFlow(engine, state.doc, { smaltdb: SMALTDB, parameters, data, log: recordHead(), ...(told ? { claims: told } : {}), ...(asked && Object.keys(asked.tell).length ? { tell: asked.tell } : {}), ...(Object.keys(sources).length ? { sources } : {}), ...(correction ? { correction } : {}) });
     const ms = performance.now() - t;
     mark('run: flow run');
@@ -12245,7 +12524,7 @@ async function run(early?: EarlyClaims): Promise<void> {
     if (location.hash === '#ontology') void renderOntology();
     renderMonth();
     mark('run: drawn');
-    if (pendingDay) openDay(pendingDay);
+    if (pendingDay) openDay(pendingDay.day, pendingDay.version);
   }
 }
 
@@ -13446,28 +13725,36 @@ const homeView = (): string => ((dataList?.loads.length ?? 0) > 1 ? 'month' : 'f
 
 /**
  * The view a link names, and the day: `#month`, the month; `#day/2024-03-12`, the day screen on that day (ADR 0021
- * §4); `#flow`, the day screen on the day already on it; the other views by name. No hash is home; any other (a brief's
- * link, `#brief-…`) is the day screen, as it was.
+ * §4), on the version readers got; `#day/2024-03-12/v1`, on one of its versions; `#flow`, the day screen on the day
+ * already on it; the other views by name. No hash is home; any other (a brief's link, `#brief-…`) is the day screen, as
+ * it was.
  */
-function routeOf(hash: string): { view: string; day: string | null } {
-  const [name = '', arg] = hash.replace(/^#/, '').split('/');
-  if (name === 'day') return { view: 'flow', day: arg && /^\d{4}-\d{2}-\d{2}$/.test(arg) ? arg : null };
-  if (name === '') return { view: homeView(), day: null };
-  return { view: VIEWS.includes(name) ? name : 'flow', day: null };
+function routeOf(hash: string): { view: string; day: string | null; version: number | null } {
+  const [name = '', arg, ver] = hash.replace(/^#/, '').split('/');
+  if (name === 'day') return { view: 'flow', day: arg && /^\d{4}-\d{2}-\d{2}$/.test(arg) ? arg : null, version: ver && /^v[1-9]\d*$/.test(ver) ? Number(ver.slice(1)) : null };
+  if (name === '') return { view: homeView(), day: null, version: null };
+  return { view: VIEWS.includes(name) ? name : 'flow', day: null, version: null };
 }
 
-/** A day's link: the day screen on it. */
-const dayHash = (day: string) => `#day/${day}`;
+/** A day's link: the day screen on it, on one of its versions where one is named. */
+const dayHash = (day: string, version?: number | null) => `#day/${day}${version ? `/v${version}` : ''}`;
 
-/** A day a link asked for while the engine was busy: opened once it is free. */
-let pendingDay: string | null = null;
+/** A day a link asked for while the engine was busy, and the version: opened once it is free. */
+let pendingDay: { day: string; version: number | null } | null = null;
 
-/** The day screen on a day (ADR 0021 §4): it runs, unless it is the day on screen and already run. */
-function openDay(day: string): void {
+/** The day screen on a day (ADR 0021 §4), on the version named, else the one readers got: it runs, unless it is the
+ * day on screen and that version already ran. */
+function openDay(day: string, version: number | null = null): void {
   const k = loads.list.findIndex((l) => l.day === day);
-  if (k < 0 || (k === loads.at && runOfLoad(k))) return;
+  if (k < 0) return;
+  const n = versionsOfLoad(k).length;
+  const want = version && version <= n ? version : null;
+  if (want) loads.version.set(k, want);
+  else loads.version.delete(k);
+  const shown = runOfLoad(k);
+  if (k === loads.at && shown && (loads.replaced.has(k) || versionOfRun(shown) === (want ?? wentWith(k)))) return;
   if (state.running || !state.engine) {
-    pendingDay = day;
+    pendingDay = { day, version: want };
     return;
   }
   pendingDay = null;
@@ -13475,7 +13762,7 @@ function openDay(day: string): void {
 }
 
 function showView(): void {
-  const { view, day } = routeOf(location.hash);
+  const { view, day, version } = routeOf(location.hash);
   if (state.selected || state.section) select(null);
   for (const v of VIEWS) {
     $(`view-${v}`).hidden = v !== view;
@@ -13485,7 +13772,7 @@ function showView(): void {
   }
   if (view === 'month') renderMonth();
   if (view === 'flow') {
-    if (day) openDay(day);
+    if (day) openDay(day, version);
     renderLoads();
     renderCanvas();
   }
@@ -13630,6 +13917,10 @@ async function start(): Promise<void> {
       }
     }
     mark('recorded month');
+    // A link to a day sent again later (ADR 0021 §2) runs its first files first, as every first day does, then the
+    // version the link names or the one readers got.
+    const route = routeOf(location.hash);
+    if (asked && route.day === asked && loads.list[k0]?.day === asked && (route.version ?? wentWith(k0)) > 1) pendingDay = { day: asked, version: route.version };
     // Each watched source's history (ADR 0010 §9): its base, for each load's normal range, when the data has one.
     const watched = loadSource();
     const hf = watched ? list.histories[watched] : undefined;
@@ -13665,7 +13956,7 @@ async function start(): Promise<void> {
       dayFiles.push({ name: b.file, bytes, sha256: want.sha256 });
       tablesDdl.push(pinnedDdl(b));
       if (id === list.loadSource && first) loads.bytes.set(k0, bytes);
-      else if (day) loads.others.set(k0, { ...(loads.others.get(k0) ?? {}), [id]: bytes });
+      else if (day) loads.others.set(k0, { ...(loads.others.get(k0) ?? {}), [`${id}:${want.sha256}`]: bytes });
     }
     // In one round trip each (a call that holds the engine's lock waits for the one before it to be answered): every
     // file, then every table over them, in one statement list.

@@ -4,7 +4,7 @@
  * checked against the recorded one.
  */
 import { describe, expect, it } from 'vitest';
-import { cellOf, checkAgainst, endOfDay, gridOf, isMonthFile, knownOn, layered, MONTH_FORMAT, monthOf, runsByDay, stateOfRun, worseCell, type MonthFile } from '../src/core/month.js';
+import { cellOf, checkAgainst, endOfDay, gridOf, isMonthFile, knownOn, layered, MONTH_FORMAT, monthOf, runsByDay, stateOfRun, versionsOf, worseCell, type MonthFile } from '../src/core/month.js';
 import type { LogEntry } from '../src/core/log.js';
 import type { RunManifest } from '../src/core/manifest.js';
 
@@ -32,7 +32,19 @@ describe('the month, day by day', () => {
     const m = monthOf(days, entries, { judged: 'effective' });
     expect(m.map((d) => d.state)).toEqual(['published', 'unusual', 'paused', 'unusual', 'unlearned', 'failed', 'notRun']);
     expect(m.map((d) => d.headline)).toEqual([null, 'Why: 0.3%', 'waf: Status fail: 22.7% (band 0%–15%)', 'tls: Status fail: 8.9%', 'Not judged yet', 'no such table', null]);
-    expect(m[0]).toMatchObject({ at: '2024-03-01T06:05:00Z', runs: 1, manifest: 'm1', by: 'build' });
+    expect(m[0]).toMatchObject({ at: '2024-03-01T06:05:00Z', runs: 1, versions: 1, manifest: 'm1', by: 'build' });
+  });
+
+  it('counts a day’s versions: its first files and each later set sent for it, a run again on the same files none', () => {
+    const files = (mfa: string) => ({ flow: 'f', parameters: { day: '2024-03-04' }, files: { mfa, waf: 'w' } });
+    const day = [
+      entry(0, '2024-03-04T05:25:00Z', { day: '2024-03-04', outcome: 'held', manifest: 'v1', inputs: files('a') }),
+      entry(1, '2024-03-05T02:40:00Z', { day: '2024-03-04', outcome: 'held', manifest: 'v2', inputs: files('b'), correction: { of: 'v1', sources: ['mfa'] } }),
+      entry(2, '2024-03-06T10:00:00Z', { day: '2024-03-04', outcome: 'held', manifest: 'v1b', inputs: files('a') }, 'owner'),
+    ];
+    expect(versionsOf(day).map((v) => v.runs.map((e) => (e.about as { manifest: string }).manifest))).toEqual([['v1', 'v1b'], ['v2']]);
+    expect(monthOf(['2024-03-04'], day)[0]).toMatchObject({ runs: 3, versions: 2, manifest: 'v1b' });
+    expect(monthOf(['2024-03-04'], day, { at: '2024-03-05T00:00:00Z' })[0]).toMatchObject({ runs: 1, versions: 1 });
   });
 
   it('as known on a moment: a day recorded after it hasn’t arrived; a later run of a day is the day’s state then', () => {
@@ -67,6 +79,8 @@ describe('the grid: each dataset on each day', () => {
   it('says refused, held, unusual, not judged, fine or absent, the worst first', () => {
     expect(cellOf({ holds: [hold('waf', 'x')] }, manifests.m3, ['waf'])).toBe('held');
     expect(cellOf({ holds: [hold('waf', 'x')] }, manifests.m3, ['tls'])).toBe('ok');
+    // A file sent again waits for a decision whatever its data says (Q-183): its cell says its data.
+    expect(cellOf({ holds: [{ ...hold('waf', 'a later file for its day: it waits for a decision'), by: 'correction' }] }, manifests.m3, ['waf'])).toBe('ok');
     expect(cellOf({}, manifests.m7, ['logging_coverage'])).toBe('refused');
     expect(cellOf({}, manifests.m7, ['waf'])).toBe('absent');
     expect(cellOf({ claims: [{ source: 'tls', state: 'unusual' }] }, manifests.m1, ['tls', 'waf'])).toBe('unusual');
@@ -90,6 +104,23 @@ describe('the build’s entries under this browser’s', () => {
     expect(file.entries[0]!.seq).toBe(0);
   });
 
+  it('renumbers what a decision or a release cites with them: its decisions, the standing decision, the withdrawal', () => {
+    const file = { entries: [
+      entries[2]!,
+      entry(1, '2024-03-03T08:00:00Z', { day: '2024-03-03', option: 'dont', scope: 'untilPass' }, 'ciso', 'decide'),
+      entry(2, '2024-03-03T08:00:00Z', { day: '2024-03-03', option: 'dont', under: 1 }, 'ciso', 'decide'),
+      entry(3, '2024-03-03T09:00:00Z', { run: 1, decision: 2, decisions: [2, 1], under: 1, withdraws: 0, outcome: 'applied' }, 'ciso', 'release'),
+      entry(4, '2024-03-03T09:30:00Z', { day: '2024-03-03', outcome: 'ok', manifest: 'm', decision: 3 }),
+    ] };
+    const l = layered(file);
+    expect(l.map((e) => e.seq)).toEqual([-5, -4, -3, -2, -1]);
+    expect(l[2]!.about).toMatchObject({ under: -4 });
+    expect(l[3]!.about).toEqual({ run: 1, decision: -3, decisions: [-3, -4], under: -4, withdraws: -5, outcome: 'applied' });
+    // A run's fields aren't seqs of entries: left as they are.
+    expect(l[4]!.about).toMatchObject({ decision: 3 });
+    expect(file.entries[3]!.about).toMatchObject({ decision: 2 });
+  });
+
   it('takes only a recorded month', () => {
     const good: MonthFile = { format: MONTH_FORMAT, flow: 'larkspur', build: 'abc', now: '2024-04-01T08:00:00Z', entries, manifests: {} };
     expect(isMonthFile(good)).toBe(true);
@@ -105,6 +136,13 @@ describe('a run made here against its record', () => {
   it('matches on the same plan, contents and holds, whatever else differs', () => {
     const here = { manifest: manifest([node('waf', { ingest: { at: 'now' } }), node('effective'), node('folded', { content: undefined, status: 'folded' })]), holds: [hold('waf', 'said otherwise')] };
     expect(checkAgainst(recorded, here)).toEqual({ matches: true, plan: null, differs: [], holds: { recorded: ['checks:waf'], here: ['checks:waf'] } });
+  });
+
+  it('takes each hold once: a check held by load, or spared on loads read before, is the same hold of the day', () => {
+    const byLoad = (load: string) => ({ ...hold('app_owners', 'x'), load: { source: load, slot: '2024-03-18', sha256: load } });
+    const recordedSplit = { manifest: recorded.manifest, holds: [hold('org_chain', 'y'), byLoad('hr_org_units'), byLoad('cmdb_apps'), byLoad('apps')] };
+    const hereSpared = { manifest: recorded.manifest, holds: [hold('org_chain', 'y'), byLoad('hr_org_units')] };
+    expect(checkAgainst(recordedSplit, hereSpared)).toMatchObject({ matches: true, holds: { recorded: ['checks:app_owners', 'checks:org_chain'], here: ['checks:app_owners', 'checks:org_chain'] } });
   });
 
   it('says which dataset differs, a hold that differs, or another plan', () => {

@@ -1095,6 +1095,9 @@ export interface Pause {
   /** With several watched sources (ADR 0010 §7): the load it is about. Such a pause is keyed by its load, not by the
    * run's inputs: every later run that still reads the load carries it, and one decision decides it. `day` is its slot. */
   load?: Load;
+  /** A later delivery of its day replaced the file (or the version) it is about (ADR 0021 §2): the day waits on the
+   * correction, and this pause no longer holds it, whatever was decided of it. */
+  superseded?: boolean;
 }
 
 type EntryLike = Pick<LogEntry, 'seq' | 'kind' | 'at' | 'by' | 'about' | 'reason' | 'amends'>;
@@ -1163,22 +1166,25 @@ export function pausesOf(entries: readonly EntryLike[], period?: string | null):
       if (p) p.state = 'passed';
     }
   };
-  // Every pause each held run opened, by its manifest: a later delivery of its day closes those of the files it sent
-  // again (ADR 0021 §2), so the day waits on the correction alone.
+  // Every pause each held run opened, by its manifest: a later delivery of its day supersedes them (ADR 0021 §2), so the
+  // day waits on the correction alone; with several watched sources, but the loads the later run still reads (another
+  // file, not sent again), which are carried on. A superseded pause keeps its decision, and no longer holds its day.
   const opened = new Map<string, Set<string>>();
   const open = (manifest: string, key: string) => opened.set(manifest, (opened.get(manifest) ?? new Set()).add(key));
-  const supersede = (c: unknown) => {
-    if (!isRecord(c) || typeof c.of !== 'string' || !Array.isArray(c.sources)) return;
-    const sent = new Set(c.sources.flatMap((x) => (typeof x === 'string' ? [x.toLowerCase()] : [])));
+  const supersede = (c: unknown, loads: unknown) => {
+    if (!isRecord(c) || typeof c.of !== 'string') return;
+    const read = Array.isArray(loads) ? new Set(loads.flatMap((l) => (isLoad(l) ? [loadKey(l)] : []))) : null;
+    const sent = new Set((Array.isArray(c.sources) ? c.sources : []).flatMap((x) => (typeof x === 'string' ? [x.toLowerCase()] : [])));
     for (const key of opened.get(c.of) ?? []) {
       const p = pauses.get(key);
-      // With several watched sources, only the loads of the files sent again: another file's load is carried on.
-      if (p && p.state === 'open' && (!p.load || sent.has(p.load.source.toLowerCase()))) p.state = 'passed';
+      if (!p || (p.load && (read ? read.has(loadKey(p.load)) : !sent.has(p.load.source.toLowerCase())))) continue;
+      p.superseded = true;
+      if (p.state === 'open') p.state = 'passed';
     }
   };
   for (const e of entries) {
     const a = e.about as JSONValue;
-    if (e.kind === 'run' && isRecord(a)) supersede(a.correction);
+    if (e.kind === 'run' && isRecord(a)) supersede(a.correction, a.loads);
     if (!isRecord(a)) continue;
     if (e.kind === 'run' && isHeld(a) && Array.isArray(a.holds) && a.holds.some((h) => isLoad(h.load))) {
       // Several watched sources: a pause a load, keyed by it (ADR 0010 §7). Each load's holds keep back the outputs
@@ -1394,7 +1400,7 @@ export function learnedMeasures<M extends { source: string; slot: string }>(entr
 export function skipOf(entries: readonly EntryLike[], period?: string | null, source?: string): string[] {
   const out = new Set<string>();
   for (const p of pausesOf(entries, period)) {
-    if (p.day === null || p.state === 'passed') continue;
+    if (p.day === null || p.state === 'passed' || p.superseded) continue;
     if (p.state === 'decided' && asCame(p.decision?.about.option)) continue;
     // With several watched sources, a load's pause leaves out its slot for its own source alone (ADR 0010 §7).
     if (p.load && source !== undefined && p.load.source.toLowerCase() !== source.toLowerCase()) continue;

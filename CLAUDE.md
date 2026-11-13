@@ -285,7 +285,17 @@ release (smaltty ADR 0030).
   its checks say (Q-183; `test/correction.test.ts`); Replace the file runs as such a correction (Q-155), the day screen
   saying *Sent again* (`tools/browser/stops/fixes.json`, tour.cjs's `upload`). Decisions on a flow watching several
   datasets are one choice recorded as a decision a held load (`heldLoadsOf`, `loadDecisions`, `keysForLoads`,
-  `dayPauseOfLoads`; Q-193, ADR 0010 §16; `tools/browser/stops/decide.json`).
+  `dayPauseOfLoads`; Q-193, ADR 0010 §16; `tools/browser/stops/decide.json`). Slice 2, second part: what we went with
+  feeds the history (`learnedMeasures`; a later delivery supersedes what its first run held, `pausesOf` `superseded`;
+  `test/delivery.test.ts`); Larkspur's recorded story (`examples/larkspur/story.json`, `smaltfl-story/1`,
+  `src/core/timeline.ts` `storyProblems`/`timelineOf`, the data list's `story`): the generator's files sent again
+  (`sentAgain`, the writer's `--story`, loads.json `deliveries`), the recorder in time order (each delivery a correction,
+  each decision by load, a release beside each that publishes); the app's data list ships `deliveries` (`deliveriesOf`,
+  `versionsOfDay`), a day opens on the version readers got (`wentWith`, `correctionFor`; `#day/YYYY-MM-DD/vN`, a tour
+  stop's `version`), the month marks a corrected day ↻ with its versions (`correctedOf`, MonthDay `versions`), the day
+  screen lists its versions like commits (`versionFacts`, `versionsPart`) and a superseded one isn't decided
+  (`supersededBy`); the day on screen is drawn from its own run (`viewTail`); `layered` renumbers what a decision or
+  release cites.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -306,8 +316,9 @@ release (smaltty ADR 0030).
   **Next:** [ADR 0021](docs/adr/0021-time.md), time: a month screen to pick a day (calendar, grid, trend, *for the day*
   and *as known on*) and a day screen (flow, lifecycle, story, versions); March recorded by the build; every version of
   a day kept like a commit, corrections decided; the ontology effective-dated and hashed to each run; what-if runs. In
-  the slices of its §9: slice 1, the two screens and the recorded runs, is built (its §"As built"); slice 2, the
-  recorded story (deliveries, Larkspur's `story.json`, a day's versions), is next.
+  the slices of its §9: slice 1, the two screens and the recorded runs, and slice 2, the recorded story (deliveries,
+  Larkspur's `story.json`, a day's versions, corrections decided), are built (its §"As built"); slice 3, flip and
+  compare (any version run, the compare summary, row and cell diffs by key), is next.
 
 ## Rules for this repository
 

@@ -24,9 +24,10 @@ every layer:
 Nothing that judges the days knows where the trouble is planted. The first day takes a few seconds while the engine
 starts and runs the whole flow, about a hundred steps.
 
-March opens complete. The build ran every day and recorded it, and the month screen draws it at once. Opening a day
-runs it again in your browser, judged against the recorded days before it, and the line under the day says whether
-its datasets and holds are the same as the record's.
+March opens complete. The build ran every day and recorded it, with what happened next: the files sent again and who
+decided what, when and why (the recorded story, below). The month screen draws it at once. Opening a day runs it again
+in your browser, on the version readers got, judged against the recorded days before it, and the line under the day
+says whether its datasets and holds are the same as the record's.
 
 ## The flow
 
@@ -93,29 +94,36 @@ In **product**:
 - **org_posture** has each unit's score, with its leader;
 - **remediation_queue** has a row for each failing application, with its owning team.
 
-Nothing that reads the WAF is published while the day waits. Results shows the posture its consumers kept, *as
-published* on the last day that went out. **Decide ›** opens the choices the day allows, each with what it publishes
-and whether it can be undone: publish as is, with a reason, or keep it back. One choice decides every file that holds
-the day. Larkspur's flow has no fill step, so no file is filled from another day. The fix itself is one configuration
-change at the ingress.
+Nothing that reads the WAF was published while the day waited. That morning the security lead, Sloane Marsden,
+published it as is, with her reason: the ingress really was in monitor mode overnight, so the failures are real. The
+day's head shows her decision, and its story when it was taken. The fix itself is one configuration change at the
+ingress.
+
+Two days still wait for you: **Sat 23** and **Thu 28**. **Decide ›** opens the choices the day allows, each with what it
+publishes and whether it can be undone: publish as is, with a reason, or keep it back. One choice decides every file
+that holds the day. Larkspur's flow has no fill step, so no file is filled from another day.
 
 ## The join that lost 95 applications
 
-**Mon 18.** Every file arrived well formed; the day is held in silver.
+**Mon 18.** Every file arrived well formed; the day was held in silver. HR sent the extract again that morning, and the
+day opens on that version, the one readers got. Its first version, as it arrived, is **v1** in the day's versions:
+open it.
 
 1. Unfold **org** and open **org_chain**: *4 of 245 rows broke one_root, a rule that stops the day*. A department was
    dissolved in the HR system and its four teams weren't moved, so they no longer reach the group.
 2. Unfold **apps** and open **app_owners**: *95 of 2,410 rows broke owner_chain*. Those applications lost their owner
    chain. They are kept under UNASSIGNED, not dropped, and the step fails.
 
-What reads the chain waits: the organisation, the applications and the posture by unit. What doesn't read it
-publishes: each application's statuses and scorecard read its team, which is still there. The next day's extract moves
-the four teams under another department, and the chain is whole again.
+What reads the chain waited: the organisation, the applications and the posture by unit. What doesn't read it
+published: each application's statuses and scorecard read its team, which is still there. The extract sent again moves
+the four teams under their new department, the chain is whole, and the security lead published it.
 
 ## Contracts
 
-**Thu 21.** The TLS file arrives with its rows twice, and bronze holds it by its key: *tls: 815 apps repeat a key*. The
-doubled rows flow through: in **product**, **failing_by_unit**'s **Checks** say its rows repeat a key too.
+**Thu 21.** The TLS file arrived with its rows twice, and bronze held it by its key: *tls: 815 apps repeat a key*. Open
+its first version, **v1**: the doubled rows flow through, and in **product**, **failing_by_unit**'s **Checks** say its
+rows repeat a key too. The TLS team sent the file twice more that day: v2 still repeated rows and was kept back, and v3,
+every certificate once, was published.
 
 Its **Contract** tab, like every gold dataset's, says what its consumers rely on:
 
@@ -174,7 +182,27 @@ As the app says them when the days are run in order:
 | Thu 28 | An HR error makes a VP report to one of their own directors | Paused: *6 of 245 rows broke no_loop* (silver, org_chain) |
 | Fri 29 | Quarter-end access reviews | The access reviews file has no quality issues. Published |
 
-Days that are paused stay paused until someone decides. Decide one and step on to see what the next days say.
+## What happened next: the recorded story
+
+Each paused day was decided in the record, by the security lead, or a file was sent again for it
+(`examples/larkspur/story.json`). The month marks each: ↻ corrected, with its count of versions; ⚑ published as is; ⊠
+kept back; ‖ still waiting.
+
+| Day | What happened next |
+|---|---|
+| Mon 4 | Kept back at 08:10: the export came through empty. The vendor ran it again overnight; the real file arrived at 02:40 on Tue 5 and was published. ↻2 |
+| Wed 6 | Kept back: the backup file was Tuesday's again. Wednesday's own export arrived early on Thu 7 and was published. ↻2 |
+| Thu 7 | The logging team sent the file again that morning with `retention_days` back, and it was published. ↻2 |
+| Fri 8 | Kept back while the vault team checks its feed. ⊠ |
+| Tue 12, Wed 13, Tue 19 | Published as is, each with its reason. ⚑ |
+| Mon 18 | HR sent the extract again with the teams under their new department, published. ↻2 |
+| Thu 21 | Sent again with half its repeats out, still wrong, kept back; then sent again, every certificate once, published. ↻3 |
+| Tue 26 | Kept back while the scanner team looks for the missing business unit. ⊠ |
+| Sat 23, Thu 28 | Still waiting for you. ‖ |
+
+A file sent again is a version of its day, like a commit. It waits for a decision whatever its checks say, and the
+history learns the day from the version that was published. Open a day: its versions are listed under its head, the one
+readers got marked, and any other is a tap away. A version a later one replaced isn't decided; the later one is.
 
 ## Checks
 

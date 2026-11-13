@@ -1542,6 +1542,7 @@ svg.viz { display: block; overflow: visible; max-width: 100%; height: auto; }
 .vf-option:disabled .g-half, .viz.off .g-half { fill: var(--muted); } .vf-option:disabled .g-fillbox, .viz.off .g-fillbox { stroke: var(--muted); }
 /* A new level accepted (ADR 0010 §12): a step in the ink, never a severity's colour. */
 .g-level { fill: none; stroke: var(--ink-2); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; } .g-levdot { fill: var(--ink-2); }
+.g-corr { fill: none; stroke: var(--ink-2); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .vf-option:disabled .g-level, .viz.off .g-level { stroke: var(--muted); } .vf-option:disabled .g-levdot, .viz.off .g-levdot { fill: var(--muted); }
 .vf-option:disabled .g-pub, .viz.off .g-pub { stroke: var(--muted); }
 .viz .cut-t { stroke: var(--ink-2); stroke-width: 1.2; }
@@ -1832,6 +1833,8 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .mo-date { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .mo-mark { display: flex; align-items: center; min-height: 16px; }
 .mo-ok { color: var(--teal); font-size: 12px; line-height: 1; }
+.mo-corr { display: inline-flex; align-items: flex-start; gap: 1px; color: var(--ink-2); }
+.mo-vn { font-size: 10px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
 .mo-hl { display: none; }
 .mo-pad { min-height: 52px; }
 .mo-key { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 8px 0 0; font-size: 12px; color: var(--ink-2); }
@@ -1888,6 +1891,17 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .dh-story summary { cursor: pointer; color: var(--smalt); font-weight: 600; }
 .dh-story ol { margin: 6px 0 0; padding-left: 18px; overflow-wrap: anywhere; }
 .ds-when { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+/* A day's versions, like commits (ADR 0021 §2, §4): the one readers got and the one on screen marked. */
+.dh-versions .eyebrow { margin: 0 0 4px; }
+.dh-versions ol { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: 12.5px; }
+.dv { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); overflow-wrap: anywhere; }
+.dv.on { border-color: var(--smalt); box-shadow: inset 3px 0 0 var(--smalt); }
+.dv-n { font-family: var(--mono); font-size: 12px; }
+.dv-said { flex: 1 1 16rem; min-width: 0; color: var(--ink-2); }
+.dv-got { font-size: 11.5px; font-weight: 600; color: var(--teal); }
+.dv-on { font-size: 11.5px; color: var(--smalt); font-weight: 600; }
+.dv-open { font-size: 12.5px; font-weight: 600; color: var(--smalt); text-decoration: none; }
+.loads-pause.superseded { color: var(--ink-2); }
 </style>
 <style id="smaltkit-ui">/* smaltkit's ui.css (node_modules/smaltkit/dist/ui.css), put here by scripts/build-app.mjs */</style>
 
