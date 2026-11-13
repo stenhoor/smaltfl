@@ -295,7 +295,10 @@ release (smaltty ADR 0030).
   stop's `version`), the month marks a corrected day ↻ with its versions (`correctedOf`, MonthDay `versions`), the day
   screen lists its versions like commits (`versionFacts`, `versionsPart`) and a superseded one isn't decided
   (`supersededBy`); the day on screen is drawn from its own run (`viewTail`); `layered` renumbers what a decision or
-  release cites.
+  release cites. Slice 3, flip and compare: `src/core/compare.ts` (`compareSummary` from two manifests, `diffKeyOf`,
+  `diffOf`) and emit.ts `emitDiff` (rows by key, counted on each side, cells null-safe, keys matched as text; whole rows
+  by `emitExcept`), `test/compare.test.ts`; the day screen's **Compare** (`comparing`, `comparePart`, `rowDiffOf`,
+  `rowDiffView`), the month grid's filters (`GridFilter`); `tools/browser/stops/compare.json`, a tour stop's `devices`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -317,8 +320,8 @@ release (smaltty ADR 0030).
   and *as known on*) and a day screen (flow, lifecycle, story, versions); March recorded by the build; every version of
   a day kept like a commit, corrections decided; the ontology effective-dated and hashed to each run; what-if runs. In
   the slices of its §9: slice 1, the two screens and the recorded runs, and slice 2, the recorded story (deliveries,
-  Larkspur's `story.json`, a day's versions, corrections decided), are built (its §"As built"); slice 3, flip and
-  compare (any version run, the compare summary, row and cell diffs by key), is next.
+  Larkspur's `story.json`, a day's versions, corrections decided), and slice 3, flip and compare (the compare summary,
+  row and cell diffs by key), are built (its §"As built"); slice 4, the ontology over time, is next.
 
 ## Rules for this repository
 
