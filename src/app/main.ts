@@ -19,7 +19,8 @@ import type { ContractDef, FlowDocument, GroupDef, NotebookOutline, OutlineCell,
 import { GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
 import { notebookSectionId } from '../core/notebook.js';
 import { briefOf, briefText, type BriefIn, type BriefOption } from '../core/brief.js';
-import { createTable, emitCheckCounts, emitColumnFacts, emitCopy, emitDayHours, emitDistinct, emitHourValues, emitDrop, emitDropped, emitExcept, emitFailures, emitLookup, emitRead, emitRuleFailures, emitSample, emitSqlOver, emitUnionAll, emitUnmatched, sameColumns, stampShift, type EmitContext } from '../core/emit.js';
+import { compareSummary, diffKeyOf, diffOf, type RowDiff } from '../core/compare.js';
+import { createTable, emitCheckCounts, emitColumnFacts, emitCopy, emitDayHours, emitDiff, emitDistinct, emitHourValues, emitDrop, emitDropped, emitExcept, emitFailures, emitLookup, emitRead, emitRuleFailures, emitSample, emitSqlOver, emitUnionAll, emitUnmatched, sameColumns, stampShift, type EmitContext } from '../core/emit.js';
 import { effectOf, type Effect } from '../core/effect.js';
 import { daysFrom, HistoryRanges, isHistory, metricKey, QUANTILES, timeOf, type HistoryFile, type Metric } from '../core/history.js';
 import type { Identity, ManifestNode, SignedManifest, SourceFile, SourceIngestRecord } from '../core/manifest.js';
@@ -10664,7 +10665,10 @@ function loadSummary(): string {
 
 /** The month screen's own state: the day picked on it (its summary, under the calendar), the moment it is read as known
  * on (null: now), and the notebooks opened in its grid. */
-const monthView = { pick: null as string | null, at: null as string | null, open: new Set<string>() };
+const monthView = { pick: null as string | null, at: null as string | null, open: new Set<string>(), filter: 'all' as GridFilter };
+/** The grid's filters (ADR 0021 §3): every day, or only those waiting for a decision, corrected, or held. */
+type GridFilter = 'all' | 'waiting' | 'corrected' | 'held';
+const GRID_FILTERS: [GridFilter, string][] = [['all', 'Every day'], ['waiting', 'Waiting for a decision'], ['corrected', 'Corrected'], ['held', 'Held']];
 
 /** Each day run here that the build recorded, checked against its recorded run (ADR 0021 §4), by day: the latest run's.
  * `flow` and `inputs` say it ran under another flow or on other files than the record's, so it wasn't compared. */
@@ -10825,8 +10829,173 @@ function versionsPart(k: number): HTMLElement | null {
       h('b', { class: 'dv-n' }, `v${f.v}`),
       h('span', { class: 'dv-said' }, said(f)),
       f.v === got ? h('span', { class: 'dv-got' }, 'what readers got') : null,
-      f.v === on ? h('span', { class: 'dv-on' }, 'on screen') : h('a', { class: 'dv-open', href: dayHash(l.day, f.v === got ? null : f.v), 'aria-label': `Open version ${f.v} of ${dayLabel(l.day)}` }, 'Open ›')))));
+      f.v === on ? h('span', { class: 'dv-on' }, 'on screen') : h('span', { class: 'dv-acts' },
+        h('button', { type: 'button', class: 'linkish dv-compare', 'aria-label': `Compare version ${f.v} with version ${on ?? got ?? facts.length}`, onclick: () => {
+          comparing = { k, a: f.v, b: on ?? got ?? facts.length, rows: null };
+          renderLoads();
+        } }, 'Compare'),
+        h('a', { class: 'dv-open', href: dayHash(l.day, f.v === got ? null : f.v), 'aria-label': `Open version ${f.v} of ${dayLabel(l.day)}` }, 'Open ›'))))));
 }
+
+// ------------------------------------------------------------------ two versions compared (ADR 0021 §4, slice 3)
+
+/** The comparison open on the day screen: a load's version compared (`a`), the version it is compared with (`b`), and
+ * the output whose rows are open under it. */
+let comparing: { k: number; a: number; b: number; rows: string | null } | null = null;
+
+/** A version's latest run, recorded or here, by its manifest: what its summary is read from, with no run here. */
+function versionManifest(k: number, v: number): RunResult['manifest'] | null {
+  const e = runsOfVersions(k).filter((x) => x.v === v).at(-1)?.e;
+  const hash = (e?.about as { manifest?: string } | undefined)?.manifest;
+  return hash ? manifestOf(hash) : null;
+}
+
+/** A version's run in this visit, whose datasets the engine holds: what its rows are read from. */
+const versionRun = (k: number, v: number): RunRecord | undefined => (loads.replaced.has(k) ? undefined : state.runs.find((r) => r.load === k && !r.derived && versionOfRun(r) === v));
+
+/** Each output's rows compared, by the two runs' manifests, the output and the viewer: asked of the engine once, then
+ * kept, the answer drawn at once once it is in. A string says why there is nothing to compare. */
+const rowDiffs = new Map<string, Promise<RowDiff | string>>();
+const rowDiffsDone = new Map<string, RowDiff | string>();
+
+/**
+ * An output's rows compared between two runs here (ADR 0021 §4): each read as the viewer may read it, matched by the
+ * output's key where the viewer reads all of its columns, else as whole rows over the columns both versions show.
+ */
+function rowDiffOf(ra: RunRecord, rb: RunRecord, name: string): { id: string; done: RowDiff | string | undefined; asked: Promise<RowDiff | string> } {
+  const id = `${ra.result.hash}|${rb.result.hash}|${name}|${state.viewer}`;
+  let asked = rowDiffs.get(id);
+  if (!asked) {
+    asked = (async (): Promise<RowDiff | string> => {
+      const [ia, ib] = await Promise.all([inspect(ra), inspect(rb)]);
+      const oa = ia.plan.outputs.find((o) => o.name === name);
+      const ob = ib.plan.outputs.find((o) => o.name === name);
+      if (!oa || !ob) return `${name} isn’t built by both versions.`;
+      const va = viewIn(ia, oa.node);
+      const vb = viewIn(ib, ob.node);
+      const sa = readIn(ia, oa.node);
+      const sb = readIn(ib, ob.node);
+      if (!sa || !sb) return `${name} is closed to ${personName(state.viewer)}.`;
+      const columns = va.columns.filter((c) => vb.columns.includes(c));
+      const wanted = diffKeyOf(state.doc, name);
+      const key = wanted && wanted.every((c) => columns.includes(c)) ? wanted : null;
+      const st = emitDiff(sa, sb, columns, key);
+      const rows = async (sql: string | null) => (sql ? (await state.engine!.query(sql)).rows : []);
+      const counts = await rows(st.counts);
+      const d = diffOf(columns, key, { counts: counts[0] ?? [], removed: await rows(st.removed), added: await rows(st.added), repeated: await rows(st.repeated), changed: await rows(st.changed) });
+      rowDiffsDone.set(id, d);
+      return d;
+    })();
+    asked.catch((e) => {
+      rowDiffs.delete(id);
+      rowDiffsDone.set(id, `The rows couldn’t be compared: ${message(e)}`);
+    });
+    rowDiffs.set(id, asked);
+  }
+  return { id, done: rowDiffsDone.get(id), asked };
+}
+
+/** A cell as the comparison says it: blank where it holds nothing. */
+const cellSaid = (v: unknown): string => (v === null || v === undefined || v === '' ? '(blank)' : typeof v === 'number' ? fmtNum(v) : String(v));
+
+/** A few rows as a table: the columns as headed, each row's cells; past the first ten, the rest a tap away. */
+function rowsTable(columns: readonly string[], rows: readonly (readonly unknown[])[], label: string): HTMLElement {
+  const table = (part: readonly (readonly unknown[])[], name: string) => h('div', { class: 'scroll dc-table' }, h('table', { 'aria-label': name },
+    h('thead', {}, h('tr', {}, ...columns.map((c) => h('th', { scope: 'col' }, c)))),
+    h('tbody', {}, ...part.map((r) => h('tr', {}, ...r.map((v) => h('td', {}, cellSaid(v))))))));
+  if (rows.length <= 10) return table(rows, label);
+  return h('div', { class: 'dc-tables' }, table(rows.slice(0, 10), label),
+    h('details', { class: 'dc-more' }, h('summary', {}, `The next ${fmtInt(rows.length - 10)}`), table(rows.slice(10), `${label}, the next ${rows.length - 10}`)));
+}
+
+/** An output's rows compared, as the comparison draws it: what differs in a line, the columns that changed most, then
+ * the first rows of each kind. */
+function rowDiffView(d: RowDiff, va: number, vb: number): HTMLElement {
+  const n = (x: number, one: string, many = `${one}s`) => `${fmtInt(x)} ${x === 1 ? one : many}`;
+  const by = d.key ? `By ${d.key.join(' and ')}` : 'As whole rows (it has no key)';
+  const parts = [
+    d.removed ? `${n(d.removed, 'row')} only in v${va}` : null,
+    d.added ? `${n(d.added, 'row')} only in v${vb}` : null,
+    d.repeated ? `${n(d.repeated, 'key')} on another number of rows (${d.extraA ? `${n(d.extraA, 'row')} more in v${va}` : ''}${d.extraA && d.extraB ? ', ' : ''}${d.extraB ? `${n(d.extraB, 'row')} more in v${vb}` : ''})` : null,
+    d.changed ? `${n(d.changed, 'row')} with cells changed` : null,
+  ].filter((x): x is string => !!x);
+  const keyCols = d.key ?? [];
+  return h('div', { class: 'dc-rowdiff' },
+    h('p', { class: 'dc-said' }, `${by}: ${parts.length ? parts.join('; ') : 'the same rows'}.`),
+    d.columns.length ? h('p', { class: 'dc-cols' }, `Changed most: ${d.columns.slice(0, 4).map((c) => `${c.column} on ${n(c.changed, 'row')}`).join(', ')}${d.columns.length > 4 ? `, and ${d.columns.length - 4} more columns` : ''}.`) : null,
+    d.samples.repeated.length ? h('div', { class: 'dc-sample' }, h('p', { class: 'dc-bh' }, `On another number of rows${d.repeated > d.samples.repeated.length ? `, the first ${fmtInt(d.samples.repeated.length)}` : ''}`), rowsTable([...keyCols, `rows in v${va}`, `rows in v${vb}`], d.samples.repeated.map((r) => [...r.key, r.a, r.b]), 'Keys on another number of rows')) : null,
+    d.samples.changed.length ? h('div', { class: 'dc-sample' }, h('p', { class: 'dc-bh' }, `Cells changed${d.changed > d.samples.changed.length ? `, the first ${fmtInt(d.samples.changed.length)} rows` : ''}`), rowsTable([...keyCols, 'column', `v${va}`, `v${vb}`], d.samples.changed.flatMap((r) => r.cells.map((c) => [...r.key, c.column, c.a, c.b])), 'Cells changed')) : null,
+    d.samples.removed.length ? h('div', { class: 'dc-sample' }, h('p', { class: 'dc-bh' }, `Only in v${va}${d.removed > d.samples.removed.length ? `, the first ${fmtInt(d.samples.removed.length)}` : ''}`), rowsTable(d.all, d.samples.removed, `Rows only in version ${va}`)) : null,
+    d.samples.added.length ? h('div', { class: 'dc-sample' }, h('p', { class: 'dc-bh' }, `Only in v${vb}${d.added > d.samples.added.length ? `, the first ${fmtInt(d.samples.added.length)}` : ''}`), rowsTable(d.all, d.samples.added, `Rows only in version ${vb}`)) : null);
+}
+
+/**
+ * Two versions of a day compared (ADR 0021 §4): the summary from their runs' manifests, with no run here (the files that
+ * differ, the rules, what was decided of each, and each output's rows and whether it changed); then, for an output, its
+ * rows, read from both versions' runs here, so a version not run in this visit is a tap away first.
+ */
+function comparePart(k: number): HTMLElement | null {
+  const c = comparing;
+  const l = loads.list[k];
+  if (!c || c.k !== k || !l) return null;
+  const facts = versionFacts(k);
+  if (facts.length < 2) return null;
+  const pick = (which: 'a' | 'b') => h('select', { class: `dc-pick dc-${which}`, 'aria-label': which === 'a' ? 'The version compared' : 'The version it is compared with', onchange: (e: Event) => {
+    comparing = { ...c, [which]: Number((e.target as HTMLSelectElement).value), rows: null };
+    renderLoads();
+  } }, ...facts.map((f) => h('option', { value: String(f.v), ...(f.v === c[which] ? { selected: true } : {}) }, `v${f.v}`)));
+  const head = h('div', { class: 'dc-head' },
+    h('p', { class: 'eyebrow' }, 'Compare'),
+    h('div', { class: 'dc-picks' }, pick('a'), h('span', {}, 'with'), pick('b')),
+    h('button', { type: 'button', class: 'btn small dc-close', 'aria-label': 'Close the comparison', onclick: () => {
+      comparing = null;
+      renderLoads();
+    } }, 'Close'));
+  const box = (...body: (Node | string | null)[]) => h('section', { class: 'panel dh-compare', 'aria-label': `Version ${c.a} compared with version ${c.b}`, 'data-a': String(c.a), 'data-b': String(c.b) }, head, ...body.filter((x): x is Node | string => x !== null));
+  if (c.a === c.b) return box(h('p', { class: 'dc-said' }, 'The same version: pick another.'));
+  const ma = versionManifest(k, c.a);
+  const mb = versionManifest(k, c.b);
+  if (!ma || !mb) return box(h('p', { class: 'dc-said' }, `Version ${!ma ? c.a : c.b} hasn’t run: there is nothing of it to compare yet.`));
+  const s = compareSummary(ma, mb);
+  const rowsOf = (f: { rows: number | null; refused: boolean } | null) => (!f ? 'not read' : f.refused ? 'refused' : f.rows === null ? 'no rows counted' : `${fmtInt(f.rows)} ${f.rows === 1 ? 'row' : 'rows'}`);
+  const fate = (f: VersionFact) => (f.published ? (f.delivery ? 'published' : f.decided ? DECIDED_WORD.asis : 'published') : f.decided?.option === 'dont' ? `kept back by ${whoSaid(f.decided.by)}` : f.v < facts.length ? 'replaced before a decision' : DECIDED_WORD.waiting);
+  const fa = facts[c.a - 1];
+  const fb = facts[c.b - 1];
+  if (!fa || !fb) return null;
+  const changedOut = s.outputs.filter((o) => o.changed);
+  const sameOut = s.outputs.filter((o) => !o.changed);
+  const ra = versionRun(k, c.a);
+  const rb = versionRun(k, c.b);
+  const rowsPart = (name: string): HTMLElement => {
+    const missing = [!ra ? c.a : null, !rb ? c.b : null].filter((x): x is number => x !== null);
+    if (missing.length) return h('p', { class: 'dc-said dc-need' }, `Rows are read from both versions run in this browser. `, ...missing.map((v, i) => h('a', { class: 'dc-run', href: dayHash(l.day, v), 'aria-label': `Run version ${v} here` }, `${i ? ' Then ' : ''}Run v${v} here ›`)));
+    const got = rowDiffOf(ra!, rb!, name);
+    const holder = h('div', { class: 'dc-rows-out', 'aria-live': 'polite' });
+    const draw = (d: RowDiff | string) => holder.replaceChildren(typeof d === 'string' ? h('p', { class: 'dc-said' }, d) : rowDiffView(d, c.a, c.b));
+    if (got.done !== undefined) draw(got.done);
+    else {
+      holder.append(h('p', { class: 'dc-said' }, 'Comparing the rows…'));
+      void got.asked.then(draw, (e) => holder.replaceChildren(h('p', { class: 'dc-said' }, `The rows couldn’t be compared: ${message(e)}`)));
+    }
+    return holder;
+  };
+  return box(
+    h('p', { class: 'dc-said dc-sum' }, `${s.files.length ? `${s.files.map((f) => f.source).join(', ')}${s.files.length === 1 ? '’s file differs' : ' differ'}` : 'The same files'}; ${s.plan ? 'another plan; ' : ''}${s.changed ? `${fmtInt(s.changed)} of ${fmtInt(s.outputs.length)} outputs changed` : 'no output changed'}.`),
+    h('dl', { class: 'dc-facts' },
+      h('dt', {}, 'Files'), h('dd', {}, ...(s.files.length ? s.files.map((f) => h('p', { class: 'dc-file', 'data-source': f.source }, h('b', {}, f.source), `: ${rowsOf(f.a)} in v${c.a}, ${rowsOf(f.b)} in v${c.b}`)) : []), h('p', { class: 'dc-same' }, `${s.files.length ? `The ${fmtInt(s.same)} others` : `All ${fmtInt(s.same)}`} the same.`)),
+      h('dt', {}, 'Rules'), h('dd', {}, s.plan ? `Another plan: ${s.plan.a.slice(0, 8)} in v${c.a}, ${s.plan.b.slice(0, 8)} in v${c.b}` : 'The same flow and rules'),
+      h('dt', {}, 'Decided'), h('dd', {}, `v${c.a} ${fate(fa)}; v${c.b} ${fate(fb)}`)),
+    h('ul', { class: 'dc-outs' }, ...changedOut.map((o) => h('li', { class: `dc-out${comparing?.rows === o.name ? ' open' : ''}`, 'data-output': o.name },
+      h('span', { class: 'dc-name' }, o.name),
+      h('span', { class: 'dc-n' }, `${o.a ? fmtInt(o.a.rows) : 'not built'} → ${o.b ? fmtInt(o.b.rows) : 'not built'} rows`),
+      o.a && o.b ? h('button', { type: 'button', class: 'linkish dc-rows', 'aria-expanded': String(c.rows === o.name), onclick: () => {
+        comparing = { ...c, rows: c.rows === o.name ? null : o.name };
+        renderLoads();
+      } }, c.rows === o.name ? 'Hide rows' : 'Rows ›') : null,
+      c.rows === o.name && o.a && o.b ? rowsPart(o.name) : null))),
+    sameOut.length ? h('p', { class: 'dc-same' }, `${fmtInt(sameOut.length)} the same: ${sameOut.slice(0, 6).map((o) => o.name).join(', ')}${sameOut.length > 6 ? ` and ${fmtInt(sameOut.length - 6)} more` : ''}.`) : null);
+}
+
 
 /** What happened to a day, as a short line of steps (ADR 0021 §4): arrived, checked, held or published, decided. */
 function lifecycleOf(day: string): HTMLElement | null {
@@ -11049,11 +11218,26 @@ function renderMonth(): void {
   // The grid, from tablet width (ADR 0021 §3): which file or step was what on which day.
   const rows = gridRows();
   const flat: { row: MonthRow; level: 0 | 1 }[] = rows.flatMap((r) => [{ row: r, level: 0 as const }, ...(monthView.open.has(r.id) ? r.origins.map((o) => ({ row: { id: `${r.id}/${o}`, label: o, origins: [o] }, level: 1 as const })) : [])]);
-  const grid = monthGrid(flat.map((x) => x.row), days, allEntries(), manifestOf, at);
+  // Its filters (ADR 0021 §3): a day waiting for a decision, corrected (sent again, a later version published), or held
+  // (its first files or its latest run paused, decided or not).
+  const passes = (d: string, filter: GridFilter): boolean => {
+    const f = facts.get(d);
+    if (!f || filter === 'all') return true;
+    if (filter === 'corrected') return f.corrected > 1;
+    if (filter === 'waiting') return f.state === 'paused' && (!f.decided || f.decided === 'waiting');
+    return f.state === 'paused' || f.corrected > 1;
+  };
+  const gridDays = days.filter((d) => passes(d, monthView.filter));
+  const grid = monthGrid(flat.map((x) => x.row), gridDays, allEntries(), manifestOf, at);
+  const filters = h('div', { class: 'mg-filters', role: 'group', 'aria-label': 'Which days the grid shows' }, ...GRID_FILTERS.map(([id, label]) => h('button', { type: 'button', class: 'btn small mg-filter', 'data-filter': id, 'aria-pressed': String(monthView.filter === id), onclick: () => {
+    monthView.filter = id;
+    renderMonth();
+  } }, id === 'all' ? label : `${label} (${days.filter((d) => passes(d, id)).length})`)));
   const table = rows.length && days.length
-    ? h('div', { class: 'panel mo-grid' }, h('p', { class: 'eyebrow' }, 'Files and steps, day by day'),
+    ? h('div', { class: 'panel mo-grid' }, h('p', { class: 'eyebrow' }, 'Files and steps, day by day'), filters,
+        !gridDays.length ? h('p', { class: 'mo-checked' }, 'No day of the month is so.') : null,
         h('div', { class: 'scroll mo-grid-scroll' }, h('table', { class: 'mo-gt' },
-          h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, h('span', { class: 'sr' }, 'Notebook')), ...days.map((d) => h('th', { scope: 'col', class: d === pick ? 'mg-pick' : '' }, String(dateOf(d).getUTCDate()))))),
+          h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, h('span', { class: 'sr' }, 'Notebook')), ...gridDays.map((d) => h('th', { scope: 'col', class: d === pick ? 'mg-pick' : '' }, String(dateOf(d).getUTCDate()))))),
           h('tbody', {}, ...flat.map((x, i) => h('tr', { class: `lv${x.level}` },
             h('th', { scope: 'row' }, x.level === 0
               ? h('button', { type: 'button', class: 'linkish mg-row', 'aria-expanded': String(monthView.open.has(x.row.id)), onclick: () => {
@@ -11062,7 +11246,7 @@ function renderMonth(): void {
                   renderMonth();
                 } }, `${monthView.open.has(x.row.id) ? '▾' : '▸'} ${x.row.label}`)
               : x.row.label),
-            ...days.map((d, j) => {
+            ...gridDays.map((d, j) => {
               const c = grid[i]![j]!;
               return h('td', { class: `mg-${c ?? 'none'}${d === pick ? ' mg-pick' : ''}`, title: `${x.row.label}, ${dayLabel(d)}: ${c ? CELL_WORD[c] : 'no run'}` }, h('button', { type: 'button', class: 'mg-cell', 'aria-label': `${x.row.label}, ${dayLabel(d)}: ${c ? CELL_WORD[c] : 'no run'}`, onclick: () => {
                 monthView.pick = d;
@@ -11147,6 +11331,7 @@ function renderLoads(): void {
     (now ? lifecycleOf(now.day) : null) ?? '',
     (now ? recordLine(now.day) : null) ?? '',
     (loads.at >= 0 ? versionsPart(loads.at) : null) ?? '',
+    (loads.at >= 0 ? comparePart(loads.at) : null) ?? '',
     replacedBy && onVersion ? h('p', { class: 'loads-pause superseded', role: 'status' }, h('b', {}, `Version ${onVersion}, ${onVersion === 1 ? 'as it arrived' : 'sent again'}: replaced by version ${replacedBy.v}`), `, ${replacedBy.delivery?.source} sent again ${whenMin(replacedBy.delivery!.arrived, now!.day)}.${gotVersion ? ` Readers got version ${gotVersion}.` : ''} It isn’t decided: the later version is.`) : '',
     h('div', { class: `loads-now${top ? ` sev-${top.severity}` : ''}` },
       // The day's head is the status line's, just above: said once (a day with no news says its trips here).

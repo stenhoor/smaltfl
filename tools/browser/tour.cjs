@@ -14,6 +14,7 @@
 //     "episode": "September 2023",       optional: the episode chip to pick ("January 2024" for the month)
 //     "day": "Fri 22",                    optional: the day ("<Weekday> <date>"), found by what the month says of it and opened by its link
 //     "version": 1,                       optional: with "day", the day's version to open (`#day/…/v1`, ADR 0021 §4); none: the one readers got
+//     "devices": ["desktop", "wide"],     optional: the sizes the stop runs at (what it shows exists only there); any other skips it
 //     "card": "trips_profile",           optional: the card whose drill-down to open (none: the canvas)
 //     "tab": "News",                      optional: the drill-down tab
 //     "full": true,                       optional: capture the whole sheet, not just the first screen
@@ -150,6 +151,8 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
     await settled('');
   };
   for (const stop of stops) {
+    // A stop about what only some sizes draw (the month's grid, from 820 px) runs at those alone.
+    if (stop.devices && !stop.devices.includes(process.env.TOUR_DEVICE || 'phone')) continue;
     const t0 = Date.now();
     try {
       await open(stop.scheme === 'dark' ? 'dark' : 'light');

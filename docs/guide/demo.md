@@ -204,6 +204,14 @@ A file sent again is a version of its day, like a commit. It waits for a decisio
 history learns the day from the version that was published. Open a day: its versions are listed under its head, the one
 readers got marked, and any other is a tap away. A version a later one replaced isn't decided; the later one is.
 
+**Compare** on another version sets it beside the one on screen. The summary comes from the two runs alone: which file
+differs, whether the rules were the same, what was decided of each, and each output's rows and whether it changed.
+**Rows ›** on an output compares its rows by its key. On Thu 21, fact_control_status's 815 keys are on two rows in v1
+and one in v3: the doubled TLS file's repeats. Rows are read from both versions run in your browser, so the comparison
+offers to run the one that hasn't.
+
+On the month, from tablet width, the grid's filters show only the days waiting for a decision, corrected, or held.
+
 ## Checks
 
 A bronze file opens to **Quality**: a verdict, a card for each thing to look at with its picture, and every check by

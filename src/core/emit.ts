@@ -284,6 +284,79 @@ export function emitExcept(a: string, b: string, columns: readonly string[]): st
   return `SELECT ${list} FROM (\n${numbered(a)}\nEXCEPT\n${numbered(b)}\n)`;
 }
 
+/** Statements comparing two versions of a dataset row by row (`emitDiff`). */
+export interface DiffStatements {
+  /** One row: the rows removed (only in `a`) and added (only in `b`); by key, the keys on another number of rows in each,
+   * the rows more in `a` by them, the rows more in `b`, the rows whose single-row key's cells differ, then each non-key
+   * column's rows changed. Whole rows: the rows removed and added, then zeros. */
+  counts: string;
+  /** The first rows only in `a`, and only in `b`, by key (or every column), each with all `columns`. */
+  removed: string;
+  added: string;
+  /** By key: the first keys on another number of rows, the key's columns then each side's count. */
+  repeated: string | null;
+  /** By key: the first rows whose cells differ, the key's columns then each other column's value in `a` and in `b`. */
+  changed: string | null;
+}
+
+/**
+ * Two versions of a dataset, row by row (ADR 0021 §4), over two relations with the same `columns`. By `key` (its
+ * columns among `columns`): each key's rows are counted on each side, so a key only in `a` is removed, only in `b`
+ * added, and on another number of rows a repeat; a key on one row in each is compared cell by cell, null-safe. Keys are
+ * matched on their values as text, a blank one as a mark of its own, so blank keys pair too and the join stays an
+ * equality. Without a key, whole rows as multisets (`emitExcept`). The samples are the first `limit` rows by key, or by
+ * every column.
+ */
+export function emitDiff(a: string, b: string, columns: readonly string[], key: readonly string[] | null, limit = 50): DiffStatements {
+  const list = columns.map(q).join(', ');
+  if (!key?.length) {
+    const removed = emitExcept(a, b, columns);
+    const added = emitExcept(b, a, columns);
+    return {
+      counts: `SELECT (SELECT count(*) FROM (\n${removed}\n)), (SELECT count(*) FROM (\n${added}\n)), 0, 0, 0, 0`,
+      removed: `SELECT ${list} FROM (\n${removed}\n) ORDER BY ${list} LIMIT ${limit}`,
+      added: `SELECT ${list} FROM (\n${added}\n) ORDER BY ${list} LIMIT ${limit}`,
+      repeated: null,
+      changed: null,
+    };
+  }
+  const isKey = (c: string) => key.some((k) => k.toLowerCase() === c.toLowerCase());
+  const rest = columns.filter((c) => !isKey(c));
+  const K = '"_smaltfl_k"';
+  const keyText = (alias: string) => key.map((c) => `coalesce(CAST(${alias}.${q(c)} AS TEXT), '\\u0000')`).join(` || '\\u0001' || `);
+  const by = (alias: string) => key.map((c) => `${alias}.${q(c)}`).join(', ');
+  const base = [
+    `a AS (SELECT ${list}, ${keyText('x')} AS ${K} FROM (\n${a}\n) x)`,
+    `b AS (SELECT ${list}, ${keyText('x')} AS ${K} FROM (\n${b}\n) x)`,
+    `ka AS (SELECT ${K} AS k, count(*) AS n FROM a GROUP BY ${K})`,
+    `kb AS (SELECT ${K} AS k, count(*) AS n FROM b GROUP BY ${K})`,
+  ];
+  const singles = [`sa AS (SELECT a.* FROM a JOIN ka ON a.${K} = ka.k WHERE ka.n = 1)`, `sb AS (SELECT b.* FROM b JOIN kb ON b.${K} = kb.k WHERE kb.n = 1)`];
+  const differs = (c: string) => `sa.${q(c)} IS DISTINCT FROM sb.${q(c)}`;
+  const any = rest.length ? rest.map(differs).join(' OR ') : '1 = 0';
+  const flags = rest.length ? rest.map((c, i) => `CASE WHEN ${differs(c)} THEN 1 ELSE 0 END AS d${i}`).join(', ') : '0 AS d0';
+  const changedRows = `c AS (SELECT ${flags} FROM sa JOIN sb ON sa.${K} = sb.${K} WHERE ${any})`;
+  const joined = `j AS (SELECT ka.n AS na, kb.n AS nb FROM ka FULL OUTER JOIN kb ON ka.k = kb.k)`;
+  const withs = (parts: readonly string[]) => `WITH ${[...base, ...parts].join(',\n')}\n`;
+  const counts = [
+    '(SELECT coalesce(sum(na), 0) FROM j WHERE nb IS NULL)',
+    '(SELECT coalesce(sum(nb), 0) FROM j WHERE na IS NULL)',
+    '(SELECT count(*) FROM j WHERE na <> nb)',
+    '(SELECT coalesce(sum(na - nb), 0) FROM j WHERE na > nb)',
+    '(SELECT coalesce(sum(nb - na), 0) FROM j WHERE nb > na)',
+    '(SELECT count(*) FROM c)',
+    ...rest.map((_, i) => `(SELECT coalesce(sum(d${i}), 0) FROM c)`),
+  ];
+  const only = (x: 'a' | 'b', other: 'ka' | 'kb') => `${withs([])}SELECT ${columns.map((c) => `${x}.${q(c)}`).join(', ')} FROM ${x} LEFT JOIN ${other} ON ${x}.${K} = ${other}.k WHERE ${other}.k IS NULL ORDER BY ${by(x)} LIMIT ${limit}`;
+  return {
+    counts: `${withs([...singles, joined, changedRows])}SELECT ${counts.join(', ')}`,
+    removed: only('a', 'kb'),
+    added: only('b', 'ka'),
+    repeated: `${withs([`r AS (SELECT ka.k AS k, ka.n AS na, kb.n AS nb FROM ka JOIN kb ON ka.k = kb.k WHERE ka.n <> kb.n)`])}SELECT ${key.map((c) => `min(a.${q(c)})`).join(', ')}, min(r.na), min(r.nb) FROM r JOIN a ON a.${K} = r.k GROUP BY r.k ORDER BY ${key.map((_, i) => String(i + 1)).join(', ')} LIMIT ${limit}`,
+    changed: `${withs(singles)}SELECT ${by('sa')}${rest.map((c) => `, sa.${q(c)}, sb.${q(c)}`).join('')} FROM sa JOIN sb ON sa.${K} = sb.${K} WHERE ${any} ORDER BY ${by('sa')} LIMIT ${limit}`,
+  };
+}
+
 /**
  * A join's left-hand rows that found no match on the right: the rows a left join keeps with its new columns empty, and
  * an inner join leaves out. Exact: a row matches when some right-hand row has its key (a NULL key matches nothing).

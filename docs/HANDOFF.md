@@ -236,7 +236,11 @@ delivery of a day waits for a decision (the correction hold), and Replace the fi
 (2026-11-13): what we went with feeds the history; Larkspur's recorded story (`examples/larkspur/story.json`: six files
 sent again, thirteen decisions, Thu 21 corrected twice, Q-195); the month marks corrected days ↻ with their versions;
 a day opens on the version readers got, its versions listed like commits, any other a tap away
-(`#day/2024-03-18/v1`). Next is slice 3, flip and compare: the compare summary and row and cell diffs by key. Not yet:
+(`#day/2024-03-18/v1`). Slice 3, flip and compare, is built (2026-11-13): **Compare** on a day's version gives the
+summary from the two runs' manifests (files, rules, decisions, each output's rows and whether it changed), then an
+output's rows by its key (removed, added, repeats, cells changed); and the month's grid filters. Next is slice 4, the
+ontology over time: dated change sets, the rules-in-force hash, *in force from* on every edit, a back-dated change
+restating days under one decision. Not yet:
 a past day's correction while a later day is out (the engine never moves a name back), and *as known on* a past moment
 showing the decisions and corrections recorded by then.
 
