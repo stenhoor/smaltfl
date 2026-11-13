@@ -19,7 +19,8 @@ cell('ownership', { lang: 'sql' });
 export const ownership = sql`
   SELECT a.app_id, 'ownership' AS control_id,
          CASE WHEN u.org_unit_id IS NULL THEN 'fail'
-              WHEN EXISTS (SELECT 1 FROM ${leaders} p WHERE p.status = 'active' AND (p.person_id = u.leader_id OR p.person_id = u.acting_leader_id)) THEN 'pass'
+              WHEN u.leader_id IN (SELECT person_id FROM ${leaders} WHERE status = 'active')
+                OR u.acting_leader_id IN (SELECT person_id FROM ${leaders} WHERE status = 'active') THEN 'pass'
               ELSE 'fail' END AS status,
          CASE WHEN u.org_unit_id IS NULL THEN 'team not in the HR extract'
               WHEN u.leader_id IS NULL AND u.acting_leader_id IS NULL THEN 'no leader and no one acting'
@@ -44,25 +45,23 @@ export const expected = sql`
    AND (c.applies_hosting = '*' OR instr(';' || c.applies_hosting || ';', ';' || a.hosting || ';') > 0)`;
 
 cell('about_coverage', { lang: 'md' });
-md`What applies against the evidence: each expected pair with its result, or none (missing evidence, which is no data, not a failure), and the results for a pair nothing expects, kept and said`;
+md`What applies against the evidence: each expected pair with its result, or none (missing evidence, which is no data, not a failure), and the results for a pair nothing expects, kept and said. One full join of the two, each side marked, so the evidence is read once`;
 
 cell('coverage', { lang: 'sql' });
 export const coverage = sql`
   WITH evidence AS (
-    SELECT app_id, control_id, status, due_on, platform, platform2, compensating FROM ${results}
+    SELECT app_id, control_id, status, due_on, platform, platform2, compensating, 1 AS seen FROM ${results}
     UNION ALL
-    SELECT app_id, control_id, status, NULL, NULL, NULL, NULL FROM ${ownership}
-  )
-  SELECT e.app_id, e.control_id, e.weight, e.depends_on, e.compensated_by,
+    SELECT app_id, control_id, status, NULL, NULL, NULL, NULL, 1 FROM ${ownership}
+  ),
+  wanted AS (SELECT *, 1 AS listed FROM ${expected})
+  SELECT CASE WHEN e.listed IS NULL THEN r.app_id ELSE e.app_id END AS app_id,
+         CASE WHEN e.listed IS NULL THEN r.control_id ELSE e.control_id END AS control_id,
+         e.weight, e.depends_on, e.compensated_by,
          r.status AS raw_status, r.due_on, r.platform, r.platform2, r.compensating,
-         CASE WHEN r.app_id IS NULL THEN 'missing' ELSE 'present' END AS evidence
-  FROM ${expected} e
-  LEFT JOIN evidence r ON r.app_id = e.app_id AND r.control_id = e.control_id
-  UNION ALL
-  SELECT r.app_id, r.control_id, NULL, NULL, NULL, r.status, r.due_on, r.platform, r.platform2, r.compensating, 'not expected'
-  FROM evidence r
-  LEFT JOIN ${expected} e ON e.app_id = r.app_id AND e.control_id = r.control_id
-  WHERE e.app_id IS NULL`;
+         CASE WHEN e.listed IS NULL THEN 'not expected' WHEN r.seen IS NULL THEN 'missing' ELSE 'present' END AS evidence
+  FROM wanted e
+  FULL JOIN evidence r ON r.app_id = e.app_id AND r.control_id = e.control_id`;
 
 cell('about_effective', { lang: 'md' });
 md`The status a person reads, one row an expected pair, with its reason: one row each, held where a pair is on two. Its amount follows the catalogue and its blank raw statuses are the missing evidence its status already says, so both only warn. Missing evidence is no data. A pass whose dependency fails (key rotation without encryption at rest, a DR exercise without backups, vaulted accounts without MFA) is a failure: what it rests on isn't there. A failure under an exception in force today is excepted; one a compensating control stands in for (a private link for TLS, a WAF passing for a late pentest) is compensated. A failure whose exception has expired says so: exception expired reads differently from a regression`;

@@ -21,6 +21,9 @@ const skeleton = `<!doctype html><html lang="en"><head><meta charset="utf-8"><me
 const types = { '.js': 'text/javascript', '.txt': 'text/plain', '.csv': 'text/csv', '.json': 'application/json' };
 let bytes = 0;
 let gz = 0;
+// Each file's compressed size, for the report: made once a file, after it is sent, so compressing never delays a
+// response the page waits for (the page fetches every first-day file at once).
+const gzSize = new Map();
 const server = http.createServer((req, res) => {
   const url = decodeURIComponent(req.url.split('?')[0]);
   if (url === '/') return res.writeHead(200, { 'content-type': 'text/html' }).end(skeleton);
@@ -28,8 +31,9 @@ const server = http.createServer((req, res) => {
   if (!file.startsWith(path.resolve(root)) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return res.writeHead(404).end();
   const body = fs.readFileSync(file);
   bytes += body.length;
-  gz += zlib.gzipSync(body).length;
   res.writeHead(200, { 'content-type': types[path.extname(file)] || 'application/octet-stream' }).end(body);
+  if (!gzSize.has(file)) gzSize.set(file, zlib.gzipSync(body).length);
+  gz += gzSize.get(file);
 });
 const DEVICES = {
   phone: { width: 390, height: 844, isMobile: true, hasTouch: true },

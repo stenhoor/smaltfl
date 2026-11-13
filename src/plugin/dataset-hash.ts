@@ -108,6 +108,24 @@ export async function hashTable(db: Database, table: string): Promise<TableHash>
 
 const encoder = new TextEncoder();
 
+/**
+ * A text's UTF-8 written into `buf` at `at`, byte for byte what TextEncoder writes: its plain ASCII run copied a unit a
+ * byte, the rest (from the first unit past ASCII, so never inside a surrogate pair) encoded by TextEncoder. Most values
+ * are short and ASCII, and an encoder call and a view a value cost more than the copy. Returns the bytes written; `buf`
+ * needs room for three bytes a UTF-16 unit.
+ */
+export function writeUtf8(s: string, buf: Uint8Array, at: number): number {
+  const n = s.length;
+  let i = 0;
+  for (; i < n; i++) {
+    const c = s.charCodeAt(i);
+    if (c >= 0x80) break;
+    buf[at + i] = c;
+  }
+  if (i === n) return n;
+  return i + encoder.encodeInto(i === 0 ? s : s.slice(i), buf.subarray(at + i)).written;
+}
+
 /** Encodes each row into a scratch buffer, hashes it there, and keeps the row hashes as words for sorting. */
 class RowHasher {
   private buf = new Uint8Array(4096);
@@ -146,12 +164,12 @@ class RowHasher {
         return;
       }
       case 'text': {
-        const s = v as string;
+        const s = typeof v === 'string' ? v : String(v);
         this.room(5 + s.length * 3);
         this.buf[this.pos] = 3;
-        const { written } = encoder.encodeInto(s, this.buf.subarray(this.pos + 5));
-        this.view.setUint32(this.pos + 1, written!);
-        this.pos += 5 + written!;
+        const written = writeUtf8(s, this.buf, this.pos + 5);
+        this.view.setUint32(this.pos + 1, written);
+        this.pos += 5 + written;
         return;
       }
       case 'blob': {

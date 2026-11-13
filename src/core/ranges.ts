@@ -11,6 +11,8 @@
 import { metricKey, QUANTILES, type HistoryFile, type HistoryRanges, type Metric } from './history.js';
 import type { Guess, NormalRange } from './normal.js';
 import type { AheadEntries } from './ahead.js';
+import { canonicalJSON } from './canonical.js';
+import type { MeasureSettings, Measures } from './measures.js';
 
 /** A range as shipped: every number of it, its guesses without the days they learned from. */
 export type ShippedRange = Omit<NormalRange, 'guesses'> & { guesses: Omit<Guess, 'from'>[] };
@@ -27,6 +29,39 @@ export interface RangesFile {
   /** The classifier's answers for the first day, judged ahead (ADR 0019 amendment 1, `ahead.ts`): taken by the sha256
    * of the classifier's exact inputs, whatever history they come with. */
   apart?: AheadEntries;
+  /** The first day's load measured ahead (ADR 0019 amendment 2): taken for the very load alone (`measuredAhead`). */
+  measured?: MeasuredAhead;
+}
+
+/**
+ * A watch's first day measured ahead (ADR 0019 amendment 2): the load's measures as the build measured them, under the
+ * exact settings, and its kept rows. A load's measures are a pure function of its snapshot's rows, in the order they
+ * were written, and the settings: a file's rows are in its own order, so its sha256 fixes them; a step's are in the
+ * order its plan writes them, so its node key (its plan, its inputs' keys, the engine) fixes them, with its content
+ * hash. The page takes them for the very file and settings, and the run for the very snapshot, settings and file or key.
+ */
+export interface MeasuredAhead {
+  settings: MeasureSettings;
+  measures: Measures;
+  /** A watched step's node key, which fixes its rows and their order. */
+  key?: string;
+  /** The load's kept rows (ADR 0014 §5), kept from `keep` rows by the settings' counted columns. */
+  kept?: unknown[][];
+  keep?: number;
+}
+
+/**
+ * The measures given ahead for this load, or null: the same settings, the same file (by its sha256) where the load is a
+ * file, the same snapshot (by its content hash) where the caller has one, and the same node key where it is a step.
+ */
+export function measuredAhead(file: RangesFile | null | undefined, settings: MeasureSettings, at: { file?: string | null; snapshot?: string; key?: string }): MeasuredAhead | null {
+  const m = file?.measured;
+  if (!m || typeof m !== 'object' || !m.measures || !m.settings) return null;
+  if (at.file !== undefined && (at.file === null || m.measures.file !== at.file)) return null;
+  if (at.snapshot !== undefined && m.measures.snapshot !== at.snapshot) return null;
+  if (at.key !== undefined && m.key !== at.key) return null;
+  if (at.file === undefined && at.key === undefined) return null;
+  return canonicalJSON(m.settings as unknown as Parameters<typeof canonicalJSON>[0]) === canonicalJSON(settings as unknown as Parameters<typeof canonicalJSON>[0]) ? m : null;
 }
 
 /** What the judge is given: a ranges file, checked against the history it was read with. */
