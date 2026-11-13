@@ -232,8 +232,13 @@ corrected files, a day corrected twice), Larkspur's `story.json`, and a day's ve
 by the engine, because the app recorded one decision for the day and released without citing loads. One choice for the
 day is now recorded as a decision for each held file and one release citing them all (`tools/browser/stops/decide.json`).
 Mon 4 in the story is kept back, then corrected (Q-194). Slice 2's first part is built (ADR 0021 §"As built"): a later
-delivery of a day waits for a decision (the correction hold), and Replace the file is one. Its second part is next: what
-we went with feeding the history, a past day's correction with a later day current, and the recorded story.
+delivery of a day waits for a decision (the correction hold), and Replace the file is one. Its second part is built
+(2026-11-13): what we went with feeds the history; Larkspur's recorded story (`examples/larkspur/story.json`: six files
+sent again, thirteen decisions, Thu 21 corrected twice, Q-195); the month marks corrected days ↻ with their versions;
+a day opens on the version readers got, its versions listed like commits, any other a tap away
+(`#day/2024-03-18/v1`). Next is slice 3, flip and compare: the compare summary and row and cell diffs by key. Not yet:
+a past day's correction while a later day is out (the engine never moves a name back), and *as known on* a past moment
+showing the decisions and corrections recorded by then.
 
 **Then (built): [ADR 0020](adr/0020-the-estate-as-a-company.md), the Larkspur estate** (accepted 2026-11-12, Q-169 to
 Q-175). It is built in the slices of its §8: the generator, bronze, silver, gold, the answer key through the engine,
