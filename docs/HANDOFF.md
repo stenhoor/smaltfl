@@ -224,7 +224,10 @@ day from (a calendar, a grid of files and steps by day, the posture's trend, *fo
 day itself (its flow, lifecycle, story and versions); March as recorded history; every version of a day kept like a
 commit, corrections decided, compared by summary and by rows; the ontology effective-dated and hashed to each run;
 what-if runs. Built in the slices of its §9, the two screens and the recorded runs first. A first day near 1 s waits
-(Q-180).
+(Q-180). Slice 1 is built (2026-11-13, its §"As built"): the build records each generated month (`month.json`,
+`scripts/data/record.mjs`), the app opens on the month (`#month`) and gives each day its own screen (`#day/…`), and a
+day opened is run here and checked against its record. Next is slice 2, the recorded story: deliveries (late and
+corrected files, a day corrected twice), Larkspur's `story.json`, and a day's versions.
 
 **Then (built): [ADR 0020](adr/0020-the-estate-as-a-company.md), the Larkspur estate** (accepted 2026-11-12, Q-169 to
 Q-175). It is built in the slices of its §8: the generator, bronze, silver, gold, the answer key through the engine,
@@ -240,7 +243,8 @@ phone, from about 10 s); a first day near 1 s is Q-180, open. Slice 7, the switc
 deploy builds Larkspur at `/app/` and keeps the control estate at `/estate/`, and the site walks Larkspur
 (`docs/guide/demo.md`; the estate's walk is `docs/guide/estate.md`). All seven slices are built. Next, found while
 switching: a refused file's day doesn't say why it is paused (Thu 7 on both estates; ADR 0020 slice 7, "Not fixed
-here"). The items below follow.
+here"). Since ADR 0021's slice 1 the month and the day's story say it; the status line, the decision bar and the
+file's Quality tab still don't. The items below follow.
 
 Parked behind the notebook surface by the maintainer's decision of 2026-11-09 (Q-87, ADR 0011 §9). In priority order:
 

@@ -3,7 +3,7 @@
  * only, so it crosses the worker protocol by structured clone.
  */
 import type { Repair } from './fill.js';
-import type { Claim, ClaimLevel, FillHold, Hold, Load, RunRef } from './hold.js';
+import type { Claim, ClaimLevel, FillHold, Hold, Load, RunRef, StoryClaim2 } from './hold.js';
 import type { RunManifest } from './manifest.js';
 import type { Measures } from './measures.js';
 import type { Column } from './plan.js';
@@ -117,6 +117,9 @@ export interface RunResult {
   /** How long each step took to read (a source) or build (a stored step), in milliseconds, by its origin (ADR 0015
    * amendment 4): for people, never in the manifest or a hash. A step reused or folded has none of its own. */
   timings?: Record<string, number>;
+  /** The claims the engine told for its watched steps (ADR 0013 §4), held or not: what a page records of every watched
+   * dataset's day (ADR 0021 §6). They were judged with the page's; never in the manifest or a hash. */
+  told?: StoryClaim2[];
   /** With `typed` (core/typed.ts): the typing's key and every needed node's columns but the snapshots', and whether
    * they were given by a pinned types file rather than typed here. Never in the manifest or a hash. */
   typed?: { key: string; schemas: [node: number, columns: Column[]][]; given: boolean };

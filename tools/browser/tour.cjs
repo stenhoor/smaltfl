@@ -12,7 +12,7 @@
 // stops.json: an array of stops, visited in order in one page:
 //   { "name": "sep22-trips-news",        file name for the screenshot and the metrics
 //     "episode": "September 2023",       optional: the episode chip to pick ("January 2024" for the month)
-//     "day": "Fri 22",                    optional: the day button in the loads strip ("<Weekday> <date>")
+//     "day": "Fri 22",                    optional: the day ("<Weekday> <date>"), found by what the month says of it and opened by its link
 //     "card": "trips_profile",           optional: the card whose drill-down to open (none: the canvas)
 //     "tab": "News",                      optional: the drill-down tab
 //     "full": true,                       optional: capture the whole sheet, not just the first screen
@@ -44,7 +44,7 @@
 //   "disabled": ["sel"], "enabled": [..]  the first visible match is (not) disabled
 //   "cards": { "zone_hour": "‖|…" }       a canvas card's line (text.what) contains the text; a leading "‖|", "⚑|"
 //                                         or "✕|" also needs the card's glyph mark (.card-mark) present; "-|" none
-//   "loads": { "Thu 21": ", paused" }     a loads-strip day's aria-label contains this ("!…": doesn't)
+//   "loads": { "Thu 21": ", paused" }     what the month says of the day contains this ("!…": doesn't)
 //   "words": { "sel": max }               words outside drawings in the first visible match, at most max
 //
 // Writes <outDir>/<name>.png and <outDir>/metrics.json: per stop, the status line, the visible text of the
@@ -155,14 +155,19 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
         episode = null;
         await settled('');
       }
-      if ((await p.evaluate(() => location.hash)) !== '') {
-        await p.evaluate(() => { location.hash = ''; });
+      // Back to the day screen (ADR 0021 §4: no hash is the month, the home of a flow with days).
+      const hash0 = await p.evaluate(() => location.hash);
+      if (hash0 !== '#flow' && !hash0.startsWith('#day/')) {
+        await p.evaluate(() => { location.hash = '#flow'; });
         await quiet(1500);
       }
       // Close any open detail and sheet first.
       if (await p.locator('.vf-detail-wrap').count()) await p.locator('.vf-detail button.close').first().click().catch(() => {});
       if (await p.locator('#sheet:not([hidden]) button.close').count()) await p.locator('#sheet button.close').first().click().catch(() => {});
       if (stop.episode && stop.episode !== episode) {
+        // The episodes are the month's chips (ADR 0021 §3).
+        await p.evaluate(() => { location.hash = '#month'; });
+        await quiet(1500);
         const chip = p.locator('.episodes button', { hasText: stop.episode });
         if (await chip.count()) {
           const before = await status();
@@ -174,24 +179,18 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
         episode = stop.episode;
       }
       if (stop.day) {
+        // The day by what the month says of it (its label starts "Fri Mar 22"), then the day screen by its link
+        // (ADR 0021 §4); the day already on screen and run starts nothing.
         const [wd, date] = stop.day.split(/\s+/);
-        const btn = p.locator('#loads button').filter({ has: p.locator('.ld-day', { hasText: new RegExp(`^${WEEKDAY[wd] ?? wd}$`) }) }).filter({ has: p.locator('.ld-date', { hasText: new RegExp(`^${date}$`) }) });
-        // A week at a time: page forward (the strip's lone ›) until the day shows.
-        for (let page = 0; page < 6 && !(await btn.count()); page++) {
-          const next = p.locator('#loads button', { hasText: /^\s*›\s*$/ });
-          if (!(await next.count()) || (await next.first().isDisabled())) break;
-          await next.first().click();
-          await quiet(1000);
-        }
-        if (await btn.count()) {
-          // The day already shown starts nothing: no tap, no wait for a run that never comes.
-          if ((await btn.first().getAttribute('aria-pressed')) !== 'true') {
-            const before = await status();
-            await btn.first().click();
-            await settled(before);
-          }
-        } else {
-          problems.push(`no day button "${stop.day}" (${(await p.locator('#loads button').allTextContents()).slice(0, 12).join(' | ')})`);
+        const want = new RegExp(`^${WEEKDAY[wd] ?? wd} [A-Z][a-z]{2} ${date}\\b`);
+        const iso = await p.evaluate((src) => { const re = new RegExp(src); const m = window.__smaltflMonth ? window.__smaltflMonth() : {}; return Object.keys(m).find((k) => re.test(m[k])) ?? null; }, want.source);
+        if (!iso) problems.push(`no day "${stop.day}" in the month (${Object.values(await p.evaluate(() => (window.__smaltflMonth ? window.__smaltflMonth() : {}))).slice(0, 4).join(' | ')})`);
+        else {
+          const before = await status();
+          const shown = before.split('|').slice(2).join('|');
+          await p.evaluate((d) => { location.hash = `#day/${d}`; }, iso);
+          if (want.test(shown) && !/Running|Fetching/.test(shown)) await quiet(1500);
+          else await settled(before);
         }
       }
       // A notebook is a box on the canvas (ADR 0011 §6): its steps are cards only once it is unfolded.
@@ -211,9 +210,14 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
         await p.keyboard.press('Enter');
         await p.waitForSelector('#sheet:not([hidden]) .nbc-list', { timeout: 20000 });
       }
+      // A select on screen now (the viewer) is set now; one in a view not shown yet (the month's as known on) once its
+      // view is (viewFirst).
+      let selectLater = false;
       if (stop.select) {
-        await p.selectOption(stop.select[0], stop.select[1]);
-        await quiet(3000);
+        if (await p.locator(stop.select[0]).first().isVisible()) {
+          await p.selectOption(stop.select[0], stop.select[1]);
+          await quiet(3000);
+        } else selectLater = true;
       }
       if (stop.card) {
         await p.locator(`g.card[data-card="${stop.card}"]`).focus();
@@ -230,7 +234,11 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
       }
       // A view shown before its taps ("viewFirst": the Runs view's ribbon), else after them.
       if (stop.view && stop.viewFirst) {
-        await p.evaluate((v) => { location.hash = v === 'flow' ? '' : `#${v}`; }, stop.view);
+        await p.evaluate((v) => { location.hash = `#${v}`; }, stop.view);
+        await quiet(3000);
+      }
+      if (selectLater) {
+        await p.selectOption(stop.select[0], stop.select[1]);
         await quiet(3000);
       }
       // Optionally tap something first (a hero, a fold row): the sheet it opens is what is captured.
@@ -256,7 +264,7 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
         }
       }
       if (stop.view && !stop.viewFirst) {
-        await p.evaluate((v) => { location.hash = v === 'flow' ? '' : `#${v}`; }, stop.view);
+        await p.evaluate((v) => { location.hash = `#${v}`; }, stop.view);
         await quiet(3000);
       }
       if (stop.waitFor) await p.waitForSelector(stop.waitFor, { state: 'visible', timeout: 30000 }).catch(() => problems.push(`${stop.name}: ${stop.waitFor} never showed`));
@@ -353,10 +361,11 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
         }
         for (const [d, want] of Object.entries(x.loads ?? {})) {
           const [wd, date] = d.split(/\s+/);
-          const label = await p.evaluate(([w, n]) => { const b = [...document.querySelectorAll('#loads button')].find((e) => e.querySelector('.ld-day')?.textContent === w && e.querySelector('.ld-date')?.textContent === n); return b?.getAttribute('aria-label') ?? null; }, [wd, date]);
+          // What the month says of the day (ADR 0021 §3), as the strip's label said it.
+          const label = await p.evaluate((src) => { const re = new RegExp(src); const m = window.__smaltflMonth ? window.__smaltflMonth() : {}; return Object.values(m).find((v) => re.test(v)) ?? null; }, `^${wd} [A-Z][a-z]{2} ${date}\\b`);
           const not = want.startsWith('!');
           const t = not ? want.slice(1) : want;
-          if (label === null) fail(`no loads-strip day ${d}`);
+          if (label === null) fail(`no day ${d} in the month`);
           else if (not ? label.includes(t) : !label.includes(t)) fail(`loads ${d} reads "${label}", expected ${not ? 'no ' : ''}"${t}"`);
         }
       }

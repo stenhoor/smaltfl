@@ -1,0 +1,98 @@
+[
+  {
+    "name": "month-home",
+    "what": "Larkspur's month (ADR 0021 §3): for the day and as known on, the posture's trend, the calendar of the recorded March, the day picked and, from tablet width, the grid",
+    "view": "month",
+    "viewFirst": true,
+    "full": true,
+    "element": "#view-month",
+    "expect": {
+      "text": ["FOR THE DAY", "AS KNOWN ON", "March 2024", "CONTROL POSTURE V1 · THE GROUP’S SCORE ON EACH DAY PUBLISHED", "93.6 on Fri 1, 92.0 on Sun 31"],
+      "count": {
+        "#view-month .mo-d": 31,
+        "#view-month .mo-d.st-paused": 12
+      }
+    }
+  },
+  {
+    "name": "month-pick",
+    "what": "Tue Mar 12 picked on the month: its summary under the calendar, from the recorded run alone",
+    "view": "month",
+    "viewFirst": true,
+    "click": "#view-month .mo-d[data-day=\"2024-03-12\"]",
+    "element": "#view-month .mo-sum",
+    "expect": {
+      "text": ["Tue Mar 12", "paused, waiting on a decision", "waf: Status fail: 22.7% (band 0%–15%)", "Recorded by the build", "Open the day ›"]
+    }
+  },
+  {
+    "name": "month-open",
+    "what": "Open the day ›: the day screen on Tue Mar 12, run here and checked against its recorded run",
+    "view": "month",
+    "viewFirst": true,
+    "click": "#view-month .mo-d[data-day=\"2024-03-12\"]",
+    "clicks": ["#view-month .mo-open"],
+    "waitFor": ".dh-rec[data-check=\"matches\"]",
+    "expect": {
+      "state": "held",
+      "status": "waf: Status fail",
+      "text": ["‹ March 2024", "Tue Mar 12", "Held: waf", "waiting on a decision", "Recorded by the build", "the same datasets and holds as the record"],
+      "count": {
+        ".dh-rec[data-check=\"matches\"]": 1
+      }
+    }
+  },
+  {
+    "name": "day-story",
+    "what": "Mon Mar 18 by its link: the day's story, the build's recorded run and the run here",
+    "day": "Mon 18",
+    "click": ".dh-story summary",
+    "element": "#loads",
+    "expect": {
+      "state": "held",
+      "text": ["Mon Mar 18", "The build ran the day: held: org_chain", "Run here: the same datasets and holds as the record"]
+    }
+  },
+  {
+    "name": "month-held-here",
+    "what": "Back on the month once Mon Mar 18 has run here: the day is headed by what holds it (org_chain's written rule), as its recorded run is, not by the followed dataset's verdict",
+    "view": "month",
+    "viewFirst": true,
+    "click": "#view-month .mo-d[data-day=\"2024-03-18\"]",
+    "element": "#view-month .mo-sum",
+    "expect": {
+      "text": ["Mon Mar 18", "org_chain: expectations failed: one_root (4 rows)", "run here, the same as the record"],
+      "loads": {
+        "Mon 18": "org_chain: expectations failed: one_root"
+      }
+    }
+  },
+  {
+    "name": "month-known",
+    "what": "The month as known at the end of Fri Mar 15: the days after it not arrived yet, the trend to Fri 15",
+    "view": "month",
+    "viewFirst": true,
+    "select": ["#mo-known", "2024-03-15"],
+    "full": true,
+    "element": "#view-month",
+    "expect": {
+      "text": ["as known then"],
+      "count": {
+        "#view-month .mo-d.st-notArrived": 16
+      }
+    }
+  },
+  {
+    "name": "month-now",
+    "what": "Back to now: the whole recorded month again",
+    "view": "month",
+    "viewFirst": true,
+    "select": ["#mo-known", ""],
+    "element": "#view-month .mo-cal-panel",
+    "expect": {
+      "count": {
+        "#view-month .mo-d.st-notArrived": 0
+      }
+    }
+  }
+]

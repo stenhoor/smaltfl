@@ -57,9 +57,9 @@ const checks = []; const ok = (name, cond, more = '') => { checks.push([name, !!
   await cp.saveAs(path.join(shots, cp.suggestedFilename()));
   ok('a checkpoint downloads', /^smaltfl-checkpoint-.*\.json$/.test(cp.suggestedFilename()));
   // A tampered day: refused, with the reason.
-  await p.goto(p.url().split('#')[0] + '#flow');
+  // A day opened by its link (ADR 0021 §4).
+  await p.goto(p.url().split('#')[0] + '#day/2024-01-03');
   await p.waitForTimeout(500);
-  await p.locator('#loads button', { hasText: /^Wed\s*3/ }).first().click();
   await p.waitForFunction(() => /isn.t the file published/.test(document.querySelector('#status').textContent) || (document.querySelector('#status').dataset.state === 'done' && /^Wed Jan 3: /.test(document.querySelector('#status').textContent)), null, { timeout: 120000 });
   const st = await p.locator('#status').textContent();
   ok('a tampered day is refused, not run', /isn.t the file published/.test(st), st);

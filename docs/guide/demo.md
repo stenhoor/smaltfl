@@ -24,8 +24,9 @@ every layer:
 Nothing that judges the days knows where the trouble is planted. The first day takes a few seconds while the engine
 starts and runs the whole flow, about a hundred steps.
 
-Choose the days in the order this page takes them. Each day is judged against the days run before it in your browser,
-so a day chosen weeks after the last one run can read *Not judged yet*.
+March opens complete. The build ran every day and recorded it, and the month screen draws it at once. Opening a day
+runs it again in your browser, judged against the recorded days before it, and the line under the day says whether
+its datasets and holds are the same as the record's.
 
 ## The flow
 
@@ -79,7 +80,7 @@ new chain shows. Nothing is wrong, and the day publishes.
 
 ## A held day
 
-**Tue 12: a platform, not a hundred applications.** Choose Tue 12 in the strip. The status line says the day is
+**Tue 12: a platform, not a hundred applications.** Open Tue 12 from the month. The status line says the day is
 paused: *waf: Status fail: 22.7% (band 0%–15%)*. The WAF file's **Quality** tab draws its failing share against the
 band the ontology writes: 22.7% of its applications fail, where the band allows 15%.
 
@@ -133,8 +134,9 @@ both controls. Nothing holds the day: the platform says what the failures have i
 
 ## The posture over the month
 
-**Play the rest ▶** runs the days in order. It stops at each day that waits for a decision, as a person would; press
-it again to go on. Once Sun 31 has run, Results reads the whole month:
+The band above the month's calendar draws the group's score on each day published, as recorded. For each unit's own
+line, **Check every day here ▶** runs the month in your browser, checking each day against its record. Once Sun 31 has
+run, Results reads the whole month:
 
 - The group's score falls 1.6 points, from 93.6 on Fri 1 to 92.0 on Sun 31.
 - Each segment's and business unit's change sits beside its sparkline.
@@ -198,11 +200,12 @@ On a watched dataset, **Models** shows the two checks nobody wrote:
 
 Neither holds a day.
 
-## Runs and the record
+## The record
 
-**Runs** lists every run with its manifest's hash, and **verify** recomputes a run from its inputs. Every decision is
-an entry in a hash-chained record. The audit bag downloads the run, the record and the files for an offline check
-(`node scripts/audit.mjs check BAG.zip`).
+The **Record** view lists every run made in your browser with its manifest's hash, and **verify** recomputes a run from
+its inputs. Every decision is an entry in a hash-chained record. The audit bag downloads the run, the record and the
+files for an offline check (`node scripts/audit.mjs check BAG.zip`). The build's own runs of March are told day by day:
+on the month, and in each day's story.
 
 ## The control estate
 

@@ -5,11 +5,25 @@ screens follow its ontology and its notebooks.
 
 ## The screen
 
-- **The strip of days** at the top: each day's load and its state (published, held, not run). **Play the rest** runs
-  the days in order; **Next ›** runs one. A day's state is also in the status line and the page's title (‖ while held).
+- **The month** is where a flow with days opens (ADR 0021):
+  - a calendar, each day marked with what became of it: published, paused, unusual, not judged, or what a decision
+    made of it;
+  - above it, where the flow names a data product, the product's score on each day published;
+  - from tablet width, a grid of each notebook's files and steps by day, which shows which file broke on which day.
+
+  **For the day** picks the month or episode, and **As known on** shows the month as it stood at the end of a past day.
+  Tap a day for its summary, and **Open the day ›** to open it. A demo's month was run and recorded by the build:
+  **Check every day here ▶** runs each day again in your browser and checks it against its record.
+- **The day** is a day's own screen, with its own link (`#day/2024-03-12`):
+  - back to the month, and the days either side;
+  - what happened to the day: arrived, checked, held or published, decided;
+  - the record's line: recorded by the build, and whether its run here gave the same datasets and holds;
+  - the day held, with **Decide ›**, and its news;
+  - the day's story, each run and decision of it in order;
+  - under all that, the canvas.
 - **Viewing as** chooses whose eyes you see with. The flow's policies decide what each person may open, what columns
   are masked, and who may decide a held day.
-- **Flow**, **Ontology**, **Policies**, **Results** and **Runs** are the views.
+- **Month**, **Day**, **Ontology**, **Policies**, **Results** and **Record** are the views.
 
 ## The canvas
 
@@ -69,7 +83,8 @@ and add, change or remove a rule. A file read by several flows can share one ont
 
 Edits are kept across a reload and listed with **Back to the flow as shipped**.
 
-## Runs, verify and the record
+## The record and verify
 
-**Runs** lists every run with its manifest. **Verify** checks a run at three levels, up to rerunning it from its
-inputs. Decisions go into a hash-chained record (RFC 9162). **Download the audit bag** for an offline check.
+The **Record** view lists every run made in your browser with its manifest. **Verify** checks a run at three levels, up
+to rerunning it from its inputs. Decisions go into a hash-chained record (RFC 9162). **Download the audit bag** for an
+offline check.

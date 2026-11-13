@@ -13,7 +13,7 @@ Build the app first (`npm run build:app`) and copy `dist/app` somewhere, because
 |---|---|
 | `node tools/browser/regress.cjs <appDir> <outDir> <set>[@sizes] ...` | The regression in one command: each named stop set (`estate`, `notebook`, `split@desktop,tablet-wide,wide`, …) at every size, its own `tour.cjs` process, up to one a core at once, the longest first; one line a job and the problems at the end (`regress.json`). `--devices phone,desktop` narrows the sizes, `--jobs N` the parallelism. |
 | `node tools/browser/tour.cjs <appDir> <outDir> <stops.json>` | Serves the built app, drives it at phone size (390×844; it waits for the page to stop changing, never a fixed sleep; `TOUR_DEVICE=tablet` 820×1180, `tablet-wide` 1180×820, `desktop` 1440×900, `wide` 2560×1440; `TOUR_SCALE=2` for screenshots a person will look at) through the stops, fails any stop where the page or an open sheet scrolls sideways, saves `<name>.png` for each and writes `metrics.json`: the status line, the visible text, word counts, charts, words before the first chart, and every failed `expect` as a problem. The stop format and the `expect` checks are documented at the top of the file. |
-| `node tools/browser/episode.cjs <appDir> <outDir>` | The September 2023 episode: the strip's marks, the paused Thursday, an incident opened and listed in History, Friday paused and held at the checks. Expect `20/20 passed`. |
+| `node tools/browser/episode.cjs <appDir> <outDir>` | The September 2023 episode: the month's marks, the paused Thursday, an incident opened and listed in History, Friday paused and held at the checks. Expect `20/20 passed`. |
 | `node tools/browser/integrity.cjs <appDir> <outDir>` | Seals, verify and re-derive, the record, an audit bag and a checkpoint downloaded, a tampered day refused. Expect `13/13 passed`. |
 | `python3 -I tools/browser/cvd.py <outDir> <png>…` | Greyscale and deuteranopia versions of screenshots (Machado et al. 2009), for the colour check. |
 | `python3 -I tools/browser/slices.py <in.png> <out.png> [height] [strips] [start]` | Slices a tall screenshot into side-by-side strips you can read in one image. |
@@ -45,6 +45,11 @@ Build the app first (`npm run build:app`) and copy `dist/app` somewhere, because
   day, on Thu Mar 14 (the forest speaks) and Tue Mar 19 (the classifier speaks, the client first), and dark.
 - `fixes.json`: the fixes the sign-in file allows, on Fri Mar 15 (its file came empty): the fill carrying Thu 14
   forward, Replace the file, no like day offered as an estimate.
+- `month.json`: the month and the day screens on Larkspur (ADR 0021; `npm run build:app -- --flow
+  examples/larkspur/flow.json --out dist/app-larkspur`): the recorded March with its trend band, Tue Mar 12 picked and
+  opened (run here and checked against its record), Mon Mar 18 by its link with its story, and the month as known at
+  the end of Fri Mar 15 and back to now. A stop's `day` is found by the month's label (`window.__smaltflMonth`) and
+  opened by its link (`#day/YYYY-MM-DD`).
 - `fills.json` and `fills-nov.json`: the fill flows, as designed. Some selectors may have moved since; update them
   when a stop reports "nothing to click".
 

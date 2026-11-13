@@ -1,0 +1,246 @@
+/**
+ * The recorded month (ADR 0021 §6). The build runs a flow's month in order, as the page runs a day, and records each run
+ * as a `run` entry of the record's own shape (log/1), at the story's time: when the day's files arrived. The page reads
+ * the file as its record's first layer, under what this browser records (`layered`), so its tails, the days left out of
+ * learning, the pauses and what readers see come from the recorded days as they do from days run here; and it draws
+ * the month from the entries alone, without running anything. A day as known on a moment (§1, §7) reads the entries
+ * recorded by then (`knownOn`).
+ *
+ * What a run says of its day comes from its entry: held (its holds), refused (a source the engine couldn't read), and
+ * otherwise what the claims told of each watched dataset. A run the page makes again of a recorded day is checked
+ * against the recorded one (`checkAgainst`): the same plan, the same content in every stored node and the same holds.
+ * The manifests' other fields (when a file was pulled in, the run's id) are this browser's own and aren't compared.
+ */
+import type { JSONValue, LogEntry } from './log.js';
+import type { RunManifest } from './manifest.js';
+import type { Hold } from './hold.js';
+
+export const MONTH_FORMAT = 'smaltfl-month/1';
+
+/** A day's product score, where the data list names a posture product (ADR 0021 §3): what the month's trend band draws. */
+export interface PostureMark {
+  score: number | null;
+  coverage: number | null;
+}
+
+/** The recorded month: the build's entries, each run's manifest by hash, the story's now, and the product's scores. */
+export interface MonthFile {
+  format: typeof MONTH_FORMAT;
+  /** The flow it was recorded for, and the commit of the build that recorded it. */
+  flow: string;
+  build: string;
+  /** The story's now: what "as known on now" means for the recorded days, after the last entry. */
+  now: string;
+  /** The build's entries, log/1-shaped, in the order recorded (by `at`); their `by.as` is `build`. */
+  entries: LogEntry[];
+  manifests: Record<string, RunManifest>;
+  /** Each published day's product score, by day: a day whose roll-up wasn't published has none. */
+  posture?: Record<string, PostureMark>;
+}
+
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/** A recorded month, checked to be one: anything else is refused, never half taken. */
+export function isMonthFile(v: unknown): v is MonthFile {
+  if (!isRecord(v) || v.format !== MONTH_FORMAT || typeof v.flow !== 'string' || typeof v.build !== 'string' || typeof v.now !== 'string') return false;
+  if (!Array.isArray(v.entries) || !isRecord(v.manifests)) return false;
+  if (v.posture !== undefined && !isRecord(v.posture)) return false;
+  return v.entries.every((e) => isRecord(e) && typeof e.kind === 'string' && typeof e.at === 'string' && typeof e.seq === 'number' && isRecord(e.by) && typeof (e.by as Record<string, unknown>).as === 'string');
+}
+
+/**
+ * The build's entries as the record's first layer: renumbered below every entry this browser records (its own `seq`s
+ * start at 0), in the order recorded, so no two entries share a number and the recorded ones sort first.
+ */
+export function layered(file: Pick<MonthFile, 'entries'>): LogEntry[] {
+  const n = file.entries.length;
+  return file.entries.map((e, i) => ({ ...e, seq: i - n, amends: e.amends === null ? null : e.amends - n }));
+}
+
+/** The entries recorded by a moment: as known on it. Without one, all of them. */
+export const knownOn = <E extends { at: string }>(entries: readonly E[], at?: string | null): E[] => (at ? entries.filter((e) => e.at <= at) : [...entries]);
+
+/** As known at the end of a day (UTC): what "as known on Mar 15" reads. */
+export const endOfDay = (day: string): string => `${day}T23:59:59.999Z`;
+
+/** What a run entry says: the fields the page's record writes (main.ts `recordRun`) that the month reads. */
+export interface RunAbout {
+  run?: string | null;
+  manifest?: string;
+  day?: string | null;
+  load?: string | null;
+  outcome?: 'ok' | 'held' | 'failed' | 'derived';
+  holds?: Hold[];
+  waiting?: string[];
+  claims?: ClaimLike[];
+  error?: string | null;
+}
+
+/** What the month reads of a claim: whose, what became of it, and its head. */
+export interface ClaimLike {
+  source?: string;
+  state?: string;
+  head?: string;
+}
+
+const aboutOf = (e: Pick<LogEntry, 'about'>): RunAbout => (isRecord(e.about) ? (e.about as unknown as RunAbout) : {});
+
+/** A run entry's day: its period's value, else the load the page had pinned. */
+export function runDay(e: Pick<LogEntry, 'kind' | 'about'>): string | null {
+  if (e.kind !== 'run') return null;
+  const a = aboutOf(e);
+  return typeof a.day === 'string' ? a.day : typeof a.load === 'string' ? a.load : null;
+}
+
+/** Every day's runs, in the order recorded: a derived run (a fill) isn't one of its day's runs. */
+export function runsByDay<E extends Pick<LogEntry, 'kind' | 'about' | 'at'>>(entries: readonly E[]): Map<string, E[]> {
+  const out = new Map<string, E[]>();
+  for (const e of entries) {
+    const day = runDay(e);
+    if (!day || aboutOf(e).outcome === 'derived') continue;
+    out.set(day, [...(out.get(day) ?? []), e]);
+  }
+  return out;
+}
+
+/**
+ * What became of a day (ADR 0021 §3), never an average: published, published with something unusual, not judged (the
+ * dataset the views follow had nothing to compare with), paused (held, waiting), the run failed; and, as known on a
+ * moment, not arrived yet; or not run, where nothing recorded it.
+ */
+export type DayState = 'published' | 'unusual' | 'unlearned' | 'paused' | 'failed' | 'notArrived' | 'notRun';
+
+const WRONG = new Set(['wrong', 'unusual', 'refused']);
+
+/**
+ * What a run says of its day, and the words that lead it: a hold's (its dataset and what it said, as the status line
+ * says it); else what the dataset the views follow was told (`judged`), when it wasn't calm; else the first other
+ * watched dataset told something unusual, named; else none (a normal day).
+ */
+export function stateOfRun(about: RunAbout, judged?: string | null): { state: DayState; headline: string | null } {
+  if (about.outcome === 'failed') return { state: 'failed', headline: about.error ?? null };
+  const holds = about.holds ?? [];
+  if (about.outcome === 'held' || holds.length) {
+    const h = holds[0];
+    return { state: 'paused', headline: h ? `${h.origin}: ${h.said}` : null };
+  }
+  const claims = about.claims ?? [];
+  const own = judged ? claims.find((c) => c.source?.toLowerCase() === judged.toLowerCase()) : undefined;
+  if (own && own.state && WRONG.has(own.state)) return { state: 'unusual', headline: own.head ?? null };
+  const other = claims.find((c) => c !== own && c.state && WRONG.has(c.state));
+  if (other) return { state: 'unusual', headline: other.head ? `${other.source}: ${other.head}` : null };
+  if (own?.state === 'unlearned') return { state: 'unlearned', headline: own.head ?? null };
+  return { state: 'published', headline: null };
+}
+
+/** A day of the month as known on a moment: what became of it, its words, when it first arrived, its runs, by whom. */
+export interface MonthDay {
+  day: string;
+  state: DayState;
+  headline: string | null;
+  /** When its first run was recorded, as known then; null when none was. */
+  at: string | null;
+  /** How many runs it has, as known then. */
+  runs: number;
+  /** The latest run's manifest hash, and who recorded it: the build, or this browser. */
+  manifest: string | null;
+  by: 'build' | 'here' | null;
+}
+
+/**
+ * The month (ADR 0021 §3): each listed day as known on a moment, by its latest run then. A day whose first run was
+ * recorded after the moment hasn't arrived; a listed day nothing recorded wasn't run. Entries the build recorded have
+ * `by.as` `build`; any other is this browser's.
+ */
+export function monthOf(days: readonly string[], entries: readonly Pick<LogEntry, 'kind' | 'about' | 'at' | 'by'>[], o: { at?: string | null; judged?: string | null } = {}): MonthDay[] {
+  const all = runsByDay(entries);
+  const known = runsByDay(knownOn(entries, o.at));
+  return days.map((day): MonthDay => {
+    const runs = known.get(day) ?? [];
+    const last = runs.at(-1);
+    if (!last) return { day, state: all.has(day) ? 'notArrived' : 'notRun', headline: null, at: null, runs: 0, manifest: null, by: null };
+    const about = aboutOf(last);
+    const { state, headline } = stateOfRun(about, o.judged);
+    return { day, state, headline, at: runs[0]!.at, runs: runs.length, manifest: typeof about.manifest === 'string' ? about.manifest : null, by: last.by.as === 'build' ? 'build' : 'here' };
+  });
+}
+
+/** One row of the grid: a notebook (or a group) and the datasets it holds, by origin. */
+export interface GridRow {
+  id: string;
+  label: string;
+  origins: string[];
+}
+
+/** A file's or step's state on a day: refused, held, unusual, not judged, fine, or not built that day. */
+export type CellState = 'refused' | 'held' | 'unusual' | 'unlearned' | 'ok' | 'absent';
+const CELL_RANK: Record<CellState, number> = { refused: 0, held: 1, unusual: 2, unlearned: 3, ok: 4, absent: 5 };
+
+/** The worse of two cells: a row is as bad as its worst dataset, and absent only where all of them are. */
+export const worseCell = (a: CellState, b: CellState): CellState => (CELL_RANK[a] <= CELL_RANK[b] ? a : b);
+
+/**
+ * What a run says of some datasets on its day (ADR 0021 §3, the grid): refused where the engine couldn't read one; held
+ * where a hold names one; unusual or not judged where its claim said so; fine where the run built or reused it; absent
+ * where the run built none of them.
+ */
+export function cellOf(about: RunAbout, manifest: Pick<RunManifest, 'nodes'> | null | undefined, origins: readonly string[]): CellState {
+  const mine = new Set(origins.map((o) => o.toLowerCase()));
+  const has = (o: string | undefined) => !!o && mine.has(o.toLowerCase());
+  const nodes = (manifest?.nodes ?? []).filter((n) => has(n.origin));
+  if (nodes.some((n) => n.status === 'refused')) return 'refused';
+  if ((about.holds ?? []).some((h) => has(h.origin))) return 'held';
+  const claims = (about.claims ?? []).filter((c) => has(c.source));
+  if (claims.some((c) => c.state && WRONG.has(c.state))) return 'unusual';
+  if (claims.some((c) => c.state === 'unlearned')) return 'unlearned';
+  if (nodes.some((n) => n.content !== undefined || n.status === 'reused' || n.status === 'folded')) return 'ok';
+  return 'absent';
+}
+
+/** The grid (ADR 0021 §3): each row's cell on each day, by the day's latest run as known on a moment; null where none. */
+export function gridOf(rows: readonly GridRow[], days: readonly string[], entries: readonly Pick<LogEntry, 'kind' | 'about' | 'at'>[], manifests: (hash: string) => Pick<RunManifest, 'nodes'> | null | undefined, at?: string | null): (CellState | null)[][] {
+  const known = runsByDay(knownOn(entries, at));
+  return rows.map((row) => days.map((day) => {
+    const last = known.get(day)?.at(-1);
+    if (!last) return null;
+    const about = aboutOf(last);
+    return cellOf(about, typeof about.manifest === 'string' ? manifests(about.manifest) : null, row.origins);
+  }));
+}
+
+/** A run made here of a recorded day, against its record: what differs, if anything. */
+export interface RecordCheck {
+  matches: boolean;
+  /** The plans, when they differ. */
+  plan: { recorded: string; here: string } | null;
+  /** Each stored dataset whose content differs, by origin: its recorded and its own content hash (null: not stored). */
+  differs: { origin: string; recorded: string | null; here: string | null }[];
+  /** The holds, as `by:origin`, sorted: recorded and here. */
+  holds: { recorded: string[]; here: string[] };
+}
+
+const holdKeys = (holds: readonly Pick<Hold, 'by' | 'origin'>[]): string[] => holds.map((h) => `${h.by}:${h.origin}`).sort();
+
+/**
+ * A run made here of a recorded day, checked against the recorded run (ADR 0021 §4): the same plan, the same content in
+ * every dataset either stored, and the same holds. When a file was pulled in and the run's own id are this browser's,
+ * so the manifests' hashes always differ and aren't compared.
+ */
+export function checkAgainst(recorded: { manifest: Pick<RunManifest, 'plan' | 'nodes'>; holds: readonly Pick<Hold, 'by' | 'origin'>[] }, here: { manifest: Pick<RunManifest, 'plan' | 'nodes'>; holds: readonly Pick<Hold, 'by' | 'origin'>[] }): RecordCheck {
+  const plan = recorded.manifest.plan === here.manifest.plan ? null : { recorded: recorded.manifest.plan, here: here.manifest.plan };
+  const content = (m: Pick<RunManifest, 'nodes'>) => new Map(m.nodes.filter((n) => n.content !== undefined).map((n) => [`${n.origin}|${n.key}`, n] as const));
+  const a = content(recorded.manifest);
+  const b = content(here.manifest);
+  const differs: RecordCheck['differs'] = [];
+  for (const k of new Set([...a.keys(), ...b.keys()])) {
+    const x = a.get(k);
+    const y = b.get(k);
+    if (x?.content !== y?.content) differs.push({ origin: (x ?? y)!.origin, recorded: x?.content ?? null, here: y?.content ?? null });
+  }
+  const holds = { recorded: holdKeys(recorded.holds), here: holdKeys(here.holds) };
+  const sameHolds = holds.recorded.length === holds.here.length && holds.recorded.every((h, i) => h === holds.here[i]);
+  return { matches: !plan && !differs.length && sameHolds, plan, differs, holds };
+}
+
+/** A run entry's `about`, as the record writes one: what the build records for each day (scripts/data/record.ts). */
+export type RunEntryAbout = { [key: string]: JSONValue };

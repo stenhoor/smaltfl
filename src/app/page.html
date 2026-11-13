@@ -1379,6 +1379,8 @@ svg.viz { display: block; overflow: visible; max-width: 100%; height: auto; }
 .vf-switch[aria-checked="true"] .vf-switch-k::after { left: 16px; background: var(--surface); }
 /* A fill's donors: one chip each, the one picked pressed (S12). */
 .vf-donors { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+/* A fill with other good days: its row as wide as the options beside it (a button sizes to its content outside the grid). */
+.vf-fillrow > .vf-option { width: 100%; }
 .vf-donor { min-height: 32px; padding: 0 11px; border-radius: 999px; border: 1.5px solid var(--edge); background: var(--surface); color: var(--ink-2); font: inherit; font-size: 13px; cursor: pointer; }
 .vf-donor[aria-pressed="true"] { border-color: var(--smalt); background: var(--smalt-wash); color: var(--ink); }
 .vf-versions-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
@@ -1809,6 +1811,83 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .flash { animation: bq-flash 2.4s ease-out; }
 @keyframes bq-flash { 0%, 30% { box-shadow: 0 0 0 3px var(--smalt); } 100% { box-shadow: 0 0 0 0 transparent; } }
 @media (prefers-reduced-motion: reduce) { .flash { animation: none; outline: 2px solid var(--smalt); } }
+
+/* The month (ADR 0021 §3): for the day and as known on, the product's trend, the calendar, the day picked, the grid. */
+#view-month:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.mo-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px 16px; }
+.mo-name { margin: 2px 0 0; font-size: 22px; line-height: 1.2; }
+.mo-known { display: grid; gap: 2px; font-size: 13px; min-width: 0; }
+.mo-known select { font: inherit; padding: 6px 8px; min-height: 36px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); max-width: 100%; }
+.mo-trend svg { display: block; max-width: 100%; height: auto; }
+.mo-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.mo-wd { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); text-align: center; }
+.mo-d { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; min-height: 52px; padding: 6px 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.mo-d[aria-pressed="true"] { outline: 2px solid var(--smalt); outline-offset: 1px; }
+.mo-d.at { box-shadow: inset 0 -3px 0 var(--smalt); }
+.mo-d.st-notRun, .mo-d.st-notArrived { border-style: dashed; background: transparent; color: var(--muted); }
+.mo-d.st-paused { border-color: var(--bad); background: var(--bad-wash); }
+.mo-d.st-unusual { border-color: var(--warn); }
+.mo-d.st-failed { border-color: var(--bad); }
+.mo-d[class*="dec-"] { border-color: var(--line); background: var(--surface); }
+.mo-date { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.mo-mark { display: flex; align-items: center; min-height: 16px; }
+.mo-ok { color: var(--teal); font-size: 12px; line-height: 1; }
+.mo-hl { display: none; }
+.mo-pad { min-height: 52px; }
+.mo-key { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 8px 0 0; font-size: 12px; color: var(--ink-2); }
+.mo-key .mk { display: inline-flex; align-items: center; gap: 4px; }
+.mo-key .mk-dash { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px dashed var(--muted); }
+.mo-live { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 8px; }
+.mo-checked { font-size: 12.5px; color: var(--ink-2); }
+.mo-sum-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.mo-sum-head h3 { margin: 0; font-size: 17px; }
+.mo-word { color: var(--ink-2); font-size: 13px; }
+.mo-sum-hl { margin: 6px 0; font-weight: 600; overflow-wrap: anywhere; }
+.mo-facts { margin: 6px 0 12px; padding-left: 18px; font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
+.mo-open { display: inline-flex; align-items: center; text-decoration: none; background: var(--smalt); border-color: var(--smalt); color: var(--surface); font-weight: 600; }
+.mo-grid { display: none; }
+.mo-grid-scroll { overflow-x: auto; margin-top: 6px; }
+.mo-gt { border-collapse: collapse; font-size: 12px; }
+.mo-gt th, .mo-gt td { padding: 0; text-align: center; }
+.mo-gt thead th { font-family: var(--mono); font-size: 10px; font-weight: 500; color: var(--muted); padding: 2px; min-width: 24px; }
+.mo-gt tbody th { position: sticky; left: 0; z-index: 1; padding: 2px 10px 2px 0; text-align: left; white-space: nowrap; background: var(--surface); font-weight: 500; }
+.mo-gt tr.lv1 th { padding-left: 18px; color: var(--ink-2); font-weight: 400; font-family: var(--mono); font-size: 11px; }
+.mo-gt .mg-pick { background: var(--smalt-wash); }
+.mo-gt thead th.mg-pick { color: var(--smalt); font-weight: 700; }
+.mo-gt .mg-row { background: none; border: 0; padding: 4px 0; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.mg-cell { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; }
+.mg-ok { color: var(--muted); }
+.mg-absent { color: var(--line); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (min-width: 820px) {
+  .mo-grid { display: block; }
+  .mo-d { align-items: flex-start; min-height: 76px; padding: 6px; }
+  .mo-pad { min-height: 76px; }
+  .mo-hl { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 11px; line-height: 1.25; color: var(--ink-2); text-align: left; overflow-wrap: anywhere; }
+}
+@media (min-width: 1180px) {
+  #view-month:not([hidden]) { grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); align-items: start; }
+  #view-month > .mo-head, #view-month > .episodes, #view-month > .mo-trend, #view-month > .mo-grid { grid-column: 1 / -1; }
+}
+
+/* The day screen's head (ADR 0021 §4): back to the month, the days either side, what happened, the record. */
+.dh-nav { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 8px; }
+.dh-back { font-size: 13px; font-weight: 600; color: var(--smalt); text-decoration: none; }
+.dh-step { display: flex; gap: 6px; }
+.dh-title { display: flex; align-items: center; gap: 8px; margin: 2px 0 0; }
+.dh-title h2 { margin: 0; font-size: 20px; }
+.dh-life { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: 12px; }
+.dh-life li { padding: 2px 8px; border-radius: 999px; background: var(--sunk); color: var(--ink-2); }
+.dh-life li.bad { color: var(--bad); background: var(--bad-wash); }
+.dh-life li.ok { color: var(--teal); background: var(--teal-wash); }
+.dh-life li.wait { color: var(--warn); background: var(--warn-wash); }
+.dh-rec { margin: 0; font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.dh-rec.ok b { color: var(--teal); }
+.dh-rec.bad b { color: var(--bad); }
+.dh-story { font-size: 13px; }
+.dh-story summary { cursor: pointer; color: var(--smalt); font-weight: 600; }
+.dh-story ol { margin: 6px 0 0; padding-left: 18px; overflow-wrap: anywhere; }
+.ds-when { font-family: var(--mono); font-size: 11px; color: var(--muted); }
 </style>
 <style id="smaltkit-ui">/* smaltkit's ui.css (node_modules/smaltkit/dist/ui.css), put here by scripts/build-app.mjs */</style>
 
@@ -1823,16 +1902,19 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
     <p class="status" id="status" role="status">Starting the engine…</p>
   </div>
   <nav class="tabs" aria-label="Views">
-    <a href="#flow" id="tab-flow" aria-current="page">Flow</a>
+    <a href="#month" id="tab-month" hidden>Month</a>
+    <a href="#flow" id="tab-flow" aria-current="page">Day</a>
     <a href="#ontology" id="tab-ontology">Ontology</a>
     <a href="#policies" id="tab-policies">Policies</a>
     <a href="#results" id="tab-results">Results</a>
-    <a href="#runs" id="tab-runs">Runs</a>
+    <a href="#runs" id="tab-runs">Record</a>
   </nav>
 </header>
 
 <main>
-  <section class="view" id="view-flow" aria-label="Flow">
+  <section class="view" id="view-month" aria-label="Month" hidden></section>
+
+  <section class="view" id="view-flow" aria-label="Day">
     <details class="about-flow"><summary>About this flow</summary>
     <p class="lede" id="lede">NYC yellow-taxi trips from the TLC's records, one load a day as a feed would bring them, checked, joined to their zones and each borough's hourly weather, all run in this browser. Step through January 2024, or a real incident from the records. Each load is judged against what a day like it has, the same weekday in the six weeks before and the same day last year, a holiday or Election Day against its own day last year: a dot on a card means news. Tap any card for its story: the news first, then its rows, columns, what it dropped, odd rows and history, each with what you can do about it. A day with something wrong is paused, not published: it waits (‖), readers keeping the last day published, until the owner decides to publish it as is (⚑) or not at all (✕). A short day with a part missing can be filled from a good day near it, every filled row marked with the day it came from (◧), or published with only the part that arrived (◐). A change that is meant to stay can be accepted as the new level (a step mark): the days after it are judged from it, and those at the same level publish under it. A day the history can't judge pauses too, as every day does in the small build, which has no history.</p>
     <ul class="legend" aria-label="Legend">

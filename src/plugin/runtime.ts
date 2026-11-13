@@ -389,6 +389,7 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
     ...(derived ? { derived: { holds: derived.holds, filled: derived.filled } } : {}),
     ...(measured.size ? { measures: [...measured.values()].map((m) => m.measures) } : {}),
     ...(Object.keys(kept).length ? { kept } : {}),
+    ...(engineClaims.length ? { told: engineClaims } : {}),
     timings,
     ...(typedOut ? { typed: typedOut } : {}),
   };

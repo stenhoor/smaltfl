@@ -1919,7 +1919,7 @@ export interface ScorePoint {
  * by a dashed line (the missing-data convention), the axis zoomed to the values and printed at its ends, the last
  * score labelled.
  */
-export function scoreTrend(o: { days: readonly string[]; points: readonly ScorePoint[]; w?: number; h?: number; aria: string }): string {
+export function scoreTrend(o: { days: readonly string[]; points: readonly ScorePoint[]; w?: number; h?: number; aria: string; gap?: string }): string {
   const w = o.w ?? 334;
   const h = o.h ?? 132;
   const at = new Map(o.points.map((p) => [p.day, p]));
@@ -1934,7 +1934,7 @@ export function scoreTrend(o: { days: readonly string[]; points: readonly ScoreP
   const x = (i: number) => gx + i * cw;
   const y = (v: number) => base - ((v - lo) / Math.max(1, hi - lo)) * (base - top);
   let s = open(w, h, o.aria);
-  s += `<text x="${gx}" y="10" class="key">— score</text><text x="${gx + 64}" y="10" class="key lbl-m">— coverage</text><text x="${gx + 146}" y="10" class="key lbl-m">┄ not run</text>`;
+  s += `<text x="${gx}" y="10" class="key">— score</text><text x="${gx + 64}" y="10" class="key lbl-m">— coverage</text><text x="${gx + 146}" y="10" class="key lbl-m">┄ ${esc(o.gap ?? 'not run')}</text>`;
   s += `<line class="base" x1="${gx}" x2="${w - 4}" y1="${f1(base)}" y2="${f1(base)}"/><line class="hair" x1="${gx}" x2="${w - 4}" y1="${f1(top)}" y2="${f1(top)}"/>`;
   s += `<text x="0" y="${f1(top + 4)}" class="lbl-m">${hi}</text><text x="0" y="${f1(base + 4)}" class="lbl-m">${lo}</text>`;
   const series = (pick: (p: ScorePoint) => number | null, cls: string) => {
