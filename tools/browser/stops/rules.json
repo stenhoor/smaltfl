@@ -25,7 +25,7 @@
   },
   {
     "name": "rules-add-form",
-    "what": "The owner taps Add a rule on the User card: the form in place of the button, what User must be (never blank by default), what a row that breaks it does, Add the rule and Cancel",
+    "what": "The owner taps Add a check on the User card: the form in place of the button, what User must be (never blank by default), what a row that breaks it does, Add the check and Cancel",
     "view": "ontology",
     "viewFirst": true,
     "clicks": [
@@ -39,7 +39,7 @@
       "pageText": [
         "User must be",
         "A row that breaks it",
-        "Add the rule",
+        "Add the check",
         "For auth only. On once saved"
       ]
     }
