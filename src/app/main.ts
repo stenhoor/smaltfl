@@ -31,7 +31,7 @@ import { flowNames, isPlaceholder, judgeOf, labelOf, newsOf, shareWords, tableNe
 import { writtenRules, CHECK_MODES, CHECK_NAMES, CHECK_SAID, checkOf, gateChecksOf, gateLayerOf, hasGates, JUDGED, LAYER_SAID, WRITTEN, type CheckMode, type CheckName, type GateChecks } from '../core/gates.js';
 import { calendarHead, heldLoadLine, dayMid, dayShort, guessWords, judgedWords, lacked, MARK as REMEDY_MARK, noRowsBefore, reachLabel, readersOf as readersHad, readersSee, rowsFrom, shortfall, shownRun, stagedBar, stoppedLine as stoppedWords, toldLine, type DayState, type EpisodeDay, type KeptMark, type PauseState, type RemedyMark } from '../core/days.js';
 import { UNTIL, afterLine, betweenLine, dayPausedLine, daySentence, decidedLines, decisionDrawing, donorPicked, failLine, goShown, heldLine, outputPausedLine, passedLine, pausedChecks, pauseLines, pauseReasons, pickFails, receiptLines, remedyHead, ribbonOf, runFigures, sheetText, versionLines, checksSeen, filesSeen, findingOf, type RunSight, type AfterPart, type KeptLacks, type RemedySaid, type SheetIn, type SheetPick, type SheetText, type Sight } from '../core/decision.js';
-import { contractSaid, countedChecks, rangesFor, dayClaim, dayState, flowStory, learnedMeasures, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, upstreamSteps, tailPath, type Claim, decisionFor, decisionForLoad, standingForLoad, heldLoadsOf, dayPauseOfLoads, loadDecisions, keysForLoads, loadKey, loadsOf, byLoad, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, latestPublished, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
+import { contractSaid, countedChecks, rangesFor, dayClaim, dayState, flowStory, learnedMeasures, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, upstreamSteps, tailPath, type Claim, decisionFor, decisionForLoad, standingForLoad, heldLoadsOf, dayPauseOfLoads, loadDecisions, keysForLoads, loadKey, loadsOf, byLoad, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, latestPublished, publishedDays, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
 import { checkAgainst as againstRecord, endOfDay, gridOf as monthGrid, isMonthFile, isRestate, knownOn, layered, monthOf, ownHolds, restatedOutcome, runDay, runsByDay, versionsOf, type CellState, type DayState as MonthState, type GridRow as MonthRow, type MonthDay, type MonthFile, type RecordCheck, type RestateAbout, type RunAbout } from '../core/month.js';
 import { dayVersions, donorIdOf, fillCounts, levelOf as acceptedLevel, levelWays, partLabel as remedyPart, type Offer, type Repair, type Version } from '../core/fill.js';
 import { gridOf, shadeOf, shareOf, standOut } from './grid.js';
@@ -643,6 +643,16 @@ function readersMarkOf(r: RunRecord): KeptMark | null {
 /** The latest day readers see, as the record says (Q-51, ADR 0022 §1): the latest day published, whatever order the
  * days were published in; a day decided after it keeps its version for itself. */
 const readersLatest = (): string | null => latestPublished(allEntries(), periodOfFlow());
+
+/**
+ * Whether the day after `day` (the next of the flow's loads) has published already, as the record says: a decision
+ * standing until a day passes would cover nothing then, so it is decided for the day alone. A later day out further on
+ * (a month replayed after a later one ran, Q-51) leaves the days between to stand under it.
+ */
+function nextDayOut(day: string): boolean {
+  const next = loads.list.map((l) => l.day.slice(0, 10)).filter((d) => d > day).sort()[0];
+  return !!next && publishedDays(allEntries(), periodOfFlow()).some((p) => p.day === next);
+}
 
 /** The day readers see in place of a run's: what the first output it holds back shows. */
 function readersDay(r: RunRecord): string | null {
@@ -7682,7 +7692,7 @@ function decisionSheet(shown0: RunRecord, story: Story | null): void {
   const textOf = (): SheetText => sheetText({
     noun: rowNoun(loadSource() ?? ''),
     // How long it has waited, only while it waits (a day not published, opened to change its decision, isn't waiting).
-    day, waited: opened && first?.state === 'waiting' ? (storyMs(Date.now(), opened) - Date.parse(opened)) / 60000 : null, since: opened && new Date(opened).toDateString() === new Date().toDateString() ? clock(opened) : null, otherBuild: !!pause?.otherBuild, outputs: n, rows, reach: tripsKept(r) ?? null, readers, later, checks: heldChecks(r, story),
+    day, waited: opened && first?.state === 'waiting' ? (storyMs(Date.now(), opened) - Date.parse(opened)) / 60000 : null, since: opened && new Date(opened).toDateString() === new Date().toDateString() ? clock(opened) : null, otherBuild: !!pause?.otherBuild, outputs: n, rows, reach: tripsKept(r) ?? null, readers, later, nextOut: !!day && nextDayOut(day), checks: heldChecks(r, story),
     usual: story?.amount ? { low: story.amount.low, high: story.amount.high } : null,
     part: draw.part, missing: draw.cause === 'hours' ? (story?.hoursLabels?.missing ?? null) : null, cut: draw.cut?.[1] ?? null, ticks: draw.ticks.map(([, x]) => x),
     unjudged: r.result.holds.some((x) => x.by === 'unjudged'), hash: r.result.hash, may: anyone, deciders: deciders(), head: story?.head ?? null,
@@ -14347,9 +14357,8 @@ async function decideNow(target: RunRecord | string, option: DecisionOption, sco
   const keys = await keysOf(r);
   const p = pauseByInputs(r.inputs);
   // A standing decision needs a day to stand until: a run with none is decided for itself, and so is a day readers have
-  // a later day for already (one passed: it would stand already ended), as the sheet offers it.
-  const shown = readersDay(r);
-  const passed = !!day && !!shown && shown > day;
+  // the day after it published already (it would stand already ended), as the sheet offers it.
+  const passed = !!day && nextDayOut(day);
   // A remedy names its repair and the derived run whose versions go out (amendment 1 S9); a withdrawal is a decision not
   // to publish, amending the fill's, for this day alone (Q-61).
   const derived = option === 'fill' || option === 'complete' ? remedy.derived : undefined;

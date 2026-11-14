@@ -598,6 +598,10 @@ describe('the remedies on the sheet (ADR 0009 amendment 1 S12)', () => {
     expect(none.options[2]).toMatchObject({ label: 'Fill', number: 'No good day near', off: true });
     const later = sheetText({ ...thu, later: '2023-09-25', offers: [{ option: 'fill', label: 'Fill from Thu 14' }, { option: 'complete', label: 'Before 13:00 only' }] });
     expect(later.options.map((o) => o.off)).toEqual([false, false, false, false]);
+    // A later day out further on, the day after this one not yet (a month replayed after a later one ran): the switch
+    // stays, the days between standing under the decision (Q-51).
+    expect(sheetText({ ...thu, later: '2023-09-25', nextOut: false }).switch).toBe('Later days too');
+    expect(sheetText({ ...thu, later: '2023-09-25', nextOut: true }).switch).toBeNull();
     expect(later.switch).toBeNull();
     expect(sheetWords(later)).toBeLessThanOrEqual(45);
   });

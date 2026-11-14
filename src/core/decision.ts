@@ -260,6 +260,9 @@ export interface SheetIn {
   /** A later day readers see already: the day is decided for itself, its versions its own, and readers stay on the later
    * day (Q-51, ADR 0022 §1). */
   later: string | null;
+  /** The day after this one has published already: a decision standing until a day passes would cover nothing, so the
+   * sheet offers no "Later days too". Absent, a later day out says so (as before Q-51, when days ran in order). */
+  nextOut?: boolean;
   /** The checks held the day too: publishing as is overrides them, and the sheet says so with their share and limit. */
   checks: Pick<Gate, 'share' | 'limit'> | null;
   /** The drawing's own words: the part's label, the trips the short hours lack ("~77k fewer"), the hour the trips
@@ -528,7 +531,7 @@ export function sheetText(o: SheetIn): SheetText {
     chips: { asis: [...(o.unjudged ? ['No history'] : []), 'Real change', 'Source confirmed'], dont: withdraws ? [] : ['Known outage', 'Re-send expected'], fill: [], complete: [], accept: ['Planned change', 'Source confirmed'] },
     // Once readers see a later day, one has passed: "until a later day passes" would stand already ended, and close the
     // days between on their next run while they still say they wait. Only this day is offered.
-    switch: o.day && !o.later && !withdraws ? 'Later days too' : null,
+    switch: o.day && !(o.nextOut ?? !!o.later) && !withdraws ? 'Later days too' : null,
     go: {
       rest: goLabel(null, 'day', o.outputs, o.day), reason: 'Pick a reason', asis: goLabel('asis', 'day', o.outputs, o.day, !!o.checks), dont: goLabel('dont', 'day', o.outputs, o.day), until: goLabel('dont', 'untilPass', o.outputs, o.day),
       complete: goLabel('complete', 'day', o.outputs, o.day, false, { part: part?.label ?? null }), withdraw: goLabel('dont', 'day', o.outputs, o.day, false, { withdraws: withdraws ?? 'fill' }), fails: failGo(staged?.fails ? staged.why : null),
