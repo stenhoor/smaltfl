@@ -7,7 +7,9 @@
  *   whatever document it meets; null where it doesn't apply there (a rule it names isn't the file's then, a column the
  *   ontology doesn't describe, a node with no notebook cell) or changes nothing.
  * - `changesOn`, `resolve`, `inForce`: the change sets in force on a day, and the document they make, without its change
- *   sets: what a plan is made from (`translate` and `runFlow` resolve a document for its run's day first).
+ *   sets: what a plan is made from (`translate` and `runFlow` resolve a document for its run's day first). A change set
+ *   may stop after a last day (`until`), and one edit, `useVersion`, takes a version's rules whole (ADR 0022 §1): what
+ *   a what-if made a day's keeps for that day only.
  * - `rulesHash`: one hash for the rules in force, under the tag `rules/1` (ADR 0021 §5; its test vectors are in
  *   test/inforce.test.ts and the ADR): the ontology, the gates, and the rule switches written in the check cells.
  *   Every run's manifest names it (`flow.rules`).
@@ -44,6 +46,9 @@ function edited(doc: FlowDocument, edit: RuleEdit): { doc: FlowDocument; said: s
       if (was === edit.mode) return null;
       return { doc: toggleCheck(doc, edit.node, edit.check, edit.mode).doc, said: checkSaid(edit, was) };
     }
+    // A version's rules are the base's with change sets: only `resolve`, which has them, takes one.
+    case 'useVersion':
+      return null;
   }
 }
 
@@ -73,9 +78,10 @@ const dayPart = (day: string) => day.slice(0, 10);
  */
 export function changesOn(doc: Pick<FlowDocument, 'changes'>, day: string | null, asOf?: string | null): ChangeSet[] {
   const at = asOf ? Date.parse(asOf) : null;
+  // One with a last day (`until`) is of its days alone: on or before it, and never a run of no day's.
   return (doc.changes ?? [])
     .map((c, i) => ({ c, i, t: Date.parse(c.recorded) }))
-    .filter(({ c, t }) => (day === null || c.from <= dayPart(day)) && (at === null || t <= at))
+    .filter(({ c, t }) => (day === null ? c.until === undefined : c.from <= dayPart(day) && (c.until === undefined || dayPart(day) <= c.until)) && (at === null || t <= at))
     .sort((x, y) => x.t - y.t || x.i - y.i)
     .map(({ c }) => c);
 }
@@ -94,13 +100,23 @@ export interface Applied {
  */
 export function resolve(doc: FlowDocument, day: string | null, asOf?: string | null): { doc: FlowDocument; applied: Applied[] } {
   if (doc.changes === undefined) return { doc, applied: [] };
-  const { changes: _changes, ...base } = doc;
+  const { changes: all, ...base } = doc;
   let out = base as FlowDocument;
   const applied: Applied[] = [];
   for (const change of changesOn(doc, day, asOf)) {
     const said: string[] = [];
     let passed = 0;
     for (const e of change.edits) {
+      // A version's rules, whole (ADR 0022 §1): whatever the change sets before it made of the day's rules.
+      if (e.op === 'useVersion') {
+        const next = versionRules(base as FlowDocument, all ?? [], e.changes);
+        if (canonicalJSON(rulesInForce(next)) === canonicalJSON(rulesInForce(out))) passed++;
+        else {
+          out = next;
+          said.push(versionSaid(e.changes));
+        }
+        continue;
+      }
       const r = applyEdit(out, e);
       if (!r) passed++;
       else {
@@ -111,6 +127,30 @@ export function resolve(doc: FlowDocument, day: string | null, asOf?: string | n
     applied.push({ change, said, passed });
   }
   return { doc: out, applied };
+}
+
+/** A version in words, as `useVersion` names it: its change sets, or the rules as shipped. */
+export const versionSaid = (changes: readonly string[]): string => `Took the rules ${changes.length ? `of ${changes.join(', ')}` : 'as shipped'}`;
+
+/**
+ * A version's rules (ADR 0022 §1): the base with these change sets, each edit applied in turn, in the order they were
+ * recorded (those recorded at once in the order listed), whatever days they are of. A version taken inside one of them
+ * is the base with its own (they were recorded before it, so this ends).
+ */
+export function versionRules(base: FlowDocument, changes: readonly ChangeSet[], ids: readonly string[], depth = 0): FlowDocument {
+  if (depth > changes.length) return base;
+  const sets = changes
+    .map((c, i) => ({ c, i, t: Date.parse(c.recorded) }))
+    .filter(({ c }) => ids.includes(c.id))
+    .sort((x, y) => x.t - y.t || x.i - y.i)
+    .map(({ c }) => c);
+  let out = base;
+  for (const c of sets)
+    for (const e of c.edits) {
+      if (e.op === 'useVersion') out = versionRules(base, changes, e.changes, depth + 1);
+      else out = applyEdit(out, e)?.doc ?? out;
+    }
+  return out;
 }
 
 /** The rules in force on a day as known at a moment: `resolve`'s document. A document with no change sets is itself. */

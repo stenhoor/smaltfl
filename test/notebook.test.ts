@@ -265,6 +265,23 @@ export const failed = table(auth).filter(col('result').eq('fail'));
     expect(steps).toEqual([{ kind: 'sql', id: 'failed', inputs: ['auth'], sql: "SELECT * FROM auth WHERE result = 'fail'" }]);
   });
 
+  it('refuses a cypher cell by name: smaltnb writes graph queries, a flow runs sql and df cells', async () => {
+    const nb = `import { cell, cypher, sql } from 'smaltnb';
+import { source } from 'smaltfl/notebook';
+cell('auth');
+const auth = source('auth');
+cell('reach', { lang: 'cypher' });
+export const reach = cypher\`MATCH (u:User)-[:SIGNED_IN]->(h:Host) RETURN u, h\`;
+cell('failed', { lang: 'sql' });
+export const failed = sql\`SELECT * FROM \${auth} WHERE result = 'fail'\`;
+`;
+    const { steps, cells, issues } = await stepsOfNotebooks(flow({ 'a.nb.ts': nb }), ts);
+    expect(issues).toEqual([{ path: '$.notebooks[0]#reach', message: 'reach is a cypher cell: a flow runs sql and df cells and its own (source(), check(), fill(), gate(), publish(), param()), not cypher' }]);
+    expect(steps.map((s) => s.id)).toEqual(['failed']);
+    expect(cells.map((c) => [c.cell, c.lang])).toEqual([['failed', 'sql']]);
+    await expect(expandNotebooks(flow({ 'a.nb.ts': nb }), ts)).rejects.toThrow('reach is a cypher cell');
+  });
+
   it('is format 4 by its notebooks, which validateDocument reads before the steps are derived', async () => {
     const raw = { smaltfl: 4, id: 'x', name: 'x', sources: [], notebooks: ['a.nb.ts'] };
     const loaded = await loadNotebooks(raw, async (path) => `// ${path}\n`);

@@ -207,7 +207,11 @@ versions of the rules this makes, each with where and when it was in force, and 
 
 **What if… ›** on a day runs it again on any of its files under any of those versions, apart from the record. On Sat 16,
 under the rules as shipped, it would have passed, where readers got it restated and held. On Thu 21, on the TLS file
-as it first arrived, it would be held where the repeats reach gold.
+as it first arrived, it would be held where the repeats reach gold. **Make this the day's ›** makes a what-if the day's
+in one tap, with a reason:
+
+- Sat 16 takes the rules as shipped for that day only and is restated, published.
+- Thu 21's first TLS file goes in as sent again, a fifth version published as is.
 
 A file sent again is a version of its day, like a commit. It waits for a decision whatever its checks say, and the
 history learns the day from the version that was published. Open a day: its versions are listed under its head, the one

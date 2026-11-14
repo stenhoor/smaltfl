@@ -39,6 +39,7 @@ import { manifestHash, planHash, policiesHash, type IdentityCard, type RunManife
 import { flowHash, planPeriod, watchesOf, type FlowPlan } from './plan.js';
 import { checkDecision, DECIDE_OPTIONS } from './policy.js';
 import { isHistory, type HistoryFile } from './history.js';
+import { isRestate, restatedOutcome, runDay } from './month.js';
 import { retellClaims, toTell, type Retold } from './retell.js';
 import type { Story } from './story.js';
 
@@ -347,8 +348,8 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
   // The runs that made something, published or held, by their manifest's hash: what decisions, releases and proofs cite.
   const runs = new Map<string, { entry: LogEntry; manifest: RunManifest | null; plan: FlowPlan | null; ok: boolean }>();
   const engineRepairs = json<EngineRepairs>('data/engine/repairs.json');
-  for (const e of entries.filter((x) => x.kind === 'run' && ['ok', 'held', 'derived'].includes(String((x.about as { outcome?: string } | null)?.outcome)))) {
-    const a = e.about as { run: number; manifest: string; blob: string; outcome: 'ok' | 'held' | 'derived' };
+  for (const e of entries.filter((x) => x.kind === 'run' && ['ok', 'held', 'derived', 'restated'].includes(String((x.about as { outcome?: string } | null)?.outcome)))) {
+    const a = e.about as { run: number; manifest: string; blob: string; outcome: 'ok' | 'held' | 'derived' | 'restated' };
     const b = blobs.get(`manifest-${a.blob}`);
     if (!b) {
       say(false, `run ${a.run} (#${e.seq}): its manifest isn't in the bag`);
@@ -365,7 +366,9 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
     if (!plan && (m.smaltflRun === 1 || a.outcome !== 'ok')) problems.push("its plan isn't in the bag, so what it ran can't be checked");
     // A held run: its holds are what its manifest's counts and its claims hold, and the keys it names are its own. A
     // derived run is held as a held run is, and checked against the held run it repairs.
-    const said = a.outcome === 'held' && typed ? heldProblems(e.about, typed, m, problems) : a.outcome === 'derived' && typed ? await derivedProblems(e, typed, m, problems) : '';
+    // A restated run (ADR 0021 §5) is held as a held run is, every output by its restated hold, and names the run it
+    // restates, earlier in the record, and the change sets it ran again under.
+    const said = a.outcome === 'held' && typed ? heldProblems(e.about, typed, m, problems) : a.outcome === 'restated' && typed ? restatedProblems(e, typed, m, problems, (of) => runs.get(of)?.entry.seq) : a.outcome === 'derived' && typed ? await derivedProblems(e, typed, m, problems) : '';
     // Recorded as published: a plan that holds on its checks must not have counts that hold it.
     if (a.outcome === 'ok' && typed?.publish && checksHolds(typed, m).length) problems.push("it was recorded as published, and its manifest's counts hold it");
     // What the engine kept of what held it: what its manifest and its judged sources hold, and what the record says.
@@ -380,7 +383,7 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
         const read = r?.manifest && r.plan ? [...loadsOf(r.plan, r.manifest).values()].some((y) => loadKey(y) === loadKey(l)) : false;
         return read && Array.isArray(x.holds) && !x.holds.some((h) => h.by === 'checks' && h.node === node && h.load && loadKey(h.load) === loadKey(l));
       });
-      problems.push(...engineHoldsProblems(kept, e.about, typed, m, a.outcome === 'derived' ? 'derived' : a.outcome, engineRepairs?.derived.find((d) => d.manifest === a.manifest), earlier, readBefore));
+      problems.push(...engineHoldsProblems(kept, e.about, typed, m, a.outcome === 'derived' ? 'derived' : a.outcome === 'restated' ? 'held' : a.outcome, engineRepairs?.derived.find((d) => d.manifest === a.manifest), earlier, readBefore));
       // The claims its entry keeps (ADR 0010 §6) include each one the engine judged it by: what --history tells again.
       const keptClaims = (e.about as { claims?: unknown }).claims;
       if (Array.isArray(keptClaims) && Array.isArray(kept.judged)) {
@@ -425,7 +428,7 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
     const out = new Set<string>();
     // A derived run holds every output until a decision releases it.
     if (a.outcome === 'derived') for (const k of Object.keys(run.manifest?.outputs ?? {})) out.add(k);
-    if (a.outcome === 'held') {
+    if (a.outcome === 'held' || a.outcome === 'restated') {
       if (isKeys(a.keys)) for (const k of Object.keys(a.keys)) out.add(k);
       if (run.plan) for (const k of heldOutputs(run.plan, Array.isArray(a.holds) ? a.holds : [])) out.add(k);
       else for (const k of Object.keys(run.manifest?.outputs ?? {})) out.add(k);
@@ -587,6 +590,67 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
     if (a.outcome === 'applied' && problems.length === 0 && !Number.isInteger(a.withdraws)) releasedBy.set(e.seq, a);
     const what = Number.isInteger(a.withdraws) ? `release #${String(a.withdraws)} withdrawn: ${Object.keys(a.outputs).length} output${Object.keys(a.outputs).length === 1 ? '' : 's'} back` : `${Object.keys(a.outputs).length} output${Object.keys(a.outputs).length === 1 ? '' : 's'} of run ${a.run} released`;
     say(problems.length === 0, `${where}: ${a.outcome === 'applied' ? what : `refused (${a.why ?? 'no reason given'})`}, citing decision #${a.decision}${problems.length ? `: ${problems.join('; ')}` : ''}`);
+  }
+
+  // Each restatement (ADR 0021 §5, Q-190; ADR 0022 §1): each restated run it names is in the record before it, of the
+  // day it names, run again under its change sets; each day is where its outcome against the run readers got puts it
+  // (`restatedOutcome`, as the page and the recorder tell it): restated or kept where it would change, noted as the same
+  // where it wouldn't, a restated day's `passes` the outcome's. Its actor may publish a day under the policies of the
+  // runs' flow document. It has a reason where it restates or keeps a day, and where it signs days off as the same: one
+  // recorded before ADR 0022 without one noted them at once, said as such.
+  const contentsOf = (m: RunManifest | null) => (m ? Object.fromEntries(Object.entries(m.outputs).map(([n, o]) => [n, o.content])) : null);
+  const changesKey = (ids: readonly string[]) => [...new Set(ids)].sort().join(',');
+  for (const e of entries.filter((x) => x.kind === 'restate')) {
+    const a = e.about;
+    const where = `restatement #${e.seq}`;
+    if (!isRestate(a) || a.changes.length === 0) {
+      say(false, `${where}: isn't shaped as a restatement (changes, from, days, kept, same)`);
+      continue;
+    }
+    const problems: string[] = [];
+    let doc: FlowDocument | null = null;
+    const rows = [...a.days.map((d) => ({ d, as: 'restates' as const })), ...a.kept.map((d) => ({ d, as: 'keeps' as const })), ...a.same.map((d) => ({ d, as: 'notes' as const }))];
+    for (const { d, as } of rows) {
+      const run = runs.get(d.manifest);
+      const about = run?.entry.about as { outcome?: string; holds?: unknown } | undefined;
+      if (!run || about?.outcome !== 'restated' || run.entry.seq > e.seq) {
+        problems.push(`it ${as} ${d.day} by run ${shortHash(d.manifest)}, which the record doesn't hold before it as a restated run`);
+        continue;
+      }
+      if (runDay(run.entry) !== d.day) problems.push(`the restated run it names for ${d.day} is of ${String(runDay(run.entry))}`);
+      const m = run.manifest;
+      doc ??= m ? flowOf(flows, m.flow.hash) : null;
+      if (!m?.restates || changesKey(m.restates.changes) !== changesKey(a.changes)) {
+        problems.push(`the run it names for ${d.day} wasn't run again under ${a.changes.join(', ')}`);
+        continue;
+      }
+      const of = runs.get(m.restates.of);
+      if (!of) {
+        problems.push(`the run ${d.day}'s restated run restates isn't in the record`);
+        continue;
+      }
+      const ofAbout = of.entry.about as { outcome?: string; holds?: unknown };
+      const published = ofAbout.outcome === 'ok' || entries.some((x) => x.kind === 'release' && x.seq < e.seq && isRecord(x.about) && x.about.manifest === m.restates!.of && x.about.outcome === 'applied');
+      const outcome = restatedOutcome({ published, holds: Array.isArray(ofAbout.holds) ? (ofAbout.holds as Hold[]) : [], contents: contentsOf(of.manifest) }, { holds: Array.isArray(about.holds) ? (about.holds as Hold[]) : [], contents: contentsOf(m) });
+      if (as === 'notes' && outcome.changed) problems.push(`${d.day} would change, and it notes it as the same`);
+      else if (as !== 'notes' && !outcome.changed) problems.push(`${d.day} comes out the same, and it ${as} it`);
+      else if (as === 'restates' && (d as { passes: boolean }).passes !== outcome.passes) problems.push(`it says readers get ${d.day}'s restated run ${(d as { passes: boolean }).passes ? 'published' : 'held'}, and it comes out ${outcome.passes ? 'published' : 'held'}`);
+    }
+    if (!doc) problems.push("its runs' flow document isn't in the bag, so who may restate can't be checked");
+    else {
+      const may = checkDecision(doc.policies, e.by.as, 'asis');
+      if (!may.allowed) problems.push(`${e.by.as} may not restate days: ${may.reason}`);
+    }
+    const decides = a.days.length + a.kept.length > 0;
+    const reasoned = typeof e.reason === 'string' && e.reason.trim() !== '';
+    if (decides && !reasoned) problems.push('it restates or keeps days without a reason');
+    const days = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
+    const what = [
+      a.days.length ? `restated ${a.days.map((d) => `${d.day} (${d.passes ? 'published' : 'held'})`).join(', ')}` : null,
+      a.kept.length ? `kept ${a.kept.map((d) => d.day).join(', ')} as readers had ${a.kept.length === 1 ? 'it' : 'them'}` : null,
+      a.same.length ? `${decides ? 'noted' : reasoned ? 'signed off' : 'noted at once (before ADR 0022 made a sign-off need a reason)'} ${days(a.same.length)} as the same` : null,
+    ].filter((x): x is string => x !== null).join('; ');
+    say(problems.length === 0, `${where}: under ${a.changes.join(', ')} from ${a.from}, by ${e.by.as}: ${what || 'no day'}${problems.length ? `: ${problems.join('; ')}` : ''}`);
   }
 
   // Each dataset's proof: its run entry is in the record, and the run's manifest made that dataset with that content.
@@ -805,10 +869,11 @@ function claimsFlow(claims: readonly Claim[], m: RunManifest): string {
   return told !== undefined && told !== m.flow.hash ? told : m.flow.hash;
 }
 
-/** What a run's checks hold, from its manifest's counts alone: none for a plan that doesn't hold on its checks. */
+/** What a run's checks hold, from its manifest's counts alone: none for a plan that doesn't hold on its checks. A later
+ * delivery's, a restated run's and a what-if's own holds (ADR 0021 §2, §4, §5) are the run's kind, not its checks'. */
 function checksHolds(plan: FlowPlan, m: RunManifest): Hold[] {
   const pub = plan.publish;
-  return pub ? holdsOf({ ...plan, publish: { ...pub, hold: pub.hold.filter((k) => k === 'checks'), watch: [] } }, m, []) : [];
+  return pub ? holdsOf({ ...plan, publish: { ...pub, hold: pub.hold.filter((k) => k === 'checks'), watch: [] } }, m, []).filter((h) => h.by === 'checks') : [];
 }
 
 /**
@@ -849,6 +914,28 @@ function heldProblems(about: unknown, plan: FlowPlan, m: RunManifest, problems: 
   const waiting = Array.isArray(a.waiting) ? a.waiting : [];
   if (waiting.some((w) => typeof w !== 'string' || !Object.hasOwn(keys, w))) problems.push('it says an output waits that it names no key for');
   return `; held by ${holds.map((h) => `${h.origin} (${h.by === 'checks' ? 'its checks' : h.by === 'unjudged' ? 'not judged' : h.said})`).join(', ')}, ${waiting.length} output${waiting.length === 1 ? '' : 's'} waiting`;
+}
+
+/**
+ * What is wrong with a restated run's entry (ADR 0021 §5), pushed onto `problems`, and what held it, said: a held run's
+ * checks (`heldProblems`), a manifest that names the run it restates, earlier in the record, and the change sets it ran
+ * again under, as its entry does, and a restated hold on every output.
+ */
+function restatedProblems(e: LogEntry, plan: FlowPlan, m: RunManifest, problems: string[], seqOf: (manifest: string) => number | undefined): string {
+  const said = heldProblems(e.about, plan, m, problems);
+  const a = e.about as { restates?: unknown; holds?: unknown };
+  const r = m.restates;
+  if (!r) {
+    problems.push('it was recorded as run again under rules changed since, and its manifest names no run it restates');
+    return said;
+  }
+  if (canonicalJSON((a.restates ?? null) as JSONValue) !== canonicalJSON(r as unknown as JSONValue)) problems.push("the run it restates and the change sets its entry names aren't its manifest's");
+  const at = seqOf(r.of);
+  if (at === undefined || at > e.seq) problems.push(`it restates run ${shortHash(r.of)}, which the record doesn't hold before it`);
+  const holds = Array.isArray(a.holds) ? (a.holds as RunHold[]) : [];
+  const outputs = plan.outputs.map((o) => o.name).sort();
+  if (!holds.some((h) => h.by === 'restated' && [...h.reaches].sort().join(',') === outputs.join(','))) problems.push('it names no restated hold on every output');
+  return `${said}; run again under ${r.changes.join(', ')}, restating run ${shortHash(r.of)}`;
 }
 
 /** Whether an entry is a decision to fill, or to publish the part that arrived. */

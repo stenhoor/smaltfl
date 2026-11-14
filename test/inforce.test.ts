@@ -170,6 +170,65 @@ describe('each edit replayed', () => {
   });
 });
 
+describe('a change for a day or a few, and a version taken whole (ADR 0022 §1, Q-202)', () => {
+  const max = (d: FlowDocument) => rulesOf(d.ontology, 'auth').find((r) => r.id === 'latency_ms_range')?.max;
+  const oneDay = (id: string, day: string, recorded: string, edits: RuleEdit[]): ChangeSet => ({ ...change(id, day, recorded, edits, 'Made the what-if the day’s'), until: day });
+
+  it('is in force from its day to its last, and never on a run of no day', async () => {
+    const doc = await signins();
+    const dated: FlowDocument = { ...doc, changes: [change('band', '2024-03-12', '2024-03-12T08:00:00Z', [latency(20_000)]), oneDay('sat', '2024-03-16', '2024-03-25T10:00:00Z', [latency(15_000)])] };
+    const ids = (day: string | null) => changesOn(dated, day).map((c) => c.id);
+    expect(ids('2024-03-15')).toEqual(['band']);
+    expect(ids('2024-03-16')).toEqual(['band', 'sat']);
+    expect(ids('2024-03-16T06')).toEqual(['band', 'sat']);
+    expect(ids('2024-03-17')).toEqual(['band']);
+    expect(ids(null)).toEqual(['band']);
+    expect([max(inForce(dated, '2024-03-15')), max(inForce(dated, '2024-03-16')), max(inForce(dated, '2024-03-17'))]).toEqual([20_000, 15_000, 20_000]);
+    // As known before it was recorded, the day had the rules it had.
+    expect(max(inForce(dated, '2024-03-16', '2024-03-20T00:00:00Z'))).toBe(20_000);
+  });
+
+  it('takes a version’s rules whole, those of its change sets in the order recorded, whatever their days: the rules as shipped where it names none', async () => {
+    const doc = await signins();
+    const band = change('band', '2024-03-12', '2024-03-12T08:00:00Z', [latency(20_000)]);
+    const back = change('back', '2024-03-01', '2024-03-14T09:00:00Z', [latency(25_000)]);
+    const asShipped = oneDay('sat-shipped', '2024-03-16', '2024-03-25T10:00:00Z', [{ op: 'useVersion', changes: [] }]);
+    const bandOnly = oneDay('sun-band', '2024-03-17', '2024-03-25T10:05:00Z', [{ op: 'useVersion', changes: ['band'] }]);
+    const dated: FlowDocument = { ...doc, changes: [band, back, asShipped, bandOnly] };
+    expect(max(inForce(dated, '2024-03-15'))).toBe(25_000);
+    expect(max(inForce(dated, '2024-03-16'))).toBe(30_000);
+    expect(max(inForce(dated, '2024-03-17'))).toBe(20_000);
+    expect(max(inForce(dated, '2024-03-18'))).toBe(25_000);
+    // The day's rules hash is the version's: the base's, and the band's alone.
+    expect(await rulesHash(inForce(dated, '2024-03-16'))).toBe(await rulesHash(doc));
+    expect(await rulesHash(inForce(dated, '2024-03-17'))).toBe(await rulesHash(inForce({ ...doc, changes: [band] }, '2024-03-17')));
+    const said = resolve(dated, '2024-03-16').applied.map((a) => [a.change.id, a.said, a.passed]);
+    expect(said.at(-1)).toEqual(['sat-shipped', ['Took the rules as shipped'], 0]);
+    expect(resolve(dated, '2024-03-17').applied.at(-1)!.said).toEqual(['Took the rules of band']);
+    // A version the day already has changes nothing, and is counted as passed over.
+    const already = oneDay('mon', '2024-03-18', '2024-03-25T10:10:00Z', [{ op: 'useVersion', changes: ['band', 'back'] }]);
+    expect(resolve({ ...dated, changes: [band, back, already] }, '2024-03-18').applied.at(-1)).toMatchObject({ said: [], passed: 1 });
+  });
+
+  it('is checked: a last day on or after its day, a version of change sets recorded before it', async () => {
+    const doc = await signins();
+    const issues = (changes: unknown) => validateDocument({ ...doc, changes } as FlowDocument).filter((i) => i.path.startsWith('$.changes')).map((i) => `${i.path}: ${i.message}`);
+    const band = change('band', '2024-03-12', '2024-03-12T08:00:00Z', [latency(20_000)]);
+    expect(issues([band, oneDay('sat', '2024-03-16', '2024-03-25T10:00:00Z', [{ op: 'useVersion', changes: ['band'] }])])).toEqual([]);
+    expect(issues([{ ...band, until: '2024-03-11' }])).toEqual(['$.changes[0].until: the last business day it is in force: YYYY-MM-DD, on or after its day']);
+    expect(issues([band, oneDay('sat', '2024-03-16', '2024-03-25T10:00:00Z', [{ op: 'useVersion', changes: ['nothing', 'sat'] }]), change('later', '2024-03-20', '2024-03-26T08:00:00Z', [latency(1)])])).toEqual([
+      '$.changes[1].edits[0].changes: nothing names no change set of the flow',
+      "$.changes[1].edits[0].changes: sat isn't recorded before sat: a version is of change sets recorded before it",
+    ]);
+    expect(issues([oneDay('sat', '2024-03-16', '2024-03-25T10:00:00Z', [{ op: 'useVersion', changes: ['later'] }]), change('later', '2024-03-20', '2024-03-26T08:00:00Z', [latency(1)])])).toEqual([
+      "$.changes[0].edits[0].changes: later isn't recorded before sat: a version is of change sets recorded before it",
+    ]);
+    expect(issues([oneDay('sat', '2024-03-16', '2024-03-25T10:00:00Z', [{ op: 'useVersion', changes: 'band' } as unknown as RuleEdit])])).toEqual([
+      '$.changes[0].edits[0].changes: the change sets whose rules it takes: a list of their names (empty: the rules as shipped)',
+    ]);
+  });
+});
+
 describe('a document with change sets', () => {
   it('is checked: each change set named once, dated, with edits this version replays', async () => {
     const doc = await signins();

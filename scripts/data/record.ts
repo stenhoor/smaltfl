@@ -28,10 +28,11 @@
  *   as known when it ran (the story's change sets kept as the document keeps them, `forDay`, `runFlow`'s `asOf`). A
  *   change set that reaches days already run (a day from its `from` whose version readers got ran before it was
  *   recorded) runs each of them again when it is recorded, latest first, as the page does: a restated run of the run
- *   readers got (`restates`), held until a restatement, never feeding the history. Where no day's outcome would change
- *   they are noted at once, by whoever made the change (Q-199); else the story's restatement decides them, at its time,
- *   by its principal (Q-190): every day whose outcome would change is restated but those it keeps, the rest noted as the
- *   same (`restatedOutcome`, core/month.ts). The page reads the change sets from the flow the build ships.
+ *   readers got (`restates`), held until a restatement, never feeding the history. The story's restatement decides them,
+ *   at its time, by its principal (Q-190): every day whose outcome would change is restated but those it keeps, the rest
+ *   noted as the same (`restatedOutcome`, core/month.ts); where no day's outcome would change, it signs them off as the
+ *   same (Q-199 as the maintainer answered it on 2026-11-14, ADR 0022 §1: never noted at once). The page reads the change
+ *   sets from the flow the build ships.
  *
  *   node scripts/data/record.mjs --flow DOC --work DIR --build COMMIT [--bind DATA.json] [--story STORY.json] OUT.json
  *
@@ -436,10 +437,10 @@ async function main(): Promise<void> {
     };
     /** The change sets a restatement took up. */
     const restatedChanges = (): Set<string> => new Set(entries.flatMap((e) => (e.kind === 'restate' ? (e.about as unknown as RestateAbout).changes : [])));
-    /** The days a change set reaches: each day run so far, from its day, whose version readers got ran before it was
-     * recorded, so under rules that didn't have it. */
+    /** The days a change set reaches: each day run so far, from its day (to its last, ADR 0022 §1), whose version
+     * readers got ran before it was recorded, so under rules that didn't have it. */
     const reachedBy = (c: ChangeSet): string[] => [...made.keys()].filter((day) => {
-      const g = day >= c.from ? gotOf(day) : null;
+      const g = day >= c.from && (c.until === undefined || day <= c.until) ? gotOf(day) : null;
       return !!g && Date.parse(g.made.at) < Date.parse(c.recorded);
     }).sort();
     const changesKey = (ids: readonly string[]) => [...ids].sort().join(',');
@@ -458,8 +459,8 @@ async function main(): Promise<void> {
      * A change to the rules people set (ADR 0021 §5), in force from its day as known from when it was recorded: every run
      * after it is of the rules with it. The days it and every other change set no restatement took up reach run again
      * under the rules as known now, latest first, as the page runs them: each a restated run of the run readers got, with
-     * its files and their sources. Where no day's outcome would change they are noted at once, by whoever made the change
-     * (Q-199); else they wait for the story's restatement.
+     * its files and their sources. They wait for the story's restatement, which signs them off where no day's outcome
+     * would change (Q-199, ADR 0022 §1).
      */
     const changeOnce = async (c: ChangeSet, at: string): Promise<void> => {
       const taken = restatedChanges();
@@ -479,16 +480,15 @@ async function main(): Promise<void> {
         await runOnce(got.made.files, runAt, shas, { restates: { of: got.made.manifest, changes: ids }, sources: got.made.sources });
       }
       const rows = reached.map((day) => restatingOf(day, ids)!);
-      if (rows.every((x) => !x.outcome.changed)) {
-        restateEntry(new Date(t + 1000).toISOString(), c.by, { changes: ids, from: pending.map((x) => x.from).sort()[0]!, days: [], kept: [], same: rows.map((x) => ({ day: x.day, manifest: x.run.manifest })) }, null);
-        console.log(`${c.id}: no day's outcome would change; the ${rows.length} days are noted as the same`);
-      } else console.log(`${c.id}: ${rows.filter((x) => x.outcome.changed).map((x) => x.day).join(', ')} would change, waiting for the restatement`);
+      const changed = rows.filter((x) => x.outcome.changed);
+      console.log(`${c.id}: ${changed.length ? `${changed.map((x) => x.day).join(', ')} would change` : `no day's outcome would change (${rows.length} the same)`}, waiting for the restatement`);
     };
 
     /**
      * The story's restatement (ADR 0021 §5, Q-190), by its principal at its time: every day run again under its change
      * sets whose outcome would change is restated (readers get its restated run: published where it passes, not where
-     * the new rules hold it) but those it keeps as readers had them; the days that come out the same are noted.
+     * the new rules hold it) but those it keeps as readers had them; the days that come out the same are noted. Where
+     * none would change, it signs them all off as the same (Q-199, ADR 0022 §1), and keeps none.
      */
     const restateOnce = async (r: StoryRestatement, at: string): Promise<void> => {
       const said = `the restatement under ${r.changes.join(', ')}`;
@@ -498,7 +498,6 @@ async function main(): Promise<void> {
       if (!may.allowed) throw new Error(`${storyPath}: ${r.by} may not restate days: ${may.reason}`);
       const rows = days.map((day) => restatingOf(day, r.changes)!);
       const changed = rows.filter((x) => x.outcome.changed);
-      if (!changed.length) throw new Error(`${storyPath}: ${said} decides nothing: no day's outcome would change, and the days were noted at once`);
       const keep = new Set(r.keep ?? []);
       for (const d of keep) if (!changed.some((x) => x.day === d)) throw new Error(`${storyPath}: ${said} keeps ${d}, whose outcome wouldn't change`);
       const from = changes.filter((c) => r.changes.includes(c.id)).map((c) => c.from).sort()[0]!;
@@ -508,7 +507,7 @@ async function main(): Promise<void> {
         kept: changed.filter((x) => keep.has(x.day)).map((x) => ({ day: x.day, manifest: x.run.manifest })),
         same: rows.filter((x) => !x.outcome.changed).map((x) => ({ day: x.day, manifest: x.run.manifest })),
       }, r.reason);
-      console.log(`${r.by} restated ${changed.filter((x) => !keep.has(x.day)).map((x) => `${x.day} (${x.outcome.passes ? 'published' : 'held'})`).join(', ') || 'no day'}${keep.size ? `, kept ${[...keep].join(', ')}` : ''}; ${rows.length - changed.length} days the same`);
+      console.log(changed.length ? `${r.by} restated ${changed.filter((x) => !keep.has(x.day)).map((x) => `${x.day} (${x.outcome.passes ? 'published' : 'held'})`).join(', ') || 'no day'}${keep.size ? `, kept ${[...keep].join(', ')}` : ''}; ${rows.length - changed.length} days the same` : `${r.by} signed off ${rows.length} days as the same`);
     };
 
     // The month in time order (ADR 0021 §6): each day's first run when its files arrived, each delivery when it arrived,

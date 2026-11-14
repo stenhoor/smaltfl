@@ -16,7 +16,7 @@ import { holidayOf, seasonOf, US_NYC_1, type Calendar } from '../core/calendar.j
 const calendarNow = (): Calendar => history?.calendar ?? US_NYC_1;
 import { canonicalJSON } from '../core/canonical.js';
 import type { ChangeSet, ContractDef, FlowDocument, GroupDef, NotebookOutline, OutlineCell, ProfileDef, RuleEdit, StepDef } from '../core/document.js';
-import { applyEdit, changesOn, inForce, resolve as resolveRules, ruleParts, rulesHash, rulesInForce, withRuleParts, type RuleParts } from '../core/inforce.js';
+import { applyEdit, changesOn, inForce, resolve as resolveRules, ruleParts, rulesHash, rulesInForce, versionRules, withRuleParts, type RuleParts } from '../core/inforce.js';
 import { diffSaid, ruleVersions, rulesDiff, versionKey, versionOn, type RuleVersion } from '../core/ruleversions.js';
 import { GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
 import { notebookSectionId } from '../core/notebook.js';
@@ -108,6 +108,9 @@ interface RunRecord {
   /** The flow as kept when it ran, its rules before any change set and its change sets, by flow hash: what tells runs of
    * one flow from runs of an edited one, whatever day's rules each ran under (ADR 0021 §5). */
   base?: string;
+  /** A what-if made the day's (ADR 0022 §1, Q-202): a later delivery of the files it picked, a version of the day of its
+   * own, whatever earlier version had the same files. */
+  made?: true;
 }
 
 /** Whether two runs are of the same flow as kept: their base, else (a run without one) the flow they ran. */
@@ -3117,15 +3120,15 @@ function fromDay(): string {
 /** Whether readers got a version of a day, by the record. */
 const publishedLoad = (k: number): boolean => versionFacts(k).some((f) => f.published);
 
-/** The recorded days a change set reaches (ADR 0021 §5): from its day, whose version readers got first ran before the
- * change was recorded, so under rules that didn't have it. A change made here reaches every recorded day from its day;
- * one the build recorded (the story's) only the days run before it. */
-function reachedBy(c: Pick<ChangeSet, 'from' | 'recorded'>): string[] {
+/** The recorded days a change set reaches (ADR 0021 §5): from its day (to its last, ADR 0022 §1), whose version readers
+ * got first ran before the change was recorded, so under rules that didn't have it. A change made here reaches every
+ * recorded day from its day; one the build recorded (the story's) only the days run before it. */
+function reachedBy(c: Pick<ChangeSet, 'from' | 'until' | 'recorded'>): string[] {
   const t = Date.parse(c.recorded);
   const days = new Set<string>();
   loads.list.forEach((l, k) => {
     const day = l.day.slice(0, 10);
-    if (day < c.from) return;
+    if (day < c.from || (c.until !== undefined && day > c.until)) return;
     const at = versionAsOf(k, wentWith(k));
     if (at !== null && Date.parse(at) < t) days.add(day);
   });
@@ -3413,10 +3416,8 @@ async function restatePending(): Promise<void> {
   }
   renderLoads();
   renderMonth();
-  // No day's outcome would change: the days are noted as the same, and nothing waits for a decision (Q-190).
-  const done = pendingRestating();
-  if (done && done.days.every((d) => d.r && !d.r.changed)) await restateDays(done, [], [], done.days, '');
-  else restateSheet();
+  // The restatement, to decide: even where no day's outcome would change, someone signs it off (Q-199, ADR 0022 §1).
+  restateSheet();
   // The day on screen is the one the change takes effect from, under the new rules: what reads the rules, drawn again.
   if (location.hash === '#ontology') void renderOntology();
   delete document.body.dataset.restating;
@@ -3449,7 +3450,7 @@ function restateSheet(): void {
         ticks.set(d.day, box);
         return h('li', { class: 'rs-day', 'data-day': d.day }, h('label', {}, box, h('b', {}, dayLabel(d.day)), ` ${d.r!.before} → ${d.r!.after}`));
       }))) : h('p', { class: 'vf-one' }, 'No day’s outcome would change.'),
-    same.length ? block(`${plural(same.length, 'day')} came out the same`, h('p', { class: 'foot' }, `${same.map((d) => dayShort(d.day)).join(', ')}: noted, not decided again.`)) : null,
+    same.length ? block(`${plural(same.length, 'day')} came out the same`, h('p', { class: 'foot' }, `${same.map((d) => dayShort(d.day)).join(', ')}: ${changed.length ? 'noted with the restatement, not decided again' : 'signed off as the same, not decided again'}.`)) : null,
     unrun.length ? h('p', { class: 'foot' }, `${plural(unrun.length, 'day')} not run again yet: ${unrun.map((d) => dayShort(d.day)).join(', ')}.`) : null,
   ];
   if (may && changed.length) {
@@ -3467,13 +3468,18 @@ function restateSheet(): void {
   } else if (!may) body.push(h('p', { class: 'foot' }, 'Restating is for someone who may publish a day.'));
   else if (unrun.length) body.push(h('div', { class: 'of-acts' }, h('button', { type: 'button', class: 'btn small primary rs-again', onclick: () => void restatePending() }, 'Run them again ▶')));
   else {
-    // Nothing would change: the days are noted as the same, and nothing is decided (Q-190).
-    const note = h('button', { type: 'button', class: 'btn small primary rs-note' }, `Note ${plural(same.length, 'day')} as the same`) as HTMLButtonElement;
-    note.addEventListener('click', () => {
-      note.disabled = true;
-      void restateDays(p, [], [], same, '').then(() => document.querySelector('.vf-detail-wrap')?.remove());
+    // Nothing would change: still a sign-off, with its reason (Q-199, ADR 0022 §1); no day is decided again.
+    go.textContent = `Sign off ${plural(same.length, 'day')} as the same`;
+    go.addEventListener('click', () => {
+      if (!reason.value.trim()) {
+        err.textContent = 'A sign-off needs a reason.';
+        err.hidden = false;
+        return;
+      }
+      go.disabled = true;
+      void restateDays(p, [], [], same, reason.value.trim()).then(() => document.querySelector('.vf-detail-wrap')?.remove());
     });
-    body.push(h('div', { class: 'of-acts' }, note));
+    body.push(h('div', { class: 'of-field' }, h('label', {}, 'Why'), reason), err, h('div', { class: 'of-acts' }, go));
   }
   openDetail(changed.length ? `Restate ${plural(changed.length, 'day')} under the new rules?` : 'The new rules change no published day', changed.length ? 'warn' : 'ok', body);
 }
@@ -3491,7 +3497,7 @@ async function restateDays(p: PendingRestating, ticked: { day: string; r: Restat
   };
   await ledger.append('restate', state.viewer, about as unknown as JSONValue, reason || null);
   renderRecord();
-  setStatus(ticked.length || kept.length ? `Restated ${plural(ticked.length, 'day')} under the new rules${kept.length ? `; ${plural(kept.length, 'day')} left as readers had ${kept.length === 1 ? 'it' : 'them'}` : ''}. Recorded.` : `${plural(same.length, 'recorded day')} ran again under the new rules: ${same.length === 1 ? 'it comes' : 'they come'} out the same. Noted in the record.`, false);
+  setStatus(ticked.length || kept.length ? `Restated ${plural(ticked.length, 'day')} under the new rules${kept.length ? `; ${plural(kept.length, 'day')} left as readers had ${kept.length === 1 ? 'it' : 'them'}` : ''}. Recorded.` : `${plural(same.length, 'recorded day')} ran again under the new rules: ${same.length === 1 ? 'it comes' : 'they come'} out the same. Signed off and recorded.`, false);
   afterDecision();
   renderMonth();
 }
@@ -3506,7 +3512,7 @@ function restateLine(k: number): HTMLElement | null {
   const decide = h('button', { type: 'button', class: 'btn small', onclick: () => restateSheet() }, 'The restatement ›');
   const again = h('button', { type: 'button', class: 'btn small', onclick: () => void restatePending() }, 'Run them again ▶');
   if (!d.r) return h('p', { class: 'loads-pause waiting rs-line' }, `Rules changed since ${dayShort(d.day)} ran, from ${dayLabel(p.from)}: not run again under them yet. `, mayRun() ? again : '');
-  return h('p', { class: `loads-pause rs-line${d.r.changed ? ' waiting' : ''}` }, `Under the rules changed since: ${d.r.before} → ${d.r.after}. ${d.r.changed ? 'It waits for the restatement.' : 'Noted: it comes out the same.'} `, decide);
+  return h('p', { class: `loads-pause rs-line${d.r.changed ? ' waiting' : ''}` }, `Under the rules changed since: ${d.r.before} → ${d.r.after}. ${d.r.changed ? 'It waits for the restatement.' : p.days.some((x) => x.r?.changed) ? 'It comes out the same, noted with the restatement.' : 'It comes out the same, waiting for the sign-off.'} `, decide);
 }
 
 /** A document's rules-in-force hash (`rules/1`), hashed once a document. */
@@ -3525,6 +3531,9 @@ function hashCode(of: Promise<string>, cls: string): HTMLElement {
 
 /** What a change set did, in words: its edits replayed on the rules of its day as known when it was made. */
 function changeSaid(c: ChangeSet): string {
+  // A version taken whole (ADR 0022 §1): said by the version, as the Ontology view numbers it, not its change sets' names.
+  const v = c.edits.length === 1 && c.edits[0]!.op === 'useVersion' ? c.edits[0]!.changes : null;
+  if (v) return `Took ${ruleVersionSaid(v)}${c.until ? ` for ${c.until === c.from ? `${dayShort(c.from)} only` : `${dayShort(c.from)} to ${dayShort(c.until)}`}` : ''}`;
   const a = resolveRules(baseDoc(), c.from, c.recorded).applied.find((x) => x.change.id === c.id);
   return a?.said.length ? a.said.join('; ') : 'nothing that applies to the rules of its day';
 }
@@ -3575,7 +3584,8 @@ const versionsView = { a: null as string | null, b: null as string | null };
 
 /** A version's rules: the rules before any change set with its change sets applied, in the order recorded. */
 function versionDoc(v: Pick<RuleVersion, 'changes'>): FlowDocument {
-  return inForce({ ...baseDoc(), changes: ruleChanges.filter((c) => v.changes.includes(c.id)) }, null);
+  const { changes: _changes, ...base } = baseDoc();
+  return versionRules(base as FlowDocument, ruleChanges, v.changes);
 }
 
 /** The days a version's spans name, as runs of days in the data's order: "Fri Mar 1 to Sun Mar 17, Mon Mar 25". */
@@ -11193,6 +11203,9 @@ const loads = {
   /** A run of the pinned load is a what-if (ADR 0021 §2, §4, Q-191): the version of the rules it runs under, by the
    * change sets it applies. Null for any other run. */
   whatIf: null as string[] | null,
+  /** The next run of the pinned load is a what-if made the day's (ADR 0022 §1, Q-202): a later delivery correcting the
+   * run readers got with the what-if's files, held until the decision the same tap records. Taken by that run. */
+  correct: null as { of: { run: number; manifest: string }; sources: string[] } | null,
   /** The days a paused day may be filled from that aren't loads (loads.json `donors`, ADR 0009 amendment 1 S13): never
    * stepped through, checked against the data's list, and pinned only when a fill needs one. */
   donors: [] as Listed[],
@@ -11528,8 +11541,9 @@ function versionsPart(k: number): HTMLElement | null {
   // What readers got: the latest version published; on a day a restatement kept back (ADR 0021 §5), none.
   const re = restatedDayOf(k);
   const got = re && !re.passes ? null : ([...facts].reverse().find((f) => f.published)?.v ?? null);
-  // The versions a later file made: a restated one (ADR 0021 §5) replaces no file.
-  const files = facts.filter((f) => !f.restated).length;
+  // The versions a later file made: a restated one (ADR 0021 §5) replaces no file; each file version is replaced by the next.
+  const fileFacts = facts.filter((f) => !f.restated);
+  const nextFile = (f: VersionFact) => fileFacts[fileFacts.findIndex((x) => x.v === f.v) + 1];
   const said = (f: VersionFact): string => {
     const a = f.first?.about as unknown as RunAbout | undefined;
     // Run again under rules changed since (ADR 0021 §5): the rules, what it came to, and what its restatement decided.
@@ -11540,13 +11554,13 @@ function versionsPart(k: number): HTMLElement | null {
       parts.push(!r.decision ? 'waiting for the restatement' : r.decision.ticked ? `restated by ${whoSaid(r.decision.by)}, ${whenMin(r.decision.at, l.day)}${r.decision.reason ? ` (“${r.decision.reason}”)` : ''}` : r.decision.same ? 'the same as readers had: noted' : `left as readers had it by ${whoSaid(r.decision.by)}`);
       return parts.join(' · ');
     }
-    const parts = [f.delivery ? `${f.delivery.source} sent again ${whenMin(f.delivery.arrived, l.day)}: “${f.delivery.why}”` : `As it arrived${f.first ? `, ${whenMin(f.first.at, l.day)}` : ''}`];
+    const parts = [f.delivery ? `${f.delivery.source} sent again ${whenMin(f.delivery.arrived, l.day)}: “${f.delivery.why}”` : f.made ? `${f.made.sources.join(' and ')} as a what-if had ${f.made.sources.length === 1 ? 'it' : 'them'}: made the day’s ${whenMin(f.made.at, l.day)}` : `As it arrived${f.first ? `, ${whenMin(f.first.at, l.day)}` : ''}`];
     // What held it, a correction's own hold aside: every later file waits for a decision (Q-183).
     const hold = a?.outcome === 'held' ? a.holds?.find((x) => x.by !== 'correction') : undefined;
     if (hold) parts.push(`held: ${hold.origin}: ${hold.said}`);
     if (f.decided) parts.push(`${f.decided.option === 'dont' ? 'kept back' : f.published ? (f.delivery ? 'published' : DECIDED_WORD.asis) : (DECIDED_WORD[f.decided.option as DayState] ?? f.decided.option)} by ${whoSaid(f.decided.by)}, ${whenMin(f.decided.at, l.day)}${f.decided.reason ? ` (“${f.decided.reason}”)` : ''}`);
     else if (f.published) parts.push('published');
-    else if (a?.outcome === 'held') parts.push(f.v < files ? `replaced by version ${f.v + 1} before a decision` : DECIDED_WORD.waiting);
+    else if (a?.outcome === 'held') parts.push(nextFile(f) ? `replaced by version ${nextFile(f)!.v} before a decision` : DECIDED_WORD.waiting);
     return parts.join(' · ');
   };
   return h('div', { class: 'dh-versions' }, h('p', { class: 'eyebrow' }, `${facts.length} versions of the day`),
@@ -11690,7 +11704,13 @@ function comparePart(k: number): HTMLElement | null {
   const rowsOf = (f: { rows: number | null; refused: boolean } | null) => (!f ? 'not read' : f.refused ? 'refused' : f.rows === null ? 'no rows counted' : `${fmtInt(f.rows)} ${f.rows === 1 ? 'row' : 'rows'}`);
   // A version run again under rules changed since (ADR 0021 §5) by what its restatement made of it.
   const restatedFate = (f: VersionFact) => (!f.restated?.decision ? 'waiting for the restatement' : f.restated.decision.ticked ? `restated by ${whoSaid(f.restated.decision.by)}, ${f.published ? 'published' : 'not published'}` : f.restated.decision.same ? 'the same as readers had, noted' : 'left as readers had it');
-  const fate = (f: VersionFact) => (f.v === 0 ? 'a what-if, never published' : f.restated ? restatedFate(f) : f.published ? (f.delivery ? 'published' : f.decided ? DECIDED_WORD.asis : 'published') : f.decided?.option === 'dont' ? `kept back by ${whoSaid(f.decided.by)}` : f.v < facts.filter((x) => !x.restated).length ? 'replaced before a decision' : DECIDED_WORD.waiting);
+  const fate = (f: VersionFact) => (f.v === 0 ? 'a what-if, never published' : f.restated ? restatedFate(f) : f.published ? (f.delivery ? 'published' : f.decided ? DECIDED_WORD.asis : 'published') : f.decided?.option === 'dont' ? `kept back by ${whoSaid(f.decided.by)}` : laterFile(f) ? 'replaced before a decision' : DECIDED_WORD.waiting);
+  // Replaced by a later file version (a delivery, or a what-if made the day's, ADR 0022 §1): one after it in the list.
+  function laterFile(f: VersionFact): boolean {
+    const files = facts.filter((x) => !x.restated);
+    const i = files.findIndex((x) => x.v === f.v);
+    return i >= 0 && i < files.length - 1;
+  }
   const factOf = (v: number): VersionFact | undefined => (v === 0 ? { v: 0, delivery: null, first: null, decided: null, published: false } : facts[v - 1]);
   // What held each side by its own data and rules: a later delivery's, a restated run's and a what-if's own holds aside.
   const heldBy = (v: number): Hold[] => ownHolds(v === 0 ? (wi?.result.holds ?? []) : ((runsOfVersions(k).filter((x) => x.v === v).at(-1)?.e.about as unknown as RunAbout | undefined)?.holds ?? [])).filter((x) => x.by !== 'what-if');
@@ -11820,11 +11840,86 @@ function whatIfHow(): string | null {
   if (!w || !l) return null;
   const day = l.day.slice(0, 10);
   const v = versionOfFiles(w.k, whatIfShas(w));
-  const files = v ? `Its files are version ${v}’s` : 'No version of the day has these files: a file sent again for the day would make one';
+  const files = v ? `Its files are version ${v}’s` : 'No version of the day has these files: making it the day’s sends them again';
   const rules = versionKey(w.rules) === versionOn({ changes: ruleChanges }, day, null)
     ? `its rules are those in force on ${dayShort(day)} now`
-    : `its rules aren’t in force on ${dayShort(day)}: a change to the rules from this day would make them so, restated under one decision`;
+    : `its rules aren’t in force on ${dayShort(day)}: making it the day’s takes them for that day only, restated under one decision`;
   return `${files}; ${rules}.`;
+}
+
+/**
+ * The open what-if against the day as readers have it (ADR 0022 §1, Q-202): the sources whose files aren't those of the
+ * version readers got, whether its rules aren't those in force on the day now, what making it the day's does, said
+ * before the tap, and whether the viewer may (publish a day; set the rules, where it takes other ones). Null when none
+ * is open, or when it is the day as readers would have it now.
+ */
+function whatIfMakes(): { sent: string[]; rules: boolean; how: string; may: boolean } | null {
+  const w = whatIf;
+  const l = w ? loads.list[w.k] : undefined;
+  if (!w?.run || !l) return null;
+  const day = l.day.slice(0, 10);
+  const gotFiles = versionsOfLoad(w.k)[wentWith(w.k) - 1]?.files ?? {};
+  const sent = Object.entries(whatIfShas(w)).filter(([id, sha]) => gotFiles[id]?.sha256 !== sha).map(([id]) => id).sort();
+  const rules = versionKey(w.rules) !== versionOn({ changes: ruleChanges }, day, null);
+  if (!sent.length && !rules) return null;
+  const own = w.run.result.holds.filter((x) => x.by !== 'what-if');
+  const held = own[0] ? `${own[0].origin}: ${own[0].said}` : null;
+  const how = sent.length
+    ? `${sent.join(' and ')}’s file${sent.length === 1 ? '' : 's'} as the what-if has ${sent.length === 1 ? 'it goes' : 'them go'} in as sent again${rules ? `, under ${ruleVersionSaid(w.rules)} for that day only` : ''}, and the day is published as is${held ? `, though it would be held (${held})` : ''}`
+    : `${dayShort(day)} takes ${ruleVersionSaid(w.rules)} for that day only, and is restated under ${w.rules.length === 1 ? 'it' : 'them'}: ${held ? `held (${held}), not published` : 'readers get its outputs'}`;
+  const may = checkDecision(policies(), state.viewer, 'asis').allowed && (!rules || isOwner());
+  return { sent, rules, how: `${how}.`, may };
+}
+
+/** The reason being written to make the open what-if the day's (ADR 0022 §1): open while the form is. */
+let makingWhatIf = false;
+
+/**
+ * Make the open what-if the day's (ADR 0022 §1, Q-202): one tap with a reason, on this screen, by the ways a day already
+ * gets a version. Its rules, where other than the day's now, become a change set for that day only taking its version
+ * (`until`, `useVersion`). Other files: a later delivery correcting the run readers got (held until a decision, Q-183),
+ * decided as is with the reason. The same files under other rules: the day run again under that change set, and one
+ * restatement deciding it (Q-190), readers getting it published where it passes.
+ */
+async function makeWhatIfTheDays(reason: string): Promise<void> {
+  const w = whatIf;
+  const m = whatIfMakes();
+  const l = w ? loads.list[w.k] : undefined;
+  if (!w?.run || !m || !l || !ledger || state.running) return;
+  if (!m.may) return void setStatus(m.rules && !isOwner() ? 'Its rules are another version, and the rules are the owner’s to set.' : 'Making a what-if the day’s is for someone who may publish a day.', true);
+  if (!reason.trim()) return void setStatus('Making a what-if the day’s needs a reason.', true);
+  const k = w.k;
+  const day = l.day.slice(0, 10);
+  const got = gotEntry(k);
+  const of = got ? (got.about as unknown as RunAbout & { run?: number | string | null }) : null;
+  if (!of?.manifest || of.run === undefined || of.run === null) return void setStatus('The run readers got of this day isn’t in the record: there is nothing to carry the what-if over to.', true);
+  makingWhatIf = false;
+  let cs: ChangeSet | null = null;
+  if (m.rules) {
+    cs = { id: changeId(), from: day, until: day, recorded: new Date().toISOString(), by: state.viewer, why: reason.trim(), edits: [{ op: 'useVersion', changes: [...w.rules] }] };
+    ruleChanges = [...ruleChanges, cs];
+    await flowEdited(`${dayLabel(day)} takes ${ruleVersionSaid(w.rules)} for that day only, from a what-if`);
+  }
+  const vs = versionsOfLoad(k).filter((x) => !x.restated);
+  const files: Record<string, Listed> = {};
+  for (const [id, v] of Object.entries(w.files)) {
+    const f = vs[v - 1]?.files[id] ?? vs[0]?.files[id];
+    if (f) files[id] = f;
+  }
+  closeWhatIf(true);
+  if (m.sent.length) {
+    await runLoad(k, { make: { files, of: { run: Number(of.run), manifest: of.manifest }, sources: m.sent } });
+    const rec = state.runs.find((r) => r.load === k && r.result.manifest.correction?.of === of.manifest);
+    if (rec) await decide(rec, 'asis', 'day', reason.trim());
+    return;
+  }
+  await runLoad(k, { restating: { of: of.manifest, changes: [cs!.id] } });
+  const run = restatedFor(k, [cs!.id]);
+  const g = gotEntry(k);
+  if (!run || !g) return;
+  const r = restatingOf(k, g, run);
+  const row = { day, r };
+  await restateDays({ changes: [cs!], from: day, days: [{ day, k, got: g, r }] }, r.changed ? [row] : [], [], r.changed ? [] : [row], reason.trim());
 }
 
 /** The what-if picker (ADR 0021 §4): each source with more than one file that day, its files; the version of the rules
@@ -11898,6 +11993,7 @@ async function runWhatIf(k: number, files: Record<string, number>, rules: string
  */
 function closeWhatIf(quiet = false): void {
   const w = whatIf;
+  makingWhatIf = false;
   if (!w && !loads.whatIf) return;
   whatIf = null;
   loads.whatIf = null;
@@ -11919,10 +12015,40 @@ function closeWhatIf(quiet = false): void {
   if (state.selected) void renderSheet();
 }
 
+/** Make this the day's (ADR 0022 §1, Q-202) on the what-if's line: the action, then what it does and the reason, on this
+ * screen; said instead where the viewer may not. Null where the what-if is the day as readers would have it now. */
+function makePart(): HTMLElement | null {
+  const m = whatIfMakes();
+  if (!m) return null;
+  if (!m.may) return h('p', { class: 'foot wi-make-no' }, m.rules && !isOwner() ? 'Making it the day’s takes other rules for it, and the rules are the owner’s to set.' : 'Making it the day’s is for someone who may publish a day.');
+  if (!makingWhatIf) return h('p', { class: 'wi-make-ask' }, h('button', { type: 'button', class: 'btn small primary wi-make', onclick: () => {
+    makingWhatIf = true;
+    renderLoads();
+    document.querySelector<HTMLTextAreaElement>('#loads .wi-reason')?.focus();
+  } }, 'Make this the day’s ›'));
+  const reason = h('textarea', { class: 'wi-reason', rows: '2', 'aria-label': 'Why this becomes the day’s', placeholder: 'Why, in a sentence: the record keeps it.' }) as HTMLTextAreaElement;
+  const go = h('button', { type: 'button', class: 'btn small primary wi-make-go', onclick: () => {
+    if (!reason.value.trim()) {
+      setStatus('Making a what-if the day’s needs a reason.', true);
+      reason.focus();
+      return;
+    }
+    go.disabled = true;
+    void makeWhatIfTheDays(reason.value);
+  } }, 'Make it the day’s') as HTMLButtonElement;
+  return h('div', { class: 'wi-makeform', role: 'group', 'aria-label': 'Make this the day’s' },
+    h('p', { class: 'wi-make-how' }, m.how),
+    h('div', { class: 'of-field' }, h('label', {}, 'Why'), reason),
+    h('div', { class: 'wi-acts' }, go, h('button', { type: 'button', class: 'btn small wi-make-cancel', onclick: () => {
+      makingWhatIf = false;
+      renderLoads();
+    } }, 'Cancel')));
+}
+
 /**
  * The what-if on the day's head (ADR 0021 §4): what it ran and what it came to, a tap from its comparison with what
- * readers got, how it would become the day's, another, and back to the day; else, where the day has anything to vary
- * (a file sent again, another version of the rules), a tap to start one.
+ * readers got, how it would become the day's (Make this the day's, ADR 0022 §1), another, and back to the day; else,
+ * where the day has anything to vary (a file sent again, another version of the rules), a tap to start one.
  */
 function whatIfPart(k: number): HTMLElement | null {
   const l = loads.list[k];
@@ -11936,6 +12062,7 @@ function whatIfPart(k: number): HTMLElement | null {
       h('p', { class: 'wi-said' }, `${whatIfSaid().replace(/^./, (x) => x.toUpperCase())}.`),
       h('p', { class: `wi-came${own.length ? ' held' : ''}` }, came),
       h('p', { class: 'foot wi-how' }, whatIfHow() ?? ''),
+      makePart(),
       h('div', { class: 'wi-acts' },
         h('button', { type: 'button', class: 'btn small wi-compare', onclick: () => {
           comparing = { k, a: 0, b: got, rows: null };
@@ -12323,7 +12450,7 @@ function renderLoads(): void {
     (loads.at >= 0 ? versionsPart(loads.at) : null) ?? '',
     (loads.at >= 0 ? comparePart(loads.at) : null) ?? '',
     (loads.at >= 0 ? whatIfPart(loads.at) : null) ?? '',
-    replacedBy && onVersion ? h('p', { class: 'loads-pause superseded', role: 'status' }, h('b', {}, `Version ${onVersion}, ${onVersion === 1 ? 'as it arrived' : 'sent again'}: replaced by version ${replacedBy.v}`), `, ${replacedBy.delivery?.source} sent again ${whenMin(replacedBy.delivery!.arrived, now!.day)}.${gotVersion ? ` Readers got version ${gotVersion}.` : ''} It isn’t decided: the later version is.`) : '',
+    replacedBy && onVersion ? h('p', { class: 'loads-pause superseded', role: 'status' }, h('b', {}, `Version ${onVersion}, ${onVersion === 1 ? 'as it arrived' : 'sent again'}: replaced by version ${replacedBy.v}`), `${replacedBy.delivery ? `, ${replacedBy.delivery.source} sent again ${whenMin(replacedBy.delivery.arrived, now!.day)}` : replacedBy.made ? `, made the day’s from a what-if ${whenMin(replacedBy.made.at, now!.day)}` : ''}.${gotVersion ? ` Readers got version ${gotVersion}.` : ''} It isn’t decided: the later version is.`) : '',
     h('div', { class: `loads-now${top ? ` sev-${top.severity}` : ''}` },
       // The day's head is the status line's, just above: said once (a day with no news says its trips here).
       (top && counted) || statusPause ? null : h('p', { 'aria-live': 'polite' }, top && (top.severity === 'alert' || top.severity === 'warn') ? glyphEl(top.severity, 14) : '', ' ', loadSummary()),
@@ -12503,22 +12630,48 @@ const fileVersionOf = (vs: readonly { files: Record<string, Listed> }[], files: 
 /** A load's versions (ADR 0021 §2, §5): its first files, by source, then the files as each later delivery left them, each
  * with the delivery that made it; then each time the day was run again under rules changed since, in the order first
  * recorded: the files of the version it restated, under other rules. */
-function versionsOfLoad(k: number): { files: Record<string, Listed>; delivery: (Delivered & { source: string }) | null; restated: Restated | null }[] {
+function versionsOfLoad(k: number): LoadVersion[] {
   const l = loads.list[k];
   if (!l) return [];
   const main = primarySource();
   const first: Record<string, Listed> = l.files ?? (main ? { [main]: l } : {});
   const ds = dataList ? deliveriesOf(dataList, l.day) : [];
-  const out: { files: Record<string, Listed>; delivery: (Delivered & { source: string }) | null; restated: Restated | null }[] = versionsOfDay({ ...l, files: first }, ds).map((files, i) => ({ files, delivery: i ? ds[i - 1]! : null, restated: null }));
+  const out: LoadVersion[] = versionsOfDay({ ...l, files: first }, ds).map((files, i) => ({ files, delivery: i ? ds[i - 1]! : null, restated: null, made: null }));
   const n = out.length;
   for (const e of allEntries()) {
     if (e.kind !== 'run' || runDay(e) !== l.day) continue;
     const key = restatedKey(e);
+    const a = e.about as unknown as { manifest?: string; made?: boolean; inputs?: Inputs; restates: { of: string; changes: string[] }; correction?: { sources?: string[] } };
+    // A what-if made the day's (ADR 0022 §1): the files it picked, sent again as a version of their own.
+    if (!key && a.made === true && typeof a.manifest === 'string') {
+      if (out.some((v) => v.made?.manifest === a.manifest)) continue;
+      const files: Record<string, Listed> = {};
+      for (const [id, sha] of Object.entries(a.inputs?.files ?? {})) {
+        const f = out.slice(0, n).map((v) => v.files[id]).find((x) => x?.sha256 === sha);
+        if (f) files[id] = f;
+      }
+      out.push({ files: { ...out[0]!.files, ...files }, delivery: null, restated: null, made: { manifest: a.manifest, first: e, sources: [...(a.correction?.sources ?? [])] } });
+      continue;
+    }
     if (!key || out.some((v) => v.restated?.key === key)) continue;
-    const a = e.about as unknown as { inputs?: Inputs; restates: { of: string; changes: string[] } };
-    out.push({ files: out[Math.max(0, fileVersionOf(out.slice(0, n), a.inputs?.files))]!.files, delivery: null, restated: { key, of: a.restates.of, changes: [...a.restates.changes], first: e } });
+    out.push({ files: out[Math.max(0, fileVersionOf(out.slice(0, n), a.inputs?.files))]!.files, delivery: null, restated: { key, of: a.restates.of, changes: [...a.restates.changes], first: e }, made: null });
   }
   return out;
+}
+
+/** A load's version (`versionsOfLoad`): its files, the delivery that sent them, or the restatement or what-if that made
+ * it a version of its own. */
+interface LoadVersion {
+  files: Record<string, Listed>;
+  delivery: (Delivered & { source: string }) | null;
+  restated: Restated | null;
+  made: { manifest: string; first: RecordEntry; sources: string[] } | null;
+}
+
+/** The version a what-if made the day's (ADR 0022 §1), by its run's manifest (null: none). */
+function madeVersion(k: number, manifest: string): number | null {
+  const i = versionsOfLoad(k).findIndex((v) => v.made?.manifest === manifest);
+  return i >= 0 ? i + 1 : null;
 }
 
 /** Which version of a load a run read, by its files' sha256 (1: its first files); null for files no version has (a
@@ -12537,6 +12690,7 @@ function restatedVersion(k: number, key: string): number | null {
 /** The version of its load a run here read: a restated one by its rules, any other by its files. */
 function versionOfRun(r: RunRecord | undefined): number | null {
   if (r?.load === undefined) return null;
+  if (r.made) return madeVersion(r.load, r.result.hash);
   const re = r.result.manifest.restates;
   return re ? restatedVersion(r.load, restatedKeyOf(re.changes, inputsOf(r.result.manifest).files)) : versionOfFiles(r.load, inputsOf(r.result.manifest).files);
 }
@@ -12547,7 +12701,8 @@ function runsOfVersions(k: number): { e: RecordEntry; v: number | null }[] {
   if (!l) return [];
   return allEntries().filter((e) => e.kind === 'run' && runDay(e) === l.day && (e.about as unknown as RunAbout).outcome !== 'derived').map((e) => {
     const key = restatedKey(e);
-    return { e, v: key ? restatedVersion(k, key) : versionOfFiles(k, (e.about as { inputs?: Inputs } | null)?.inputs?.files) };
+    const a = e.about as { inputs?: Inputs; made?: boolean; manifest?: string } | null;
+    return { e, v: key ? restatedVersion(k, key) : a?.made === true && typeof a.manifest === 'string' ? madeVersion(k, a.manifest) : versionOfFiles(k, a?.inputs?.files) };
   });
 }
 
@@ -12608,6 +12763,8 @@ interface VersionFact {
   /** A day run again under rules changed since (ADR 0021 §5): its change sets, whether it passed (else what held it), and
    * what its restatement decided (ticked: readers got it; else they kept the version they had). */
   restated?: { changes: string[]; passes: boolean; hold: Hold | null; decision: { at: string; by: string; reason: string | null; ticked: boolean; same: boolean } | null };
+  /** A what-if made the day's (ADR 0022 §1): when, by whom, and the sources whose files it sent again. */
+  made?: { at: string; by: string; sources: string[] };
 }
 
 /** Every version of a day and what became of it (ADR 0021 §2), in order: the first files, then each delivery. */
@@ -12630,6 +12787,7 @@ function versionFacts(k: number): VersionFact[] {
     const last = all.filter((e) => e.kind === 'decide' && manifests.has(String((e.about as Partial<DecideAbout> | null)?.manifest))).at(-1);
     return {
       v: i + 1, delivery: ver.delivery, first: mine[0] ?? null,
+      ...(ver.made ? { made: { at: ver.made.first.at, by: ver.made.first.by.as, sources: ver.made.sources } } : {}),
       decided: last ? { at: last.at, by: last.by.as, option: (last.about as unknown as DecideAbout).option, reason: last.reason } : null,
       published: mine.some((e) => (e.about as unknown as RunAbout).outcome === 'ok' || released.has(String((e.about as unknown as RunAbout).manifest))),
     };
@@ -12656,12 +12814,14 @@ function supersededBy(r: RunRecord | undefined): VersionFact | null {
   const v = versionOfRun(r);
   // Replaced by a later file: a day run again under other rules (ADR 0021 §5) replaces nothing by itself.
   const facts = versionFacts(r.load).filter((f) => !f.restated);
-  return v !== null && v < facts.length ? facts[v]! : null;
+  const at = facts.findIndex((f) => f.v === v);
+  return at >= 0 && at < facts.length - 1 ? facts[at + 1]! : null;
 }
 
-/** How a day's files are picked to be pinned (`pinLoad`): a restatement's, a what-if's, or else the version a link asked
- * for or the one readers got. */
-type PinOpts = { restating?: { of: string; changes: string[] }; whatIf?: { files: Record<string, Listed>; rules: string[] } };
+/** How a day's files are picked to be pinned (`pinLoad`): a restatement's, a what-if's, a what-if made the day's (its
+ * files, a later delivery correcting the run readers got, ADR 0022 §1), or else the version a link asked for or the one
+ * readers got. */
+type PinOpts = { restating?: { of: string; changes: string[] }; whatIf?: { files: Record<string, Listed>; rules: string[] }; make?: { files: Record<string, Listed>; of: { run: number; manifest: string }; sources: string[] } };
 
 /** The engine holds a what-if's files (ADR 0021 §4): set as they are pinned, cleared once a day's own are pinned again.
  * No run but the what-if's reads them (`run`). */
@@ -12675,7 +12835,7 @@ let repinning: Promise<boolean> | null = null;
  * it (the first where none does); a file the viewer put in place of the day's, the first, replaced; a restatement, the one
  * readers got; else the one a link asked for, or the one readers got. */
 function versionToPin(k: number, opts: PinOpts): number {
-  const picked = opts.whatIf?.files;
+  const picked = opts.whatIf?.files ?? opts.make?.files;
   if (picked) return versionOfFiles(k, Object.fromEntries(Object.entries(picked).map(([id, f]) => [id, f.sha256]))) ?? 1;
   if (!opts.restating && loads.replaced.has(k)) return 1;
   return Math.min(Math.max(1, opts.restating ? wentWith(k) : (loads.version.get(k) ?? wentWith(k))), Math.max(1, versionsOfLoad(k).length));
@@ -12685,11 +12845,13 @@ function versionToPin(k: number, opts: PinOpts): number {
  * version under those it was first run under, restating again what it restated; any other version under its first
  * run's; a what-if under the version of the rules picked for it (§4). */
 function pinnedRules(k: number, version: number, opts: PinOpts): void {
-  const restated = opts.whatIf ? undefined : versionsOfLoad(k)[version - 1]?.restated;
+  const restated = opts.whatIf || opts.make ? undefined : versionsOfLoad(k)[version - 1]?.restated;
   loads.pinnedVersion = version;
-  loads.restates = opts.whatIf ? null : (opts.restating ?? (restated ? { of: restated.of, changes: restated.changes } : null));
-  loads.pinnedAsOf = opts.whatIf ? undefined : opts.restating ? null : restated ? restated.first.at : undefined;
+  loads.restates = opts.whatIf || opts.make ? null : (opts.restating ?? (restated ? { of: restated.of, changes: restated.changes } : null));
+  // A what-if made the day's runs under the rules as known now (its rules, where they differ, are that day's by now).
+  loads.pinnedAsOf = opts.whatIf ? undefined : opts.restating || opts.make ? null : restated ? restated.first.at : undefined;
   loads.whatIf = opts.whatIf ? [...opts.whatIf.rules] : null;
+  loads.correct = opts.make ? { of: opts.make.of, sources: [...opts.make.sources] } : null;
 }
 
 /**
@@ -12702,9 +12864,9 @@ function pinnedRules(k: number, version: number, opts: PinOpts): void {
  */
 async function pinLoad(engine: Engine, k: number, opts: PinOpts, quiet = false): Promise<number> {
   const l = loads.list[k]!;
-  const replaced = opts.restating || opts.whatIf ? undefined : loads.replaced.get(k);
+  const replaced = opts.restating || opts.whatIf || opts.make ? undefined : loads.replaced.get(k);
   const vs = versionsOfLoad(k);
-  const picked = opts.whatIf?.files;
+  const picked = opts.whatIf?.files ?? opts.make?.files;
   const version = versionToPin(k, opts);
   const files = picked ?? vs[version - 1]?.files ?? {};
   const main = primarySource();
@@ -12731,12 +12893,13 @@ async function pinLoad(engine: Engine, k: number, opts: PinOpts, quiet = false):
     day.push({ name: b.file, bytes: others[at], sha256: f.sha256 });
     pulled.push([id, f.file, f.sha256]);
   }
-  // A what-if's files are never a day's own: no run but its own reads them (ADR 0021 §4).
-  if (picked) whatIfPinned = true;
+  // A what-if's files are never a day's own: no run but its own reads them (ADR 0021 §4). Those of a what-if made the
+  // day's are: a version of it, pinned as one again.
+  if (opts.whatIf) whatIfPinned = true;
   await pinFiles(engine, day);
-  if (!picked) {
+  if (!opts.whatIf) {
     whatIfPinned = false;
-    ownPinned = { k, opts };
+    ownPinned = { k, opts: opts.make ? {} : opts };
   }
   // Where each file came from: a file sent again says so, with when it arrived (ADR 0015 amendment 5, ADR 0021 §2).
   const sentAgain = (id: string) => vs.slice(1, picked ? vs.length : version).map((v) => v.delivery).filter((d) => d?.source === id && d.sha256 === files[id]?.sha256).at(-1);
@@ -13817,7 +13980,10 @@ async function run(early?: EarlyClaims): Promise<void> {
     const before = loads.replaced.has(loads.pinned) && loadDay ? state.runs.find((x) => dayOfRun(x) === loadDay && !x.derived) : undefined;
     // A day's later version from the data list (ADR 0021 §2) corrects the latest run of an earlier one, recorded or here.
     const sent = !before && !loads.restates && loads.pinned >= 0 && loads.pinnedVersion > 1 ? correctionFor(loads.pinned, loads.pinnedVersion) : null;
-    const correction = loads.restates || loads.whatIf ? undefined : before && primarySource() ? { of: { run: before.result.run, manifest: before.result.hash }, sources: [primarySource()!] } : (sent ?? undefined);
+    // A what-if made the day's (ADR 0022 §1) is a later delivery of the files it picked, once.
+    const correct = loads.correct;
+    loads.correct = null;
+    const correction = loads.restates || loads.whatIf ? undefined : correct ?? (before && primarySource() ? { of: { run: before.result.run, manifest: before.result.hash }, sources: [primarySource()!] } : (sent ?? undefined));
     const result = await runFlow(engine, state.doc, { smaltdb: SMALTDB, parameters, data, log: recordHead(), ...(told ? { claims: told } : {}), ...(asked && Object.keys(asked.tell).length ? { tell: asked.tell } : {}), ...(Object.keys(sources).length ? { sources } : {}), ...(correction ? { correction } : {}), ...(loads.restates ? { restates: loads.restates } : {}), ...(loads.whatIf ? { whatIf: true as const } : {}) });
     const ms = performance.now() - t;
     mark('run: flow run');
@@ -13826,7 +13992,7 @@ async function run(early?: EarlyClaims): Promise<void> {
     const engineTold = result.holds.flatMap((h) => (h.by === 'story' && h.claim && asked?.tell[h.origin] ? [h.claim] : []));
     const kept = [...(told ?? []), ...engineTold];
     const base = await flowHash(baseDoc());
-    const rec: RunRecord = { result, ms, at: new Date(), inputs: inputsKey(inputsOf(result.manifest)), base, ...(loads.pinned >= 0 && loads.list.length > 1 ? { load: loads.pinned } : {}), ...(kept.length ? { claims: kept } : {}) };
+    const rec: RunRecord = { result, ms, at: new Date(), inputs: inputsKey(inputsOf(result.manifest)), base, ...(loads.pinned >= 0 && loads.list.length > 1 ? { load: loads.pinned } : {}), ...(kept.length ? { claims: kept } : {}), ...(correct ? { made: true as const } : {}) };
     // A what-if (ADR 0021 §2, §4, Q-191): apart from the record and from the day's own runs, so nothing of it is learned,
     // recorded, decided or sealed. It is on screen until it is closed.
     if (result.manifest.whatIf) {
@@ -13969,6 +14135,8 @@ async function recordRun(rec: RunRecord | null, error: string | null): Promise<v
         ...(result.manifest.correction ? { correction: result.manifest.correction as unknown as JSONValue } : {}),
         // The run it restates and the change sets it ran under (ADR 0021 §5).
         ...(restates ? { restates: restates as unknown as JSONValue } : {}),
+        // A what-if made the day's (ADR 0022 §1): a version of the day of its own.
+        ...(rec?.made ? { made: true } : {}),
         // With several watched sources, every load it read (ADR 0010 §7): a load it read and didn't hold passes its pause.
         ...(typed && byLoad(typed.publish) ? { loads: [...loadsOf(typed, result.manifest).values()] as unknown as JSONValue } : {}),
         ...(held ? { holds: result.holds as unknown as JSONValue, waiting: result.waiting, keys } : {}),
