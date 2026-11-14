@@ -76,6 +76,19 @@ Closed as decided as built:
 | Q-15 | Lineage granularity in v1? | Dataset-level and run-level from the start; column-level when the plan API lands **Closed by the maintainer, 2026-11-14: decided as built.** | decided |
 | Q-18 | Data quality in v1? | Row expectations (warn, drop, fail) and dataset checks (freshness, row count, uniqueness, schema) **Closed by the maintainer, 2026-11-14: decided as built.** | decided |
 
+## Columns that change: the design (ADR 0022 slice 2)
+
+Slice 2 starts with a short design (ADR 0022 §6). It was put to the maintainer on 2026-11-14 with a recommended option
+each, first in the question prompt and then in the chat, and the maintainer said to continue: each is built as
+recommended, for the maintainers to confirm.
+
+| # | Question | Answer | Status |
+|---|---|---|---|
+| Q-203 | A daily file arrives with a column gone and a new one in its place (Q-146). How is a rename told apart from a new column before a mapping is suggested? | **By name, type and values:** a mapping is suggested only when the names are close (the same words once case, spaces and underscores are set aside, or a letter or two apart), the types are the same, and most of today's values were seen in the old column's history, where the file has one (else by name and type). Otherwise the hold says it can't tell why the column is new. To build as recommended (ADR 0022 slice 2); the maintainers to confirm | decided, not built |
+| Q-204 | A file with an extra column and nothing missing, so everything the flow reads is still there: does it pause the day (Q-109)? | **Flagged, still published:** the day's News says "a new column: X", with an offer to add it to the ontology. Nothing the flow reads changed, so pausing would only add noise. To build as recommended; the maintainers to confirm | decided, not built |
+| Q-205 | A renamed column a join reads (Q-146's "more flags"): how strict is mapping it? | **Its impact shown, confirmed twice:** the hold names each join on the column, the steps and outputs built from it, and how many of today's values still find a match on the join's other side; mapping it asks for a second confirmation naming those outputs. To build as recommended; the maintainers to confirm | decided, not built |
+| Q-206 | A mapping someone confirms (the file's new name read as the old one), written in the ontology as the file's own: from when? | **From the held day on**, a dated change like the other rules over time (ADR 0021 §5): the held day runs again under it and is decided as usual, and later files read the new name with no hold. Each run's rules hash names it. To build as recommended; the maintainers to confirm | decided, not built |
+
 ## Time: the maintainer's answers (ADR 0021)
 
 Asked through the question prompt on 2026-11-13, after research into the code and into how other tools handle runs over
