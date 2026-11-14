@@ -103,14 +103,14 @@ export type { ParamType, ParamValue } from './core/sqltext.js';
  * with `stage` and `from`, the held run it repairs, its claims the day's and each donor's (ADR 0009 amendment 1 S4):
  * held whatever else holds, until a release of its decision.
  */
-export async function runFlow(db: PluginCaller, given: FlowDocument, options: { smaltdb: string; parameters?: Readonly<Record<string, ParamValue>>; data?: RunContext['data']; log?: RunContext['log']; claims?: RunContext['claims']; tell?: RunContext['tell']; sources?: RunContext['sources']; stage?: boolean; from?: RunOptions['from']; correction?: RunOptions['correction']; restates?: RunOptions['restates']; typed?: boolean; asOf?: string | null }): Promise<RunResult> {
+export async function runFlow(db: PluginCaller, given: FlowDocument, options: { smaltdb: string; parameters?: Readonly<Record<string, ParamValue>>; data?: RunContext['data']; log?: RunContext['log']; claims?: RunContext['claims']; tell?: RunContext['tell']; sources?: RunContext['sources']; stage?: boolean; from?: RunOptions['from']; correction?: RunOptions['correction']; restates?: RunOptions['restates']; whatIf?: RunOptions['whatIf']; typed?: boolean; asOf?: string | null }): Promise<RunResult> {
   // The rules in force on the run's day, as known at `asOf` (ADR 0021 §5): the document the plan is made from and the
   // run keeps, so its flow hash and its rules hash are the day's.
   const doc = forDay(given, options.parameters ?? {}, options.asOf);
   const plan = await translate(doc, options.parameters ?? {});
   const context: RunContext = { doc, data: options.data ?? null, log: options.log ?? null, ...(options.claims !== undefined ? { claims: options.claims } : {}), ...(options.tell !== undefined ? { tell: options.tell } : {}), ...(options.sources !== undefined ? { sources: options.sources } : {}) };
   const stage = options.stage ? { stage: true, ...(options.from ? { from: options.from } : {}) } : options.from ? { from: options.from } : {};
-  return (await db.callPlugin(PLUGIN_NAME, 'run', [plan, { smaltdb: options.smaltdb, context, ...stage, ...(options.correction ? { correction: options.correction } : {}), ...(options.restates ? { restates: options.restates } : {}), ...(options.typed ? { typed: true } : {}) }], { lock: true })) as RunResult;
+  return (await db.callPlugin(PLUGIN_NAME, 'run', [plan, { smaltdb: options.smaltdb, context, ...stage, ...(options.correction ? { correction: options.correction } : {}), ...(options.restates ? { restates: options.restates } : {}), ...(options.whatIf ? { whatIf: options.whatIf } : {}), ...(options.typed ? { typed: true } : {}) }], { lock: true })) as RunResult;
 }
 
 /**

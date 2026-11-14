@@ -77,6 +77,8 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
   if (actual && actual !== 'unknown' && actual !== options.smaltdb) throw new RunError(`the engine is smaltdb ${actual}, not the ${options.smaltdb} the run was asked to record`);
   const plan = structuredClone(input) as FlowPlan;
   const env: KeyEnv = { smaltdb: options.smaltdb, smaltfl: version };
+  // A what-if first: it is none of the others, and says so before they say what they lack.
+  const whatIf = whatIfOf(plan, options);
   const stage = stageOf(plan, options);
   const correction = correctionOf(plan, options);
   const restates = restatesOf(plan, options);
@@ -264,6 +266,7 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
     previous: typeof previous === 'string' ? previous : null,
     ...(correction ? { correction } : {}),
     ...(restates ? { restates } : {}),
+    ...(whatIf ? { whatIf } : {}),
   };
   const hash = await manifestHash(manifest);
 
@@ -539,6 +542,21 @@ function restatesOf(plan: FlowPlan, options: RunOptions): RunManifest['restates'
   const changes = Array.isArray(r.changes) ? [...new Set(r.changes)].sort() : [];
   if (!changes.length || changes.some((x) => typeof x !== 'string' || x === '')) throw new RunError('a restated run names the change sets it runs under');
   return { of: r.of, changes };
+}
+
+/**
+ * A what-if (ADR 0021 §2, §4, Q-191), as the manifest keeps it: true, or null for any other run. Only a plan that holds
+ * runs one, every output of it waiting and nothing releasing it; it is no derived run, later delivery or restated run.
+ */
+function whatIfOf(plan: FlowPlan, options: RunOptions): true | null {
+  const w = options.whatIf;
+  if (w === undefined) return null;
+  if (w !== true) throw new RunError('a what-if is asked as whatIf: true');
+  if (!plan.publish) throw new RunError('a what-if is held so nothing of it is published, and this plan says nothing of what holds it');
+  if (options.stage) throw new RunError('a what-if is its day on other files or rules, not a derived run');
+  if (options.correction !== undefined) throw new RunError('a what-if is never a later delivery: it never enters the record');
+  if (options.restates !== undefined) throw new RunError('a what-if is never a restated run: a restatement decides those');
+  return true;
 }
 
 /** A donor has its source's columns, with their types (ADR 0009 amendment 1 S4), or its rows can't be taken by name. */

@@ -100,7 +100,7 @@ function loadsProblem(r: ReleaseInput, run: Stored, holds: readonly Hold[], doc:
   if ((r.option === 'fill' || r.option === 'complete') && ls.length !== 1) return `${r.option === 'fill' ? 'a fill' : 'the part that arrived'} is about one load, and it cites ${ls.length}`;
   for (const name of Object.keys(r.keys).sort()) {
     const other = holds.find((h) => h.reaches.includes(name) && !(h.load && cited.has(loadKey(h.load))));
-    if (other) return `${name} waits for ${other.origin} (${other.by === 'checks' ? 'its checks' : other.by === 'story' || other.by === 'correction' || other.by === 'restated' ? other.said : 'not judged'}${other.load ? `, its ${other.load.slot} load` : ''}), which no decision it cites is about`;
+    if (other) return `${name} waits for ${other.origin} (${other.by === 'checks' ? 'its checks' : other.by === 'story' || other.by === 'correction' || other.by === 'restated' || other.by === 'what-if' ? other.said : 'not judged'}${other.load ? `, its ${other.load.slot} load` : ''}), which no decision it cites is about`;
   }
   return null;
 }
@@ -277,6 +277,8 @@ export async function release(db: Database, input: unknown): Promise<ReleaseResu
       if (kept.holds.length === 0 && fills.length === 0) return `nothing held run ${r.run}: its outputs were published as it ran`;
       // The day run again under rules changed since (ADR 0021 §5): its restatement, in the record, says what readers get.
       if (kept.holds.some((h) => h.by === 'restated')) return `run ${r.run} is its day run again under rules changed since: a restatement decides it, not a release`;
+      // A what-if (ADR 0021 §2, §4, Q-191): never published, whoever asks.
+      if (kept.holds.some((h) => h.by === 'what-if')) return `run ${r.run} is a what-if: it is never published`;
       // Who may decide, under the policies stored with the run: never the caller's word for them.
       if (!doc) return `run ${r.run}'s flow document isn't stored with it, so who may decide can't be checked`;
       if (policies !== manifest.flow.policies) return `the stored flow document's policies aren't the ones run ${r.run} recorded`;

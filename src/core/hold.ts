@@ -130,7 +130,7 @@ export type Judged = { node: number; claim: Claim } | { node: number; unjudged: 
  * it reaches.
  */
 export interface Hold {
-  by: 'checks' | 'story' | 'unjudged' | 'correction' | 'restated';
+  by: 'checks' | 'story' | 'unjudged' | 'correction' | 'restated' | 'what-if';
   node: number;
   origin: string;
   /** What it says: the checks' counts, the story's head, why the source wasn't judged, what a derived run fills, or
@@ -823,6 +823,8 @@ export function holdsOf(plan: Pick<FlowPlan, 'nodes' | 'outputs' | 'publish'>, m
   // The day run again under rules changed since (ADR 0021 §5, Q-190): every output waits for a restatement, whatever its
   // checks say. A restatement decides it, not a decision about the day: it is about no load.
   if ((manifest as Pick<RunManifest, 'restates'>).restates) out.push({ by: 'restated', node: -1, origin: 'run', said: 'run again under rules changed since: it waits for a restatement', reaches: plan.outputs.map((o) => o.name) });
+  // A what-if (ADR 0021 §2, §4, Q-191): every output waits, whatever its checks say, and no decision releases it.
+  if ((manifest as Pick<RunManifest, 'whatIf'>).whatIf) out.push({ by: 'what-if', node: -1, origin: 'run', said: 'a what-if: it is never published', reaches: plan.outputs.map((o) => o.name) });
   // Several watched sources (ADR 0010 §7): each hold of a source, and each check that reads one watched source, is about
   // its load.
   if (byLoad(pub)) {

@@ -324,7 +324,14 @@ release (smaltty ADR 0030).
   `takenBackDays` for the month's trend; a day noted the same keeps the version readers had (Q-199 amended); pauses
   found under any version of the flow as kept (`flowsKept`, `ofFlowOnScreen`) and runs of one flow by the flow as kept
   (`RunRecord.base`, `sameFlow`), whatever day's rules each ran under; `test/ruleversions.test.ts`,
-  `tools/browser/stops/versions.json`.
+  `tools/browser/stops/versions.json`. Slice 5, what-if runs (Q-191, Q-202): `RunOptions.whatIf` and the manifest's
+  `whatIf`, a `what-if` hold on every output in `holdsOf` (nothing published, no name moved), a release refused
+  (`test/whatif.test.ts`); the day screen's *What if… ›* (`whatIfSheet`: each source's files that day and a version of
+  the rules; `runWhatIf` through `runLoad`'s `whatIf` and `resolveVersion`), the run kept out of `state.runs` and the
+  record and shown while open (`whatIf`, `latest`, `rowsFromBar`), its line (`whatIfPart`, `whatIfHow`: what would make
+  it the day's), *Back to the day* (`closeWhatIf`; the day's own files pinned again, `pinLoad`, `pinOwnAgain`, before
+  any other run); Compare takes it as a side (`0`) and says what held each side;
+  `tools/browser/stops/whatif.json`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -349,7 +356,8 @@ release (smaltty ADR 0030).
   Larkspur's `story.json`, a day's versions, corrections decided), and slice 3, flip and compare (the compare summary,
   row and cell diffs by key), are built (its §"As built"); slice 4, the rules over time (change sets, the rules-in-force
   hash, back-dating and restatement, the story's changes recorded by the build, the Ontology view's versions), is built
-  in two parts. Slice 5, what-if runs, is next.
+  in two parts, and slice 5, what-if runs, is built: ADR 0021 is done. What follows it is the maintainers' to choose
+  (docs/HANDOFF.md).
 
 ## Rules for this repository
 

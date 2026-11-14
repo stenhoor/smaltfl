@@ -1,0 +1,87 @@
+[
+  {
+    "name": "whatif-ask",
+    "what": "Larkspur, Sat Mar 16, restated as not published under the findings' values check set back to hold (ADR 0021 §5): the day's head offers a what-if (§4), since the rules have other versions",
+    "day": "Sat 16",
+    "element": "#loads",
+    "expect": {
+      "pageText": ["What if… ›", "Run this day on other files or rules, apart from the record."]
+    }
+  },
+  {
+    "name": "whatif-sheet",
+    "what": "What if… opens the picker: no file of Sat 16 was sent again, so only the rules vary, four versions, the one in force on the day now chosen",
+    "day": "Sat 16",
+    "clicks": ["#loads .wi-open"],
+    "full": true,
+    "expect": {
+      "text": ["What if…", "Each of the day’s 20 files arrived once.", "Rules", "Version 1: as shipped", "Version 3, in force on this day now", "Version 4", "Run the what-if ▶"],
+      "count": { ".vf-detail .wi-rules": 1, ".vf-detail .wi-file": 0 }
+    }
+  },
+  {
+    "name": "whatif-run",
+    "what": "Sat 16 under version 1 of the rules, as shipped (the values check at warn): the whole flow runs, marked as a what-if and held, so nothing is published or recorded; it would have passed, and the line says what would make it the day's",
+    "day": "Sat 16",
+    "clicks": ["#loads .wi-open", [".vf-detail .wi-rules", ""], ".vf-detail .wi-go"],
+    "waitFor": "#loads .dh-whatif",
+    "waitForMs": 120000,
+    "element": "#loads",
+    "expect": {
+      "pageText": [
+        "Its files as they arrived under version 1 of the rules (the rules as shipped).",
+        "It would pass: its outputs would be published.",
+        "Its files are version 1’s; its rules aren’t in force on Sat 16: a change to the rules from this day would make them so, restated under one decision.",
+        "Back to the day"
+      ],
+      "status": "^Sat Mar 16, what if: .*: it would pass\\. A what-if is never recorded or published\\.$"
+    }
+  },
+  {
+    "name": "whatif-compare",
+    "what": "Compared with version 2, what readers got (restated, not published): the same files under another plan, what held each (nothing held the what-if; the logged-in band held v2), and what each became",
+    "day": "Sat 16",
+    "clicks": ["#loads .wi-compare"],
+    "element": "#loads .dh-compare",
+    "expect": {
+      "text": ["The same files", "Another plan", "the what-if by nothing; v2 by findings: Credentialed no: 4.1% (band 0%–2%)", "the what-if a what-if, never published; v2 restated by Sloane Marsden, not published"]
+    }
+  },
+  {
+    "name": "whatif-back",
+    "what": "Back to the day: the what-if closes, its run kept nowhere; the day's own run on screen again, under its own rules",
+    "day": "Sat 16",
+    "clicks": ["#loads .wi-back"],
+    "element": "#loads",
+    "expect": {
+      "pageText": ["What if… ›", "2 VERSIONS OF THE DAY"],
+      "noPageText": ["NOT RECORDED, NEVER PUBLISHED"],
+      "count": { "#loads .dh-whatif": 0 }
+    }
+  },
+  {
+    "name": "whatif-files",
+    "what": "Thu Mar 21, whose TLS file was sent twice: a what-if on the file as it first arrived (every certificate twice) under the rules in force now; it would be held where the repeats reach gold (fact_control_status, 815 rows repeating a key), and its files are version 1's",
+    "day": "Thu 21",
+    "clicks": ["#loads .wi-open", [".vf-detail .wi-file[data-source=\"tls\"]", "1"], ".vf-detail .wi-go"],
+    "waitFor": "#loads .dh-whatif",
+    "waitForMs": 120000,
+    "element": "#loads",
+    "expect": {
+      "pageText": ["Its files as they arrived under version 4 of the rules", "It would be held: fact_control_status: rows don't reconcile: 815 rows repeat a key", "Its files are version 1’s; its rules are those in force on Thu 21 now."]
+    }
+  },
+  {
+    "name": "whatif-files-run",
+    "what": "Back to the day, then Run: the day runs on its own files again (the version readers got), never on the what-if's doubled TLS file, and reads as the record has it",
+    "day": "Thu 21",
+    "clicks": ["#loads .wi-back", "#run"],
+    "element": "#loads",
+    "expect": {
+      "state": "done",
+      "status": "^Thu Mar 21: A normal Thursday",
+      "pageText": ["Run here: the same datasets and holds as the record ✓"],
+      "noPageText": ["NOT RECORDED, NEVER PUBLISHED", "815 apps repeat a key"]
+    }
+  }
+]
