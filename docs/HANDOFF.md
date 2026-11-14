@@ -243,9 +243,15 @@ the rules over time with back-dating (Q-197), is built (2026-11-14): every rule 
 to arrive by default, the day on screen, or any day), runs name the rules in force on their day by `rules/1`'s hash,
 and a back-dated change runs every recorded day it reaches again and restates them under one decision, any day
 untickable, unchanged days noted (`tools/browser/stops/restate.json` on the sign-ins). Names and labels take effect at
-once (Q-198); a restatement that changes no day is noted at once (Q-199); both are the maintainers' to confirm. Next is
-slice 4's second part: the Ontology view's versions, any two compared, and the story's ontology changes recorded by the
-build (the WAF band from Mon 18 recorded Fri 15; a back-dated rule recorded Mon 25 from Fri 1). Not yet:
+once (Q-198); a restatement that changes no day is noted at once (Q-199); both are the maintainers' to confirm. Slice
+4's second part is built (2026-11-14): Larkspur's story changes the rules twice (the WAF band at a tenth from Mon 18,
+recorded Fri 15; the findings' values check back to hold the day from Fri 1, recorded Mon 25, Q-201), the build records
+every run under its day's rules as known then and runs the 25 days the back-dated change reaches again, and the
+security lead restates Sat 16 and Sun 17 (the scan that didn't log in) as not published, the other 23 noted the same.
+A day published by a decision keeps it when restated where nothing new holds it (Q-200, the maintainers' to confirm).
+The Ontology view lists the versions of the rules (four on Larkspur), marks the one on screen, now and as known on, and
+compares any two (`tools/browser/stops/versions.json`). Next is slice 5, what-if runs. Not yet: the offline audit of
+restated runs and restatements; a day restated as not published is still learned from by the days after it;
 a past day's correction while a later day is out (the engine never moves a name back), and *as known on* a past moment
 showing the decisions and corrections recorded by then.
 

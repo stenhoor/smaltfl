@@ -311,6 +311,20 @@ release (smaltty ADR 0030).
   outcome `restated`), the month's would-change marks, one `restate` entry (`RestateAbout`, `isRestate`,
   `restatedRuns` in month.ts), noted at once where no day changes (Q-199); a day's versions include its restated ones
   (`Restated`, `restatedKey`, `restatementOf`); `tools/browser/stops/restate.json`, `rules.json` from the day on screen.
+  Slice 4, second part: a story's changes to the rules (`StoryFile.changes`, `restatements` in `src/core/timeline.ts`,
+  `changesProblems` in document.ts; Larkspur's WAF band from Mon 18 recorded Fri 15, and the findings' values check back
+  to hold from Fri 1 recorded Mon 25, restating Sat 16 and Sun 17, Q-201), recorded by the build (`record.ts`: each run
+  under its day's rules as known then, `forDay` and `runFlow`'s `asOf`; the days a change set reaches run again as
+  restated runs, then the story's restatement or a note at once) and shipped as the flow's own change sets; a restated
+  day against what readers got (`restatedOutcome`, `ownHolds` in month.ts: a decision that published a held day carries
+  where the same holds say the same, Q-200), shared by the recorder and the page; a change set reaches only days whose
+  version readers got ran before it was recorded (`reachedBy`); the Ontology view's versions (`src/core/ruleversions.ts`
+  `ruleVersions`, `versionOn`, `rulesDiff`, `diffSaid`; the app's `ruleVersionsPart`: each version's hash, where and
+  when it was in force, its runs, the one on screen, now and as known on, any two compared); `recordedRunOf` by version;
+  `takenBackDays` for the month's trend; a day noted the same keeps the version readers had (Q-199 amended); pauses
+  found under any version of the flow as kept (`flowsKept`, `ofFlowOnScreen`) and runs of one flow by the flow as kept
+  (`RunRecord.base`, `sameFlow`), whatever day's rules each ran under; `test/ruleversions.test.ts`,
+  `tools/browser/stops/versions.json`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -333,9 +347,9 @@ release (smaltty ADR 0030).
   a day kept like a commit, corrections decided; the ontology effective-dated and hashed to each run; what-if runs. In
   the slices of its §9: slice 1, the two screens and the recorded runs, and slice 2, the recorded story (deliveries,
   Larkspur's `story.json`, a day's versions, corrections decided), and slice 3, flip and compare (the compare summary,
-  row and cell diffs by key), are built (its §"As built"); slice 4's first part, the rules over time with back-dating
-  (change sets, the rules-in-force hash, restatement), is built; its second part (the Ontology view's versions, the
-  story's ontology changes) is next.
+  row and cell diffs by key), are built (its §"As built"); slice 4, the rules over time (change sets, the rules-in-force
+  hash, back-dating and restatement, the story's changes recorded by the build, the Ontology view's versions), is built
+  in two parts. Slice 5, what-if runs, is next.
 
 ## Rules for this repository
 
