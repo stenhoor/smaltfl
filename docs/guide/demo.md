@@ -199,6 +199,11 @@ kept back; ‖ still waiting.
 | Thu 21 | Sent again with half its repeats out, still wrong, kept back; then sent again, every certificate once, published. ↻3 |
 | Tue 26 | Kept back while the scanner team looks for the missing business unit. ⊠ |
 | Sat 23, Thu 28 | Still waiting for you. ‖ |
+| Sat 16, Sun 17 | On Mon 25 the findings' values check was set back to hold the day, back-dated to Fri 1: the scanner hadn't logged in that weekend, and the posture read far fewer findings than there were. Every day already run ran again under it; these two would now be held, and the security lead restated them as not published. The other 23 came out the same, and were noted. |
+
+The rules changed twice ([ADR 0021](../adr/0021-time) §5): on Fri 15 the WAF band was tightened to a tenth from Mon 18,
+which reached no day already run, and on Mon 25 the back-dated change above. The **Ontology** view lists the four
+versions of the rules this makes, each with where and when it was in force, and compares any two.
 
 A file sent again is a version of its day, like a commit. It waits for a decision whatever its checks say, and the
 history learns the day from the version that was published. Open a day: its versions are listed under its head, the one

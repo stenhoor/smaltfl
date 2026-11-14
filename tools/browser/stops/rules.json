@@ -113,9 +113,10 @@
   },
   {
     "name": "rules-reload",
-    "what": "After a reload, Thu Mar 21 opened again: the rules as edited, in force on it: four, Latency's off",
+    "what": "After a reload, Thu Mar 21's third version: each edit ran the day again and came out the same, so the day opens on the version readers had (Q-199 amended), and its third is the day run again under both edits: the rules as edited, in force on it, four, Latency's off",
     "reload": true,
     "day": "Thu 21",
+    "version": 3,
     "card": "auth",
     "tab": "Rules",
     "full": true,

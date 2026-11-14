@@ -87,7 +87,13 @@ A name or a label takes effect at once, on every day.
 
 Back-dated, a change reaches days already recorded: each runs again under the new rules, the month marks the days whose
 outcome would change, and one decision restates them, with a reason. Untick a day to leave it as readers had it; days
-that come out the same are noted. A day's screen shows the rules in force on it, by hash, and what is new on the day.
+that come out the same are noted. A day published as is keeps that decision where the new rules hold it by nothing
+else. A day's screen shows the rules in force on it, by hash, and what is new on the day.
+
+The Ontology view lists the **versions** of the rules: each set of changes in force on some day at some moment, with
+its hash, the days and moments it was in force, and how many recorded runs ran under it. It marks the version on
+screen, the one in force on the day as known now, and the one as known on the moment the month is read at. Any two
+versions compare rule by rule: a rule added, changed or taken out, a band, a check's mode, a rule switched.
 
 Edits are kept across a reload and listed with **Back to the flow as shipped**.
 
