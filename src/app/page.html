@@ -1985,6 +1985,18 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .dc-run { font-weight: 600; color: var(--smalt); text-decoration: none; }
 .dc-tables { display: grid; gap: 4px; min-width: 0; }
 .dc-more summary { cursor: pointer; color: var(--smalt); font-size: 12.5px; font-weight: 600; min-height: 28px; display: flex; align-items: center; }
+/* A what-if on the day (ADR 0021 §4): never recorded, never published, so its panel is dashed, as a version not yet
+   real; its buttons wrap under the words on a phone. */
+.dh-whatif { display: grid; gap: 6px; min-width: 0; border-style: dashed; border-color: var(--ink-2); }
+.dh-whatif .eyebrow { margin: 0; }
+.wi-said { margin: 0; font-size: 13.5px; font-weight: 600; overflow-wrap: anywhere; }
+.wi-came { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+.wi-came.held { color: var(--bad); font-weight: 600; }
+.wi-how { margin: 0; overflow-wrap: anywhere; }
+.wi-acts { display: flex; flex-wrap: wrap; gap: 6px 8px; }
+.dh-whatif-ask { margin: 0; font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.wi-open { border: 0; background: none; padding: 0; min-height: 28px; color: var(--smalt); font: inherit; font-weight: 600; cursor: pointer; }
+.wi-file, .wi-rules { min-height: 44px; max-width: 100%; min-width: 0; border: 1px solid var(--muted); border-radius: 8px; padding: 6px 8px; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; }
 </style>
 <style id="smaltkit-ui">/* smaltkit's ui.css (node_modules/smaltkit/dist/ui.css), put here by scripts/build-app.mjs */</style>
 
