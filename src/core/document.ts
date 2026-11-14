@@ -6,7 +6,8 @@
  * their inputs, and SQL steps to their inputs' data, by the inputs' ids.
  */
 import { calendarProblems, EVERIES, isEvery, type CalendarDef, type Every } from './calendar.js';
-import { gateProblems, type GateDef } from './gates.js';
+import type { AcceptedBand, ColumnChange, RuleInput } from './flowedit.js';
+import { CHECK_MODES, CHECK_NAMES, gateProblems, type CheckMode, type CheckName, type GateDef } from './gates.js';
 import { marksVerdicts, ROWS_FIELDS, type Ontology } from './ontology.js';
 import { FIX_KINDS, rulesIssues } from './rules.js';
 import { DECIDE, DECIDE_OPTIONS, type Policies } from './policy.js';
@@ -180,6 +181,50 @@ export type ContractClassification = (typeof CONTRACT_CLASSIFICATIONS)[number];
 const CONTRACT_FIELDS = ['id', 'version', 'status', 'description', 'columns', 'sla'];
 const CONTRACT_COLUMN_FIELDS = ['name', 'type', 'description', 'required', 'key', 'classification', 'values'];
 
+/**
+ * An edit of the rules people set (ADR 0021 §5), as the app makes it: replayed on any document by the pure function
+ * that made it (`applyEdit` in inforce.ts), so a change set dated before another still applies to the rules of its
+ * day. Each says what is so after it rather than what to undo:
+ *
+ * - `setRule`: the file has this rule, with these settings (a rule the file lacks then is added, by its id);
+ * - `removeRule`: the file has no rule of this id; `switchRule`: the file's rule is switched on or off in the check
+ *   cell that enforces it;
+ * - `nameColumn`: a column of a file named, its meaning worded and its values labelled (flowedit.ts);
+ * - `acceptBand`: a band accepted for a value of a source's column (ADR 0014 §3);
+ * - `setCheck`: a check of a node's gate set to a mode, written in its gate cell (ADR 0014 §1).
+ */
+export type RuleEdit =
+  | { op: 'setRule'; rule: RuleInput & { id: string } }
+  | { op: 'removeRule'; file: string; id: string }
+  | { op: 'switchRule'; file: string; id: string; on: boolean }
+  | { op: 'nameColumn'; file: string; column: string; change: ColumnChange }
+  | { op: 'acceptBand'; source: string; band: AcceptedBand }
+  | { op: 'setCheck'; node: string; check: CheckName; mode: CheckMode };
+
+export const EDIT_OPS = ['setRule', 'removeRule', 'switchRule', 'nameColumn', 'acceptBand', 'setCheck'] as const;
+
+/**
+ * A dated change set (ADR 0021 §5, Q-184): edits of the rules people set, in force from a business day, as known from
+ * the moment they were recorded. The rules in force on a day, as known at a moment, are the document's own (its base)
+ * with every change set from that day or before, recorded by then, applied in the order they were recorded
+ * (inforce.ts `inForce`).
+ */
+export interface ChangeSet {
+  /** Its name, unique among the flow's change sets. */
+  id: string;
+  /** The business day it takes effect from (YYYY-MM-DD). */
+  from: string;
+  /** When it was made (ISO 8601). */
+  recorded: string;
+  /** Who made it, and why, in their words (empty where they gave none). */
+  by: string;
+  why: string;
+  /** Its edits, in the order they were made. */
+  edits: RuleEdit[];
+}
+
+const CHANGE_FIELDS = ['id', 'from', 'recorded', 'by', 'why', 'edits'];
+
 export const REACHES = ['sources', 'downstream'] as const;
 export type Reach = (typeof REACHES)[number];
 
@@ -226,6 +271,12 @@ export interface FlowDocument {
    * hash; the plan carries only what is checked, so only a flow that declares one hashes differently.
    */
   contracts?: Record<string, ContractDef>;
+  /**
+   * The dated change sets (ADR 0021 §5): edits of the rules people set, each in force from a business day. A run is
+   * of the rules in force on its day (inforce.ts `inForce`, which `translate` and `runFlow` apply first), so a plan is
+   * never made from a document that still has them, and a day before every change set runs as it always did.
+   */
+  changes?: ChangeSet[];
   /** Display only: sections of the canvas, each holding sources and steps. Not part of any hash. */
   groups?: GroupDef[];
   /**
@@ -568,6 +619,7 @@ export function validateDocument(doc: unknown): Issue[] {
   validateExtras(doc, ids, add);
   validateGates(doc, add);
   validateContracts(doc, add);
+  validateChanges(doc, add);
   validatePublish(doc, params, add);
   if (doc.calendar !== undefined) for (const [path, message] of calendarProblems(doc.calendar)) add(`$.calendar${path}`, message);
   validateFills(doc, steps, add);
@@ -668,6 +720,74 @@ function validateContracts(doc: Record<string, unknown>, add: (path: string, mes
       if (col.values !== undefined && !(Array.isArray(col.values) && col.values.length > 0 && col.values.every((v: unknown) => typeof v === 'string'))) add(`${ca}.values`, 'a list of the values it may take, as text');
     });
   }
+}
+
+/**
+ * The dated change sets (ADR 0021 §5): each named once, with the day it takes effect from, when it was recorded, who
+ * made it and why, and its edits, each of an op this version replays with what it needs; any other field refused rather
+ * than ignored. Whether an edit applies to the rules of a day is the replay's to say (inforce.ts `applyEdit`).
+ */
+function validateChanges(doc: Record<string, unknown>, add: (path: string, message: string) => void): void {
+  const c = doc.changes;
+  if (c === undefined) return;
+  if (!Array.isArray(c)) return add('$.changes', 'a list of change sets: { id, from, recorded, by, why, edits }');
+  const text = (v: unknown) => typeof v === 'string' && v !== '';
+  const seen = new Set<string>();
+  c.forEach((cs: unknown, i: number) => {
+    const at = `$.changes[${i}]`;
+    if (!isRecord(cs)) return add(at, 'a change set: { id, from, recorded, by, why, edits }');
+    for (const k of Object.keys(cs)) if (!CHANGE_FIELDS.includes(k)) add(`${at}.${k}`, `not a field of a change set (${CHANGE_FIELDS.join(', ')})`);
+    if (!text(cs.id)) add(`${at}.id`, 'a non-empty string');
+    else if (seen.has(cs.id as string)) add(`${at}.id`, `change set ${String(cs.id)} is listed twice`);
+    else seen.add(cs.id as string);
+    if (typeof cs.from !== 'string' || !DAY.test(cs.from) || Number.isNaN(Date.parse(`${cs.from}T00:00:00Z`))) add(`${at}.from`, 'the business day it takes effect from: YYYY-MM-DD');
+    if (typeof cs.recorded !== 'string' || !/^\d{4}-\d{2}-\d{2}T/.test(cs.recorded) || Number.isNaN(Date.parse(cs.recorded))) add(`${at}.recorded`, 'when it was made: an ISO 8601 time');
+    if (typeof cs.by !== 'string') add(`${at}.by`, 'who made it');
+    if (typeof cs.why !== 'string') add(`${at}.why`, 'why, in their words (empty where they gave none)');
+    if (!Array.isArray(cs.edits) || cs.edits.length === 0) return add(`${at}.edits`, 'its edits: a list of one or more');
+    cs.edits.forEach((e: unknown, j: number) => {
+      const ea = `${at}.edits[${j}]`;
+      if (!isRecord(e) || !(EDIT_OPS as readonly unknown[]).includes(e.op)) return add(ea, `an edit: { op, ... }, op one of ${EDIT_OPS.join(', ')}`);
+      const need = (k: string, ok: boolean, what: string) => {
+        if (!ok) add(`${ea}.${k}`, what);
+      };
+      switch (e.op) {
+        case 'setRule': {
+          const r = e.rule;
+          if (!isRecord(r)) return add(`${ea}.rule`, 'the rule: { id, file, column, kind, action, ... }');
+          for (const k of ['id', 'file', 'column', 'kind', 'action']) need(`rule.${k}`, text(r[k]), 'a non-empty string');
+          return;
+        }
+        case 'removeRule':
+        case 'switchRule':
+          need('file', text(e.file), 'the file the rule is of');
+          need('id', text(e.id), 'the rule’s id');
+          if (e.op === 'switchRule') need('on', typeof e.on === 'boolean', 'true to switch it on, false to switch it off');
+          return;
+        case 'nameColumn': {
+          need('file', text(e.file), 'the file the column is of');
+          need('column', text(e.column), 'the column, as the file writes it');
+          const ch = e.change;
+          if (!isRecord(ch)) return add(`${ea}.change`, 'what changed: { title?, description?, values? }');
+          for (const k of ['title', 'description'] as const) need(`change.${k}`, ch[k] === undefined || typeof ch[k] === 'string', 'text');
+          need('change.values', ch.values === undefined || (isRecord(ch.values) && Object.values(ch.values).every((v) => typeof v === 'string')), 'a label for each value, by the value');
+          return;
+        }
+        case 'acceptBand': {
+          need('source', text(e.source), 'the source the band is of');
+          const b = e.band;
+          const share = isRecord(b) && Array.isArray(b.share) && b.share.length === 2 && b.share.every((x: unknown) => typeof x === 'number' && x >= 0 && x <= 1) && (b.share[0] as number) <= (b.share[1] as number);
+          need('band', isRecord(b) && text(b.column) && typeof b.value === 'string' && share, 'the band: { column, value, share: [low, high] }, shares from 0 to 1');
+          return;
+        }
+        case 'setCheck':
+          need('node', text(e.node), 'the source or step whose gate it is');
+          need('check', (CHECK_NAMES as readonly unknown[]).includes(e.check), `a check: ${CHECK_NAMES.join(', ')}`);
+          need('mode', (CHECK_MODES as readonly unknown[]).includes(e.mode), `${CHECK_MODES.join(', ')}`);
+          return;
+      }
+    });
+  });
 }
 
 function validateGates(doc: Record<string, unknown>, add: (path: string, message: string) => void): void {

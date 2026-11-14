@@ -161,15 +161,16 @@ function ruleProblem(doc: FlowDocument): string | null {
 /**
  * A rule added to its file, or one of its rules changed (by `id`): the document with it, every check cell that reads
  * the file brought in step (`syncRuleCells`: a new rule on, a changed one switched as it was), and the change in words,
- * or the reason the rule can't be kept. It runs from the next run (Q-141): a rule is on once set.
+ * or the reason the rule can't be kept. It runs from the next run (Q-141): a rule is on once set. With `add`, a rule
+ * by an `id` the file doesn't have is added by that id (a recorded edit replayed, inforce.ts) rather than refused.
  */
-export function setRule(doc: FlowDocument, input: RuleInput): { doc: FlowDocument; said: string } | { problem: string } {
+export function setRule(doc: FlowDocument, input: RuleInput, add = false): { doc: FlowDocument; said: string } | { problem: string } {
   const o = ontologyOf(doc);
   const rules = o.rules ?? [];
   const at = input.id === undefined ? -1 : rules.findIndex((r) => lower(r.file) === lower(input.file) && r.id === input.id);
-  if (input.id !== undefined && at < 0) return { problem: `${input.file} has no rule ${input.id}` };
+  if (input.id !== undefined && at < 0 && !add) return { problem: `${input.file} has no rule ${input.id}` };
   const was = at >= 0 ? rules[at]! : null;
-  const entry = ruleEntry({ ...input, id: was?.id ?? newRuleId(doc, input.file, input.column, input.kind) });
+  const entry = ruleEntry({ ...input, id: was?.id ?? input.id ?? newRuleId(doc, input.file, input.column, input.kind) });
   const defined: FlowDocument = { ...doc, ontology: { ...o, rules: was ? rules.map((r, k) => (k === at ? entry : r)) : [...rules, entry] } };
   const problem = ruleProblem(defined);
   if (problem) return { problem };

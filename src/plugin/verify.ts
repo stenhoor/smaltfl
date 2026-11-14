@@ -33,6 +33,7 @@ import { measuresHash } from '../core/measures.js';
 import { measureTable } from './measure.js';
 import { nodeKey } from '../core/keys.js';
 import type { ManifestNode, RunManifest } from '../core/manifest.js';
+import { rulesHash } from '../core/inforce.js';
 import { manifestHash, ontologyHash, planHash, policiesHash } from '../core/manifest.js';
 import { shapeOf } from '../core/optimize.js';
 import type { FlowPlan } from '../core/plan.js';
@@ -110,6 +111,7 @@ export async function verifyRun(db: Database, runId: number, options: VerifyOpti
     if (fh !== plan.flow.hash) notes.push("the stored document doesn't hash to the plan's flow hash");
     if (manifest.flow.policies !== undefined && manifest.flow.policies !== (await policiesHash(doc.policies))) notes.push("the policies aren't the document's");
     if (manifest.flow.ontology !== undefined && manifest.flow.ontology !== (await ontologyHash(doc.ontology))) notes.push("the ontology isn't the document's");
+    if (manifest.flow.rules !== undefined && manifest.flow.rules !== (await rulesHash(doc))) notes.push("the rules in force aren't the document's");
     try {
       const again = await translate(doc, typedParameters(doc, plan.parameters));
       const strip = (p: FlowPlan) => ({ ...p, nodes: p.nodes.map(({ schema: _schema, ...rest }) => rest) });

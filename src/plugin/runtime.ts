@@ -23,6 +23,7 @@ import { nodeKey } from '../core/keys.js';
 import { FILLED_FROM, withoutDisplay, type FlowDocument } from '../core/document.js';
 import type { ContractCounts, DatasetRecord, ExpectationResult, GateResult, ManifestNode, RunManifest, SourceFile, SourceIngestRecord } from '../core/manifest.js';
 import { MANIFEST_FORMAT, manifestHash, ontologyHash, planHash, policiesHash } from '../core/manifest.js';
+import { rulesHash } from '../core/inforce.js';
 import { flowHash, translate } from '../core/plan.js';
 import type { Upstream } from '../core/story.js';
 import { shapeOf } from '../core/optimize.js';
@@ -89,7 +90,7 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
     steps = d.steps;
     if ((await flowHash(d)) !== plan.flow.hash) throw new RunError("the flow document doesn't hash to the plan's flow hash: it isn't the document the plan was made from");
     doc = canonicalJSON(withoutDisplay(d) as Parameters<typeof canonicalJSON>[0]);
-    flow = { ...plan.flow, policies: await policiesHash(d.policies), ontology: await ontologyHash(d.ontology) };
+    flow = { ...plan.flow, policies: await policiesHash(d.policies), ontology: await ontologyHash(d.ontology), rules: await rulesHash(d) };
   }
   const started = new Date().toISOString();
   for (const o of plan.outputs) {

@@ -11,6 +11,7 @@ import type { DonorRule, FlowDocument, HoldKind, Meanwhile, Missing, ParameterDe
 import { DONOR_RULES, HOLD_KINDS, isGeneralWatch, MEANWHILES, missingProblem, periodOf, UNTILS, validateDocument, withoutDisplay } from './document.js';
 import { emitMatch, emitRuleCheck } from './emit.js';
 import { hashOf } from './hash.js';
+import { dayOf, inForce } from './inforce.js';
 import { CHECK_NAMES, gateChecksOf, hasGates, writtenRules, type GateChecks } from './gates.js';
 import { conditionOf, marksOn, type Ontology } from './ontology.js';
 import { enforcedBy, ON_FAIL, type OntologyRule } from './rules.js';
@@ -312,10 +313,24 @@ export function flowHash(doc: FlowDocument): Promise<string> {
 }
 
 /**
- * Translate a flow document into its flow plan, filling in parameter values (`values`, else each parameter's
- * default). The same document and values always give the same plan.
+ * A document as a run of its day reads it (ADR 0021 §5): the rules in force on the day its parameter values name
+ * (`dayOf`), as known at `asOf` (none: every change set recorded), its change sets checked first. A document without
+ * change sets is itself.
  */
-export async function translate(doc: FlowDocument, values: Readonly<Record<string, ParamValue>> = {}): Promise<FlowPlan> {
+export function forDay(doc: FlowDocument, values: Readonly<Record<string, ParamValue>> = {}, asOf?: string | null): FlowDocument {
+  if (doc.changes === undefined) return doc;
+  const issues = validateDocument(doc);
+  if (issues.length > 0) throw new PlanError(`the flow document has ${issues.length} problem${issues.length === 1 ? '' : 's'}: ${issues[0]!.path}: ${issues[0]!.message}`, issues);
+  return inForce(doc, dayOf(doc, values), asOf);
+}
+
+/**
+ * Translate a flow document into its flow plan, filling in parameter values (`values`, else each parameter's
+ * default). The same document and values always give the same plan. A document with change sets is translated as the
+ * run of its day reads it (`forDay`, as known at `options.asOf`), so its plan's flow hash is of the rules in force.
+ */
+export async function translate(given: FlowDocument, values: Readonly<Record<string, ParamValue>> = {}, options: { asOf?: string | null } = {}): Promise<FlowPlan> {
+  const doc = forDay(given, values, options.asOf);
   const issues = validateDocument(doc);
   if (issues.length > 0) throw new PlanError(`the flow document has ${issues.length} problem${issues.length === 1 ? '' : 's'}: ${issues[0]!.path}: ${issues[0]!.message}`, issues);
   const params = resolveParameters(doc.parameters ?? [], values);
