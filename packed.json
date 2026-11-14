@@ -1,9 +1,9 @@
 {
-  "smaltdb": {"repo": "stenhoor/smaltdb", "ref": "7de6429457b35fe5882a291602758b86feebd923"},
+  "smaltdb": {"repo": "stenhoor/smaltdb", "ref": "23dd7ac42a2abff462791c8a96d96de1e14d2668"},
   "@smaltworks/smaltql": {"repo": "stenhoor/smaltql", "ref": "11e143eab35602ee52115fae3d3ea7c2d3fe6dfb"},
   "@smaltdb/io": {"repo": "stenhoor/smaltdb-io", "ref": "9aaf289aeadf7da066d7d6b3ecea8cb921ad20ce"},
   "@smaltdb/external": {"repo": "stenhoor/smaltdb-external", "ref": "b7d01c69bb2737df01829e0be20b681887612983"},
   "@smaltdb/parquet": {"repo": "stenhoor/smaltdb-parquet", "ref": "13ca013070800e2874bf317dec12f0e192bb9c25"},
-  "smaltnb": {"repo": "stenhoor/smaltnb", "ref": "fcb17e3d051ce62543e658f24e0dc1e83b617366"},
-  "smaltkit": {"repo": "stenhoor/smaltkit", "ref": "94b18633a4e39784b4151b33e3723b545119ff31"}
+  "smaltnb": {"repo": "stenhoor/smaltnb", "ref": "c265c8f1a2d5316cd5f6cd536dccec976be80546"},
+  "smaltkit": {"repo": "stenhoor/smaltkit", "ref": "3599dfa8407ee512ac2e23c0e27aaef4f61b7347"}
 }
