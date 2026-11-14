@@ -9,8 +9,8 @@
  * delivery's run when it arrives (a correction of the day's latest run, held until a decision, Q-183), and each decision
  * when it is taken (recorded by load on a flow that watches several datasets, Q-193). Every run is of the rules in
  * force on its day as known when it ran; a change set reaching days already run runs them again when it is recorded
- * (restated runs), and the story's restatement decides them (Q-190), or, where no day's outcome would change, they are
- * noted at once (Q-199).
+ * (restated runs), and the story's restatement decides them (Q-190), signing them off as the same where no day's
+ * outcome would change (Q-199, ADR 0022 §1).
  */
 import { changesProblems, type ChangeSet } from './document.js';
 import { DECIDE_OPTIONS, type DecisionOption } from './policy.js';

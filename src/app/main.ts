@@ -16,7 +16,7 @@ import { holidayOf, seasonOf, US_NYC_1, type Calendar } from '../core/calendar.j
 const calendarNow = (): Calendar => history?.calendar ?? US_NYC_1;
 import { canonicalJSON } from '../core/canonical.js';
 import type { ChangeSet, ContractDef, FlowDocument, GroupDef, NotebookOutline, OutlineCell, ProfileDef, RuleEdit, StepDef } from '../core/document.js';
-import { applyEdit, changesOn, inForce, resolve as resolveRules, ruleParts, rulesHash, rulesInForce, withRuleParts, type RuleParts } from '../core/inforce.js';
+import { applyEdit, changesOn, inForce, resolve as resolveRules, ruleParts, rulesHash, rulesInForce, versionRules, withRuleParts, type RuleParts } from '../core/inforce.js';
 import { diffSaid, ruleVersions, rulesDiff, versionKey, versionOn, type RuleVersion } from '../core/ruleversions.js';
 import { GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
 import { notebookSectionId } from '../core/notebook.js';
@@ -3117,15 +3117,15 @@ function fromDay(): string {
 /** Whether readers got a version of a day, by the record. */
 const publishedLoad = (k: number): boolean => versionFacts(k).some((f) => f.published);
 
-/** The recorded days a change set reaches (ADR 0021 §5): from its day, whose version readers got first ran before the
- * change was recorded, so under rules that didn't have it. A change made here reaches every recorded day from its day;
- * one the build recorded (the story's) only the days run before it. */
-function reachedBy(c: Pick<ChangeSet, 'from' | 'recorded'>): string[] {
+/** The recorded days a change set reaches (ADR 0021 §5): from its day (to its last, ADR 0022 §1), whose version readers
+ * got first ran before the change was recorded, so under rules that didn't have it. A change made here reaches every
+ * recorded day from its day; one the build recorded (the story's) only the days run before it. */
+function reachedBy(c: Pick<ChangeSet, 'from' | 'until' | 'recorded'>): string[] {
   const t = Date.parse(c.recorded);
   const days = new Set<string>();
   loads.list.forEach((l, k) => {
     const day = l.day.slice(0, 10);
-    if (day < c.from) return;
+    if (day < c.from || (c.until !== undefined && day > c.until)) return;
     const at = versionAsOf(k, wentWith(k));
     if (at !== null && Date.parse(at) < t) days.add(day);
   });
@@ -3413,10 +3413,8 @@ async function restatePending(): Promise<void> {
   }
   renderLoads();
   renderMonth();
-  // No day's outcome would change: the days are noted as the same, and nothing waits for a decision (Q-190).
-  const done = pendingRestating();
-  if (done && done.days.every((d) => d.r && !d.r.changed)) await restateDays(done, [], [], done.days, '');
-  else restateSheet();
+  // The restatement, to decide: even where no day's outcome would change, someone signs it off (Q-199, ADR 0022 §1).
+  restateSheet();
   // The day on screen is the one the change takes effect from, under the new rules: what reads the rules, drawn again.
   if (location.hash === '#ontology') void renderOntology();
   delete document.body.dataset.restating;
@@ -3449,7 +3447,7 @@ function restateSheet(): void {
         ticks.set(d.day, box);
         return h('li', { class: 'rs-day', 'data-day': d.day }, h('label', {}, box, h('b', {}, dayLabel(d.day)), ` ${d.r!.before} → ${d.r!.after}`));
       }))) : h('p', { class: 'vf-one' }, 'No day’s outcome would change.'),
-    same.length ? block(`${plural(same.length, 'day')} came out the same`, h('p', { class: 'foot' }, `${same.map((d) => dayShort(d.day)).join(', ')}: noted, not decided again.`)) : null,
+    same.length ? block(`${plural(same.length, 'day')} came out the same`, h('p', { class: 'foot' }, `${same.map((d) => dayShort(d.day)).join(', ')}: ${changed.length ? 'noted with the restatement, not decided again' : 'signed off as the same, not decided again'}.`)) : null,
     unrun.length ? h('p', { class: 'foot' }, `${plural(unrun.length, 'day')} not run again yet: ${unrun.map((d) => dayShort(d.day)).join(', ')}.`) : null,
   ];
   if (may && changed.length) {
@@ -3467,13 +3465,18 @@ function restateSheet(): void {
   } else if (!may) body.push(h('p', { class: 'foot' }, 'Restating is for someone who may publish a day.'));
   else if (unrun.length) body.push(h('div', { class: 'of-acts' }, h('button', { type: 'button', class: 'btn small primary rs-again', onclick: () => void restatePending() }, 'Run them again ▶')));
   else {
-    // Nothing would change: the days are noted as the same, and nothing is decided (Q-190).
-    const note = h('button', { type: 'button', class: 'btn small primary rs-note' }, `Note ${plural(same.length, 'day')} as the same`) as HTMLButtonElement;
-    note.addEventListener('click', () => {
-      note.disabled = true;
-      void restateDays(p, [], [], same, '').then(() => document.querySelector('.vf-detail-wrap')?.remove());
+    // Nothing would change: still a sign-off, with its reason (Q-199, ADR 0022 §1); no day is decided again.
+    go.textContent = `Sign off ${plural(same.length, 'day')} as the same`;
+    go.addEventListener('click', () => {
+      if (!reason.value.trim()) {
+        err.textContent = 'A sign-off needs a reason.';
+        err.hidden = false;
+        return;
+      }
+      go.disabled = true;
+      void restateDays(p, [], [], same, reason.value.trim()).then(() => document.querySelector('.vf-detail-wrap')?.remove());
     });
-    body.push(h('div', { class: 'of-acts' }, note));
+    body.push(h('div', { class: 'of-field' }, h('label', {}, 'Why'), reason), err, h('div', { class: 'of-acts' }, go));
   }
   openDetail(changed.length ? `Restate ${plural(changed.length, 'day')} under the new rules?` : 'The new rules change no published day', changed.length ? 'warn' : 'ok', body);
 }
@@ -3491,7 +3494,7 @@ async function restateDays(p: PendingRestating, ticked: { day: string; r: Restat
   };
   await ledger.append('restate', state.viewer, about as unknown as JSONValue, reason || null);
   renderRecord();
-  setStatus(ticked.length || kept.length ? `Restated ${plural(ticked.length, 'day')} under the new rules${kept.length ? `; ${plural(kept.length, 'day')} left as readers had ${kept.length === 1 ? 'it' : 'them'}` : ''}. Recorded.` : `${plural(same.length, 'recorded day')} ran again under the new rules: ${same.length === 1 ? 'it comes' : 'they come'} out the same. Noted in the record.`, false);
+  setStatus(ticked.length || kept.length ? `Restated ${plural(ticked.length, 'day')} under the new rules${kept.length ? `; ${plural(kept.length, 'day')} left as readers had ${kept.length === 1 ? 'it' : 'them'}` : ''}. Recorded.` : `${plural(same.length, 'recorded day')} ran again under the new rules: ${same.length === 1 ? 'it comes' : 'they come'} out the same. Signed off and recorded.`, false);
   afterDecision();
   renderMonth();
 }
@@ -3506,7 +3509,7 @@ function restateLine(k: number): HTMLElement | null {
   const decide = h('button', { type: 'button', class: 'btn small', onclick: () => restateSheet() }, 'The restatement ›');
   const again = h('button', { type: 'button', class: 'btn small', onclick: () => void restatePending() }, 'Run them again ▶');
   if (!d.r) return h('p', { class: 'loads-pause waiting rs-line' }, `Rules changed since ${dayShort(d.day)} ran, from ${dayLabel(p.from)}: not run again under them yet. `, mayRun() ? again : '');
-  return h('p', { class: `loads-pause rs-line${d.r.changed ? ' waiting' : ''}` }, `Under the rules changed since: ${d.r.before} → ${d.r.after}. ${d.r.changed ? 'It waits for the restatement.' : 'Noted: it comes out the same.'} `, decide);
+  return h('p', { class: `loads-pause rs-line${d.r.changed ? ' waiting' : ''}` }, `Under the rules changed since: ${d.r.before} → ${d.r.after}. ${d.r.changed ? 'It waits for the restatement.' : 'It comes out the same, waiting for the sign-off.'} `, decide);
 }
 
 /** A document's rules-in-force hash (`rules/1`), hashed once a document. */
@@ -3575,7 +3578,8 @@ const versionsView = { a: null as string | null, b: null as string | null };
 
 /** A version's rules: the rules before any change set with its change sets applied, in the order recorded. */
 function versionDoc(v: Pick<RuleVersion, 'changes'>): FlowDocument {
-  return inForce({ ...baseDoc(), changes: ruleChanges.filter((c) => v.changes.includes(c.id)) }, null);
+  const { changes: _changes, ...base } = baseDoc();
+  return versionRules(base as FlowDocument, ruleChanges, v.changes);
 }
 
 /** The days a version's spans name, as runs of days in the data's order: "Fri Mar 1 to Sun Mar 17, Mon Mar 25". */
