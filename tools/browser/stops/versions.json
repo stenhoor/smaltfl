@@ -1,0 +1,85 @@
+[
+  {
+    "name": "versions-month",
+    "what": "Larkspur's month (ADR 0021 §5, §6): the story's back-dated change (the findings' values check holds the day again, from Fri 1, recorded Mon 25) restated Sat 16 and Sun 17, whose scan didn't log in: picked, Sat 16 says it was restated and not published",
+    "view": "month",
+    "viewFirst": true,
+    "click": "#view-month .mo-d[data-day=\"2024-03-16\"]",
+    "element": "#view-month .mo-sum",
+    "expect": {
+      "text": ["Sat Mar 16", "restated: version 2 of 2, not published", "Run again under rules changed since: version 2, not published: held under them"]
+    }
+  },
+  {
+    "name": "versions-day",
+    "what": "Sat Mar 16's screen: its two versions, the files as they arrived (published then) and the day run again under the rules changed since, held by the logged-in band and restated by the security lead with the reason; the one readers got marked",
+    "day": "Sat 16",
+    "element": "#loads",
+    "expect": {
+      "pageText": [
+        "2 VERSIONS OF THE DAY",
+        "Run again under rules changed since",
+        "Set the values check on findings to hold (it was warn)",
+        "held: findings: Credentialed no: 4.1% (band 0%–2%)",
+        "restated by Sloane Marsden"
+      ]
+    }
+  },
+  {
+    "name": "versions-forward",
+    "what": "Mon Mar 18's screen: the forward change (the WAF band at a tenth, recorded Fri 15) is new on this day, by the rules in force's hash",
+    "day": "Mon 18",
+    "element": "#loads",
+    "expect": {
+      "pageText": [
+        "RULES IN FORCE",
+        "new on this day: Accepted a new band in waf: Status Fail between 0% and 10%"
+      ]
+    }
+  },
+  {
+    "name": "versions-list",
+    "what": "The Ontology view on Thu Mar 21 (ADR 0021 §5): the two change sets, then the four versions of the rules (as shipped, the band, the values check alone before Mon 18, both from Mon 18), each with its hash, where and when it was in force and its recorded runs; the one on screen (the band: Thu 21's version readers got ran on Fri 22, before the back-dated change) and the one as known now (both) marked; the one on screen compared with the one before it",
+    "day": "Thu 21",
+    "view": "ontology",
+    "element": "#rules-time",
+    "expect": {
+      "pageText": [
+        "The rules in force on Thu Mar 21",
+        "2 change sets",
+        "4 versions of the rules",
+        "The rules as shipped",
+        "On Thu Mar 21: Version 2 on screen, as the day’s version ran; Version 4 as known now.",
+        "Compare",
+        "Band for Status Fail in waf: 0%–15% → 0%–10%"
+      ],
+      "count": { "#rules-time .rt-ver": 4, "#rules-time .rt-ver.on": 1 }
+    }
+  },
+  {
+    "name": "versions-compare",
+    "what": "Any two compared: the rules as shipped against the values check alone, the one thing between them",
+    "day": "Thu 21",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [["#rules-time .rt-pick-a", "Version 1"], ["#rules-time .rt-pick-b", "Version 3"]],
+    "element": "#rules-time .rt-compare",
+    "expect": {
+      "text": ["The values check on findings: warn → hold"],
+      "count": { "#rules-time .rt-diff li": 1 }
+    }
+  },
+  {
+    "name": "versions-known",
+    "what": "As known on the end of Fri Mar 15: the band was recorded that afternoon, so Thu Mar 21's rules as known then are version 2, the one on screen too; as known now, version 4",
+    "day": "Thu 21",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [["#rules-time .rt-known", "2024-03-15"]],
+    "element": "#rules-time .rt-vers",
+    "expect": {
+      "text": ["as known on the end of Fri Mar 15"],
+      "count": { "#rules-time .rt-mark": 3 }
+    }
+  }
+]

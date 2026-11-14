@@ -1058,6 +1058,21 @@ th .th-title { display: block; font-family: var(--font); font-size: 10.5px; font
 .rt-item:not(.on) { color: var(--ink-2); }
 .rt-from { font-weight: 650; }
 .rt-where { color: var(--muted); font-size: 12px; }
+/* The versions of the rules (ADR 0021 §5): each with its hash, where and when it was in force and its runs, the ones on
+   screen, now and as known on marked; any two compared. The selects are 16 px and 44 px tall, so a phone doesn't zoom
+   and a finger finds them; they wrap under their words. */
+.rt-vers { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); min-width: 0; }
+.rt-vers .rt-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.rt-lead { margin: 0; font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
+.rt-versions { display: grid; gap: 8px; margin: 0; padding-left: 22px; font-size: 13px; overflow-wrap: anywhere; }
+.rt-ver:not(.on) { color: var(--ink-2); }
+.rt-mark { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; background: var(--sunk); color: var(--ink); font-size: 11.5px; font-weight: 650; white-space: nowrap; }
+.rt-ver.on .rt-mark { background: var(--smalt); color: var(--bg); }
+.rt-runs { color: var(--muted); font-size: 12px; }
+.rt-known-l, .rt-cmp-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0; min-width: 0; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.rt-known, .rt-pick { min-height: 44px; max-width: 100%; min-width: 0; border: 1px solid var(--muted); border-radius: 8px; padding: 6px 8px; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; }
+.rt-compare { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 8px 10px; border-radius: 8px; background: var(--sunk); min-width: 0; }
+.rt-diff { display: grid; gap: 4px; margin: 0; padding-left: 20px; font-size: 13px; overflow-wrap: anywhere; }
 .rf-bar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--sunk); min-width: 0; }
 .rf-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; font-size: 13px; font-weight: 600; color: var(--ink-2); }
 .rf-k { flex: 0 0 auto; }

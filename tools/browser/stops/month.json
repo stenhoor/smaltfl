@@ -1,7 +1,7 @@
 [
   {
     "name": "month-home",
-    "what": "Larkspur's month (ADR 0021 §3): for the day and as known on, the posture's trend, the calendar of the recorded March with its story (five days corrected, five decided, two waiting), the day picked and, from tablet width, the grid",
+    "what": "Larkspur's month (ADR 0021 §3): for the day and as known on, the posture's trend, the calendar of the recorded March with its story (five days corrected, five decided, two restated under rules changed since, two waiting), the day picked and, from tablet width, the grid",
     "view": "month",
     "viewFirst": true,
     "full": true,
@@ -10,14 +10,15 @@
       "text": ["FOR THE DAY", "AS KNOWN ON", "March 2024", "CONTROL POSTURE V1 · THE GROUP’S SCORE ON EACH DAY PUBLISHED", "93.6 on Fri 1, 92.0 on Sun 31"],
       "count": {
         "#view-month .mo-d": 31,
-        "#view-month .mo-d.st-paused": 7,
-        "#view-month .mo-d.corrected": 5
+        "#view-month .mo-d.st-paused": 9,
+        "#view-month .mo-d.corrected:not(.restated)": 5,
+        "#view-month .mo-d.restated": 2
       }
     }
   },
   {
     "name": "month-grid-corrected",
-    "what": "The grid's filters (ADR 0021 §3), from tablet width: Corrected shows the five days sent again and published, Waiting the two still the visitor's",
+    "what": "The grid's filters (ADR 0021 §3), from tablet width: Corrected shows the five days sent again and published, Waiting the two still the visitor's, Held the twelve paused and the two restated as held",
     "view": "month",
     "viewFirst": true,
     "devices": ["tablet", "tablet-wide", "desktop", "wide"],
@@ -25,7 +26,7 @@
     "full": true,
     "element": "#view-month .mo-grid",
     "expect": {
-      "text": ["Corrected (5)", "Waiting for a decision (2)", "Held (12)"],
+      "text": ["Corrected (5)", "Waiting for a decision (2)", "Held (14)"],
       "count": {
         "#view-month .mo-gt thead th": 6,
         "#view-month .mg-filter[aria-pressed=\"true\"][data-filter=\"corrected\"]": 1
@@ -86,14 +87,14 @@
   },
   {
     "name": "day-versions",
-    "what": "Mon Mar 4 by its link: the day's versions like commits (ADR 0021 §2, §4): the empty MFA file kept back, the real one sent again overnight and published; the version readers got runs here, a correction checked against its recorded run",
+    "what": "Mon Mar 4 by its link: the day's versions like commits (ADR 0021 §2, §4): the empty MFA file kept back, the real one sent again overnight and published, and the day run again under the rules changed Mon 25, noted the same (§5); the version readers got runs here, a correction checked against its recorded run",
     "day": "Mon 4",
     "waitFor": ".dh-rec[data-check=\"matches\"]",
     "element": "#loads",
     "expect": {
-      "text": ["Mon Mar 4", "Held: mfa", "Decided: kept back", "Sent again: mfa", "Decided: published", "2 VERSIONS OF THE DAY", "As it arrived", "kept back by Sloane Marsden", "mfa sent again Tue, Mar 5, 02:40 UTC", "what readers got", "Published version 2"],
+      "text": ["Mon Mar 4", "Held: mfa", "Decided: kept back", "Sent again: mfa", "Decided: published", "3 VERSIONS OF THE DAY", "As it arrived", "kept back by Sloane Marsden", "mfa sent again Tue, Mar 5, 02:40 UTC", "what readers got", "Published version 2"],
       "count": {
-        ".dh-versions .dv": 2,
+        ".dh-versions .dv": 3,
         ".dh-versions .dv.on.got": 1
       }
     }
