@@ -87,8 +87,11 @@ A name or a label takes effect at once, on every day.
 
 Back-dated, a change reaches days already recorded: each runs again under the new rules, the month marks the days whose
 outcome would change, and one decision restates them, with a reason. Untick a day to leave it as readers had it; days
-that come out the same are noted. A day published as is keeps that decision where the new rules hold it by nothing
-else. A day's screen shows the rules in force on it, by hash, and what is new on the day.
+that come out the same are noted. Where no day's outcome would change, the restatement still waits: someone who may
+publish a day signs the days off as the same, with a reason ([ADR 0022](../adr/0022-the-answers-of-2026-11-14) §1). A
+day published as is keeps that decision where the new rules hold it by nothing else. A day restated as not published
+isn't learned from by the days after it. A day's screen shows the rules in force on it, by hash, and what is new on the
+day.
 
 The Ontology view lists the **versions** of the rules: each set of changes in force on some day at some moment, with
 its hash, the days and moments it was in force, and how many recorded runs ran under it. It marks the version on
@@ -97,9 +100,14 @@ versions compare rule by rule: a rule added, changed or taken out, a band, a che
 
 **What if… ›** on a day runs it on any of its files (as it arrived, or as sent again) under any version of the rules:
 the whole flow, judged as the day was. A what-if is marked as one, held so nothing of it is published, and never
-recorded; it is on screen until **Back to the day**. Its line says what it would have come to, what would make it the
-day's (its files a version of the day, its rules those in force on it now, or the change that would make them so), and
-**Compare** puts it beside the version readers got.
+recorded; it is on screen until **Back to the day**. Its line says what it would have come to, and **Compare** puts it
+beside the version readers got. **Make this the day's ›** makes it the day's in one tap, with a reason, on the same
+screen ([ADR 0022](../adr/0022-the-answers-of-2026-11-14) §1). It says first what that does:
+
+- **Other files:** they go in as sent again, a version of the day of their own, published as is.
+- **Other rules:** the day takes them for that day only and is restated under them, published where they pass.
+
+It asks someone who may publish a day, and the owner where it takes other rules.
 
 Edits are kept across a reload and listed with **Back to the flow as shipped**.
 

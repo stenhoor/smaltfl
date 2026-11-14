@@ -332,6 +332,15 @@ release (smaltty ADR 0030).
   it the day's), *Back to the day* (`closeWhatIf`; the day's own files pinned again, `pinLoad`, `pinOwnAgain`, before
   any other run); Compare takes it as a side (`0`) and says what held each side;
   `tools/browser/stops/whatif.json`.
+- The answers of 2026-11-14 (ADR 0022). Slice 1, first part: a change set's last day (`ChangeSet.until`, in force from
+  its day to then and on no run of no day) and the edit `useVersion` (a version's rules taken whole, `versionRules` and
+  `versionSaid` in inforce.ts; `rules/1` unchanged); **Make this the day's ›** on a what-if (Q-202; `whatIfMakes`,
+  `makePart`, `makeWhatIfTheDays`): a reason on the same screen, then other files go in as a later delivery decided as
+  is (`PinOpts.make`, `loads.correct`, `RunRecord.made`, a version of its own: `madeVersion`, `versionsOfLoad`), and
+  other rules as a change set for that day only with the day restated under it; a restatement that changes no day signed
+  off with a reason (Q-199, `restateSheet`; the recorder by the story's restatement); a day restated as not published
+  left out of learning (`restatedHeld` in `skipOf`); the offline audit of restated runs and restatements
+  (`restatedProblems`, each `restate` entry against `restatedOutcome`); `tools/browser/stops/whatif.json`, `rules.json`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -361,7 +370,8 @@ release (smaltty ADR 0030).
   §6: the time follow-ups (a what-if made the day's in one tap, a restatement that changes no day signed off, readers on
   the latest day when a past day is corrected, the audit of restatements), columns that change (a mismatched file
   paused, renames flagged with a suggested mapping and their impact), the ontology as the one place for rules, pausing
-  (Q-86, Q-132, Q-84), and proposed declarations (Q-139).
+  (Q-86, Q-132, Q-84), and proposed declarations (Q-139). Slice 1's first part is built (its §"As built"); its second
+  part, readers on the latest day (Q-51), is next.
 
 ## Rules for this repository
 
