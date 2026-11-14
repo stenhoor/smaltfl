@@ -28,7 +28,7 @@ import { flowHash, translate } from '../core/plan.js';
 import type { Upstream } from '../core/story.js';
 import { shapeOf } from '../core/optimize.js';
 import type { Column, ColumnType, ExpectNode, FillNode, FlowPlan, PlanNode, TableNode } from '../core/plan.js';
-import { isPublish2, validatePlan, watchesOf } from '../core/plan.js';
+import { dayKeyOf, isPublish2, periodsOf, validatePlan, watchesOf } from '../core/plan.js';
 import { carry, heldOutputs, spare, holdsOf, judgeClaims, judgeDonors, tailPath, tripped, waitingOf, type ClaimFacts, type FillHold, type Hold, type Judged, type RunRef, type StoryClaim2 } from '../core/hold.js';
 import { measuresHash, reconcileOf, settingsFor, type MeasureSettings, type Measures } from '../core/measures.js';
 import { tellClaim } from './tell.js';
@@ -46,7 +46,7 @@ import { keepPrepared, pinnedSha, preparedFor } from './prepared.js';
 import { givenTypes, isTypesFile, TYPES_PATH, typesKey } from '../core/typed.js';
 import { isRangesFile, measuredAhead, rangesPath, type MeasuredAhead } from '../core/ranges.js';
 
-import { carriedFrom, readBefore, currentOf, ensureStore, findCheck, findVersion, inTransaction, isFresh, lastSnapshot, measuresOfRun, nameInUse, pointDataset, recordCheck, recordDerived, recordHolds, recordIngest, recordMeasures, recordSnapshot, recordVersion, resetWatch, versionTable, watchable } from './store.js';
+import { carriedFrom, readBefore, currentOf, dayVersionOf, ensureStore, findCheck, findVersion, inTransaction, isFresh, lastSnapshot, measuresOfRun, nameInUse, publishVersion, recordCheck, recordDerived, recordHolds, recordIngest, recordMeasures, recordSnapshot, recordVersion, resetWatch, versionTable, watchable } from './store.js';
 
 export class RunError extends Error {
   override name = 'RunError';
@@ -371,20 +371,33 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
       derived = { from: stage, holds: fills, donors, filled: filledRows(db, plan, ctx) };
     }
     held = heldOutputs(plan, [...holds, ...(derived?.holds ?? [])]);
-    const current = Object.fromEntries(held.map((name) => [name, currentOf(db, name)?.key]));
+    // What a held output's staged version is set against: its day's own version where it is that one already (Q-51),
+    // else the version its name shows.
+    const day = dayKeyOf(manifest.parameters, periodsOf(plan.publish));
+    const current = Object.fromEntries(held.map((name) => {
+      const staged = manifest.outputs[name]?.key;
+      return [name, day !== null && staged !== undefined && dayVersionOf(db, name, day)?.key === staged ? staged : currentOf(db, name)?.key];
+    }));
     // A run that built nothing staged nothing, and every output it holds waits all the same, for a corrected file.
     waiting = unreadable ? [...held] : waitingOf(manifest, held, current);
   }
   const holding = new Set(held);
 
   // 6. The plan, the document, the run and the dataset names, together: only the outputs nothing holds. A held
-  // output's version stays staged, by its key, until a release points its name at it.
+  // output's version stays staged, by its key, until a release points its name at it. Each published version is kept
+  // as its day's, and its name moves to it unless the name shows a later day (Q-51, ADR 0022 §1): readers stay on the
+  // latest day, and the day keeps its own version.
+  const periods = periodsOf(plan.publish);
+  const behind: string[] = [];
   const run = inTransaction(db, () => {
     db.run('INSERT INTO _smaltfl_plans(hash, plan) VALUES (?, ?) ON CONFLICT(hash) DO NOTHING', [typed, canonicalJSON(plan)]);
     if (doc !== null) db.run('INSERT INTO _smaltfl_flows(hash, doc) VALUES (?, ?) ON CONFLICT(hash) DO NOTHING', [plan.flow.hash, doc]);
     const r = db.run('INSERT INTO _smaltfl_runs(flow, hash, manifest, started, finished) VALUES (?, ?, ?, ?, ?)', [plan.flow.id, hash, canonicalJSON(manifest), started, new Date().toISOString()]);
     const id = Number(r.lastInsertRowid);
-    for (const o of plan.outputs) if (!holding.has(o.name)) pointDataset(db, o.name, keys.get(o.node)!, tables.get(o.node)!, id);
+    for (const o of plan.outputs) {
+      if (holding.has(o.name)) continue;
+      if (publishVersion(db, { name: o.name, key: keys.get(o.node)!, table: tables.get(o.node)!, run: id, parameters: manifest.parameters, periods }) === 'behind') behind.push(o.name);
+    }
     if (plan.publish) recordHolds(db, id, holds, judged);
     if (derived) recordDerived(db, { run: id, ...derived });
     for (const [node, m] of measured) recordMeasures(db, { run: id, node, slot: m.measures.slot, hash: m.hash, measures: m.measures, settings: m.settings });
@@ -394,6 +407,7 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
   });
   return {
     run, hash, manifest, holds, published: plan.outputs.map((o) => o.name).filter((name) => !holding.has(name)), waiting,
+    ...(behind.length ? { behind } : {}),
     ...(derived ? { derived: { holds: derived.holds, filled: derived.filled } } : {}),
     ...(measured.size ? { measures: [...measured.values()].map((m) => m.measures) } : {}),
     ...(Object.keys(kept).length ? { kept } : {}),

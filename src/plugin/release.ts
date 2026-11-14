@@ -8,9 +8,10 @@
  * - publish as is (and accept the new level, which publishes as it does, amendment 1 S6) has a reason, and the decision
  *   is a record entry's leaf;
  * - each output it names is held by the run, with the staged key the decision names, and not yet released; and every
- *   held output it leaves out already shows the run's version, so the outputs never show different days;
- * - no later day, by the plan's period parameter, is current for a name it would point (without a period, no later
- *   run): a release never moves a name back.
+ *   held output it leaves out already has the run's version, as its day's or shown by its name, so the outputs never
+ *   show different days;
+ * - it is never stale: no later run of its day, by the plan's period parameters, is current for a name it names, or
+ *   that day's version of it (without a period, no later run is current).
  *
  * A fill, or the part that arrived (ADR 0009 amendment 1 S10), releases the derived run its decision made, and is
  * checked against the held run it repairs as well: that run is held here, of the same day; the derived run's document
@@ -18,20 +19,23 @@
  * repair names, its donor judged good; and nothing holds it but the held run's story and its being derived (a filled
  * day whose checks trip isn't released). A replacement (a better donor, the other remedy) may move a name from an
  * earlier version of the same day. What each name showed before is kept (`_smaltfl_repairs`), and a withdrawal (a
- * decision not to publish with `withdraws`, Q-61) points each name back to it, unless a later day is current.
+ * decision not to publish with `withdraws`, Q-61) puts the day's own version back and points each name the fill moved
+ * back to what it showed.
  *
- * Then it points the names and keeps the release. A refusal is kept too, and returned, never thrown: what was asked and
- * why it was refused are part of the record of the day.
+ * Then it keeps each version as its day's and points the names, except a name a later day shows: readers stay on the
+ * latest day, and a release of an earlier day decides that day alone (Q-51, ADR 0022 §1). It keeps the release. A
+ * refusal is kept too, and returned, never thrown: what was asked and why it was refused are part of the record of the
+ * day.
  */
 import type { Database } from 'smaltdb/engine';
 import type { FlowDocument } from '../core/document.js';
 import { repairDocument, type Repair } from '../core/fill.js';
 import { byLoad, donorGood, heldOutputs, inputsKey, inputsOf, isLoad, loadKey, loadsOf, type Hold, type RunRef } from '../core/hold.js';
 import { manifestHash, policiesHash, type RunManifest } from '../core/manifest.js';
-import { flowHash, planPeriod, plannedDonor, watchesOf, type FlowPlan } from '../core/plan.js';
+import { dayKeyOf, flowHash, periodsAfter, periodsOf, planPeriod, plannedDonor, watchesOf, type FlowPlan } from '../core/plan.js';
 import { checkDecision, DECIDE_OPTIONS, type DecisionOption } from '../core/policy.js';
 import type { ReleaseInput, ReleaseResult } from '../core/protocol.js';
-import { currentOf, derivedOf, ensureStore, findVersion, holdsOfRun, inTransaction, nameInUse, pointDataset, recordRelease, recordRepair, recordWithdrawal, releasesOf, repairOf, withdrawalsOf, type Shown, type StoredDerived, type StoredRelease } from './store.js';
+import { currentOf, dayVersionOf, derivedOf, ensureStore, findVersion, holdsOfRun, inTransaction, nameInUse, pointDataset, publishVersion, recordRelease, recordRepair, recordWithdrawal, releasesOf, repairOf, restoreDay, withdrawalsOf, type Shown, type StoredDerived, type StoredRelease } from './store.js';
 
 const HEX64 = /^[0-9a-f]{64}$/;
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -105,19 +109,6 @@ function loadsProblem(r: ReleaseInput, run: Stored, holds: readonly Hold[], doc:
   return null;
 }
 
-/** Whether a run's periods are any of them later than another's, or all the same (ADR 0010 §7: each watched source's
- * period only moves forward, compared parameter by parameter). */
-function periodsAfter(a: RunManifest['parameters'], b: RunManifest['parameters'], periods: readonly string[]): 'later' | 'same' | 'earlier' {
-  let same = true;
-  for (const p of periods) {
-    const x = a[p];
-    const y = b[p];
-    if (typeof x === 'string' && typeof y === 'string' && x > y) return 'later';
-    if (x !== y) same = false;
-  }
-  return same ? 'same' : 'earlier';
-}
-
 /** A stored run: its manifest and hash, its plan, and the flow document and its text, read before a transaction. */
 interface Stored {
   manifest: RunManifest;
@@ -159,14 +150,6 @@ export function donorRead(m: RunManifest, node: number): { sha256: string; bytes
 function sameInputs(db: Database, run: number, held: Stored): boolean {
   const row = db.query('SELECT manifest FROM _smaltfl_runs WHERE id = ?', [run]).rows[0];
   return !!row && inputsKey(inputsOf(JSON.parse(String(row[0])) as RunManifest)) === inputsKey(inputsOf(held.manifest));
-}
-
-/** The value of a run's period parameter, read from its stored manifest; undefined when the run isn't stored. */
-function dayOfRun(db: Database, run: number, period: string): string | null | undefined {
-  const row = db.query('SELECT manifest FROM _smaltfl_runs WHERE id = ?', [run]).rows[0];
-  if (!row) return undefined;
-  const v = (JSON.parse(String(row[0])) as RunManifest).parameters[period];
-  return typeof v === 'string' ? v : null;
 }
 
 /**
@@ -262,6 +245,8 @@ export async function release(db: Database, input: unknown): Promise<ReleaseResu
     if (problem) return refuse(problem);
   }
 
+  const periods = periodsOf(plan.publish);
+  const dayKey = dayKeyOf(manifest.parameters, periods);
   return inTransaction(db, (): ReleaseResult => {
     const again = db.query('SELECT manifest, hash FROM _smaltfl_runs WHERE id = ?', [r.run]).rows[0];
     const docAgain = db.query('SELECT doc FROM _smaltfl_flows WHERE hash = ?', [plan.flow.hash]).rows[0];
@@ -319,36 +304,36 @@ export async function release(db: Database, input: unknown): Promise<ReleaseResu
         const asis = releasesOf(db).find((x) => x.outcome === 'applied' && (x.option === 'asis' || x.option === 'accept') && sameDay(x.run));
         if (asis) return `run ${r.from!.run}'s day was published ${asis.option === 'accept' ? 'at its new level' : 'as is'} by release ${asis.id}, which can't be taken back`;
       }
-      // Together: what the decision leaves out must already show the run's version, or the outputs would show two days.
-      // With several watched sources, only of the names its loads alone keep back: the rest wait for other loads.
+      // Together: what the decision leaves out must already be the run's version, as its day's (Q-51) or as its name
+      // shows it, or the outputs would show two days. With several watched sources, only of the names its loads alone
+      // keep back: the rest wait for other loads.
       const cites = new Set((r.loads ?? []).map((x) => loadKey(x.load)));
       const freed = (name: string) => !several || kept.holds.filter((h) => h.reaches.includes(name)).every((h) => h.load && cites.has(loadKey(h.load)));
       for (const name of [...heldNames].sort()) {
         if (Object.hasOwn(r.keys, name) || !freed(name)) continue;
-        if (currentOf(db, name)?.key !== manifest.outputs[name]!.key) return `the decision leaves out ${name}, which run ${r.run} holds with another version than its name shows`;
+        const key = manifest.outputs[name]!.key;
+        if (currentOf(db, name)?.key !== key && (dayKey === null || dayVersionOf(db, name, dayKey)?.key !== key)) return `the decision leaves out ${name}, which run ${r.run} holds with another version than its name shows`;
       }
-      // A release never moves a name back: no later day (or, without a period, no later run) is current for it. A
-      // fill or the part alone replaces any version of its own day, whatever order the runs were made in.
-      const period = planPeriod(plan.publish);
-      const day = period === null ? null : manifest.parameters[period];
-      const periods = [...new Set(watchesOf(plan.publish).flatMap((w) => (w.period === null ? [] : [w.period])))];
+      // Readers stay on the latest day (Q-51, ADR 0022 §1): a release of an earlier day (with several watched sources,
+      // an earlier load) decides that day, keeping its versions as the day's, and leaves a name a later day shows where
+      // it is. A release is never stale: no later run of its day is current, or its day's version; without a period, no
+      // later run is current. A fill or the part alone replaces any version of its own day, whatever order the runs
+      // were made in.
       for (const name of names) {
         const cur = currentOf(db, name);
-        if (!cur || cur.run === r.run) continue;
-        if (several) {
-          const row = db.query('SELECT manifest FROM _smaltfl_runs WHERE id = ?', [cur.run]).rows[0];
-          if (!row) return `${name} shows run ${cur.run}, which isn't in this database`;
-          const was = periodsAfter((JSON.parse(String(row[0])) as RunManifest).parameters, manifest.parameters, periods);
-          if (was === 'later') return `a later load is current for ${name} (run ${cur.run}): a release never moves a name back`;
-          if (!held && was === 'same' && cur.run > r.run) return `a later run of the same loads (run ${cur.run}) is current for ${name}`;
-          continue;
+        if (cur && cur.run !== r.run) {
+          if (periods.length === 0) {
+            if (cur.run > r.run) return `a later run (run ${cur.run}) is current for ${name}`;
+          } else {
+            const row = db.query('SELECT manifest FROM _smaltfl_runs WHERE id = ?', [cur.run]).rows[0];
+            if (!row) return `${name} shows run ${cur.run}, which isn't in this database`;
+            const shown = (JSON.parse(String(row[0])) as RunManifest).parameters;
+            const curDay = dayKeyOf(shown, periods);
+            if (!held && (curDay === null || periodsAfter(shown, manifest.parameters, periods) === 'same') && cur.run > r.run) return `a later run of ${several ? 'the same loads' : (curDay ?? 'another day')} (run ${cur.run}) is current for ${name}`;
+          }
         }
-        if (typeof day === 'string') {
-          const curDay = dayOfRun(db, cur.run, period!);
-          if (curDay === undefined) return `${name} shows run ${cur.run}, which isn't in this database`;
-          if (curDay !== null && curDay > day) return `${curDay} is current for ${name} (run ${cur.run}): a release never moves a name back to an earlier day`;
-          if (!held && (curDay === day || curDay === null) && cur.run > r.run) return `a later run of ${curDay ?? 'another day'} (run ${cur.run}) is current for ${name}`;
-        } else if (cur.run > r.run) return `a later run (run ${cur.run}) is current for ${name}`;
+        const own = dayKey === null ? null : dayVersionOf(db, name, dayKey);
+        if (!held && own && own.run > r.run) return `a later run of ${several ? 'the same loads' : dayKey} (run ${own.run}) is that day's version of ${name}`;
       }
       for (const name of names) {
         const used = nameInUse(db, name);
@@ -360,10 +345,13 @@ export async function release(db: Database, input: unknown): Promise<ReleaseResu
     })();
     const at = new Date().toISOString();
     if (typeof why === 'string') return { outcome: 'refused', why, release: recordRelease(db, { ...ask, outcome: 'refused', why, at }), published: [] };
-    for (const name of why.names) pointDataset(db, name, r.keys[name]!, findVersion(db, r.keys[name]!)!.table, r.run);
+    const behind: string[] = [];
+    for (const name of why.names) {
+      if (publishVersion(db, { name, key: r.keys[name]!, table: findVersion(db, r.keys[name]!)!.table, run: r.run, parameters: manifest.parameters, periods }) === 'behind') behind.push(name);
+    }
     const id = recordRelease(db, { ...ask, names: Object.fromEntries(why.names.map((n) => [n, r.keys[n]!])), outcome: 'applied', why: null, at });
     if (derived) recordRepair(db, { release: id, run: r.run, from: derived.from, repair: r.repair as Repair, before });
-    return { outcome: 'applied', why: null, release: id, published: why.names, ...(derived ? { filled: derived.filled } : {}) };
+    return { outcome: 'applied', why: null, release: id, published: why.names, ...(behind.length ? { behind } : {}), ...(derived ? { filled: derived.filled } : {}) };
   });
 }
 
@@ -375,6 +363,7 @@ export async function release(db: Database, input: unknown): Promise<ReleaseResu
  * The withdrawal's own release names what it took back; `_smaltfl_withdrawals` says which release.
  */
 function withdraw(db: Database, r: ReleaseInput, run: Stored, policies: string | null): ReleaseResult {
+  const dayKey = dayKeyOf(run.manifest.parameters, periodsOf(run.plan.publish));
   return inTransaction(db, (): ReleaseResult => {
     const ask = asked(r);
     const back: Record<string, { key: string; run: number; table: string }> = {};
@@ -390,15 +379,13 @@ function withdraw(db: Database, r: ReleaseInput, run: Stored, policies: string |
       if (policies !== run.manifest.flow.policies) return `the stored flow document's policies aren't the ones run ${r.run} recorded`;
       const may = checkDecision(run.doc.policies, r.actor, 'dont');
       if (!may.allowed) return may.reason;
-      const period = planPeriod(run.plan.publish);
-      const day = period === null ? null : run.manifest.parameters[period];
       for (const [name, key] of Object.entries(r.keys).sort()) {
         const cur = currentOf(db, name);
-        if (!cur || cur.key !== key || cur.run !== r.run) {
-          const curDay = cur && period ? dayOfRun(db, cur.run, period) : null;
-          if (typeof day === 'string' && typeof curDay === 'string' && curDay > day) return `${curDay} is current for ${name} (run ${cur!.run}): a withdrawal never moves a name back past a later day`;
-          return `${name} no longer shows release ${r.withdraws}'s version`;
-        }
+        const own = dayKey === null ? null : dayVersionOf(db, name, dayKey);
+        const shows = !!cur && cur.key === key && cur.run === r.run;
+        if (!shows && !(own && own.key === key && own.run === r.run)) return `${name} no longer shows release ${r.withdraws}'s version`;
+        // A later day current (Q-51): readers stay on it, and only the day's own version goes back.
+        if (!shows) continue;
         const was = repair.before[name];
         if (!was) return `nothing was published for ${name} before release ${r.withdraws}: there is no version to go back to`;
         const v = findVersion(db, was.key);
@@ -409,10 +396,18 @@ function withdraw(db: Database, r: ReleaseInput, run: Stored, policies: string |
     })();
     const at = new Date().toISOString();
     if (why) return { outcome: 'refused', why, release: recordRelease(db, { ...ask, outcome: 'refused', why, at }), published: [] };
-    const names = Object.keys(back).sort();
-    for (const name of names) pointDataset(db, name, back[name]!.key, back[name]!.table, back[name]!.run);
+    // The day's own version goes back to the one the fill replaced (none, for a day nothing else published), and each
+    // name the fill moved goes back to the version it showed before; a name a later day shows stays there (Q-51).
+    const names = Object.keys(r.keys).sort();
+    for (const name of names) {
+      const own = dayKey === null ? null : dayVersionOf(db, name, dayKey);
+      if (dayKey !== null && own && own.key === r.keys[name] && own.run === r.run) restoreDay(db, name, dayKey);
+      const b = back[name];
+      if (b) pointDataset(db, name, b.key, b.table, b.run);
+    }
+    const behind = names.filter((n) => !back[n]);
     const id = recordRelease(db, { ...ask, outcome: 'applied', why: null, at });
     recordWithdrawal(db, id, r.withdraws!);
-    return { outcome: 'applied', why: null, release: id, published: names };
+    return { outcome: 'applied', why: null, release: id, published: names, ...(behind.length ? { behind } : {}) };
   });
 }

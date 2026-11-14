@@ -3,7 +3,12 @@
  * people query are views over the current versions.
  *
  *   _smaltfl_versions(key, tbl, content, rows, info)   every stored version, by key
- *   _smaltfl_datasets(name, key, run)                  the views smaltfl owns, and the version each shows
+ *   _smaltfl_datasets(name, key, run)                  the views smaltfl owns, and the version each shows: the
+ *                                                      latest day's (Q-51)
+ *   _smaltfl_days(name, day, key, run, prior)          the version each day of a dataset has, as its last
+ *                                                      publication left it, and the one it replaced (Q-51, ADR 0022
+ *                                                      §1): a run or a release of an earlier day keeps its versions
+ *                                                      here and moves no name
  *   _smaltfl_plans(hash, plan)                         typed flow plans, by hash
  *   _smaltfl_runs(id, flow, hash, manifest, …)         run manifests
  *   _smaltfl_sources(source, watch, content, …)        each source table's last snapshot, and its watch
@@ -35,13 +40,14 @@ import type { Repair } from '../core/fill.js';
 import type { MeasureSettings, Measures } from '../core/measures.js';
 import { loadKey, loadsOf, type FillHold, type Hold, type Judged, type Load, type RunRef } from '../core/hold.js';
 import type { ExpectationResult, RunManifest, SourceFile, SourceIngestRecord } from '../core/manifest.js';
-import type { FlowPlan } from '../core/plan.js';
+import { dayKeyOf, periodsAfter, type FlowPlan } from '../core/plan.js';
 import type { DecisionOption } from '../core/policy.js';
 import { quoteIdent as q } from '../core/sqltext.js';
 
 export function ensureStore(db: Database): void {
   db.exec('CREATE TABLE IF NOT EXISTS _smaltfl_versions(key TEXT PRIMARY KEY, tbl TEXT NOT NULL, content TEXT NOT NULL, rows INTEGER NOT NULL, info TEXT)');
   db.exec('CREATE TABLE IF NOT EXISTS _smaltfl_datasets(name TEXT PRIMARY KEY, key TEXT NOT NULL, run INTEGER NOT NULL)');
+  db.exec('CREATE TABLE IF NOT EXISTS _smaltfl_days(name TEXT NOT NULL, day TEXT NOT NULL, key TEXT NOT NULL, run INTEGER NOT NULL, prior TEXT, PRIMARY KEY (name, day))');
   db.exec('CREATE TABLE IF NOT EXISTS _smaltfl_plans(hash TEXT PRIMARY KEY, plan TEXT NOT NULL)');
   db.exec('CREATE TABLE IF NOT EXISTS _smaltfl_runs(id INTEGER PRIMARY KEY, flow TEXT NOT NULL, hash TEXT NOT NULL, manifest TEXT NOT NULL, started TEXT NOT NULL, finished TEXT NOT NULL)');
   db.exec('CREATE TABLE IF NOT EXISTS _smaltfl_sources(source TEXT PRIMARY KEY, watch TEXT NOT NULL, content TEXT NOT NULL, rows INTEGER NOT NULL, schema TEXT NOT NULL)');
@@ -253,6 +259,8 @@ export function releasesOf(db: Database, run?: number): StoredRelease[] {
  */
 export function engineNames(db: Database): {
   datasets: { name: string; key: string; run: number; manifest: string; release: number | null }[];
+  /** Each day's version of each dataset (Q-51): what a day's own screen shows while readers stay on a later day. */
+  days: { name: string; day: string; key: string; run: number; manifest: string }[];
   releases: StoredRelease[];
   holds: { run: number; manifest: string; holds: Hold[]; judged: Judged[] }[];
   repairs: EngineRepairs;
@@ -269,7 +277,10 @@ export function engineNames(db: Database): {
   const derived = db.query('SELECT d.run, r.hash, d.from_run, d.from_manifest, d.holds, d.donors, d.filled FROM _smaltfl_derived d JOIN _smaltfl_runs r ON r.id = d.run ORDER BY d.run').rows.map((row) => ({
     ...derivedOfRow([row[0], row[2], row[3], row[4], row[5], row[6]]), manifest: String(row[1]),
   }));
-  return { datasets, releases, holds, repairs: { derived, repairs: repairsOf(db), withdrawals: withdrawalsOf(db) } };
+  const days = db.query('SELECT d.name, d.day, d.key, d.run, r.hash FROM _smaltfl_days d LEFT JOIN _smaltfl_runs r ON r.id = d.run ORDER BY d.name, d.day').rows.map((row) => ({
+    name: String(row[0]), day: String(row[1]), key: String(row[2]), run: Number(row[3]), manifest: row[4] === null ? '' : String(row[4]),
+  }));
+  return { datasets, days, releases, holds, repairs: { derived, repairs: repairsOf(db), withdrawals: withdrawalsOf(db) } };
 }
 
 /** What the engine keeps of the fills (an audit bag's engine/repairs.json, ADR 0009 amendment 1 S11): each derived run
@@ -321,6 +332,60 @@ export function nameInUse(db: Database, name: string): { type: string; ours: boo
   if (!row) return null;
   const ours = db.query('SELECT 1 FROM _smaltfl_datasets WHERE lower(name) = lower(?)', [name]).rows.length > 0;
   return { type: String(row[0]), ours };
+}
+
+/** The version a day of a dataset has (Q-51, ADR 0022 §1), the run that made it, and the version it replaced; null when
+ * nothing of that day was published. */
+export function dayVersionOf(db: Database, name: string, day: string): { key: string; run: number; prior: Shown } | null {
+  const row = db.query('SELECT key, run, prior FROM _smaltfl_days WHERE name = ? AND day = ?', [name, day]).rows[0];
+  return row ? { key: String(row[0]), run: Number(row[1]), prior: row[2] === null ? null : (JSON.parse(String(row[2])) as Shown) } : null;
+}
+
+/** Keep a version as its day's (Q-51), remembering the one it replaces. Runs inside the caller's transaction. */
+export function keepDay(db: Database, name: string, day: string, key: string, run: number): void {
+  const was = dayVersionOf(db, name, day);
+  if (was && was.key === key && was.run === run) return;
+  const prior = was ? JSON.stringify({ key: was.key, run: was.run }) : null;
+  db.run('INSERT INTO _smaltfl_days(name, day, key, run, prior) VALUES (?, ?, ?, ?, ?) ON CONFLICT(name, day) DO UPDATE SET key = excluded.key, run = excluded.run, prior = excluded.prior', [name, day, key, run, prior]);
+}
+
+/** Put a day's version back to the one it replaced (a withdrawal, Q-61): that version, or none. Runs inside the
+ * caller's transaction. */
+export function restoreDay(db: Database, name: string, day: string): void {
+  const was = dayVersionOf(db, name, day);
+  if (!was) return;
+  if (!was.prior) db.run('DELETE FROM _smaltfl_days WHERE name = ? AND day = ?', [name, day]);
+  else db.run('UPDATE _smaltfl_days SET key = ?, run = ?, prior = NULL WHERE name = ? AND day = ?', [was.prior.key, was.prior.run, name, day]);
+}
+
+/** Every day's version of every dataset (Q-51): an audit bag's engine/names.json lists them beside the names. */
+export function daysKept(db: Database): { name: string; day: string; key: string; run: number }[] {
+  return db.query('SELECT name, day, key, run FROM _smaltfl_days ORDER BY name, day').rows.map((row) => ({ name: String(row[0]), day: String(row[1]), key: String(row[2]), run: Number(row[3]) }));
+}
+
+/**
+ * The run a name shows when it is of a later day than `parameters` name, by the plan's periods (Q-51, ADR 0022 §1):
+ * readers stay on the latest day. Null when it isn't, or for a plan without periods, whose names follow the newest run.
+ */
+export function laterShown(db: Database, name: string, parameters: Readonly<Record<string, unknown>>, periods: readonly string[]): { key: string; run: number } | null {
+  if (periods.length === 0) return null;
+  const cur = currentOf(db, name);
+  if (!cur) return null;
+  const row = db.query('SELECT manifest FROM _smaltfl_runs WHERE id = ?', [cur.run]).rows[0];
+  if (!row) return null;
+  return periodsAfter((JSON.parse(String(row[0])) as RunManifest).parameters, parameters, periods) === 'later' ? cur : null;
+}
+
+/**
+ * Publish a version of a dataset (Q-51, ADR 0022 §1): kept as its day's, and its name pointed at it unless the name shows
+ * a later day, where readers stay. Runs inside the caller's transaction. Says whether the name moved.
+ */
+export function publishVersion(db: Database, v: { name: string; key: string; table: string; run: number; parameters: Readonly<Record<string, unknown>>; periods: readonly string[] }): 'shown' | 'behind' {
+  const day = dayKeyOf(v.parameters, v.periods);
+  if (day !== null) keepDay(db, v.name, day, v.key, v.run);
+  if (laterShown(db, v.name, v.parameters, v.periods)) return 'behind';
+  pointDataset(db, v.name, v.key, v.table, v.run);
+  return 'shown';
 }
 
 /** Point a dataset's name at a version. Runs inside the caller's transaction. */

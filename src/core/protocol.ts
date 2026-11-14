@@ -120,8 +120,12 @@ export interface RunResult {
    * `published`, never the manifest's outputs, for what readers see.
    */
   holds: Hold[];
-  /** The outputs whose names now show this run's versions: every output, unless something holds. */
+  /** The outputs this run published: every output, unless something holds. Each is kept as its day's version, and its
+   * name shows it unless a later day is current for it (`behind`). */
   published: string[];
+  /** Of `published`, those whose names stay on a later day (Q-51, ADR 0022 §1): readers stay on the latest day, and the
+   * run's day keeps these versions as its own. Absent when every name moved. */
+  behind?: string[];
   /** The held outputs whose staged key isn't the one their name shows: what waits for a decision (§4). */
   waiting: string[];
   /** A derived run (amendment 1 S4): what holds it besides its day's holds (`derived`, and `donor` for a donor not
@@ -185,9 +189,12 @@ export interface ReleaseResult {
   why: string | null;
   /** The release's number in this database (refusals are kept too). */
   release: number;
-  /** The names that now show the run's versions (after a withdrawal, the versions they showed before): none when
-   * refused. */
+  /** The names whose versions it published for the run's day (a withdrawal: whose day's versions it took back), each name
+   * showing it unless a later day is current for it (`behind`): none when refused. */
   published: string[];
+  /** Of `published`, those whose names stay on a later day (Q-51, ADR 0022 §1): the release decided the day, and readers
+   * stay on the latest day. Absent when every name moved. */
+  behind?: string[];
   /** A derived run's release: the rows its fill took from another day (null for the part that arrived alone). */
   filled?: number | null;
 }

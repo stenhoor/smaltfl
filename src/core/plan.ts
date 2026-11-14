@@ -6,6 +6,7 @@
  * Nobody needs to read it. It is canonical JSON with positional references, built for hashing, optimizing and
  * replaying, and its format is versioned (`smaltflPlan`).
  */
+import { canonicalJSON } from './canonical.js';
 import { calendarListProblems, calendarProblems, EVERIES, isEvery, isSlotOf, resolveCalendar, type Calendar, type Every } from './calendar.js';
 import type { DonorRule, FlowDocument, HoldKind, Meanwhile, Missing, ParameterDef, StepDef, Until, WatchDef } from './document.js';
 import { DONOR_RULES, HOLD_KINDS, isGeneralWatch, MEANWHILES, missingProblem, periodOf, UNTILS, validateDocument, withoutDisplay } from './document.js';
@@ -278,6 +279,40 @@ export function planPeriod(pub: PlanPublish | PlanPublish2 | undefined): string 
   if (pub.period !== null) return pub.period;
   const named = [...new Set(watchesOf(pub).map((w) => w.period))];
   return named.length === 1 ? named[0]! : null;
+}
+
+/** The parameters a plan's days are named by, each once: its period and every watch's (ADR 0010 §7: a slot of a day is
+ * a period of its own); none for a plan without a publish block, whose names follow the newest run. */
+export function periodsOf(pub: PlanPublish | PlanPublish2 | undefined): string[] {
+  if (!pub) return [];
+  return [...new Set([...(pub.period === null ? [] : [pub.period]), ...watchesOf(pub).flatMap((w) => (w.period === null ? [] : [w.period]))])].sort();
+}
+
+/**
+ * The day a run's outputs are kept for (Q-51, ADR 0022 §1): its period's value; with several periods, each one's, as
+ * canonical JSON; null for a run of no day (no period, or none of them given), whose versions are kept by run alone.
+ */
+export function dayKeyOf(parameters: Readonly<Record<string, unknown>>, periods: readonly string[]): string | null {
+  if (periods.length === 0) return null;
+  if (periods.length === 1) {
+    const v = parameters[periods[0]!];
+    return typeof v === 'string' ? v : null;
+  }
+  if (!periods.some((p) => typeof parameters[p] === 'string')) return null;
+  return canonicalJSON(Object.fromEntries([...periods].sort().map((p) => [p, typeof parameters[p] === 'string' ? parameters[p] : null])));
+}
+
+/** Whether a run's periods are any of them later than another's, or all the same (ADR 0010 §7: each watched source's
+ * period only moves forward, compared parameter by parameter). Days compare as text, so ISO dates order as days. */
+export function periodsAfter(a: Readonly<Record<string, unknown>>, b: Readonly<Record<string, unknown>>, periods: readonly string[]): 'later' | 'same' | 'earlier' {
+  let same = true;
+  for (const p of periods) {
+    const x = a[p];
+    const y = b[p];
+    if (typeof x === 'string' && typeof y === 'string' && x > y) return 'later';
+    if (x !== y) same = false;
+  }
+  return same ? 'same' : 'earlier';
 }
 
 export interface FlowPlan {

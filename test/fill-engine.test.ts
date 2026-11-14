@@ -11,7 +11,7 @@ import { plusDays, daysBetween } from '../src/core/calendar.js';
 import { repairDocument, type Repair } from '../src/core/fill.js';
 import { sha256Hex } from '../src/core/hash.js';
 import { insertAfter, pinFile, releaseRun, runFlow, verifyRun, type FlowDocument, type ReleaseInput, type RunResult, type StoryClaim } from '../src/index.js';
-import { findVersion } from '../src/plugin/store.js';
+import { dayVersionOf, findVersion } from '../src/plugin/store.js';
 import { makeTrips, TRIP_COLUMNS, ZONES, type Trip } from './fixtures/taxi.js';
 import { openEngine, SMALTDB } from './helpers/engine.js';
 
@@ -284,14 +284,20 @@ describe('releasing a fill (amendment 1 S10)', () => {
     expect((await releaseRun(t.db, releaseOf(t, r, asRead(r, repairFrom(DONOR))))).why).toMatch(/^the filled day fails its checks: dropped [\d,]+ of [\d,]+ rows \([\d.]+%\), more than the 10% allowed$/);
   });
 
-  it('never moves a name back past a later day', async () => {
+  it("keeps a fill released once a later day published as its day's, readers staying on the later day (Q-51)", async () => {
     const t = await heldDay();
     load(t.db, 'day_trips', '2024-01-12');
     const fri = await runFlow(t.db, t.doc, { smaltdb: SMALTDB, parameters: { day: '2024-01-12' }, claims: [claimOf(t.history, '2024-01-12')] });
     expect(fri.published).toEqual(['day_total', 'trip_hours', 'zone_list']);
     load(t.db, 'day_trips', HELD);
     const r = await derive(t, repairFrom(DONOR));
-    expect((await releaseRun(t.db, releaseOf(t, r, asRead(r, repairFrom(DONOR))))).why).toBe(`2024-01-12 is current for day_total (run ${fri.run}): a release never moves a name back to an earlier day`);
+    const out = await releaseRun(t.db, releaseOf(t, r, asRead(r, repairFrom(DONOR))));
+    expect(out).toMatchObject({ outcome: 'applied', why: null });
+    expect(out.behind).toEqual(out.published);
+    expect(out.published).toContain('day_total');
+    expect(current(t.db, 'day_total')).toEqual([fri.manifest.outputs.day_total!.key, fri.run]);
+    expect(dayVersionOf(t.db, 'day_total', HELD)).toMatchObject({ key: r.manifest.outputs.day_total!.key, run: r.run, prior: null });
+    for (const x of [r, fri]) expect(fails(await verifyRun(t.db, x.run, { smaltdb: SMALTDB, level: 'stored' })), String(x.run)).toEqual([]);
   });
 });
 
@@ -329,14 +335,21 @@ describe('a better donor, and taking a fill back (amendment 1 S7, Q-61)', () => 
     expect(total(t.db)![2]).toBe(DONOR);
   });
 
-  it('refuses a withdrawal with a later day current, and one of nothing', async () => {
+  it("withdraws a fill once a later day published: the day's version goes back, readers stay on the later day (Q-51); refuses one of nothing", async () => {
     const t = await heldDay();
     const r = await derive(t, repairFrom(DONOR));
     const a = await releaseRun(t.db, releaseOf(t, r, asRead(r, repairFrom(DONOR))));
+    expect(a.behind).toBeUndefined();
     load(t.db, 'day_trips', '2024-01-12');
     const fri = await runFlow(t.db, t.doc, { smaltdb: SMALTDB, parameters: { day: '2024-01-12' }, claims: [claimOf(t.history, '2024-01-12')] });
     const back: ReleaseInput = { run: r.run, manifest: r.hash, keys: keysOf(r), option: 'dont', actor: 'owner', reason: null, decision: LEAF, withdraws: a.release };
-    expect((await releaseRun(t.db, back)).why).toBe(`2024-01-12 is current for day_total (run ${fri.run}): a withdrawal never moves a name back past a later day`);
+    const names = Object.keys(keysOf(r)).sort();
+    expect(await releaseRun(t.db, back)).toMatchObject({ outcome: 'applied', why: null, published: names, behind: names });
+    expect(current(t.db, 'day_total')).toEqual([fri.manifest.outputs.day_total!.key, fri.run]);
+    // Thu had no version of its own before the fill: it has none again.
+    expect(dayVersionOf(t.db, 'day_total', HELD)).toBeNull();
+    for (const x of [r, fri]) expect(fails(await verifyRun(t.db, x.run, { smaltdb: SMALTDB, level: 'stored' })), String(x.run)).toEqual([]);
+    expect((await releaseRun(t.db, back)).why).toBe(`release ${a.release} was withdrawn already`);
     expect((await releaseRun(t.db, { ...back, withdraws: 999 })).why).toBe("release 999 isn't an applied release of a fill or a part here: there is nothing to withdraw");
     expect((await releaseRun(t.db, { ...back, option: 'fill' } as ReleaseInput)).why).toBe('a withdrawal is a decision not to publish, naming the release it takes back by its number');
   });
