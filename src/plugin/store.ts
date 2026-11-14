@@ -358,6 +358,24 @@ export function restoreDay(db: Database, name: string, day: string): void {
   else db.run('UPDATE _smaltfl_days SET key = ?, run = ?, prior = NULL WHERE name = ? AND day = ?', [was.prior.key, was.prior.run, name, day]);
 }
 
+/**
+ * The version a name goes back to once a day's version is put back (a withdrawal, Q-61): the latest day's that is left,
+ * that day as the version it replaced (Q-51: readers stay on the latest day published). Null when no day has one.
+ */
+export function latestAfterRestore(db: Database, name: string, day: string): Shown {
+  let best: { day: string; key: string; run: number } | null = null;
+  for (const row of db.query('SELECT day, key, run, prior FROM _smaltfl_days WHERE name = ?', [name]).rows) {
+    const d = String(row[0]);
+    let v: { key: string; run: number } = { key: String(row[1]), run: Number(row[2]) };
+    if (d === day) {
+      if (row[3] === null) continue;
+      v = JSON.parse(String(row[3])) as { key: string; run: number };
+    }
+    if (!best || d > best.day) best = { day: d, ...v };
+  }
+  return best ? { key: best.key, run: best.run } : null;
+}
+
 /** Every day's version of every dataset (Q-51): an audit bag's engine/names.json lists them beside the names. */
 export function daysKept(db: Database): { name: string; day: string; key: string; run: number }[] {
   return db.query('SELECT name, day, key, run FROM _smaltfl_days ORDER BY name, day').rows.map((row) => ({ name: String(row[0]), day: String(row[1]), key: String(row[2]), run: Number(row[3]) }));

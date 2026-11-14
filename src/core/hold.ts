@@ -1274,9 +1274,9 @@ export function pausesOf(entries: readonly EntryLike[], period?: string | null):
     p.repaired = { option, release: seq, decision: a.decision as number, donor: repair?.donor?.day ?? null, meanwhile };
     p.withdrawn = null;
   }
-  // A withdrawal made once a later day was current moves no name back, so the engine has no release of it (amendment 1
-  // S5): the decision not to publish, made after the fill went out, withdraws it in the record all the same, and the day
-  // is not published; readers keep the later day.
+  // A withdrawal with no release of it (before Q-51 the engine refused one once a later day was current, amendment 1
+  // S5; or its engine was lost): the decision not to publish, made after the fill went out, withdraws it in the record
+  // all the same, and the day is not published; readers keep the later day.
   for (const p of out) {
     if (p.repaired && p.decision && p.decision.about.option === 'dont' && p.decision.amends !== null && p.decision.seq > p.repaired.release) (p.repaired = null), (p.withdrawn = p.decision.seq);
   }
@@ -1496,7 +1496,7 @@ export function levelFor(entries: readonly EntryLike[], source: string, day: str
  * The days a flow's record says were published, in the order they were: by a passing run, or by an applied release
  * (its decision's day). A day published twice is listed twice.
  */
-function publishedDays(entries: readonly EntryLike[], period: string | null | undefined): { seq: number; day: string; decision?: number }[] {
+export function publishedDays(entries: readonly EntryLike[], period: string | null | undefined): { seq: number; day: string; decision?: number }[] {
   const decisionDay = new Map<number, string | null>();
   const out: { seq: number; day: string; decision?: number }[] = [];
   for (const e of entries) {
@@ -1523,13 +1523,23 @@ function publishedDays(entries: readonly EntryLike[], period: string | null | un
 }
 
 /**
- * The day readers saw at the end of a flow's record: the day of its last publication (a passing run, or an applied
- * release), since each one points the names at its day (an earlier day passing moves them back, Q-51). Read before a
- * decision's entry, the day readers had when it was made: what a decision not to publish kept. Null when nothing has
- * published.
+ * The day readers saw at the end of a flow's record: the latest day published (by a passing run, or an applied release)
+ * and not taken back since (a withdrawal, Q-61), whatever order the days were published in: readers stay on the latest
+ * day, and a run or a decision about an earlier one keeps that day's version for it alone (Q-51, ADR 0022 §1). Read
+ * before a decision's entry, the day readers had when it was made: what a decision not to publish kept. Null when
+ * nothing has published.
  */
-export function lastPublished(entries: readonly EntryLike[], period?: string | null): string | null {
-  return publishedDays(entries, period).at(-1)?.day ?? null;
+export function latestPublished(entries: readonly EntryLike[], period?: string | null): string | null {
+  // A withdrawal takes its release's publication back; its own entry in publishedDays (the day the names went back to
+  // before Q-51) publishes nothing.
+  const taken = new Set<number>();
+  for (const e of entries) {
+    const a = e.about as JSONValue;
+    if (e.kind === 'release' && isRecord(a) && a.outcome === 'applied' && Number.isInteger(a.withdraws)) taken.add(a.withdraws as number).add(e.seq);
+  }
+  let best: string | null = null;
+  for (const p of publishedDays(entries, period)) if (!taken.has(p.seq) && (best === null || p.day > best)) best = p.day;
+  return best;
 }
 
 /**

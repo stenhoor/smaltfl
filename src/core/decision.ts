@@ -257,7 +257,8 @@ export interface SheetIn {
   /** The day's range (its trips' low and high, as they arrived): a day kept of another weekday outside it is flagged,
    * "busier than a Mon" (round 3, #33). */
   usual?: { low: number; high: number } | null;
-  /** A later day readers see already: the day can no longer be shown (Q-51). */
+  /** A later day readers see already: the day is decided for itself, its versions its own, and readers stay on the later
+   * day (Q-51, ADR 0022 §1). */
   later: string | null;
   /** The checks held the day too: publishing as is overrides them, and the sheet says so with their share and limit. */
   checks: Pick<Gate, 'share' | 'limit'> | null;
@@ -454,9 +455,10 @@ export function sheetText(o: SheetIn): SheetText {
     ? `${o.readers.rows > o.usual.high ? 'busier' : 'quieter'} than a ${wd(o.day)}` : null;
   const options: SheetOption[] = [
     {
-      // Once a later day is out, it can't be picked: said with its reason, beside a lock (round 3, #19).
-      option: 'asis', label: 'Publish as is', number: o.later ? `${dayShort(o.later)} already out` : trips(gets), sub: o.later ? null : past, warn: o.later || !figures ? null : `${arrived ?? `of ${fmtInt(o.rows)} arrived`}: ${figures}`, warnPicked: o.later ? null : figures, note: o.later ? null : arrived, off: !!o.later,
-      aria: o.later ? `Publish as is: not possible, ${dayMid(o.later)} is already out to readers` : `Publish as is: readers get ${name} as it came past its checks, ${trips(gets)}${arrived ? ` of ${fmtInt(o.rows)} that arrived` : ''}${o.head ? `, ${o.head}` : ''}${o.checks ? `; this publishes past its checks, which held it: ${figures}` : ''}`,
+      // Once a later day is out, the day is published for itself and readers stay on the later day (Q-51): said in the
+      // option's own line, never locked.
+      option: 'asis', label: 'Publish as is', number: trips(gets), sub: o.later ? `readers stay on ${dayShort(o.later)}` : past, warn: !figures ? null : `${arrived ?? `of ${fmtInt(o.rows)} arrived`}: ${figures}`, warnPicked: figures, note: arrived, off: false,
+      aria: `Publish as is: ${o.later ? `the day keeps ${name} as it came past its checks` : `readers get ${name} as it came past its checks`}, ${trips(gets)}${arrived ? ` of ${fmtInt(o.rows)} that arrived` : ''}${o.head ? `, ${o.head}` : ''}${o.checks ? `; this publishes past its checks, which held it: ${figures}` : ''}${o.later ? `; readers stay on ${dayMid(o.later)}, the latest day out` : ''}`,
     },
     {
       option: 'dont', label: o.readers ? `Keep ${dayShort(o.readers.day)}${keptMark}` : 'Don’t publish', number: o.readers ? bare(o.readers.reach ?? o.readers.rows) : 'nothing shown', sub: age >= 2 ? `${age} days old` : null, warn: null, note: unlike, off: false, ...(withdraws ? { withdraws: true } : {}),
@@ -633,7 +635,7 @@ const remedySaid = (r: RemedySaid): string => (r.option === 'fill' ? remedyHead(
  * can still be changed (a day not published can be published later, a fill replaced or withdrawn; one published as is
  * can't be taken back); and, for a remedy, that the day's versions are a tap away.
  */
-export function receiptLines(o: { state: DayState; day: string | null; readers: string | null; past?: boolean; released: number; who: string | null; at: string | null; seq: number | null; under: string | null; standing: boolean; remedy?: (RemedySaid & { filled: number | null; setAside: number | null }) | null; withdrawn?: RemedyMark | null; level?: string | null; reason?: string | null }): { head: string; sub: string; change: string | null; versions?: true; note?: string } {
+export function receiptLines(o: { state: DayState; day: string | null; readers: string | null; past?: boolean; released: number; who: string | null; at: string | null; seq: number | null; under: string | null; standing: boolean; remedy?: (RemedySaid & { filled: number | null; setAside: number | null }) | null; withdrawn?: RemedyMark | null; level?: string | null; reason?: string | null; latest?: string | null }): { head: string; sub: string; change: string | null; versions?: true; note?: string } {
   // The reason the decision recorded, said where it was given (round 3, #28): "Why: Real change".
   const why = o.reason && !o.under ? `Why: ${o.reason}` : null;
   const by = o.under ? `Under ${o.under}’s decision` : o.who ? `${o.who}${o.at ? ` · ${o.at}` : ''}` : null;
@@ -641,14 +643,17 @@ export function receiptLines(o: { state: DayState; day: string | null; readers: 
   const released = o.released ? `${o.released} output${o.released === 1 ? '' : 's'} released` : null;
   // Once a later day has published, the day readers kept then (days.readersOf), never the later day.
   const keep = o.past ? (o.readers ? `readers kept ${dayShort(o.readers)}` : '') : o.readers ? `readers keep ${dayShort(o.readers)}` : 'nothing published yet';
+  // What readers see once the day is published: the day, unless a later one is out, where they stay (Q-51, ADR 0022 §1).
+  const stays = o.latest && o.day && o.latest > o.day ? ` · readers stay on ${dayShort(o.latest)}` : null;
+  const sees = stays ?? (o.day && !o.past ? ` · readers now see ${dayShort(o.day)}` : '');
   // Published as is can't be taken back (§12): said where Change decision would be, so its absence reads as meant.
-  if (o.state === 'asis') return { head: `Published as is${o.day ? ` · readers now see ${dayShort(o.day)}` : ''}`, sub: [why, released, by, rec].filter(Boolean).join(' · '), change: null, note: 'Can’t be recalled' };
+  if (o.state === 'asis') return { head: `Published as is${stays ?? (o.day ? ` · readers now see ${dayShort(o.day)}` : '')}`, sub: [why, released, by, rec].filter(Boolean).join(' · '), change: null, note: 'Can’t be recalled' };
   // Accept (amendment 1 S6, X6): the new level's first day, what it learns from, and its decision, never undone. A day
   // published under a standing level names the Accept it came under.
   if (o.state === 'accepted') {
     const from = o.level ?? o.day;
     return {
-      head: `${o.under ? `By ${o.under}’s new level` : `New level from ${from ? dayShort(from) : 'this day'}`}${o.day && !o.past ? ` · readers now see ${dayShort(o.day)}` : ''}`,
+      head: `${o.under ? `By ${o.under}’s new level` : `New level from ${from ? dayShort(from) : 'this day'}`}${sees}`,
       sub: [from && !o.under ? `learns from ${dayShort(from)}` : null, why, released, o.under ? null : by, rec].filter(Boolean).join(' · '), change: null, note: 'Can’t be recalled',
     };
   }
@@ -657,7 +662,7 @@ export function receiptLines(o: { state: DayState; day: string | null; readers: 
     const head = r.option === 'fill' ? remedyHead(r) : `Published ${lowerLead(r.part ?? 'the part that arrived only')}`;
     const took = r.option === 'fill' ? (r.filled !== null ? `${fmtInt(r.filled)} filled` : null) : r.setAside !== null ? `${fmtInt(r.setAside)} set aside` : null;
     return {
-      head: `${head}${o.day && !o.past ? ` · readers now see ${dayShort(o.day)}` : ''}`,
+      head: `${head}${sees}`,
       sub: [took, released, o.standing && !o.under ? `later days too, ${UNTIL}` : null, by, rec].filter(Boolean).join(' · '),
       change: 'Change decision', versions: true,
     };
@@ -1025,10 +1030,11 @@ export function decidedLines(o: { day: string; state: DayState; who: string | nu
 /**
  * The record's line for a day that passed after days were held (ADR 0009 §12): it published, so readers now see it,
  * and a standing decision not to publish ends with it: "Mon Sep 25 passed: published; readers now see Mon 25 · ends
- * #26". A day that passed with nothing held before it is a plain run.
+ * #26". A day earlier than one already out is published for itself, readers staying on the later one (`latest`, Q-51):
+ * "Fri Sep 22 passed: published; readers stay on Mon 25". A day that passed with nothing held before it is a plain run.
  */
-export function passedLine(day: string, ends: number | null): string {
-  return `${dayMid(day)} passed: published; readers now see ${dayShort(day)}${ends !== null ? ` · ends #${ends}` : ''}`;
+export function passedLine(day: string, ends: number | null, latest?: string | null): string {
+  return `${dayMid(day)} passed: published; ${latest && latest > day ? `readers stay on ${dayShort(latest)}` : `readers now see ${dayShort(day)}`}${ends !== null ? ` · ends #${ends}` : ''}`;
 }
 
 /**

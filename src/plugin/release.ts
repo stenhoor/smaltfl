@@ -35,7 +35,7 @@ import { manifestHash, policiesHash, type RunManifest } from '../core/manifest.j
 import { dayKeyOf, flowHash, periodsAfter, periodsOf, planPeriod, plannedDonor, watchesOf, type FlowPlan } from '../core/plan.js';
 import { checkDecision, DECIDE_OPTIONS, type DecisionOption } from '../core/policy.js';
 import type { ReleaseInput, ReleaseResult } from '../core/protocol.js';
-import { currentOf, dayVersionOf, derivedOf, ensureStore, findVersion, holdsOfRun, inTransaction, nameInUse, pointDataset, publishVersion, recordRelease, recordRepair, recordWithdrawal, releasesOf, repairOf, restoreDay, withdrawalsOf, type Shown, type StoredDerived, type StoredRelease } from './store.js';
+import { currentOf, dayVersionOf, derivedOf, ensureStore, findVersion, holdsOfRun, inTransaction, nameInUse, pointDataset, publishVersion, recordRelease, recordRepair, recordWithdrawal, latestAfterRestore, releasesOf, repairOf, restoreDay, withdrawalsOf, type Shown, type StoredDerived, type StoredRelease } from './store.js';
 
 const HEX64 = /^[0-9a-f]{64}$/;
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -384,9 +384,11 @@ function withdraw(db: Database, r: ReleaseInput, run: Stored, policies: string |
         const own = dayKey === null ? null : dayVersionOf(db, name, dayKey);
         const shows = !!cur && cur.key === key && cur.run === r.run;
         if (!shows && !(own && own.key === key && own.run === r.run)) return `${name} no longer shows release ${r.withdraws}'s version`;
-        // A later day current (Q-51): readers stay on it, and only the day's own version goes back.
+        // A later day current (Q-51): readers stay on it, and only the day's own version goes back. Else the name goes
+        // back to the latest day left published, which is what it showed before the fill unless an earlier day has
+        // published since.
         if (!shows) continue;
-        const was = repair.before[name];
+        const was = (dayKey === null ? null : latestAfterRestore(db, name, dayKey)) ?? repair.before[name];
         if (!was) return `nothing was published for ${name} before release ${r.withdraws}: there is no version to go back to`;
         const v = findVersion(db, was.key);
         if (!v) return `${name}'s version before release ${r.withdraws} is no longer stored`;

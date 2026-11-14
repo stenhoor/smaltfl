@@ -18,9 +18,10 @@
  * run as a held run is, and against the held run it repairs: its document is that run's repaired by the decision's
  * repair, it read the same snapshot of the watched source, and its donor's file is in the list, on a day the rule's
  * direction allows within four weeks, with a claim that says nothing wrong, told from the held run's history. A
- * release of it names the derived run and keys its decision names (`derived`), and never moves the names back past a
- * later day; a withdrawal (Q-61) amends the fill's decision and points each name back to what it showed before the
- * fill. What the engine kept of the fills (engine/repairs.json) agrees with the record.
+ * release of it names the derived run and keys its decision names (`derived`); a withdrawal (Q-61) amends the fill's
+ * decision and leaves each name showing the latest day left published. A run or a release of an earlier day keeps its
+ * versions for that day and moves no name back past a later one (Q-51, ADR 0022 §1): what each name shows is the latest
+ * day's version. What the engine kept of the fills (engine/repairs.json) agrees with the record.
  *
  * A bag carries its own card and its own data list, so on its own it shows only that it is consistent with itself:
  * anyone can make a bag that is. What ties it to someone is what the auditor brings: a checkpoint they kept, the
@@ -32,7 +33,7 @@ import type { FlowDocument } from './document.js';
 import { sha256Hex } from './hash.js';
 import { daysBetween } from './calendar.js';
 import { DONOR_WINDOW, levelStray, levelWays, repairDocument, type Repair } from './fill.js';
-import { carry, spare, loadsOf, claimBase, claimHolds, donorGood, factsFromClaims, heldOutputs, holdsOf, inputsKey, isLoad, loadKey, type Load, isClaim2, isLevel, judgeClaims, lastPublished, sameKeys, standingFor, standingForLoad, type Claim, type DecideAbout, type DerivedAbout, type HeldAbout, type Hold, type Judged, type ReleaseAbout, type RunHold } from './hold.js';
+import { carry, spare, loadsOf, claimBase, claimHolds, donorGood, factsFromClaims, heldOutputs, holdsOf, inputsKey, isLoad, loadKey, type Load, isClaim2, isLevel, judgeClaims, publishedDays, sameKeys, standingFor, standingForLoad, type Claim, type DecideAbout, type DerivedAbout, type HeldAbout, type Hold, type Judged, type ReleaseAbout, type RunHold } from './hold.js';
 import { canonicalJSON } from './canonical.js';
 import { consistencyProof, entryLeaf, parseCheckpoint, rootOf, verifyCheckpoint, verifyConsistency, verifyInclusion, verifyRecord, type JSONValue, type LogEntry, type SignedCheckpoint } from './log.js';
 import { manifestHash, planHash, policiesHash, type IdentityCard, type RunManifest } from './manifest.js';
@@ -232,15 +233,30 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
     return `${said}; ${repair.donor ? `fills ${repair.source} from ${repair.donor.day}` : `the part of ${repair.source} that arrived`}, repairing run ${a.from.run}`;
   };
 
-  /** What each name showed just before entry `seq`, from the record: the versions each publication pointed. */
-  const shownBefore = (seq: number): Record<string, string> => {
-    const out: Record<string, string> = {};
-    for (const x of entries.slice(0, seq)) {
-      const a = x.about as Omit<Partial<ReleaseAbout>, 'outcome'> & { outcome?: string; manifest?: string };
-      if (x.kind === 'run' && a.outcome === 'ok' && typeof a.manifest === 'string') for (const [name, o] of Object.entries(runs.get(a.manifest)?.manifest?.outputs ?? {})) out[name] = o.key;
-      else if (x.kind === 'release' && a.outcome === 'applied' && isKeys(a.outputs)) Object.assign(out, a.outputs);
+  /**
+   * What each name showed just before entry `seq`, from the record (Q-51, ADR 0022 §1): the version of the latest day
+   * published for it, each day's version its last publication's (a passing run's outputs, an applied release's), a
+   * withdrawn release taken back, and `without` (a release being withdrawn) left out.
+   */
+  const shownBefore = (seq: number, period: string | null, without?: number): Record<string, string> => {
+    const upTo = entries.slice(0, seq);
+    const taken = new Set<number>(without === undefined ? [] : [without]);
+    for (const x of upTo) {
+      const a = x.about as Partial<ReleaseAbout> | null;
+      if (x.kind === 'release' && isRecord(a) && a.outcome === 'applied' && Number.isInteger(a.withdraws)) taken.add(a.withdraws!).add(x.seq);
     }
-    return out;
+    const best = new Map<string, { day: string; key: string }>();
+    for (const p of publishedDays(upTo, period)) {
+      if (taken.has(p.seq)) continue;
+      const x = entries[p.seq]!;
+      const a = x.about as Omit<Partial<ReleaseAbout>, 'outcome'> & { outcome?: string; manifest?: string };
+      const keys = x.kind === 'run' ? Object.fromEntries(Object.entries(runs.get(a.manifest ?? '')?.manifest?.outputs ?? {}).map(([n, o]) => [n, o.key])) : isKeys(a.outputs) ? a.outputs : {};
+      for (const [name, key] of Object.entries(keys)) {
+        const was = best.get(name);
+        if (!was || p.day >= was.day) best.set(name, { day: p.day, key });
+      }
+    }
+    return Object.fromEntries([...best].map(([n, v]) => [n, v.key]));
   };
 
   /** What is wrong with the release of a fill or the part that arrived: it releases the derived run its decision names,
@@ -271,9 +287,6 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
     }
     const since = entries.slice(cited.seq + 1, e.seq).find((x) => x.kind === 'decide' && (x.amends === cited.seq || (isRecord(x.about) && isInputs(x.about.inputs) && inputsKey(x.about.inputs) === inputsKey(decision.inputs))));
     if (since) problems.push(`its decision, #${cited.seq}, was ${since.amends === cited.seq ? 'amended' : 'decided again'} by #${since.seq} before it`);
-    const period = planPeriod(runs.get(decision.manifest)?.plan?.publish);
-    const shown = lastPublished(entries.slice(0, e.seq), period);
-    if (a.outcome === 'applied' && decision.day && shown && shown > decision.day) problems.push(`it moved the names back past ${shown}, published before it`);
     const asis = a.outcome === 'applied' ? publishedAsIs(e.seq, decision) : undefined;
     if (asis) problems.push(`it took back ${decision.day ?? 'its day'}, published ${asis.option === 'accept' ? 'at its new level' : 'as is'} by release #${asis.release}`);
     return problems;
@@ -299,8 +312,8 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
   };
 
   /** What is wrong with a withdrawal (Q-61): it takes back an applied release of a fill or a part, amends that fill's
-   * decision, takes back every name it released, points each back to what it showed before the fill, and never moves a
-   * name back past a later day. */
+   * decision, takes back every name it released, and leaves each showing the latest day left published (Q-51): what it
+   * showed before the fill, unless an earlier day has published since or a later day is out. */
   const withdrawalProblems = (e: LogEntry, a: ReleaseAbout, cited: LogEntry): string[] => {
     const problems: string[] = [];
     const taken = entries[a.withdraws!];
@@ -311,15 +324,12 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
     }
     if (cited.amends !== was.decision) problems.push(`its decision, #${cited.seq}, doesn't amend the fill's decision, #${was.decision}`);
     if (!isKeys(a.outputs) || !sameKeys(Object.fromEntries(Object.keys(a.outputs).map((n) => [n, ''])), Object.fromEntries(Object.keys(was.outputs).map((n) => [n, ''])))) problems.push(`it doesn't take back every name release #${taken.seq} released`);
-    else {
-      const before = shownBefore(taken.seq);
-      const wrong = Object.entries(a.outputs).filter(([name, key]) => before[name] !== key).map(([name]) => name);
-      if (wrong.length) problems.push(`it doesn't point ${wrong.join(', ')} back to what ${wrong.length === 1 ? 'it' : 'they'} showed before the fill`);
+    else if (a.outcome === 'applied') {
+      const decision = cited.about as unknown as DecideAbout;
+      const left = shownBefore(e.seq, planPeriod(runs.get(decision.manifest)?.plan?.publish), taken.seq);
+      const wrong = Object.entries(a.outputs).filter(([name, key]) => left[name] !== key).map(([name]) => name);
+      if (wrong.length) problems.push(`it doesn't leave ${wrong.join(', ')} showing the latest day left published`);
     }
-    const decision = cited.about as unknown as DecideAbout;
-    const period = planPeriod(runs.get(decision.manifest)?.plan?.publish);
-    const shown = lastPublished(entries.slice(0, e.seq), period);
-    if (a.outcome === 'applied' && decision.day && shown && shown > decision.day) problems.push(`it moved the names back past ${shown}, published before it`);
     return problems;
   };
 

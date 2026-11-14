@@ -24,7 +24,7 @@ import {
   judgeClaim,
   judgeClaims,
   judgeDonors,
-  lastPublished,
+  latestPublished,
   pausesOf,
   levelFor,
   levelsOf,
@@ -544,18 +544,20 @@ describe('a decision that stands until a day publishes (ADR 0009 §6)', () => {
     expect(at(log, thu)).toBeNull();
   });
 
-  it('says the day readers had when a decision was made: the day of the last publication before it', () => {
+  it('says the day readers had when a decision was made: the latest day published before it', () => {
     const fri = decide('2023-09-22', 3, 'dont');
     // Readers had Thu 21 (published as is) when Fri was decided; Mon 25 passing after it changes nothing of that.
     const thu = decide('2023-09-21', 1, 'asis');
     const log = [ok('2023-09-18', 1), held('2023-09-21', 1), thu, release(thu.seq), held('2023-09-22', 3), fri, ok('2023-09-25', 6)];
-    expect(lastPublished(log.slice(0, log.indexOf(fri)))).toBe('2023-09-21');
-    expect(lastPublished(log)).toBe('2023-09-25');
-    // An earlier day passing moves the names back (Q-51): readers then had that day.
-    expect(lastPublished([ok('2024-01-01', 1), ok('2023-09-20', 2)])).toBe('2023-09-20');
+    expect(latestPublished(log.slice(0, log.indexOf(fri)))).toBe('2023-09-21');
+    expect(latestPublished(log)).toBe('2023-09-25');
+    // An earlier day passing keeps its version for its day alone: readers stay on the latest day (Q-51, ADR 0022 §1).
+    expect(latestPublished([ok('2024-01-01', 1), ok('2023-09-20', 2)])).toBe('2024-01-01');
+    // And an earlier day published as is once a later one is out.
+    expect(latestPublished([ok('2023-09-18', 1), held('2023-09-21', 1), ok('2023-09-25', 6), thu, release(thu.seq)])).toBe('2023-09-25');
     // A refused release published nothing; nothing published yet, nothing.
-    expect(lastPublished([ok('2023-09-18', 1), thu, release(thu.seq, 'refused')])).toBe('2023-09-18');
-    expect(lastPublished([held('2023-09-21', 1)])).toBeNull();
+    expect(latestPublished([ok('2023-09-18', 1), thu, release(thu.seq, 'refused')])).toBe('2023-09-18');
+    expect(latestPublished([held('2023-09-21', 1)])).toBeNull();
   });
 
   it('takes the nearest day before, and reads a day from the period when an entry has none', () => {
@@ -707,8 +709,8 @@ describe('a filled day in the record (amendment 1 S5, S7, S9)', () => {
     const withdraw = decide('2023-09-21', 41, 'dont', 'day', {}, { amends: fill.seq });
     const back = entry('release', { run: 41, manifest: SHA('1'), outputs: {}, decision: withdraw.seq, leaf: SHA('d'), outcome: 'applied', why: null, withdraws: rel.seq } satisfies ReleaseAbout);
     const log = [ok('2023-09-20', 1), held('2023-09-21', 41), fill, rel];
-    expect(lastPublished(log)).toBe('2023-09-21');
-    expect(lastPublished([...log, withdraw, back])).toBe('2023-09-20');
+    expect(latestPublished(log)).toBe('2023-09-21');
+    expect(latestPublished([...log, withdraw, back])).toBe('2023-09-20');
   });
 
   it('is filled under the flow’s meanwhile setting while a person still decides', () => {

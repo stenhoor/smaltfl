@@ -353,6 +353,31 @@ describe('a better donor, and taking a fill back (amendment 1 S7, Q-61)', () => 
     expect((await releaseRun(t.db, { ...back, withdraws: 999 })).why).toBe("release 999 isn't an applied release of a fill or a part here: there is nothing to withdraw");
     expect((await releaseRun(t.db, { ...back, option: 'fill' } as ReleaseInput)).why).toBe('a withdrawal is a decision not to publish, naming the release it takes back by its number');
   });
+
+  it('withdraws a fill to the latest day left published: an earlier day that published since (Q-51)', async () => {
+    const db = engine();
+    const history = await pinHistory(db);
+    const doc = flow(history.path, {});
+    load(db, 'day_trips', HELD);
+    const thu = await runFlow(db, doc, { smaltdb: SMALTDB, parameters: { day: HELD }, claims: [claimOf(history, HELD, SHORT)] });
+    load(db, 'day_trips_donor', DONOR);
+    const t = { db, history, doc, wed: thu, thu };
+    const r = await derive(t, repairFrom(DONOR));
+    const a = await releaseRun(db, releaseOf(t, r, asRead(r, repairFrom(DONOR))));
+    expect(a).toMatchObject({ outcome: 'applied', why: null });
+    // Wed 10 passes once Thu 11's fill is out: kept as Wed's, readers staying on Thu.
+    load(db, 'day_trips', NEAREST);
+    const wed = await runFlow(db, doc, { smaltdb: SMALTDB, parameters: { day: NEAREST }, claims: [claimOf(history, NEAREST)] });
+    expect(wed.behind).toEqual(wed.published);
+    expect(current(db, 'trip_hours')).toEqual([r.manifest.outputs.trip_hours!.key, r.run]);
+    // The fill taken back: readers go to Wed, the latest day left, though nothing was out before the fill.
+    const w = await releaseRun(db, { run: r.run, manifest: r.hash, keys: keysOf(r), option: 'dont', actor: 'owner', reason: null, decision: LEAF, withdraws: a.release });
+    expect(w).toMatchObject({ outcome: 'applied', why: null });
+    expect(w.behind).toBeUndefined();
+    expect(current(db, 'trip_hours')).toEqual([wed.manifest.outputs.trip_hours!.key, wed.run]);
+    expect(dayVersionOf(db, 'trip_hours', HELD)).toBeNull();
+    for (const x of [r, wed]) expect(fails(await verifyRun(db, x.run, { smaltdb: SMALTDB, level: 'stored' })), String(x.run)).toEqual([]);
+  });
 });
 
 describe("verify's repair check (amendment 1 S11)", () => {
