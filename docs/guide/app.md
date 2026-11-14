@@ -81,6 +81,14 @@ its meaning, its values and the rules about it. The owner can rename a column, r
 and add, change or remove a rule. A file read by several flows can share one ontology
 (`examples/ontologies/auth.json`): change it once, and every flow that reads the file has the change.
 
+A rule edit takes effect from a day ([ADR 0021](../adr/0021-time) §5). **Edits take effect from** offers the next day
+to arrive (the default: no day already recorded moves), the day on screen, or any day, and says what a change reaches.
+A name or a label takes effect at once, on every day.
+
+Back-dated, a change reaches days already recorded: each runs again under the new rules, the month marks the days whose
+outcome would change, and one decision restates them, with a reason. Untick a day to leave it as readers had it; days
+that come out the same are noted. A day's screen shows the rules in force on it, by hash, and what is new on the day.
+
 Edits are kept across a reload and listed with **Back to the flow as shipped**.
 
 ## The record and verify

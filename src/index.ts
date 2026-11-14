@@ -4,7 +4,7 @@
  * cards. The runtime plugin (`smaltfl/plugin`) runs plans inside the engine.
  */
 import type { FlowDocument } from './core/document.js';
-import { translate } from './core/plan.js';
+import { forDay, translate } from './core/plan.js';
 import type { PluginCaller, ReleaseInput, ReleaseResult, RunContext, RunOptions, RunResult, VerifyLevel, VerifyResult } from './core/protocol.js';
 import { PLUGIN_NAME } from './core/protocol.js';
 import type { ParamValue } from './core/sqltext.js';
@@ -12,9 +12,10 @@ import type { MeasureSettings, Measures } from './core/measures.js';
 
 export { canonicalJSON } from './core/canonical.js';
 export { hashOf, hex, sha256, sha256Hex, unhex, utf8 } from './core/hash.js';
-export { DOCUMENT_FORMATS, DONOR_RULES, FILLED_FROM, HOLD_KINDS, MEANWHILES, UNTILS, documentFormat, fillStepOf, insertAfter, isGeneralWatch, sourceOf, validateDocument, watchHistory, withoutDisplay } from './core/document.js';
+export { DOCUMENT_FORMATS, DONOR_RULES, EDIT_OPS, FILLED_FROM, HOLD_KINDS, MEANWHILES, UNTILS, documentFormat, fillStepOf, insertAfter, isGeneralWatch, sourceOf, validateDocument, watchHistory, withoutDisplay } from './core/document.js';
 export type {
   AggregateStep,
+  ChangeSet,
   DatasetDef,
   DocumentFormat,
   DonorRule,
@@ -29,6 +30,7 @@ export type {
   HoldKind,
   ProfileDef,
   Issue,
+  RuleEdit,
   JoinStep,
   Meanwhile,
   Missing,
@@ -43,7 +45,9 @@ export type {
   Until,
   WatchDef,
 } from './core/document.js';
-export { PLAN_FORMATS, PlanError, flowHash, isPublish2, planPeriod, translate, validatePlan, watchesOf } from './core/plan.js';
+export { PLAN_FORMATS, PlanError, flowHash, forDay, isPublish2, planPeriod, translate, validatePlan, watchesOf } from './core/plan.js';
+export { applyEdit, changesOn, dayOf, dayParameter, inForce, resolve, rulesHash, rulesInForce } from './core/inforce.js';
+export type { Applied, RulesInForce } from './core/inforce.js';
 export type { Column, ColumnType, FillNode, FlowPlan, PlanFormat, PlanNode, PlanOutput, PlanPublish, PlanPublish2, PlannedWatch, WatchPlan } from './core/plan.js';
 export { shapeOf } from './core/optimize.js';
 export type { RunShape } from './core/optimize.js';
@@ -99,11 +103,14 @@ export type { ParamType, ParamValue } from './core/sqltext.js';
  * with `stage` and `from`, the held run it repairs, its claims the day's and each donor's (ADR 0009 amendment 1 S4):
  * held whatever else holds, until a release of its decision.
  */
-export async function runFlow(db: PluginCaller, doc: FlowDocument, options: { smaltdb: string; parameters?: Readonly<Record<string, ParamValue>>; data?: RunContext['data']; log?: RunContext['log']; claims?: RunContext['claims']; tell?: RunContext['tell']; sources?: RunContext['sources']; stage?: boolean; from?: RunOptions['from']; correction?: RunOptions['correction']; typed?: boolean }): Promise<RunResult> {
+export async function runFlow(db: PluginCaller, given: FlowDocument, options: { smaltdb: string; parameters?: Readonly<Record<string, ParamValue>>; data?: RunContext['data']; log?: RunContext['log']; claims?: RunContext['claims']; tell?: RunContext['tell']; sources?: RunContext['sources']; stage?: boolean; from?: RunOptions['from']; correction?: RunOptions['correction']; restates?: RunOptions['restates']; typed?: boolean; asOf?: string | null }): Promise<RunResult> {
+  // The rules in force on the run's day, as known at `asOf` (ADR 0021 §5): the document the plan is made from and the
+  // run keeps, so its flow hash and its rules hash are the day's.
+  const doc = forDay(given, options.parameters ?? {}, options.asOf);
   const plan = await translate(doc, options.parameters ?? {});
   const context: RunContext = { doc, data: options.data ?? null, log: options.log ?? null, ...(options.claims !== undefined ? { claims: options.claims } : {}), ...(options.tell !== undefined ? { tell: options.tell } : {}), ...(options.sources !== undefined ? { sources: options.sources } : {}) };
   const stage = options.stage ? { stage: true, ...(options.from ? { from: options.from } : {}) } : options.from ? { from: options.from } : {};
-  return (await db.callPlugin(PLUGIN_NAME, 'run', [plan, { smaltdb: options.smaltdb, context, ...stage, ...(options.correction ? { correction: options.correction } : {}), ...(options.typed ? { typed: true } : {}) }], { lock: true })) as RunResult;
+  return (await db.callPlugin(PLUGIN_NAME, 'run', [plan, { smaltdb: options.smaltdb, context, ...stage, ...(options.correction ? { correction: options.correction } : {}), ...(options.restates ? { restates: options.restates } : {}), ...(options.typed ? { typed: true } : {}) }], { lock: true })) as RunResult;
 }
 
 /**
@@ -111,8 +118,8 @@ export async function runFlow(db: PluginCaller, doc: FlowDocument, options: { sm
  * hashed now, as the run would, which then takes them while they still hold (the same pinned bytes through the same
  * definition). For a page to ask as soon as a day's files are pinned, while it tells the day's claims.
  */
-export async function prepareRun(db: PluginCaller, doc: FlowDocument, options: { smaltdb: string; parameters?: Readonly<Record<string, ParamValue>> }): Promise<{ prepared: string[] }> {
-  const plan = await translate(doc, options.parameters ?? {});
+export async function prepareRun(db: PluginCaller, doc: FlowDocument, options: { smaltdb: string; parameters?: Readonly<Record<string, ParamValue>>; asOf?: string | null }): Promise<{ prepared: string[] }> {
+  const plan = await translate(doc, options.parameters ?? {}, { asOf: options.asOf ?? null });
   return (await db.callPlugin(PLUGIN_NAME, 'prepare', [plan, { smaltdb: options.smaltdb }], { lock: true })) as { prepared: string[] };
 }
 

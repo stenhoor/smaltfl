@@ -238,9 +238,14 @@ sent again, thirteen decisions, Thu 21 corrected twice, Q-195); the month marks 
 a day opens on the version readers got, its versions listed like commits, any other a tap away
 (`#day/2024-03-18/v1`). Slice 3, flip and compare, is built (2026-11-13): **Compare** on a day's version gives the
 summary from the two runs' manifests (files, rules, decisions, each output's rows and whether it changed), then an
-output's rows by its key (removed, added, repeats, cells changed); and the month's grid filters. Next is slice 4, the
-ontology over time: dated change sets, the rules-in-force hash, *in force from* on every edit, a back-dated change
-restating days under one decision. Not yet:
+output's rows by its key (removed, added, repeats, cells changed); and the month's grid filters. Slice 4's first part,
+the rules over time with back-dating (Q-197), is built (2026-11-14): every rule edit is a dated change set (the next day
+to arrive by default, the day on screen, or any day), runs name the rules in force on their day by `rules/1`'s hash,
+and a back-dated change runs every recorded day it reaches again and restates them under one decision, any day
+untickable, unchanged days noted (`tools/browser/stops/restate.json` on the sign-ins). Names and labels take effect at
+once (Q-198); a restatement that changes no day is noted at once (Q-199); both are the maintainers' to confirm. Next is
+slice 4's second part: the Ontology view's versions, any two compared, and the story's ontology changes recorded by the
+build (the WAF band from Mon 18 recorded Fri 15; a back-dated rule recorded Mon 25 from Fri 1). Not yet:
 a past day's correction while a later day is out (the engine never moves a name back), and *as known on* a past moment
 showing the decisions and corrections recorded by then.
 

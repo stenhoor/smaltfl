@@ -62,6 +62,21 @@ describe('the month, day by day', () => {
     expect(runsByDay([...entries, fill]).get('2024-03-03')).toHaveLength(1);
   });
 
+  it('counts a day run again under rules changed since only once a restatement made it what readers got (ADR 0021 §5)', () => {
+    const restated = (seq: number, day: string, manifest: string, holds: unknown[]) => entry(seq, '2026-11-14T10:00:00Z', { day, outcome: 'restated', manifest, restates: { of: 'x', changes: ['c1'] }, holds: [...holds, { by: 'restated', node: -1, origin: 'run', said: 'run again', reaches: ['posture'] }] }, 'owner');
+    const again = [restated(7, '2024-03-01', 'r1', [hold('auth_valid', 'method_one_of: 3 rows')]), restated(8, '2024-03-02', 'r2', []), restated(9, '2024-03-04', 'r4', [])];
+    // Before the restatement, the restated runs are no day's.
+    expect(monthOf(days, [...entries, ...again], { judged: 'effective' }).map((d) => d.state)).toEqual(['published', 'unusual', 'paused', 'unusual', 'unlearned', 'failed', 'notRun']);
+    const decision = entry(10, '2026-11-14T10:05:00Z', { changes: ['c1'], from: '2024-03-01', days: [{ day: '2024-03-01', manifest: 'r1', passes: false }, { day: '2024-03-02', manifest: 'r2', passes: true }], kept: [{ day: '2024-03-04', manifest: 'r4' }], same: [] }, 'owner', 'restate');
+    const all = [...entries, ...again, decision];
+    const m = monthOf(days, all, { judged: 'effective' });
+    // Mar 1 is held by the new rule; Mar 2 published as restated; Mar 4, unticked, keeps what readers got.
+    expect(m.slice(0, 4).map((d) => [d.state, d.headline, d.manifest])).toEqual([['paused', 'auth_valid: method_one_of: 3 rows', 'r1'], ['published', null, 'r2'], ['paused', 'waf: Status fail: 22.7% (band 0%–15%)', 'm3'], ['unusual', 'tls: Status fail: 8.9%', 'm4']]);
+    expect(runsByDay(all).get('2024-03-01')!.at(-1)!.about).toMatchObject({ outcome: 'held', holds: [{ by: 'checks' }] });
+    // As known before the restatement, nothing moved.
+    expect(monthOf(days, all, { at: '2026-11-14T10:01:00Z', judged: 'effective' }).map((d) => d.state)).toEqual(['published', 'unusual', 'paused', 'unusual', 'unlearned', 'failed', 'notRun']);
+  });
+
   it('leads a held day with its hold and an unusual day with the judged dataset’s own head', () => {
     expect(stateOfRun({ outcome: 'held', holds: [hold('logging_coverage', 'file has 4 of 5 columns')] }, 'effective')).toEqual({ state: 'paused', headline: 'logging_coverage: file has 4 of 5 columns' });
     expect(stateOfRun({ outcome: 'ok', claims: [{ source: 'Effective', state: 'wrong', head: 'Too few' }] }, 'effective')).toEqual({ state: 'unusual', headline: 'Too few' });

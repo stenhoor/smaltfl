@@ -1,0 +1,146 @@
+[
+  {
+    "name": "restate-from",
+    "what": "Sign-ins, Fri Mar 1, the Ontology view: the rules in force on the day on screen by hash, as shipped; edits take effect from the day on screen, chosen over the next day to arrive (Fri Mar 22), and what that reaches: all 21 recorded days, 17 of them published, run again under the new rules and restated by one decision (ADR 0021 §5, Q-197)",
+    "day": "Fri 1",
+    "view": "ontology",
+    "viewFirst": true,
+    "select": ["#rules-time .rf-when", "screen"],
+    "element": "#rules-time",
+    "expect": {
+      "pageText": [
+        "The rules in force on Fri Mar 1",
+        "as shipped",
+        "the next day to arrive, Fri Mar 22",
+        "Back-dated: 21 recorded days (Fri Mar 1 to Thu Mar 21, 17 published) run again under the new rules, and one decision restates them."
+      ]
+    }
+  },
+  {
+    "name": "restate-form",
+    "what": "The owner changes the Latency rule on the sign-in file: from 0 to 10,000 ms, and a row that breaks it holds the day; the form says when the change takes effect (the day on screen) and what it reaches",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      ".of-item[data-file=\"auth\"] .of-row",
+      "button[aria-label^=\"Change the check: Latency\"]",
+      [".of-rule-form input[type=number] >> nth=1", "10000"],
+      [".of-rule-form select:has(option[value=hold])", "hold"]
+    ],
+    "element": ".of-rule-form",
+    "expect": {
+      "pageText": [
+        "On once saved: it is recorded, and enforced from the day below.",
+        "Back-dated: 21 recorded days (Fri Mar 1 to Thu Mar 21, 17 published) run again under the new rules, and one decision restates them."
+      ]
+    }
+  },
+  {
+    "name": "restate-sheet",
+    "what": "Saved (the form still open from the stop before): every recorded day runs again under the new rules, latest first, and the restatement opens: two days would change (Mon Mar 4 and Wed Mar 6, each published and now held, one sign-in slower than 10 s), ticked; the other 19 came out the same, noted and not decided again; a reason, and one button",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      [".of-rule-form input[type=number] >> nth=1", "10000"],
+      [".of-rule-form select:has(option[value=hold])", "hold"],
+      ".of-rule-form button[type=submit]"
+    ],
+    "waitFor": ".vf-detail .rs-days",
+    "waitForMs": 300000,
+    "full": true,
+    "expect": {
+      "text": [
+        "Restate 2 days under the new rules?",
+        "Changed a rule in auth: Latency is from 0 to 10,000 ms, else hold the day",
+        "Mon Mar 4 published → held: auth_valid: expectations failed: latency_ms_range (1 row)",
+        "Wed Mar 6 published → held: auth_valid: expectations failed: latency_ms_range (1 row)",
+        "19 days came out the same",
+        "Restate 2 days"
+      ],
+      "count": { ".vf-detail .rs-day input:checked": 2 }
+    }
+  },
+  {
+    "name": "restate-day-waiting",
+    "what": "Fri Mar 1, left on screen after the days ran again: its versions, the one readers got (v1) and the day run again under the rules changed since (v2), which came out the same; the day's line says so, with the restatement a tap away",
+    "element": "#loads",
+    "expect": {
+      "pageText": [
+        "2 VERSIONS OF THE DAY",
+        "Under the rules changed since: published → published, the same. Noted: it comes out the same.",
+        "Run again under rules changed since"
+      ],
+      "status": "^Fri Mar 1: run again under the rules changed since, it passes\\. It waits for the restatement\\."
+    }
+  },
+  {
+    "name": "restate-month-would",
+    "what": "The month before the restatement is decided: Mon 4 and Wed 6 marked as days whose outcome would change (a dashed edge and Δ, in words in their labels and the key)",
+    "view": "month",
+    "devices": ["desktop", "wide"],
+    "expect": {
+      "count": { ".mo-d.would-change": 2 },
+      "pageText": ["would change under the rules changed since: waiting for the restatement"],
+      "loads": { "Mon 4": "under the rules changed since: published → held", "Fri 1": "!would change" }
+    }
+  },
+  {
+    "name": "restate-decided",
+    "what": "The restatement decided from the day's line: Wed 6 unticked, a reason, Restate 1 day. The month: Mon 4 restated, held under the new rule and not published, with its count of versions; Wed 6 left as readers had it; the key says what the mark means",
+    "clicks": [
+      ".rs-line .btn",
+      ".vf-detail .rs-day[data-day=\"2024-03-06\"] input",
+      [".vf-detail .rs-reason", "A sign-in slower than 10 s is an outage: such a day waits"],
+      ".vf-detail .rs-go"
+    ],
+    "view": "month",
+    "expect": {
+      "status": "^Restated 1 day under the new rules; 1 day left as readers had it\\. Recorded\\.",
+      "loads": { "Mon 4": "restated under rules changed since, held under them: not published", "Wed 6": "!restated", "Fri 1": "!restated" },
+      "pageText": ["restated under rules changed since, with its count of versions"]
+    }
+  },
+  {
+    "name": "restate-mon4",
+    "what": "Mon Mar 4's screen: the version readers got is the restated one (v2), run here again under the rules it was restated under; the lifecycle, the versions (v1 published as it arrived, v2 run again, held by the new rule, restated with its reason, nothing marked as what readers got) and the rules in force by hash",
+    "day": "Mon 4",
+    "element": "#loads",
+    "expect": {
+      "noText": ["what readers got"],
+      "pageText": [
+        "2 VERSIONS OF THE DAY",
+        "Restated: not published",
+        "held: auth_valid: expectations failed: latency_ms_range (1 row) · restated by",
+        "A sign-in slower than 10 s is an outage: such a day waits",
+        "RULES IN FORCE"
+      ],
+      "status": "^Mon Mar 4: run again under the rules changed since, held: auth_valid: expectations failed: latency_ms_range \\(1 row\\)\\. Restated: not published\\."
+    }
+  },
+  {
+    "name": "restate-record",
+    "what": "The record: the rule change in force from Fri Mar 1, each day run again under it, and the one restatement, with what it made of the days and its reason",
+    "view": "runs",
+    "expect": {
+      "pageText": [
+        "Restated 1 day (Mon 4) under rules changed since, from Fri Mar 1; 1 day left as readers had it; 19 days the same: “A sign-in slower than 10 s is an outage: such a day waits”",
+        "again under rules changed since: held by auth_valid"
+      ]
+    }
+  },
+  {
+    "name": "restate-reload",
+    "what": "After a reload: the change set comes back with the flow kept in this browser, in force from Fri Mar 1 and listed on the Ontology view with who made it; the restated versions and the restatement come back with the record",
+    "reload": true,
+    "view": "ontology",
+    "element": "#rules-time",
+    "expect": {
+      "pageText": [
+        "1 change set",
+        "From Fri Mar 1 Changed a rule in auth: Latency is from 0 to 10,000 ms, else hold the day",
+        "recorded"
+      ],
+      "loads": { "Mon 4": "restated under rules changed since, held under them: not published", "Wed 6": "!restated" }
+    }
+  }
+]

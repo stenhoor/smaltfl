@@ -92,8 +92,9 @@ export interface DatasetRecord {
 
 export interface RunManifest {
   smaltflRun: 0 | 1;
-  /** run/1 adds the hashes of the flow's policies and ontology (E5). */
-  flow: { id: string; hash: string; policies?: string; ontology?: string };
+  /** run/1 adds the hashes of the flow's policies and ontology (E5), and the rules in force on the run's day (ADR 0021
+   * §5, `rulesHash`), wherever the run was given its document. */
+  flow: { id: string; hash: string; policies?: string; ontology?: string; rules?: string };
   /** The hash of the typed flow plan that ran (stored with the run). */
   plan: string;
   parameters: Record<string, string | number | null>;
@@ -113,6 +114,12 @@ export interface RunManifest {
    * other run, so their manifests hash as before.
    */
   correction?: { of: string; sources: string[] };
+  /**
+   * The day run again under rules changed since (ADR 0021 §5, Q-190): the run it restates, by manifest hash, and the
+   * change sets it ran under. Every output is held until a restatement is decided. Absent from every other run, so their
+   * manifests hash as before.
+   */
+  restates?: { of: string; changes: string[] };
 }
 
 /**

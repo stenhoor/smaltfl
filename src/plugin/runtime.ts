@@ -23,6 +23,7 @@ import { nodeKey } from '../core/keys.js';
 import { FILLED_FROM, withoutDisplay, type FlowDocument } from '../core/document.js';
 import type { ContractCounts, DatasetRecord, ExpectationResult, GateResult, ManifestNode, RunManifest, SourceFile, SourceIngestRecord } from '../core/manifest.js';
 import { MANIFEST_FORMAT, manifestHash, ontologyHash, planHash, policiesHash } from '../core/manifest.js';
+import { rulesHash } from '../core/inforce.js';
 import { flowHash, translate } from '../core/plan.js';
 import type { Upstream } from '../core/story.js';
 import { shapeOf } from '../core/optimize.js';
@@ -78,6 +79,7 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
   const env: KeyEnv = { smaltdb: options.smaltdb, smaltfl: version };
   const stage = stageOf(plan, options);
   const correction = correctionOf(plan, options);
+  const restates = restatesOf(plan, options);
   ensureStore(db);
   // The flow document, when given, must be the one the plan was translated from: it is kept with the run.
   const context = options.context ?? {};
@@ -89,7 +91,7 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
     steps = d.steps;
     if ((await flowHash(d)) !== plan.flow.hash) throw new RunError("the flow document doesn't hash to the plan's flow hash: it isn't the document the plan was made from");
     doc = canonicalJSON(withoutDisplay(d) as Parameters<typeof canonicalJSON>[0]);
-    flow = { ...plan.flow, policies: await policiesHash(d.policies), ontology: await ontologyHash(d.ontology) };
+    flow = { ...plan.flow, policies: await policiesHash(d.policies), ontology: await ontologyHash(d.ontology), rules: await rulesHash(d) };
   }
   const started = new Date().toISOString();
   for (const o of plan.outputs) {
@@ -261,6 +263,7 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
     log: context.log ?? null,
     previous: typeof previous === 'string' ? previous : null,
     ...(correction ? { correction } : {}),
+    ...(restates ? { restates } : {}),
   };
   const hash = await manifestHash(manifest);
 
@@ -519,6 +522,23 @@ function correctionOf(plan: FlowPlan, options: RunOptions): RunManifest['correct
   if (!sources.length || sources.some((x) => typeof x !== 'string')) throw new RunError('a later delivery names the sources whose files were sent again');
   for (const x of sources) if (!plan.nodes.some((n) => n.op === 'table' && n.origin === x)) throw new RunError(`${x} isn't a source the plan reads`);
   return { of: of.manifest, sources };
+}
+
+/**
+ * The day run again under rules changed since (ADR 0021 §5, Q-190), as the manifest keeps it: the run it restates, by
+ * manifest hash, and the change sets it ran under, named once each, sorted. Null for any other run. Neither a derived
+ * run nor a later delivery is one.
+ */
+function restatesOf(plan: FlowPlan, options: RunOptions): RunManifest['restates'] | null {
+  const r = options.restates;
+  if (r === undefined) return null;
+  if (!plan.publish) throw new RunError('a restated run waits for a restatement, and this plan says nothing of what holds it');
+  if (options.stage) throw new RunError('a restated run is a run of its day, not a derived run');
+  if (options.correction !== undefined) throw new RunError('a restated run is its day run again under other rules, not a later delivery');
+  if (typeof r !== 'object' || r === null || typeof r.of !== 'string' || !/^[0-9a-f]{64}$/.test(r.of)) throw new RunError('a restated run names the run it restates: restates { of: manifest hash, changes }');
+  const changes = Array.isArray(r.changes) ? [...new Set(r.changes)].sort() : [];
+  if (!changes.length || changes.some((x) => typeof x !== 'string' || x === '')) throw new RunError('a restated run names the change sets it runs under');
+  return { of: r.of, changes };
 }
 
 /** A donor has its source's columns, with their types (ADR 0009 amendment 1 S4), or its rows can't be taken by name. */

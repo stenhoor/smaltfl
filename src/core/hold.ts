@@ -124,11 +124,13 @@ export const tailPath = (source: string): string => `tail.${source}.json`;
 export type Judged = { node: number; claim: Claim } | { node: number; unjudged: string };
 
 /**
- * What holds a run: the checks at a step, a source's story, or a source not judged; with the fills (ADR 0009 amendment
- * 1), a derived run, held until a decision releases it, and a donor not judged good; and the outputs it reaches.
+ * What holds a run: the checks at a step, a source's story, or a source not judged; a later file for its day
+ * (`correction`, ADR 0021 §2) or the day run again under rules changed since (`restated`, ADR 0021 §5); with the fills
+ * (ADR 0009 amendment 1), a derived run, held until a decision releases it, and a donor not judged good; and the outputs
+ * it reaches.
  */
 export interface Hold {
-  by: 'checks' | 'story' | 'unjudged' | 'correction';
+  by: 'checks' | 'story' | 'unjudged' | 'correction' | 'restated';
   node: number;
   origin: string;
   /** What it says: the checks' counts, the story's head, why the source wasn't judged, what a derived run fills, or
@@ -818,6 +820,9 @@ export function holdsOf(plan: Pick<FlowPlan, 'nodes' | 'outputs' | 'publish'>, m
     const node = plan.nodes.findIndex((n) => n.op === 'table' && n.origin === origin);
     if (node >= 0) out.push({ by: 'correction', node, origin, said: 'a later file for its day: it waits for a decision', reaches: reachOf(plan, node) });
   }
+  // The day run again under rules changed since (ADR 0021 §5, Q-190): every output waits for a restatement, whatever its
+  // checks say. A restatement decides it, not a decision about the day: it is about no load.
+  if ((manifest as Pick<RunManifest, 'restates'>).restates) out.push({ by: 'restated', node: -1, origin: 'run', said: 'run again under rules changed since: it waits for a restatement', reaches: plan.outputs.map((o) => o.name) });
   // Several watched sources (ADR 0010 §7): each hold of a source, and each check that reads one watched source, is about
   // its load.
   if (byLoad(pub)) {
