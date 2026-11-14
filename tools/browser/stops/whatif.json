@@ -31,7 +31,7 @@
       "pageText": [
         "Its files as they arrived under version 1 of the rules (the rules as shipped).",
         "It would pass: its outputs would be published.",
-        "Its files are version 1’s; its rules aren’t in force on Sat 16: a change to the rules from this day would make them so, restated under one decision.",
+        "Its files are version 1’s; its rules aren’t in force on Sat 16: making it the day’s takes them for that day only, restated under one decision.",
         "Back to the day"
       ],
       "status": "^Sat Mar 16, what if: .*: it would pass\\. A what-if is never recorded or published\\.$"

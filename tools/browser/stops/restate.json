@@ -67,7 +67,7 @@
     "expect": {
       "pageText": [
         "2 VERSIONS OF THE DAY",
-        "Under the rules changed since: published → published, the same. Noted: it comes out the same.",
+        "Under the rules changed since: published → published, the same. It comes out the same, noted with the restatement.",
         "Run again under rules changed since"
       ],
       "status": "^Fri Mar 1: run again under the rules changed since, it passes\\. It waits for the restatement\\."
