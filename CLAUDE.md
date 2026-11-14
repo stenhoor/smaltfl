@@ -356,8 +356,12 @@ release (smaltty ADR 0030).
   Larkspur's `story.json`, a day's versions, corrections decided), and slice 3, flip and compare (the compare summary,
   row and cell diffs by key), are built (its §"As built"); slice 4, the rules over time (change sets, the rules-in-force
   hash, back-dating and restatement, the story's changes recorded by the build, the Ontology view's versions), is built
-  in two parts, and slice 5, what-if runs, is built: ADR 0021 is done. What follows it is the maintainers' to choose
-  (docs/HANDOFF.md).
+  in two parts, and slice 5, what-if runs, is built: ADR 0021 is done. **Now:**
+  [ADR 0022](docs/adr/0022-the-answers-of-2026-11-14.md), the maintainer's answers of 2026-11-14, in the slices of its
+  §6: the time follow-ups (a what-if made the day's in one tap, a restatement that changes no day signed off, readers on
+  the latest day when a past day is corrected, the audit of restatements), columns that change (a mismatched file
+  paused, renames flagged with a suggested mapping and their impact), the ontology as the one place for rules, pausing
+  (Q-86, Q-132, Q-84), and proposed declarations (Q-139).
 
 ## Rules for this repository
 

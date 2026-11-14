@@ -2,6 +2,8 @@
 
 - **Status:** accepted, 2026-11-12: the maintainer took the recommended answer to each of Q-169 to Q-175
   (docs/OPEN_QUESTIONS.md). It is built in the slices of §8.
+- **Amended by:** [ADR 0022](0022-the-answers-of-2026-11-14.md) (accepted, 2026-11-14): loose ids are said per check, not on the object type
+  (Q-176). Q-177 and Q-178 are confirmed as built.
 - **Date:** 2026-11-12
 - **Builds on:**
   - [ADR 0013 §8](0013-discovered-checks.md): the control estate.

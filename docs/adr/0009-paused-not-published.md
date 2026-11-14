@@ -1,6 +1,7 @@
 # ADR 0009: A day that is off is paused, not published
 
-- **Status:** accepted for the principle and its defaults (the owner, 2026-11-08); Q-47, Q-51 and Q-52 open. Q-49 and
+- **Status:** accepted for the principle and its defaults (the owner, 2026-11-08). Q-47 and Q-52 are decided as built,
+  and Q-51 is changed by ADR 0022 (the maintainer, 2026-11-14). Q-49 and
   Q-50 answered by the owner (2026-11-08), recorded in amendment 1.
 - **Date:** 2026-11-08
 - **Builds on:** [ADR 0004](0004-the-flow-plan.md) (the flow plan), [ADR 0006](0006-integrity.md) (run/1, the record,
@@ -12,6 +13,8 @@
     the new level, withdrawing a fill (§6–§12 and "Left for later").
   - [ADR 0010](0010-any-dataset.md): a watch says how its source is judged (§2), claim/2 (§3), holds and decisions
     about one load when several sources are watched (§5, §9, §10), and the donor's default from the pattern (§7).
+  - [ADR 0022](0022-the-answers-of-2026-11-14.md) (accepted, 2026-11-14): when an earlier day passes, is corrected or is decided, §5's names stay on
+    the latest day (Q-51).
 
 ## Context
 

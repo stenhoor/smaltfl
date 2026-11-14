@@ -13,6 +13,8 @@
 - **Amends:** ADR 0010 §6 (a history's pairs were followed for new combinations only: now kept day by day while they
   are few) and §10 (a watch judged a source: now a published step too); ADR 0009 §3 (the page tells every claim: the
   engine tells a watched step's).
+- **Amended by:** [ADR 0022](0022-the-answers-of-2026-11-14.md) (accepted, 2026-11-14): a file whose columns don't match pauses the day with a
+  decision, in every flow (§6, Q-109). Q-104 to Q-108 are confirmed as built.
 
 ## Context
 
