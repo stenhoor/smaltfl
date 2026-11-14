@@ -11,7 +11,9 @@
 - **Amends:** ADR 0010 §10 (a watch's settings: they gain a gate), ADR 0013 §3 (the forest's place among the learned
   checks), ADR 0009 §3 (a refused file becomes a held day under the schema check, its slice 3).
 - **Amended by:** [ADR 0015](0015-the-bronze-layer.md): bronze's default for `reconcile` (§2), a scope from the
-  ontology (§4), and two rows of the answer key, each marked where it stands.
+  ontology (§4), and two rows of the answer key, each marked where it stands. [ADR 0022](0022-the-answers-of-2026-11-14.md) (2026-11-14): a gold
+  reconcile key from the ontology's `lookup` (Q-118) and silver `needs` rules from the ontology (Q-119), a gate cell
+  overriding or adding.
 
 ## Context
 

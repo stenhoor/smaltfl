@@ -3,7 +3,8 @@
 - **Status:** proposed, 2026-11-10. It records the maintainer's request of 2026-11-10 for the bronze layer and the
   answers Q-120 to Q-131 (docs/OPEN_QUESTIONS.md), after the review of the tip (docs/HANDOFF.md, "The review of
   2026-11-10") and five maps of the code it changes. The choices made on the way are Q-134 to Q-139, each with the
-  default built, for the maintainers to confirm or change.
+  default built, for the maintainers to confirm or change: answered on 2026-11-14 (Q-134 to Q-137 confirmed, Q-138
+  overtaken, Q-139 decided in ADR 0022).
 - **Date:** 2026-11-10
 - **Builds on:** [ADR 0014](0014-gates.md) (gates, the vocabulary of checks, bands and due marks, scope, the kept
   sample and the classifier, toggles), [ADR 0013](0013-discovered-checks.md) (the forest and the pairs),
@@ -11,6 +12,9 @@
   (measures, histories, the ontology's marks), [ADR 0008](0008-visual-first-news.md) (drawings and their rules).
 - **Amends:** ADR 0014 §1 (a gate's checks gain a mode a column), §2 (bronze's default for the key), §4 (a scope may
   come from the ontology), §7 (the Checks tab), and two rows of its answer key (§9 here).
+- **Amended by:** [ADR 0022](0022-the-answers-of-2026-11-14.md) (accepted, 2026-11-14): drawings say the ontology's label (Q-145); renamed
+  columns are handled carefully (Q-146); a dataset the flow makes has its rules on the Ontology page (Q-144);
+  declarations proposed from the data (Q-139, §7). Q-147 is confirmed.
 
 ## Context
 

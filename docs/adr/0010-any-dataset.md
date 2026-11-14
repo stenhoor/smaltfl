@@ -1,8 +1,8 @@
 # ADR 0010: The news, the story and the pause, for any dataset
 
 - **Status:** proposed, 2026-11-08. It records the owner's answers of 2026-11-08, the third set (Q-53 to Q-58, Q-66)
-  included. Q-59 and the maintainers' questions Q-68 to Q-80 that touch it are open, each with the default the build
-  starts on (docs/OPEN_QUESTIONS.md). The owner's answer of 2026-11-09 (Q-86, "keep pausing until accepted") changes
+  included. Q-59 and the maintainers' questions Q-68 to Q-85 that touch it are decided as built (the maintainer,
+  2026-11-14), except Q-75, which is open, and Q-84, which ADR 0022 changes (docs/OPEN_QUESTIONS.md). The owner's answer of 2026-11-09 (Q-86, "keep pausing until accepted") changes
   §15's "A deliberate change pauses once" and is not built yet (docs/HANDOFF.md).
 - **Date:** 2026-11-08
 - **Builds on:** [ADR 0006](0006-integrity.md) (E1 file digests, run/1, the record, verify, the audit bag),
@@ -16,6 +16,8 @@
     a level does to normal (Q-76).
   - ADR 0008: §1–§3 (always-bad values, and days not judged), §5 (nouns), §7 (◌), §8 (the relative rule), §9
     (re-learning after a lasting change).
+- **Amended by:** [ADR 0022](0022-the-answers-of-2026-11-14.md) (accepted, 2026-11-14): §7, Accept the new level and fills for a slot's load (Q-84);
+  §15, a deliberate change keeps pausing until accepted (Q-86, built in its slice 4).
 - **Works with:** ADR 0009 amendment 1 (filling a paused day), designed and built alongside. Where the two meet is
   written into the sections it touches, and listed once in §14.
 

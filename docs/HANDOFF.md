@@ -219,7 +219,36 @@ Results on 2026-11-09, at `e42d9ec` on data `0ca4dd1`:
 
 ## What is not done
 
-**First: [ADR 0021](adr/0021-time.md), time** (accepted 2026-11-13, Q-181 to Q-192): two screens, a month to pick a
+**First: [ADR 0022](adr/0022-the-answers-of-2026-11-14.md), the maintainer's answers of 2026-11-14.** With ADR 0021
+built, the maintainer went through every open question in the question prompt: most were confirmed as built, 34 closed
+as decided as built, and the answers that change what is built or add to it are ADR 0022's, built in the slices of its
+§6, one PR each:
+
+1. **Time follow-ups:**
+   - a what-if made the day's in one tap, the tap the decision (Q-202);
+   - a restatement that changes no day waits for a sign-off (Q-199);
+   - the offline audit of restated runs and restatements;
+   - a day restated as not published, no longer learned from;
+   - readers stay on the latest day when a past day is corrected (Q-51, outputs kept by day).
+2. **Columns that change:**
+   - a file whose columns don't match pauses the day, in every flow (Q-109);
+   - renamed columns flagged, with a suggested mapping, the impact on joins, and names carried through the steps
+     (Q-146).
+3. **The ontology as the one place for rules:**
+   - loose ids per check (Q-176);
+   - the gold reconcile key and silver needs rules from the ontology (Q-118, Q-119);
+   - drawings say the ontology's label (Q-145);
+   - a made dataset's rules on the Ontology page (Q-144).
+4. **Pausing:**
+   - keep pausing until accepted (Q-86, item 1 below);
+   - an overwhelming learned finding pauses the day (Q-132);
+   - levels and fills for slots of a day (Q-84).
+5. **Proposed declarations** for a dataset with nothing declared (Q-139). Sharing as one package file (Q-35) comes later.
+
+Before slice 2, and before slice 4's Q-132, a short design goes to the maintainer in the question prompt. Still open:
+Q-34 and Q-41 (smaltdb's work, with stenhoor first), Q-75 and Q-133.
+
+**Built: [ADR 0021](adr/0021-time.md), time** (accepted 2026-11-13, Q-181 to Q-192): two screens, a month to pick a
 day from (a calendar, a grid of files and steps by day, the posture's trend, *for the day* and *as known on*) and the
 day itself (its flow, lifecycle, story and versions); March as recorded history; every version of a day kept like a
 commit, corrections decided, compared by summary and by rows; the ontology effective-dated and hashed to each run;
@@ -278,7 +307,7 @@ file's Quality tab still don't. The items below follow.
 
 Parked behind the notebook surface by the maintainer's decision of 2026-11-09 (Q-87, ADR 0011 §9). In priority order:
 
-1. **The owner's answer of 2026-11-09 isn't built yet** (Q-86): a deliberate (lasting) change that nobody accepts must
+1. **The owner's answer of 2026-11-09 isn't built yet** (Q-86, now ADR 0022 slice 4): a deliberate (lasting) change that nobody accepts must
    **keep pausing until accepted**.
    - **Today's code** pauses only its first day, then tells it as notes (ADR 0010 §15, "A deliberate change pauses once").
    - **Where to change it:** `fill.ts` (`acceptable`, `levelMetrics`), the lowering in `news.ts` (`quiet`/`lasting`) and
@@ -328,12 +357,13 @@ Parked behind the notebook surface by the maintainer's decision of 2026-11-09 (Q
      parts chart replaced the trickle chart, and haven't been judged yet.
 4. **Not built, by decision or left for later** (each recorded in its ADR):
    - the hours finding doesn't find surges, only shortfalls (ADR 0010 §8, §15);
-   - slice 3 of the pause: re-run when a corrected file arrives, a corrected file replacing a fill on its own (Q-62),
-     and a refused file as a pause;
+   - slice 3 of the pause: re-run when a corrected file arrives, a corrected file replacing a fill on its own (Q-62,
+     changed by Q-183: every correction waits for a decision), and a refused file as a pause (Q-109, now ADR 0022 slice 2);
    - holds measured in the engine rather than claimed by the page (ADR 0009, "left for later");
    - a durable engine, notifications, and decisions by more than one person;
-   - Accept on slots shorter than a day (Q-84).
-5. **Maintainers' open questions:** Q-47 to Q-52, Q-59, Q-65, Q-68 to Q-85, each with the default the code is built on.
+   - Accept on slots shorter than a day (Q-84, now decided: ADR 0022 slice 4).
+5. **Maintainers' open questions:** answered on 2026-11-14 (ADR 0022, docs/OPEN_QUESTIONS.md); still open: Q-34, Q-41,
+   Q-75 and Q-133.
 
 ## The decisions, and where they are written
 
