@@ -762,3 +762,74 @@ describe('an audit bag with a new level accepted (ADR 0009 amendment 1 S6, C6)',
     expect(out).toMatchObject({ outcome: 'refused', why: 'accept the new level needs a reason' });
   });
 });
+
+describe('an audit bag with days restated under rules changed since (ADR 0021 §5, ADR 0022 §1)', () => {
+  /** Wed published, Thu held on its checks; both run again under a change set that lets every row drop (the check made
+   * looser), recorded as the app records a restated run: Wed comes out the same, Thu would pass. */
+  async function restating() {
+    const s = await holdingRecord();
+    const wed = await day(s, '2024-01-31', '2024-01');
+    const thu = await day(s, '2024-02-01', '2024-02');
+    const looser: FlowDocument = { ...s.doc, steps: s.doc.steps.map((st) => (st.id === 'trips_valid' && st.kind === 'expectations' ? { ...st, maxDropped: 1 } : st)) };
+    const again = async (got: { r: RunResult }, date: string, month: '2024-01' | '2024-02', more: Record<string, JSONValue> = {}) => {
+      const r = await runFlow(s.db, looser, { smaltdb: SMALTDB, parameters: { month, day: date }, log: s.rec.head(), restates: { of: got.r.hash, changes: ['looser'] } });
+      const plan = JSON.parse(String(s.db.query('SELECT plan FROM _smaltfl_plans WHERE hash = ?', [r.manifest.plan]).rows[0]![0])) as FlowPlan;
+      const keys = stagedKeys(r.manifest, heldOutputs(plan, r.holds));
+      const about = { day: date, inputs: inputsOf(r.manifest), restates: r.manifest.restates, holds: r.holds, waiting: r.waiting, keys, outcome: 'restated', ...more } as unknown as Record<string, JSONValue>;
+      return { r, entry: await keepRun(s.rec, s.db, r.manifest, r.hash, r.run, about) };
+    };
+    const wedAgain = await again(wed, '2024-01-31', '2024-01');
+    const thuAgain = await again(thu, '2024-02-01', '2024-02');
+    expect(thuAgain.r.holds.map((h) => h.by)).toEqual(['restated']);
+    return { ...s, wed, thu, wedAgain, thuAgain, again };
+  }
+  const restate = (s: { rec: FlowRecord }, about: Record<string, unknown>, as = 'owner', reason: string | null = 'The check was too tight for February') =>
+    s.rec.append('restate', as, { changes: ['looser'], from: '2024-01-31', days: [], kept: [], same: [], ...about } as unknown as JSONValue, reason);
+
+  it('holds: each restated run checked as a held run is, and the restatement that restates Thu and notes Wed', async () => {
+    const s = await restating();
+    const e = await restate(s, { days: [{ day: '2024-02-01', manifest: s.thuAgain.r.hash, passes: true }], same: [{ day: '2024-01-31', manifest: s.wedAgain.r.hash }] });
+    const report = await auditBag(await pausedBag(s), s.rec.latest());
+    expect(failed(report)).toEqual([]);
+    const lines = report.lines.map((l) => l.what);
+    expect(lines).toContainEqual(expect.stringMatching(new RegExp(`^run ${s.thuAgain.r.run} \\(#${s.thuAgain.entry.seq}\\): manifest [0-9a-f]{16}… holds, with its plan and flow document; read no files; held by run \\(run again under rules changed since: it waits for a restatement\\), 2 outputs waiting; run again under looser, restating run ${s.thu.r.hash.slice(0, 16)}…$`)));
+    expect(lines).toContainEqual(`restatement #${e.seq}: under looser from 2024-01-31, by owner: restated 2024-02-01 (published); noted 1 day as the same`);
+  });
+
+  it('takes a sign-off of days the same, with its reason, and says one without a reason was noted at once before ADR 0022', async () => {
+    const s = await restating();
+    const signed = await restate(s, { same: [{ day: '2024-01-31', manifest: s.wedAgain.r.hash }] }, 'owner', 'Same under the looser check');
+    const noted = await restate(s, { same: [{ day: '2024-01-31', manifest: s.wedAgain.r.hash }] }, 'owner', null);
+    const report = await auditBag(await pausedBag(s), s.rec.latest());
+    expect(failed(report)).toEqual([]);
+    const lines = report.lines.map((l) => l.what);
+    expect(lines).toContainEqual(`restatement #${signed.seq}: under looser from 2024-01-31, by owner: signed off 1 day as the same`);
+    expect(lines).toContainEqual(`restatement #${noted.seq}: under looser from 2024-01-31, by owner: noted at once (before ADR 0022 made a sign-off need a reason) 1 day as the same`);
+  });
+
+  it('fails a restatement that files a day against its outcome, says the wrong outcome, names a run that isn’t restated, has no reason, or whose actor may not publish', async () => {
+    const s = await restating();
+    const wrongPlace = await restate(s, { days: [{ day: '2024-01-31', manifest: s.wedAgain.r.hash, passes: true }], same: [{ day: '2024-02-01', manifest: s.thuAgain.r.hash }] });
+    const wrongPasses = await restate(s, { days: [{ day: '2024-02-01', manifest: s.thuAgain.r.hash, passes: false }] });
+    const notRestated = await restate(s, { days: [{ day: '2024-02-01', manifest: s.thu.r.hash, passes: true }] });
+    const noReason = await restate(s, { days: [{ day: '2024-02-01', manifest: s.thuAgain.r.hash, passes: true }] }, 'owner', null);
+    const ana = await restate(s, { days: [{ day: '2024-02-01', manifest: s.thuAgain.r.hash, passes: true }] }, 'ana');
+    const f = failed(await auditBag(await pausedBag(s), s.rec.latest()));
+    expect(f).toEqual([
+      `restatement #${wrongPlace.seq}: under looser from 2024-01-31, by owner: restated 2024-01-31 (published); noted 1 day as the same: 2024-01-31 comes out the same, and it restates it; 2024-02-01 would change, and it notes it as the same`,
+      `restatement #${wrongPasses.seq}: under looser from 2024-01-31, by owner: restated 2024-02-01 (held): it says readers get 2024-02-01's restated run held, and it comes out published`,
+      `restatement #${notRestated.seq}: under looser from 2024-01-31, by owner: restated 2024-02-01 (published): it restates 2024-02-01 by run ${s.thu.r.hash.slice(0, 16)}…, which the record doesn't hold before it as a restated run; its runs' flow document isn't in the bag, so who may restate can't be checked`,
+      `restatement #${noReason.seq}: under looser from 2024-01-31, by owner: restated 2024-02-01 (published): it restates or keeps days without a reason`,
+      `restatement #${ana.seq}: under looser from 2024-01-31, by ana: restated 2024-02-01 (published): ana may not restate days: only Owner may publish a held day as is`,
+    ]);
+  });
+
+  it('fails a restated run whose entry names no restated hold, or another run it restates than its manifest', async () => {
+    const s = await restating();
+    const bare = await s.again(s.thu, '2024-02-01', '2024-02', { holds: [], restates: { of: s.wed.r.hash, changes: ['looser'] } });
+    const f = failed(await auditBag(await pausedBag(s), s.rec.latest()));
+    expect(f).toHaveLength(1);
+    expect(f[0]).toMatch(new RegExp(`^run ${bare.r.run} \\(#${bare.entry.seq}\\): it was held, and names nothing that held it`));
+    expect(f[0]).toContain("the run it restates and the change sets its entry names aren't its manifest's; it names no restated hold on every output");
+  });
+});
