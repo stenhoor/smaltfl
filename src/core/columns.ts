@@ -171,7 +171,7 @@ export interface ColumnMap {
 }
 
 /** A file's columns against its source's (ADR 0022 §2). */
-export interface ColumnChange {
+export interface HeaderChange {
   /** Declared columns the file lacks, but those a mapping reads. */
   gone: string[];
   /** The file's columns nothing declares, but those a mapping reads. */
@@ -181,7 +181,7 @@ export interface ColumnChange {
 }
 
 /** Whether a file's columns hold its day (Q-109, Q-204): a declared column is gone, or would be read from a new one. */
-export const columnsHold = (c: ColumnChange): boolean => c.gone.length > 0 || c.maps.length > 0;
+export const columnsHold = (c: HeaderChange): boolean => c.gone.length > 0 || c.maps.length > 0;
 
 /** Most of a new column's values, seen in a gone column's history, make it that column (Q-203). */
 export const MAP_SHARE = 0.5;
@@ -196,7 +196,7 @@ export function columnChange(
   declared: readonly (readonly [string, string])[],
   header: readonly string[],
   evidence: { history?: (column: string) => readonly string[] | undefined; today?: (column: string) => readonly (string | null)[] } = {},
-): ColumnChange {
+): HeaderChange {
   const has = new Set(header.map((h) => h.toLowerCase()));
   const named = new Set(declared.map(([n]) => n.toLowerCase()));
   const gone = declared.filter(([n]) => !has.has(n.toLowerCase()));
@@ -250,7 +250,7 @@ export function mapWhy(m: ColumnMap): string {
  * name and type)"; a gone column nothing stands for, "region is gone"; a new one that stands for nothing it can tell,
  * "can't tell why zone_ref is new"; nothing gone, "a new column: notes". Empty when nothing changed.
  */
-export function columnChangeSaid(c: ColumnChange): string {
+export function columnChangeSaid(c: HeaderChange): string {
   const parts: string[] = [];
   for (const m of c.maps) parts.push(`${m.to} is gone and ${m.from} is new: ${m.from} looks like ${m.to} (${mapWhy(m)})`);
   if (c.gone.length) parts.push(`${list(c.gone)} ${c.gone.length === 1 ? 'is' : 'are'} gone`);

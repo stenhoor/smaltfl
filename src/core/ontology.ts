@@ -81,6 +81,10 @@ export interface PropertyType {
   /** A value never seen before in this column is something wrong: a new country, a new tool (ADR 0010 §4, Q-56). It
    * changes verdicts: format 3. */
   newValues?: 'alert';
+  /** The name the file gives this column now, where it isn't `column` (ADR 0022 §2, Q-146, Q-206): the file's column of
+   * that name is read as this one. A file's own (`datasets` names the one source), set from a day by a dated change set
+   * (`mapColumn`), and read so by the source's table (`readAsOf`). */
+  fromFile?: string;
   /** Whether the two models read it (modelcols.ts): by default an id or a file's key is left out, as are free text,
    * times and columns with too many values to be a code; `include` reads it whatever it is, `exclude` never. */
   models?: 'include' | 'exclude';
@@ -289,6 +293,19 @@ export const counted = (n: number, noun: Noun): string => `${Math.round(n).toLoc
 export const partNamed = (property: PropertyType | undefined, code: unknown): string | undefined => (property?.name ? property.name.split('{code}').join(String(code)) : undefined);
 
 /** A dataset's column's property type: the one named for that dataset, else the one its name has everywhere. */
+/**
+ * The columns a source reads by another name (ADR 0022 §2, Q-146): each declared column whose own property names the
+ * file's name for it (`fromFile`), as [the file's name, the column], in the columns' order. Its table declares the file's
+ * name, and the run reads the file's column as the declared one.
+ */
+export function readAsOf(ontology: Ontology | undefined, source: string): [string, string][] {
+  const s = source.toLowerCase();
+  return (ontology?.properties ?? [])
+    .filter((p) => p.fromFile !== undefined && p.datasets?.length === 1 && p.datasets[0]!.toLowerCase() === s)
+    .map((p): [string, string] => [p.fromFile!, p.column])
+    .sort((a, b) => a[1].localeCompare(b[1]));
+}
+
 export function propertyOf(ontology: Ontology | undefined, dataset: string, column: string): PropertyType | undefined {
   const c = column.toLowerCase();
   const d = dataset.toLowerCase();

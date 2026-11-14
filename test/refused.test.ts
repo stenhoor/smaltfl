@@ -15,7 +15,8 @@ import type { FlowDocument } from '../src/core/document.js';
 import { refusedSaid } from '../src/core/hold.js';
 import { utf8 } from '../src/core/hash.js';
 import { expandNotebooks } from '../src/core/notebook.js';
-import { pinFile, releaseRun, runFlow, verifyRun } from '../src/index.js';
+import { forDay, pinFile, releaseRun, runFlow, validateDocument, verifyRun } from '../src/index.js';
+import { readAsOf } from '../src/core/ontology.js';
 import { SMALTDB } from './helpers/engine.js';
 import { ts } from './helpers/notebooks.js';
 
@@ -147,6 +148,87 @@ describe('a refused file under a gate', () => {
       expect(r.published).toEqual(['posture']);
       expect(r.manifest.nodes.find((n) => n.origin === 'tls')).toMatchObject({ status: 'built', columns: { gone: [], added: ['notes'], maps: [] } });
       expect((await verifyRun(db, r.run, { smaltdb: SMALTDB, level: 'rerun', manifest: r.hash })).ok).toBe(true);
+    } finally {
+      db.close();
+    }
+  });
+});
+
+describe('a column the file names otherwise, mapped (ADR 0022 §2, Q-146, Q-206)', () => {
+  const mapped = (doc: FlowDocument): FlowDocument => ({ ...doc, ontology: { objectTypes: [], linkTypes: [], actionTypes: [], properties: [{ column: 'status', title: 'Status', description: '', fromFile: 'state', datasets: ['tls'] }] } });
+  async function mappedSetup(tlsCsv: string, readAs: [string, string][]) {
+    const db = Database.openMemory({ plugins: [io, external, smaltfl] });
+    db.exec("CREATE TABLE apps_file(app_id TEXT, business_unit TEXT); INSERT INTO apps_file VALUES ('a1','Payments'),('a2','Retail')");
+    await pinFile(db, 'tls.csv', utf8(tlsCsv));
+    await db.execAsync(pinnedDdl(TLS, readAs));
+    return db;
+  }
+  const content = (r: Awaited<ReturnType<typeof runFlow>>) => r.manifest.nodes.find((n) => n.origin === 'tls')!.content;
+
+  it('reads the file’s state as status: published, the same content the old name gave', async () => {
+    const doc = mapped(await expandNotebooks(flow(false), ts));
+    expect(validateDocument(doc)).toEqual([]);
+    const readAs = readAsOf(doc.ontology, 'tls');
+    expect(readAs).toEqual([['state', 'status']]);
+    expect(pinnedDdl(TLS, readAs)).toBe("CREATE EXTERNAL TABLE tls_file(app_id TEXT, state TEXT, protocol TEXT) WITH (location = 'smaltfl:tls.csv', format = 'csv', header = true)");
+    // Pins are shared by every engine in this process: each run reads its file before the next is pinned.
+    const db = await mappedSetup('app_id,state,protocol\na1,pass,TLS1.3\na2,fail,TLS1.0\n', readAs);
+    try {
+      const r = await runFlow(db, doc, { smaltdb: SMALTDB, parameters: { day: '2024-03-01' } });
+      expect(r.holds.map((h) => h.said)).toEqual([]);
+      expect(r.published).toEqual(['posture']);
+      expect(db.query('SELECT app_id, tls FROM posture ORDER BY app_id').rows).toEqual([['a1', 'pass'], ['a2', 'fail']]);
+      expect(r.manifest.nodes.find((n) => n.origin === 'tls')!.columns).toBeUndefined();
+      expect((await verifyRun(db, r.run, { smaltdb: SMALTDB, level: 'rerun', manifest: r.hash })).ok).toBe(true);
+      const old = await setup('app_id,status,protocol\na1,pass,TLS1.3\na2,fail,TLS1.0\n');
+      try {
+        const before = await runFlow(old, await expandNotebooks(flow(false), ts), { smaltdb: SMALTDB, parameters: { day: '2024-03-01' } });
+        expect(content(r)).toBe(content(before));
+      } finally {
+        old.close();
+      }
+    } finally {
+      db.close();
+    }
+  });
+
+  it('maps from the day it is in force on, as a dated change set: a day before it reads the old name', async () => {
+    const base = await expandNotebooks(flow(false), ts);
+    const doc: FlowDocument = { ...base, changes: [{ id: 'map-state', from: '2024-03-02', recorded: '2024-03-02T09:00:00Z', by: 'owner', why: 'The TLS export renamed status', edits: [{ op: 'mapColumn', file: 'tls', column: 'status', from: 'state' }] }] };
+    expect(validateDocument(doc)).toEqual([]);
+    const fri = forDay(doc, { day: '2024-03-01' });
+    const sat = forDay(doc, { day: '2024-03-02' });
+    expect(readAsOf(fri.ontology, 'tls')).toEqual([]);
+    expect(readAsOf(sat.ontology, 'tls')).toEqual([['state', 'status']]);
+    // Pins are shared by every engine in this process: each run reads its file before the next is pinned.
+    const db1 = await mappedSetup('app_id,status,protocol\na1,pass,TLS1.3\n', readAsOf(fri.ontology, 'tls'));
+    const r1 = await runFlow(db1, doc, { smaltdb: SMALTDB, parameters: { day: '2024-03-01' } });
+    const db2 = await mappedSetup('app_id,state,protocol\na1,pass,TLS1.3\n', readAsOf(sat.ontology, 'tls'));
+    try {
+      const r2 = await runFlow(db2, doc, { smaltdb: SMALTDB, parameters: { day: '2024-03-02' } });
+      expect([r1.holds, r2.holds]).toEqual([[], []]);
+      expect(r2.published).toEqual(['posture']);
+      expect(content(r1)).toBe(content(r2));
+      expect(r1.manifest.flow.rules).not.toBe(r2.manifest.flow.rules);
+      // Saturday's file under Friday's rules, a run of no mapping: held, with the mapping it suggests.
+      const db3 = await mappedSetup('app_id,state,protocol\na1,pass,TLS1.3\n', []);
+      try {
+        const r3 = await runFlow(db3, base, { smaltdb: SMALTDB, parameters: { day: '2024-03-02' } });
+        expect(r3.holds.map((h) => h.said)).toEqual(['status is gone and state is new: state looks like status (its name and type)']);
+      } finally {
+        db3.close();
+      }
+    } finally {
+      db1.close();
+      db2.close();
+    }
+  });
+
+  it('refuses a table that declares the column by its own name where the flow reads the file’s other one', async () => {
+    const doc = mapped(await expandNotebooks(flow(false), ts));
+    const db = await mappedSetup('app_id,state,protocol\na1,pass,TLS1.3\n', []);
+    try {
+      await expect(runFlow(db, doc, { smaltdb: SMALTDB, parameters: { day: '2024-03-01' } })).rejects.toThrow(/tls's table declares status, and the flow reads the file's state as status: its table declares state/);
     } finally {
       db.close();
     }

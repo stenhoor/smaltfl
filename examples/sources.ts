@@ -46,8 +46,11 @@ const WORDS = new Set(['time', 'date', 'user', 'order', 'group', 'select', 'from
 const column = (name: string) => (/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) && !WORDS.has(name.toLowerCase()) ? name : `"${name.replace(/"/g, '""')}"`);
 
 /** A binding's external table, reading `location` (its file registered under its name, by default). */
-export function ddlOf(b: Binding, location = `file:${b.file}`): string {
-  const cols = b.columns?.length ? `(${b.columns.map(([n, t]) => `${column(n)} ${t}`).join(', ')})` : '';
+export function ddlOf(b: Binding, location = `file:${b.file}`, readAs: readonly (readonly [string, string])[] = []): string {
+  // A column the file names otherwise (ADR 0022 §2, Q-146): declared by the file's name, which the run reads as the
+  // column (the plan's table node's `readAs`, from the ontology's `readAsOf`).
+  const fileName = (n: string) => readAs.find(([, c]) => c.toLowerCase() === n.toLowerCase())?.[0] ?? n;
+  const cols = b.columns?.length ? `(${b.columns.map(([n, t]) => `${column(fileName(n))} ${t}`).join(', ')})` : '';
   const opts = [`location = '${location.replace(/'/g, "''")}'`, `format = '${b.format}'`, ...(b.header ? ['header = true'] : [])];
   return `CREATE EXTERNAL TABLE ${b.table}${cols} WITH (${opts.join(', ')})`;
 }
@@ -59,7 +62,7 @@ export const sourceOf = (b: Binding): ExampleSource => ({ file: b.file, table: b
  * The same table, read from a file pinned in the engine by the smaltfl plugin (`pin`, ADR 0006 §3): the engine hashes
  * the bytes, refuses a mismatch, and records which file each run read. The app reads its sources this way.
  */
-export const pinnedDdl = (src: ExampleSource | Binding): string => ('ddl' in src ? src.ddl.replace(`'file:${src.file}'`, `'smaltfl:${src.file}'`) : ddlOf(src, `smaltfl:${src.file}`));
+export const pinnedDdl = (src: ExampleSource | Binding, readAs: readonly (readonly [string, string])[] = []): string => ('ddl' in src ? src.ddl.replace(`'file:${src.file}'`, `'smaltfl:${src.file}'`) : ddlOf(src, `smaltfl:${src.file}`, readAs));
 
 /**
  * The donor a fill reads (ADR 0009 amendment 1 S3, C8): another day's file of a source, pinned only when a fill needs

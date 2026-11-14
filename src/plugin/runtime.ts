@@ -42,7 +42,7 @@ import { quoteIdent as q, type ParamValue } from '../core/sqltext.js';
 import type { TableHash } from './dataset-hash.js';
 import { hashTable, sourceColumns } from './dataset-hash.js';
 import { PINNED_PREFIX, pinned, pinnedJSON, pinnedLocation, takeOpened } from './pinned.js';
-import { columnChange, columnChangeSaid, columnsHold, csvColumn, csvHeader, type ColumnChange } from '../core/columns.js';
+import { columnChange, columnChangeSaid, columnsHold, csvColumn, csvHeader, type HeaderChange } from '../core/columns.js';
 import { keepPrepared, pinnedSha, preparedFor } from './prepared.js';
 import { givenTypes, isTypesFile, TYPES_PATH, typesKey } from '../core/typed.js';
 import { isRangesFile, measuredAhead, rangesPath, type MeasuredAhead } from '../core/ranges.js';
@@ -668,7 +668,7 @@ const optionOn = (v: unknown, fallback: boolean): boolean => (v === undefined ||
  * such file, or its header is the declared columns. The engine itself picks declared columns by name only when all are
  * there and reads by place when as many fields are: this is said before it reads anything.
  */
-function headerChange(db: Database, n: TableNode, history: HistoryHeader | null): ColumnChange | null {
+function headerChange(db: Database, n: TableNode, history: HistoryHeader | null): HeaderChange | null {
   const sources = engine(n.origin, () => db.prepare(`SELECT * FROM ${q(n.table)}`).externalSources);
   const s = sources.length === 1 ? sources[0]! : null;
   if (!s || !s.location.startsWith(PINNED_PREFIX) || !s.columns?.length || !/^(csv|tsv)$/i.test(s.format)) return null;
@@ -681,7 +681,14 @@ function headerChange(db: Database, n: TableNode, history: HistoryHeader | null)
   if (Number.isInteger(skip) && skip > 0) text = text.split(/\r?\n/).slice(skip).join('\n');
   const header = csvHeader(text, shape);
   if (!header.length) return null;
-  const change = columnChange(s.columns.map((c) => [c.name, c.declType] as const), header, { history: (col) => history?.values?.[col]?.values, today: (col) => csvColumn(text, col, shape) });
+  // A mapped column (ADR 0022 §2): its table declares the file's name, or it would be read by its place.
+  for (const [file, column] of n.readAs ?? []) {
+    const named = new Set(s.columns.map((c) => c.name.toLowerCase()));
+    if (!named.has(file.toLowerCase())) throw new RunError(`${n.origin}'s table declares ${named.has(column.toLowerCase()) ? column : 'neither name'}, and the flow reads the file's ${file} as ${column}: its table declares ${file}`, n.origin);
+  }
+  // The gone column's history is kept under its own name, the one the flow reads.
+  const asRead = (col: string) => (n.readAs ?? []).find(([file]) => file.toLowerCase() === col.toLowerCase())?.[1] ?? col;
+  const change = columnChange(s.columns.map((c) => [c.name, c.declType] as const), header, { history: (col) => history?.values?.[asRead(col)]?.values, today: (col) => csvColumn(text, col, shape) });
   return change.gone.length || change.added.length || change.maps.length ? change : null;
 }
 
@@ -693,8 +700,11 @@ function headerChange(db: Database, n: TableNode, history: HistoryHeader | null)
  */
 async function snapshot(db: Database, n: TableNode, env: KeyEnv): Promise<Snapshot> {
   const st = describe(db, `SELECT * FROM ${q(n.table)}`, n.origin);
-  // An external table's columns read as untyped (`any`) even when declared: take the declared types where it has them.
-  const schema = engine(n.origin, () => sourceColumns(db, n.table, db.prepare(`SELECT * FROM ${q(n.table)}`))) as Column[];
+  // An external table's columns read as untyped (`any`) even when declared: take the declared types where it has them. A
+  // column the file names otherwise (ADR 0022 §2, Q-146): the table declares the file's name, and the snapshot calls it
+  // as the source declares it. The copy goes by place, so only the stage's names change.
+  const renamed = new Map((n.readAs ?? []).map(([file, column]) => [file.toLowerCase(), column]));
+  const schema = (engine(n.origin, () => sourceColumns(db, n.table, db.prepare(`SELECT * FROM ${q(n.table)}`))) as Column[]).map(([name, type]): Column => [renamed.get(name.toLowerCase()) ?? name, type]);
   const watched = !st.external && watchable(db, n.table);
   const watch = `_smaltfl_w_${(await sha256Hex(n.table.toLowerCase())).slice(0, 24)}`;
   const last = watched ? lastSnapshot(db, n.table) : null;

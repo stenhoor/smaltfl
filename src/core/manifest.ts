@@ -5,7 +5,7 @@
  *
  * WebCrypto only: ECDSA P-256 with SHA-256. A private key is created non-extractable and never leaves its browser.
  */
-import type { ColumnChange } from './columns.js';
+import type { HeaderChange } from './columns.js';
 import { canonicalJSON } from './canonical.js';
 import { hashOf, hex, unhex, utf8 } from './hash.js';
 import type { KeyEnv } from './keys.js';
@@ -37,7 +37,7 @@ export interface ManifestNode {
   /** A source read from a pinned CSV file whose header isn't the columns its table declares (ADR 0022 §2): what is gone,
    * what is new, and which new column reads as a gone one (Q-203). Refused with anything gone; built and noted with new
    * columns alone (Q-204). Absent when the header is the declared columns. */
-  columns?: ColumnChange;
+  columns?: HeaderChange;
   /** Stored nodes: the content hash and row count of their version. */
   content?: string;
   rows?: number;

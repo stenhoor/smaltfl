@@ -14,7 +14,7 @@ import { emitMatch, emitRuleCheck } from './emit.js';
 import { hashOf } from './hash.js';
 import { dayOf, inForce } from './inforce.js';
 import { CHECK_NAMES, gateChecksOf, hasGates, writtenRules, type GateChecks } from './gates.js';
-import { conditionOf, marksOn, type Ontology } from './ontology.js';
+import { conditionOf, marksOn, readAsOf, type Ontology } from './ontology.js';
 import { enforcedBy, ON_FAIL, type OntologyRule } from './rules.js';
 import type { ParamType, ParamValue } from './sqltext.js';
 import { bindParameters, quoteIdent, SqlTextError, withoutTrailingSemicolons } from './sqltext.js';
@@ -56,6 +56,10 @@ interface NodeBase {
 export interface TableNode extends NodeBase {
   op: 'table';
   table: string;
+  /** Columns the file names otherwise (ADR 0022 §2, Q-146): each [the file's name, the declared column]. The source's
+   * table declares the file's name, and its snapshot calls the column as the source declares it. Only where the
+   * ontology maps one (`readAsOf`), so every other plan hashes as before. */
+  readAs?: [string, string][];
 }
 
 /** A SELECT written by a person, over inputs it names. */
@@ -383,7 +387,8 @@ export async function translate(given: FlowDocument, values: Readonly<Record<str
   const index = new Map<string, number>();
   for (const s of doc.sources) {
     index.set(s.id.toLowerCase(), nodes.length);
-    nodes.push({ op: 'table', origin: s.id, inputs: [], table: s.table });
+    const readAs = readAsOf(doc.ontology, s.id);
+    nodes.push({ op: 'table', origin: s.id, inputs: [], table: s.table, ...(readAs.length ? { readAs } : {}) });
   }
   const outputs: PlanOutput[] = [];
   for (const step of topological(doc.steps)) {
