@@ -1,6 +1,6 @@
 # Status
 
-smaltfl is in early development and not published. This page says what is in, as of 2026-11-13. What is built in
+smaltfl is in early development and not published. This page says what is in, as of 2026-11-14. What is built in
 detail, how to check it and what is left are in [where the work stands](../HANDOFF).
 
 | Piece | What | State |
@@ -15,7 +15,7 @@ detail, how to check it and what is left are in [where the work stands](../HANDO
 | Gates | Bronze, silver and gold checks, bands, due dates, scope, dependency and reconciliation rules, the seal ([ADR 0014](../adr/0014-gates)) | In |
 | The bronze layer and the ontology | What a dataset's rows are, rules people set, shared ontologies, allowed fixes, the models' columns ([ADR 0015](../adr/0015-the-bronze-layer)) | In |
 | The estate as a company | Larkspur: an organisation and its leaders, shared platforms, a conformed silver and a gold data product with contracts, judged against its own answer key; the posture dashboard over it ([ADR 0020](../adr/0020-the-estate-as-a-company)) | In |
-| Time | The month to pick a day from and each day's own screen, over a month the build runs and records; a day opened is run again and checked against its record. Next: a day's versions, corrections and the ontology over time ([ADR 0021](../adr/0021-time)) | In part |
+| Time | The month to pick a day from and each day's own screen, over a month the build runs and records; a day's versions and corrections, compared by summary and by rows; rules that take effect from a day, and back-dated changes restated under one decision. Next: the Ontology view's versions, then what-if runs ([ADR 0021](../adr/0021-time)) | In part |
 | The first load | The first day computed ahead by the build and checked by the page and the run, hash for hash: Larkspur's first day in about 4.5 s ([ADR 0019](../adr/0019-ranges-computed-ahead)) | In |
 | SQL through smaltql | smaltdb runs plans and smaltql reads the SQL smaltfl writes ([ADR 0017](../adr/0017-stenhoors-repositories-at-main)); next, SQL steps bound to plans through smaltql | In part |
 | Publishing to npm | `smaltfl` and `smaltfl/notebook` | After smaltdb 0.9.0 |

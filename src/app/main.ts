@@ -10584,7 +10584,7 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
     // once, on every day, in the rules before any change set.
     ruleBase = ruleParts(nameColumn(withRuleParts(state.doc, ruleBase), f.id, c.name, change).doc);
     resolveDoc(resolvedFor.day, resolvedFor.asOf, true);
-    setStatus(`${said}. Recorded; every day reads it so.`, false);
+    setStatus(`${said}. Recorded; the next run uses it.`, false);
     void flowEdited(said);
     requestCanvas();
     if (state.selected) void renderSheet();

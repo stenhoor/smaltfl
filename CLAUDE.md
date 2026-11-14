@@ -299,6 +299,18 @@ release (smaltty ADR 0030).
   `diffOf`) and emit.ts `emitDiff` (rows by key, counted on each side, cells null-safe, keys matched as text; whole rows
   by `emitExcept`), `test/compare.test.ts`; the day screen's **Compare** (`comparing`, `comparePart`, `rowDiffOf`,
   `rowDiffView`), the month grid's filters (`GridFilter`); `tools/browser/stops/compare.json`, a tour stop's `devices`.
+  Slice 4, first part, the rules over time (Q-197): dated change sets (`FlowDocument.changes`, `ChangeSet`, `RuleEdit`
+  in document.ts); `src/core/inforce.ts` (`applyEdit` replays an edit by the function that made it, `changesOn`,
+  `resolve`/`inForce` the rules in force on a day as known at a moment, `rulesHash` under `rules/1` with its vectors in
+  `test/inforce.test.ts`, `ruleParts`/`withRuleParts`); `translate`/`runFlow` resolve a document for its day (`forDay`,
+  `asOf`), the manifest names `flow.rules` and verify checks it. The app: every rule edit a change set from the day
+  **Edits take effect from** says (`editFrom`, `fromBar`, `editRules`; the next day to arrive by default), names and
+  labels at once (Q-198); `ruleBase`/`ruleChanges`/`baseDoc` kept and recorded, `resolveDoc`/`versionAsOf` the document
+  on screen; the day head's `rulesLine`, the Ontology view's `renderRulesTime`. A back-dated change restates the days it
+  reaches (`restatePending`, `restateSheet`, `restateDays`): restated runs (`RunOptions.restates`, hold `restated`,
+  outcome `restated`), the month's would-change marks, one `restate` entry (`RestateAbout`, `isRestate`,
+  `restatedRuns` in month.ts), noted at once where no day changes (Q-199); a day's versions include its restated ones
+  (`Restated`, `restatedKey`, `restatementOf`); `tools/browser/stops/restate.json`, `rules.json` from the day on screen.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -321,7 +333,9 @@ release (smaltty ADR 0030).
   a day kept like a commit, corrections decided; the ontology effective-dated and hashed to each run; what-if runs. In
   the slices of its §9: slice 1, the two screens and the recorded runs, and slice 2, the recorded story (deliveries,
   Larkspur's `story.json`, a day's versions, corrections decided), and slice 3, flip and compare (the compare summary,
-  row and cell diffs by key), are built (its §"As built"); slice 4, the ontology over time, is next.
+  row and cell diffs by key), are built (its §"As built"); slice 4's first part, the rules over time with back-dating
+  (change sets, the rules-in-force hash, restatement), is built; its second part (the Ontology view's versions, the
+  story's ontology changes) is next.
 
 ## Rules for this repository
 
