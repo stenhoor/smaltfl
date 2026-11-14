@@ -1413,7 +1413,39 @@ export function skipOf(entries: readonly EntryLike[], period?: string | null, so
     if (p.load && source !== undefined && p.load.source.toLowerCase() !== source.toLowerCase()) continue;
     out.add(p.day);
   }
+  for (const day of restatedHeld(entries, period)) out.add(day);
   return [...out].sort();
+}
+
+/**
+ * The days a restatement made held, not published (ADR 0021 §5, ADR 0022 §1): readers got its restated run, which its
+ * new rules held, so the history learns nothing from them, as from any day held and not published. A later run of the
+ * day that published (a correction published as it ran, or released) brings it back. In order.
+ */
+function restatedHeld(entries: readonly EntryLike[], period?: string | null): string[] {
+  const held = new Map<string, number>();
+  for (const e of entries) {
+    const a = e.about as JSONValue;
+    if (e.kind === 'restate' && isRecord(a) && Array.isArray(a.days)) {
+      // A later restatement that publishes the day brings it back too.
+      for (const d of a.days) if (isRecord(d) && typeof d.day === 'string') d.passes === false ? held.set(d.day, e.seq) : held.delete(d.day);
+    }
+  }
+  if (held.size === 0) return [];
+  // The day of each run that published, by manifest, and when.
+  const days = new Map<string, string>();
+  for (const e of entries) {
+    const a = e.about as JSONValue;
+    if (e.kind === 'run' && isRecord(a) && typeof a.manifest === 'string') {
+      const day = dayOf(a, period);
+      if (day !== null) days.set(a.manifest, day);
+      if (a.outcome === 'ok' && day !== null && (held.get(day) ?? Infinity) < e.seq) held.delete(day);
+    } else if (e.kind === 'release' && isRecord(a) && a.outcome === 'applied' && typeof a.manifest === 'string') {
+      const day = days.get(a.manifest);
+      if (day !== undefined && (held.get(day) ?? Infinity) < e.seq) held.delete(day);
+    }
+  }
+  return [...held.keys()].sort();
 }
 
 /**

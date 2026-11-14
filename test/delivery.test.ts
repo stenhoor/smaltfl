@@ -65,3 +65,25 @@ describe('a later delivery of a day in the record', () => {
     expect(skipOf([first, ...kept, again, published, released], 'day')).toEqual([]);
   });
 });
+
+describe('a day a restatement made held, not published (ADR 0022 §1)', () => {
+  it('is left out of learning, until a later run of the day publishes or a later restatement does', () => {
+    seq = 0;
+    const day = '2024-03-16';
+    const at = (auth: string) => ({ flow: 'f'.repeat(64), parameters: { day }, files: { auth } });
+    // Published as it ran, then run again under a back-dated change that holds it.
+    const first = entry('run', { run: 1, manifest: 'm1', outcome: 'ok', day, inputs: at('a'.repeat(64)) });
+    const restated = entry('run', { run: 2, manifest: 'm2', outcome: 'restated', day, inputs: at('a'.repeat(64)), restates: { of: 'm1', changes: ['values-hold'] } });
+    const notPublished = entry('restate', { changes: ['values-hold'], from: '2024-03-01', days: [{ day, manifest: 'm2', passes: false }], kept: [], same: [] }, 'The scanner didn’t log in');
+    expect(skipOf([first, restated], 'day')).toEqual([]);
+    expect(skipOf([first, restated, notPublished], 'day')).toEqual([day]);
+    // A later delivery of the day that published brings it back.
+    const corrected = entry('run', { run: 3, manifest: 'm3', outcome: 'ok', day, inputs: at('b'.repeat(64)), correction: { of: 'm2', sources: ['auth'] } });
+    expect(skipOf([first, restated, notPublished, corrected], 'day')).toEqual([]);
+    // So does a later restatement that publishes it; a day it restated as passing was never left out.
+    const again = entry('restate', { changes: ['values-hold', 'values-warn'], from: '2024-03-01', days: [{ day, manifest: 'm4', passes: true }], kept: [], same: [] }, 'Back to warn');
+    expect(skipOf([first, restated, notPublished, again], 'day')).toEqual([]);
+    // A run of the day published before the restatement doesn't.
+    expect(skipOf([first, restated, notPublished].map((e, i) => ({ ...e, seq: i })), 'day')).toEqual([day]);
+  });
+});
