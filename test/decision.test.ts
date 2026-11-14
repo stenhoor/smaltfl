@@ -223,10 +223,12 @@ describe('the decision sheet’s words (ADR 0009 §12: 45 at a glance)', () => {
     expect(sheetWords(sheetText({ ...thu, day: '2022-11-14', rows: 82_278, readers: { day: '2022-11-12', rows: 130_944 }, usual: { low: 105_000, high: 129_000 }, otherBuild: true, checks: { share: 0.4567, limit: 0.1 }, part: 'Vendor 1 · 2', missing: null, cut: null, ticks: ['0', '131k'], offers: crowded.options.length ? [{ option: 'fill', label: 'Fill from Mon 7' }, { option: 'complete', label: 'Without Vendor 1' }, { option: 'accept', label: 'Accept the new level' }] : [], donors: [{ day: '2022-11-07', counts: { arrived: 82_278, setAside: 2, taken: 32_587, total: 114_863 } }], partOnly: { arrived: 82_278, setAside: 2, taken: 0, total: 82_276 }, noFlag: true }))).toBeLessThanOrEqual(45);
   });
 
-  it('can’t publish a day a later one has passed, and stays within 45 words at its wordiest', () => {
+  it('publishes a day a later one has passed for itself, readers staying on the later day, and stays within 45 words at its wordiest', () => {
     const t = sheetText({ ...thu, later: '2023-09-25', otherBuild: true, waited: 3000 });
-    // Off, with its reason (round 3, #19): a later day is already out; the page draws a lock in its mark's place.
-    expect(t.options[0]).toMatchObject({ number: 'Mon 25 already out', off: true, sub: null, warn: null });
+    // Q-51 (ADR 0022 §1): never off; the day keeps its version, and readers stay on Mon 25, said in the option's line.
+    expect(t.options[0]).toMatchObject({ off: false, sub: 'readers stay on Mon 25' });
+    expect(t.options[0]!.number).toBe(sheetText(thu).options[0]!.number);
+    expect(t.options[0]!.aria).toMatch(/^Publish as is: the day keeps .*; readers stay on Mon Sep 25, the latest day out$/);
     expect(t.status).toBe('Other build’s decision');
     expect(sheetWords(t)).toBeLessThanOrEqual(45);
     const fri = sheetText({ ...thu, day: '2023-09-22', checks: { share: 0.4567, limit: 0.1 }, part: 'Flex Fare · 4,613', missing: null, cut: null, ticks: ['0', '115k'], readers: { day: '2023-09-18', rows: 89_571 }, otherBuild: true });
@@ -251,6 +253,9 @@ describe('the decision sheet’s words (ADR 0009 §12: 45 at a glance)', () => {
       .toEqual({ head: 'Published as is · readers now see Thu 21', sub: '3 outputs released · Owner · 10:32 · record #21', change: null, note: 'Can’t be recalled' });
     // The reason it recorded, where it was given (round 3, #28); a day not published says its own, if one was picked.
     expect(receiptLines({ state: 'asis', day: '2023-09-21', readers: '2023-09-21', released: 3, who: 'Owner', at: 'today 10:32', seq: 21, under: null, standing: false, reason: 'Real change' }).sub).toBe('Why: Real change · 3 outputs released · Owner · today 10:32 · record #21');
+    // A past day published once a later one is out (Q-51, ADR 0022 §1): readers stay on the later day, said so.
+    expect(receiptLines({ state: 'asis', day: '2023-09-21', readers: '2023-09-25', released: 3, who: 'Owner', at: '10:32', seq: 21, under: null, standing: false, latest: '2023-09-25' }).head).toBe('Published as is · readers stay on Mon 25');
+    expect(receiptLines({ state: 'fill', day: '2023-09-21', readers: '2023-09-25', past: true, released: 2, who: 'Owner', at: '10:32', seq: 21, under: null, standing: false, latest: '2023-09-25', remedy: { option: 'fill', donor: '2023-09-14', filled: 77_000, setAside: null } as never }).head).toMatch(/ · readers stay on Mon 25$/);
     expect(receiptLines({ state: 'dont', day: '2023-09-22', readers: '2023-09-21', released: 0, who: 'Owner', at: 'today 10:33', seq: 26, under: null, standing: false, reason: 'Known outage' }).sub).toBe('Why: Known outage · Owner · today 10:33 · record #26');
     expect(receiptLines({ state: 'dont', day: '2023-09-22', readers: '2023-09-21', released: 0, who: 'Owner', at: '10:33', seq: 26, under: null, standing: true }))
       .toEqual({ head: 'Not published · readers keep Thu 21 until a later day publishes', sub: 'Owner · 10:33 · record #26', change: 'Change decision' });
@@ -408,6 +413,9 @@ describe('the cause card’s pause row, the day after an episode, and the record
     // A day that passed once days were held: readers now see it, and a standing decision ends with it.
     expect(passedLine('2023-09-25', 26)).toBe('Mon Sep 25 passed: published; readers now see Mon 25 · ends #26');
     expect(passedLine('2022-09-19', null)).toBe('Mon Sep 19 passed: published; readers now see Mon 19');
+    // An earlier day passing once a later one is out: published for itself, readers staying on the later day (Q-51).
+    expect(passedLine('2023-09-22', null, '2023-09-25')).toBe('Fri Sep 22 passed: published; readers stay on Mon 25');
+    expect(passedLine('2023-09-25', null, '2023-09-25')).toBe('Mon Sep 25 passed: published; readers now see Mon 25');
   });
 
   it('says a run on the status line in one day sentence for every viewer, of what they may see', () => {
@@ -585,11 +593,15 @@ describe('the remedies on the sheet (ADR 0009 amendment 1 S12)', () => {
     expect(passes.options.find((o) => o.option === 'complete')).toMatchObject({ fails: false });
   });
 
-  it('draws a fill off when no good day is near or a later day is published, and offers no switch then', () => {
+  it('draws a fill off when no good day is near; with a later day published, keeps every option and offers no switch (Q-51)', () => {
     const none = sheetText({ ...thu, offers: [{ option: 'fill', label: 'Fill', off: 'No good day near' }, { option: 'complete', label: 'Before 13:00 only' }], donors: [] });
     expect(none.options[2]).toMatchObject({ label: 'Fill', number: 'No good day near', off: true });
-    const later = sheetText({ ...thu, later: '2023-09-25', offers: [{ option: 'fill', label: 'Fill from Thu 14', off: 'Mon 25 is published' }, { option: 'complete', label: 'Before 13:00 only', off: 'Mon 25 is published' }] });
-    expect(later.options.map((o) => o.off)).toEqual([true, false, true, true]);
+    const later = sheetText({ ...thu, later: '2023-09-25', offers: [{ option: 'fill', label: 'Fill from Thu 14' }, { option: 'complete', label: 'Before 13:00 only' }] });
+    expect(later.options.map((o) => o.off)).toEqual([false, false, false, false]);
+    // A later day out further on, the day after this one not yet (a month replayed after a later one ran): the switch
+    // stays, the days between standing under the decision (Q-51).
+    expect(sheetText({ ...thu, later: '2023-09-25', nextOut: false }).switch).toBe('Later days too');
+    expect(sheetText({ ...thu, later: '2023-09-25', nextOut: true }).switch).toBeNull();
     expect(later.switch).toBeNull();
     expect(sheetWords(later)).toBeLessThanOrEqual(45);
   });

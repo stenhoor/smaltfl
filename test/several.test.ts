@@ -197,9 +197,13 @@ describe('two watched sources, each with its own cadence (I16, Q-55)', () => {
       expect(said(e)).toEqual([['checks', 'auth_valid', 'auth 2024-09-10', b.run]]);
       expect(await release(e, held, [decision])).toMatchObject({ outcome: 'applied', published: held });
 
-      // The 06–12 slot published as is now would move edr's outputs back past the 12–18 and 18–24 slots: refused.
+      // The 06–12 slot published as is now decides that slot alone (Q-51, ADR 0022 §1): edr's outputs kept as its own,
+      // readers staying on the 18–24 slot.
       const gap = loadOf(c, 'edr');
-      expect((await release(c, ['edr_actions'], [{ load: gap, option: 'asis', actor: 'owner', reason: 'Collector restarted', decision: LEAF }])).why).toMatch(/^a later load is current for edr_actions \(run \d+\): a release never moves a name back$/);
+      const shown = db.query("SELECT key, run FROM _smaltfl_datasets WHERE name = 'edr_actions'").rows[0];
+      expect(await release(c, ['edr_actions'], [{ load: gap, option: 'asis', actor: 'owner', reason: 'Collector restarted', decision: LEAF }])).toMatchObject({ outcome: 'applied', published: ['edr_actions'], behind: ['edr_actions'] });
+      expect(db.query("SELECT key, run FROM _smaltfl_datasets WHERE name = 'edr_actions'").rows[0]).toEqual(shown);
+      expect(db.query("SELECT run FROM _smaltfl_days WHERE name = 'edr_actions' AND day LIKE '%2024-09-10T06%'").rows).toEqual([[c.run]]);
       // A decision about a load the run didn't read; none at all; a name that waits for another load.
       expect((await release(e, held, [{ ...decision, load: gap }])).why).toBe(`run ${e.run} didn't read edr's 2024-09-10T06 load (${gap.sha256.slice(0, 16)}…): a decision is applied to a run that read its load`);
       expect((await releaseRun(db, { run: e.run, manifest: e.hash, keys: keysOf(e, held), option: 'asis', actor: 'owner', reason: 'x', decision: LEAF })).why).toBe(`run ${e.run} watches several sources: a release of it names the decisions it applies, one a load (loads)`);

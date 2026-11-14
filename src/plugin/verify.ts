@@ -37,7 +37,7 @@ import { rulesHash } from '../core/inforce.js';
 import { manifestHash, ontologyHash, planHash, policiesHash } from '../core/manifest.js';
 import { shapeOf } from '../core/optimize.js';
 import type { FlowPlan } from '../core/plan.js';
-import { flowHash, translate, validatePlan } from '../core/plan.js';
+import { dayKeyOf, flowHash, periodsOf, translate, validatePlan } from '../core/plan.js';
 import type { VerifyCheck, VerifyLevel, VerifyOptions, VerifyResult } from '../core/protocol.js';
 import type { ParamValue } from '../core/sqltext.js';
 import { quoteIdent as q } from '../core/sqltext.js';
@@ -45,7 +45,7 @@ import { hashTable } from './dataset-hash.js';
 import { PINNED_PREFIX, pinned, pinnedLocation, takeOpened } from './pinned.js';
 import { donorRead } from './release.js';
 import { aborted, countContract, countExpectations, countGate, engineVersion, RunError } from './runtime.js';
-import { carriedFrom, readBefore, currentOf, datasetView, derivedOf, ensureStore, findVersion, holdsOfRun, measuresOfRun, releasesOf, repairsOf } from './store.js';
+import { carriedFrom, readBefore, currentOf, datasetView, dayVersionOf, derivedOf, ensureStore, findVersion, holdsOfRun, measuresOfRun, releasesOf, repairsOf } from './store.js';
 
 type Json = Parameters<typeof canonicalJSON>[0];
 const same = (a: unknown, b: unknown) => canonicalJSON(a as Json) === canonicalJSON(b as Json);
@@ -158,10 +158,21 @@ export async function verifyRun(db: Database, runId: number, options: VerifyOpti
     check({ node: m.node, origin: m.origin, check: 'stored', ok: h.content === m.content && h.rows === m.rows, expected: m.content, actual: h.content });
   }
 
-  // Published: the names this run made current still show its versions, through the view the runtime writes.
+  // Published: the names this run made current still show its versions, through the view the runtime writes; where
+  // readers stayed on a later day, its day's versions (Q-51, ADR 0022 §1), what the day's own screen shows.
+  const day = dayKeyOf(manifest.parameters, periodsOf(plan.publish));
   for (const o of plan.outputs) {
     const named = db.query('SELECT key, run FROM _smaltfl_datasets WHERE name = ?', [o.name]).rows[0];
-    if (!named || Number(named[1]) !== runId) continue; // a later run made it current since
+    if (!named || Number(named[1]) !== runId) {
+      const own = day === null ? null : dayVersionOf(db, o.name, day);
+      if (!own || own.run !== runId) continue; // a later run made it current since, or its day's
+      const rec = manifest.outputs[o.name]!;
+      const notes: string[] = [];
+      if (own.key !== rec.key) notes.push("its day's version is another");
+      if (!findVersion(db, rec.key)) notes.push('its version is no longer stored');
+      check({ node: o.node, origin: o.name, check: 'published', ok: notes.length === 0, expected: rec.key, actual: own.key, note: notes.length ? notes.join('; ') : `kept as ${day}'s version; readers stay on a later day` });
+      continue;
+    }
     const rec = manifest.outputs[o.name]!;
     const v = findVersion(db, rec.key);
     const view = db.query("SELECT sql FROM sqlite_schema WHERE type = 'view' AND lower(name) = lower(?)", [o.name]).rows[0];
@@ -224,6 +235,13 @@ export async function verifyRun(db: Database, runId: number, options: VerifyOpti
       const staged = manifest.outputs[o.name];
       if (!staged) continue;
       const key = staged.key;
+      // Kept as its day's version while readers stay on a later day (Q-51): only by a release.
+      const own = day === null ? null : dayVersionOf(db, o.name, day);
+      if (own && own.run === runId && own.key === key && named?.run !== runId) {
+        const rel = releases.find((x) => x.names[o.name] === key && x.manifest === String(row[1]) && /^[0-9a-f]{64}$/.test(x.decision ?? ''));
+        check({ node: o.node, origin: o.name, check: 'held', ok: !!rel, expected: key, actual: own.key, note: rel ? `released for ${day} by release ${rel.id}, citing the decision ${rel.decision!.slice(0, 16)}…` : `run ${runId} held it, and it is kept as ${day}'s version with no release` });
+        continue;
+      }
       if (!named) continue; // still staged: nothing to check
       if (named.run !== runId) {
         if (named.key !== key) continue; // another version: still staged

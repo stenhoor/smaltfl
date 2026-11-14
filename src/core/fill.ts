@@ -323,7 +323,8 @@ export interface OfferInput {
   donors: readonly Pick<DonorPick, 'day'>[];
   /** Watched sources holding the day (fills are for one at a time). */
   holding?: number;
-  /** A later day readers have now: a fill or the part that arrived would move the names back past it. */
+  /** A later day readers have now: a fill, the part that arrived or a new level is the day's own, readers staying on the
+   * later day (Q-51, ADR 0022 §1). Kept for the callers; no offer goes off for it. */
   later?: string | null;
   /** The part that arrived fails the checks (its derived run's checks tripped, or the held run's did on it). */
   partFails?: boolean;
@@ -342,24 +343,24 @@ export interface OfferInput {
 
 /**
  * The remedies a held day gets (S5), in C2's order: a fill (off with "No good day near" when no donor qualifies), the
- * part that arrived alone (marked "fails its checks" when it does, Q-67), each off while a later day is current; and,
- * once readers have a fill or the part alone, its withdrawal (Q-61). None when the source has no fill step or nothing
- * is missing. Publish as is and don't publish are the sheet's own, as in slice 1.
+ * part that arrived alone (marked "fails its checks" when it does, Q-67); and, once readers have a fill or the part
+ * alone, its withdrawal (Q-61). None when the source has no fill step or nothing is missing. Publish as is and don't
+ * publish are the sheet's own, as in slice 1. A later day out turns none off: the day is decided for itself, readers
+ * staying on the later day (Q-51, ADR 0022 §1).
  */
 export function offersOf(o: OfferInput): Offer[] {
   const out: Offer[] = [];
   if (o.fill && fillable(o.claim, o.story, o.fill.time, o.holding ?? 1)) {
     const missing = missingOf(o.story, o.fill.time)!;
-    const later = o.later ? `${dayShort(o.later)} is published` : undefined;
     const donor = o.donors[0];
     const fills = !o.fixes || ['forward', 'backward', 'impute'].some((f) => o.fixes!.has(f as FixKind));
-    if (fills) out.push({ option: 'fill', label: donor ? `Fill from ${dayShort(donor.day)}` : 'Fill', ...(later ? { off: later } : !donor ? { off: 'No good day near' } : {}) });
+    if (fills) out.push({ option: 'fill', label: donor ? `Fill from ${dayShort(donor.day)}` : 'Fill', ...(!donor ? { off: 'No good day near' } : {}) });
     // A whole day missing has no part that arrived; a file that allows no fill but the part still gets the part.
-    if ((o.fixes?.has('part') ?? true) && !('hours' in missing && missing.hours[0] === 0 && missing.hours[1] === 23)) out.push({ option: 'complete', label: partLabel(missing, o.story.split?.name), ...(later ? { off: later } : {}), ...(o.partFails ? { note: 'fails its checks' } : {}) });
+    if ((o.fixes?.has('part') ?? true) && !('hours' in missing && missing.hours[0] === 0 && missing.hours[1] === 23)) out.push({ option: 'complete', label: partLabel(missing, o.story.split?.name), ...(o.partFails ? { note: 'fails its checks' } : {}) });
   }
   if (o.readers === 'fill' || o.readers === 'complete') out.push({ option: 'dont', label: o.readers === 'fill' ? 'Withdraw the fill' : 'Withdraw the part', withdraws: true });
-  // Accept the new level (S6): off while a later day is current, as publish as is is.
-  if (!o.readers && (o.every ?? 'day') === 'day' && o.told && o.holds && acceptable(o.told, o.claim, o.holds)) out.push({ option: 'accept', label: 'Accept the new level', ...(o.later ? { off: `${dayShort(o.later)} is published` } : {}) });
+  // Accept the new level (S6), for the day and the days after it, whatever day readers see (Q-51).
+  if (!o.readers && (o.every ?? 'day') === 'day' && o.told && o.holds && acceptable(o.told, o.claim, o.holds)) out.push({ option: 'accept', label: 'Accept the new level' });
   return out;
 }
 
@@ -533,8 +534,9 @@ function entryDay(a: Record<string, unknown>, period: string | null | undefined)
 /**
  * A day's versions (S7), from its flow's record: each held, passing or derived run of the day, in the order the record
  * has them. The same run made again (its manifest seen before, as after a reload) is one version. A version is shown
- * `now` when the last publication in the record (a passing run, or an applied release, a withdrawal included) points
- * the names at it; `before` when one did and a later one replaced it.
+ * `now` when it is the day's own published version: the day's last publication (a passing run of it, or an applied
+ * release of it, a withdrawal included) points at it, whatever other days published since, since readers stay on the
+ * latest day and each day keeps its own (Q-51, ADR 0022 §1); `before` when one did and a later one of the day replaced it.
  */
 export function dayVersions(entries: readonly EntryLike[], day: string, period?: string | null): Version[] {
   const out: Version[] = [];
@@ -552,11 +554,7 @@ export function dayVersions(entries: readonly EntryLike[], day: string, period?:
     const a = e.about as JSONValue;
     if (!isRecord(a)) continue;
     if (e.kind === 'run' && (a.outcome === 'held' || a.outcome === 'ok' || a.outcome === 'derived') && typeof a.manifest === 'string' && Number.isInteger(a.run)) {
-      const mine = entryDay(a, period) === day;
-      if (!mine) {
-        if (a.outcome === 'ok') show(null);
-        continue;
-      }
+      if (entryDay(a, period) !== day) continue;
       let v = byManifest.get(a.manifest);
       if (!v) {
         const repair = isRecord(a.repair) ? a.repair : null;
@@ -589,11 +587,7 @@ export function dayVersions(entries: readonly EntryLike[], day: string, period?:
       decisions.set(e.seq, a);
     } else if (e.kind === 'release' && a.outcome === 'applied' && Number.isInteger(a.decision)) {
       const d = decisions.get(a.decision as number);
-      const ofDay = d ? entryDay(d, period) === day : false;
-      if (!ofDay) {
-        show(null);
-        continue;
-      }
+      if (!d || entryDay(d, period) !== day) continue;
       before.set(e.seq, showing);
       if (Number.isInteger(a.withdraws)) {
         show(before.get(a.withdraws as number) ?? null);

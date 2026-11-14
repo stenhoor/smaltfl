@@ -258,14 +258,19 @@ async function main(): Promise<void> {
     const filesNow = new Map<string, Day>();
     let defined = false;
 
-    // The group's score and coverage, on a day its roll-up was published (ADR 0021 §3): what readers see of the product
-    // now, after a run that published it or a release. The organisation is the one readers have then: a release names
-    // only what changed, and never moves a name back.
-    const markPosture = (day: string, published: readonly string[]) => {
+    // The group's score and coverage, on a day its roll-up was published (ADR 0021 §3), after a run that published it or
+    // a release: read from the run's own versions, by key, so a day published once a later one is out marks its own
+    // roll-up, the names staying on the later day (Q-51, ADR 0022 §1).
+    const markPosture = (day: string, published: readonly string[], keyOf: (name: string) => string | undefined) => {
       const units = bind.posture?.units;
       const org = bind.posture?.org;
       if (!units || !org || !published.includes(units)) return;
-      const row = db.query(`SELECT p.score, p.coverage FROM ${units} p JOIN ${org} o ON o.org_unit_id = p.org_unit_id WHERE o.level = 'group' AND o.parent_id IS NULL`).rows[0];
+      const table = (name: string) => {
+        const key = keyOf(name);
+        const found = key ? db.query('SELECT tbl FROM _smaltfl_versions WHERE key = ?', [key]).rows[0] : undefined;
+        return found ? `"${String(found[0])}"` : name;
+      };
+      const row = db.query(`SELECT p.score, p.coverage FROM ${table(units)} p JOIN ${table(org)} o ON o.org_unit_id = p.org_unit_id WHERE o.level = 'group' AND o.parent_id IS NULL`).rows[0];
       if (row) posture[day] = { score: row[0] === null ? null : Number(row[0]), coverage: row[1] === null ? null : Number(row[1]) };
     };
 
@@ -369,7 +374,7 @@ async function main(): Promise<void> {
         };
         const contents = Object.fromEntries(Object.entries(r.manifest.outputs).map(([n, o]) => [n, o.content]));
         made.set(day, [...(made.get(day) ?? []), { run: r.run, manifest: r.hash, inputs, holds: r.holds, keys, at, ok: !held, contents, files: d, sources: read, ...(restates ? { restates } : {}) }]);
-        if (!restates) markPosture(day, r.published);
+        if (!restates) markPosture(day, r.published, (n) => r.manifest.outputs[n]?.key);
         const said = [...new Set(r.holds.filter((h) => h.by !== 'restated').map((h) => `${h.by === 'checks' ? '' : `${h.by}:`}${h.origin}`))];
         console.log(`${day}${correction ? ` (${correction.sources.join(', ')} sent again)` : restates ? ' (again, under rules changed since)' : ''}: ${said.length ? `held (${said.join(', ')})` : held ? 'restated' : 'ok'}, ${((Date.now() - t0) / 1000).toFixed(0)} s`);
       } catch (e) {
@@ -411,7 +416,9 @@ async function main(): Promise<void> {
       const about: ReleaseAbout = { run: target.run, manifest: target.manifest, outputs: keys, decision: decided[0]!.seq, ...(loads.length ? { decisions: decided.map((e) => e.seq) } : {}), leaf, outcome: out.outcome, why: out.why };
       entries.push({ smaltflLog: 1, origin, seq: entries.length, kind: 'release', at, by: { card: null, as: by }, about: about as unknown as JSONValue, reason: null, amends: null, nonce: nonce(day, entries.length) });
       if (out.outcome !== 'applied') throw new Error(`${storyPath}: the release of ${said} was refused: ${out.why}`);
-      markPosture(day, out.published);
+      const ran = db.query('SELECT manifest FROM _smaltfl_runs WHERE id = ?', [target.run]).rows[0];
+      const outputs = ran ? (JSON.parse(String(ran[0])) as RunManifest).outputs : {};
+      markPosture(day, out.published, (n) => outputs[n]?.key);
     };
 
     // ---------------------------------------------------------------- the rules over time (ADR 0021 §5)

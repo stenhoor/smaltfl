@@ -79,7 +79,7 @@
    "text": [
     "Only Flex Fare after 13:00",
     "Paused by trips",
-    "readers see Wed 20",
+    "readers kept Wed 20",
     "zone_hour",
     "borough_hour",
     "weather_effect"
@@ -103,7 +103,7 @@
   ],
   "expect": {
    "text": [
-    "Thu 21 paused · readers see Wed 20",
+    "Thu 21 paused · readers kept Wed 20",
     "zone_hour",
     "borough_hour",
     "weather_effect",
@@ -130,7 +130,7 @@
    "text": [
     "Thu Sep 21 · what readers get",
     "Publish as is",
-    "Keep Wed 20",
+    "Keep Mon 1",
     "37,935 trips",
     "~77k fewer",
     "Pick an option"
@@ -193,7 +193,7 @@
    "state": "done",
    "noTitle": "‖",
    "text": [
-    "Published as is · readers now see Thu 21",
+    "Published as is · readers stay on Mon 1",
     "3 outputs released · Owner",
     "Record #"
    ],
@@ -248,7 +248,7 @@
    "text": [
     "Paused by trips, checks",
     "45.7% of arrived rows dropped",
-    "readers see Thu 21"
+    "readers kept Thu 21"
    ],
    "count": {
     ".vf-decide": 1
@@ -274,7 +274,7 @@
   "expect": {
    "noTitle": "‖",
    "text": [
-    "Not published · readers keep Thu 21 until a later day publishes",
+    "Not published · readers kept Thu 21 until a later day publishes",
     "Record #",
     "Change decision"
    ]
@@ -607,7 +607,7 @@
   "full": true,
   "expect": {
    "text": [
-    "Not published · readers keep",
+    "Not published · readers kept",
     "until a later day publishes",
     "Record #"
    ]

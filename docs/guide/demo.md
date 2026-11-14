@@ -215,7 +215,9 @@ in one tap, with a reason:
 
 A file sent again is a version of its day, like a commit. It waits for a decision whatever its checks say, and the
 history learns the day from the version that was published. Open a day: its versions are listed under its head, the one
-readers got marked, and any other is a tap away. A version a later one replaced isn't decided; the later one is.
+readers got marked, and any other is a tap away. A version a later one replaced isn't decided; the later one is. Every
+day you decide or correct is earlier than Sun 31, so readers stay on Sun 31. The day keeps its version as its own:
+"Published as is · readers stay on Sun 31".
 
 **Compare** on another version sets it beside the one on screen. The summary comes from the two runs alone: which file
 differs, whether the rules were the same, what was decided of each, and each output's rows and whether it changed.

@@ -74,6 +74,10 @@ ontology's `fixes`):
 
 Each choice is a recorded decision. One is recommended, with its reason; publishing is never preselected.
 
+Readers stay on the latest day ([ADR 0022](../adr/0022-the-answers-of-2026-11-14) §1). A day decided, corrected or run
+again after a later day is out keeps its own version for its own screen, and readers' data doesn't move back to it. The
+receipt says so: "Published as is · readers stay on Sun 31".
+
 ## The ontology
 
 The **Ontology** view is laid out by file: what the file is, the rules about it as a whole, and a card a column, with

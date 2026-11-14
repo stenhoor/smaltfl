@@ -31,7 +31,7 @@ import { flowNames, isPlaceholder, judgeOf, labelOf, newsOf, shareWords, tableNe
 import { writtenRules, CHECK_MODES, CHECK_NAMES, CHECK_SAID, checkOf, gateChecksOf, gateLayerOf, hasGates, JUDGED, LAYER_SAID, WRITTEN, type CheckMode, type CheckName, type GateChecks } from '../core/gates.js';
 import { calendarHead, heldLoadLine, dayMid, dayShort, guessWords, judgedWords, lacked, MARK as REMEDY_MARK, noRowsBefore, reachLabel, readersOf as readersHad, readersSee, rowsFrom, shortfall, shownRun, stagedBar, stoppedLine as stoppedWords, toldLine, type DayState, type EpisodeDay, type KeptMark, type PauseState, type RemedyMark } from '../core/days.js';
 import { UNTIL, afterLine, betweenLine, dayPausedLine, daySentence, decidedLines, decisionDrawing, donorPicked, failLine, goShown, heldLine, outputPausedLine, passedLine, pausedChecks, pauseLines, pauseReasons, pickFails, receiptLines, remedyHead, ribbonOf, runFigures, sheetText, versionLines, checksSeen, filesSeen, findingOf, type RunSight, type AfterPart, type KeptLacks, type RemedySaid, type SheetIn, type SheetPick, type SheetText, type Sight } from '../core/decision.js';
-import { contractSaid, countedChecks, rangesFor, dayClaim, dayState, flowStory, learnedMeasures, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, upstreamSteps, tailPath, type Claim, decisionFor, decisionForLoad, standingForLoad, heldLoadsOf, dayPauseOfLoads, loadDecisions, keysForLoads, loadKey, loadsOf, byLoad, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, lastPublished, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
+import { contractSaid, countedChecks, rangesFor, dayClaim, dayState, flowStory, learnedMeasures, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, upstreamSteps, tailPath, type Claim, decisionFor, decisionForLoad, standingForLoad, heldLoadsOf, dayPauseOfLoads, loadDecisions, keysForLoads, loadKey, loadsOf, byLoad, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, latestPublished, publishedDays, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
 import { checkAgainst as againstRecord, endOfDay, gridOf as monthGrid, isMonthFile, isRestate, knownOn, layered, monthOf, ownHolds, restatedOutcome, runDay, runsByDay, versionsOf, type CellState, type DayState as MonthState, type GridRow as MonthRow, type MonthDay, type MonthFile, type RecordCheck, type RestateAbout, type RunAbout } from '../core/month.js';
 import { dayVersions, donorIdOf, fillCounts, levelOf as acceptedLevel, levelWays, partLabel as remedyPart, type Offer, type Repair, type Version } from '../core/fill.js';
 import { gridOf, shadeOf, shareOf, standOut } from './grid.js';
@@ -460,12 +460,10 @@ const latest = (): RunRecord | undefined => {
  */
 const derivedRuns = new Map<string, RunRecord>();
 /** On a day readers have a fill (or the part alone) of, the derived run whose versions they have: what the day's views
- * show (S7, "what was used"). */
+ * show (S7, "what was used"). The day's own, whatever day the names show (Q-51: a fill of an earlier day is that day's,
+ * readers staying on the latest). */
 function filledOf(r: RunRecord): RunRecord | undefined {
-  if (r.derived) return undefined;
-  const shown = new Set(state.names.values());
-  for (const x of derivedRuns.values()) if (x.derived!.from.inputs === r.inputs && x.load === r.load && shown.has(x)) return x;
-  return undefined;
+  return releasedFillOf(r);
 }
 /** On a day whose fill (or part alone) was released in this engine and not withdrawn, its derived run, whatever the
  * names show now (a later day current): what a withdrawal takes back (Q-61). */
@@ -623,7 +621,7 @@ function keptThen(day: string): string | null {
   const all = allEntries();
   const held = all.find((e) => e.kind === 'run' && (e.about as { outcome?: string; day?: string } | null)?.outcome === 'held' && (e.about as { day?: string }).day === day);
   if (held) {
-    const then = lastPublished(all.filter((e) => e.seq < held.seq), periodOfFlow());
+    const then = latestPublished(all.filter((e) => e.seq < held.seq), periodOfFlow());
     if (then && then < day) return then;
   }
   let best: string | null = null;
@@ -640,6 +638,20 @@ function readersMarkOf(r: RunRecord): KeptMark | null {
   const name = r.result.waiting[0] ?? Object.keys(r.result.manifest.outputs)[0];
   const theirs = name ? state.names.get(name) : undefined;
   return theirs?.derived?.repair.kind ?? (theirs && pauseOf(theirs)?.state === 'asis' ? 'asis' : null);
+}
+
+/** The latest day readers see, as the record says (Q-51, ADR 0022 §1): the latest day published, whatever order the
+ * days were published in; a day decided after it keeps its version for itself. */
+const readersLatest = (): string | null => latestPublished(allEntries(), periodOfFlow());
+
+/**
+ * Whether the day after `day` (the next of the flow's loads) has published already, as the record says: a decision
+ * standing until a day passes would cover nothing then, so it is decided for the day alone. A later day out further on
+ * (a month replayed after a later one ran, Q-51) leaves the days between to stand under it.
+ */
+function nextDayOut(day: string): boolean {
+  const next = loads.list.map((l) => l.day.slice(0, 10)).filter((d) => d > day).sort()[0];
+  return !!next && publishedDays(allEntries(), periodOfFlow()).some((p) => p.day === next);
 }
 
 /** The day readers see in place of a run's: what the first output it holds back shows. */
@@ -667,15 +679,16 @@ function readersAsOf(r: RunRecord): { day: string | null; past: boolean } {
   const now = had.past ? pauseOf(r) : null;
   const d = now?.state === 'dont' ? now.pause?.decision : null;
   if (d && day && ledger) {
-    const before = lastPublished(allEntries().filter((e) => e.seq < d.seq && !(runDay(e) !== null && runDay(e)! >= day)), periodOfFlow());
+    const before = latestPublished(allEntries().filter((e) => e.seq < d.seq && !(runDay(e) !== null && runDay(e)! >= day)), periodOfFlow());
     return { day: before && before < day ? before : null, past: true };
   }
   return had;
 }
 
-/** Note what a run's or a release's names now show. */
-function noteShown(r: RunRecord, names: readonly string[]): void {
-  for (const n of names) state.names.set(n, r);
+/** Note what a run's or a release's names now show: what it published, but those that stayed on a later day (Q-51, ADR
+ * 0022 §1: readers stay on the latest day, and the run's day keeps its versions as its own). */
+function noteShown(r: RunRecord, out: { published: readonly string[]; behind?: readonly string[] }): void {
+  for (const n of out.published) if (!out.behind?.includes(n)) state.names.set(n, r);
 }
 
 /**
@@ -7154,7 +7167,7 @@ function briefInputs(day: string): BriefIn {
     const later = readers && readers > day ? readers : null;
     const can = (o: DecisionOption) => checkDecision(policies(), state.viewer, o);
     const refusedFile = r.result.manifest.nodes.find((n) => n.status === 'refused');
-    options.push({ option: 'asis', label: 'Publish as is', line: 'readers get the day as it came, marked', off: refusedFile ? `nothing was built: ${refusedFile.origin}’s file was refused` : later ? `${dayShort(later)} is published` : can('asis').allowed ? null : `${deciders()} decides` });
+    options.push({ option: 'asis', label: 'Publish as is', line: later ? `the day as it came, marked; readers stay on ${dayShort(later)}` : 'readers get the day as it came, marked', off: refusedFile ? `nothing was built: ${refusedFile.origin}’s file was refused` : can('asis').allowed ? null : `${deciders()} decides` });
     options.push({ option: 'dont', label: readers && readers < day ? `Keep ${dayShort(readers)}` : 'Don’t publish', line: readers && readers < day ? `readers keep ${dayShort(readers)} until a corrected file arrives` : 'readers get nothing for the day', off: can('dont').allowed ? null : `${deciders()} decides` });
     const rem = remediesFor(r);
     const firstDonor = rem?.picks[0];
@@ -7679,7 +7692,7 @@ function decisionSheet(shown0: RunRecord, story: Story | null): void {
   const textOf = (): SheetText => sheetText({
     noun: rowNoun(loadSource() ?? ''),
     // How long it has waited, only while it waits (a day not published, opened to change its decision, isn't waiting).
-    day, waited: opened && first?.state === 'waiting' ? (storyMs(Date.now(), opened) - Date.parse(opened)) / 60000 : null, since: opened && new Date(opened).toDateString() === new Date().toDateString() ? clock(opened) : null, otherBuild: !!pause?.otherBuild, outputs: n, rows, reach: tripsKept(r) ?? null, readers, later, checks: heldChecks(r, story),
+    day, waited: opened && first?.state === 'waiting' ? (storyMs(Date.now(), opened) - Date.parse(opened)) / 60000 : null, since: opened && new Date(opened).toDateString() === new Date().toDateString() ? clock(opened) : null, otherBuild: !!pause?.otherBuild, outputs: n, rows, reach: tripsKept(r) ?? null, readers, later, nextOut: !!day && nextDayOut(day), checks: heldChecks(r, story),
     usual: story?.amount ? { low: story.amount.low, high: story.amount.high } : null,
     part: draw.part, missing: draw.cause === 'hours' ? (story?.hoursLabels?.missing ?? null) : null, cut: draw.cut?.[1] ?? null, ticks: draw.ticks.map(([, x]) => x),
     unjudged: r.result.holds.some((x) => x.by === 'unjudged'), hash: r.result.hash, may: anyone, deciders: deciders(), head: story?.head ?? null,
@@ -7827,7 +7840,7 @@ function decisionSheet(shown0: RunRecord, story: Story | null): void {
     // who and when, the record's entry, Versions for a remedy, and Change decision where it can still change.
     const had = readersAsOf(r);
     const out = isOut(st);
-    const l = receiptLines({ state: st, day, readers: out ? day : had.day, past: !out && had.past, released: out ? n : 0, who: personName(entry.by.as), at: decidedAt(entry.at), seq: entry.seq, under: null, standing: (entry.about as { scope?: unknown }).scope === 'untilPass', remedy: now?.remedy ? { ...now.remedy, ...remedyCounts(now.pause) } : null, withdrawn: now?.withdrawn ?? null, level: (entry.about as { level?: { from?: string } }).level?.from ?? null, reason: entry.reason ?? null });
+    const l = receiptLines({ state: st, day, readers: out ? day : had.day, past: !out && had.past, released: out ? n : 0, who: personName(entry.by.as), at: decidedAt(entry.at), seq: entry.seq, under: null, standing: (entry.about as { scope?: unknown }).scope === 'untilPass', remedy: now?.remedy ? { ...now.remedy, ...remedyCounts(now.pause) } : null, withdrawn: now?.withdrawn ?? null, level: (entry.about as { level?: { from?: string } }).level?.from ?? null, reason: entry.reason ?? null, latest: readersLatest() });
     const kept = t.options.find((o) => o.option === option);
     const sheetEl = document.querySelector('.vf-detail');
     for (const el of [status, recEl, rowsEl, replaceRow, why, scopes, foot]) el?.remove();
@@ -7917,7 +7930,7 @@ function receiptOf(r: RunRecord, may: boolean): HTMLElement | null {
   const out = isOut(now.state);
   // A fill or the part alone readers have is cited by the decision whose release applied, never a later one refused.
   const cites = (now.state === 'fill' || now.state === 'complete') && now.pause?.repaired?.decision !== undefined ? now.pause.repaired.decision : (d?.seq ?? null);
-  const l = receiptLines({ state: now.state, day, readers: out ? day : kept.day, past: !out && kept.past, released: out ? (now.pause?.waiting ?? r.result.waiting).length : 0, who: d ? personName(d.by) : null, at: d && !underDay ? decidedAt(d.at) : null, seq: cites, under: underDay ? dayShort(underDay).split(' ')[0]! : null, standing: standsOn(d), remedy: now.remedy ? { ...now.remedy, ...remedyCounts(now.pause) } : null, withdrawn: now.withdrawn, level: d?.about.level?.from ?? null, reason: d?.reason ?? null });
+  const l = receiptLines({ state: now.state, day, readers: out ? day : kept.day, past: !out && kept.past, released: out ? (now.pause?.waiting ?? r.result.waiting).length : 0, who: d ? personName(d.by) : null, at: d && !underDay ? decidedAt(d.at) : null, seq: cites, under: underDay ? dayShort(underDay).split(' ')[0]! : null, standing: standsOn(d), remedy: now.remedy ? { ...now.remedy, ...remedyCounts(now.pause) } : null, withdrawn: now.withdrawn, level: d?.about.level?.from ?? null, reason: d?.reason ?? null, latest: readersLatest() });
   // A later version published (ADR 0021 §2): published by its decision, as that version.
   const v = versionOfRun(r);
   if (v !== null && v > 1 && now.state === 'asis') l.head = l.head.replace(/^Published as is/, `Published version ${v}`);
@@ -14018,7 +14031,7 @@ async function run(early?: EarlyClaims): Promise<void> {
       const m = result.measures?.find((x) => x.source === id);
       if (m) keepDay(id, m.slot, rows);
     }
-    noteShown(rec, result.published);
+    noteShown(rec, result);
     // What is shown is what ran: after a refused day, a run on the day still pinned shows that day.
     if (loads.pinned >= 0) loads.at = loads.pinned;
     mark('run: tails and samples');
@@ -14184,7 +14197,7 @@ async function release(r: RunRecord, decision: RecordEntry, keys: Record<string,
   const loadsIn = cited.map((d) => ({ load: (d.about as unknown as DecideAbout).load!, option: (d.about as unknown as DecideAbout).option, actor: d.by.as, reason: d.reason, decision: entryLeaf(d) }));
   const out = await releaseRun(state.engine, { run: r.result.run, manifest: r.result.hash, keys, option, actor: decision.by.as, reason: decision.reason, decision: leaf, ...(loadsIn.length ? { loads: loadsIn } : {}) });
   r.release = out;
-  noteShown(r, out.published);
+  noteShown(r, out);
   const about: ReleaseAbout = { run: r.result.run, manifest: r.result.hash, outputs: keys, decision: decision.seq, ...(cited.length ? { decisions: cited.map((d) => d.seq) } : {}), leaf, outcome: out.outcome, why: out.why };
   await ledger.append('release', decision.by.as, about as unknown as JSONValue);
   // Published, its day is learned from this version now (ADR 0021 §1): a correction's rows replace its first file's in
@@ -14210,18 +14223,16 @@ async function applyDecided(r: RunRecord): Promise<void> {
     const keys = await keysOf(r);
     const inputs = inputsOf(r.result.manifest);
     // Several watched sources (ADR 0010 §7, Q-193): each held load's decision is found by its load. Published again when
-    // every held load has one and all of them publish (one choice decided the day), unless a later day is current; a load
-    // with none falls under a standing decision not to publish about an earlier load of its source, recorded under it.
+    // every held load has one and all of them publish (one choice decided the day), whatever day readers see (Q-51); a
+    // load with none falls under a standing decision not to publish about an earlier load of its source, recorded under it.
     const held = heldLoadsOf(r.result.holds);
     if (held.length) {
       const all = allEntries();
       const ds = held.map((l) => decisionForLoad(all, l));
       if (ds.every((d) => d !== null)) {
         const o = ds[0]!.about.option;
-        const day = await periodDay(r);
-        const shown = readersDay(r);
         const cited = ds.flatMap((d) => entryOf(d!.seq) ?? []);
-        if ((o === 'asis' || o === 'accept') && ds.every((d) => d!.about.option === o) && !(day && shown && shown > day) && cited.length === ds.length) await release(r, cited[0]!, keysForLoads(keys, r.result.holds, held), o, cited);
+        if ((o === 'asis' || o === 'accept') && ds.every((d) => d!.about.option === o) && cited.length === ds.length) await release(r, cited[0]!, keysForLoads(keys, r.result.holds, held), o, cited);
         return;
       }
       for (const l of held) {
@@ -14237,26 +14248,22 @@ async function applyDecided(r: RunRecord): Promise<void> {
     }
     const found = decisionFor(ledger.entries, inputs, keys);
     if (found?.kind === 'same') {
-      // Published as is, again: unless a later day is what readers see now (stepping back to a day decided before), as a
-      // release never moves a name back (ADR 0009 §5; Q-51). A fill or the part alone is made again from its repair,
-      // staged, and released again if it made the keys its decision names (amendment 1 S9).
-      const day = await periodDay(r);
-      const shown = readersDay(r);
-      const later = !!(day && shown && shown > day);
+      // Published as is, again, whatever day readers see now (stepping back to a day decided before): the release keeps
+      // the day's versions as its own, and readers stay on a later day (Q-51, ADR 0022 §1). A fill or the part alone is
+      // made again from its repair, staged, and released again if it made the keys its decision names (amendment 1 S9).
       const o = found.decision.about.option;
-      if ((o === 'asis' || o === 'accept') && !later) await release(r, ledger.entries[found.decision.seq]!, keys, o);
-      if ((o === 'fill' || o === 'complete') && found.decision.about.repair && !later) await applyRemedy(r, found.decision);
+      if (o === 'asis' || o === 'accept') await release(r, ledger.entries[found.decision.seq]!, keys, o);
+      if ((o === 'fill' || o === 'complete') && found.decision.about.repair) await applyRemedy(r, found.decision);
       return;
     }
     if (found) return;
     const day = await periodDay(r);
     // A level accepted before it that still stands (Q-57b): the day's story off by nothing but the metrics it names, and
-    // held by the story alone. Published under it, recorded as a decision under the Accept, unless a later day is current.
+    // held by the story alone. Published under it, recorded as a decision under the Accept, whatever day readers see (Q-51).
     const src = loadSource();
     const told = day && src ? flowStoryOf(day) : null;
     const lv = day && src && told?.state === 'wrong' ? levelFor(ledger.entries, src, day, (from) => levelWays(told, flowStoryOf(from) ?? undefined), (from) => { const then = flowStoryOf(from); return then ? levelWays(then) : new Map(); }, r.result.holds.every((x) => x.by === 'story')) : null;
-    const shownNow = readersDay(r);
-    if (lv && day && lv.about.level && !(shownNow && shownNow > day)) {
+    if (lv && day && lv.about.level) {
       const may = checkDecision(policies(), lv.by, 'accept');
       if (!may.allowed) return;
       const about: DecideAbout = { day, run: r.result.run, manifest: r.result.hash, inputs, outputs: keys, option: 'accept', scope: 'day', policies: await policiesHash(policies() ?? null), rule: may.rule ?? null, under: lv.seq, level: lv.about.level };
@@ -14350,9 +14357,8 @@ async function decideNow(target: RunRecord | string, option: DecisionOption, sco
   const keys = await keysOf(r);
   const p = pauseByInputs(r.inputs);
   // A standing decision needs a day to stand until: a run with none is decided for itself, and so is a day readers have
-  // a later day for already (one passed: it would stand already ended), as the sheet offers it.
-  const shown = readersDay(r);
-  const passed = !!day && !!shown && shown > day;
+  // the day after it published already (it would stand already ended), as the sheet offers it.
+  const passed = !!day && nextDayOut(day);
   // A remedy names its repair and the derived run whose versions go out (amendment 1 S9); a withdrawal is a decision not
   // to publish, amending the fill's, for this day alone (Q-61).
   const derived = option === 'fill' || option === 'complete' ? remedy.derived : undefined;
@@ -14360,11 +14366,10 @@ async function decideNow(target: RunRecord | string, option: DecisionOption, sco
     setStatus(`${option === 'fill' ? 'A fill' : 'The part that arrived'} is decided on its staged run: pick it on the sheet again.`, true);
     return null;
   }
-  const fillShown = remedy.withdraw ? (filledOf(r) ?? releasedFillOf(r)) : undefined;
-  // With a later day current, a withdrawal moves no name back (ADR 0009 amendment 1 S5): it is recorded, the day is not
-  // published, and readers keep the later day; nothing goes to the engine.
-  const keepLater = !!remedy.withdraw && passed;
-  if (remedy.withdraw && !keepLater && !fillShown?.derived?.release) {
+  const fillShown = remedy.withdraw ? releasedFillOf(r) : undefined;
+  // With a later day current, a withdrawal moves no name back: the engine puts the day's own version back and readers
+  // keep the later day (Q-51, ADR 0022 §1).
+  if (remedy.withdraw && !fillShown?.derived?.release) {
     setStatus('The fill readers have wasn’t released in this engine: run its day again, then withdraw it.', true);
     return null;
   }
@@ -14406,10 +14411,10 @@ async function decideNow(target: RunRecord | string, option: DecisionOption, sco
   } else if (derived && dkeys) {
     const out = await releaseDerived(derived, entry, dkeys, undefined, cited);
     if (out?.outcome === 'refused') refused = out.why;
-  } else if (fillShown && !keepLater) {
+  } else if (fillShown) {
     const out = await withdrawFill(fillShown, entry);
     if (out?.outcome === 'refused') refused = out.why;
-  } else if (fillShown && keepLater) fillShown.derived!.withdrawn = true;
+  }
   const now = pauseOf(r);
   if (refused) setStatus(`The decision is recorded; the engine refused to ${fillShown ? 'withdraw the fill of' : 'publish'} ${day ? dayShort(day) : 'the run'}: ${refused}.`, true, { n: attempts, state: now && !isOut(now.state) ? 'held' : 'done', mark: now?.state ?? null });
   else {
@@ -14449,8 +14454,8 @@ function flowStoryOf(day: string): Story | null {
 
 /**
  * Whether a held run's day may be accepted as a new level (amendment 1 S6), with the level it would record: by the
- * flow's verdict on the day (its cause and what it absorbed), the claim it was held on, and what holds it. Off while a
- * later day is current, as publish as is is. Null on a derived run, or where the day can't be accepted.
+ * flow's verdict on the day (its cause and what it absorbed), the claim it was held on, and what holds it, whatever day
+ * readers see (Q-51). Null on a derived run, or where the day can't be accepted.
  */
 function acceptFor(r: RunRecord): { offer: Offer; level: { source: string; from: string; metrics: string[]; band?: { column: string; value: string; share: [number, number] } } } | null {
   const day = dayOfRun(r);
@@ -14461,11 +14466,10 @@ function acceptFor(r: RunRecord): { offer: Offer; level: { source: string; from:
   const claim = claimsFor(day)?.find((c) => c.source === src) ?? null;
   const level = acceptedLevel(story, claim, r.result.holds, day, src);
   if (!level) return null;
-  const shown = readersDay(r);
-  const later = shown && shown > day ? shown : null;
   // A band missed (ADR 0014 §3): the Accept is of a new band, which the decision records and the ontology is edited from.
+  // A later day out turns it off no more: the day is decided for itself (Q-51).
   const label = level.band ? `Accept the new band: ${Math.round(level.band.share[0] * 100)}–${Math.round(level.band.share[1] * 100)}%` : 'Accept the new level';
-  return { offer: { option: 'accept', label, ...(later ? { off: `${dayShort(later)} is published` } : {}) }, level };
+  return { offer: { option: 'accept', label }, level };
 }
 
 /**
@@ -14614,7 +14618,7 @@ async function releaseDerived(d: RunRecord, decision: RecordEntry, keys: Record<
   if (out.outcome === 'applied') {
     d.derived.withdrawn = false;
     shownBefore.set(out.release, before);
-    noteShown(d, out.published);
+    noteShown(d, out);
   }
   const about: ReleaseAbout = { run: d.result.run, manifest: d.result.hash, outputs: keys, decision: decision.seq, ...(cited.length ? { decisions: cited.map((x) => x.seq) } : {}), leaf, outcome: out.outcome, why: out.why, from, repair, filled: out.filled ?? 0, ...(under !== undefined ? { under } : {}) };
   const e = await ledger.append('release', decision.by.as, about as unknown as JSONValue);
@@ -14623,9 +14627,9 @@ async function releaseDerived(d: RunRecord, decision: RecordEntry, keys: Record<
 }
 
 /**
- * Withdraw the fill readers have of a day (Q-61), as a recorded decision not to publish says: the plugin points each
- * name back to the version it showed before the fill, unless a later day is current, and the record keeps the release
- * with the names as they now show and the fill's release it takes back.
+ * Withdraw the fill readers have of a day (Q-61), as a recorded decision not to publish says: the plugin puts the day's
+ * own version back and each name the fill moved on the latest day left published, a name a later day shows staying
+ * there (Q-51), and the record keeps the release with the names as they now show and the fill's release it takes back.
  */
 async function withdrawFill(d: RunRecord, decision: RecordEntry): Promise<ReleaseResult | null> {
   if (!ledger || !state.engine || !d.derived?.release) return null;
@@ -14634,14 +14638,19 @@ async function withdrawFill(d: RunRecord, decision: RecordEntry): Promise<Releas
   const out = await releaseRun(state.engine, { run: d.result.run, manifest: d.result.hash, keys, option: 'dont', actor: decision.by.as, reason: decision.reason, decision: leaf, withdraws: d.derived.release.release });
   let back: Record<string, string> = {};
   if (out.outcome === 'applied') {
+    // Each name the fill moved shows the latest day left published, as the engine says (Q-51); one a later day shows
+    // stays there.
+    const names = out.published.map((n) => literal(n, 'text')).join(', ');
+    const rows = names ? (await state.engine.query(`SELECT name, key, run FROM _smaltfl_datasets WHERE name IN (${names})`)).rows : [];
+    back = Object.fromEntries(rows.map(([n, k]) => [String(n), String(k)]));
     const was = shownBefore.get(d.derived.release.release);
     for (const n of out.published) {
-      const r = was?.get(n);
+      if (out.behind?.includes(n)) continue;
+      const row = rows.find(([x]) => String(x) === n);
+      const r = row ? (state.runs.find((x) => x.result.run === Number(row[2])) ?? [...derivedRuns.values()].find((x) => x.result.run === Number(row[2])) ?? was?.get(n)) : undefined;
       if (r) state.names.set(n, r);
       else state.names.delete(n);
     }
-    const names = out.published.map((n) => literal(n, 'text')).join(', ');
-    if (names) back = Object.fromEntries((await state.engine.query(`SELECT name, key FROM _smaltfl_datasets WHERE name IN (${names})`)).rows.map(([n, k]) => [String(n), String(k)]));
     d.derived.withdrawn = true;
   }
   const about: ReleaseAbout = { run: d.result.run, manifest: d.result.hash, outputs: back, decision: decision.seq, leaf, outcome: out.outcome, why: out.why, ...(d.derived.releaseSeq !== undefined ? { withdraws: d.derived.releaseSeq } : {}) };
@@ -14943,6 +14952,8 @@ interface RecordContext {
   waiting: Map<string, string[]>;
   /** A day that passed once days before it were held: its run entry, and the standing decision it ends, if any. */
   passed: Map<number, number | null>;
+  /** The latest day readers saw before each passed day's run (Q-51): a later day out, readers stayed on it. */
+  latest: Map<number, string | null>;
   /** An applied release that ends a standing decision (it published a day the decision stood for): the decision. */
   ends: Map<number, number>;
   /** A release of a decision already applied once (the same decision applied again in a new engine). */
@@ -14954,7 +14965,7 @@ function recordContext(entries: readonly RecordEntry[], period: string | null): 
   const seen = new Set<string>();
   const ok = new Set<string>();
   const applied = new Set<number>();
-  const ctx: RecordContext = { again: new Set(), waiting: new Map(), passed: new Map(), ends: new Map(), reapplied: new Set(), rerun: new Set() };
+  const ctx: RecordContext = { again: new Set(), waiting: new Map(), passed: new Map(), latest: new Map(), ends: new Map(), reapplied: new Set(), rerun: new Set() };
   // Held days since the last day that published. What a day publishing ends is standingFor's own rule (standingEnds):
   // only a day after the decision's, never one amended or applied under another, and a release that published a day
   // ends it too.
@@ -14971,7 +14982,10 @@ function recordContext(entries: readonly RecordEntry[], period: string | null): 
     const key = a?.inputs && typeof a.inputs === 'object' ? inputsKey(a.inputs as Inputs) : null;
     if (a?.outcome === 'ok') {
       if (key && ok.has(key)) ctx.rerun.add(e.seq);
-      else if (held) ctx.passed.set(e.seq, standingEnds(entries, i, period));
+      else if (held) {
+        ctx.passed.set(e.seq, standingEnds(entries, i, period));
+        ctx.latest.set(e.seq, latestPublished(entries.slice(0, i), period));
+      }
       if (key) ok.add(key);
       held = false;
       return;
@@ -15001,7 +15015,7 @@ const KIND_WORD: Record<string, (e: { seq: number; about: Record<string, unknown
     const read = Array.isArray(a.files) ? (a.files as { source?: string }[]).filter((f) => runSight().open(String(f.source ?? ''))) : null;
     const files = read ? `${read.length} file${read.length === 1 ? '' : 's'} read by their hashes` : '';
     // A day that published once days before it were held: readers now see it, and a standing decision ends with it.
-    if (a.outcome === 'ok' && ctx.passed.has(seq) && typeof (a.day ?? a.load) === 'string') return `${passedLine(String(a.day ?? a.load), ctx.passed.get(seq)!)} · ${files}`;
+    if (a.outcome === 'ok' && ctx.passed.has(seq) && typeof (a.day ?? a.load) === 'string') return `${passedLine(String(a.day ?? a.load), ctx.passed.get(seq)!, ctx.latest.get(seq) ?? null)} · ${files}`;
     if (a.outcome === 'ok') return `${ctx.rerun.has(seq) ? 'Ran again' : 'Ran the flow'}${a.load ? ` on ${dayLabel(String(a.load))}` : ''}: manifest ${String(a.manifest).slice(0, 12)}…, ${files}`;
     // A derived run (amendment 1 S9): a fill or the part alone, staged until a decision releases it.
     if (a.outcome === 'derived') {

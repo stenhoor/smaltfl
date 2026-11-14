@@ -274,14 +274,15 @@ describe('the options a held day gets (S5)', () => {
     ]);
   });
 
-  it('draws the fill off with no good day near, and both off while a later day is current', () => {
+  it('draws the fill off with no good day near, and neither off while a later day is current (Q-51)', () => {
     expect(offersOf({ story: hoursDay, claim: short, fill: fillOf, donors: [] })).toEqual([
       { option: 'fill', label: 'Fill', off: 'No good day near' },
       { option: 'complete', label: 'Before 13:00 only' },
     ]);
+    // The day is decided for itself, readers staying on the later day (ADR 0022 §1).
     expect(offersOf({ story: hoursDay, claim: short, fill: fillOf, donors: [{ day: '2023-09-14' }], later: '2023-09-25' })).toEqual([
-      { option: 'fill', label: 'Fill from Thu 14', off: 'Mon 25 is published' },
-      { option: 'complete', label: 'Before 13:00 only', off: 'Mon 25 is published' },
+      { option: 'fill', label: 'Fill from Thu 14' },
+      { option: 'complete', label: 'Before 13:00 only' },
     ]);
   });
 
@@ -340,9 +341,9 @@ describe('a day’s versions (S7)', () => {
     expect(dayVersions(more, '2023-09-21').map((x) => x.shown)).toEqual([null, 'before', 'now']);
     const withdrawn = [...more, entry('decide', { day: '2023-09-21', option: 'dont' }), entry('release', { decision: 9, outcome: 'applied', withdraws: 8 })];
     expect(dayVersions(withdrawn, '2023-09-21').map((x) => x.shown)).toEqual([null, 'now', 'before']);
-    // A later day published: readers have no version of this day now.
+    // A later day published: the day keeps its own version, readers staying on the later day (Q-51, ADR 0022 §1).
     const later = [...more, run('ok', 6, 'm-fri', '2023-09-22')];
-    expect(dayVersions(later, '2023-09-21').map((x) => x.shown)).toEqual([null, 'before', 'before']);
+    expect(dayVersions(later, '2023-09-21').map((x) => x.shown)).toEqual([null, 'before', 'now']);
     // The fill made again in a new engine (its decision applied again after a reload): the same inputs, so the same
     // version, shown now once its release applies again.
     const reload = [...more, run('held', 7, 'm-thu-3', '2023-09-21'), run('derived', 8, 'm-refill-2', '2023-09-21', { repair: { kind: 'fill', donor: { day: '2023-09-20' } } }), entry('release', { run: 8, manifest: 'm-refill-2', decision: 7, outcome: 'applied' })];
@@ -380,9 +381,9 @@ describe('Accept the new level: when it is offered, and the level it records (am
     expect(levelOf(gone, null, [story], DAY, 'trips')).toEqual({ source: 'trips', from: DAY, metrics: levelMetrics(gone) });
     const blank = told({ [DAY]: { more: 1.8 } });
     if (blank.state === 'wrong' && blank.hero === 'amount') expect(levelMetrics(blank)).toContain('trips');
-    // As offersOf puts it on the sheet, last; off while a later day is current.
+    // As offersOf puts it on the sheet, last; a later day out turns it off no more (Q-51).
     expect(offersOf({ story: gone, claim: { state: 'wrong', below: true }, fill: undefined, donors: [], told: gone, holds: [story] })).toEqual([{ option: 'accept', label: 'Accept the new level' }]);
-    expect(offersOf({ story: gone, claim: { state: 'wrong', below: true }, fill: undefined, donors: [], told: gone, holds: [story], later: '2023-10-16' })).toEqual([{ option: 'accept', label: 'Accept the new level', off: 'Mon 16 is published' }]);
+    expect(offersOf({ story: gone, claim: { state: 'wrong', below: true }, fill: undefined, donors: [], told: gone, holds: [story], later: '2023-10-16' })).toEqual([{ option: 'accept', label: 'Accept the new level' }]);
   });
 
   it('is never offered for an hours cause, a part that held, a bad value, the checks, a source not judged, or a day not wrong', () => {

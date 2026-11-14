@@ -99,13 +99,13 @@
   },
   {
     "name": "whatif-make-files",
-    "what": "The reason given and the tap: a later delivery of the file, decided as is with it, in one go; the day's fifth version is the what-if's, made the day's, and what readers got",
+    "what": "The reason given and the tap: a later delivery of the file, decided as is with it, in one go; the day's fifth version is the what-if's, made the day's, and what readers got of Thu 21, readers staying on Sun 31 (Q-51)",
     "clicks": [["#loads .wi-reason", "The TLS team’s first file is the one to keep"], "#loads .wi-make-go"],
     "waitFor": "#loads .dv[data-version=\"5\"].got",
     "waitForMs": 120000,
     "element": "#loads",
     "expect": {
-      "pageText": ["5 VERSIONS OF THE DAY", "tls as a what-if had it: made the day’s", "published as is by Owner", "(“The TLS team’s first file is the one to keep”)", "Published version 5"],
+      "pageText": ["5 VERSIONS OF THE DAY", "tls as a what-if had it: made the day’s", "published as is by Owner", "(“The TLS team’s first file is the one to keep”)", "Published version 5 · readers stay on Sun 31"],
       "count": { "#loads .dh-whatif": 0, "#loads .dv.got[data-version=\"5\"]": 1 }
     }
   },

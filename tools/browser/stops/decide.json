@@ -27,14 +27,14 @@
   },
   {
     "name": "decide-thu28-published",
-    "what": "Publish as is: one choice for the day, recorded as a decision for each held file and one release citing them (Q-193); the engine publishes the day, and readers now see Thu 28",
+    "what": "Publish as is: one choice for the day, recorded as a decision for each held file and one release citing them (Q-193); the engine publishes the day for itself, and readers stay on Sun 31, the latest day out (Q-51, ADR 0022 §1)",
     "day": "Thu 28",
     "clicks": [".vf-decide-day", ".vf-option[data-option=asis]", ".vf-reason", ".vf-go"],
     "waitFor": "#loads .vf-rc-head",
     "full": true,
     "expect": {
-      "pageText": ["Published as is"],
-      "noPageText": ["refused", "watches several sources"],
+      "pageText": ["Published as is · readers stay on Sun 31"],
+      "noPageText": ["refused", "watches several sources", "readers now see Thu 28"],
       "loads": { "Thu 28": ", published as is" }
     }
   },

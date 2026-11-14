@@ -11,7 +11,7 @@ import { plusDays, daysBetween } from '../src/core/calendar.js';
 import { repairDocument, type Repair } from '../src/core/fill.js';
 import { sha256Hex } from '../src/core/hash.js';
 import { insertAfter, pinFile, releaseRun, runFlow, verifyRun, type FlowDocument, type ReleaseInput, type RunResult, type StoryClaim } from '../src/index.js';
-import { findVersion } from '../src/plugin/store.js';
+import { dayVersionOf, findVersion } from '../src/plugin/store.js';
 import { makeTrips, TRIP_COLUMNS, ZONES, type Trip } from './fixtures/taxi.js';
 import { openEngine, SMALTDB } from './helpers/engine.js';
 
@@ -284,14 +284,20 @@ describe('releasing a fill (amendment 1 S10)', () => {
     expect((await releaseRun(t.db, releaseOf(t, r, asRead(r, repairFrom(DONOR))))).why).toMatch(/^the filled day fails its checks: dropped [\d,]+ of [\d,]+ rows \([\d.]+%\), more than the 10% allowed$/);
   });
 
-  it('never moves a name back past a later day', async () => {
+  it("keeps a fill released once a later day published as its day's, readers staying on the later day (Q-51)", async () => {
     const t = await heldDay();
     load(t.db, 'day_trips', '2024-01-12');
     const fri = await runFlow(t.db, t.doc, { smaltdb: SMALTDB, parameters: { day: '2024-01-12' }, claims: [claimOf(t.history, '2024-01-12')] });
     expect(fri.published).toEqual(['day_total', 'trip_hours', 'zone_list']);
     load(t.db, 'day_trips', HELD);
     const r = await derive(t, repairFrom(DONOR));
-    expect((await releaseRun(t.db, releaseOf(t, r, asRead(r, repairFrom(DONOR))))).why).toBe(`2024-01-12 is current for day_total (run ${fri.run}): a release never moves a name back to an earlier day`);
+    const out = await releaseRun(t.db, releaseOf(t, r, asRead(r, repairFrom(DONOR))));
+    expect(out).toMatchObject({ outcome: 'applied', why: null });
+    expect(out.behind).toEqual(out.published);
+    expect(out.published).toContain('day_total');
+    expect(current(t.db, 'day_total')).toEqual([fri.manifest.outputs.day_total!.key, fri.run]);
+    expect(dayVersionOf(t.db, 'day_total', HELD)).toMatchObject({ key: r.manifest.outputs.day_total!.key, run: r.run, prior: null });
+    for (const x of [r, fri]) expect(fails(await verifyRun(t.db, x.run, { smaltdb: SMALTDB, level: 'stored' })), String(x.run)).toEqual([]);
   });
 });
 
@@ -329,16 +335,48 @@ describe('a better donor, and taking a fill back (amendment 1 S7, Q-61)', () => 
     expect(total(t.db)![2]).toBe(DONOR);
   });
 
-  it('refuses a withdrawal with a later day current, and one of nothing', async () => {
+  it("withdraws a fill once a later day published: the day's version goes back, readers stay on the later day (Q-51); refuses one of nothing", async () => {
     const t = await heldDay();
     const r = await derive(t, repairFrom(DONOR));
     const a = await releaseRun(t.db, releaseOf(t, r, asRead(r, repairFrom(DONOR))));
+    expect(a.behind).toBeUndefined();
     load(t.db, 'day_trips', '2024-01-12');
     const fri = await runFlow(t.db, t.doc, { smaltdb: SMALTDB, parameters: { day: '2024-01-12' }, claims: [claimOf(t.history, '2024-01-12')] });
     const back: ReleaseInput = { run: r.run, manifest: r.hash, keys: keysOf(r), option: 'dont', actor: 'owner', reason: null, decision: LEAF, withdraws: a.release };
-    expect((await releaseRun(t.db, back)).why).toBe(`2024-01-12 is current for day_total (run ${fri.run}): a withdrawal never moves a name back past a later day`);
+    const names = Object.keys(keysOf(r)).sort();
+    expect(await releaseRun(t.db, back)).toMatchObject({ outcome: 'applied', why: null, published: names, behind: names });
+    expect(current(t.db, 'day_total')).toEqual([fri.manifest.outputs.day_total!.key, fri.run]);
+    // Thu had no version of its own before the fill: it has none again.
+    expect(dayVersionOf(t.db, 'day_total', HELD)).toBeNull();
+    for (const x of [r, fri]) expect(fails(await verifyRun(t.db, x.run, { smaltdb: SMALTDB, level: 'stored' })), String(x.run)).toEqual([]);
+    expect((await releaseRun(t.db, back)).why).toBe(`release ${a.release} was withdrawn already`);
     expect((await releaseRun(t.db, { ...back, withdraws: 999 })).why).toBe("release 999 isn't an applied release of a fill or a part here: there is nothing to withdraw");
     expect((await releaseRun(t.db, { ...back, option: 'fill' } as ReleaseInput)).why).toBe('a withdrawal is a decision not to publish, naming the release it takes back by its number');
+  });
+
+  it('withdraws a fill to the latest day left published: an earlier day that published since (Q-51)', async () => {
+    const db = engine();
+    const history = await pinHistory(db);
+    const doc = flow(history.path, {});
+    load(db, 'day_trips', HELD);
+    const thu = await runFlow(db, doc, { smaltdb: SMALTDB, parameters: { day: HELD }, claims: [claimOf(history, HELD, SHORT)] });
+    load(db, 'day_trips_donor', DONOR);
+    const t = { db, history, doc, wed: thu, thu };
+    const r = await derive(t, repairFrom(DONOR));
+    const a = await releaseRun(db, releaseOf(t, r, asRead(r, repairFrom(DONOR))));
+    expect(a).toMatchObject({ outcome: 'applied', why: null });
+    // Wed 10 passes once Thu 11's fill is out: kept as Wed's, readers staying on Thu.
+    load(db, 'day_trips', NEAREST);
+    const wed = await runFlow(db, doc, { smaltdb: SMALTDB, parameters: { day: NEAREST }, claims: [claimOf(history, NEAREST)] });
+    expect(wed.behind).toEqual(wed.published);
+    expect(current(db, 'trip_hours')).toEqual([r.manifest.outputs.trip_hours!.key, r.run]);
+    // The fill taken back: readers go to Wed, the latest day left, though nothing was out before the fill.
+    const w = await releaseRun(db, { run: r.run, manifest: r.hash, keys: keysOf(r), option: 'dont', actor: 'owner', reason: null, decision: LEAF, withdraws: a.release });
+    expect(w).toMatchObject({ outcome: 'applied', why: null });
+    expect(w.behind).toBeUndefined();
+    expect(current(db, 'trip_hours')).toEqual([wed.manifest.outputs.trip_hours!.key, wed.run]);
+    expect(dayVersionOf(db, 'trip_hours', HELD)).toBeNull();
+    for (const x of [r, wed]) expect(fails(await verifyRun(db, x.run, { smaltdb: SMALTDB, level: 'stored' })), String(x.run)).toEqual([]);
   });
 });
 

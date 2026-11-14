@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import type { Database } from 'smaltdb/engine';
 import { pinFile, releaseRun, runFlow, verifyRun, type FlowDocument, type PublishDef, type ReleaseInput, type RunResult, type StoryClaim } from '../src/index.js';
 import { sha256Hex } from '../src/core/hash.js';
-import { pointDataset, findVersion } from '../src/plugin/store.js';
+import { dayVersionOf, pointDataset, findVersion } from '../src/plugin/store.js';
 import { loadFixture, makeTrips, visualFlow } from './fixtures/taxi.js';
 import { openEngine, SMALTDB } from './helpers/engine.js';
 
@@ -277,15 +277,48 @@ describe('a release (ADR 0009 §5)', () => {
     expect((await releaseRun(db, asis(r, { keys: keysOf(r, ['zone_hour', 'borough_hour', 'zone_list']) }))).why).toBe(`run ${r.run} doesn't hold zone_list`);
   });
 
-  it('never moves a name back: a held day passed over by a later one that published is refused', async () => {
+  it('keeps readers on the latest day: a held day decided once a later one published is kept as its day\'s (Q-51)', async () => {
     const db = fixture();
     const history = await pinHistory(db);
     const doc = holding({ hold: ['checks', 'short'], watch: { trips: history.path }, period: 'day' });
     const thu = await run(db, doc, { month: '2024-01', day: '2024-01-11' }, [claimOf(history, SHORT)]);
     const fri = await run(db, doc, { month: '2024-01', day: '2024-01-12' }, [claimOf(history, { day: '2024-01-12' })]);
     expect(fri.published).toEqual(['borough_hour', 'zone_hour', 'zone_list']);
-    expect((await releaseRun(db, asis(thu))).why).toBe(`2024-01-12 is current for borough_hour (run ${fri.run}): a release never moves a name back to an earlier day`);
+    expect(fri.behind).toBeUndefined();
+    // Thu published as is: decided for Thu, its versions kept as Thu's, and readers stay on Fri.
+    const out = await releaseRun(db, asis(thu));
+    expect(out.outcome).toBe('applied');
+    expect(out.published).toEqual(thu.waiting);
+    expect(out.behind).toEqual(thu.waiting);
     expect(current(db, 'borough_hour')).toEqual([fri.manifest.outputs.borough_hour!.key, fri.run]);
+    for (const name of thu.waiting) expect(dayVersionOf(db, name, '2024-01-11')).toMatchObject({ key: thu.manifest.outputs[name]!.key, run: thu.run });
+    expect(dayVersionOf(db, 'borough_hour', '2024-01-12')).toMatchObject({ key: fri.manifest.outputs.borough_hour!.key, run: fri.run });
+    // Verify says so: Thu released for its day, Fri still what readers see.
+    const v = await verifyRun(db, thu.run, { smaltdb: SMALTDB, level: 'stored' });
+    expect(fails(v)).toEqual([]);
+    expect(v.checks.find((c) => c.origin === 'borough_hour' && c.check === 'held')?.note).toMatch(/^released for 2024-01-11 by release \d+/);
+    expect(fails(await verifyRun(db, fri.run, { smaltdb: SMALTDB, level: 'stored' }))).toEqual([]);
+    // Released once: the same decision again is refused, and a stale release of the day never replaces a later run's.
+    expect((await releaseRun(db, asis(thu))).why).toMatch(/^borough_hour was already released, by release \d+$/);
+  });
+
+  it('keeps readers on the latest day: an earlier day passing is kept as its day\'s, the names left on the later one (Q-51)', async () => {
+    const db = fixture();
+    const doc = holding({ hold: ['checks'], period: 'day' });
+    const fri = await run(db, doc, { month: '2024-01', day: '2024-01-12' });
+    const thu = await run(db, doc, { month: '2024-01', day: '2024-01-11' });
+    expect(thu.holds).toEqual([]);
+    expect(thu.published).toEqual(['borough_hour', 'zone_hour', 'zone_list']);
+    expect(thu.behind).toEqual(['borough_hour', 'zone_hour', 'zone_list']);
+    expect(current(db, 'borough_hour')).toEqual([fri.manifest.outputs.borough_hour!.key, fri.run]);
+    expect(dayVersionOf(db, 'borough_hour', '2024-01-11')).toMatchObject({ key: thu.manifest.outputs.borough_hour!.key, run: thu.run, prior: null });
+    const v = await verifyRun(db, thu.run, { smaltdb: SMALTDB, level: 'stored' });
+    expect(fails(v)).toEqual([]);
+    expect(v.checks.find((c) => c.origin === 'borough_hour' && c.check === 'published')?.note).toBe("kept as 2024-01-11's version; readers stay on a later day");
+    // A later day still moves them: Sat passing is what readers see.
+    const sat = await run(db, doc, { month: '2024-01', day: '2024-01-13' });
+    expect(sat.behind).toBeUndefined();
+    expect(current(db, 'borough_hour')).toEqual([sat.manifest.outputs.borough_hour!.key, sat.run]);
   });
 
   it('refuses a run whose flow document, and so its policies, are not stored with it', async () => {

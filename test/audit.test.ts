@@ -630,7 +630,7 @@ describe('an audit bag with a day filled (amendment 1 S11, Q-61)', () => {
     const loose = await decide(s, s.thu.r, s.thu.keys, 'owner', { option: 'dont' }, null);
     const unamended = await s.rec.append('release', 'owner', about({ decision: loose.seq, leaf: LEAF(loose) }) as unknown as JSONValue);
     const f = failed(await auditBag(await withRepairs(s)));
-    expect(f).toContain(`release #${wrong.seq}: release #${s.rel.seq} withdrawn: 1 output back, citing decision #${withdraw.seq}: it doesn't point trip_hours back to what it showed before the fill`);
+    expect(f).toContain(`release #${wrong.seq}: release #${s.rel.seq} withdrawn: 1 output back, citing decision #${withdraw.seq}: it doesn't leave trip_hours showing the latest day left published`);
     expect(f).toContain(`release #${unamended.seq}: release #${s.rel.seq} withdrawn: 1 output back, citing decision #${loose.seq}: its decision, #${loose.seq}, doesn't amend the fill's decision, #${s.decision.seq}`);
   });
 
@@ -714,19 +714,22 @@ describe('an audit bag with a day filled (amendment 1 S11, Q-61)', () => {
     expect(wrongDonor.join('\n')).toContain("the engine's holds for it as a derived run aren't what its plan and its donors hold");
   });
 
-  it('fails a release whose decision doesn’t name its keys, and one that moved the names back past a later day', async () => {
+  it('fails a release whose decision doesn’t name its keys; a refill of an earlier day once a later one is out holds (Q-51)', async () => {
     const s = await filled();
     const forged = await decide(s, s.thu.r, s.thu.keys, 'owner', { option: 'fill', repair: s.repair, derived: { run: s.r.run, manifest: s.r.hash, keys: { trip_hours: 'f'.repeat(64) } } }, null, s.decision.seq);
     const rel = await s.rec.append('release', 'owner', { run: s.r.run, manifest: s.r.hash, outputs: s.keys, decision: forged.seq, leaf: LEAF(forged), outcome: 'applied', why: null } as unknown as JSONValue);
     expect(failed(await auditBag(await withRepairs(s)))).toContain(`release #${rel.seq}: 1 output of run ${s.r.run} released, citing decision #${forged.seq}: its keys aren't those of the derived run its decision names`);
-    // Fri 12 published, then a refill of Thu 11 recorded as applied: it would move the names back.
+    // Fri 12 published, then a refill of Thu 11 recorded as applied: it decides Thu 11 alone, readers staying on Fri 12
+    // (Q-51, ADR 0022 §1).
     const t = await filled();
     load(t.db, 'day_trips', '2024-01-12');
     const fri = await runFlow(t.db, t.doc, { smaltdb: SMALTDB, parameters: { day: '2024-01-12' }, claims: [t.claim('2024-01-12')], log: t.rec.head() });
     await keepRun(t.rec, t.db, fri.manifest, fri.hash, fri.run, { day: '2024-01-12', inputs: inputsOf(fri.manifest) as unknown as JSONValue });
     const again = await decide(t, t.thu.r, t.thu.keys, 'owner', { option: 'fill', repair: t.repair, derived: { run: t.r.run, manifest: t.r.hash, keys: t.keys } }, null, t.decision.seq);
     const late = await t.rec.append('release', 'owner', { run: t.r.run, manifest: t.r.hash, outputs: t.keys, decision: again.seq, leaf: LEAF(again), outcome: 'applied', why: null, from: { run: t.thu.r.run, manifest: t.thu.r.hash }, repair: t.repair } as unknown as JSONValue);
-    expect(failed(await auditBag(await withRepairs(t)))).toContain(`release #${late.seq}: 1 output of run ${t.r.run} released, citing decision #${again.seq}: it moved the names back past 2024-01-12, published before it`);
+    const report = await auditBag(await withRepairs(t));
+    expect(failed(report)).toEqual([]);
+    expect(report.lines.map((l) => l.what)).toContain(`release #${late.seq}: 1 output of run ${t.r.run} released, citing decision #${again.seq}`);
   });
 });
 

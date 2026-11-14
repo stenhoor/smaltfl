@@ -1,7 +1,7 @@
 /**
  * What a day's own view shows (ADR 0008 §10). Loads arrive one a day, as a feed brings them, and the flow publishes
- * only a run that passes (src/plugin/runtime.ts): after a held or refused run its outputs keep the last day that
- * passed. A day's view shows its own run, or, when it has none that passed, the latest day before it that did, said as
+ * only a run that passes (src/plugin/runtime.ts): after a held or refused run its outputs keep the latest day that
+ * passed, and a run of an earlier day keeps its versions for that day alone (Q-51, ADR 0022 §1). A day's view shows its own run, or, when it has none that passed, the latest day before it that did, said as
  * such on every panel that shows those rows; never a day after it, whose rows weren't there yet.
  *
  * A flow that says what holds it (ADR 0009) pauses a day that is off instead: the held run's versions are staged,

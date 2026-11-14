@@ -29,8 +29,9 @@ describe('the remedies a held day gets in the app (S2, S3, S5)', () => {
     expect(r.picks[0]).toMatchObject({ rule: 'weekday', direction: 'before', day: '2023-09-14' });
     for (const p of r.picks) expect(r.counts.get(p.day)).toEqual(fillCounts(h, DAY, r.missing, p.day));
     expect(r.part).toEqual(fillCounts(h, DAY, r.missing, null));
-    // A later day published: both off; the part alone marked when it fails its checks (Q-67).
-    expect(ask({ later: '2023-09-25' })!.offers.map((o) => o.off)).toEqual(['Mon 25 is published', 'Mon 25 is published']);
+    // A later day published: neither off, the day decided for itself (Q-51); the part alone marked when it fails its
+    // checks (Q-67).
+    expect(ask({ later: '2023-09-25' })!.offers.map((o) => o.off)).toEqual([undefined, undefined]);
     expect(ask({ partFails: true })!.offers[1]).toMatchObject({ note: 'fails its checks' });
     // Readers have the fill: it can be withdrawn (Q-61).
     expect(ask({ readers: 'fill' })!.offers.at(-1)).toEqual({ option: 'dont', label: 'Withdraw the fill', withdraws: true });
