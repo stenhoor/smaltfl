@@ -39,6 +39,11 @@ export interface RunOptions {
    * its checks say, until a restatement is decided.
    */
   restates?: { of: string; changes: string[] };
+  /**
+   * A what-if (ADR 0021 §2, §4, Q-191): its day's files, any version of each, under any rules, run apart from the
+   * record. Recorded in the manifest; every output is held, whatever its checks say, and no decision releases it.
+   */
+  whatIf?: true;
   /** Return the run's typing (`RunResult.typed`, core/typed.ts): what the build keeps as the types computed ahead. */
   typed?: boolean;
 }

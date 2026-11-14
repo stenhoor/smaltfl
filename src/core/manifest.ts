@@ -120,6 +120,11 @@ export interface RunManifest {
    * manifests hash as before.
    */
   restates?: { of: string; changes: string[] };
+  /**
+   * A what-if (ADR 0021 §2, §4, Q-191): its day's files, any version of each, under any rules, run apart from the
+   * record. Every output is held and never released. Absent from every other run, so their manifests hash as before.
+   */
+  whatIf?: true;
 }
 
 /**

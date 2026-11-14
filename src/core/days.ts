@@ -214,6 +214,7 @@ export function heldLoadLine(holds: readonly { by: string; claim?: { state: stri
   if (story) return 'Built from a load with something wrong';
   if (holds.some((x) => x.by === 'correction')) return 'Built from a later file for its day, waiting for a decision';
   if (holds.some((x) => x.by === 'restated')) return 'Built under rules changed since, waiting for a restatement';
+  if (holds.some((x) => x.by === 'what-if')) return 'Built in a what-if: never published';
   if (holds.some((x) => x.by === 'checks')) return 'Built from a load its checks held';
   if (holds.some((x) => x.by === 'unjudged')) return 'Built from a load not yet judged';
   return null;
