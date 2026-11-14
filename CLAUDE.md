@@ -399,7 +399,7 @@ without attaching them; it cannot push to them):
 | `smaltdb` | `smaltdb` | the engine and plugin API v1 (`smaltdb/engine`, `smaltdb/worker-runtime`, the client) |
 | `smaltql` | `@smaltworks/smaltql` | SQL. smaltdb runs plans, not text (its ADR 0015, 0017): the host registers smaltql, `test/setup-sql.ts` in the tests, `languages: [sqlLanguage]` in `src/app/worker.ts`, `@smaltworks/smaltql/register` in `src/app/inline.ts` and `scripts/data/history.ts`. The plugin never imports it |
 | `smaltdb-io`, `smaltdb-external`, `smaltdb-parquet` | `@smaltdb/io`, `/external`, `/parquet` | reading files and data lists |
-| `smaltnb` | `smaltnb` | the notebook format and graph (`smaltnb/format`, `smaltnb/graph`, ADR 0011) |
+| `smaltnb` | `smaltnb` | the notebook format and graph (`smaltnb/format`, `smaltnb/graph`, ADR 0011); its cypher cells are no step a flow runs, refused by name (`classify`) |
 | `smaltkit` | `smaltkit` | smaltty (`smaltkit/typescript`), which smaltnb's parser needs |
 | `smaltdf` | `@smaltdb/df` | not used yet: a `df` cell is written in a notebook, not run by smaltfl |
 | `smaltts` | `smaltts` | not used yet: the target for publishing once its `flow()` lands (ADR 0011 §7, Gate C with stenhoor first) |

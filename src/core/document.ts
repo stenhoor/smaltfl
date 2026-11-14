@@ -306,7 +306,7 @@ export interface OutlineCell {
   /** heading: an md cell that opens a section; md: prose about the step after it; source: a source binding; step: a
    * step; params: the notebook's parameters; publish: what the notebook publishes; other: a cell the flow leaves out. */
   kind: 'heading' | 'md' | 'source' | 'step' | 'params' | 'publish' | 'gate' | 'other';
-  lang: 'ts' | 'sql' | 'df' | 'md';
+  lang: 'ts' | 'sql' | 'df' | 'md' | 'cypher';
   line: number;
   endLine: number;
   /** The section a heading opens, or the step or source a cell makes, or the steps a publish cell names. */
@@ -323,7 +323,7 @@ export interface OutlineCell {
 export interface CellRef {
   notebook: string;
   cell: string;
-  lang: 'ts' | 'sql' | 'df' | 'md';
+  lang: 'ts' | 'sql' | 'df' | 'md' | 'cypher';
   line: number;
   endLine: number;
 }

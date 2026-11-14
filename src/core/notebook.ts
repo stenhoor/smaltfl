@@ -491,6 +491,11 @@ function classify(parsed: Parsed, cell: Cell, ts: TypeScriptKit, sources: Map<st
     return { kind: 'fill', input, time: opts.time as string, shift: Array.isArray(opts.shift) ? (opts.shift as string[]) : [] };
   }
   if (cell.lang === 'df') return { kind: 'df' };
+  // smaltnb's Cypher cells (its graph queries) are no step a flow runs: smaltfl runs SQL through smaltql, and frames.
+  if (cell.lang === 'cypher') {
+    add(where, `${cell.id} is a cypher cell: a flow runs sql and df cells and its own (source(), check(), fill(), gate(), publish(), param()), not cypher`);
+    return null;
+  }
   add(where, `not a step a flow runs: a sql cell (const ${cell.id} = sql\`…\`), a df cell, source(), check(), fill(), gate(), publish() or param()`);
   return null;
 }
