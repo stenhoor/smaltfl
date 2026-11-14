@@ -49,7 +49,7 @@
   },
   {
     "name": "rules-added",
-    "what": "The rule added, in force from Thu Mar 21: the day runs again under it, comes out the same and is noted; User is never blank, else flag the row and keep it, listed on the User card and among the changes above the files; the check cell auth_valid gains user_required: 'on' in its ontology list",
+    "what": "The rule added, in force from Thu Mar 21: the day runs again under it and comes out the same, and the restatement opens for its sign-off (Q-199 as answered, ADR 0022 §1); User is never blank, else flag the row and keep it, listed on the User card and among the changes above the files; the check cell auth_valid gains user_required: 'on' in its ontology list",
     "view": "ontology",
     "viewFirst": true,
     "clicks": [
@@ -60,11 +60,28 @@
     "expect": {
       "pageText": [
         "User is never blank: else flag the row and keep it",
-        "Added a rule to auth: User is never blank, else flag the row and keep it, in force from Thu Mar 21"
+        "Added a rule to auth: User is never blank, else flag the row and keep it, in force from Thu Mar 21",
+        "The new rules change no published day",
+        "Sign off 1 day as the same"
       ],
       "count": {
         "#ontology-files .of-rule-form": 0,
         "#ontology-files .of-col .of-rule-acts": 4
+      }
+    }
+  },
+  {
+    "name": "rules-signed-off",
+    "what": "The restatement opened from the day's head, and the day that came out the same signed off with a reason: one restatement recorded, nothing decided again",
+    "clicks": [
+      "#loads .rs-line button.btn",
+      [".vf-detail .rs-reason", "The same day under the new rule: User is never blank"],
+      ".vf-detail .rs-go"
+    ],
+    "expect": {
+      "status": "^1 recorded day ran again under the new rules: it comes out the same\\. Signed off and recorded\\.$",
+      "count": {
+        ".vf-detail-wrap": 0
       }
     }
   },
@@ -94,7 +111,40 @@
     "card": "auth",
     "tab": "Rules",
     "clicks": [
-      "#sheet .rl-item[data-rule=\"latency_ms_range\"] .rl-switch",
+      "#sheet .rl-item[data-rule=\"latency_ms_range\"] .rl-switch"
+    ],
+    "full": true,
+    "expect": {
+      "text": [
+        "Switched off a rule of auth: Latency is from 0 to 30,000 ms, in auth_valid (from Thu Mar 21)",
+        "Sign off 1 day as the same"
+      ],
+      "count": {
+        "#sheet .rl-switch[aria-checked=\"false\"]": 1
+      }
+    }
+  },
+  {
+    "name": "rules-switch-signed-off",
+    "what": "Signed off too, from the day's head, with its reason",
+    "clicks": [
+      "#loads .rs-line button.btn",
+      [".vf-detail .rs-reason", "Latency is checked elsewhere: the day the same"],
+      ".vf-detail .rs-go"
+    ],
+    "expect": {
+      "status": "^1 recorded day ran again under the new rules: it comes out the same\\. Signed off and recorded\\.$",
+      "count": {
+        ".vf-detail-wrap": 0
+      }
+    }
+  },
+  {
+    "name": "rules-cell-written",
+    "what": "The import card's Rules tab after both: three of four on, Latency's struck through, and the check cell as written, latency_ms_range: 'off' and user_required: 'on' in its ontology list",
+    "card": "auth",
+    "tab": "Rules",
+    "clicks": [
       "#sheet .cell-part summary"
     ],
     "full": true,
@@ -107,8 +157,7 @@
       ],
       "count": {
         "#sheet .rl-switch[aria-checked=\"false\"]": 1
-      },
-      "status": "^1 recorded day ran again under the new rules: it comes out the same\\. Noted in the record\\."
+      }
     }
   },
   {

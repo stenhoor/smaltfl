@@ -83,5 +83,55 @@
       "pageText": ["Run here: the same datasets and holds as the record ✓"],
       "noPageText": ["NOT RECORDED, NEVER PUBLISHED", "815 apps repeat a key"]
     }
+  },
+  {
+    "name": "whatif-make-form",
+    "what": "Thu Mar 21, the what-if on the TLS file as it first arrived, then Make this the day's (ADR 0022 §1, Q-202): on the same screen, what it does (the file goes in as sent again, the day published as is though it would be held) and the reason it asks for",
+    "day": "Thu 21",
+    "clicks": ["#loads .wi-open", [".vf-detail .wi-file[data-source=\"tls\"]", "1"], ".vf-detail .wi-go", "#loads .wi-make"],
+    "waitFor": "#loads .wi-makeform",
+    "waitForMs": 120000,
+    "element": "#loads .dh-whatif",
+    "expect": {
+      "text": ["tls’s file as the what-if has it goes in as sent again, and the day is published as is, though it would be held (fact_control_status: rows don't reconcile: 815 rows repeat a key", "Make it the day’s", "Cancel"],
+      "count": { "#loads .wi-makeform": 1, "#loads .wi-reason": 1 }
+    }
+  },
+  {
+    "name": "whatif-make-files",
+    "what": "The reason given and the tap: a later delivery of the file, decided as is with it, in one go; the day's fifth version is the what-if's, made the day's, and what readers got",
+    "clicks": [["#loads .wi-reason", "The TLS team’s first file is the one to keep"], "#loads .wi-make-go"],
+    "waitFor": "#loads .dv[data-version=\"5\"].got",
+    "waitForMs": 120000,
+    "element": "#loads",
+    "expect": {
+      "pageText": ["5 VERSIONS OF THE DAY", "tls as a what-if had it: made the day’s", "published as is by Owner", "(“The TLS team’s first file is the one to keep”)", "Published version 5"],
+      "count": { "#loads .dh-whatif": 0, "#loads .dv.got[data-version=\"5\"]": 1 }
+    }
+  },
+  {
+    "name": "whatif-make-rules-form",
+    "what": "Sat Mar 16 under version 1 of the rules (as shipped), then Make this the day's: the same files under other rules, so the day takes those rules for that day only and is restated under them",
+    "day": "Sat 16",
+    "clicks": ["#loads .wi-open", [".vf-detail .wi-rules", ""], ".vf-detail .wi-go", "#loads .wi-make"],
+    "waitFor": "#loads .wi-makeform",
+    "waitForMs": 120000,
+    "element": "#loads .dh-whatif",
+    "expect": {
+      "text": ["Sat 16 takes version 1 of the rules (the rules as shipped) for that day only, and is restated under them: readers get its outputs."]
+    }
+  },
+  {
+    "name": "whatif-make-rules",
+    "what": "The reason given and the tap: a change set for Sat 16 alone taking the rules as shipped, the day run again under it, and one restatement deciding it; its third version, published, is what readers got",
+    "clicks": [["#loads .wi-reason", "The scanner’s weekend, published under the rules as shipped"], "#loads .wi-make-go"],
+    "waitFor": "#loads .dv[data-version=\"3\"].got",
+    "waitForMs": 120000,
+    "element": "#loads",
+    "expect": {
+      "pageText": ["3 VERSIONS OF THE DAY", "Took version 1 of the rules (the rules as shipped) for Sat 16 only", "passed · restated by Owner", "(“The scanner’s weekend, published under the rules as shipped”)"],
+      "status": "^Restated 1 day under the new rules\\. Recorded\\.$",
+      "count": { "#loads .dh-whatif": 0 }
+    }
   }
 ]

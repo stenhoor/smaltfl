@@ -108,6 +108,9 @@ interface RunRecord {
   /** The flow as kept when it ran, its rules before any change set and its change sets, by flow hash: what tells runs of
    * one flow from runs of an edited one, whatever day's rules each ran under (ADR 0021 §5). */
   base?: string;
+  /** A what-if made the day's (ADR 0022 §1, Q-202): a later delivery of the files it picked, a version of the day of its
+   * own, whatever earlier version had the same files. */
+  made?: true;
 }
 
 /** Whether two runs are of the same flow as kept: their base, else (a run without one) the flow they ran. */
@@ -11538,8 +11541,9 @@ function versionsPart(k: number): HTMLElement | null {
   // What readers got: the latest version published; on a day a restatement kept back (ADR 0021 §5), none.
   const re = restatedDayOf(k);
   const got = re && !re.passes ? null : ([...facts].reverse().find((f) => f.published)?.v ?? null);
-  // The versions a later file made: a restated one (ADR 0021 §5) replaces no file.
-  const files = facts.filter((f) => !f.restated).length;
+  // The versions a later file made: a restated one (ADR 0021 §5) replaces no file; each file version is replaced by the next.
+  const fileFacts = facts.filter((f) => !f.restated);
+  const nextFile = (f: VersionFact) => fileFacts[fileFacts.findIndex((x) => x.v === f.v) + 1];
   const said = (f: VersionFact): string => {
     const a = f.first?.about as unknown as RunAbout | undefined;
     // Run again under rules changed since (ADR 0021 §5): the rules, what it came to, and what its restatement decided.
@@ -11550,13 +11554,13 @@ function versionsPart(k: number): HTMLElement | null {
       parts.push(!r.decision ? 'waiting for the restatement' : r.decision.ticked ? `restated by ${whoSaid(r.decision.by)}, ${whenMin(r.decision.at, l.day)}${r.decision.reason ? ` (“${r.decision.reason}”)` : ''}` : r.decision.same ? 'the same as readers had: noted' : `left as readers had it by ${whoSaid(r.decision.by)}`);
       return parts.join(' · ');
     }
-    const parts = [f.delivery ? `${f.delivery.source} sent again ${whenMin(f.delivery.arrived, l.day)}: “${f.delivery.why}”` : `As it arrived${f.first ? `, ${whenMin(f.first.at, l.day)}` : ''}`];
+    const parts = [f.delivery ? `${f.delivery.source} sent again ${whenMin(f.delivery.arrived, l.day)}: “${f.delivery.why}”` : f.made ? `${f.made.sources.join(' and ')} as a what-if had ${f.made.sources.length === 1 ? 'it' : 'them'}: made the day’s ${whenMin(f.made.at, l.day)}` : `As it arrived${f.first ? `, ${whenMin(f.first.at, l.day)}` : ''}`];
     // What held it, a correction's own hold aside: every later file waits for a decision (Q-183).
     const hold = a?.outcome === 'held' ? a.holds?.find((x) => x.by !== 'correction') : undefined;
     if (hold) parts.push(`held: ${hold.origin}: ${hold.said}`);
     if (f.decided) parts.push(`${f.decided.option === 'dont' ? 'kept back' : f.published ? (f.delivery ? 'published' : DECIDED_WORD.asis) : (DECIDED_WORD[f.decided.option as DayState] ?? f.decided.option)} by ${whoSaid(f.decided.by)}, ${whenMin(f.decided.at, l.day)}${f.decided.reason ? ` (“${f.decided.reason}”)` : ''}`);
     else if (f.published) parts.push('published');
-    else if (a?.outcome === 'held') parts.push(f.v < files ? `replaced by version ${f.v + 1} before a decision` : DECIDED_WORD.waiting);
+    else if (a?.outcome === 'held') parts.push(nextFile(f) ? `replaced by version ${nextFile(f)!.v} before a decision` : DECIDED_WORD.waiting);
     return parts.join(' · ');
   };
   return h('div', { class: 'dh-versions' }, h('p', { class: 'eyebrow' }, `${facts.length} versions of the day`),
@@ -11700,7 +11704,13 @@ function comparePart(k: number): HTMLElement | null {
   const rowsOf = (f: { rows: number | null; refused: boolean } | null) => (!f ? 'not read' : f.refused ? 'refused' : f.rows === null ? 'no rows counted' : `${fmtInt(f.rows)} ${f.rows === 1 ? 'row' : 'rows'}`);
   // A version run again under rules changed since (ADR 0021 §5) by what its restatement made of it.
   const restatedFate = (f: VersionFact) => (!f.restated?.decision ? 'waiting for the restatement' : f.restated.decision.ticked ? `restated by ${whoSaid(f.restated.decision.by)}, ${f.published ? 'published' : 'not published'}` : f.restated.decision.same ? 'the same as readers had, noted' : 'left as readers had it');
-  const fate = (f: VersionFact) => (f.v === 0 ? 'a what-if, never published' : f.restated ? restatedFate(f) : f.published ? (f.delivery ? 'published' : f.decided ? DECIDED_WORD.asis : 'published') : f.decided?.option === 'dont' ? `kept back by ${whoSaid(f.decided.by)}` : f.v < facts.filter((x) => !x.restated).length ? 'replaced before a decision' : DECIDED_WORD.waiting);
+  const fate = (f: VersionFact) => (f.v === 0 ? 'a what-if, never published' : f.restated ? restatedFate(f) : f.published ? (f.delivery ? 'published' : f.decided ? DECIDED_WORD.asis : 'published') : f.decided?.option === 'dont' ? `kept back by ${whoSaid(f.decided.by)}` : laterFile(f) ? 'replaced before a decision' : DECIDED_WORD.waiting);
+  // Replaced by a later file version (a delivery, or a what-if made the day's, ADR 0022 §1): one after it in the list.
+  function laterFile(f: VersionFact): boolean {
+    const files = facts.filter((x) => !x.restated);
+    const i = files.findIndex((x) => x.v === f.v);
+    return i >= 0 && i < files.length - 1;
+  }
   const factOf = (v: number): VersionFact | undefined => (v === 0 ? { v: 0, delivery: null, first: null, decided: null, published: false } : facts[v - 1]);
   // What held each side by its own data and rules: a later delivery's, a restated run's and a what-if's own holds aside.
   const heldBy = (v: number): Hold[] => ownHolds(v === 0 ? (wi?.result.holds ?? []) : ((runsOfVersions(k).filter((x) => x.v === v).at(-1)?.e.about as unknown as RunAbout | undefined)?.holds ?? [])).filter((x) => x.by !== 'what-if');
@@ -12440,7 +12450,7 @@ function renderLoads(): void {
     (loads.at >= 0 ? versionsPart(loads.at) : null) ?? '',
     (loads.at >= 0 ? comparePart(loads.at) : null) ?? '',
     (loads.at >= 0 ? whatIfPart(loads.at) : null) ?? '',
-    replacedBy && onVersion ? h('p', { class: 'loads-pause superseded', role: 'status' }, h('b', {}, `Version ${onVersion}, ${onVersion === 1 ? 'as it arrived' : 'sent again'}: replaced by version ${replacedBy.v}`), `, ${replacedBy.delivery?.source} sent again ${whenMin(replacedBy.delivery!.arrived, now!.day)}.${gotVersion ? ` Readers got version ${gotVersion}.` : ''} It isn’t decided: the later version is.`) : '',
+    replacedBy && onVersion ? h('p', { class: 'loads-pause superseded', role: 'status' }, h('b', {}, `Version ${onVersion}, ${onVersion === 1 ? 'as it arrived' : 'sent again'}: replaced by version ${replacedBy.v}`), `${replacedBy.delivery ? `, ${replacedBy.delivery.source} sent again ${whenMin(replacedBy.delivery.arrived, now!.day)}` : replacedBy.made ? `, made the day’s from a what-if ${whenMin(replacedBy.made.at, now!.day)}` : ''}.${gotVersion ? ` Readers got version ${gotVersion}.` : ''} It isn’t decided: the later version is.`) : '',
     h('div', { class: `loads-now${top ? ` sev-${top.severity}` : ''}` },
       // The day's head is the status line's, just above: said once (a day with no news says its trips here).
       (top && counted) || statusPause ? null : h('p', { 'aria-live': 'polite' }, top && (top.severity === 'alert' || top.severity === 'warn') ? glyphEl(top.severity, 14) : '', ' ', loadSummary()),
@@ -12620,22 +12630,48 @@ const fileVersionOf = (vs: readonly { files: Record<string, Listed> }[], files: 
 /** A load's versions (ADR 0021 §2, §5): its first files, by source, then the files as each later delivery left them, each
  * with the delivery that made it; then each time the day was run again under rules changed since, in the order first
  * recorded: the files of the version it restated, under other rules. */
-function versionsOfLoad(k: number): { files: Record<string, Listed>; delivery: (Delivered & { source: string }) | null; restated: Restated | null }[] {
+function versionsOfLoad(k: number): LoadVersion[] {
   const l = loads.list[k];
   if (!l) return [];
   const main = primarySource();
   const first: Record<string, Listed> = l.files ?? (main ? { [main]: l } : {});
   const ds = dataList ? deliveriesOf(dataList, l.day) : [];
-  const out: { files: Record<string, Listed>; delivery: (Delivered & { source: string }) | null; restated: Restated | null }[] = versionsOfDay({ ...l, files: first }, ds).map((files, i) => ({ files, delivery: i ? ds[i - 1]! : null, restated: null }));
+  const out: LoadVersion[] = versionsOfDay({ ...l, files: first }, ds).map((files, i) => ({ files, delivery: i ? ds[i - 1]! : null, restated: null, made: null }));
   const n = out.length;
   for (const e of allEntries()) {
     if (e.kind !== 'run' || runDay(e) !== l.day) continue;
     const key = restatedKey(e);
+    const a = e.about as unknown as { manifest?: string; made?: boolean; inputs?: Inputs; restates: { of: string; changes: string[] }; correction?: { sources?: string[] } };
+    // A what-if made the day's (ADR 0022 §1): the files it picked, sent again as a version of their own.
+    if (!key && a.made === true && typeof a.manifest === 'string') {
+      if (out.some((v) => v.made?.manifest === a.manifest)) continue;
+      const files: Record<string, Listed> = {};
+      for (const [id, sha] of Object.entries(a.inputs?.files ?? {})) {
+        const f = out.slice(0, n).map((v) => v.files[id]).find((x) => x?.sha256 === sha);
+        if (f) files[id] = f;
+      }
+      out.push({ files: { ...out[0]!.files, ...files }, delivery: null, restated: null, made: { manifest: a.manifest, first: e, sources: [...(a.correction?.sources ?? [])] } });
+      continue;
+    }
     if (!key || out.some((v) => v.restated?.key === key)) continue;
-    const a = e.about as unknown as { inputs?: Inputs; restates: { of: string; changes: string[] } };
-    out.push({ files: out[Math.max(0, fileVersionOf(out.slice(0, n), a.inputs?.files))]!.files, delivery: null, restated: { key, of: a.restates.of, changes: [...a.restates.changes], first: e } });
+    out.push({ files: out[Math.max(0, fileVersionOf(out.slice(0, n), a.inputs?.files))]!.files, delivery: null, restated: { key, of: a.restates.of, changes: [...a.restates.changes], first: e }, made: null });
   }
   return out;
+}
+
+/** A load's version (`versionsOfLoad`): its files, the delivery that sent them, or the restatement or what-if that made
+ * it a version of its own. */
+interface LoadVersion {
+  files: Record<string, Listed>;
+  delivery: (Delivered & { source: string }) | null;
+  restated: Restated | null;
+  made: { manifest: string; first: RecordEntry; sources: string[] } | null;
+}
+
+/** The version a what-if made the day's (ADR 0022 §1), by its run's manifest (null: none). */
+function madeVersion(k: number, manifest: string): number | null {
+  const i = versionsOfLoad(k).findIndex((v) => v.made?.manifest === manifest);
+  return i >= 0 ? i + 1 : null;
 }
 
 /** Which version of a load a run read, by its files' sha256 (1: its first files); null for files no version has (a
@@ -12654,6 +12690,7 @@ function restatedVersion(k: number, key: string): number | null {
 /** The version of its load a run here read: a restated one by its rules, any other by its files. */
 function versionOfRun(r: RunRecord | undefined): number | null {
   if (r?.load === undefined) return null;
+  if (r.made) return madeVersion(r.load, r.result.hash);
   const re = r.result.manifest.restates;
   return re ? restatedVersion(r.load, restatedKeyOf(re.changes, inputsOf(r.result.manifest).files)) : versionOfFiles(r.load, inputsOf(r.result.manifest).files);
 }
@@ -12664,7 +12701,8 @@ function runsOfVersions(k: number): { e: RecordEntry; v: number | null }[] {
   if (!l) return [];
   return allEntries().filter((e) => e.kind === 'run' && runDay(e) === l.day && (e.about as unknown as RunAbout).outcome !== 'derived').map((e) => {
     const key = restatedKey(e);
-    return { e, v: key ? restatedVersion(k, key) : versionOfFiles(k, (e.about as { inputs?: Inputs } | null)?.inputs?.files) };
+    const a = e.about as { inputs?: Inputs; made?: boolean; manifest?: string } | null;
+    return { e, v: key ? restatedVersion(k, key) : a?.made === true && typeof a.manifest === 'string' ? madeVersion(k, a.manifest) : versionOfFiles(k, a?.inputs?.files) };
   });
 }
 
@@ -12725,6 +12763,8 @@ interface VersionFact {
   /** A day run again under rules changed since (ADR 0021 §5): its change sets, whether it passed (else what held it), and
    * what its restatement decided (ticked: readers got it; else they kept the version they had). */
   restated?: { changes: string[]; passes: boolean; hold: Hold | null; decision: { at: string; by: string; reason: string | null; ticked: boolean; same: boolean } | null };
+  /** A what-if made the day's (ADR 0022 §1): when, by whom, and the sources whose files it sent again. */
+  made?: { at: string; by: string; sources: string[] };
 }
 
 /** Every version of a day and what became of it (ADR 0021 §2), in order: the first files, then each delivery. */
@@ -12747,6 +12787,7 @@ function versionFacts(k: number): VersionFact[] {
     const last = all.filter((e) => e.kind === 'decide' && manifests.has(String((e.about as Partial<DecideAbout> | null)?.manifest))).at(-1);
     return {
       v: i + 1, delivery: ver.delivery, first: mine[0] ?? null,
+      ...(ver.made ? { made: { at: ver.made.first.at, by: ver.made.first.by.as, sources: ver.made.sources } } : {}),
       decided: last ? { at: last.at, by: last.by.as, option: (last.about as unknown as DecideAbout).option, reason: last.reason } : null,
       published: mine.some((e) => (e.about as unknown as RunAbout).outcome === 'ok' || released.has(String((e.about as unknown as RunAbout).manifest))),
     };
@@ -12773,7 +12814,8 @@ function supersededBy(r: RunRecord | undefined): VersionFact | null {
   const v = versionOfRun(r);
   // Replaced by a later file: a day run again under other rules (ADR 0021 §5) replaces nothing by itself.
   const facts = versionFacts(r.load).filter((f) => !f.restated);
-  return v !== null && v < facts.length ? facts[v]! : null;
+  const at = facts.findIndex((f) => f.v === v);
+  return at >= 0 && at < facts.length - 1 ? facts[at + 1]! : null;
 }
 
 /** How a day's files are picked to be pinned (`pinLoad`): a restatement's, a what-if's, a what-if made the day's (its
@@ -13950,7 +13992,7 @@ async function run(early?: EarlyClaims): Promise<void> {
     const engineTold = result.holds.flatMap((h) => (h.by === 'story' && h.claim && asked?.tell[h.origin] ? [h.claim] : []));
     const kept = [...(told ?? []), ...engineTold];
     const base = await flowHash(baseDoc());
-    const rec: RunRecord = { result, ms, at: new Date(), inputs: inputsKey(inputsOf(result.manifest)), base, ...(loads.pinned >= 0 && loads.list.length > 1 ? { load: loads.pinned } : {}), ...(kept.length ? { claims: kept } : {}) };
+    const rec: RunRecord = { result, ms, at: new Date(), inputs: inputsKey(inputsOf(result.manifest)), base, ...(loads.pinned >= 0 && loads.list.length > 1 ? { load: loads.pinned } : {}), ...(kept.length ? { claims: kept } : {}), ...(correct ? { made: true as const } : {}) };
     // A what-if (ADR 0021 §2, §4, Q-191): apart from the record and from the day's own runs, so nothing of it is learned,
     // recorded, decided or sealed. It is on screen until it is closed.
     if (result.manifest.whatIf) {
@@ -14093,6 +14135,8 @@ async function recordRun(rec: RunRecord | null, error: string | null): Promise<v
         ...(result.manifest.correction ? { correction: result.manifest.correction as unknown as JSONValue } : {}),
         // The run it restates and the change sets it ran under (ADR 0021 §5).
         ...(restates ? { restates: restates as unknown as JSONValue } : {}),
+        // A what-if made the day's (ADR 0022 §1): a version of the day of its own.
+        ...(rec?.made ? { made: true } : {}),
         // With several watched sources, every load it read (ADR 0010 §7): a load it read and didn't hold passes its pause.
         ...(typed && byLoad(typed.publish) ? { loads: [...loadsOf(typed, result.manifest).values()] as unknown as JSONValue } : {}),
         ...(held ? { holds: result.holds as unknown as JSONValue, waiting: result.waiting, keys } : {}),
