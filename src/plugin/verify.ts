@@ -212,7 +212,7 @@ export async function verifyRun(db: Database, runId: number, options: VerifyOpti
       }
     }
     const all = [...holds, ...fills];
-    const said = all.length ? `held by ${all.map((x) => `${x.origin} (${x.by === 'checks' ? 'its checks' : x.by === 'story' || x.by === 'derived' || x.by === 'donor' || x.by === 'correction' ? x.said : 'not judged'})`).join(', ')}` : 'nothing held it';
+    const said = all.length ? `held by ${all.map((x) => `${x.origin} (${x.by === 'checks' ? 'its checks' : x.by === 'story' || x.by === 'derived' || x.by === 'donor' || x.by === 'correction' || x.by === 'restated' ? x.said : 'not judged'})`).join(', ')}` : 'nothing held it';
     check({ node: -1, origin: 'holds', check: 'held', ok: notes.length === 0, note: notes.length ? notes.join('; ') : said });
     // Fail closed: the outputs that should have been held, from the holds computed again, and those stored.
     const held = new Set(plan.publish ? [...heldOutputs(plan, all), ...heldOutputs(plan, [...(kept?.holds ?? []), ...(derived?.holds ?? [])])] : []);

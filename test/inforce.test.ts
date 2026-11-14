@@ -12,9 +12,9 @@ import smaltfl from '../src/plugin/index.js';
 import { canonicalJSON } from '../src/core/canonical.js';
 import { validateDocument, type ChangeSet, type RuleEdit } from '../src/core/document.js';
 import { utf8 } from '../src/core/hash.js';
-import { applyEdit, changesOn, dayOf, inForce, resolve, rulesHash, rulesInForce } from '../src/core/inforce.js';
+import { applyEdit, changesOn, dayOf, inForce, resolve, ruleParts, rulesHash, rulesInForce, withRuleParts } from '../src/core/inforce.js';
 import { rulesOf } from '../src/core/rules.js';
-import { flowHash, pinFile, runFlow, translate, verifyRun, type FlowDocument } from '../src/index.js';
+import { flowHash, pinFile, releaseRun, runFlow, translate, verifyRun, type FlowDocument } from '../src/index.js';
 import { pinnedDdl, type DataBindings } from '../examples/sources.js';
 import { csvOf, securityDays, securityRows } from './fixtures/security.js';
 import { SMALTDB } from './helpers/engine.js';
@@ -235,4 +235,55 @@ describe('a day run through the engine under the rules in force', () => {
       db.close();
     }
   }, 60_000);
+});
+
+describe('a day run again under rules changed since', () => {
+  const day = securityDays().find((p) => p.day === '2024-03-11')!;
+  const open = async () => {
+    const db = Database.openMemory({ plugins: [io, external, smaltfl] });
+    const b = data.sources.auth!;
+    await pinFile(db, b.file, utf8(csvOf(securityRows(day, 0.01))));
+    await db.execAsync(pinnedDdl(b));
+    return db;
+  };
+
+  it('holds every output until a restatement, names what it restates, verifies, and refuses a release', async () => {
+    const doc = await signins();
+    const dated: FlowDocument = { ...doc, changes: [change('tighter', '2024-03-01', '2024-03-12T08:00:00Z', [latency(20_000)])] };
+    const db = await open();
+    try {
+      // Told no claim, the day is held as not judged: its run is what a restatement restates all the same.
+      const first = await runFlow(db, doc, { smaltdb: SMALTDB, parameters: { day: day.day } });
+      expect(first.holds.map((h) => h.by)).toEqual(['unjudged']);
+      const again = await runFlow(db, dated, { smaltdb: SMALTDB, parameters: { day: day.day }, restates: { of: first.hash, changes: ['tighter', 'tighter'] } });
+      expect(again.manifest.restates).toEqual({ of: first.hash, changes: ['tighter'] });
+      expect(again.holds.map((h) => [h.by, h.origin, h.reaches])).toEqual([['unjudged', 'auth', ['auth_valid', 'failures_by_country', 'signins_by_hour']], ['restated', 'run', ['auth_valid', 'failures_by_country', 'signins_by_hour']]]);
+      expect(again.published).toEqual([]);
+      expect((await verifyRun(db, again.run, { smaltdb: SMALTDB, level: 'rerun' })).ok).toBe(true);
+      const keys = Object.fromEntries(Object.entries(again.manifest.outputs).map(([n, o]) => [n, o.key]));
+      const r = await releaseRun(db, { run: again.run, manifest: again.hash, keys, option: 'asis', actor: 'owner', reason: 'restated', decision: 'a'.repeat(64) });
+      expect(r).toMatchObject({ outcome: 'refused', why: expect.stringMatching(/a restatement decides it/) });
+      await expect(runFlow(db, dated, { smaltdb: SMALTDB, parameters: { day: day.day }, restates: { of: 'nope', changes: ['tighter'] } })).rejects.toThrow(/names the run it restates/);
+      await expect(runFlow(db, dated, { smaltdb: SMALTDB, parameters: { day: day.day }, restates: { of: first.hash, changes: [] } })).rejects.toThrow(/change sets it runs under/);
+    } finally {
+      db.close();
+    }
+  }, 60_000);
+});
+
+describe('the rule parts the page keeps apart', () => {
+  it('are taken from one document and put on another, its steps and layout kept', async () => {
+    const doc = await signins();
+    const edited = applyEdit(doc, { op: 'switchRule', file: 'auth', id: 'country_required', on: false })!.doc;
+    const moved = { ...edited, layout: { auth: [3, 4] as [number, number] }, steps: edited.steps.map((s) => (s.id === 'auth_valid' ? { ...s, description: 'checked' } : s)) };
+    const back = withRuleParts(moved, ruleParts(doc));
+    expect(await rulesHash(back)).toBe(await rulesHash(doc));
+    expect(back.layout).toEqual({ auth: [3, 4] });
+    expect(back.steps.find((s) => s.id === 'auth_valid')?.description).toBe('checked');
+    expect(back.notebooks).toEqual(doc.notebooks);
+    expect(withRuleParts(back, ruleParts(edited)).steps.find((s) => s.id === 'auth_valid')).toMatchObject({ ontology: { country_required: 'off' }, description: 'checked' });
+    // Parts without an ontology take the document's away.
+    const { ontology: _o, ...bare } = doc;
+    expect(withRuleParts(doc, ruleParts(bare as FlowDocument))).not.toHaveProperty('ontology');
+  });
 });

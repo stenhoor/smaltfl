@@ -114,6 +114,12 @@ export interface RunManifest {
    * other run, so their manifests hash as before.
    */
   correction?: { of: string; sources: string[] };
+  /**
+   * The day run again under rules changed since (ADR 0021 §5, Q-190): the run it restates, by manifest hash, and the
+   * change sets it ran under. Every output is held until a restatement is decided. Absent from every other run, so their
+   * manifests hash as before.
+   */
+  restates?: { of: string; changes: string[] };
 }
 
 /**

@@ -14,7 +14,7 @@
  * - `dayOf`: the day a run is of, from its parameters.
  */
 import { canonicalJSON } from './canonical.js';
-import { periodOf, type ChangeSet, type FlowDocument, type RuleEdit } from './document.js';
+import { periodOf, type CellRef, type ChangeSet, type FlowDocument, type NotebookDef, type NotebookOutline, type RuleEdit, type StepDef } from './document.js';
 import { applyBand, nameColumn, removeRule, setRule, switchRule } from './flowedit.js';
 import { toggleCheck } from './gatecell.js';
 import { gateChecksOf, type GateDef } from './gates.js';
@@ -148,4 +148,47 @@ export function dayOf(doc: Pick<FlowDocument, 'publish' | 'parameters'>, values:
   if (!name) return null;
   const v = Object.prototype.hasOwnProperty.call(values, name) ? values[name] : doc.parameters?.find((p) => p.name === name)?.default;
   return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) ? dayPart(v) : null;
+}
+
+/**
+ * The parts of a document the rules people set are written in (ADR 0021 §5): the ontology, the gates, the notebooks
+ * (whose gate and check cells the edits rewrite), the cell refs and outline that follow those cells, and each check
+ * step's rule switches. The page keeps them apart from the rest of the document, which step and display edits change,
+ * so the rules of any day can be made from its base and change sets with the steps and layout as they are now.
+ */
+export interface RuleParts {
+  ontology?: Ontology;
+  gates?: Record<string, GateDef>;
+  notebooks?: NotebookDef[];
+  cells?: Record<string, CellRef>;
+  outline?: NotebookOutline[];
+  switches: Record<string, Record<string, 'on' | 'off'>>;
+}
+
+const PART_FIELDS = ['ontology', 'gates', 'notebooks', 'cells', 'outline'] as const;
+
+/** A document's rule parts. */
+export function ruleParts(doc: FlowDocument): RuleParts {
+  const out: RuleParts = { switches: rulesInForce(doc).switches };
+  for (const k of PART_FIELDS) if (doc[k] !== undefined) (out as unknown as Record<string, unknown>)[k] = doc[k];
+  return out;
+}
+
+/** A document with other rule parts: its own fields but those, each check step's switches as the parts have them (none
+ * where they have none). */
+export function withRuleParts(doc: FlowDocument, parts: RuleParts): FlowDocument {
+  const rest = { ...doc } as Record<string, unknown>;
+  for (const k of PART_FIELDS) {
+    if (parts[k] === undefined) delete rest[k];
+    else rest[k] = parts[k];
+  }
+  rest.steps = doc.steps.map((s): StepDef => {
+    if (s.kind !== 'expectations') return s;
+    const own = parts.switches[s.id];
+    if (own) return { ...s, ontology: own };
+    if (s.ontology === undefined) return s;
+    const { ontology: _ontology, ...bare } = s;
+    return bare;
+  });
+  return rest as unknown as FlowDocument;
 }

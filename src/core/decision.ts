@@ -688,13 +688,15 @@ export function heldLine(x: Pick<Hold, 'by' | 'origin' | 'said'>, history: boole
  */
 export function pauseReasons(holds: readonly Pick<Hold, 'by' | 'origin' | 'load'>[], open: (origin: string) => boolean = () => true, every: (source: string) => Every = () => 'day'): string[] {
   // The source first, then its checks, whatever order the plugin held them in.
-  const order = { correction: 0, story: 1, unjudged: 2, checks: 3 } as const;
+  const order = { restated: 0, correction: 0, story: 1, unjudged: 2, checks: 3 } as const;
   const slot = (x: Pick<Hold, 'load'>) => (x.load && x.load.slot.length > 10 ? ` ${slotLabel(x.load.slot, every(x.load.source))}` : '');
   const said = holds.filter((x) => open(x.origin)).sort((a, b) => order[a.by] - order[b.by]).map((x) => {
     const of = x.load?.source ?? x.origin;
     if (x.by === 'checks') return x.load ? `${x.load.source} checks` : 'checks';
     // A later file for the day (ADR 0021 §2): its source, sent again.
     if (x.by === 'correction') return `${of}${slot(x)} sent again`;
+    // Run again under rules changed since (ADR 0021 §5): the whole day.
+    if (x.by === 'restated') return 'run again under other rules';
     return x.by === 'unjudged' ? `${of}${slot(x)} not judged` : `${of}${slot(x)}`;
   });
   return [...new Set(said)];

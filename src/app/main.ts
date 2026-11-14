@@ -15,7 +15,8 @@ import { holidayOf, seasonOf, US_NYC_1, type Calendar } from '../core/calendar.j
  * among the taxi example's. */
 const calendarNow = (): Calendar => history?.calendar ?? US_NYC_1;
 import { canonicalJSON } from '../core/canonical.js';
-import type { ContractDef, FlowDocument, GroupDef, NotebookOutline, OutlineCell, ProfileDef, StepDef } from '../core/document.js';
+import type { ChangeSet, ContractDef, FlowDocument, GroupDef, NotebookOutline, OutlineCell, ProfileDef, RuleEdit, StepDef } from '../core/document.js';
+import { applyEdit, changesOn, inForce, resolve as resolveRules, ruleParts, rulesHash, rulesInForce, withRuleParts, type RuleParts } from '../core/inforce.js';
 import { GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
 import { notebookSectionId } from '../core/notebook.js';
 import { briefOf, briefText, type BriefIn, type BriefOption } from '../core/brief.js';
@@ -27,11 +28,10 @@ import type { Identity, ManifestNode, SignedManifest, SourceFile, SourceIngestRe
 import type { Backtest, NormalRange, NormalRanges, Place } from '../core/normal.js';
 import { flowNames, isPlaceholder, judgeOf, labelOf, newsOf, shareWords, tableNewsOf, usualHours, type Act, type FileFacts, type Finding, type Names, type Severity, type TableFacts } from '../core/news.js';
 import { writtenRules, CHECK_MODES, CHECK_NAMES, CHECK_SAID, checkOf, gateChecksOf, gateLayerOf, hasGates, JUDGED, LAYER_SAID, WRITTEN, type CheckMode, type CheckName, type GateChecks } from '../core/gates.js';
-import { toggleCheck } from '../core/gatecell.js';
 import { calendarHead, heldLoadLine, dayMid, dayShort, guessWords, judgedWords, lacked, MARK as REMEDY_MARK, noRowsBefore, reachLabel, readersOf as readersHad, readersSee, rowsFrom, shortfall, shownRun, stagedBar, stoppedLine as stoppedWords, toldLine, type DayState, type EpisodeDay, type KeptMark, type PauseState, type RemedyMark } from '../core/days.js';
 import { UNTIL, afterLine, betweenLine, dayPausedLine, daySentence, decidedLines, decisionDrawing, donorPicked, failLine, goShown, heldLine, outputPausedLine, passedLine, pausedChecks, pauseLines, pauseReasons, pickFails, receiptLines, remedyHead, ribbonOf, runFigures, sheetText, versionLines, checksSeen, filesSeen, findingOf, type RunSight, type AfterPart, type KeptLacks, type RemedySaid, type SheetIn, type SheetPick, type SheetText, type Sight } from '../core/decision.js';
 import { contractSaid, countedChecks, rangesFor, dayClaim, dayState, flowStory, learnedMeasures, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, upstreamSteps, tailPath, type Claim, decisionFor, decisionForLoad, standingForLoad, heldLoadsOf, dayPauseOfLoads, loadDecisions, keysForLoads, loadKey, loadsOf, byLoad, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, lastPublished, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
-import { checkAgainst as againstRecord, endOfDay, gridOf as monthGrid, isMonthFile, knownOn, layered, monthOf, runDay, runsByDay, versionsOf, type CellState, type DayState as MonthState, type GridRow as MonthRow, type MonthDay, type MonthFile, type RecordCheck, type RunAbout } from '../core/month.js';
+import { checkAgainst as againstRecord, endOfDay, gridOf as monthGrid, isMonthFile, isRestate, knownOn, layered, monthOf, runDay, runsByDay, versionsOf, type CellState, type DayState as MonthState, type GridRow as MonthRow, type MonthDay, type MonthFile, type RecordCheck, type RestateAbout, type RunAbout } from '../core/month.js';
 import { dayVersions, donorIdOf, fillCounts, levelOf as acceptedLevel, levelWays, partLabel as remedyPart, type Offer, type Repair, type Version } from '../core/fill.js';
 import { gridOf, shadeOf, shareOf, standOut } from './grid.js';
 import { setUpSplit, showWorkspace } from './split.js';
@@ -53,7 +53,7 @@ import { sha256Hex } from '../core/hash.js';
 import { LEVEL_NAME, leaderSaid, postureTree, scoreSaid, trendSaid, unitCounts, type PostureNode } from '../core/posture.js';
 import { counted, glossOf, meaningOf, nounOf as ontologyNoun, propertyOf, saysMore, type Edit, type Noun, type PropertyType } from '../core/ontology.js';
 import { ontologyPage, originSaid, typesShown, type ColumnCard, type FileSection, type Rule } from '../core/ontologypage.js';
-import { applyBand, asShipped, keptOf as keptFlow, nameColumn, removeRule, restoreKept, setRule, switchRule, type FlowEdit, type RuleInput } from '../core/flowedit.js';
+import { applyBand, asShipped, keptOf as keptFlow, nameColumn, restoreKept, setRule, type FlowEdit, type RuleInput } from '../core/flowedit.js';
 import { sharedOf } from '../core/shared.js';
 import { fixesOf, fixOfDonor, type FixKind } from '../core/rules.js';
 import { ACTION_SAID, checkStepOf, RULE_ACTIONS, ruleOn, rulesOf, ruleSaid, type OntologyRule, type OntologyRuleKind, type RuleAction } from '../core/rules.js';
@@ -348,6 +348,17 @@ function sayRun(r: RunRecord): void {
   const pause = pauseOf(r);
   const result = r.result;
   const figures = runFigures({ day: day ?? null, run: runName(r), ms: fmtMs(r.ms), nodes: result.manifest.nodes, holds: pause ? result.holds : [], sight: sightOf, page: state.engine?.mode === 'page' });
+  // A day run again under rules changed since (ADR 0021 §5): what it came to, and its restatement, until one publishes it.
+  if (result.manifest.restates && day && pause) {
+    const v = versionOfRun(r);
+    const f = v && r.load !== undefined ? versionFacts(r.load)[v - 1] : undefined;
+    const own = result.holds.find((x) => x.by !== 'restated');
+    const came = own ? (sightOf(own.origin) === 'all' ? `held: ${own.origin}: ${own.said}` : 'held') : 'it passes';
+    const decided = f?.restated?.decision;
+    setStatus(`${dayLabel(day).replace(/, \d{4}$/, '')}: run again under the rules changed since, ${came}. ${!decided ? 'It waits for the restatement.' : decided.ticked ? 'Restated: not published.' : 'Readers keep the version they had.'}`, false, { n: attempts, state: 'held', mark: 'waiting' });
+    $('status').title = figures;
+    return;
+  }
   const top = day ? verdictOf(day) : undefined;
   const may = (['asis', 'dont'] as const).some((o) => checkDecision(policies(), state.viewer, o).allowed);
   const other = pause ? heldElsewhere(r) : null;
@@ -557,6 +568,11 @@ const isOut = (s: DayState | null | undefined): boolean => s === 'asis' || s ===
  */
 function pauseOf(r: RunRecord | undefined): PauseNow | null {
   if (!r || !r.result.holds?.length) return null;
+  // A day run again under rules changed since (ADR 0021 §5): readers keep what they had until a restatement publishes it.
+  if (r.result.manifest.restates) {
+    const v = r.load !== undefined ? versionOfRun(r) : null;
+    return v && versionFacts(r.load!)[v - 1]?.published ? null : { state: 'waiting', pause: null, remedy: null, withdrawn: null };
+  }
   // With several watched sources a pause is a held load's (ADR 0010 §7): the day's is its held loads' read as one, as
   // one choice decides them all (Q-193).
   const held = heldLoadsOf(r.result.holds);
@@ -1627,6 +1643,8 @@ function loadArrangement(): void {
 function resetArrangement(): void {
   const edited = canonicalJSON(state.doc.steps as unknown as Parameters<typeof canonicalJSON>[0]) !== canonicalJSON(shippedDoc.steps as unknown as Parameters<typeof canonicalJSON>[0]);
   state.doc = { ...state.doc, steps: structuredClone(shippedDoc.steps) as StepDef[], groups: structuredClone(shippedDoc.groups) as FlowDocument['groups'], layout: {} };
+  // The shipped steps carry the shipped rule switches: the rules in force on the day put back on them.
+  resolveDoc(resolvedFor.day, resolvedFor.asOf, true);
   state.collapsed = new Set();
   try {
     localStorage.removeItem(arrangementKey());
@@ -2982,10 +3000,523 @@ let flowDropped: { edits: number; why: string } | null = null;
 /** Why the flow changed, for the record's next flow entry, when the page changed it itself (what it kept was dropped). */
 let flowReason: string | null = null;
 
+// ------------------------------------------------------------------ the rules over time (ADR 0021 §5)
+
+// The rules people set are effective-dated: an edit made here is a change set in force from a business day, by default
+// the next day to arrive (Q-189), else the day on screen or any day (Q-197). The document on screen is the rules in force
+// on the day on screen, as known when the version on screen first ran (`resolveDoc`); what is kept and recorded is the
+// base (the rules before any change set, with the steps and layout as edited) and the change sets (`baseDoc`).
+
+/** The rules before any change set: the shipped flow's, or those this browser kept from before. */
+let ruleBase: RuleParts = { switches: {} };
+/** The change sets, oldest first: the shipped flow's, then those made here. */
+let ruleChanges: ChangeSet[] = [];
+/** The change sets applied to the document on screen, by id (null: not made yet), and the day and moment it is of. */
+let resolvedSets: string | null = null;
+let resolvedFor: { day: string | null; asOf: string | null } = { day: null, asOf: null };
+
+/** The flow as kept and recorded: the document on screen with the rules before any change set, and the change sets. */
+function baseDoc(): FlowDocument {
+  const { changes: _changes, ...rest } = withRuleParts(state.doc, ruleBase);
+  return (ruleChanges.length ? { ...rest, changes: ruleChanges } : rest) as FlowDocument;
+}
+
+/** A document read in (shipped, kept, or the flow as shipped again): its rules the base, its change sets the flow's, and
+ * the document on screen its base until a day is resolved. */
+function takeRules(doc: FlowDocument): void {
+  ruleBase = ruleParts(doc);
+  ruleChanges = doc.changes ?? [];
+  const { changes: _changes, ...rest } = doc;
+  state.doc = rest as FlowDocument;
+  resolvedSets = '';
+  if (resolvedFor.day !== null || !loads.list.length) resolveDoc(resolvedFor.day, resolvedFor.asOf, true);
+}
+
+/**
+ * The document on screen made the rules in force on a day, as known at a moment (ADR 0021 §5): its steps and layout as
+ * they are, its rules the base with every change set in force then. Nothing is made again when the same change sets
+ * apply; true when the rules on screen changed.
+ */
+function resolveDoc(day: string | null, asOf: string | null, force = false): boolean {
+  resolvedFor = { day, asOf };
+  const sets = changesOn({ changes: ruleChanges }, day, asOf).map((c) => c.id).join('\n');
+  if (!force && sets === resolvedSets) return false;
+  state.doc = sets ? inForce(baseDoc(), day, asOf) : withRuleParts(state.doc, ruleBase);
+  resolvedSets = sets;
+  storyCache.clear();
+  planKindCache.doc = null;
+  return true;
+}
+
+/** When a version of a day first ran, by the record: the moment its rules are known at (null: never run). */
+function versionAsOf(k: number, v: number): string | null {
+  if (k < 0) return null;
+  return runsOfVersions(k).find((x) => x.v === v)?.e.at ?? null;
+}
+
+/** The document on screen made the rules the pinned day's version runs under. */
+function resolveForPinned(): boolean {
+  const k = loads.pinned;
+  const l = k >= 0 ? loads.list[k] : undefined;
+  return resolveDoc(l ? l.day.slice(0, 10) : null, !l ? null : loads.pinnedAsOf !== undefined ? loads.pinnedAsOf : versionAsOf(k, Math.max(1, loads.pinnedVersion)));
+}
+
+/** When rules edited here take effect (Q-189, Q-197): from the next day to arrive, the day on screen, or a day. */
+const editFrom = { when: 'next' as 'next' | 'screen' | 'day', day: '' };
+
+/** The next day to arrive: the day after the last day the data has (tomorrow, for a flow without days). */
+function nextDayToArrive(): string {
+  const last = loads.list.map((l) => l.day.slice(0, 10)).sort().at(-1);
+  return new Date((last ? dateOf(last) : new Date()).getTime() + 86_400_000).toISOString().slice(0, 10);
+}
+
+/** The day the setting says an edit takes effect from. */
+function fromDay(): string {
+  const screen = viewedDay() ?? shownDay();
+  if (editFrom.when === 'screen' && screen) return screen.slice(0, 10);
+  if (editFrom.when === 'day' && /^\d{4}-\d{2}-\d{2}$/.test(editFrom.day)) return editFrom.day;
+  return nextDayToArrive();
+}
+
+/** Whether readers got a version of a day, by the record. */
+const publishedLoad = (k: number): boolean => versionFacts(k).some((f) => f.published);
+
+/** The days a change from a day reaches that the record holds a run of, once each, and those readers got. */
+function reachedDays(from: string): { days: string[]; published: string[] } {
+  const days = new Map<string, boolean>();
+  loads.list.forEach((l, k) => {
+    const day = l.day.slice(0, 10);
+    if (day < from || !runsOfVersions(k).length) return;
+    days.set(day, (days.get(day) ?? false) || publishedLoad(k));
+  });
+  const all = [...days.keys()].sort();
+  return { days: all, published: all.filter((d) => days.get(d)) };
+}
+
+/** What a change from a day reaches, in words. */
+function reachSaid(from: string): string {
+  const { days, published } = reachedDays(from);
+  if (!days.length) return 'No recorded day moves: each keeps the rules it ran under.';
+  const span = days.length === 1 ? dayLabel(days[0]!) : `${dayLabel(days[0]!)} to ${dayLabel(days.at(-1)!)}`;
+  return `Back-dated: ${plural(days.length, 'recorded day')} (${span}${published.length ? `, ${fmtInt(published.length)} published` : ''}) run again under the new rules, and one decision restates them.`;
+}
+
+/** Every "takes effect from" control on screen, drawn again when one changes. */
+const fromBars = new Set<() => void>();
+
+/** Where rules are edited: when an edit takes effect, the day it is, and what it reaches. */
+function fromBar(): HTMLElement {
+  const box = h('div', { class: 'rf-bar', role: 'group', 'aria-label': 'When a rule edit takes effect' });
+  const draw = () => {
+    if (!box.isConnected && box.childElementCount) return void fromBars.delete(draw);
+    const screen = (viewedDay() ?? shownDay())?.slice(0, 10);
+    if (editFrom.when === 'screen' && !screen) editFrom.when = 'next';
+    const pick = h('select', { class: 'rf-when', 'aria-label': 'Edits take effect from' }) as HTMLSelectElement;
+    pick.append(new Option(`the next day to arrive, ${dayLabel(nextDayToArrive())}`, 'next', false, editFrom.when === 'next'));
+    if (screen) pick.append(new Option(`the day on screen, ${dayLabel(screen)}`, 'screen', false, editFrom.when === 'screen'));
+    pick.append(new Option('a day…', 'day', false, editFrom.when === 'day'));
+    const date = h('input', { type: 'date', class: 'rf-day', 'aria-label': 'The day edits take effect from', value: editFrom.day || screen || nextDayToArrive(), ...(editFrom.when === 'day' ? {} : { hidden: 'hidden' }) }) as HTMLInputElement;
+    pick.addEventListener('change', () => {
+      editFrom.when = pick.value as typeof editFrom.when;
+      if (editFrom.when === 'day' && !editFrom.day) editFrom.day = date.value;
+      for (const f of [...fromBars]) f();
+    });
+    date.addEventListener('change', () => {
+      editFrom.day = date.value;
+      for (const f of [...fromBars]) f();
+    });
+    // The changes not in force on the day on screen yet (from a later day): said here, where a switch would look unmoved.
+    const later = screen ? ruleChanges.filter((c) => c.from > screen) : [];
+    box.replaceChildren(h('label', { class: 'rf-row' }, h('span', { class: 'rf-k' }, 'Edits take effect from'), pick, date), h('p', { class: 'rf-reach' }, reachSaid(fromDay())),
+      later.length ? h('p', { class: 'rf-later' }, `Not in force on ${dayLabel(screen!)}: ${later.map((c) => `from ${dayLabel(c.from)}, ${changeSaid(c)}`).join('; ')}.`) : '');
+  };
+  fromBars.add(draw);
+  draw();
+  return box;
+}
+
+let changeSeq = 0;
+/** A change set's name: when it was made, and its place among this visit's. */
+const changeId = () => `c-${Date.now().toString(36)}-${(++changeSeq).toString(36)}`;
+
+/**
+ * A rule edit made here (ADR 0021 §5): checked against the rules on screen, recorded as a change set in force from the
+ * day the setting says, kept and recorded with its words at once, the document on screen made again. `why` is the
+ * reason given, kept with the change set; `words` what the record says of it, when not the edit's own words; `redraw`
+ * what is drawn again in place of the sheet and the Ontology page.
+ */
+async function editRules(edit: RuleEdit, opts: { why?: string; words?: string; redraw?: () => void } = {}): Promise<boolean> {
+  const { why = '', words, redraw } = opts;
+  if (!isOwner()) {
+    setStatus('Rules are the owner’s to set: they are part of the flow.', true);
+    return false;
+  }
+  if (state.running) {
+    setStatus('The flow is running. Change the rule again when the run has ended.', true);
+    return false;
+  }
+  const r = applyEdit(state.doc, edit);
+  if (!r) return false;
+  const from = fromDay();
+  const { days } = reachedDays(from);
+  ruleChanges = [...ruleChanges, { id: changeId(), from, recorded: new Date().toISOString(), by: state.viewer, why, edits: [edit] }];
+  const moved = resolveDoc(resolvedFor.day, resolvedFor.asOf, true) && rulesSaid(state.doc) !== rulesSaid(withRuleParts(state.doc, ruleBase));
+  const said = `${words ?? r.said}, in force from ${dayLabel(from)}`;
+  await flowEdited(said);
+  setStatus(`${said}. Recorded. ${days.length ? `${plural(days.length, 'recorded day')} from ${dayLabel(from)} ${days.length === 1 ? 'is' : 'are'} run again under the new rules.` : moved ? 'The next run uses it.' : 'No recorded day moves.'}`, false);
+  requestCanvas();
+  syncTitle();
+  for (const f of [...fromBars]) f();
+  if (redraw) redraw();
+  else {
+    if (state.selected) void renderSheet();
+    if (location.hash === '#ontology') void renderOntology();
+  }
+  renderLoads();
+  // Back-dated (Q-190): the recorded days it reaches run again under the new rules, in the background, then the
+  // restatement waits to be decided.
+  if (days.length && mayRun()) void restatePending();
+  return true;
+}
+
+/** The rules as one string, to tell two documents' rules apart without hashing. */
+const rulesSaid = (doc: FlowDocument): string => canonicalJSON(rulesInForce(doc) as unknown as Parameters<typeof canonicalJSON>[0]);
+
+// ------------------------------------------------------------------ restating days under rules changed since (ADR 0021 §5)
+
+// A back-dated change reaches days already recorded (Q-190). Each is run again under the rules as known now: a restated
+// run (`restates`), held in the engine and recorded as the day's restated version, never published by itself. The month
+// marks the days whose outcome would change; one decision restates them, with a reason, any of them untickable, the
+// days that came out the same noted (a `restate` entry, core/month.ts `RestateAbout`).
+
+/** The latest restatement that names a day: ticked (readers got its restated run) or left as it was. */
+function restatementOf(k: number): { entry: RecordEntry; ticked: boolean; same: boolean; manifest: string; passes: boolean } | null {
+  const day = loads.list[k]?.day;
+  if (!day) return null;
+  const all = allEntries();
+  for (let i = all.length - 1; i >= 0; i--) {
+    const e = all[i]!;
+    if (e.kind !== 'restate' || !isRestate(e.about)) continue;
+    const t = e.about.days.find((d) => d.day === day);
+    if (t) return { entry: e, ticked: true, same: false, manifest: t.manifest, passes: t.passes };
+    const kept = e.about.kept.find((d) => d.day === day);
+    if (kept) return { entry: e, ticked: false, same: false, manifest: kept.manifest, passes: false };
+    const same = e.about.same.find((d) => d.day === day);
+    if (same) return { entry: e, ticked: false, same: true, manifest: same.manifest, passes: false };
+  }
+  return null;
+}
+
+/** Whether readers got the run a restated run restated (by its manifest): a day noted as the same under rules changed
+ * since then has its restated version as what readers got, the same outputs under the newer rules. */
+function restatedOfPublished(k: number, restated: string): boolean {
+  const all = allEntries();
+  const of = (all.find((e) => e.kind === 'run' && (e.about as unknown as RunAbout).manifest === restated)?.about as { restates?: { of?: string } } | undefined)?.restates?.of;
+  const was = of ? all.find((e) => e.kind === 'run' && (e.about as unknown as RunAbout).manifest === of) : undefined;
+  return !!was && publishedRun(k, was);
+}
+
+/** The latest restatement that decided one of these restated runs (by manifest). */
+function restatementOfRuns(manifests: ReadonlySet<string>): { entry: RecordEntry; ticked: boolean; passes: boolean; same: boolean } | null {
+  const all = allEntries();
+  for (let i = all.length - 1; i >= 0; i--) {
+    const e = all[i]!;
+    if (e.kind !== 'restate' || !isRestate(e.about)) continue;
+    const t = e.about.days.find((d) => manifests.has(d.manifest));
+    if (t) return { entry: e, ticked: true, passes: t.passes, same: false };
+    if (e.about.kept.some((d) => manifests.has(d.manifest))) return { entry: e, ticked: false, passes: false, same: false };
+    if (e.about.same.some((d) => manifests.has(d.manifest))) return { entry: e, ticked: false, passes: false, same: true };
+  }
+  return null;
+}
+
+/** A ticked restatement of a day, for its month cell: whether its restated run passed. */
+function restatedDayOf(k: number): { passes: boolean; entry: RecordEntry } | null {
+  const r = k >= 0 ? restatementOf(k) : null;
+  return r?.ticked ? { passes: r.passes, entry: r.entry } : null;
+}
+
+/** The change sets that reach recorded days and that no restatement has taken up (ADR 0021 §5). */
+function pendingChanges(): ChangeSet[] {
+  const taken = new Set(allEntries().flatMap((e) => (e.kind === 'restate' && isRestate(e.about) ? e.about.changes : [])));
+  return ruleChanges.filter((c) => !taken.has(c.id) && reachedDays(c.from).days.length > 0);
+}
+
+/** A set of change sets as a key: their ids, sorted. */
+const changesKey = (ids: readonly string[]) => [...ids].sort().join(',');
+
+/** A day's latest run again under these change sets (null: not run again yet). */
+function restatedFor(k: number, changes: readonly string[]): RecordEntry | null {
+  const want = changesKey(changes);
+  return runsOfVersions(k).map((x) => x.e).filter((e) => {
+    const a = e.about as { outcome?: string; restates?: { changes?: string[] } } | null;
+    return a?.outcome === 'restated' && changesKey(a.restates?.changes ?? []) === want;
+  }).at(-1) ?? null;
+}
+
+/** The run of a day whose version readers got: the run of it that published, else its latest run (a day kept back or
+ * waiting). */
+function gotEntry(k: number): RecordEntry | null {
+  const v = wentWith(k);
+  const released = releasedManifests();
+  const mine = runsOfVersions(k).filter((x) => x.v === v && (x.e.about as unknown as RunAbout).outcome !== 'failed').map((x) => x.e);
+  return mine.filter((e) => {
+    const a = e.about as unknown as RunAbout;
+    return a.outcome === 'ok' || (!!a.manifest && released.has(a.manifest)) || (a.outcome === 'restated' && restatementOf(k)?.manifest === a.manifest);
+  }).at(-1) ?? mine.at(-1) ?? null;
+}
+
+/** What each output of a recorded run holds, by content hash: from its manifest, else what its entry recorded. */
+function contentsOf(e: RecordEntry): Record<string, string> | null {
+  const a = e.about as { manifest?: string; contents?: Record<string, string> } | null;
+  const m = a?.manifest ? manifestOf(a.manifest) : null;
+  return m ? Object.fromEntries(Object.entries(m.outputs).map(([n, o]) => [n, o.content])) : (a?.contents ?? null);
+}
+
+/** Whether readers got a run's day: it published, a release or a restatement published it, or a restatement noted it as
+ * the same as a run readers got. */
+function publishedRun(k: number, e: RecordEntry): boolean {
+  const a = e.about as unknown as RunAbout;
+  if (a.outcome === 'ok') return true;
+  if (a.manifest && releasedManifests().has(a.manifest)) return true;
+  if (a.outcome !== 'restated' || !a.manifest) return false;
+  const r = restatementOfRuns(new Set([a.manifest]));
+  return r?.ticked ? r.passes : !!r?.same && restatedOfPublished(k, a.manifest);
+}
+
+/** A day's outcome under rules changed since, against what readers got (ADR 0021 §5): whether it would change, and the
+ * two in words. */
+interface Restating {
+  day: string;
+  k: number;
+  run: RecordEntry;
+  passes: boolean;
+  changed: boolean;
+  before: string;
+  after: string;
+}
+function restatingOf(k: number, got: RecordEntry, run: RecordEntry): Restating {
+  const day = loads.list[k]!.day;
+  const was = publishedRun(k, got);
+  const holds = ((run.about as unknown as RunAbout).holds ?? []).filter((x) => x.by !== 'restated');
+  const passes = !holds.length;
+  const a = contentsOf(got);
+  const b = contentsOf(run);
+  const differ = a && b ? [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((n) => a[n] !== b[n]).length : null;
+  const changed = was !== passes || (passes && differ !== 0);
+  const before = was ? 'published' : (got.about as unknown as RunAbout).outcome === 'held' ? 'not published' : 'not published';
+  const after = !passes ? `held: ${holds[0]!.origin}: ${holds[0]!.said}` : differ === null ? 'published' : differ ? `published, ${plural(differ, 'output')} changed` : 'published, the same';
+  return { day, k, run, passes, changed, before, after };
+}
+
+/** The days the pending change sets reach, each with its outcome under them where it was run again; worked out again
+ * only when the record, the change sets or the runs here changed. */
+type PendingRestating = { changes: ChangeSet[]; from: string; days: { day: string; k: number; got: RecordEntry | null; r: Restating | null }[] };
+const pendingMemo = { key: '', value: null as PendingRestating | null };
+function pendingRestating(): PendingRestating | null {
+  const key = `${allEntries().length}|${ledger?.entries.length ?? 0}|${ruleChanges.length}|${state.runs.length}`;
+  if (pendingMemo.key !== key) [pendingMemo.key, pendingMemo.value] = [key, pendingRestatingNow()];
+  return pendingMemo.value;
+}
+function pendingRestatingNow(): PendingRestating | null {
+  const changes = pendingChanges();
+  if (!changes.length) return null;
+  const ids = changes.map((c) => c.id);
+  const from = changes.map((c) => c.from).sort()[0]!;
+  const days = reachedDays(from).days.map((day) => {
+    const k = loads.list.findIndex((l) => l.day.slice(0, 10) === day);
+    const got = k >= 0 ? gotEntry(k) : null;
+    const run = k >= 0 ? restatedFor(k, ids) : null;
+    return { day, k, got, r: got && run ? restatingOf(k, got, run) : null };
+  });
+  return { changes, from, days };
+}
+
+/** A restatement under way: the days left to run again, and the one running. */
+let restating: { left: number; of: number } | null = null;
+
+/** The days the pending change sets reach, each run again under the rules as known now, latest first, so the day they
+ * take effect from is the one left on screen; then the restatement to decide (ADR 0021 §5). */
+async function restatePending(): Promise<void> {
+  if (restating || state.running || !mayRun()) return;
+  const p = pendingRestating();
+  if (!p) return;
+  const ids = p.changes.map((c) => c.id);
+  const todo = p.days.filter((d) => d.k >= 0 && d.got && !d.r).reverse();
+  restating = { left: todo.length, of: todo.length };
+  document.body.dataset.restating = '1';
+  renderLoads();
+  try {
+    for (const d of todo) {
+      const of = (d.got!.about as unknown as RunAbout).manifest;
+      if (!of) continue;
+      setStatus(`Running ${dayLabel(d.day)} again under the new rules (${restating.of - restating.left + 1} of ${restating.of})…`);
+      await runLoad(d.k, { restating: { of, changes: ids } });
+      restating.left--;
+      renderLoads();
+      if (state.failed) break;
+    }
+  } finally {
+    restating = null;
+  }
+  renderLoads();
+  renderMonth();
+  // No day's outcome would change: the days are noted as the same, and nothing waits for a decision (Q-190).
+  const done = pendingRestating();
+  if (done && done.days.every((d) => d.r && !d.r.changed)) await restateDays(done, [], [], done.days, '');
+  else restateSheet();
+  // The day on screen is the one the change takes effect from, under the new rules: what reads the rules, drawn again.
+  if (location.hash === '#ontology') void renderOntology();
+  delete document.body.dataset.restating;
+}
+
+/** The restatement to decide (ADR 0021 §5, Q-190): each day whose outcome would change, ticked; those that came out the
+ * same, noted; a reason; one decision. */
+function restateSheet(): void {
+  const p = pendingRestating();
+  if (!p) return;
+  const may = checkDecision(policies(), state.viewer, 'asis').allowed;
+  const changed = p.days.filter((d) => d.r?.changed);
+  const same = p.days.filter((d) => d.r && !d.r.changed);
+  const unrun = p.days.filter((d) => !d.r);
+  const ticks = new Map<string, HTMLInputElement>();
+  const reason = h('textarea', { class: 'rs-reason', rows: '2', 'aria-label': 'Why these days are restated', placeholder: 'Why, in a sentence: the record keeps it.' }) as HTMLTextAreaElement;
+  const err = h('p', { class: 'of-err', role: 'alert', hidden: 'hidden' });
+  const go = h('button', { type: 'button', class: 'btn small primary rs-go' }, '') as HTMLButtonElement;
+  const count = () => {
+    const n = [...ticks.values()].filter((x) => x.checked).length;
+    go.textContent = n ? `Restate ${plural(n, 'day')}` : 'Restate no day';
+  };
+  const changeWords = p.changes.map((c) => `${changeSaid(c)} (from ${dayLabel(c.from)})`).join('; ');
+  const body: (Node | null)[] = [
+    h('p', { class: 'vf-one' }, `${changeWords}. ${plural(p.days.length, 'recorded day')} ran again under the new rules.`),
+    changed.length ? block(`${plural(changed.length, 'day')} would change`,
+      h('ul', { class: 'rs-days' }, ...changed.map((d) => {
+        const box = h('input', { type: 'checkbox', checked: 'checked', 'aria-label': `Restate ${dayLabel(d.day)}` }) as HTMLInputElement;
+        box.addEventListener('change', count);
+        ticks.set(d.day, box);
+        return h('li', { class: 'rs-day', 'data-day': d.day }, h('label', {}, box, h('b', {}, dayLabel(d.day)), ` ${d.r!.before} → ${d.r!.after}`));
+      }))) : h('p', { class: 'vf-one' }, 'No day’s outcome would change.'),
+    same.length ? block(`${plural(same.length, 'day')} came out the same`, h('p', { class: 'foot' }, `${same.map((d) => dayShort(d.day)).join(', ')}: noted, not decided again.`)) : null,
+    unrun.length ? h('p', { class: 'foot' }, `${plural(unrun.length, 'day')} not run again yet: ${unrun.map((d) => dayShort(d.day)).join(', ')}.`) : null,
+  ];
+  if (may && changed.length) {
+    count();
+    go.addEventListener('click', () => {
+      if (!reason.value.trim()) {
+        err.textContent = 'A restatement needs a reason.';
+        err.hidden = false;
+        return;
+      }
+      go.disabled = true;
+      void restateDays(p, changed.filter((d) => ticks.get(d.day)?.checked), changed.filter((d) => !ticks.get(d.day)?.checked), same, reason.value.trim()).then(() => document.querySelector('.vf-detail-wrap')?.remove());
+    });
+    body.push(h('div', { class: 'of-field' }, h('label', {}, 'Why'), reason), err, h('div', { class: 'of-acts' }, go));
+  } else if (!may) body.push(h('p', { class: 'foot' }, 'Restating is for someone who may publish a day.'));
+  else if (unrun.length) body.push(h('div', { class: 'of-acts' }, h('button', { type: 'button', class: 'btn small primary rs-again', onclick: () => void restatePending() }, 'Run them again ▶')));
+  else {
+    // Nothing would change: the days are noted as the same, and nothing is decided (Q-190).
+    const note = h('button', { type: 'button', class: 'btn small primary rs-note' }, `Note ${plural(same.length, 'day')} as the same`) as HTMLButtonElement;
+    note.addEventListener('click', () => {
+      note.disabled = true;
+      void restateDays(p, [], [], same, '').then(() => document.querySelector('.vf-detail-wrap')?.remove());
+    });
+    body.push(h('div', { class: 'of-acts' }, note));
+  }
+  openDetail(changed.length ? `Restate ${plural(changed.length, 'day')} under the new rules?` : 'The new rules change no published day', changed.length ? 'warn' : 'ok', body);
+}
+
+/** One decision restating days (ADR 0021 §5): recorded once, the ticked days' restated runs what readers got. */
+async function restateDays(p: PendingRestating, ticked: { day: string; r: Restating | null }[], kept: { day: string; r: Restating | null }[], same: { day: string; r: Restating | null }[], reason: string): Promise<void> {
+  if (!ledger) return;
+  const manifest = (r: Restating | null) => String((r?.run.about as unknown as RunAbout | undefined)?.manifest ?? '');
+  const about: RestateAbout = {
+    changes: p.changes.map((c) => c.id),
+    from: p.from,
+    days: ticked.map((d) => ({ day: d.day, manifest: manifest(d.r), passes: !!d.r?.passes })),
+    kept: kept.map((d) => ({ day: d.day, manifest: manifest(d.r) })),
+    same: same.map((d) => ({ day: d.day, manifest: manifest(d.r) })),
+  };
+  await ledger.append('restate', state.viewer, about as unknown as JSONValue, reason || null);
+  renderRecord();
+  setStatus(ticked.length || kept.length ? `Restated ${plural(ticked.length, 'day')} under the new rules${kept.length ? `; ${plural(kept.length, 'day')} left as readers had ${kept.length === 1 ? 'it' : 'them'}` : ''}. Recorded.` : `${plural(same.length, 'recorded day')} ran again under the new rules: ${same.length === 1 ? 'it comes' : 'they come'} out the same. Noted in the record.`, false);
+  afterDecision();
+  renderMonth();
+}
+
+/** The day head's line about the rules changed since a day was published (ADR 0021 §5): run again, waiting for the
+ * restatement, or not run again yet. Null where nothing pending reaches the day. */
+function restateLine(k: number): HTMLElement | null {
+  if (restating) return h('p', { class: 'loads-pause waiting rs-line' }, `Running the days again under the new rules: ${restating.of - restating.left} of ${restating.of} done…`);
+  const p = pendingRestating();
+  const d = p?.days.find((x) => x.k === k);
+  if (!p || !d) return null;
+  const decide = h('button', { type: 'button', class: 'btn small', onclick: () => restateSheet() }, 'The restatement ›');
+  const again = h('button', { type: 'button', class: 'btn small', onclick: () => void restatePending() }, 'Run them again ▶');
+  if (!d.r) return h('p', { class: 'loads-pause waiting rs-line' }, `Rules changed since ${dayShort(d.day)} ran, from ${dayLabel(p.from)}: not run again under them yet. `, mayRun() ? again : '');
+  return h('p', { class: `loads-pause rs-line${d.r.changed ? ' waiting' : ''}` }, `Under the rules changed since: ${d.r.before} → ${d.r.after}. ${d.r.changed ? 'It waits for the restatement.' : 'Noted: it comes out the same.'} `, decide);
+}
+
+/** A document's rules-in-force hash (`rules/1`), hashed once a document. */
+const rulesHashes = new WeakMap<FlowDocument, Promise<string>>();
+function rulesHashOf(doc: FlowDocument): Promise<string> {
+  let p = rulesHashes.get(doc);
+  if (!p) rulesHashes.set(doc, (p = rulesHash(doc)));
+  return p;
+}
+/** A short hash, filled in when it is known. */
+function hashCode(of: Promise<string>, cls: string): HTMLElement {
+  const code = h('code', { class: cls }, '…');
+  void of.then((x) => (code.textContent = x.slice(0, 8)));
+  return code;
+}
+
+/** What a change set did, in words: its edits replayed on the rules of its day as known when it was made. */
+function changeSaid(c: ChangeSet): string {
+  const a = resolveRules(baseDoc(), c.from, c.recorded).applied.find((x) => x.change.id === c.id);
+  return a?.said.length ? a.said.join('; ') : 'nothing that applies to the rules of its day';
+}
+
+/**
+ * A day's rules on its screen (ADR 0021 §5, Q-184): the rules in force by hash, and the change sets in force on it that
+ * weren't the day before. Only where the document on screen is that day's.
+ */
+function rulesLine(day: string, prev: string | null): HTMLElement | null {
+  if (resolvedFor.day !== day.slice(0, 10)) return null;
+  const since = ruleChanges.length ? resolveRules(baseDoc(), day.slice(0, 10), resolvedFor.asOf).applied.filter((a) => a.said.length && a.change.from <= day && (prev === null || a.change.from > prev.slice(0, 10))) : [];
+  return h('p', { class: 'dh-rules' }, h('span', { class: 'dh-rules-k' }, 'Rules in force'), ' ', hashCode(rulesHashOf(state.doc), 'dh-hash'),
+    since.length ? h('span', { class: 'dh-rules-new' }, ` · new on this day: ${since.flatMap((a) => a.said).join('; ')}`) : ruleChanges.length ? '' : h('span', { class: 'dh-rules-new' }, ' · as shipped'));
+}
+
+/**
+ * The rules over time at the head of the Ontology page (ADR 0021 §5): the rules in force on the day on screen, by hash;
+ * each change set, its day and where it stands for the day on screen; and, for the owner, when edits take effect.
+ */
+function renderRulesTime(): void {
+  const box = document.getElementById('rules-time');
+  if (!box) return;
+  const owner = isOwner();
+  if (!ruleChanges.length && !owner) {
+    box.hidden = true;
+    box.replaceChildren();
+    return;
+  }
+  box.hidden = false;
+  const day = resolvedFor.day;
+  const applied = new Set(resolvedSets ? resolvedSets.split('\n') : []);
+  const where = (c: ChangeSet) => (applied.has(c.id) ? 'in force on the day on screen' : day && c.from > day ? 'from a later day' : 'made after the version on screen ran');
+  box.replaceChildren(
+    h('p', { class: 'rt-head' }, h('b', {}, day ? `The rules in force on ${dayLabel(day)}` : 'The rules in force'), ' ', hashCode(rulesHashOf(state.doc), 'rt-hash'), ruleChanges.length ? ` · ${plural(ruleChanges.length, 'change set')}` : ' · as shipped'),
+    ruleChanges.length ? h('ol', { class: 'rt-list' }, ...ruleChanges.map((c) => h('li', { class: `rt-item${applied.has(c.id) ? ' on' : ''}`, 'data-change': c.id },
+      h('span', { class: 'rt-from' }, `From ${dayLabel(c.from)}`), ' ', changeSaid(c),
+      h('span', { class: 'rt-where' }, ` · ${where(c)} · recorded ${new Date(c.recorded).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} by ${personName(c.by)}${c.why ? `: “${c.why}”` : ''}`)))) : '',
+    owner ? fromBar() : '');
+}
+
 /** The document as edited here, with the edits made, kept in this browser. */
 function saveFlow(): void {
   try {
-    localStorage.setItem(flowKey(), JSON.stringify(keptFlow(state.doc, shippedHash, flowEdits)));
+    localStorage.setItem(flowKey(), JSON.stringify(keptFlow(baseDoc(), shippedHash, flowEdits)));
     flowKept = true;
   } catch {
     // Storage can be off, or full: the edits then last as long as the page, and the page says so.
@@ -3027,7 +3558,7 @@ function loadFlow(): void {
  * again (an edit undone by hand) has no edits left to list.
  */
 async function flowEdited(said: string): Promise<void> {
-  const doc = state.doc;
+  const doc = baseDoc();
   storyCache.clear();
   planKindCache.doc = null;
   flowEdits = [...flowEdits, { at: new Date().toISOString(), said }];
@@ -3035,7 +3566,8 @@ async function flowEdited(said: string): Promise<void> {
   saveFlow();
   renderFlowEdits();
   await recordFlowChange(said, doc);
-  if (state.doc === doc && shippedHash && (await flowHash(doc)) === shippedHash) {
+  // The flow as kept and recorded (its base and change sets) is the shipped one again: no edit is left to list.
+  if (shippedHash && (await flowHash(baseDoc())) === shippedHash) {
     flowEdits = [];
     if (doc.profiles?.length) saveFlow();
     else forgetFlow();
@@ -3051,7 +3583,8 @@ async function backToShipped(): Promise<void> {
   if (!isOwner()) return;
   const n = flowEdits.length;
   const steps = canonicalJSON(state.doc.steps as unknown as Parameters<typeof canonicalJSON>[0]) !== canonicalJSON(shippedDoc.steps as unknown as Parameters<typeof canonicalJSON>[0]);
-  const doc = (state.doc = asShipped(state.doc, shippedDoc));
+  takeRules(asShipped(state.doc, shippedDoc));
+  const doc = baseDoc();
   flowEdits = [];
   flowDropped = null;
   if (doc.profiles?.length) saveFlow();
@@ -3116,7 +3649,8 @@ function renderFlowEdits(): void {
     h('p', { class: 'fe-head' }, `${plural(n, 'change')} to this flow, ${flowKept ? 'kept in this browser' : 'kept for this visit only: this browser has no storage for them'}`),
     h('p', { class: 'fe-last' }, h('span', { class: 'fe-k' }, n === 1 ? 'The change' : 'Last'), ` ${last.said} · ${when(last.at)}`),
     n > 1 ? h('details', { class: 'whole fe-all' }, h('summary', {}, `All ${n} changes`), h('ol', { class: 'fe-list' }, ...flowEdits.map((e) => h('li', {}, e.said, h('span', { class: 'fe-when' }, ` · ${when(e.at)}`))))) : '',
-    h('p', { class: 'fe-note' }, `Each is recorded, and takes effect from the next run.${anyDayWaits() ? ` ${WAITS_AGAIN}` : ''}`),
+    // A name takes effect from the next run, on every day; a rule from the day it says (ADR 0021 §5).
+    h('p', { class: 'fe-note' }, `${ruleChanges.length ? 'Each is recorded: a name from the next run, a rule from the day it says.' : 'Each is recorded, and takes effect from the next run.'}${anyDayWaits() ? ` ${WAITS_AGAIN}` : ''}`),
     isOwner() ? back : '');
 }
 
@@ -3599,6 +4133,8 @@ async function checksTab(card: string, id: string): Promise<HTMLElement> {
   const owner = isOwner();
   box.append(h('p', { class: 'lede' }, `${layer[0]!.toUpperCase()}${layer.slice(1)} gate: ${LAYER_SAID[layer]}. Written checks hold the day; learned ones warn, unless the ontology marks the value bad.`));
   if (run) box.append(sealPart(run));
+  // When a mode set here takes effect (ADR 0021 §5).
+  if (owner) box.append(fromBar());
   /** A gold check's result from the run (ADR 0014 §6): the reconciliation's counts, the columns as declared, a rule's counts. */
   const goldToday = (name: CheckName): Child | null => {
     if (!run) return h('span', { class: 'ch-quiet' }, 'no run yet');
@@ -3746,45 +4282,17 @@ async function setCheck(card: string, id: string, name: CheckName, mode: CheckMo
   }
   const was = gateOn(id)?.[name];
   if (was === mode) return false;
-  try {
-    const t = toggleCheck(state.doc, id, name, mode);
-    state.doc = t.doc;
-  } catch (e) {
-    setStatus(`The gate cell couldn't be written: ${message(e)}`, true);
-    return false;
-  }
-  // Kept across a reload and recorded at once, as every edit of the flow is (`flowEdited`).
-  await flowEdited(reason ?? `Set the ${name} check on ${id} to ${mode}${was ? ` (it was ${was})` : ''}, from the Checks tab`);
-  setStatus(`${id}: ${name} is ${mode}. The gate cell in ${state.doc.cells?.[`gate:${id}`]?.notebook ?? 'the notebook'} says so now; the next run judges by it.`, false);
-  requestCanvas();
-  syncTitle();
-  if (state.selected) void renderSheet().then(() => openTab(card, back));
-  return true;
-}
-
-/**
- * A rule set on a file's columns added, changed, taken away or switched (rules.ts): the document edited, the change
- * kept in this browser and recorded with its reason at once, and everything that reads the flow drawn again. The
- * owner's alone, and never while a run is under way (the run was started on the flow as it was).
- */
-async function ruleEdited(r: { doc: FlowDocument; said: string } | null): Promise<boolean> {
-  if (!r) return false;
-  if (!isOwner()) {
-    setStatus('Rules are the owner’s to set: they are part of the flow.', true);
-    return false;
-  }
-  if (state.running) {
-    setStatus('The flow is running. Change the rule again when the run has ended.', true);
-    return false;
-  }
-  state.doc = r.doc;
-  setStatus(`${r.said}. Recorded; the next run enforces it.`, false);
-  await flowEdited(r.said);
-  requestCanvas();
-  syncTitle();
-  if (state.selected) void renderSheet();
-  if (location.hash === '#ontology') void renderOntology();
-  return true;
+  // A change set in force from the day the setting says (ADR 0021 §5), kept and recorded at once as every rule edit is.
+  const done = await editRules({ op: 'setCheck', node: id, check: name, mode }, {
+    why: reason ?? '',
+    words: reason ?? `Set the ${name} check on ${id} to ${mode}${was ? ` (it was ${was})` : ''}, from the Checks tab`,
+    redraw: () => {
+      if (state.selected) void renderSheet().then(() => openTab(card, back));
+      if (location.hash === '#ontology') void renderOntology();
+    },
+  });
+  if (!done && !state.running) setStatus(`The gate cell of ${id} couldn't be written.`, true);
+  return done;
 }
 
 /** Open the Ontology page at a file's section, where its rules are added and changed. */
@@ -4108,6 +4616,8 @@ async function qualityTab(card: string, id: string, who: string): Promise<HTMLEl
       h('div', { class: 'bq-note-list' }, ...notes.slice(0, 8).map((f) => findingCard(f, card)))));
   }
 
+  // When a switch or a mode set below takes effect (ADR 0021 §5): the owner's, above the checks they set.
+  if (isOwner()) box.append(fromBar());
   // Every check, grouped by where it comes from: the ontology's first.
   const groups: [BronzeCheck['from'], string, string][] = [
     ['ontology', 'From the ontology', 'What the ontology (or the notebook’s gate cell) defines for this file and its columns. Each is a tap from its line on the Ontology page.'],
@@ -4124,7 +4634,7 @@ async function qualityTab(card: string, id: string, who: string): Promise<HTMLEl
       h('ul', { class: 'bq-list' }, ...mine.map((c) => checkRow(card, id, c))));
     box.append(det);
   }
-  box.append(h('p', { class: 'foot' }, 'Checks are defined on the Ontology page and switched in the notebook’s gate cell; a change is recorded as a flow change and judged from the next run. ',
+  box.append(h('p', { class: 'foot' }, 'Checks are defined on the Ontology page and switched in the notebook’s gate cell; a change is recorded as a flow change, in force from the day it says. ',
     h('button', { type: 'button', class: 'linkish', onclick: () => openFileRules(id) }, `${id} on the Ontology page ›`)));
   if (qualityFocus) {
     const focus = qualityFocus;
@@ -4175,7 +4685,7 @@ function checkRow(card: string, id: string, c: BronzeCheck): HTMLElement {
     const step = checkStepOf(state.doc, id);
     const on = !!step && ruleOn(step, c.def.id);
     const sw = h('button', { type: 'button', class: 'vf-switch', role: 'switch', 'aria-checked': String(on), 'aria-label': `${c.said}: ${on ? 'on' : 'off'}`, ...(owner && step ? {} : { disabled: 'disabled' }) }, h('span', { class: 'vf-switch-k', 'aria-hidden': 'true' }));
-    sw.addEventListener('click', () => void ruleEdited(switchRule(state.doc, id, c.def!.id, !on)));
+    sw.addEventListener('click', () => void editRules({ op: 'switchRule', file: id, id: c.def!.id, on: !on }));
     control = sw;
   } else if (owner) {
     const sel = h('select', { class: 'bq-mode', 'aria-label': `What the ${c.check} check does` }) as HTMLSelectElement;
@@ -4369,6 +4879,8 @@ async function rulesTab(card: string, id: string): Promise<HTMLElement> {
   const box = h('div', { class: 'rules-tab' });
   box.append(h('p', { class: 'lede' }, `The rules the ontology sets on ${id}’s columns, each switched on or off in ${step ? `${step.id}, the check cell that runs them` : 'the check cell that runs them'}. Switched off, a rule is kept but not enforced.`));
   if (!step) box.append(h('p', { class: 'status warn' }, `No check step reads ${id} directly, so its rules are said and not enforced. A check(${id}, …) cell enforces them.`));
+  // When a switch set here takes effect (ADR 0021 §5).
+  if (owner && step && rules.length) box.append(fromBar());
   if (!rules.length) box.append(h('p', { class: 'of-none' }, `${id} has no rules yet.`));
   else {
     const list = h('ul', { class: 'rl-list', 'aria-label': `${id}’s rules` });
@@ -4384,7 +4896,7 @@ async function rulesTab(card: string, id: string): Promise<HTMLElement> {
       const label = `${ruleSaid(state.doc.ontology, r)}: ${on ? 'on' : 'off'}`;
       const sw = h('button', { type: 'button', class: 'vf-switch rl-switch', role: 'switch', 'aria-checked': String(on), 'aria-label': label, ...(owner && step ? {} : { disabled: 'disabled', title: step ? 'The owner switches rules' : 'No check cell runs them' }) },
         h('span', { class: 'vf-switch-k', 'aria-hidden': 'true' }), h('span', { class: 'rl-state' }, on ? 'On' : 'Off'));
-      sw.addEventListener('click', () => void ruleEdited(switchRule(state.doc, id, r.id, !on)));
+      sw.addEventListener('click', () => void editRules({ op: 'switchRule', file: id, id: r.id, on: !on }));
       list.append(h('li', { class: `rl-item${on ? '' : ' off'}`, 'data-rule': r.id },
         sw,
         h('div', { class: 'rl-body' },
@@ -4422,6 +4934,8 @@ async function modelsTab(card: string, id: string): Promise<HTMLElement> {
   const day = newsDay() ?? viewedDay();
   const box = h('div', { class: 'models-tab' });
   box.append(h('p', { class: 'lede' }, 'Two checks nobody wrote: they learn what a day of this file is like, and warn when one isn’t. Neither holds a day.'));
+  // When switching one off or on takes effect (ADR 0021 §5).
+  if (isOwner()) box.append(fromBar());
   const h0 = rangesForLoad(id);
   // The file's columns and values as people read them: titles and what a code stands for, its noun for its rows.
   const meant = meaningsOf(id);
@@ -6940,6 +7454,8 @@ function askPanel(r: RunRecord, el: HTMLElement): void {
  * at most at once.
  */
 function decisionSheet(shown0: RunRecord, story: Story | null): void {
+  // A day run again under rules changed since is decided by its restatement (ADR 0021 §5).
+  if (shown0.result.manifest.restates) return restateSheet();
   // On a day readers have a fill of, the views show its derived run: the decision is the held run's (amendment 1 S9).
   const r = shown0.derived?.from ?? shown0;
   // A version a later delivery replaced isn't decided (ADR 0021 §2): the later one is.
@@ -9960,7 +10476,8 @@ function ruleForm(file: string, column: string, title: string, columns: readonly
     field(`${title} must be`, kind),
     whenField, valuesField, rangeField,
     field('A row that breaks it', action, 'Flagged rows are kept and counted; left out, they don’t go on to the next step; a held day waits for a decision.'),
-    h('p', { class: 'of-hint' }, `For ${file} only. On once saved: it is recorded, and enforced from the next run.${anyDayWaits() ? ` ${WAITS_AGAIN}` : ''}`),
+    h('p', { class: 'of-hint' }, `For ${file} only. On once saved: it is recorded, and enforced from the day below.${anyDayWaits() ? ` ${WAITS_AGAIN}` : ''}`),
+    fromBar(),
     err,
     h('div', { class: 'of-acts' }, save, h('button', { type: 'button', class: 'btn quiet', onclick: close }, 'Cancel')));
   fit();
@@ -9987,9 +10504,13 @@ function ruleForm(file: string, column: string, title: string, columns: readonly
       err.hidden = false;
       return;
     }
+    // The rule as the document keeps it, by the name it was given: what the change set says the file has from its day.
+    const had = new Set(rulesOf(state.doc.ontology, file).map((x) => x.id));
+    const kept = rulesOf(r.doc.ontology, file).find((x) => (was ? x.id === was.id : !had.has(x.id)));
+    if (!kept) return;
     save.disabled = true;
     form.remove();
-    void ruleEdited(r);
+    void editRules({ op: 'setRule', rule: kept });
   });
   return form;
 }
@@ -10049,7 +10570,8 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
       err.hidden = false;
       return;
     }
-    const { doc, said } = nameColumn(state.doc, f.id, c.name, { title: name.value, description: mean.value, values: Object.fromEntries(labels.map((x) => [x.value, x.input.value])) });
+    const change = { title: name.value, description: mean.value, values: Object.fromEntries(labels.map((x) => [x.value, x.input.value])) };
+    const { doc, said } = nameColumn(state.doc, f.id, c.name, change);
     if (!said) return close();
     const issues = validateDocument(doc);
     if (issues.length) {
@@ -10058,8 +10580,11 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
       return;
     }
     save.disabled = true;
-    state.doc = doc;
-    setStatus(`${said}. Recorded; the next run uses it.`, false);
+    // A name or a label is how people read the column, not a rule its data is held to (ADR 0021 §5): it takes effect at
+    // once, on every day, in the rules before any change set.
+    ruleBase = ruleParts(nameColumn(withRuleParts(state.doc, ruleBase), f.id, c.name, change).doc);
+    resolveDoc(resolvedFor.day, resolvedFor.asOf, true);
+    setStatus(`${said}. Recorded; every day reads it so.`, false);
     void flowEdited(said);
     requestCanvas();
     if (state.selected) void renderSheet();
@@ -10115,7 +10640,7 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
         remove.textContent = 'Remove it?';
         return;
       }
-      void ruleEdited(removeRule(state.doc, f.id, r.id));
+      void editRules({ op: 'removeRule', file: f.id, id: r.id });
     });
     return h('span', { class: 'of-rule-acts' },
       h('button', { type: 'button', class: 'of-act', 'aria-label': `Change the check: ${ruleSaid(state.doc.ontology, r)}`, onclick: (e: Event) => openRuleForm(c, r, (e.currentTarget as HTMLElement).closest('li')!) }, 'Change'),
@@ -10284,7 +10809,8 @@ async function renderOntology(): Promise<void> {
   const stale = () => token !== ontologyRender;
   await useLookups(state.viewer);
   if (stale()) return;
-  // The edits made to the flow here, if any, with the way back to the flow as shipped.
+  // The rules over time (ADR 0021 §5), then the edits made to the flow here, with the way back to the flow as shipped.
+  renderRulesTime();
   renderFlowEdits();
   // The files first (ADR 0015 amendment 1): what the flow reads, each with its columns and its rules. A flow with no
   // ontology still has its files, with nothing said of them yet.
@@ -10499,6 +11025,10 @@ const loads = {
   version: new Map<number, number>(),
   /** The version of the pinned load its files are (1: its first files): a run of a later one is a correction. */
   pinnedVersion: 1,
+  /** A run of the pinned load restates its day under rules changed since (ADR 0021 §5): the run it restates and the
+   * change sets; and the moment its rules are known at, where not its version's first run (null: now). */
+  restates: null as { of: string; changes: string[] } | null,
+  pinnedAsOf: undefined as string | null | undefined,
   /** The days a paused day may be filled from that aren't loads (loads.json `donors`, ADR 0009 amendment 1 S13): never
    * stepped through, checked against the data's list, and pinned only when a fill needs one. */
   donors: [] as Listed[],
@@ -10725,12 +11255,26 @@ function dayMark(state: MonthState, decided: DayState | null, size = 14, correct
  * by the build's recorded run (its holds, its claims); else not run. As known on a past moment, by the recorded runs
  * alone: this browser's are all after it.
  */
-function calendarDay(d: MonthDay): { label: string; decided: DayState | null; state: MonthState; headline: string | null; sev: Severity | null; corrected: number } {
+function calendarDay(d: MonthDay): { label: string; decided: DayState | null; state: MonthState; headline: string | null; sev: Severity | null; corrected: number; restated?: boolean } {
+  const f = calendarDayOf(d);
+  // A day whose outcome would change under rules changed since (ADR 0021 §5), not restated yet: said in its label.
+  const w = monthView.at === null && !restating ? pendingRestating()?.days.find((x) => x.day === d.day)?.r : null;
+  return w?.changed ? { ...f, label: `${f.label}; under the rules changed since: ${w.before} → ${w.after}, waiting for the restatement` } : f;
+}
+function calendarDayOf(d: MonthDay): { label: string; decided: DayState | null; state: MonthState; headline: string | null; sev: Severity | null; corrected: number; restated?: boolean } {
   const k = loads.list.findIndex((l) => l.day === d.day);
   const l = loads.list[k];
   const note = l?.note ? `, ${l.note}` : '';
   const src = loadSource();
   const counted = !src || visible(src);
+  // A day restated under rules changed since (ADR 0021 §5): readers got its restated version, published where it passed
+  // and kept back where the new rules hold it.
+  const re = monthView.at === null ? restatedDayOf(k) : null;
+  if (re) {
+    const count = countOfDay(d);
+    const n = versionFacts(k).length;
+    return { label: `${dayLabel(d.day)}${note}${counted && count !== null && re.passes ? `: ${rowsSaid(count)}` : ''}, restated under rules changed since${re.passes ? ', published' : ', held under them: not published'}`, decided: re.passes ? null : 'dont', state: re.passes ? 'published' : 'paused', headline: re.passes ? 'Restated under rules changed since' : 'Restated: held under the rules changed since', sev: re.passes ? null : 'alert', corrected: n, restated: true };
+  }
   // A day corrected (ADR 0021 §2, §3): a file sent again later, and a later version published by a decision. Said with
   // its versions, whatever version a run here read.
   const fixed = monthView.at === null ? correctedOf(k) : null;
@@ -10789,6 +11333,8 @@ function recordLine(day: string): HTMLElement | null {
   const head = `Recorded by the build, ${whenMin(e.at, day)}.`;
   const c = recordChecks.get(day);
   if (!ran) return h('p', { class: 'dh-rec', 'data-check': 'waiting' }, head, ' ', state.running ? 'Running it here to check it…' : 'Not run here yet.');
+  // Run again under rules changed since (ADR 0021 §5): another plan than the record's, on purpose.
+  if (c === 'flow' && shown?.result.manifest.restates) return h('p', { class: 'dh-rec', 'data-check': 'restated' }, head, ' Run here again under rules changed since, so it isn’t compared with the record.');
   if (c === 'flow') return h('p', { class: 'dh-rec', 'data-check': 'flow' }, head, ' Run here under the flow as edited in this browser, so it isn’t compared with the record.');
   if (c === 'inputs') return h('p', { class: 'dh-rec', 'data-check': 'inputs' }, head, ' Run here on other files than the record’s, so it isn’t compared.');
   if (!c) return h('p', { class: 'dh-rec' }, head);
@@ -10812,16 +11358,28 @@ function versionsPart(k: number): HTMLElement | null {
   if (facts.length < 2 || !l) return null;
   const shown = runOfLoad(k);
   const on = shown && !loads.replaced.has(k) ? versionOfRun(shown) : null;
-  const got = [...facts].reverse().find((f) => f.published)?.v ?? null;
+  // What readers got: the latest version published; on a day a restatement kept back (ADR 0021 §5), none.
+  const re = restatedDayOf(k);
+  const got = re && !re.passes ? null : ([...facts].reverse().find((f) => f.published)?.v ?? null);
+  // The versions a later file made: a restated one (ADR 0021 §5) replaces no file.
+  const files = facts.filter((f) => !f.restated).length;
   const said = (f: VersionFact): string => {
     const a = f.first?.about as unknown as RunAbout | undefined;
+    // Run again under rules changed since (ADR 0021 §5): the rules, what it came to, and what its restatement decided.
+    if (f.restated) {
+      const r = f.restated;
+      const what = r.changes.map((id) => ruleChanges.find((c) => c.id === id)).filter((c): c is ChangeSet => !!c).map((c) => changeSaid(c)).join('; ');
+      const parts = [`Run again under rules changed since${f.first ? `, ${whenMin(f.first.at, l.day)}` : ''}${what ? `: ${what}` : ''}`, r.passes ? 'passed' : `held: ${r.hold!.origin}: ${r.hold!.said}`];
+      parts.push(!r.decision ? 'waiting for the restatement' : r.decision.ticked ? `restated by ${whoSaid(r.decision.by)}, ${whenMin(r.decision.at, l.day)}${r.decision.reason ? ` (“${r.decision.reason}”)` : ''}` : r.decision.same ? 'the same as readers had: noted' : `left as readers had it by ${whoSaid(r.decision.by)}`);
+      return parts.join(' · ');
+    }
     const parts = [f.delivery ? `${f.delivery.source} sent again ${whenMin(f.delivery.arrived, l.day)}: “${f.delivery.why}”` : `As it arrived${f.first ? `, ${whenMin(f.first.at, l.day)}` : ''}`];
     // What held it, a correction's own hold aside: every later file waits for a decision (Q-183).
     const hold = a?.outcome === 'held' ? a.holds?.find((x) => x.by !== 'correction') : undefined;
     if (hold) parts.push(`held: ${hold.origin}: ${hold.said}`);
     if (f.decided) parts.push(`${f.decided.option === 'dont' ? 'kept back' : f.published ? (f.delivery ? 'published' : DECIDED_WORD.asis) : (DECIDED_WORD[f.decided.option as DayState] ?? f.decided.option)} by ${whoSaid(f.decided.by)}, ${whenMin(f.decided.at, l.day)}${f.decided.reason ? ` (“${f.decided.reason}”)` : ''}`);
     else if (f.published) parts.push('published');
-    else if (a?.outcome === 'held') parts.push(f.v < facts.length ? `replaced by version ${f.v + 1} before a decision` : DECIDED_WORD.waiting);
+    else if (a?.outcome === 'held') parts.push(f.v < files ? `replaced by version ${f.v + 1} before a decision` : DECIDED_WORD.waiting);
     return parts.join(' · ');
   };
   return h('div', { class: 'dh-versions' }, h('p', { class: 'eyebrow' }, `${facts.length} versions of the day`),
@@ -11012,13 +11570,21 @@ function lifecycleOf(day: string): HTMLElement | null {
   if (facts.length > 1) {
     for (const f of facts) {
       const fa = f.first?.about as unknown as RunAbout | undefined;
+      // Run again under rules changed since (ADR 0021 §5): what it came to, and its restatement.
+      if (f.restated) {
+        steps.push([f.restated.passes ? '' : 'bad', `Run again under new rules${f.restated.passes ? '' : `: held by ${f.restated.hold!.origin}`}`]);
+        if (f.restated.decision) steps.push([f.published ? 'ok' : '', f.restated.decision.ticked ? (f.published ? 'Restated: published' : 'Restated: not published') : f.restated.decision.same ? 'Noted: the same' : 'Left as it was']);
+        continue;
+      }
       if (f.delivery) steps.push(['wait', `Sent again: ${f.delivery.source}`]);
       else if (fa?.outcome === 'held') steps.push(['bad', `Held${fa.holds?.[0] ? `: ${fa.holds[0].origin}` : ''}`]);
       if (f.published) steps.push(['ok', !f.delivery && fa?.outcome === 'held' ? `Decided: ${DECIDED_WORD.asis}` : f.delivery ? 'Decided: published' : 'Published']);
       else if (f.decided?.option === 'dont') steps.push(['', 'Decided: kept back']);
     }
     const latest = facts.at(-1)!;
-    if (!latest.published && !latest.decided) steps.push(['wait', DECIDED_WORD.waiting]);
+    if (latest.restated) {
+      if (!latest.restated.decision) steps.push(['wait', 'waiting for the restatement']);
+    } else if (!latest.published && !latest.decided) steps.push(['wait', DECIDED_WORD.waiting]);
     return h('ol', { class: 'dh-life', 'aria-label': `What happened to ${dayLabel(day)}` }, ...steps.map(([c, t]) => h('li', c ? { class: c } : {}, t)));
   }
   // A later delivery of the day (ADR 0021 §2): held first by what held its first files, then its files sent again.
@@ -11046,9 +11612,12 @@ function storyOfDay(day: string): HTMLElement | null {
   const manifests = new Set(runs.map((e) => String((e.about as unknown as RunAbout).manifest)));
   const versionOf = (manifest: unknown) => {
     const e = runs.find((x) => (x.about as unknown as RunAbout).manifest === manifest);
-    return e && k >= 0 && versionsOfLoad(k).length > 1 ? versionOfFiles(k, (e.about as { inputs?: Inputs }).inputs?.files) : null;
+    if (!e || k < 0 || versionsOfLoad(k).length <= 1) return null;
+    const key = restatedKey(e);
+    return key ? restatedVersion(k, key) : versionOfFiles(k, (e.about as { inputs?: Inputs }).inputs?.files);
   };
-  const items = all.filter((e) => e.kind === 'run' ? runDay(e) === day : e.kind === 'decide' ? (e.about as { day?: string } | null)?.day === day : e.kind === 'release' && manifests.has(String((e.about as Partial<ReleaseAbout> | null)?.manifest)));
+  const restated = (e: RecordEntry) => isRestate(e.about) && [...e.about.days, ...e.about.kept, ...e.about.same].some((d) => d.day === day);
+  const items = all.filter((e) => e.kind === 'run' ? runDay(e) === day : e.kind === 'decide' ? (e.about as { day?: string } | null)?.day === day : e.kind === 'restate' ? restated(e) : e.kind === 'release' && manifests.has(String((e.about as Partial<ReleaseAbout> | null)?.manifest)));
   if (!items.length) return null;
   const li = (e: RecordEntry, text: string) => h('li', {}, h('span', { class: 'ds-when' }, whenMin(e.at, day)), ` ${text}`);
   const lines: HTMLElement[] = [];
@@ -11065,6 +11634,13 @@ function storyOfDay(day: string): HTMLElement | null {
       continue;
     }
     same = '';
+    // A restatement (ADR 0021 §5): what it made of the day.
+    if (e.kind === 'restate' && isRestate(e.about)) {
+      const t = e.about.days.find((d) => d.day === day);
+      const v = versionOf(t?.manifest ?? e.about.kept.find((d) => d.day === day)?.manifest ?? e.about.same.find((d) => d.day === day)?.manifest);
+      lines.push(li(e, `${who} ${t ? `restated the day${v ? ` (version ${v})` : ''}: ${t.passes ? 'published under the rules changed since' : 'not published: the rules changed since hold it'}` : e.about.kept.some((d) => d.day === day) ? 'left the day as readers had it' : 'noted the day as the same under the rules changed since'}${e.reason ? ` (“${e.reason}”)` : ''}.`));
+      continue;
+    }
     if (e.kind === 'release') {
       const r = e.about as Partial<ReleaseAbout>;
       const v = versionOf(r.manifest);
@@ -11073,10 +11649,12 @@ function storyOfDay(day: string): HTMLElement | null {
     }
     const a = e.about as unknown as RunAbout & { correction?: { sources?: string[] } };
     const hold = a.holds?.find((x) => x.by !== 'correction') ?? a.holds?.[0];
-    const said = a.outcome === 'failed' ? `failed: ${a.error ?? 'no reason given'}` : a.outcome === 'derived' ? 'a fill from another day' : a.outcome === 'held' ? `held${hold ? `: ${hold.origin}: ${hold.said}` : ''}` : 'published';
-    // A later delivery of the day (ADR 0021 §2): its files sent again, run, and waiting for a decision.
+    const own = a.holds?.find((x) => x.by !== 'correction' && x.by !== 'restated');
+    const said = a.outcome === 'failed' ? `failed: ${a.error ?? 'no reason given'}` : a.outcome === 'derived' ? 'a fill from another day' : a.outcome === 'restated' ? `${own ? `held: ${own.origin}: ${own.said}` : 'it passed'}, waiting for the restatement` : a.outcome === 'held' ? `held${hold ? `: ${hold.origin}: ${hold.said}` : ''}` : 'published';
+    // A later delivery of the day (ADR 0021 §2): its files sent again, run, and waiting for a decision. Run again under
+    // rules changed since (§5): a restated version.
     const v = versionOf(a.manifest);
-    const sent = a.correction?.sources?.length ? ` on ${a.correction.sources.join(', ')} sent again${v ? ` (version ${v})` : ''}` : v ? ` (version ${v})` : '';
+    const sent = a.correction?.sources?.length ? ` on ${a.correction.sources.join(', ')} sent again${v ? ` (version ${v})` : ''}` : a.outcome === 'restated' ? ` again under rules changed since${v ? ` (version ${v})` : ''}` : v ? ` (version ${v})` : '';
     lines.push(li(e, `${who} ran the day${sent}: ${said}.`));
   }
   return h('details', { class: 'dh-story' }, h('summary', {}, `The day’s story · ${lines.length} ${lines.length === 1 ? 'entry' : 'entries'}`), h('ol', {}, ...lines));
@@ -11128,6 +11706,9 @@ function renderMonth(): void {
   const at = monthView.at;
   const month = monthOf(days, allEntries(), { at, judged: loadSource() });
   const facts = new Map(month.map((d) => [d.day, calendarDay(d)]));
+  // The days run again under rules changed since and not restated yet (ADR 0021 §5): those whose outcome would change.
+  const pend = at === null && !restating ? pendingRestating() : null;
+  const would = new Map((pend?.days ?? []).flatMap((x) => (x.r ? [[x.day, x.r] as const] : [])));
   const now = loads.list[loads.at]?.day;
   const lastKnown = [...month].reverse().find((d) => d.state !== 'notRun' && d.state !== 'notArrived')?.day;
   const pick = monthView.pick && days.includes(monthView.pick) ? monthView.pick : now && days.includes(now) ? now : (lastKnown ?? days[0] ?? null);
@@ -11168,21 +11749,26 @@ function renderMonth(): void {
         cells.push(h('span', { class: 'mo-pad', 'aria-hidden': 'true' }));
         continue;
       }
-      cells.push(h('button', { type: 'button', class: `mo-d st-${f.state}${f.decided && f.decided !== 'waiting' ? ` dec-${f.decided}` : ''}${f.corrected ? ' corrected' : ''}${d === now ? ' at' : ''}`, 'data-day': d, 'aria-pressed': String(d === pick), 'aria-label': f.label, title: f.label, onclick: () => {
+      const w = would.get(d);
+      const label = f.label;
+      cells.push(h('button', { type: 'button', class: `mo-d st-${f.state}${f.decided && f.decided !== 'waiting' ? ` dec-${f.decided}` : ''}${f.corrected ? ' corrected' : ''}${w?.changed ? ' would-change' : ''}${d === now ? ' at' : ''}`, 'data-day': d, 'aria-pressed': String(d === pick), 'aria-label': label, title: label, onclick: () => {
         monthView.pick = d;
         renderMonth();
       }, ondblclick: () => (location.hash = dayHash(d)) },
         h('span', { class: 'mo-date' }, String(dateOf(d).getUTCDate())),
-        h('span', { class: 'mo-mark' }, dayMark(f.state, f.decided, 14, f.corrected)),
+        h('span', { class: 'mo-mark' }, dayMark(f.state, f.decided, 14, f.corrected), w?.changed ? h('span', { class: 'mo-delta', 'aria-hidden': 'true' }, 'Δ') : null),
         f.headline ? h('span', { class: 'mo-hl' }, f.headline) : null));
     }
   }
   const cal = h('div', { class: 'mo-cal', role: 'group', 'aria-label': `${loads.episode}: each day and what became of it` },
     ...['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((w) => h('span', { class: 'mo-wd', 'aria-hidden': 'true' }, w)), ...cells);
   // The key: each mark the calendar draws, with its word.
-  const shownStates = new Set(month.map((d) => facts.get(d.day)!).map((f) => (f.corrected ? 'corrected' : f.decided && f.decided !== 'waiting' ? `dec-${f.decided}` : f.state)));
-  const key = h('p', { class: 'mo-key' }, ...(['published', 'unusual', 'unlearned', 'paused', 'failed', 'dec-asis', 'corrected', 'dec-dont', 'dec-fill', 'dec-complete', 'dec-accepted', 'notRun', 'notArrived'] as const).filter((s) => shownStates.has(s)).map((s) => {
+  const shownStates = new Set(month.map((d) => facts.get(d.day)!).map((f) => (f.restated ? 'restated' : f.corrected ? 'corrected' : f.decided && f.decided !== 'waiting' ? `dec-${f.decided}` : f.state)));
+  if ([...would.values()].some((w) => w.changed)) shownStates.add('would');
+  const key = h('p', { class: 'mo-key' }, ...(['published', 'unusual', 'unlearned', 'paused', 'failed', 'dec-asis', 'corrected', 'restated', 'would', 'dec-dont', 'dec-fill', 'dec-complete', 'dec-accepted', 'notRun', 'notArrived'] as const).filter((s) => shownStates.has(s)).map((s) => {
     if (s === 'corrected') return h('span', { class: 'mk st-published' }, dayMark('published', null, 12, 2), 'corrected: sent again, with its count of versions');
+    if (s === 'restated') return h('span', { class: 'mk st-published' }, dayMark('published', null, 12, 2), 'restated under rules changed since, with its count of versions');
+    if (s === 'would') return h('span', { class: 'mk would-change' }, h('span', { class: 'mo-delta', 'aria-hidden': 'true' }, 'Δ'), 'would change under the rules changed since: waiting for the restatement');
     const dec = s.startsWith('dec-') ? (s.slice(4) as DayState) : null;
     const st = (dec ? 'published' : s) as MonthState;
     return h('span', { class: `mk st-${st}` }, s === 'notRun' || s === 'notArrived' ? h('span', { class: 'mk-dash', 'aria-hidden': 'true' }) : dayMark(st, dec, 12), dec ? DECIDED_WORD[dec] : s === 'paused' ? 'paused' : MONTH_WORD[st]);
@@ -11203,13 +11789,15 @@ function renderMonth(): void {
     // Its versions, where it was sent again (ADR 0021 §2): each delivery, when it arrived, and the one readers got.
     const kd = loads.list.findIndex((l) => l.day === pd.day);
     const vfs = at === null && kd >= 0 ? versionFacts(kd) : [];
-    const shown = pf.corrected ? correctedOf(kd)?.got.v ?? null : null;
+    const shown = pf.restated ? wentWith(kd) : pf.corrected ? correctedOf(kd)?.got.v ?? null : null;
+    const w = would.get(pd.day);
     summary = h('div', { class: 'panel mo-sum', 'aria-live': 'polite', 'data-day': pd.day },
-      h('div', { class: 'mo-sum-head' }, h('h3', {}, dayLabel(pd.day)), dayMark(pf.state, pf.decided, 16, pf.corrected), h('span', { class: 'mo-word' }, pf.corrected ? `corrected: version ${shown} of ${pf.corrected} published` : pf.decided && pf.decided !== 'waiting' ? DECIDED_WORD[pf.decided] : pf.state === 'paused' ? 'paused, waiting on a decision' : MONTH_WORD[pf.state])),
+      h('div', { class: 'mo-sum-head' }, h('h3', {}, dayLabel(pd.day)), dayMark(pf.state, pf.decided, 16, pf.corrected), h('span', { class: 'mo-word' }, pf.restated ? `restated: version ${shown} of ${pf.corrected}${pf.state === 'published' ? ' published' : ', not published'}` : pf.corrected ? `corrected: version ${shown} of ${pf.corrected} published` : pf.decided && pf.decided !== 'waiting' ? DECIDED_WORD[pf.decided] : pf.state === 'paused' ? 'paused, waiting on a decision' : MONTH_WORD[pf.state])),
       pf.headline ? h('p', { class: 'mo-sum-hl' }, pf.headline) : null,
+      w ? h('p', { class: `mo-sum-hl rs-would${w.changed ? ' changed' : ''}` }, `Under the rules changed since: ${w.before} → ${w.after}${w.changed ? '. It waits for the restatement.' : '. Noted: the same.'}`) : null,
       h('ul', { class: 'mo-facts' },
         pd.at ? h('li', {}, `Arrived ${whenMin(pd.at, pd.day)}`) : null,
-        ...vfs.slice(1).map((f) => h('li', {}, `${f.delivery!.source} sent again ${whenMin(f.delivery!.arrived, pd.day)}: version ${f.v}${f.published ? ', published' : f.decided?.option === 'dont' ? ', kept back' : ', waiting on a decision'}`)),
+        ...vfs.slice(1).map((f) => h('li', {}, f.restated ? `Run again under rules changed since: version ${f.v}${f.published ? ', published' : f.restated.decision ? (f.restated.decision.ticked ? ', not published: held under them' : f.restated.decision.same ? ', the same: noted' : ', left as readers had it') : ', waiting for the restatement'}` : `${f.delivery!.source} sent again ${whenMin(f.delivery!.arrived, pd.day)}: version ${f.v}${f.published ? ', published' : f.decided?.option === 'dont' ? ', kept back' : ', waiting on a decision'}`)),
         count !== null && (!src || visible(src)) ? h('li', {}, rowsSaid(count)) : null,
         waiting.length ? h('li', {}, `What waits: ${waiting.slice(0, 4).join(', ')}${waiting.length > 4 ? ` and ${waiting.length - 4} more` : ''}`) : null,
         last ? h('li', {}, runs.some((e) => e.by.as === 'build') ? `Recorded by the build${c && c !== 'flow' && c !== 'inputs' ? (c.matches ? ' · run here, the same as the record ✓' : ' · run here, it differs from the record') : ''}` : 'Run in this browser') : null),
@@ -11223,7 +11811,8 @@ function renderMonth(): void {
   const passes = (d: string, filter: GridFilter): boolean => {
     const f = facts.get(d);
     if (!f || filter === 'all') return true;
-    if (filter === 'corrected') return f.corrected > 1;
+    // Sent again: a day restated under other rules (ADR 0021 §5) is another set of rules, not another file.
+    if (filter === 'corrected') return f.corrected > 1 && !f.restated;
     if (filter === 'waiting') return f.state === 'paused' && (!f.decided || f.decided === 'waiting');
     return f.state === 'paused' || f.corrected > 1;
   };
@@ -11305,7 +11894,8 @@ function renderLoads(): void {
   const top = now ? verdictOf(now.day) : undefined;
   // The day held, on the first screen (ADR 0009 §12): the pause and the day readers see, and Decide a tap away.
   const own = now ? onScreen() : undefined;
-  const held = own ? pauseOf(own) : null;
+  // A restated run waits for its restatement, said by its own line (`restateLine`), not decided here.
+  const held = own && !own.result.manifest.restates ? pauseOf(own) : null;
   const may = (['asis', 'dont'] as const).some((o) => checkDecision(policies(), state.viewer, o).allowed);
   const kept = own && held ? readersAsOf(own) : null;
   const pl = own && held ? dayPausedLine({ state: held.state, readers: kept!.day, past: kept!.past, may, standing: standsOn(held.pause?.decision), day: now!.day, remedy: held.remedy, withdrawn: held.withdrawn, level: held.pause?.decision?.about.level?.from ?? null, under: levelUnder(held.pause?.decision), readersMark: kept!.past ? null : readersMarkOf(own) }) : null;
@@ -11330,6 +11920,8 @@ function renderLoads(): void {
     now ? h('div', { class: 'dh-title' }, h('h2', {}, dayLabel(now.day)), f ? dayMark(f.state, f.decided, 16, f.corrected) : null) : '',
     (now ? lifecycleOf(now.day) : null) ?? '',
     (now ? recordLine(now.day) : null) ?? '',
+    (now ? rulesLine(now.day, prev) : null) ?? '',
+    (loads.at >= 0 ? restateLine(loads.at) : null) ?? '',
     (loads.at >= 0 ? versionsPart(loads.at) : null) ?? '',
     (loads.at >= 0 ? comparePart(loads.at) : null) ?? '',
     replacedBy && onVersion ? h('p', { class: 'loads-pause superseded', role: 'status' }, h('b', {}, `Version ${onVersion}, ${onVersion === 1 ? 'as it arrived' : 'sent again'}: replaced by version ${replacedBy.v}`), `, ${replacedBy.delivery?.source} sent again ${whenMin(replacedBy.delivery!.arrived, now!.day)}.${gotVersion ? ` Readers got version ${gotVersion}.` : ''} It isn’t decided: the later version is.`) : '',
@@ -11454,33 +12046,77 @@ async function replaceDayFile(day: string, bytes: Uint8Array<ArrayBuffer>, name:
 /** Put a load in the engine as the trips source and run the flow on it. Only the last few loads' bytes are kept. */
 // ------------------------------------------------------------------ a day's versions (ADR 0021 §2)
 
-/** A load's versions (ADR 0021 §2): its first files, by source, then the files as each later delivery left them, each
- * with the delivery that made it. */
-function versionsOfLoad(k: number): { files: Record<string, Listed>; delivery: (Delivered & { source: string }) | null }[] {
+/** A day run again under rules changed since (ADR 0021 §5), as a version of it: the change sets, the run it restated,
+ * by manifest, its first run, and its key (the change sets and the files read). */
+interface Restated {
+  key: string;
+  of: string;
+  changes: string[];
+  first: RecordEntry;
+}
+
+/** A restated version's key: the change sets it ran under and the files it read. */
+const restatedKeyOf = (changes: readonly string[], files: Readonly<Record<string, string>> | undefined): string => `${[...changes].sort().join(',')}|${JSON.stringify(Object.entries(files ?? {}).sort())}`;
+
+/** A run entry's restated key (null: not a restated run). */
+function restatedKey(e: Pick<RecordEntry, 'about'>): string | null {
+  const a = e.about as { outcome?: string; restates?: { changes?: unknown }; inputs?: { files?: Record<string, string> } } | null;
+  return a?.outcome === 'restated' && Array.isArray(a.restates?.changes) ? restatedKeyOf(a.restates!.changes as string[], a.inputs?.files) : null;
+}
+
+/** A load's version of files: the first whose files a run read (by sha256), or -1. */
+const fileVersionOf = (vs: readonly { files: Record<string, Listed> }[], files: Readonly<Record<string, string>> | undefined): number =>
+  !files ? -1 : vs.findIndex((v) => Object.entries(v.files).every(([id, f]) => files[id] === undefined || files[id] === f.sha256));
+
+/** A load's versions (ADR 0021 §2, §5): its first files, by source, then the files as each later delivery left them, each
+ * with the delivery that made it; then each time the day was run again under rules changed since, in the order first
+ * recorded: the files of the version it restated, under other rules. */
+function versionsOfLoad(k: number): { files: Record<string, Listed>; delivery: (Delivered & { source: string }) | null; restated: Restated | null }[] {
   const l = loads.list[k];
   if (!l) return [];
   const main = primarySource();
   const first: Record<string, Listed> = l.files ?? (main ? { [main]: l } : {});
   const ds = dataList ? deliveriesOf(dataList, l.day) : [];
-  return versionsOfDay({ ...l, files: first }, ds).map((files, i) => ({ files, delivery: i ? ds[i - 1]! : null }));
+  const out: { files: Record<string, Listed>; delivery: (Delivered & { source: string }) | null; restated: Restated | null }[] = versionsOfDay({ ...l, files: first }, ds).map((files, i) => ({ files, delivery: i ? ds[i - 1]! : null, restated: null }));
+  const n = out.length;
+  for (const e of allEntries()) {
+    if (e.kind !== 'run' || runDay(e) !== l.day) continue;
+    const key = restatedKey(e);
+    if (!key || out.some((v) => v.restated?.key === key)) continue;
+    const a = e.about as unknown as { inputs?: Inputs; restates: { of: string; changes: string[] } };
+    out.push({ files: out[Math.max(0, fileVersionOf(out.slice(0, n), a.inputs?.files))]!.files, delivery: null, restated: { key, of: a.restates.of, changes: [...a.restates.changes], first: e } });
+  }
+  return out;
 }
 
 /** Which version of a load a run read, by its files' sha256 (1: its first files); null for files no version has (a
- * file the viewer put in its place). */
+ * file the viewer put in its place). Never a restated version: those are told by their rules. */
 function versionOfFiles(k: number, files: Readonly<Record<string, string>> | undefined): number | null {
-  if (!files) return null;
-  const i = versionsOfLoad(k).findIndex((v) => Object.entries(v.files).every(([id, f]) => files[id] === undefined || files[id] === f.sha256));
+  const i = fileVersionOf(versionsOfLoad(k).filter((v) => !v.restated), files);
   return i >= 0 ? i + 1 : null;
 }
 
-/** The version of its load a run here read. */
-const versionOfRun = (r: RunRecord | undefined): number | null => (r?.load === undefined ? null : versionOfFiles(r.load, inputsOf(r.result.manifest).files));
+/** The restated version of a load a key names (null: none). */
+function restatedVersion(k: number, key: string): number | null {
+  const i = versionsOfLoad(k).findIndex((v) => v.restated?.key === key);
+  return i >= 0 ? i + 1 : null;
+}
+
+/** The version of its load a run here read: a restated one by its rules, any other by its files. */
+function versionOfRun(r: RunRecord | undefined): number | null {
+  if (r?.load === undefined) return null;
+  const re = r.result.manifest.restates;
+  return re ? restatedVersion(r.load, restatedKeyOf(re.changes, inputsOf(r.result.manifest).files)) : versionOfFiles(r.load, inputsOf(r.result.manifest).files);
+}
 
 /** Every run of a day the record holds, recorded or made here, with the version of its load it read, in order. */
 function runsOfVersions(k: number): { e: RecordEntry; v: number | null }[] {
   const l = loads.list[k];
   if (!l) return [];
-  return allEntries().filter((e) => e.kind === 'run' && runDay(e) === l.day && (e.about as unknown as RunAbout).outcome !== 'derived').map((e) => ({ e, v: versionOfFiles(k, (e.about as { inputs?: Inputs } | null)?.inputs?.files) }));
+  return allEntries().filter((e) => e.kind === 'run' && runDay(e) === l.day && (e.about as unknown as RunAbout).outcome !== 'derived').map((e) => {
+    const key = restatedKey(e);
+    return { e, v: key ? restatedVersion(k, key) : versionOfFiles(k, (e.about as { inputs?: Inputs } | null)?.inputs?.files) };
+  });
 }
 
 /** The manifests a release applied in the record: what a decision published. */
@@ -11494,15 +12130,22 @@ function releasedManifests(): Set<string> {
  * day sent once.
  */
 function wentWith(k: number): number {
-  const n = versionsOfLoad(k).length;
-  if (n <= 1) return 1;
+  const vs = versionsOfLoad(k);
+  if (vs.length <= 1) return 1;
+  // A restatement that ticked the day (ADR 0021 §5): its restated version is what readers got; one that noted it as the
+  // same, where readers had the day: the same outputs, under the newer rules.
+  const r = restatementOf(k);
+  if (r?.ticked || (r?.same && restatedOfPublished(k, r.manifest))) {
+    const e = runsOfVersions(k).find((x) => (x.e.about as unknown as RunAbout).manifest === r.manifest);
+    if (e?.v) return e.v;
+  }
   const released = releasedManifests();
   let got = 0;
   for (const { e, v } of runsOfVersions(k)) {
     const a = e.about as unknown as RunAbout;
     if (v && (a.outcome === 'ok' || (a.manifest && released.has(a.manifest)))) got = v;
   }
-  return got || n;
+  return got || vs.filter((v) => !v.restated).length;
 }
 
 /**
@@ -11530,6 +12173,9 @@ interface VersionFact {
   first: RecordEntry | null;
   decided: { at: string; by: string; option: DecisionOption; reason: string | null } | null;
   published: boolean;
+  /** A day run again under rules changed since (ADR 0021 §5): its change sets, whether it passed (else what held it), and
+   * what its restatement decided (ticked: readers got it; else they kept the version they had). */
+  restated?: { changes: string[]; passes: boolean; hold: Hold | null; decision: { at: string; by: string; reason: string | null; ticked: boolean; same: boolean } | null };
 }
 
 /** Every version of a day and what became of it (ADR 0021 §2), in order: the first files, then each delivery. */
@@ -11540,6 +12186,16 @@ function versionFacts(k: number): VersionFact[] {
   return versionsOfLoad(k).map((ver, i) => {
     const mine = runs.filter((x) => x.v === i + 1).map((x) => x.e);
     const manifests = new Set(mine.map((e) => (e.about as unknown as RunAbout).manifest).filter((m): m is string => typeof m === 'string'));
+    if (ver.restated) {
+      const first = mine[0] ?? ver.restated.first;
+      const holds = ((first.about as unknown as RunAbout).holds ?? []).filter((x) => x.by !== 'restated');
+      const r = restatementOfRuns(manifests);
+      const fm = (first.about as unknown as RunAbout).manifest;
+      return {
+        v: i + 1, delivery: null, first, decided: null, published: r?.ticked ? r.passes : !!r?.same && !!fm && restatedOfPublished(k, fm),
+        restated: { changes: ver.restated.changes, passes: !holds.length, hold: holds[0] ?? null, decision: r ? { at: r.entry.at, by: r.entry.by.as, reason: r.entry.reason, ticked: r.ticked, same: r.same } : null },
+      };
+    }
     const last = all.filter((e) => e.kind === 'decide' && manifests.has(String((e.about as Partial<DecideAbout> | null)?.manifest))).at(-1);
     return {
       v: i + 1, delivery: ver.delivery, first: mine[0] ?? null,
@@ -11552,7 +12208,8 @@ function versionFacts(k: number): VersionFact[] {
 /** A day corrected (ADR 0021 §2, §3): sent again later, and a later version published. Its versions and the one
  * readers got; null for any other day. */
 function correctedOf(k: number): { versions: VersionFact[]; got: VersionFact } | null {
-  const versions = k >= 0 ? versionFacts(k) : [];
+  // Sent again: a restated version (ADR 0021 §5) is another set of rules, not another file.
+  const versions = k >= 0 ? versionFacts(k).filter((f) => !f.restated) : [];
   const got = [...versions].reverse().find((f) => f.published);
   return versions.length > 1 && got && got.v > 1 ? { versions, got } : null;
 }
@@ -11564,23 +12221,25 @@ const sentSources = (versions: readonly VersionFact[], upTo: number): string[] =
  * its place. Null for the latest version, or a file the viewer put in place of the day's. A superseded version isn't
  * decided: the day is the later version's to decide. */
 function supersededBy(r: RunRecord | undefined): VersionFact | null {
-  if (!r || r.load === undefined || r.derived || loads.replaced.has(r.load)) return null;
+  if (!r || r.load === undefined || r.derived || loads.replaced.has(r.load) || r.result.manifest.restates) return null;
   const v = versionOfRun(r);
-  const facts = versionFacts(r.load);
+  // Replaced by a later file: a day run again under other rules (ADR 0021 §5) replaces nothing by itself.
+  const facts = versionFacts(r.load).filter((f) => !f.restated);
   return v !== null && v < facts.length ? facts[v]! : null;
 }
 
-async function runLoad(k: number): Promise<void> {
+async function runLoad(k: number, opts: { restating?: { of: string; changes: string[] } } = {}): Promise<void> {
   const engine = state.engine;
   const l = loads.list[k];
   if (!engine || !l || state.running) return;
   // A day stepped to is a run (round 3, #7): only someone who may decide steps days, before anything is fetched.
   if (!mayRun()) return void run();
-  const replaced = loads.replaced.get(k);
+  const replaced = opts.restating ? undefined : loads.replaced.get(k);
   // The version a link asked for, else the one readers got (ADR 0021 §1, §4): its files, a delivery's in place of the
-  // day's first file of its source. A file the viewer put in place of the day's is the first version's, replaced.
+  // day's first file of its source. A file the viewer put in place of the day's is the first version's, replaced. A
+  // restatement runs the version readers got again (ADR 0021 §5).
   const vs = versionsOfLoad(k);
-  const version = replaced ? 1 : Math.min(Math.max(1, loads.version.get(k) ?? wentWith(k)), Math.max(1, vs.length));
+  const version = replaced ? 1 : Math.min(Math.max(1, opts.restating ? wentWith(k) : (loads.version.get(k) ?? wentWith(k))), Math.max(1, vs.length));
   const files = vs[version - 1]?.files ?? {};
   const main = primarySource();
   const top = (main && files[main]) || l;
@@ -11618,6 +12277,11 @@ async function runLoad(k: number): Promise<void> {
     if (main) pulledIn(main, replaced ? replaced.name : top.file, replaced?.sha256 ?? top.sha256, replaced ? `uploaded by ${state.viewer} in place of ${l.file}` : fromOf(main));
     for (const [id, file, sha256] of pulled) pulledIn(id, file, sha256, fromOf(id));
     loads.pinnedVersion = version;
+    // Under which rules (ADR 0021 §5): a restatement under the rules as known now; a restated version under those it was
+    // first run under, restating again what it restated; any other version under its first run's.
+    const restated = vs[version - 1]?.restated;
+    loads.restates = opts.restating ?? (restated ? { of: restated.of, changes: restated.changes } : null);
+    loads.pinnedAsOf = opts.restating ? null : restated ? restated.first.at : undefined;
     loads.others.set(k, others);
     for (const old of [...loads.others.keys()].slice(0, Math.max(0, loads.others.size - 3))) loads.others.delete(old);
   } catch (e) {
@@ -11631,6 +12295,8 @@ async function runLoad(k: number): Promise<void> {
   loads.week = mondayOf(l.day);
   normalView.focus = '';
   historyFocus.clear();
+  // The rules the version runs under: in force on its day, as known when it first ran (ADR 0021 §5).
+  resolveForPinned();
   prepareDay(engine);
   renderLoads();
   await run();
@@ -12623,6 +13289,7 @@ async function run(early?: EarlyClaims): Promise<void> {
   renderCanvas();
   const t = performance.now();
   try {
+    resolveForPinned();
     const { loadDay, parameters } = runParameters();
     refreshRanges();
     mark('run: ranges');
@@ -12635,9 +13302,9 @@ async function run(early?: EarlyClaims): Promise<void> {
     // latest run here, and waits for a decision whatever its checks say (Q-183).
     const before = loads.replaced.has(loads.pinned) && loadDay ? state.runs.find((x) => dayOfRun(x) === loadDay && !x.derived) : undefined;
     // A day's later version from the data list (ADR 0021 §2) corrects the latest run of an earlier one, recorded or here.
-    const sent = !before && loads.pinned >= 0 && loads.pinnedVersion > 1 ? correctionFor(loads.pinned, loads.pinnedVersion) : null;
-    const correction = before && primarySource() ? { of: { run: before.result.run, manifest: before.result.hash }, sources: [primarySource()!] } : (sent ?? undefined);
-    const result = await runFlow(engine, state.doc, { smaltdb: SMALTDB, parameters, data, log: recordHead(), ...(told ? { claims: told } : {}), ...(asked && Object.keys(asked.tell).length ? { tell: asked.tell } : {}), ...(Object.keys(sources).length ? { sources } : {}), ...(correction ? { correction } : {}) });
+    const sent = !before && !loads.restates && loads.pinned >= 0 && loads.pinnedVersion > 1 ? correctionFor(loads.pinned, loads.pinnedVersion) : null;
+    const correction = loads.restates ? undefined : before && primarySource() ? { of: { run: before.result.run, manifest: before.result.hash }, sources: [primarySource()!] } : (sent ?? undefined);
+    const result = await runFlow(engine, state.doc, { smaltdb: SMALTDB, parameters, data, log: recordHead(), ...(told ? { claims: told } : {}), ...(asked && Object.keys(asked.tell).length ? { tell: asked.tell } : {}), ...(Object.keys(sources).length ? { sources } : {}), ...(correction ? { correction } : {}), ...(loads.restates ? { restates: loads.restates } : {}) });
     const ms = performance.now() - t;
     mark('run: flow run');
     // A held run returns, built, checked and recorded, its versions staged: only `published` names show it. A watched
@@ -12647,15 +13314,18 @@ async function run(early?: EarlyClaims): Promise<void> {
     const rec: RunRecord = { result, ms, at: new Date(), inputs: inputsKey(inputsOf(result.manifest)), ...(loads.pinned >= 0 && loads.list.length > 1 ? { load: loads.pinned } : {}), ...(kept.length ? { claims: kept } : {}) };
     state.runs.unshift(rec);
     checkRecorded(rec);
+    // A day run again under rules changed since (ADR 0021 §5) teaches the history nothing: its day was learned when it
+    // first ran, and a restatement says what readers get, not what a day is like.
+    const learning = !result.manifest.restates;
     // Each watched load's measures to its source's tail, the first time its slot runs (C5).
-    for (const m of result.measures ?? []) addToTail(m);
+    for (const m of learning ? (result.measures ?? []) : []) addToTail(m);
     // Each load's kept rows to its node's sample (ADR 0014 §5): the sources' as the page kept them, the steps' as the
     // engine did.
-    for (const m of result.measures ?? []) {
+    for (const m of learning ? (result.measures ?? []) : []) {
       const rows = keptRows.get(m.source)?.get(m.slot);
       if (rows) keepDay(m.source, m.slot, rows);
     }
-    for (const [id, rows] of Object.entries(result.kept ?? {})) {
+    for (const [id, rows] of Object.entries(learning ? (result.kept ?? {}) : {})) {
       const m = result.measures?.find((x) => x.source === id);
       if (m) keepDay(id, m.slot, rows);
     }
@@ -12726,7 +13396,7 @@ async function run(early?: EarlyClaims): Promise<void> {
  * reason.
  */
 let flowRecording: Promise<void> = Promise.resolve();
-function recordFlowChange(reason: string | null, doc: FlowDocument = state.doc): Promise<void> {
+function recordFlowChange(reason: string | null, doc: FlowDocument = baseDoc()): Promise<void> {
   const next = flowRecording.then(async () => {
     if (!ledger) return;
     const fh = await flowHash(doc);
@@ -12764,16 +13434,23 @@ async function recordRun(rec: RunRecord | null, error: string | null): Promise<v
       const day = typeof value === 'string' ? value : load;
       const held = result.holds.length > 0;
       const keys = held && typed ? stagedKeys(result.manifest, heldOutputs(typed, result.holds)) : {};
+      // The day run again under rules changed since (ADR 0021 §5): its own outcome, which a restatement decides.
+      const restates = result.manifest.restates;
       await ledger.append('run', state.viewer, {
-        run: result.run, manifest: result.hash, blob, plan, load, outcome: held ? 'held' : 'ok', files: files as unknown as JSONValue, data: result.manifest.data ?? null,
+        run: result.run, manifest: result.hash, blob, plan, load, outcome: restates ? 'restated' : held ? 'held' : 'ok', files: files as unknown as JSONValue, data: result.manifest.data ?? null,
         day, inputs: inputsOf(result.manifest) as unknown as JSONValue,
+        // What each output holds, by content hash: what tells a restated day's outcome from the one readers got.
+        contents: Object.fromEntries(Object.entries(result.manifest.outputs).map(([n, o]) => [n, o.content])),
         // A later delivery of its day (ADR 0021 §2): the run it corrects and the files sent again.
         ...(result.manifest.correction ? { correction: result.manifest.correction as unknown as JSONValue } : {}),
+        // The run it restates and the change sets it ran under (ADR 0021 §5).
+        ...(restates ? { restates: restates as unknown as JSONValue } : {}),
         // With several watched sources, every load it read (ADR 0010 §7): a load it read and didn't hold passes its pause.
         ...(typed && byLoad(typed.publish) ? { loads: [...loadsOf(typed, result.manifest).values()] as unknown as JSONValue } : {}),
         ...(held ? { holds: result.holds as unknown as JSONValue, waiting: result.waiting, keys } : {}),
-        // Its watched loads' measures (ADR 0010 §6): the tail is rebuilt from them when the page opens.
-        ...(result.measures?.length ? { measures: result.measures as unknown as JSONValue } : {}),
+        // Its watched loads' measures (ADR 0010 §6): the tail is rebuilt from them when the page opens. A restated run's
+        // aren't the history's (ADR 0021 §5).
+        ...(result.measures?.length && !restates ? { measures: result.measures as unknown as JSONValue } : {}),
         // The claims it was judged by, published or held: what `audit.mjs check --history` tells again (ADR 0010 §6).
         ...(rec?.claims?.length ? { claims: rec.claims as unknown as JSONValue } : {}),
       });
@@ -13029,11 +13706,9 @@ async function decideNow(target: RunRecord | string, option: DecisionOption, sco
     // The band accepted is written into the ontology (ADR 0014 §3): the decision is recorded, the document edited from it.
     else if (option === 'accept' && level?.band && loadSource()) {
       const banded = applyBand(state.doc, level.source, level.band);
-      if (banded) {
-        state.doc = banded.doc;
-        // Kept across a reload and recorded at once with its reason, as every edit of the flow is.
-        await flowEdited(`${banded.said}, by decision #${entry.seq}`);
-        setStatus(`The new band is in the ontology: ${NEWS_NAMES.column(level.band.column)} ${level.band.value} ${Math.round(level.band.share[0] * 100)}–${Math.round(level.band.share[1] * 100)}%. Recorded; the next run judges by it.`, false);
+      // A change set in force from the day the setting says (ADR 0021 §5), recorded at once with the decision it came from.
+      if (banded && (await editRules({ op: 'acceptBand', source: level.source, band: level.band }, { why: reason?.trim() ?? '', words: `${banded.said}, by decision #${entry.seq}` }))) {
+        setStatus(`The new band is in the ontology: ${NEWS_NAMES.column(level.band.column)} ${level.band.value} ${Math.round(level.band.share[0] * 100)}–${Math.round(level.band.share[1] * 100)}%, in force from ${dayLabel(ruleChanges.at(-1)!.from)}. Recorded.`, false);
       }
     }
   } else if (derived && dkeys) {
@@ -13642,6 +14317,12 @@ const KIND_WORD: Record<string, (e: { seq: number; about: Record<string, unknown
       const day = a.day ?? a.load ? dayMid(String(a.day ?? a.load)) : 'the day';
       return `Made ${day} ${r?.kind === 'fill' && r.donor ? `filled from ${dayShort(r.donor.day)}` : 'with the part that arrived'}, staged: manifest ${String(a.manifest).slice(0, 12)}…, repairing run ${runNameOf((a.from as { manifest?: string } | undefined)?.manifest, (a.from as { run?: unknown } | undefined)?.run)}`;
     }
+    // A day run again under rules changed since (ADR 0021 §5): its restatement decides it.
+    if (a.outcome === 'restated') {
+      const day = a.day ?? a.load ? dayMid(String(a.day ?? a.load)) : 'the day';
+      const holds = Array.isArray(a.holds) ? (a.holds as unknown as Hold[]).filter((x) => x.by !== 'restated') : [];
+      return `Ran ${day} again under rules changed since: ${holds.length ? `held by ${holds[0]!.origin}` : 'it passed'} · manifest ${String(a.manifest).slice(0, 12)}…`;
+    }
     if (a.outcome !== 'held') return `A run${a.load ? ` on ${dayLabel(String(a.load))}` : ''} stopped: ${String(a.error ?? '')}`;
     const day = a.day ?? a.load ? dayMid(String(a.day ?? a.load)) : null;
     const waiting = Array.isArray(a.waiting) ? a.waiting.length : 0;
@@ -13683,6 +14364,12 @@ const KIND_WORD: Record<string, (e: { seq: number; about: Record<string, unknown
   },
   // A change says why where it was recorded with its reason (an edit made here), then the two hashes.
   flow: ({ about: a, reason }) => (a.before ? `The flow changed${reason ? `: ${reason}` : ''} · ${String(a.before).slice(0, 12)}… to ${String(a.after).slice(0, 12)}…` : `The flow as it first ran here: ${String(a.after).slice(0, 12)}…`),
+  // One decision restating days under rules changed since (ADR 0021 §5, Q-190).
+  restate: ({ about: a, reason }) => {
+    if (!isRestate(a)) return 'A restatement';
+    const days = a.days.map((d) => dayShort(d.day));
+    return `Restated ${days.length ? `${plural(days.length, 'day')} (${days.join(', ')})` : 'no day'} under rules changed since, from ${dayLabel(a.from)}${a.kept.length ? `; ${plural(a.kept.length, 'day')} left as readers had ${a.kept.length === 1 ? 'it' : 'them'}` : ''}${a.same.length ? `; ${plural(a.same.length, 'day')} the same` : ''}${reason ? `: “${reason}”` : ''}`;
+  },
   // A file of a source closed to the viewer names neither the source nor its file (round 3, #6).
   file: ({ about: a }) => (fileSeen(String(a.path ?? '')) ? describeFile(a as unknown as FileCheck).title : 'A closed part’s file, checked against the data’s list'),
   // What was done is said to anyone; what it was done about only to someone who reads all of its dataset, or who did it,
@@ -14001,6 +14688,8 @@ async function start(): Promise<void> {
   mark('flow.json');
   shippedHash = await flowHash(shippedDoc);
   loadFlow();
+  // The rules before any change set, and the change sets, kept apart from the document on screen (ADR 0021 §5).
+  takeRules(state.doc);
   loadArrangement();
   state.collapsed = new Set((state.doc.groups ?? []).filter((g) => g.collapsed).map((g) => g.id));
   $('flow-name').textContent = state.doc.name;
@@ -14150,6 +14839,9 @@ async function start(): Promise<void> {
     if (first) {
       loads.pinned = k0;
       loads.at = k0;
+      loads.restates = null;
+      loads.pinnedAsOf = undefined;
+      resolveForPinned();
       prepareDay(engine);
     }
     mark('files pinned');

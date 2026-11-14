@@ -23,10 +23,12 @@
 //     "mask": "letters",                  optional: mask the text ("letters": keep digits; "all"); reloads after
 //     "click": "#sheet .vf-hero",         optional: tap this first (a detail sheet opens), then capture
 //     "clicks": ["sel", ...],             optional: tap each in order, settling ~900 ms (or a run) after each; an entry
-//                                         ["sel", "text"] types the text into that field instead (a form's input)
+//                                         ["sel", "text"] types the text into that field instead (a form's input), or
+//                                         chooses that value where the field is a select
 //     "upload": ["sel", "file"],          optional: after the taps, choose this file (relative to the stops file) in a
 //                                         file input, and wait for the run it starts (Replace the file)
 //     "waitFor": "sel",                   optional: after the taps, wait until this shows (what a tap draws once the engine answers)
+//     "waitForMs": 240000,                optional: how long waitFor waits (default 30 s): what takes many runs to draw
 //     "reload": true,                     optional: reload the page first, keeping IndexedDB, and settle
 //     "view": "runs",                     optional: show a view (#runs, #policies, ...) before capturing
 //     "viewFirst": true,                  optional: show the view before the clicks, not after
@@ -262,7 +264,8 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
         const target = p.locator(sel).first();
         if (!(await target.count())) problems.push(`${stop.name}: nothing to ${typed === undefined ? 'click' : 'type into'} at ${sel}`);
         else if (typed !== undefined) {
-          await target.fill(typed);
+          if (await target.evaluate((el) => el.tagName === 'SELECT')) await target.selectOption(typed);
+          else await target.fill(typed);
           await quiet(1000);
         } else {
           const before = await status();
@@ -287,7 +290,7 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
         await p.evaluate((v) => { location.hash = `#${v}`; }, stop.view);
         await quiet(3000);
       }
-      if (stop.waitFor) await p.waitForSelector(stop.waitFor, { state: 'visible', timeout: 30000 }).catch(() => problems.push(`${stop.name}: ${stop.waitFor} never showed`));
+      if (stop.waitFor) await p.waitForSelector(stop.waitFor, { state: 'visible', timeout: stop.waitForMs ?? 30000 }).catch(() => problems.push(`${stop.name}: ${stop.waitFor} never showed`));
       if (stop.download) {
         const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 60000 }), p.locator(stop.download).first().click()]);
         const to = path.join(out, dl.suggestedFilename());

@@ -84,7 +84,7 @@ export interface RunAbout {
   manifest?: string;
   day?: string | null;
   load?: string | null;
-  outcome?: 'ok' | 'held' | 'failed' | 'derived';
+  outcome?: 'ok' | 'held' | 'failed' | 'derived' | 'restated';
   holds?: Hold[];
   waiting?: string[];
   claims?: ClaimLike[];
@@ -107,13 +107,55 @@ export function runDay(e: Pick<LogEntry, 'kind' | 'about'>): string | null {
   return typeof a.day === 'string' ? a.day : typeof a.load === 'string' ? a.load : null;
 }
 
-/** Every day's runs, in the order recorded: a derived run (a fill) isn't one of its day's runs. */
+/**
+ * A restatement's record entry (`restate`, ADR 0021 §5, Q-190): the change sets it restates the days under, the day they
+ * take effect from, the days it restates (each by its restated run's manifest, and whether that run passed), the days
+ * left as they were (unticked), and those whose outcome came out the same (noted, not decided). Its reason is the
+ * entry's.
+ */
+export interface RestateAbout {
+  changes: string[];
+  from: string;
+  days: { day: string; manifest: string; passes: boolean }[];
+  kept: { day: string; manifest: string }[];
+  same: { day: string; manifest: string }[];
+}
+
+/** Whether an entry's `about` is a restatement's. */
+export function isRestate(about: unknown): about is RestateAbout {
+  const a = about as Partial<RestateAbout> | null;
+  return isRecord(a) && Array.isArray(a.changes) && typeof a.from === 'string' && Array.isArray(a.days) && Array.isArray(a.kept) && Array.isArray(a.same)
+    && a.days.every((d) => isRecord(d) && typeof d.day === 'string' && typeof d.manifest === 'string' && typeof d.passes === 'boolean')
+    && [...a.kept, ...a.same].every((d) => isRecord(d) && typeof d.day === 'string' && typeof d.manifest === 'string');
+}
+
+/** The restated runs a restatement made what readers got, by manifest, with whether each passed. */
+export function restatedRuns(entries: readonly Pick<LogEntry, 'kind' | 'about'>[]): Map<string, boolean> {
+  const out = new Map<string, boolean>();
+  for (const e of entries) if (e.kind === 'restate' && isRestate(e.about)) for (const d of e.about.days) out.set(d.manifest, d.passes);
+  return out;
+}
+
+/**
+ * Every day's runs, in the order recorded: a derived run (a fill) isn't one of its day's runs, nor is a day run again
+ * under rules changed since (ADR 0021 §5) until a restatement makes it what readers got. Then it is the day's run as
+ * the restatement left it: published where it passed, held otherwise (its own restated hold aside).
+ */
 export function runsByDay<E extends Pick<LogEntry, 'kind' | 'about' | 'at'>>(entries: readonly E[]): Map<string, E[]> {
   const out = new Map<string, E[]>();
+  const restated = restatedRuns(entries);
   for (const e of entries) {
     const day = runDay(e);
-    if (!day || aboutOf(e).outcome === 'derived') continue;
-    out.set(day, [...(out.get(day) ?? []), e]);
+    const a = aboutOf(e);
+    if (!day || a.outcome === 'derived') continue;
+    let run = e;
+    if (a.outcome === 'restated') {
+      const passes = typeof a.manifest === 'string' ? restated.get(a.manifest) : undefined;
+      if (passes === undefined) continue;
+      const holds = (a.holds ?? []).filter((h) => h.by !== 'restated');
+      run = { ...e, about: { ...(e.about as object), outcome: passes ? 'ok' : 'held', holds } as unknown as JSONValue };
+    }
+    out.set(day, [...(out.get(day) ?? []), run]);
   }
   return out;
 }

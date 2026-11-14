@@ -33,6 +33,12 @@ export interface RunOptions {
    * Recorded in the manifest; every output those files reach is held until a decision, even when its checks pass.
    */
   correction?: { of: RunRef; sources: string[] };
+  /**
+   * The day run again under rules changed since (ADR 0021 §5, Q-190): the run it restates (the version readers got),
+   * by its manifest's hash, and the change sets it is run under. Recorded in the manifest; every output is held, whatever
+   * its checks say, until a restatement is decided.
+   */
+  restates?: { of: string; changes: string[] };
   /** Return the run's typing (`RunResult.typed`, core/typed.ts): what the build keeps as the types computed ahead. */
   typed?: boolean;
 }

@@ -1048,6 +1048,23 @@ th .th-title { display: block; font-family: var(--font); font-size: 10.5px; font
 .fe-list { display: grid; gap: 6px; margin: 0; padding-left: 22px; font-size: 13px; overflow-wrap: anywhere; }
 .fe-when { color: var(--muted); font-size: 12px; }
 .fe-back { justify-self: start; min-height: 44px; margin-top: 2px; }
+/* The rules over time (ADR 0021 §5): the rules in force on the day on screen by hash, each change set with its day, and
+   when edits take effect. The control wraps under its label on a phone; the date field is 16 px, so a phone doesn't zoom. */
+#rules-time { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 0 0 12px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+#rules-time[hidden] { display: none; }
+.rt-head { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+.rt-hash, .dh-hash { font-family: var(--mono); font-size: 12px; padding: 1px 5px; border-radius: 5px; background: var(--sunk); color: var(--ink-2); }
+.rt-list { display: grid; gap: 6px; margin: 0; padding-left: 22px; font-size: 13px; overflow-wrap: anywhere; }
+.rt-item:not(.on) { color: var(--ink-2); }
+.rt-from { font-weight: 650; }
+.rt-where { color: var(--muted); font-size: 12px; }
+.rf-bar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--sunk); min-width: 0; }
+.rf-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.rf-k { flex: 0 0 auto; }
+.rf-when, .rf-day { min-height: 44px; max-width: 100%; min-width: 0; border: 1px solid var(--muted); border-radius: 8px; padding: 6px 8px; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; }
+.rf-day[hidden] { display: none; }
+.rf-reach { margin: 0; font-size: 12.5px; font-weight: 400; color: var(--muted); overflow-wrap: anywhere; }
+.rf-later { margin: 0; font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
 /* A column's names edited in place on its card (amendment 1): a quiet Edit in the card's head, 44 px to the touch
    without making the head taller; the form takes the card's place while it is open. Fields are 16 px, so a phone
    doesn't zoom into them. */
@@ -1835,6 +1852,18 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .mo-ok { color: var(--teal); font-size: 12px; line-height: 1; }
 .mo-corr { display: inline-flex; align-items: flex-start; gap: 1px; color: var(--ink-2); }
 .mo-vn { font-size: 10px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+/* A day whose outcome would change under rules changed since (ADR 0021 §5): a dashed edge and a Δ beside its mark, the
+   words in its label; never the colour alone. */
+.mo-d.would-change { outline: 2px dashed var(--warn); outline-offset: -3px; }
+.mo-delta { margin-left: 3px; font-size: 11px; font-weight: 700; line-height: 1; color: var(--warn); }
+.mk.would-change .mo-delta { margin: 0 4px 0 0; }
+/* The restatement to decide: each day a 44 px row with its box, the reason 16 px so a phone doesn't zoom. */
+.rs-days { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.rs-day label { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-height: 44px; font-size: 13.5px; overflow-wrap: anywhere; }
+.rs-day input { width: 20px; height: 20px; margin: 0; flex: 0 0 auto; }
+.rs-reason { box-sizing: border-box; width: 100%; min-width: 0; min-height: 66px; border: 1px solid var(--muted); border-radius: 8px; padding: 9px 10px; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.35; }
+.rs-line .btn { margin-left: 4px; }
+.rs-would.changed { color: var(--warn); }
 .mo-hl { display: none; }
 .mo-pad { min-height: 52px; }
 .mo-key { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 8px 0 0; font-size: 12px; color: var(--ink-2); }
@@ -1889,6 +1918,9 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .dh-rec { margin: 0; font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
 .dh-rec.ok b { color: var(--teal); }
 .dh-rec.bad b { color: var(--bad); }
+/* The day's rules (ADR 0021 §5, Q-184): the rules in force by hash, and what is new on the day. */
+.dh-rules { margin: 0; font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.dh-rules-k { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .dh-story { font-size: 13px; }
 .dh-story summary { cursor: pointer; color: var(--smalt); font-weight: 600; }
 .dh-story ol { margin: 6px 0 0; padding-left: 18px; overflow-wrap: anywhere; }
@@ -1985,6 +2017,7 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 
   <section class="view" id="view-ontology" aria-label="Ontology" hidden>
     <p class="lede">Each file the flow reads: what its columns hold, and the checks its data is held to. Each check’s state today is beside it, a tap from the file’s card.</p>
+    <div id="rules-time" role="region" aria-label="The rules over time" hidden></div>
     <div id="flow-edits" role="region" aria-label="Changes made to this flow here" hidden></div>
     <div class="panel" id="ontology-files"><h2>Files</h2><p class="foot">Run the flow to see its files.</p></div>
     <div class="panel" id="properties" hidden></div>

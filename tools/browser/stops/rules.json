@@ -1,6 +1,7 @@
 [
   {
     "name": "rules-ontology",
+    "day": "Thu 21",
     "what": "Sign-ins, the Ontology view with the sign-in file (auth) opened: its three rules set on columns, each in words with what a broken row does (Method one of its five values, else the day holds; Latency 0 to 30,000 ms and Country never blank, else the row is flagged), each with Change and Remove for the owner, and an Add a rule button on every column's card; a note that the file's meanings and rules are shared (examples/ontologies/auth.json), with its download",
     "view": "ontology",
     "viewFirst": true,
@@ -25,11 +26,12 @@
   },
   {
     "name": "rules-add-form",
-    "what": "The owner taps Add a check on the User card: the form in place of the button, what User must be (never blank by default), what a row that breaks it does, Add the check and Cancel",
+    "what": "The owner taps Add a check on the User card, and has edits take effect from the day on screen (Thu Mar 21, the last recorded day, ADR 0021 §5): the form in place of the button, what User must be (never blank by default), what a row that breaks it does, Add the check and Cancel",
     "view": "ontology",
     "viewFirst": true,
     "clicks": [
-      ".of-col[data-column=\"user\"] .of-add"
+      ".of-col[data-column=\"user\"] .of-add",
+      [".of-rule-form .rf-when", "screen"]
     ],
     "full": true,
     "expect": {
@@ -40,13 +42,14 @@
         "User must be",
         "A row that breaks it",
         "Add the check",
-        "For auth only. On once saved"
+        "For auth only. On once saved",
+        "Back-dated: 1 recorded day (Thu Mar 21, 1 published) run again under the new rules, and one decision restates them."
       ]
     }
   },
   {
     "name": "rules-added",
-    "what": "The rule added: User is never blank, else flag the row and keep it, listed on the User card and among the changes above the files; the check cell auth_valid gains user_required: 'on' in its ontology list",
+    "what": "The rule added, in force from Thu Mar 21: the day runs again under it, comes out the same and is noted; User is never blank, else flag the row and keep it, listed on the User card and among the changes above the files; the check cell auth_valid gains user_required: 'on' in its ontology list",
     "view": "ontology",
     "viewFirst": true,
     "clicks": [
@@ -57,7 +60,7 @@
     "expect": {
       "pageText": [
         "User is never blank: else flag the row and keep it",
-        "Added a rule to auth: User is never blank, else flag the row and keep it"
+        "Added a rule to auth: User is never blank, else flag the row and keep it, in force from Thu Mar 21"
       ],
       "count": {
         "#ontology-files .of-rule-form": 0,
@@ -105,13 +108,14 @@
       "count": {
         "#sheet .rl-switch[aria-checked=\"false\"]": 1
       },
-      "status": "Switched off a rule of auth"
+      "status": "^1 recorded day ran again under the new rules: it comes out the same\\. Noted in the record\\."
     }
   },
   {
     "name": "rules-reload",
-    "what": "After a reload, the rules as edited: four, Latency's off",
+    "what": "After a reload, Thu Mar 21 opened again: the rules as edited, in force on it: four, Latency's off",
     "reload": true,
+    "day": "Thu 21",
     "card": "auth",
     "tab": "Rules",
     "full": true,
