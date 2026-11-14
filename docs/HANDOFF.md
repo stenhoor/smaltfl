@@ -250,8 +250,12 @@ every run under its day's rules as known then and runs the 25 days the back-date
 security lead restates Sat 16 and Sun 17 (the scan that didn't log in) as not published, the other 23 noted the same.
 A day published by a decision keeps it when restated where nothing new holds it (Q-200, the maintainers' to confirm).
 The Ontology view lists the versions of the rules (four on Larkspur), marks the one on screen, now and as known on, and
-compares any two (`tools/browser/stops/versions.json`). Next is slice 5, what-if runs. Not yet: the offline audit of
-restated runs and restatements; a day restated as not published is still learned from by the days after it;
+compares any two (`tools/browser/stops/versions.json`). Slice 5, what-if runs, is built (2026-11-14): *What if… ›* on
+a day runs it on any of its files under any version of the rules, marked as a what-if in its manifest and held so
+nothing of it is published, never recorded, on screen until *Back to the day*, compared with what readers got, and says
+what would make it the day's (Q-202, the maintainers' to confirm; `tools/browser/stops/whatif.json`). ADR 0021 is
+done. Not yet: a what-if's own link; the offline audit of restated runs and restatements; a day restated as not
+published is still learned from by the days after it;
 a past day's correction while a later day is out (the engine never moves a name back), and *as known on* a past moment
 showing the decisions and corrections recorded by then.
 

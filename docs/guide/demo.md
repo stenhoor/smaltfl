@@ -205,6 +205,10 @@ The rules changed twice ([ADR 0021](../adr/0021-time) §5): on Fri 15 the WAF ba
 which reached no day already run, and on Mon 25 the back-dated change above. The **Ontology** view lists the four
 versions of the rules this makes, each with where and when it was in force, and compares any two.
 
+**What if… ›** on a day runs it again on any of its files under any of those versions, apart from the record. On Sat 16,
+under the rules as shipped, it would have passed, where readers got it restated and held. On Thu 21, on the TLS file
+as it first arrived, it would be held where the repeats reach gold.
+
 A file sent again is a version of its day, like a commit. It waits for a decision whatever its checks say, and the
 history learns the day from the version that was published. Open a day: its versions are listed under its head, the one
 readers got marked, and any other is a tap away. A version a later one replaced isn't decided; the later one is.

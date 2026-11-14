@@ -95,6 +95,12 @@ its hash, the days and moments it was in force, and how many recorded runs ran u
 screen, the one in force on the day as known now, and the one as known on the moment the month is read at. Any two
 versions compare rule by rule: a rule added, changed or taken out, a band, a check's mode, a rule switched.
 
+**What if… ›** on a day runs it on any of its files (as it arrived, or as sent again) under any version of the rules:
+the whole flow, judged as the day was. A what-if is marked as one, held so nothing of it is published, and never
+recorded; it is on screen until **Back to the day**. Its line says what it would have come to, what would make it the
+day's (its files a version of the day, its rules those in force on it now, or the change that would make them so), and
+**Compare** puts it beside the version readers got.
+
 Edits are kept across a reload and listed with **Back to the flow as shipped**.
 
 ## The record and verify
