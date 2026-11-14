@@ -260,7 +260,7 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
   };
 
   /** What is wrong with the release of a fill or the part that arrived: it releases the derived run its decision names,
-   * with its keys, made by its decision's repair, of its decision's held run, and never moves a name back. */
+   * with its keys, made by its decision's repair, of its decision's held run. */
   const remedyReleaseProblems = (e: LogEntry, a: ReleaseAbout, cited: LogEntry, decision: DecideAbout): string[] => {
     const problems: string[] = [];
     const named = decision.derived;

@@ -24,7 +24,8 @@ Build the app first (`npm run build:app`) and copy `dist/app` somewhere, because
 - `judges.json`: the 104 screens a judge round reads: 13 real days in light, dark and masked, details, tabs,
   canvases, decision sheets and restricted viewers.
 - `judges-decide.json`: the decision sequence, captured in a fresh session before Mon 25 runs. Once a later day is
-  published, releasing an earlier one is refused by design.
+  published, an earlier one decided keeps its version for itself and readers stay on the later day (Q-51), so the
+  receipts would name Mon 25.
 - `apps.json`: the estate's application scores and the summaries by type of application at a glance (the heat
   tables on the Data tab: control by hosting and criticality, the controls failed together, profiles at risk).
 - `bronze.json`: the bronze card (ADR 0015 amendment 2): waf's Quality on the held Tue Mar 12 (the verdict, its issues, every
