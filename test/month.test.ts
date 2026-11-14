@@ -4,7 +4,8 @@
  * checked against the recorded one.
  */
 import { describe, expect, it } from 'vitest';
-import { cellOf, checkAgainst, endOfDay, gridOf, isMonthFile, knownOn, layered, MONTH_FORMAT, monthOf, runsByDay, stateOfRun, versionsOf, worseCell, type MonthFile } from '../src/core/month.js';
+import { cellOf, checkAgainst, endOfDay, gridOf, isMonthFile, knownOn, layered, MONTH_FORMAT, monthOf, ownHolds, restatedOutcome, runsByDay, stateOfRun, versionsOf, worseCell, type MonthFile } from '../src/core/month.js';
+import type { Hold } from '../src/core/hold.js';
 import type { LogEntry } from '../src/core/log.js';
 import type { RunManifest } from '../src/core/manifest.js';
 
@@ -75,6 +76,12 @@ describe('the month, day by day', () => {
     expect(runsByDay(all).get('2024-03-01')!.at(-1)!.about).toMatchObject({ outcome: 'held', holds: [{ by: 'checks' }] });
     // As known before the restatement, nothing moved.
     expect(monthOf(days, all, { at: '2026-11-14T10:01:00Z', judged: 'effective' }).map((d) => d.state)).toEqual(['published', 'unusual', 'paused', 'unusual', 'unlearned', 'failed', 'notRun']);
+  });
+
+  it('keeps a day published by a decision held as its decided run was, once a restatement carries the decision', () => {
+    const run = entry(7, '2026-11-14T10:00:00Z', { day: '2024-03-03', outcome: 'restated', manifest: 'r3', restates: { of: 'm3', changes: ['c1'] }, holds: [hold('waf', 'Status fail: 22.7% (band 0%–15%)'), { by: 'restated', node: -1, origin: 'run', said: 'run again', reaches: ['posture'] }] }, 'owner');
+    const decision = entry(8, '2026-11-14T10:05:00Z', { changes: ['c1'], from: '2024-03-01', days: [{ day: '2024-03-03', manifest: 'r3', passes: true }], kept: [], same: [] }, 'owner', 'restate');
+    expect(runsByDay([...entries, run, decision]).get('2024-03-03')!.at(-1)!.about).toMatchObject({ outcome: 'held', manifest: 'r3', holds: [{ origin: 'waf' }] });
   });
 
   it('leads a held day with its hold and an unusual day with the judged dataset’s own head', () => {
@@ -167,5 +174,46 @@ describe('a run made here against its record', () => {
     expect(c.plan).toEqual({ recorded: 'p1', here: 'p2' });
     expect(c.differs).toEqual([{ origin: 'effective', recorded: 'c-effective', here: 'c-other' }]);
     expect(c.holds).toEqual({ recorded: ['checks:waf'], here: [] });
+  });
+});
+
+describe('a day run again under rules changed since, against what readers got (ADR 0021 §5)', () => {
+  const h = (by: Hold['by'], origin: string, said: string, load?: Hold['load']): Hold => ({ by, node: 1, origin, said, reaches: ['posture'], ...(load ? { load } : {}) });
+  const restated = h('restated', 'run', 'run again under rules changed since');
+  const band = h('story', 'findings', 'Credentialed no: 4.1% (band 0%–2%)', { source: 'findings', slot: '2024-03-16', sha256: 'f16' });
+  const waf = h('story', 'waf', '50 apps out of scope', { source: 'waf', slot: '2024-03-13', sha256: 'w13' });
+  const out = { a: 'c1', b: 'c2' };
+
+  it('is published and the same where nothing holds it and every output is as it was', () => {
+    expect(restatedOutcome({ published: true, holds: [], contents: out }, { holds: [restated], contents: { ...out } })).toEqual({ passes: true, carried: false, changed: false, differ: 0, fresh: [] });
+    expect(restatedOutcome({ published: true, holds: [], contents: out }, { holds: [restated], contents: { ...out, b: 'c3' } })).toMatchObject({ passes: true, changed: true, differ: 1 });
+    // An output's content unknown on either side: it may differ.
+    expect(restatedOutcome({ published: true, holds: [], contents: null }, { holds: [restated], contents: out })).toMatchObject({ passes: true, changed: true, differ: null });
+  });
+
+  it('changes a published day the new rules hold, saying what holds it', () => {
+    expect(restatedOutcome({ published: true, holds: [], contents: out }, { holds: [band, restated], contents: out })).toEqual({ passes: false, carried: false, changed: true, differ: 0, fresh: [band] });
+  });
+
+  it('carries the decision that published a held day where the same holds say the same', () => {
+    const r = restatedOutcome({ published: true, holds: [waf], contents: out }, { holds: [{ ...waf, reaches: ['other'] }, restated], contents: out });
+    expect(r).toEqual({ passes: true, carried: true, changed: false, differ: 0, fresh: [] });
+    // A hold that says anything new is decided again.
+    expect(restatedOutcome({ published: true, holds: [waf], contents: out }, { holds: [{ ...waf, said: '51 apps out of scope' }, restated], contents: out })).toMatchObject({ passes: false, carried: false, changed: true });
+    expect(restatedOutcome({ published: true, holds: [waf], contents: out }, { holds: [waf, band, restated], contents: out })).toMatchObject({ passes: false, changed: true, fresh: [band] });
+    // The same hold on another load is another hold.
+    expect(restatedOutcome({ published: true, holds: [waf], contents: out }, { holds: [{ ...waf, load: { ...waf.load!, sha256: 'w13b' } }], contents: out })).toMatchObject({ passes: false, changed: true });
+  });
+
+  it('leaves a day kept back or waiting the same where the same holds hold it, and changes it where nothing does', () => {
+    expect(restatedOutcome({ published: false, holds: [waf], contents: out }, { holds: [waf, restated], contents: out })).toMatchObject({ passes: false, carried: false, changed: false });
+    expect(restatedOutcome({ published: false, holds: [waf], contents: out }, { holds: [restated], contents: out })).toMatchObject({ passes: true, changed: true });
+  });
+
+  it('never compares a later delivery’s or a restated run’s own hold', () => {
+    const correction = h('correction', 'tls', 'sent again: waits for a decision');
+    expect(ownHolds([correction, restated, band])).toEqual([band]);
+    // A correction published by its decision, run again with nothing holding it: published, the same.
+    expect(restatedOutcome({ published: true, holds: [correction], contents: out }, { holds: [restated], contents: out })).toMatchObject({ passes: true, carried: false, changed: false });
   });
 });

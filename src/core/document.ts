@@ -722,6 +722,14 @@ function validateContracts(doc: Record<string, unknown>, add: (path: string, mes
   }
 }
 
+/** What is wrong with a list of change sets, each problem by its path (from `$.changes`) and in words: the document's
+ * own check, for change sets kept elsewhere (a recorded story's, timeline.ts). Empty when they are good. */
+export function changesProblems(changes: unknown): { path: string; message: string }[] {
+  const out: { path: string; message: string }[] = [];
+  validateChanges({ changes }, (path, message) => out.push({ path, message }));
+  return out;
+}
+
 /**
  * The dated change sets (ADR 0021 §5): each named once, with the day it takes effect from, when it was recorded, who
  * made it and why, and its edits, each of an op this version replays with what it needs; any other field refused rather

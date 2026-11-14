@@ -23,5 +23,26 @@
     { "day": "2024-03-21", "delivery": 1, "at": "2024-03-21T14:35:00Z", "by": "ciso", "option": "dont", "reason": "Still repeated rows: sent back to the TLS team" },
     { "day": "2024-03-21", "delivery": 2, "at": "2024-03-22T04:45:00Z", "by": "ciso", "option": "asis", "reason": "Every certificate once" },
     { "day": "2024-03-26", "at": "2024-03-26T09:30:00Z", "by": "ciso", "option": "dont", "reason": "BU-01's internet-facing applications are missing from the TLS scan: the scanner team is looking" }
+  ],
+  "changes": [
+    {
+      "id": "waf-band-tenth",
+      "from": "2024-03-18",
+      "recorded": "2024-03-15T16:30:00Z",
+      "by": "owner",
+      "why": "After Tuesday's monitor mode, the security lead wants a WAF failing more than a tenth of its applications held, from Monday",
+      "edits": [{ "op": "acceptBand", "source": "waf", "band": { "column": "status", "value": "fail", "share": [0, 0.1] } }]
+    },
+    {
+      "id": "findings-values-hold",
+      "from": "2024-03-01",
+      "recorded": "2024-03-25T09:40:00Z",
+      "by": "owner",
+      "why": "The scanner didn't log in on the weekend of the 16th and found far less: the security lead wants the findings' values check to hold the day again, for the whole month",
+      "edits": [{ "op": "setCheck", "node": "findings", "check": "values", "mode": "hold" }]
+    }
+  ],
+  "restatements": [
+    { "changes": ["findings-values-hold"], "at": "2024-03-25T11:15:00Z", "by": "ciso", "reason": "Sat 16 and Sun 17's posture came from a scan that didn't log in, so it read far fewer findings than there were: taken back" }
   ]
 }

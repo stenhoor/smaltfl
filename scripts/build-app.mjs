@@ -73,9 +73,13 @@ const { readFlow, bindingsPath } = await import(pathToFileURL(reader).href);
 const EXAMPLE_FLOW = 'examples/nyc-taxis-weather/flow.json';
 // The example's bindings (ADR 0010 §9): each source's table, format and file name, which loads.json carries on.
 const bindingsOf = (doc) => JSON.parse(readFileSync(bindingsPath(doc), 'utf8'));
-/** The document the build ships, as data/flow.json, and its entry in loads.json. */
-const shipFlow = async (path) => {
-  const doc = await readFlow(path);
+/** The document the build ships, as data/flow.json, and its entry in loads.json. With a recorded story (ADR 0021 §6), its
+ * changes to the rules people set ship as the document's own change sets (ADR 0021 §5): the page reads them as it reads
+ * one made there, and the month's runs were recorded under them. */
+const shipFlow = async (path, storyPath = null) => {
+  const read = await readFlow(path);
+  const story = storyPath ? JSON.parse(readFileSync(storyPath, 'utf8')) : null;
+  const doc = story?.changes?.length ? { ...read, changes: [...(read.changes ?? []), ...story.changes] } : read;
   const bytes = Buffer.from(JSON.stringify(doc, null, 2) + '\n');
   writeFileSync(`${out}/data/flow.json`, bytes);
   return { path: 'flow.json', from: path, sha256: sha256(bytes), bytes: bytes.length };
@@ -274,7 +278,7 @@ if (days.length) {
     writeFileSync(`${out}/data/${name}`, bytes);
     return { path: name, from, sha256: sha256(bytes), bytes: bytes.length };
   };
-  const flowEntry = await shipFlow(flowPath);
+  const flowEntry = await shipFlow(flowPath, bind.story ?? null);
   const histories = Object.fromEntries(watches.map((w) => [w, entry(historyName(w), readFileSync(join(work, historyName(w))), `${bind.generate}, scripts/data/history.mjs`)]));
   const samples = sampled ? Object.fromEntries(watches.map((w) => [w, entry(sampleName(w), readFileSync(join(work, sampleName(w))), `${bind.generate}, scripts/data/history.mjs --sample`)])) : {};
   const ranges = Object.fromEntries(watches.filter((w) => existsSync(join(work, rangesName(w)))).map((w) => [w, entry(rangesName(w), readFileSync(join(work, rangesName(w))), 'scripts/data/history.mjs --ranges')]));

@@ -109,9 +109,9 @@ export function runDay(e: Pick<LogEntry, 'kind' | 'about'>): string | null {
 
 /**
  * A restatement's record entry (`restate`, ADR 0021 §5, Q-190): the change sets it restates the days under, the day they
- * take effect from, the days it restates (each by its restated run's manifest, and whether that run passed), the days
- * left as they were (unticked), and those whose outcome came out the same (noted, not decided). Its reason is the
- * entry's.
+ * take effect from, the days it restates (each by its restated run's manifest, and whether readers get its outputs:
+ * `restatedOutcome`'s `passes`), the days left as they were (unticked), and those whose outcome came out the same
+ * (noted, not decided). Its reason is the entry's.
  */
 export interface RestateAbout {
   changes: string[];
@@ -136,10 +136,55 @@ export function restatedRuns(entries: readonly Pick<LogEntry, 'kind' | 'about'>[
   return out;
 }
 
+/** What held a run as one comparable text, the hold said as it was: the same check or claim, on the same load, saying
+ * the same thing. */
+const holdSaid = (h: Pick<Hold, 'by' | 'origin' | 'said' | 'load'>): string => `${h.by}|${h.origin.toLowerCase()}|${h.load ? `${h.load.source.toLowerCase()}|${h.load.slot}|${h.load.sha256}` : ''}|${h.said}`;
+
+/** A run's own holds: what its data and rules held it by, not the hold a later delivery or a restated run always has. */
+export const ownHolds = <H extends Pick<Hold, 'by'>>(holds: readonly H[]): H[] => holds.filter((h) => h.by !== 'restated' && h.by !== 'correction');
+
+/** A day's outcome under rules changed since, against the run readers got (`restatedOutcome`). */
+export interface RestatedOutcome {
+  /** Whether readers would get the restated run's outputs. */
+  passes: boolean;
+  /** Published by the decision that published the run readers got: held by nothing that run wasn't held by. */
+  carried: boolean;
+  /** Whether the day's outcome would change: published or not, and, where both publish, any output's content. */
+  changed: boolean;
+  /** How many outputs' content differs, where both say theirs (null: one doesn't). */
+  differ: number | null;
+  /** What holds the restated run that didn't hold the run readers got, in the order held. */
+  fresh: Hold[];
+}
+
+/**
+ * A day run again under rules changed since, against the run readers got (ADR 0021 §5, Q-190). Readers would get the
+ * restated run's outputs where it holds nothing, or where the run readers got was published by a decision although
+ * held and the restated run is held by nothing else: the same holds, saying the same, are what that decision decided,
+ * so it carries (a hold that says anything new is decided again). The day's outcome would change where it would be
+ * published and wasn't, or the other way round, or where both publish and any output's content differs; a day whose
+ * outcome doesn't change is noted, not decided again. A later delivery's and a restated run's own holds are never the
+ * data's, and aren't compared.
+ */
+export function restatedOutcome(got: { published: boolean; holds: readonly Hold[]; contents: Readonly<Record<string, string>> | null }, run: { holds: readonly Hold[]; contents: Readonly<Record<string, string>> | null }): RestatedOutcome {
+  const own = ownHolds(run.holds);
+  const before = ownHolds(got.holds);
+  const known = new Set(before.map(holdSaid));
+  const fresh = own.filter((h) => !known.has(holdSaid(h)));
+  const carried = got.published && before.length > 0 && own.length > 0 && fresh.length === 0;
+  const passes = own.length === 0 || carried;
+  const a = got.contents;
+  const b = run.contents;
+  const differ = a && b ? [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((n) => a[n] !== b[n]).length : null;
+  return { passes, carried, changed: got.published !== passes || (passes && differ !== 0), differ, fresh };
+}
+
 /**
  * Every day's runs, in the order recorded: a derived run (a fill) isn't one of its day's runs, nor is a day run again
  * under rules changed since (ADR 0021 §5) until a restatement makes it what readers got. Then it is the day's run as
- * the restatement left it: published where it passed, held otherwise (its own restated hold aside).
+ * the restatement left it: published where it passed with nothing holding it; held where readers got it by the
+ * decision that published the run it restated (`carried`), as that run was; held otherwise (its own restated hold
+ * aside).
  */
 export function runsByDay<E extends Pick<LogEntry, 'kind' | 'about' | 'at'>>(entries: readonly E[]): Map<string, E[]> {
   const out = new Map<string, E[]>();
@@ -153,7 +198,7 @@ export function runsByDay<E extends Pick<LogEntry, 'kind' | 'about' | 'at'>>(ent
       const passes = typeof a.manifest === 'string' ? restated.get(a.manifest) : undefined;
       if (passes === undefined) continue;
       const holds = (a.holds ?? []).filter((h) => h.by !== 'restated');
-      run = { ...e, about: { ...(e.about as object), outcome: passes ? 'ok' : 'held', holds } as unknown as JSONValue };
+      run = { ...e, about: { ...(e.about as object), outcome: passes && !holds.length ? 'ok' : 'held', holds } as unknown as JSONValue };
     }
     out.set(day, [...(out.get(day) ?? []), run]);
   }
