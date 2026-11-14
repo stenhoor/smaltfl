@@ -91,7 +91,7 @@
     "clicks": ["#loads .wi-open", [".vf-detail .wi-file[data-source=\"tls\"]", "1"], ".vf-detail .wi-go", "#loads .wi-make"],
     "waitFor": "#loads .wi-makeform",
     "waitForMs": 120000,
-    "element": "#loads .dh-whatif",
+    "element": "#loads",
     "expect": {
       "text": ["tls’s file as the what-if has it goes in as sent again, and the day is published as is, though it would be held (fact_control_status: rows don't reconcile: 815 rows repeat a key", "Make it the day’s", "Cancel"],
       "count": { "#loads .wi-makeform": 1, "#loads .wi-reason": 1 }
@@ -116,7 +116,7 @@
     "clicks": ["#loads .wi-open", [".vf-detail .wi-rules", ""], ".vf-detail .wi-go", "#loads .wi-make"],
     "waitFor": "#loads .wi-makeform",
     "waitForMs": 120000,
-    "element": "#loads .dh-whatif",
+    "element": "#loads",
     "expect": {
       "text": ["Sat 16 takes version 1 of the rules (the rules as shipped) for that day only, and is restated under them: readers get its outputs."]
     }
