@@ -30,7 +30,7 @@ import { shapeOf } from '../core/optimize.js';
 import type { Column, ColumnType, ExpectNode, FillNode, FlowPlan, PlanNode, TableNode } from '../core/plan.js';
 import { dayKeyOf, isPublish2, periodsOf, validatePlan, watchesOf } from '../core/plan.js';
 import { carry, heldOutputs, spare, holdsOf, judgeClaims, judgeDonors, tailPath, tripped, waitingOf, type ClaimFacts, type FillHold, type Hold, type Judged, type RunRef, type StoryClaim2 } from '../core/hold.js';
-import { measuresHash, reconcileOf, settingsFor, type MeasureSettings, type Measures } from '../core/measures.js';
+import { measuresHash, reconcileOf, settingsFor, type HistoryHeader, type MeasureSettings, type Measures } from '../core/measures.js';
 import { tellClaim } from './tell.js';
 import { sampleTable } from './sample.js';
 import { SAMPLE_KEEP, samplePath } from '../core/apart.js';
@@ -41,7 +41,8 @@ import type { RunOptions, RunResult, SourceIngest } from '../core/protocol.js';
 import { quoteIdent as q, type ParamValue } from '../core/sqltext.js';
 import type { TableHash } from './dataset-hash.js';
 import { hashTable, sourceColumns } from './dataset-hash.js';
-import { pinned, pinnedJSON, pinnedLocation, takeOpened } from './pinned.js';
+import { PINNED_PREFIX, pinned, pinnedJSON, pinnedLocation, takeOpened } from './pinned.js';
+import { columnChange, columnChangeSaid, columnsHold, csvColumn, csvHeader, type ColumnChange } from '../core/columns.js';
 import { keepPrepared, pinnedSha, preparedFor } from './prepared.js';
 import { givenTypes, isTypesFile, TYPES_PATH, typesKey } from '../core/typed.js';
 import { isRangesFile, measuredAhead, rangesPath, type MeasuredAhead } from '../core/ranges.js';
@@ -121,6 +122,18 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
     const n = plan.nodes[i]!;
     if (n.op !== 'table') continue;
     aborted(signal);
+    // A file whose declared columns are gone holds the day in every flow that holds (ADR 0022 §2, Q-109): said with what
+    // is gone, what is new and which new column reads as a gone one (Q-203), nothing built. A flow that can't hold fails,
+    // as it did. New columns alone are noted on the source and read as declared (Q-204).
+    const change = headerChange(db, n, historyHeaderOf(plan, i));
+    if (change && columnsHold(change)) {
+      const why = `${n.origin}'s columns changed: ${columnChangeSaid(change)}`;
+      if (!plan.publish) throw new RunError(why, n.origin);
+      refused.set(i, why);
+      keys.set(i, '');
+      record(i, 'refused', { refused: why, columns: change });
+      continue;
+    }
     let snap: Snapshot;
     const t0 = clock();
     try {
@@ -139,7 +152,7 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
     keys.set(i, snap.key);
     tables.set(i, snap.table);
     const ingest = snap.file ? ingestOf(context.sources?.[n.origin], snap.file.sha256) : null;
-    record(i, snap.reused ? 'reused' : 'built', { content: snap.content, rows: snap.rows, ...(snap.file ? { file: snap.file } : {}), ...(ingest ? { ingest } : {}) });
+    record(i, snap.reused ? 'reused' : 'built', { content: snap.content, rows: snap.rows, ...(snap.file ? { file: snap.file } : {}), ...(ingest ? { ingest } : {}), ...(change ? { columns: change } : {}) });
   }
 
   // 2. Types: every node's output columns, with everything folded onto the snapshots. A donor has its source's
@@ -636,6 +649,40 @@ interface Snapshot {
   reused: boolean;
   /** The pinned file it read, as the engine saw it. */
   file?: SourceFile;
+}
+
+/** The watched source's history header, where a watch on the node keeps one pinned: what a gone column's values were
+ * (ADR 0022 §2, Q-203). */
+function historyHeaderOf(plan: FlowPlan, node: number): HistoryHeader | null {
+  const w = watchesOf(plan.publish).find((x) => x.node === node);
+  return w ? pinnedHeader(w.history) : null;
+}
+
+/** Whether a reader option is on: unset takes the default; false, 0, 'false', '0' and 'no' are off. */
+const optionOn = (v: unknown, fallback: boolean): boolean => (v === undefined || v === null ? fallback : !(v === false || v === 0 || (typeof v === 'string' && /^(false|0|no)$/i.test(v.trim()))));
+
+/**
+ * A source read from a pinned CSV file with a header, against the columns its table declares (ADR 0022 §2, Q-109,
+ * Q-146, Q-203): what is gone, what is new, and which new column reads as a gone one, by its name, its type and, where
+ * the watch keeps a history of the gone column's values, the new column's values today. Null when the source reads no
+ * such file, or its header is the declared columns. The engine itself picks declared columns by name only when all are
+ * there and reads by place when as many fields are: this is said before it reads anything.
+ */
+function headerChange(db: Database, n: TableNode, history: HistoryHeader | null): ColumnChange | null {
+  const sources = engine(n.origin, () => db.prepare(`SELECT * FROM ${q(n.table)}`).externalSources);
+  const s = sources.length === 1 ? sources[0]! : null;
+  if (!s || !s.location.startsWith(PINNED_PREFIX) || !s.columns?.length || !/^(csv|tsv)$/i.test(s.format)) return null;
+  if (!optionOn(s.options.header, true)) return null;
+  const p = pinned(s.location.slice(PINNED_PREFIX.length));
+  if (!p) return null;
+  const skip = Number(s.options.skip ?? 0);
+  let text = new TextDecoder().decode(p.bytes);
+  const shape = { delimiter: typeof s.options.delimiter === 'string' ? s.options.delimiter : /^tsv$/i.test(s.format) ? '\t' : ',', quote: typeof s.options.quote === 'string' ? s.options.quote : '"' };
+  if (Number.isInteger(skip) && skip > 0) text = text.split(/\r?\n/).slice(skip).join('\n');
+  const header = csvHeader(text, shape);
+  if (!header.length) return null;
+  const change = columnChange(s.columns.map((c) => [c.name, c.declType] as const), header, { history: (col) => history?.values?.[col]?.values, today: (col) => csvColumn(text, col, shape) });
+  return change.gone.length || change.added.length || change.maps.length ? change : null;
 }
 
 /**
