@@ -224,7 +224,7 @@ built, the maintainer went through every open question in the question prompt: m
 as decided as built, and the answers that change what is built or add to it are ADR 0022's, built in the slices of its
 §6, one PR each:
 
-1. **Time follow-ups.** The first part is built (2026-11-14, ADR 0022 §"As built"):
+1. **Time follow-ups.** Built in two parts (2026-11-14, ADR 0022 §"As built"). The first part:
    - a what-if made the day's in one tap, the tap the decision (Q-202): *Make this the day's ›* on the what-if's line
      asks for a reason on the same screen. Other files go in as a later delivery decided as is, a version of the day
      of its own. Other rules are taken for that day only (a change set with `until` and the `useVersion` edit) and the
@@ -234,7 +234,12 @@ as decided as built, and the answers that change what is built or add to it are 
    - the offline audit checks restated runs and restatements (`restatedProblems` in `src/core/audit.ts`);
    - a day restated as not published is no longer learned from (`restatedHeld` in `src/core/hold.ts`).
 
-   The second part is next: readers stay on the latest day when a past day is corrected (Q-51, outputs kept by day).
+   The second part: readers stay on the latest day (Q-51). Each day keeps its own version (`_smaltfl_days`), and a run,
+   a correction or a decision about an earlier day moves no name back. Publish as is, a fill and Accept stay offered
+   for it, and the receipts say "readers stay on Sun 31".
+
+   **Next is slice 2**, columns that change (Q-109, Q-146). A short design goes to the maintainer in the question
+   prompt first.
 2. **Columns that change:**
    - a file whose columns don't match pauses the day, in every flow (Q-109);
    - renamed columns flagged, with a suggested mapping, the impact on joins, and names carried through the steps

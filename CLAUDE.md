@@ -341,6 +341,14 @@ release (smaltty ADR 0030).
   off with a reason (Q-199, `restateSheet`; the recorder by the story's restatement); a day restated as not published
   left out of learning (`restatedHeld` in `skipOf`); the offline audit of restated runs and restatements
   (`restatedProblems`, each `restate` entry against `restatedOutcome`); `tools/browser/stops/whatif.json`, `rules.json`.
+  Slice 1, second part (Q-51): readers stay on the latest day. `_smaltfl_days` keeps each day's version of each output
+  (`dayVersionOf`, `keepDay`, `restoreDay`, `latestAfterRestore` in store.ts); `publishVersion` moves a name only where
+  no later day shows (`laterShown`, by `periodsOf`, `dayKeyOf`, `periodsAfter` in plan.ts); a run's or a release's
+  `behind` names those left on a later day; a release of an earlier day is applied, a withdrawal puts the day's version
+  back; verify checks a day's kept versions. `latestPublished` (hold.ts) is readers' day by day; the audit's
+  `shownBefore` reads names the same way. No option is off for a later day out, and the receipts say "readers stay on"
+  it (`receiptLines`'s `latest`, `passedLine`, `readersLatest`). "Later days too" goes off only when the next day is
+  out (`nextDayOut`, the sheet's `nextOut`).
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -370,8 +378,8 @@ release (smaltty ADR 0030).
   §6: the time follow-ups (a what-if made the day's in one tap, a restatement that changes no day signed off, readers on
   the latest day when a past day is corrected, the audit of restatements), columns that change (a mismatched file
   paused, renames flagged with a suggested mapping and their impact), the ontology as the one place for rules, pausing
-  (Q-86, Q-132, Q-84), and proposed declarations (Q-139). Slice 1's first part is built (its §"As built"); its second
-  part, readers on the latest day (Q-51), is next.
+  (Q-86, Q-132, Q-84), and proposed declarations (Q-139). Slice 1 is built in two parts (its §"As built"). Slice 2,
+  columns that change, is next, after a short design in the question prompt.
 
 ## Rules for this repository
 
