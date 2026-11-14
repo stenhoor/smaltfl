@@ -199,9 +199,12 @@ export type RuleEdit =
   | { op: 'switchRule'; file: string; id: string; on: boolean }
   | { op: 'nameColumn'; file: string; column: string; change: ColumnChange }
   | { op: 'acceptBand'; source: string; band: AcceptedBand }
-  | { op: 'setCheck'; node: string; check: CheckName; mode: CheckMode };
+  | { op: 'setCheck'; node: string; check: CheckName; mode: CheckMode }
+  /** The rules of a version (ADR 0022 §1, Q-202): the base with these change sets, in the order they were recorded,
+   * whatever their days; none, the rules as shipped. What a what-if made a day's keeps for that day only (`until`). */
+  | { op: 'useVersion'; changes: string[] };
 
-export const EDIT_OPS = ['setRule', 'removeRule', 'switchRule', 'nameColumn', 'acceptBand', 'setCheck'] as const;
+export const EDIT_OPS = ['setRule', 'removeRule', 'switchRule', 'nameColumn', 'acceptBand', 'setCheck', 'useVersion'] as const;
 
 /**
  * A dated change set (ADR 0021 §5, Q-184): edits of the rules people set, in force from a business day, as known from
@@ -214,6 +217,9 @@ export interface ChangeSet {
   id: string;
   /** The business day it takes effect from (YYYY-MM-DD). */
   from: string;
+  /** The last business day it is in force (YYYY-MM-DD), for a change of a day or a few (ADR 0022 §1, Q-202: a what-if's
+   * rules made a day's, for that day only); none, from its day on. Never before `from`. */
+  until?: string;
   /** When it was made (ISO 8601). */
   recorded: string;
   /** Who made it, and why, in their words (empty where they gave none). */
@@ -223,7 +229,7 @@ export interface ChangeSet {
   edits: RuleEdit[];
 }
 
-const CHANGE_FIELDS = ['id', 'from', 'recorded', 'by', 'why', 'edits'];
+const CHANGE_FIELDS = ['id', 'from', 'until', 'recorded', 'by', 'why', 'edits'];
 
 export const REACHES = ['sources', 'downstream'] as const;
 export type Reach = (typeof REACHES)[number];
@@ -749,6 +755,7 @@ function validateChanges(doc: Record<string, unknown>, add: (path: string, messa
     else if (seen.has(cs.id as string)) add(`${at}.id`, `change set ${String(cs.id)} is listed twice`);
     else seen.add(cs.id as string);
     if (typeof cs.from !== 'string' || !DAY.test(cs.from) || Number.isNaN(Date.parse(`${cs.from}T00:00:00Z`))) add(`${at}.from`, 'the business day it takes effect from: YYYY-MM-DD');
+    if (cs.until !== undefined && (typeof cs.until !== 'string' || !DAY.test(cs.until) || Number.isNaN(Date.parse(`${cs.until}T00:00:00Z`)) || (typeof cs.from === 'string' && cs.until < cs.from))) add(`${at}.until`, 'the last business day it is in force: YYYY-MM-DD, on or after its day');
     if (typeof cs.recorded !== 'string' || !/^\d{4}-\d{2}-\d{2}T/.test(cs.recorded) || Number.isNaN(Date.parse(cs.recorded))) add(`${at}.recorded`, 'when it was made: an ISO 8601 time');
     if (typeof cs.by !== 'string') add(`${at}.by`, 'who made it');
     if (typeof cs.why !== 'string') add(`${at}.why`, 'why, in their words (empty where they gave none)');
@@ -793,6 +800,22 @@ function validateChanges(doc: Record<string, unknown>, add: (path: string, messa
           need('check', (CHECK_NAMES as readonly unknown[]).includes(e.check), `a check: ${CHECK_NAMES.join(', ')}`);
           need('mode', (CHECK_MODES as readonly unknown[]).includes(e.mode), `${CHECK_MODES.join(', ')}`);
           return;
+        case 'useVersion':
+          need('changes', Array.isArray(e.changes) && e.changes.every((x: unknown) => text(x)), 'the change sets whose rules it takes: a list of their names (empty: the rules as shipped)');
+          return;
+      }
+    });
+  });
+  // A version is of change sets recorded before the change set that takes it, never itself or one recorded after.
+  const when = new Map(c.flatMap((cs: unknown) => (isRecord(cs) && typeof cs.id === 'string' && typeof cs.recorded === 'string' ? [[cs.id, Date.parse(cs.recorded)] as const] : [])));
+  c.forEach((cs: unknown, i: number) => {
+    if (!isRecord(cs) || !Array.isArray(cs.edits)) return;
+    cs.edits.forEach((e: unknown, j: number) => {
+      if (!isRecord(e) || e.op !== 'useVersion' || !Array.isArray(e.changes)) return;
+      for (const id of e.changes) {
+        const t = typeof id === 'string' ? when.get(id) : undefined;
+        if (t === undefined) add(`$.changes[${i}].edits[${j}].changes`, `${String(id)} names no change set of the flow`);
+        else if (id === cs.id || !(t < Date.parse(String(cs.recorded)))) add(`$.changes[${i}].edits[${j}].changes`, `${String(id)} isn't recorded before ${String(cs.id)}: a version is of change sets recorded before it`);
       }
     });
   });
