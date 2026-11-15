@@ -260,11 +260,15 @@ as decided as built, and the answers that change what is built or add to it are 
    - the owner's rename form says where the column is used, joins first, and carries the change to the datasets that
      pass the column on (Q-146).
 
-   **Next is slice 3**, the ontology as the one place for rules.
+3. **The ontology as the one place for rules.** The first part is built (2026-11-15, ADR 0022 §"As built"):
+   - loose ids are said per check, a rows entry's or a gate cell's scope's `ids` (Q-176), so Larkspur's plan says the
+     same;
+   - a published table nothing watches reconciles by the key its rows entry gives where its gate cell writes none
+     (Q-118); Larkspur's `dim_org`, `dim_control` and `app_scorecard` take theirs from it;
+   - `ontology.needs` writes a dependency once, with the datasets it applies to; a gate cell adds one or overrides one
+     about the same columns (Q-119). The estate's and Larkspur's rule is the ontology's.
 
-3. **The ontology as the one place for rules:**
-   - loose ids per check (Q-176);
-   - the gold reconcile key and silver needs rules from the ontology (Q-118, Q-119);
+   **Next is its second part:**
    - drawings say the ontology's label (Q-145);
    - a made dataset's rules on the Ontology page (Q-144).
 4. **Pausing:**

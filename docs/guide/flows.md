@@ -25,7 +25,9 @@ A flow is a folder: a `flow.json` that says what the flow reads, who may do what
 
 - **sources**: the files the flow reads, bound to real files by id in `<flow>.data.json`.
 - **ontology**: what columns mean, the rules rows are held to and the fixes a held day may be offered; `import` brings
-  in a file's shared ontology.
+  in a file's shared ontology. A gate's written rules are kept here too: a dataset's `rows` entry gives the objects it
+  covers and its key (a gold table's included), and `needs` the dependencies between columns, each written once with
+  the datasets it applies to. A rule written in the gate cell wins.
 - **policies**: people, what each may open (rows and columns), and who may decide a held day.
 - **publish**: what holds a day (`checks`: a check that holds; `wrong`: the day's story says it is off), and the
   datasets **watched**, each judged against its own history.

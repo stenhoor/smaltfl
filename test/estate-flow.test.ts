@@ -47,7 +47,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { plusDays } from '../src/core/calendar.js';
 import { validateDocument } from '../src/core/document.js';
-import { LAYER_DEFAULTS } from '../src/core/gates.js';
+import { LAYER_DEFAULTS, writtenRules } from '../src/core/gates.js';
 import { planKind } from '../src/core/manifest.js';
 import { flowStory, reconcileSaid } from '../src/core/hold.js';
 import { translate, verifyRun } from '../src/index.js';
@@ -75,7 +75,9 @@ describe('the estate flow under its gates (ADR 0014 slice 1)', () => {
     // the ontology's rows say which applications a control covers now, so neither cell writes a scope.
     expect(w.doc.gates!.tls).toEqual({ layer: 'bronze', checks: { schema: 'hold', amount: 'hold', blanks: 'hold', values: 'hold', rules: 'hold', shares: 'warn', pairs: 'warn', forest: 'warn', classifier: 'off' } });
     expect(w.doc.gates!.waf).toEqual({ layer: 'bronze', checks: {} });
-    expect(w.doc.gates!.posture).toEqual({ layer: 'silver', checks: { reconcile: 'hold' }, needs: [{ when: { key_rotation: 'pass' }, then: { encryption: ['pass', 'exception', 'not_assessed'] } }], reconcile: { key: ['app_id'], of: 'apps' } });
+    expect(w.doc.gates!.posture).toEqual({ layer: 'silver', checks: { reconcile: 'hold' }, reconcile: { key: ['app_id'], of: 'apps' } });
+    // Its dependency is the ontology's, written once (Q-119).
+    expect(writtenRules(w.doc, 'posture').needs).toEqual([{ when: { key_rotation: 'pass' }, then: { encryption: ['pass', 'exception', 'not_assessed'] }, written: 'ontology', id: 'rotation_needs_encryption' }]);
     expect(w.doc.gates!.by_unit).toEqual({ layer: 'gold', checks: {}, reconcile: { key: ['business_unit'], of: 'posture' } });
     expect(w.doc.gates!.by_control).toEqual({ layer: 'gold', checks: {}, reconcile: { key: ['control'] } });
     const plan = await translate(w.doc, { day: '2024-03-04' });
@@ -103,9 +105,10 @@ describe('the estate flow under its gates (ADR 0014 slice 1)', () => {
       expect(watch[c]!.checks.scope, c).toBe('hold');
       expect(watch[c]!.checks.reconcile, c).toBe('hold');
     }
-    // The posture's rules are its gate cell's, as they were.
+    // The posture's key is its gate cell's, as it was, and its dependency the ontology's, counted as before.
     expect(watch.posture!.scope).toBeNull();
     expect(watch.posture!.reconcile).toEqual({ key: ['app_id'], table: 'apps_file' });
+    expect(watch.posture!.needs).toEqual([{ table: null, key: null, when: [['key_rotation', ['pass']]], then: [['encryption', ['exception', 'not_assessed', 'pass']]] }]);
   });
 
   it('counts nothing out of scope and no key twice on every control, every calm day: the history’s and March’s (ADR 0015)', () => {
