@@ -2,7 +2,7 @@
 // arrives. Twenty daily files and two fixed ones; each daily file has a gate (written checks hold the day, learned
 // ones warn) and a check step that keeps the rows it can read. The silver notebooks read the checked steps.
 import { cell, md, param } from 'smaltnb';
-import { check, gate, source } from 'smaltfl/notebook';
+import { check, fill, gate, source } from 'smaltfl/notebook';
 
 cell('params');
 export const params = param({ day: param.text('') });
@@ -139,6 +139,45 @@ export const privileged_vault_gate = gate(privileged_vault, { layer: 'bronze' })
 cell('edr_coverage_gate');
 export const edr_coverage_gate = gate(edr_coverage, { layer: 'bronze' });
 
+cell('about_fills', { lang: 'md' });
+md`An evidence feed's day can be filled (ADR 0023): where its file is missing, empty or wrong, another day's file stands in, the day before carried forward, the day after carried back, or the same weekday a week before, every row marked with the day it came from. A fill carries the rows as they were: their dates are the evidence's own and stay as they were. Nothing is filled until someone decides; on any other day the fill passes the file through, and its rows are marked as the day's own`;
+
+cell('tls_filled');
+export const tls_filled = fill(tls, {});
+
+cell('waf_filled');
+export const waf_filled = fill(waf, {});
+
+cell('pentest_schedule_filled');
+export const pentest_schedule_filled = fill(pentest_schedule, {});
+
+cell('encryption_filled');
+export const encryption_filled = fill(encryption, {});
+
+cell('key_rotation_filled');
+export const key_rotation_filled = fill(key_rotation, {});
+
+cell('backup_jobs_filled');
+export const backup_jobs_filled = fill(backup_jobs, {});
+
+cell('dr_exercises_filled');
+export const dr_exercises_filled = fill(dr_exercises, {});
+
+cell('mfa_filled');
+export const mfa_filled = fill(mfa, {});
+
+cell('access_reviews_filled');
+export const access_reviews_filled = fill(access_reviews, {});
+
+cell('logging_coverage_filled');
+export const logging_coverage_filled = fill(logging_coverage, {});
+
+cell('privileged_vault_filled');
+export const privileged_vault_filled = fill(privileged_vault, {});
+
+cell('edr_coverage_filled');
+export const edr_coverage_filled = fill(edr_coverage, {});
+
 cell('about_checks', { lang: 'md' });
 md`Each file’s rows, kept when they can be read: a status in the file’s own words, an id where one is needed. The scanner’s words are read in any case, upper or lower, since silver normalises them`;
 
@@ -214,7 +253,7 @@ export const findings_checked = check(findings, {
 });
 
 cell('tls_checked');
-export const tls_checked = check(tls, {
+export const tls_checked = check(tls_filled, {
   rules: [
     { name: 'known_status', check: "status IN ('pass', 'fail', 'not_assessed')", onFail: 'drop' },
     { name: 'has_app', check: "app_id IS NOT NULL", onFail: 'drop' },
@@ -223,7 +262,7 @@ export const tls_checked = check(tls, {
 });
 
 cell('waf_checked');
-export const waf_checked = check(waf, {
+export const waf_checked = check(waf_filled, {
   rules: [
     { name: 'known_status', check: "status IN ('pass', 'fail', 'not_assessed')", onFail: 'drop' },
     { name: 'has_app', check: "app_id IS NOT NULL", onFail: 'drop' },
@@ -232,7 +271,7 @@ export const waf_checked = check(waf, {
 });
 
 cell('pentest_schedule_checked');
-export const pentest_schedule_checked = check(pentest_schedule, {
+export const pentest_schedule_checked = check(pentest_schedule_filled, {
   rules: [
     { name: 'known_status', check: "status IN ('pass', 'fail', 'not_assessed')", onFail: 'drop' },
     { name: 'has_app', check: "app_id IS NOT NULL", onFail: 'drop' },
@@ -241,7 +280,7 @@ export const pentest_schedule_checked = check(pentest_schedule, {
 });
 
 cell('encryption_checked');
-export const encryption_checked = check(encryption, {
+export const encryption_checked = check(encryption_filled, {
   rules: [
     { name: 'known_status', check: "status IN ('pass', 'fail', 'not_assessed')", onFail: 'drop' },
     { name: 'has_app', check: "app_id IS NOT NULL", onFail: 'drop' },
@@ -250,7 +289,7 @@ export const encryption_checked = check(encryption, {
 });
 
 cell('key_rotation_checked');
-export const key_rotation_checked = check(key_rotation, {
+export const key_rotation_checked = check(key_rotation_filled, {
   rules: [
     { name: 'known_status', check: "status IN ('pass', 'fail', 'not_assessed')", onFail: 'drop' },
     { name: 'has_app', check: "app_id IS NOT NULL", onFail: 'drop' },
@@ -259,7 +298,7 @@ export const key_rotation_checked = check(key_rotation, {
 });
 
 cell('backup_jobs_checked');
-export const backup_jobs_checked = check(backup_jobs, {
+export const backup_jobs_checked = check(backup_jobs_filled, {
   rules: [
     { name: 'known_status', check: "status IN ('pass', 'fail', 'not_assessed')", onFail: 'drop' },
     { name: 'has_app', check: "app_id IS NOT NULL", onFail: 'drop' },
@@ -268,7 +307,7 @@ export const backup_jobs_checked = check(backup_jobs, {
 });
 
 cell('dr_exercises_checked');
-export const dr_exercises_checked = check(dr_exercises, {
+export const dr_exercises_checked = check(dr_exercises_filled, {
   rules: [
     { name: 'known_status', check: "status IN ('pass', 'fail', 'not_assessed')", onFail: 'drop' },
     { name: 'has_app', check: "app_id IS NOT NULL", onFail: 'drop' },
@@ -277,7 +316,7 @@ export const dr_exercises_checked = check(dr_exercises, {
 });
 
 cell('mfa_checked');
-export const mfa_checked = check(mfa, {
+export const mfa_checked = check(mfa_filled, {
   rules: [
     { name: 'known_status', check: "status IN ('pass', 'fail', 'not_assessed')", onFail: 'drop' },
     { name: 'has_app', check: "app_id IS NOT NULL", onFail: 'drop' },
@@ -286,7 +325,7 @@ export const mfa_checked = check(mfa, {
 });
 
 cell('access_reviews_checked');
-export const access_reviews_checked = check(access_reviews, {
+export const access_reviews_checked = check(access_reviews_filled, {
   rules: [
     { name: 'known_status', check: "status IN ('pass', 'fail', 'not_assessed')", onFail: 'drop' },
     { name: 'has_app', check: "app_id IS NOT NULL", onFail: 'drop' },
@@ -295,7 +334,7 @@ export const access_reviews_checked = check(access_reviews, {
 });
 
 cell('logging_coverage_checked');
-export const logging_coverage_checked = check(logging_coverage, {
+export const logging_coverage_checked = check(logging_coverage_filled, {
   rules: [
     { name: 'known_status', check: "status IN ('pass', 'fail', 'not_assessed')", onFail: 'drop' },
     { name: 'has_app', check: "app_id IS NOT NULL", onFail: 'drop' },
@@ -304,7 +343,7 @@ export const logging_coverage_checked = check(logging_coverage, {
 });
 
 cell('privileged_vault_checked');
-export const privileged_vault_checked = check(privileged_vault, {
+export const privileged_vault_checked = check(privileged_vault_filled, {
   rules: [
     { name: 'known_status', check: "status IN ('pass', 'fail', 'not_assessed')", onFail: 'drop' },
     { name: 'has_app', check: "app_id IS NOT NULL", onFail: 'drop' },
@@ -313,7 +352,7 @@ export const privileged_vault_checked = check(privileged_vault, {
 });
 
 cell('edr_coverage_checked');
-export const edr_coverage_checked = check(edr_coverage, {
+export const edr_coverage_checked = check(edr_coverage_filled, {
   rules: [
     { name: 'known_status', check: "status IN ('pass', 'fail', 'not_assessed')", onFail: 'drop' },
     { name: 'has_app', check: "app_id IS NOT NULL", onFail: 'drop' },

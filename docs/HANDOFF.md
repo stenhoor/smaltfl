@@ -231,7 +231,11 @@ tour month of Larkspur, each showing one capability:
 
 The month screen lists the scenes. Today's month stays the tests'. The slices of its §6, one PR each:
 1. the ADR;
-2. fills in Larkspur's flow (it has none), and a correction replacing a fill;
+2. fills in Larkspur's flow, and a correction replacing a fill: **built** (2026-11-15, ADR 0023 §"As built"). A day
+   is filled whole where its rows are wrong or its file came empty, a fill step on a file with no time of day names
+   none, Larkspur's twelve evidence feeds have fill cells with `filled_from` carried to gold, the decision sheet fills
+   the one held source, and the recorder records a story's fill: Wed Mar 6 is filled from Tue 5, then replaced by
+   Wednesday's own export;
 3. Q-86, keep pausing until accepted;
 4. the tour month: the generator's preset, its story, its answer key and test;
 5. the scene list in the app, its stops at every size, and the demo guide rewritten as the tour.

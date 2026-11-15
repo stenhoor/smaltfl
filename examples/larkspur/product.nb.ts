@@ -86,7 +86,7 @@ export const dim_control_gate = gate(dim_control, { layer: 'gold' });
 cell('about_facts', { lang: 'md' });
 md`# The facts
 
-The status of every control that applies to every application, evidence or not: what didn't happen is a row (not assessed, its reason no evidence), never a missing one. With the raw status, the reason, the days overdue, the exception in force, the platform it is inherited from, and the day it is as of`;
+The status of every control that applies to every application, evidence or not: what didn't happen is a row (not assessed, its reason no evidence), never a missing one. With the raw status, the reason, the days overdue, the exception in force, the platform it is inherited from, the day it is as of, and the day its evidence was carried from where a fill stood in for its feed's file`;
 
 cell('fact_control_rows', { lang: 'sql' });
 export const fact_control_rows = sql`
@@ -100,7 +100,7 @@ export const fact_control_rows = sql`
          CASE WHEN e.status = 'no_data' THEN 'not_assessed' ELSE e.status END AS status,
          e.raw_status, e.reason, e.due_on,
          CASE WHEN e.due_on IS NOT NULL AND e.due_on < ${params.day} THEN CAST(julianday(${params.day}) - julianday(e.due_on) AS INTEGER) ELSE 0 END AS days_overdue,
-         x.exception_id, e.platform, ${params.day} AS as_of
+         x.exception_id, e.platform, ${params.day} AS as_of, e.filled_from
   FROM ${effective} e
   LEFT JOIN x ON x.app_id = e.app_id AND x.control_id = e.control_id`;
 
@@ -154,7 +154,7 @@ export const fact_finding_gate = gate(fact_finding, { layer: 'gold', reconcile: 
 cell('about_scorecard', { lang: 'md' });
 md`# The scores
 
-Each application's score, as the posture tools score: the weighted controls it passes over the weighted controls with evidence, a compensated control counting three quarters, an excepted one and one with no evidence left out. Its coverage beside it, always: the controls with evidence over the controls that apply, since a score is only as good as what it covers. A grade from it (A from 90, B from 80, C from 70, D from 60, F below), the controls failing, the items overdue, the exceptions expiring within thirty days, and the owning team (its chain is the dimension's)`;
+Each application's score, as the posture tools score: the weighted controls it passes over the weighted controls with evidence, a compensated control counting three quarters, an excepted one and one with no evidence left out. Its coverage beside it, always: the controls with evidence over the controls that apply, since a score is only as good as what it covers. A grade from it (A from 90, B from 80, C from 70, D from 60, F below), the controls failing, the items overdue, the exceptions expiring within thirty days, the owning team (its chain is the dimension's), and the latest day any of its evidence was carried from where a fill stood in`;
 
 cell('scorecard_rows', { lang: 'sql' });
 export const scorecard_rows = sql`
@@ -165,7 +165,8 @@ export const scorecard_rows = sql`
            sum(CASE WHEN status = 'not_assessed' THEN 0 ELSE 1 END) AS with_evidence,
            count(*) AS applying,
            sum(CASE WHEN status = 'fail' THEN 1 ELSE 0 END) AS failing,
-           sum(CASE WHEN status = 'fail' AND days_overdue > 0 THEN 1 ELSE 0 END) AS overdue
+           sum(CASE WHEN status = 'fail' AND days_overdue > 0 THEN 1 ELSE 0 END) AS overdue,
+           max(filled_from) AS filled_from
     FROM ${fact_control_status}
     GROUP BY app_id
   ),
@@ -182,12 +183,12 @@ export const scorecard_rows = sql`
   ),
   scored AS (
     SELECT s.app_id, CASE WHEN s.possible > 0 THEN round(100.0 * s.earned / s.possible, 1) END AS score,
-           round(100.0 * s.with_evidence / s.applying, 1) AS coverage, s.applying, s.with_evidence, s.failing, s.overdue
+           round(100.0 * s.with_evidence / s.applying, 1) AS coverage, s.applying, s.with_evidence, s.failing, s.overdue, s.filled_from
     FROM s
   )
   SELECT c.app_id, a.name, a.tier, a.owner_team_id, c.score, c.coverage,
          CASE WHEN c.score IS NULL THEN NULL WHEN c.score >= 90 THEN 'A' WHEN c.score >= 80 THEN 'B' WHEN c.score >= 70 THEN 'C' WHEN c.score >= 60 THEN 'D' ELSE 'F' END AS grade,
-         c.applying, c.with_evidence, c.failing, COALESCE(f.failing_controls, '') AS failing_controls, c.overdue, COALESCE(x.expiring, 0) AS expiring
+         c.applying, c.with_evidence, c.failing, COALESCE(f.failing_controls, '') AS failing_controls, c.overdue, COALESCE(x.expiring, 0) AS expiring, c.filled_from
   FROM scored c
   JOIN ${apps} a ON a.app_id = c.app_id
   LEFT JOIN failing f ON f.app_id = c.app_id
@@ -206,7 +207,7 @@ cell('app_scorecard_gate');
 export const app_scorecard_gate = gate(app_scorecard, { layer: 'gold' });
 
 cell('about_org_posture', { lang: 'md' });
-md`Every unit at every level, over all the applications beneath it: how many, how many critical (tier 1), the tier-weighted score and coverage (a tier 1 application counting three, tier 2 two, tier 3 one), the critical applications failing a control, the items overdue and the exceptions expiring. An application whose chain doesn't resolve is counted under Unassigned, not under the group`;
+md`Every unit at every level, over all the applications beneath it: how many, how many critical (tier 1), the tier-weighted score and coverage (a tier 1 application counting three, tier 2 two, tier 3 one), the critical applications failing a control, the items overdue and the exceptions expiring, and the latest day any evidence beneath it was carried from. An application whose chain doesn't resolve is counted under Unassigned, not under the group`;
 
 cell('org_posture_rows', { lang: 'sql' });
 export const org_posture_rows = sql`
@@ -218,7 +219,7 @@ export const org_posture_rows = sql`
     SELECT 'UNASSIGNED', a.app_id, a.tier FROM ${dim_app} a WHERE a.member = 'application' AND a.orphaned = 'yes'
   ),
   scored AS (
-    SELECT b.org_unit_id, b.app_id, b.tier, CASE b.tier WHEN '1' THEN 3 WHEN '2' THEN 2 ELSE 1 END AS w, s.score, s.coverage, s.failing, s.overdue, s.expiring
+    SELECT b.org_unit_id, b.app_id, b.tier, CASE b.tier WHEN '1' THEN 3 WHEN '2' THEN 2 ELSE 1 END AS w, s.score, s.coverage, s.failing, s.overdue, s.expiring, s.filled_from
     FROM beneath b
     LEFT JOIN ${app_scorecard} s ON s.app_id = b.app_id
   )
@@ -229,7 +230,8 @@ export const org_posture_rows = sql`
          round(sum(CASE WHEN c.coverage IS NOT NULL THEN c.w * c.coverage END) / sum(CASE WHEN c.coverage IS NOT NULL THEN c.w END), 1) AS coverage,
          sum(CASE WHEN c.tier = '1' AND c.failing > 0 THEN 1 ELSE 0 END) AS failing_critical,
          COALESCE(sum(c.overdue), 0) AS overdue,
-         COALESCE(sum(c.expiring), 0) AS expiring
+         COALESCE(sum(c.expiring), 0) AS expiring,
+         max(c.filled_from) AS filled_from
   FROM ${dim_org} u
   LEFT JOIN scored c ON c.org_unit_id = u.org_unit_id
   GROUP BY u.org_unit_id, u.name, u.level`;
@@ -250,7 +252,7 @@ md`What is failing, by the units that own it, for the leaders' weekly digest: on
 
 cell('failing_rows', { lang: 'sql' });
 export const failing_rows = sql`
-  SELECT f.app_id, f.control_id, f.status, a.owner_team_id, a.department_id, a.business_unit_id, a.segment_id
+  SELECT f.app_id, f.control_id, f.status, a.owner_team_id, a.department_id, a.business_unit_id, a.segment_id, f.filled_from
   FROM ${fact_control_status} f
   JOIN ${dim_app} a ON a.app_id = f.app_id
   WHERE f.status = 'fail'`;
@@ -297,7 +299,7 @@ cell('remediation_queue', { lang: 'sql' });
 export const remediation_queue = sql`
   SELECT r.app_id, r.name, r.control_id, r.reason, r.owner_team_id, r.team, r.team_leader_id, r.due_on, COALESCE(r.days_overdue, 0) AS days_overdue,
          CASE WHEN e.weight >= 3 THEN 'high' WHEN e.weight = 2 THEN 'medium' ELSE 'low' END AS severity,
-         e.platform
+         e.platform, r.filled_from
   FROM ${remediation} r
   JOIN ${effective} e ON e.app_id = r.app_id AND e.control_id = r.control_id`;
 

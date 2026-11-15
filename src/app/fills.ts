@@ -53,7 +53,7 @@ export interface Remedies {
  * the watch's own rule first), each with the counts its drawing and row show (fillCounts, S4: the same number the
  * derived run counts).
  */
-export function donorsOf(o: { h: HistoryRanges; doc: FlowDocument; day: string; source: string; story: Pick<Story, 'hero' | 'hours' | 'split'> & Partial<Pick<Story, 'amount' | 'cause'>>; claim: Claim | null; listed: (day: string) => HistoryRef | null; history: HistoryRef; build: string; later: string | null; readers: 'fill' | 'complete' | null; partFails: boolean; arrived?: (day: string) => boolean; current?: string | null }): Remedies | null {
+export function donorsOf(o: { h: HistoryRanges; doc: FlowDocument; day: string; source: string; story: Pick<Story, 'hero' | 'hours' | 'split'> & Partial<Pick<Story, 'amount' | 'cause'>>; claim: Claim | null; listed: (day: string) => HistoryRef | null; history: HistoryRef; build: string; later: string | null; readers: 'fill' | 'complete' | null; partFails: boolean; arrived?: (day: string) => boolean; current?: string | null; holding?: number }): Remedies | null {
   const step = fillStepOf(o.doc, o.source);
   if (!step) return null;
   // The part the story names on a short day; else the whole day, where its rows are wrong (ADR 0023 §5).
@@ -70,7 +70,8 @@ export function donorsOf(o: { h: HistoryRanges; doc: FlowDocument; day: string; 
   // day, and a file that never allows the estimate never gets a like day offered.
   const fixes = fixesOf(o.doc.ontology, o.source);
   const usable = picks.filter((p) => counts.has(p.day) && fixes.has(fixOfDonor(p)));
-  const offers = offersOf({ story: o.story, claim: o.claim, fill: step, donors: usable, later: o.later, partFails: o.partFails, readers: o.readers, fixes });
+  // Watched sources holding the day: fills are for one at a time (S5).
+  const offers = offersOf({ story: o.story, claim: o.claim, fill: step, donors: usable, later: o.later, partFails: o.partFails, readers: o.readers, fixes, ...(o.holding !== undefined ? { holding: o.holding } : {}) });
   if (!offers.length) return null;
   return { step: step.id, source: o.source, missing, offers, picks: usable, none, counts, part: fillCounts(o.h, o.day, missing, null) };
 }

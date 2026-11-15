@@ -17,7 +17,7 @@ import { canonicalJSON } from '../core/canonical.js';
 import type { ChangeSet, ContractDef, FlowDocument, GroupDef, NotebookOutline, OutlineCell, ProfileDef, RuleEdit, StepDef } from '../core/document.js';
 import { applyEdit, changesOn, inForce, resolve as resolveRules, ruleParts, rulesHash, rulesInForce, versionRules, withRuleParts, type RuleParts } from '../core/inforce.js';
 import { diffSaid, ruleVersions, rulesDiff, versionKey, versionOn, type RuleVersion } from '../core/ruleversions.js';
-import { GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
+import { fillStepOf, GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
 import { notebookSectionId } from '../core/notebook.js';
 import { briefOf, briefText, type BriefIn, type BriefOption } from '../core/brief.js';
 import { compareSummary, diffKeyOf, diffOf, type RowDiff } from '../core/compare.js';
@@ -7544,15 +7544,14 @@ const checksOf = (src: string): StepDef | undefined => state.doc.steps.find((x) 
  * and what names them. */
 const readersThrough = (id: string): string[] => state.doc.steps.filter((st) => st.inputs.some((i) => i === id || (st.kind !== 'fill' && sourceOf(state.doc, i) === id && i !== id))).map((st) => st.id);
 
-/** What the trips were on a run: its trips source's rows. */
-const tripsOf = (r: RunRecord | undefined) => r?.result.manifest.nodes.find((n) => n.origin === loadSource())?.rows;
+/** What the trips were on a run: its trips source's rows, or another source's (a held load the sheet decides). */
+const tripsOf = (r: RunRecord | undefined, src = loadSource()) => r?.result.manifest.nodes.find((n) => n.origin === src)?.rows;
 
 /** The trips of a run that reach its outputs: what its checks on the trips kept (the trips themselves, with none). */
-function tripsKept(r: RunRecord | undefined): number | undefined {
-  const src = loadSource();
+function tripsKept(r: RunRecord | undefined, src = loadSource()): number | undefined {
   const check = src ? checksOf(src) : undefined;
   const kept = check ? r?.result.manifest.nodes.find((n) => n.origin === check.id) : undefined;
-  return kept?.expectations ? kept.expectations.rows - kept.expectations.dropped : tripsOf(r);
+  return kept?.expectations ? kept.expectations.rows - kept.expectations.dropped : tripsOf(r, src);
 }
 
 /** Whether a decision (or the one it came under) closes the days after it too: don't publish until a day publishes. */
@@ -7594,10 +7593,9 @@ function pauseBanner(): HTMLElement | null {
 
 /** The checks that held a run too, with their share and limit: what publishing it as is overrides. From the day's story
  * where the viewer reads it, else from the run's own counts and the flow's limit. */
-function heldChecks(r: RunRecord, story: Story | null): { share: number; limit: number | null } | null {
+function heldChecks(r: RunRecord, story: Story | null, src = loadSource()): { share: number; limit: number | null } | null {
   if (!r.result.holds.some((x) => x.by === 'checks')) return null;
   if (story?.gate?.held) return story.gate;
-  const src = loadSource();
   const check = src ? checksOf(src) : undefined;
   const e = check ? r.result.manifest.nodes.find((n) => n.origin === check.id)?.expectations : undefined;
   const limit = check && 'maxDropped' in check && typeof check.maxDropped === 'number' ? check.maxDropped : null;
@@ -7654,6 +7652,10 @@ function decisionSheet(shown0: RunRecord, story: Story | null): void {
   const later0 = supersededBy(r);
   if (later0) return void setStatus(`${dayLabel(dayOfRun(r) ?? '')}: this version was replaced by version ${later0.v} (${later0.delivery?.source} sent again): decide that one.`, true);
   const day = dayOfRun(r) ?? null;
+  // The load the sheet decides (ADR 0023 §5): the one source holding the day where it has a fill, else the dataset the
+  // views follow; its history, story, rows and noun draw the sheet.
+  const subject = sheetSubject(r, story);
+  const told = subject.story;
   const first = pauseOf(r);
   // Readers have this day's fill (or its part alone): Keep withdraws it, back to the day they had before it (Q-61).
   const withdraws = first?.state === 'fill' || first?.state === 'complete' ? first.state : null;
@@ -7663,16 +7665,16 @@ function decisionSheet(shown0: RunRecord, story: Story | null): void {
   const anyone = can.asis.allowed || can.dont.allowed || can.fill.allowed || can.complete.allowed;
   // Someone who may not decide, and doesn't read every row of the source, gets what readers get with nothing of the
   // source, whatever path led here (round 3, #6: the sheet draws and counts the source's rows).
-  const src = loadSource();
+  const src = subject.source;
   if (!anyone && src && !rowsOpen(src)) return readersSheet(r);
   const n = r.result.waiting.length || (first?.pause?.waiting.length ?? 0);
   const pick: SheetPick = { option: null, scope: 'day', reason: null, donor: 0, preparing: false };
   const pause = first?.pause ?? null;
   const opened = pause ? entryOf(pause.opened)?.at : undefined;
-  const rows = tripsOf(r) ?? 0;
+  const rows = subject.rows ?? 0;
   // Each row's number is what its drawing shows, the trips as they arrived (as the card and the Runs view count them);
   // the trips that reach the outputs, past the checks, are said under the day's own once it is picked.
-  const back = withdraws ? keptBefore(r) : null;
+  const back = withdraws ? keptBefore(r, src) : null;
   // A refill readers have went out over an earlier fill of the same day: withdrawing it would bring that fill back, so
   // Keep is off until the plugin's withdrawals of a chain of fills are recorded as one (left for later).
   if (withdraws && back?.day === day) can.dont = { allowed: false, reason: 'a refill is replaced by another fill, not withdrawn' };
@@ -7680,8 +7682,8 @@ function decisionSheet(shown0: RunRecord, story: Story | null): void {
   // The record may say readers had a later day than this engine shows (ADR 0021 §6: a day opened out of order): the Keep
   // row is that day, with its rows as the build recorded its run.
   const then = !withdraws && recorded ? readersAsOf(r).day : null;
-  const readers = withdraws && !later ? (back?.day === day ? null : back) : (then && (!shown || then > shown) ? recordedKept(then) : null) ?? readersOn(r, shown);
-  const rem = remediesFor(r);
+  const readers = withdraws && !later ? (back?.day === day ? null : back) : (then && (!shown || then > shown) ? recordedKept(then, src) : null) ?? readersOn(r, shown, src);
+  const rem = remediesFor(r, subject);
   /** The option the sheet recommends (set once the recommendation is worked out, below). */
   let recommendedOption = (): DecisionOption | null => null;
   /** What a fill from a donor does, by the fix the donor gives (rules.ts `fixOfDonor`). */
@@ -7693,17 +7695,17 @@ function decisionSheet(shown0: RunRecord, story: Story | null): void {
   };
   const accept = acceptFor(r);
   const donors = rem ? rem.picks.map((p) => ({ day: p.day, counts: rem.counts.get(p.day)! })) : [];
-  const draw = decisionDrawing(history, story, day ?? '', readers?.day ?? null, { day: rows, readers: readers?.rows ?? null }, rem ? { missing: rem.missing, donors: rem.picks.map((p) => p.day) } : null, readers?.repair ? { missing: readers.repair.missing, donor: readers.repair.donor?.day ?? null } : null, keptLacks(readers));
+  const draw = decisionDrawing(subject.h, told, day ?? '', readers?.day ?? null, { day: rows, readers: readers?.rows ?? null }, rem ? { missing: rem.missing, donors: rem.picks.map((p) => p.day) } : null, readers?.repair ? { missing: readers.repair.missing, donor: readers.repair.donor?.day ?? null } : null, keptLacks(readers, src));
   // The staged run of the remedy picked, once made (S4): whether it passes its checks, and the hash of what goes out.
   let staged: SheetIn['staged'] = null;
   let stagedRun: RunRecord | null = null;
   const textOf = (): SheetText => sheetText({
-    noun: rowNoun(loadSource() ?? ''),
+    noun: subject.noun,
     // How long it has waited, only while it waits (a day not published, opened to change its decision, isn't waiting).
-    day, waited: opened && first?.state === 'waiting' ? (storyMs(Date.now(), opened) - Date.parse(opened)) / 60000 : null, since: opened && new Date(opened).toDateString() === new Date().toDateString() ? clock(opened) : null, otherBuild: !!pause?.otherBuild, outputs: n, rows, reach: tripsKept(r) ?? null, readers, later, nextOut: !!day && nextDayOut(day), checks: heldChecks(r, story),
-    usual: story?.amount ? { low: story.amount.low, high: story.amount.high } : null,
-    part: draw.part, missing: draw.cause === 'hours' ? (story?.hoursLabels?.missing ?? null) : null, cut: draw.cut?.[1] ?? null, ticks: draw.ticks.map(([, x]) => x),
-    unjudged: r.result.holds.some((x) => x.by === 'unjudged'), hash: r.result.hash, may: anyone, deciders: deciders(), head: story?.head ?? null,
+    day, waited: opened && first?.state === 'waiting' ? (storyMs(Date.now(), opened) - Date.parse(opened)) / 60000 : null, since: opened && new Date(opened).toDateString() === new Date().toDateString() ? clock(opened) : null, otherBuild: !!pause?.otherBuild, outputs: n, rows, reach: tripsKept(r, src) ?? null, readers, later, nextOut: !!day && nextDayOut(day), checks: heldChecks(r, told, src),
+    usual: told?.amount ? { low: told.amount.low, high: told.amount.high } : null,
+    part: draw.part, missing: draw.cause === 'hours' ? (told?.hoursLabels?.missing ?? null) : null, cut: draw.cut?.[1] ?? null, ticks: draw.ticks.map(([, x]) => x),
+    unjudged: r.result.holds.some((x) => x.by === 'unjudged'), hash: r.result.hash, may: anyone, deciders: deciders(), head: told?.head ?? null,
     offers: [...(rem?.offers ?? []).filter((o) => o.option === 'fill' || o.option === 'complete'), ...(accept && !withdraws ? [accept.offer] : [])], donors, partOnly: rem?.part ?? null, staged, withdraws,
   });
   let t = textOf();
@@ -7793,7 +7795,7 @@ function decisionSheet(shown0: RunRecord, story: Story | null): void {
     if (stagedKey(r, repair) !== (repairPicked() && stagedKey(r, repairPicked()!))) return;
     pick.preparing = false;
     stagedRun = run;
-    staged = run ? { option: repair.kind, donor: repair.donor?.day ?? null, fails: derivedFails(run.result), why: derivedWhy(run.result, heldChecks(run, null), repair.donor?.day ?? null), reach: tripsKept(run) ?? null } : null;
+    staged = run ? { option: repair.kind, donor: repair.donor?.day ?? null, fails: derivedFails(run.result), why: derivedWhy(run.result, heldChecks(run, null, src), repair.donor?.day ?? null), reach: tripsKept(run, src) ?? null } : null;
     t = textOf();
     sync();
   };
@@ -7864,9 +7866,9 @@ function decisionSheet(shown0: RunRecord, story: Story | null): void {
 }
 
 /** The day readers see in place of a held run's, with its trips as they arrived: null when nothing is published. */
-function readersOn(r: RunRecord, shown: string | null): Kept | null {
+function readersOn(r: RunRecord, shown: string | null, src = loadSource()): Kept | null {
   const theirs = shown ? state.names.get(r.result.waiting[0] ?? Object.keys(r.result.manifest.outputs)[0] ?? '') : undefined;
-  return shown && theirs ? keptOf(theirs, shown) : null;
+  return shown && theirs ? keptOf(theirs, shown, src) : null;
 }
 
 /** A day readers keep, as they have it (S12): a filled day's rows as filled, marked ◧ (◐ the part alone), with the
@@ -7882,44 +7884,42 @@ interface Kept {
 }
 /** A day readers kept as the recorded month has it (ADR 0021 §6): its rows of the dataset the views follow, from the
  * build's run of it; null when the build recorded none. */
-function recordedKept(day: string): Kept | null {
+function recordedKept(day: string, src = loadSource()): Kept | null {
   const hash = (recordedRunOf(day)?.about as { manifest?: string } | undefined)?.manifest;
   const m = hash ? manifestOf(hash) : null;
-  const src = loadSource();
   const rows = m && src ? m.nodes.find((n) => n.origin === src && n.rows !== undefined)?.rows : undefined;
   return rows === undefined ? null : { day, rows };
 }
-function keptOf(theirs: RunRecord, day: string): Kept | null {
+function keptOf(theirs: RunRecord, day: string, src = loadSource()): Kept | null {
   const d = theirs.derived;
   // A filled day's rows: what its checks were given, past the fill (the fill step itself is a view, uncounted).
-  const src = loadSource();
   const check = src ? checksOf(src) : undefined;
   const given = check ? theirs.result.manifest.nodes.find((n) => n.origin === check.id)?.expectations?.rows : undefined;
-  const rows = d ? (filledRows(theirs.result, d.repair.step) ?? given ?? tripsOf(d.from)) : tripsOf(theirs);
+  const rows = d && d.repair.source === src ? (filledRows(theirs.result, d.repair.step) ?? given ?? tripsOf(d.from, src)) : tripsOf(theirs, src);
   // A day published as is went out with what it lacked: marked ⚑ beside its date, and drawn with it (round 3, #3).
   const asis = !d && pauseOf(theirs)?.state === 'asis';
   // What readers have of it: its rows past its checks (round 3, #4), the sheet's number for it.
-  const reach = tripsKept(theirs) ?? null;
+  const reach = tripsKept(theirs, src) ?? null;
   return rows === undefined ? null : { day, rows, reach, ...(d ? { mark: d.repair.kind, repair: d.repair } : asis ? { mark: 'asis' as const } : {}) };
 }
 
 /** What a day readers keep lacked when it went out as is (round 3, #3): its guess, and its usual hours where it fell at
  * an hour, from the flow's verdict on it; null for a day kept whole. */
-function keptLacks(k: Kept | null): KeptLacks | null {
+function keptLacks(k: Kept | null, src = loadSource()): KeptLacks | null {
   if (!k || k.mark !== 'asis') return null;
-  const s = flowStoryOf(k.day);
+  const s = src === loadSource() ? flowStoryOf(k.day) : src ? storyOfLoad(src, k.day) : null;
   if (!s?.amount || s.state !== 'wrong') return null;
   return { expected: s.amount.expected, hours: s.hero === 'hours' && s.hours ? { usual: s.hours.usual, from: s.hours.from, to: s.hours.to } : null };
 }
 
 /** On a day readers have the fill of, the day they had before it (Q-61): what a withdrawal sends them back to. */
-function keptBefore(r: RunRecord): Kept | null {
+function keptBefore(r: RunRecord, src = loadSource()): Kept | null {
   const d = (filledOf(r) ?? releasedFillOf(r))?.derived?.release;
   const was = d ? shownBefore.get(d.release) : undefined;
   const name = was ? [...was.keys()][0] : undefined;
   const back = name ? was!.get(name) : undefined;
   const day = back ? dayOfRun(back) : undefined;
-  return back && day ? keptOf(back, day) : null;
+  return back && day ? keptOf(back, day, src) : null;
 }
 
 /** A record entry's name: this browser's by its number; the build's (the recorded month, ADR 0021 §6) by its number in
@@ -14715,21 +14715,87 @@ function acceptFor(r: RunRecord): { offer: Offer; level: { source: string; from:
  * What a held run's day gets besides publishing it as is or not (S5): a fill from the good days the data lists, the part
  * that arrived alone; none without a fill step, a missing part, a history pinned in the engine, or on a derived run.
  */
-function remediesFor(r: RunRecord): Remedies | null {
+function remediesFor(r: RunRecord, subject: SheetSubject = sheetSubject(r, null)): Remedies | null {
   const day = dayOfRun(r);
-  const src = loadSource();
-  if (!day || !src || !flowHistory || !historyPin || r.derived) return null;
-  const story = flowStoryOf(day);
+  const src = subject.source;
+  if (!day || !src || r.derived) return null;
+  const primary = src === loadSource();
+  const h = primary ? flowHistory : subject.h;
+  const ref = historyRefOf(src);
+  if (!h || !ref) return null;
+  const story = primary ? flowStoryOf(day) : subject.story;
   if (!story) return null;
-  const claim = claimsFor(day)?.find((c) => c.source === src) ?? null;
+  const claim = claimOfLoad(day, src);
   const now = pauseOf(r);
   const shown = readersDay(r);
   // A backfill donor is a day that has arrived and been judged here (S3): run in this visit or in the record.
   const arrived = (d: string) => state.runs.some((x) => dayOfRun(x) === d) || allEntries().some((e) => e.kind === 'run' && (e.about as { day?: string } | null)?.day === d && ['ok', 'held'].includes(String((e.about as { outcome?: string }).outcome)));
-  const rem = donorsOf({ h: flowHistory, doc: state.doc, day, source: src, story, claim, listed: listedFile, history: historyPin, build: BUILD_COMMIT, later: shown && shown > day ? shown : null, readers: now?.state === 'fill' || now?.state === 'complete' ? now.state : null, partFails: r.result.holds.some((x) => x.by === 'checks'), arrived, current: now?.state === 'fill' ? (now.remedy?.donor ?? null) : null });
+  const rem = donorsOf({ h, doc: state.doc, day, source: src, story, claim, listed: (d) => listedFileOf(src, d), history: ref, build: BUILD_COMMIT, later: shown && shown > day ? shown : null, readers: now?.state === 'fill' || now?.state === 'complete' ? now.state : null, partFails: r.result.holds.some((x) => x.by === 'checks'), arrived, current: now?.state === 'fill' ? (now.remedy?.donor ?? null) : null, holding: Math.max(1, heldSources(r).length) });
   // The part alone is named as the viewer's story names its part ("Flex Fare only"), not by the raw code.
-  const name = storyFor(day)?.split?.name;
+  const name = (primary ? storyFor(day) : subject.story)?.split?.name;
   return rem ? { ...rem, offers: rem.offers.map((o) => (o.option === 'complete' ? { ...o, label: remedyPart(rem.missing, name) } : o)) } : null;
+}
+
+/**
+ * The load a decision sheet decides (ADR 0023 §5): on a flow that watches several datasets, the one source holding the
+ * day where that source has a fill step (the steps built from it are judged again by its fill's derived run); else the
+ * dataset the views follow, as always. Its history, its story of the day, its rows in the run and their noun draw the
+ * sheet, and its remedies are offered.
+ */
+interface SheetSubject {
+  source: string | undefined;
+  h: HistoryRanges | null;
+  story: Story | null;
+  rows: number | undefined;
+  noun: Noun;
+}
+function sheetSubject(r: RunRecord, story: Story | null): SheetSubject {
+  const own: SheetSubject = { source: loadSource(), h: history, story, rows: tripsOf(r), noun: rowNoun(loadSource() ?? '') };
+  const day = dayOfRun(r);
+  const held = heldSources(r);
+  if (!day || held.length !== 1) return own;
+  const source = held[0]!;
+  if (source === loadSource() || !fillStepOf(state.doc, source)) return own;
+  const h = rangesForLoad(source);
+  const told = storyOfLoad(source, day);
+  return h && told ? { source, h, story: told, rows: tripsOf(r, source), noun: rowNoun(source) } : own;
+}
+
+/** The sources of the loads holding a run (ADR 0010 §7), each once: a watched step's load is left out. */
+function heldSources(r: RunRecord): string[] {
+  const ids = sourceIds();
+  return [...new Set(heldLoadsOf(r.result.holds).map((l) => l.source).filter((x) => ids.has(x)))];
+}
+
+/** A watched source's day as the flow tells it (`flowStory`), for a source the views don't follow too. */
+function storyOfLoad(src: string, day: string): Story | null {
+  if (src === loadSource()) return flowStoryOf(day);
+  const h = rangesForLoad(src);
+  if (!h || !h.file.days.includes(day)) return null;
+  try {
+    return flowStory(h, day, state.doc, src, undefined, apartFor(src, day), fileFacts(src, day));
+  } catch {
+    return null;
+  }
+}
+
+/** The claim a load's run was told for its day: claim/1 from the flow's history, or the claim/2 the run asked for. */
+function claimOfLoad(day: string, src: string): Claim | null {
+  if (src === loadSource()) return claimsFor(day)?.find((c) => c.source === src) ?? null;
+  return claims.get(`${day}|${src}|${flowHistory ? countedChecks(state.doc, flowHistory, src) : false}`) ?? null;
+}
+
+/** The history a load's claims cite, as the engine pinned it: the flow's for the dataset the views follow, else the
+ * load's own base. */
+const historyRefOf = (src: string): HistoryRef | null => (src === loadSource() ? historyPin : (bases.get(src)?.ref ?? null));
+
+/** A source's file on a day, as the data lists it and checked against the list when the page opened (S3): what a fill of
+ * that source may read. */
+function listedFileOf(src: string, day: string): HistoryRef | null {
+  if (src === primarySource()) return listedFile(day);
+  // The list's other daily files are its loads' (ADR 0013 §5); a donor that isn't a load is the primary source's alone.
+  const l = loads.list.find((x) => x.day === day)?.files?.[src];
+  return l && l.bytes !== undefined ? { path: l.file, sha256: l.sha256, bytes: l.bytes } : null;
 }
 
 /** Each held run's staged remedies, by what they repair: picking an option again shows the run already made. */
@@ -14803,11 +14869,16 @@ async function donorClaim2(engine: Engine, r: RunRecord, repair: Repair): Promis
   const node = plan.nodes.findIndex((n) => n.op === 'table' && n.origin === repair.source);
   const b = bindingOf(repair.source);
   const w = state.doc.publish?.watch?.[repair.source];
-  const ref = baseHistory && historyPin && w && historyPin.path === watchHistory(w) ? historyPin : null;
-  const settings = node < 0 || !b ? null : settingsFor(plan, node, ref ? baseHistory : null, state.doc.steps);
+  // The donor's source's own base and its pin, as a run tells its claim (`claimsForRun`): the flow's for the source the
+  // views follow, else the source's.
+  const known = bases.get(repair.source);
+  const base = known?.file ?? (repair.source === loadSource() ? baseHistory : null);
+  const pin = known?.ref ?? (repair.source === loadSource() ? historyPin : null);
+  const ref = base && pin && w && pin.path === watchHistory(w) ? pin : null;
+  const settings = node < 0 || !b ? null : settingsFor(plan, node, ref ? base : null, state.doc.steps);
   if (!settings || !b) return null;
   const m = await measureLoad(engine, donorBinding(repair.source, b).table, settings);
-  const told = await loadClaim({ doc: state.doc, source: repair.source, flow: plan.flow.hash, base: ref ? baseHistory : null, baseRef: ref, tail: tails.get(repair.source) ?? [], measures: m, settings, skip: recordedSkips(), levels: levelsOf(ledger?.entries ?? [], repair.source), build: BUILD_COMMIT });
+  const told = await loadClaim({ doc: state.doc, source: repair.source, flow: plan.flow.hash, base: ref ? base : null, baseRef: ref, tail: tails.get(repair.source) ?? [], measures: m, settings, skip: recordedSkips(), levels: levelsOf(ledger?.entries ?? [], repair.source), build: BUILD_COMMIT });
   return told ? ({ ...told.claim, source: donorIdOf(repair.source) } as Claim) : null;
 }
 
@@ -14945,7 +15016,9 @@ function remedyCounts(p: Pause | null): { filled: number | null; setAside: numbe
   const rel = ledger.entries[r.release]?.about as Partial<ReleaseAbout> | undefined;
   const repair = rel?.repair ?? (ledger.entries[r.decision]?.about as Partial<DecideAbout> | undefined)?.repair;
   const day = p?.day ?? null;
-  const part = repair && day && flowHistory ? fillCounts(flowHistory, day, repair.missing, null) : null;
+  // Counted against the filled source's own history: the flow's for the dataset the views follow, else the source's.
+  const h = repair ? (repair.source === loadSource() ? flowHistory : rangesForLoad(repair.source)) : null;
+  const part = repair && day && h ? fillCounts(h, day, repair.missing, null) : null;
   return { filled: typeof rel?.filled === 'number' ? rel.filled : null, setAside: part?.setAside ?? null };
 }
 

@@ -2334,7 +2334,7 @@
     },
     "fact_control_status": {
       "id": "control-posture/fact_control_status",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "status": "active",
       "description": {
         "purpose": "The status of every control that applies to every application, evidence or not, for the GRC evidence export and the auditors",
@@ -2437,6 +2437,12 @@
           "description": "The day it is as of",
           "classification": "internal",
           "required": true
+        },
+        {
+          "name": "filled_from",
+          "type": "TEXT",
+          "description": "The day its evidence was carried from, where a fill stood in for its feed’s file; blank where the evidence is the day’s own",
+          "classification": "internal"
         }
       ],
       "sla": {
@@ -2567,7 +2573,7 @@
     },
     "app_scorecard": {
       "id": "control-posture/app_scorecard",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "status": "active",
       "description": {
         "purpose": "Each application’s score with its coverage beside it, for the posture dashboard and the owners",
@@ -2675,6 +2681,12 @@
           "description": "Exceptions expiring within thirty days",
           "classification": "internal",
           "required": true
+        },
+        {
+          "name": "filled_from",
+          "type": "TEXT",
+          "description": "The latest day any of its evidence was carried from, where a fill stood in; blank where all of it is the day’s own",
+          "classification": "internal"
         }
       ],
       "sla": {
@@ -2685,7 +2697,7 @@
     },
     "org_posture": {
       "id": "control-posture/org_posture",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "status": "active",
       "description": {
         "purpose": "Every unit over the applications beneath it, for the leaders’ weekly digest and the posture dashboard",
@@ -2769,6 +2781,12 @@
           "description": "Exceptions expiring within thirty days",
           "classification": "internal",
           "required": true
+        },
+        {
+          "name": "filled_from",
+          "type": "TEXT",
+          "description": "The latest day any evidence beneath it was carried from, where a fill stood in; blank where all of it is the day’s own",
+          "classification": "internal"
         }
       ],
       "sla": {
@@ -2884,7 +2902,7 @@
     },
     "failing_by_unit": {
       "id": "control-posture/failing_by_unit",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "status": "active",
       "description": {
         "purpose": "What is failing, by the units that own it, for the leaders’ weekly digest",
@@ -2945,6 +2963,12 @@
           "description": "Its segment, or UNASSIGNED",
           "classification": "internal",
           "required": true
+        },
+        {
+          "name": "filled_from",
+          "type": "TEXT",
+          "description": "The day its evidence was carried from, where a fill stood in for its feed’s file; blank where the evidence is the day’s own",
+          "classification": "internal"
         }
       ],
       "sla": {
@@ -2955,7 +2979,7 @@
     },
     "remediation_queue": {
       "id": "control-posture/remediation_queue",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "status": "active",
       "description": {
         "purpose": "What is failing, for ticketing",
@@ -3050,6 +3074,12 @@
           "name": "platform",
           "type": "TEXT",
           "description": "The platform it rests on",
+          "classification": "internal"
+        },
+        {
+          "name": "filled_from",
+          "type": "TEXT",
+          "description": "The day its evidence was carried from, where a fill stood in for its feed’s file; blank where the evidence is the day’s own",
           "classification": "internal"
         }
       ],

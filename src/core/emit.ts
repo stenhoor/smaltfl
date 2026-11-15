@@ -387,6 +387,11 @@ export function emitColumnFacts(sql: string, columns: readonly { name: string; n
   return `SELECT ${parts.join(', ')} FROM (\n${sql}\n)`;
 }
 
+/** A table's rows with the columns given, in their order: what a measure reads of it, all of them or all but some. */
+export function emitColumnsOf(table: string, columns: readonly string[]): string {
+  return `SELECT ${columns.map(q).join(', ')} FROM ${q(table)}`;
+}
+
 /**
  * An even sample of a relation: its first row and every `every`-th one after, in the order it gives them. Each check
  * in `flags` adds a column after the relation's, 1 where the row fails it (NULL failing, as an expectation counts).

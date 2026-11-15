@@ -7,6 +7,7 @@
  */
 import type { Database } from 'smaltdb/engine';
 import { keepSample, SAMPLE_KEEP } from '../core/apart.js';
+import { FILLED_FROM } from '../core/document.js';
 import { emitSample } from '../core/emit.js';
 import { quoteIdent as q } from '../core/sqltext.js';
 
@@ -31,7 +32,9 @@ export function sampleSettingsOf(v: unknown): SampleSettings {
 export async function sampleTable(db: Database, table: string, s: SampleSettings): Promise<{ columns: string[]; rows: unknown[][] }> {
   const read = `SELECT * FROM ${q(table)}`;
   const st = db.prepare(read);
-  const columns = [...st.columns];
+  // A fill's mark says where a row came from, not what it says: the classifier never learns it (ADR 0023 §5), as the
+  // measures don't.
+  const columns = st.columns.filter((c) => c.toLowerCase() !== FILLED_FROM);
   const n = Number((await db.queryAsync(`SELECT count(*) FROM (${read})`)).rows[0]![0]);
   const even = n ? (await db.queryAsync(emitSample(read, columns, Math.max(1, Math.ceil(n / (4 * s.keep)))))).rows : [];
   const strata = s.strata.map((c) => columns.indexOf(c)).filter((i) => i >= 0);
