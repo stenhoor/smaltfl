@@ -137,6 +137,14 @@ ADR 0022's Q-84 (levels and fills for slots of a day) and slice 5 (Q-139, propos
   - The plan's hash moves. No held day of the answer key moves (`test/larkspur-flow.test.ts`).
 - **The mark is never measured** (`measureTable`, `sampleTable`). It says where a row came from, not what it says: a
   watched step a fill reaches is judged by its rows alone, and no history or kept sample learns it.
+- **A derived run tells its watched steps** (`tellStep` in `src/plugin/runtime.ts`). A fill on a flow that watches a step
+  built from the filled file builds that step again from the filled rows, so the engine measures it and tells its claim,
+  as a day's own run does, under the held run's flow hash, as the derived run's sources are judged (C4).
+  - Its measures are kept with the derived run, and verify reads them from there (`storedMeasuredOf`).
+  - The release checks that the derived run's *files* are judged as the held run's; a step's story is its own, and a
+    step still held keeps back what it reaches.
+  - A fill is about one load: each held load is decided by the same choice (Q-193), and the release cites the decision
+    about the file it fills, which comes first. `test/fill-steps.test.ts`.
 - **The sheet decides the held load** (`sheetSubject` in `src/app/main.ts`). On a flow watching several datasets, where
   one source holds the day and has a fill step, the decision sheet draws that source's history, story and rows and
   offers its fills.

@@ -190,14 +190,17 @@ async function repairProblem(db: Database, r: ReleaseInput, run: Stored, d: Stor
     const judged = d.donors.find((j) => j.node === donorNode);
     if (!judged || !('claim' in judged) || !donorGood(judged.claim)) return `its donor, ${repair.donor.day}, wasn't judged good${judged && 'unjudged' in judged ? `: ${judged.unjudged}` : ''}`;
   }
-  // Held by nothing but the held run's story (its claims, the same) and its being derived.
+  // Held by nothing but the held run's story (its claims, the same) and its being derived. What arrived is judged as it
+  // was: each watched file's story is the held run's. A watched step is built again from the filled rows and told again
+  // of them (ADR 0023 §5): its story is its own, and a step still held keeps back what it reaches (`loadsProblem`).
   const own = holdsOfRun(db, r.run);
   const checks = own?.holds.find((h: Hold) => h.by === 'checks');
   if (checks) return `the filled day fails its checks: ${checks.said}`;
   const other = [...(own?.holds ?? []).filter((h) => h.by !== 'story'), ...d.holds.filter((h) => h.by !== 'derived')];
   if (other.length) return `run ${r.run} is held by ${other.map((h) => `${h.origin} (${h.said})`).join(', ')}`;
-  const claims = (hs: readonly Hold[]) => hs.filter((h) => h.by === 'story').map((h) => [h.node, h.claim]);
-  if (!same(claims(own?.holds ?? []), claims(kept.holds.filter((h) => h.by === 'story')))) return `run ${r.run}'s story isn't run ${d.from.run}'s`;
+  const ofFile = (plan: FlowPlan) => (h: Hold) => h.by === 'story' && plan.nodes[h.node]?.op === 'table';
+  const claims = (hs: readonly Hold[], plan: FlowPlan) => hs.filter(ofFile(plan)).map((h) => [h.origin.toLowerCase(), h.claim]);
+  if (!same(claims(own?.holds ?? [], run.plan), claims(kept.holds, held.plan))) return `run ${r.run}'s story isn't run ${d.from.run}'s`;
   // A meanwhile release: the held run's plan sets the setting to this option, and the repair is its donor rule, before.
   if (r.meanwhile) {
     const pub = held.plan.publish;

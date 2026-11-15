@@ -304,6 +304,35 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
   /** Watched steps' kept rows (ADR 0014 §5), for the page to append to their samples. */
   const kept: Record<string, unknown[][]> = {};
   if (plan.publish && isPublish2(plan.publish)) {
+    // What each watched step told says of the day (Q-173), for the steps after it: they are told in the plan's order,
+    // which is the order they are built in.
+    const stepsSaid: Upstream[] = [];
+    /**
+     * A watched step (ADR 0013 §4): its load is the dataset just built, so the engine tells its claim, from the pinned
+     * history and tail and what the page said of the record (context.tell), under `flow` (the run's own, or for a
+     * derived run the held run's, as its sources' claims are judged, C4). Without that, it isn't judged.
+     */
+    const tellStep = async (w: { node: number; history: string }, table: string, m: Measures, settings: MeasureSettings, flow: string, ahead: ReturnType<typeof measuredPinned>): Promise<void> => {
+      const n = plan.nodes[w.node]!;
+      const tell = context.tell?.[n.origin] ?? Object.entries(context.tell ?? {}).find(([id]) => id.toLowerCase() === n.origin.toLowerCase())?.[1];
+      if (!tell) {
+        untold.set(w.node, `${n.origin} is a watched step: its claim is told in the engine from what the page says of the record (tell), and the run was given none`);
+        return;
+      }
+      // What the page said of each watched source's day (ADR 0014 §2): a finding of the step that repeats a source's is
+      // told as following from it.
+      const upstream: Upstream[] = [...(context.claims ?? []).flatMap((c) => (isRecord(c) && typeof c.source === 'string' && typeof c.state === 'string' && typeof c.head === 'string' ? [{ source: c.source, state: c.state, head: c.head }] : [])), ...stepsSaid];
+      // The step's kept rows (ADR 0014 §5): the classifier's today, when a sample is pinned for the step.
+      const keptAhead = ahead?.kept && ahead.keep === SAMPLE_KEEP ? structuredClone(ahead.kept) : null;
+      const sampled = pinned(samplePath(n.origin)) ? (keptAhead ?? (await sampleTable(db, table, { keep: SAMPLE_KEEP, strata: settings.counted })).rows) : null;
+      if (sampled) kept[n.origin] = sampled;
+      const said = await tellClaim({ doc: context.doc as FlowDocument, source: n.origin, history: w.history, flow, measures: m, settings, tell, build: commit, upstream, ...(sampled ? { kept: sampled } : {}) });
+      if ('problem' in said) untold.set(w.node, said.problem);
+      else {
+        engineClaims.push(said.claim);
+        stepsSaid.push({ source: n.origin, state: said.claim.state, head: said.claim.head, said: said.said });
+      }
+    };
     if (stage) {
       told = heldMeasures(db, stage, plan, records);
       // Each donor a fill reads, measured as a load of its source on its own day: what its claim/2 is told from (C4).
@@ -322,10 +351,23 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
         const m = await measureSnapshot(db, table, settings, rec.file?.sha256 ?? null, rec.content);
         measured.set(donor, { hash: await measuresHash(m), measures: m, settings });
       }
+      // Each watched step it builds (ADR 0023 §5): the filled dataset, measured and its claim told here as a day's own
+      // run tells it, under the held run's flow hash, as its sources' claims are judged (C4). Its measures are kept with
+      // the derived run, where verify reads them.
+      if (context.doc !== undefined) {
+        for (const w of watchesOf(plan.publish)) {
+          if (plan.nodes[w.node]!.op === 'table') continue;
+          const table = tables.get(w.node);
+          const rec = records.get(w.node);
+          const settings = settingsFor(plan, w.node, pinnedHeader(w.history), steps);
+          if (!table || !rec?.content || !settings) continue;
+          aborted(signal);
+          const m = await measureSnapshot(db, table, settings, null, rec.content);
+          measured.set(w.node, { hash: await measuresHash(m), measures: m, settings });
+          await tellStep(w, table, m, settings, told.flow, null);
+        }
+      }
     } else {
-      // What each watched step told says of the day (Q-173), for the steps after it: they are told in the plan's order,
-      // which is the order they are built in.
-      const stepsSaid: Upstream[] = [];
       for (const w of watchesOf(plan.publish)) {
         const table = tables.get(w.node);
         const rec = records.get(w.node);
@@ -338,28 +380,7 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
         const ahead = measuredPinned(n.origin, settings, n.op === 'table' ? { file: rec.file?.sha256 ?? null, snapshot: rec.content } : { key: keys.get(w.node)!, snapshot: rec.content });
         const m = ahead ? structuredClone(ahead.measures) : await measureSnapshot(db, table, settings, rec.file?.sha256 ?? null, rec.content);
         measured.set(w.node, { hash: await measuresHash(m), measures: m, settings });
-        // A watched step (ADR 0013 §4): its load is the dataset just built, so the engine tells its claim, from the
-        // pinned history and tail and what the page said of the record (context.tell). Without that, it isn't judged.
-        if (n.op !== 'table' && context.doc !== undefined) {
-          const tell = context.tell?.[n.origin] ?? Object.entries(context.tell ?? {}).find(([id]) => id.toLowerCase() === n.origin.toLowerCase())?.[1];
-          if (!tell) {
-            untold.set(w.node, `${n.origin} is a watched step: its claim is told in the engine from what the page says of the record (tell), and the run was given none`);
-            continue;
-          }
-          // What the page said of each watched source's day (ADR 0014 §2): a finding of the step that repeats a source's
-          // is told as following from it.
-          const upstream: Upstream[] = [...(context.claims ?? []).flatMap((c) => (isRecord(c) && typeof c.source === 'string' && typeof c.state === 'string' && typeof c.head === 'string' ? [{ source: c.source, state: c.state, head: c.head }] : [])), ...stepsSaid];
-          // The step's kept rows (ADR 0014 §5): the classifier's today, when a sample is pinned for the step.
-          const keptAhead = ahead?.kept && ahead.keep === SAMPLE_KEEP ? structuredClone(ahead.kept) : null;
-          const sampled = pinned(samplePath(n.origin)) ? (keptAhead ?? (await sampleTable(db, table, { keep: SAMPLE_KEEP, strata: settings.counted })).rows) : null;
-          if (sampled) kept[n.origin] = sampled;
-          const told = await tellClaim({ doc: context.doc as FlowDocument, source: n.origin, history: w.history, flow: plan.flow.hash, measures: m, settings, tell, build: commit, upstream, ...(sampled ? { kept: sampled } : {}) });
-          if ('problem' in told) untold.set(w.node, told.problem);
-          else {
-            engineClaims.push(told.claim);
-            stepsSaid.push({ source: n.origin, state: told.claim.state, head: told.claim.head, said: told.said });
-          }
-        }
+        if (n.op !== 'table' && context.doc !== undefined) await tellStep(w, table, m, settings, plan.flow.hash, ahead);
       }
     }
   }

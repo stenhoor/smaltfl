@@ -434,7 +434,10 @@ async function main(): Promise<void> {
     const fillOnce = async (day: string, n: number, at: string, by: string, reason: string | null, fill: StoryFill, target: Made, said: string): Promise<void> => {
       const step = fillStepOf(flowDoc, fill.source);
       if (!step) throw new Error(`${storyPath}: a fill of ${said}: ${fill.source} has no fill step`);
-      const loads = heldLoadsOf(target.holds);
+      // The file's load first: its decision is the one the release cites (a fill is about one load); the steps built from
+      // it, holding the day too, are decided by the same choice (Q-193).
+      const held0 = heldLoadsOf(target.holds);
+      const loads = [...held0.filter((l) => l.source.toLowerCase() === fill.source.toLowerCase()), ...held0.filter((l) => l.source.toLowerCase() !== fill.source.toLowerCase())];
       const holding = [...new Set(loads.map((l) => l.source).filter(isSource))];
       if (holding.length !== 1 || holding[0]!.toLowerCase() !== fill.source.toLowerCase()) throw new Error(`${storyPath}: a fill of ${said} fills ${fill.source}, and ${holding.join(', ') || 'no file'} holds it: fills are for one file at a time`);
       const donorDay = filesNow.get(fill.from);
@@ -509,8 +512,9 @@ async function main(): Promise<void> {
       });
       const leaf = entryLeaf(decided[0]!);
       const from = { run: target.run, manifest: target.manifest };
-      const out = await releaseRun(db, { run: r.run, manifest: r.hash, keys, option: 'fill', actor: by, reason, decision: leaf, from, repair, ...(loads.length ? { loads: decided.map((e) => ({ load: (e.about as unknown as DecideAbout).load!, option: 'fill' as const, actor: by, reason, decision: entryLeaf(e) })) } : {}) });
-      const about: ReleaseAbout = { run: r.run, manifest: r.hash, outputs: keys, decision: decided[0]!.seq, ...(loads.length ? { decisions: decided.map((e) => e.seq) } : {}), leaf, outcome: out.outcome, why: out.why, from, repair, filled: out.filled ?? 0 };
+      const ofFile = loads.length ? [decided[0]!] : [];
+      const out = await releaseRun(db, { run: r.run, manifest: r.hash, keys, option: 'fill', actor: by, reason, decision: leaf, from, repair, ...(ofFile.length ? { loads: ofFile.map((e) => ({ load: (e.about as unknown as DecideAbout).load!, option: 'fill' as const, actor: by, reason, decision: entryLeaf(e) })) } : {}) });
+      const about: ReleaseAbout = { run: r.run, manifest: r.hash, outputs: keys, decision: decided[0]!.seq, ...(ofFile.length ? { decisions: ofFile.map((e) => e.seq) } : {}), leaf, outcome: out.outcome, why: out.why, from, repair, filled: out.filled ?? 0 };
       entries.push({ smaltflLog: 1, origin, seq: entries.length, kind: 'release', at, by: { card: null, as: by }, about: about as unknown as JSONValue, reason: null, amends: null, nonce: nonce(day, entries.length) });
       if (out.outcome !== 'applied') throw new Error(`${storyPath}: the release of the fill of ${said} was refused: ${out.why}`);
       markPosture(day, out.published, (name) => r.manifest.outputs[name]?.key);

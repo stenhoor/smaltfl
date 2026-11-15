@@ -433,8 +433,9 @@ release (smaltty ADR 0030).
   a day filled whole (`Missing` `{ all: true }`, a fill step's `time` optional for a file with no time of day,
   `missingFor`, `wholeDay`, a `whole` offer proposed only after keeping the last good day), a fill cell on each of
   Larkspur's twelve evidence feeds with `filled_from` carried through silver and gold (the five gold contracts it
-  reaches at 1.1.0), the mark never measured or kept in a sample, the decision sheet deciding the one held source that
-  has a fill (`sheetSubject`), and the recorder recording a story's fill (`StoryDecision.fill`, `fillOnce`): Larkspur's
+  reaches at 1.1.0), the mark never measured or kept in a sample, a derived run telling its watched steps of the filled
+  rows (`tellStep`, under the held run's flow hash; its release cites the filled file's decision alone), the decision
+  sheet deciding the one held source that has a fill (`sheetSubject`), and the recorder recording a story's fill (`StoryDecision.fill`, `fillOnce`): Larkspur's
   story fills Wed Mar 6 from Tue 5, and Wednesday's own export replaces the fill (`test/fill-whole.test.ts` in the
   engine). ADR 0022's Q-84 and slice 5 (Q-139) come after.
 

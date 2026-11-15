@@ -423,19 +423,19 @@ export async function verifyRun(db: Database, runId: number, options: VerifyOpti
 
 /**
  * The measures a run's claim/2 were judged by (ADR 0010 §6), as stored: its own; or, for a derived run, those of the held
- * run it repairs, where it read the same snapshot, under that run's flow hash (C4).
+ * run it repairs, where it read the same snapshot, under that run's flow hash (C4); a watched step's its own, since the
+ * derived run built the step again from the filled rows (ADR 0023 §5).
  */
 function storedMeasuredOf(db: Database, runId: number, from: RunRef | null, plan: FlowPlan, byNode: ReadonlyMap<number, ManifestNode>): { flow: string | null; measured: (node: number) => string | undefined } {
-  if (!from) {
-    const own = measuresOfRun(db, runId);
-    return { flow: null, measured: (node) => own.find((m) => m.node === node)?.hash };
-  }
+  const own = measuresOfRun(db, runId);
+  if (!from) return { flow: null, measured: (node) => own.find((m) => m.node === node)?.hash };
   const row = db.query('SELECT manifest, hash FROM _smaltfl_runs WHERE id = ?', [from.run]).rows[0];
   const held = row && String(row[1]) === from.manifest ? (JSON.parse(String(row[0])) as RunManifest) : null;
   const stored = held ? measuresOfRun(db, from.run) : [];
   return {
     flow: held?.flow.hash ?? null,
     measured: (node) => {
+      if (plan.nodes[node] && plan.nodes[node]!.op !== 'table') return own.find((m) => m.node === node)?.hash;
       const heldNode = held?.nodes.find((n) => n.op === 'table' && n.origin === plan.nodes[node]?.origin)?.node;
       const m = stored.find((x) => x.node === heldNode);
       return m && m.measures.snapshot === byNode.get(node)?.content ? m.hash : undefined;

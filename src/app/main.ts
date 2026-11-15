@@ -14627,7 +14627,11 @@ async function decideNow(target: RunRecord | string, option: DecisionOption, sco
   };
   // With several watched sources (ADR 0010 §7) the day's one choice is recorded as one decision a held load (Q-193),
   // each about its load, naming no keys, and amending its load's own decision when it had one; the release cites them.
-  const held = heldLoadsOf(r.result.holds);
+  // A fill is about the file it fills (ADR 0023 §5): its load's decision comes first and is the one its release cites;
+  // the other loads holding the day (the steps built from that file) are decided by the same choice.
+  const filling = derived?.derived?.repair.source.toLowerCase();
+  const held0 = heldLoadsOf(r.result.holds);
+  const held = filling ? [...held0.filter((l) => l.source.toLowerCase() === filling), ...held0.filter((l) => l.source.toLowerCase() !== filling)] : held0;
   const cited: RecordEntry[] = [];
   for (const d of held.length ? loadDecisions({ run: r.result.run, manifest: r.result.hash, inputs: about.inputs, loads: held, option, scope: about.scope, policies: about.policies, rule: about.rule, level }) : []) {
     const lp = pauseByInputs(`load:${loadKey(d.load!)}`);
@@ -14648,7 +14652,8 @@ async function decideNow(target: RunRecord | string, option: DecisionOption, sco
       }
     }
   } else if (derived && dkeys) {
-    const out = await releaseDerived(derived, entry, dkeys, undefined, cited);
+    const ofFile = filling ? cited.filter((x) => (x.about as unknown as DecideAbout).load?.source.toLowerCase() === filling) : cited;
+    const out = await releaseDerived(derived, ofFile[0] ?? entry, dkeys, undefined, ofFile);
     if (out?.outcome === 'refused') refused = out.why;
   } else if (fillShown) {
     const out = await withdrawFill(fillShown, entry);
@@ -14827,7 +14832,11 @@ async function stage(r: RunRecord, repair: Repair, inRun = false): Promise<RunRe
     // own snapshot's measures, as the derived run measures the donor's table.
     const told = repair.donor && generalForm() ? await donorClaim2(engine, r, repair) : null;
     const asked = told && repair.donor ? { ...repair, donor: { ...repair.donor, claim: told as never } } : repair;
-    const { doc, result } = await stageRepair(engine, { doc: state.doc, held: r.result, repair: asked, claims: claimsFor(day) ?? [], smaltdb: SMALTDB, data, log: recordHead() });
+    // The held run's claims of its watched files, and what the record says of each watched step for the engine to tell
+    // it again of the filled rows (ADR 0023 §5).
+    const heldClaims = day ? Object.keys(state.doc.publish?.watch ?? {}).flatMap((w) => claimOfLoad(day, w) ?? []) : [];
+    const tell = Object.fromEntries(watchedSteps().concat(loadSource() && !sourceIds().has(loadSource()!) ? [loadSource()!] : []).map((w) => [w, { skip: recordedSkips(), levels: levelsOf(allEntries(), w) }]));
+    const { doc, result } = await stageRepair(engine, { doc: state.doc, held: r.result, repair: asked, claims: heldClaims.length ? heldClaims : (claimsFor(day) ?? []), smaltdb: SMALTDB, data, log: recordHead(), tell });
     const rec: RunRecord = { result, ms: 0, at: new Date(), inputs: r.inputs, ...(r.load !== undefined ? { load: r.load } : {}), derived: { from: r, repair, doc, seq: null } };
     stagedRuns.set(key, rec);
     derivedRuns.set(result.hash, rec);
