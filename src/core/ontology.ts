@@ -17,13 +17,6 @@ export interface ObjectType {
   /** The column people call an object by. */
   title: string;
   description?: string;
-  /**
-   * When two ids name the same object (ADR 0020 slice 3): `exact` (the default), or `loose`, whatever their case and
-   * the spaces around them, as a person reads an id. The checks that count objects read it: the scope over the type's
-   * dataset and one row an object of a dataset its `rows` tie to the type. The type's own dataset is judged as written:
-   * two of its records whose ids differ only in case are two records there, which a later step conforms.
-   */
-  ids?: 'exact' | 'loose';
 }
 
 export interface LinkType {
@@ -157,17 +150,27 @@ export type Condition = Record<string, string | string[]>;
  * key column (`key`, when this dataset names it otherwise), for the objects that meet `where` (a condition over the
  * type's own dataset; left out, every object). A watched dataset with an entry and no rule of its own in its gate
  * cell is judged by the two written rules the entry gives (`writtenRules`, gates.ts): its scope, and its key on one
- * row each. It changes verdicts, and like a band or a due mark it needs a gate.
+ * row each. A published table nothing watches (gold) takes its key from the entry (Q-118, ADR 0022 §3): its rows
+ * reconcile by the type's key, one row each, where its gate cell writes no key. It changes verdicts, and like a band or
+ * a due mark it needs a gate.
  */
 export interface RowsDef {
   dataset: string;
   of: string;
   key?: string;
   where?: Condition;
+  /**
+   * When two ids name the same object for this entry's checks (Q-176, ADR 0022 §3): `exact` (the default), or `loose`,
+   * whatever their case and the spaces around them, as a person reads an id. Said by each check that counts objects:
+   * here for the entry's scope and its one row an object; a gate cell's scope says its own. The type's own dataset is
+   * judged as written: two of its records whose ids differ only in case are two records there, which a later step
+   * conforms.
+   */
+  ids?: 'exact' | 'loose';
 }
 
 /** A rows entry's settings: any other is refused by name. */
-export const ROWS_FIELDS = ['dataset', 'of', 'key', 'where'] as const;
+export const ROWS_FIELDS = ['dataset', 'of', 'key', 'where', 'ids'] as const;
 
 export interface Ontology {
   objectTypes: ObjectType[];
@@ -199,13 +202,6 @@ export function conditionOf(where: Condition | undefined): [column: string, valu
   return Object.entries(where ?? {})
     .map(([c, v]): [string, string[]] => [c, [...new Set(Array.isArray(v) ? v : [v])].sort()])
     .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
-}
-
-/** Whether a dataset's key names objects of a type whose ids are loose (`ObjectType.ids`): the type backed by the dataset
- * with that one column as its key. */
-export function looseIds(ontology: Ontology | undefined, dataset: string, key: string): boolean {
-  const d = dataset.toLowerCase();
-  return (ontology?.objectTypes ?? []).some((t) => t.ids === 'loose' && t.dataset.toLowerCase() === d && t.key.length === 1 && t.key[0]!.toLowerCase() === key.toLowerCase());
 }
 
 /** A dataset's rows entry with its object type resolved (`rowsOf`). */

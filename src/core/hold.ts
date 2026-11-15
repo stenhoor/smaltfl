@@ -712,7 +712,7 @@ export function reconcileSaid(r: ReconcileCounts, key: readonly string[], of: st
   const keyName = key.join(' and ');
   const parts: string[] = [];
   const repeats = r.rows - r.keys - r.blank;
-  if (repeats > 0) parts.push(`${count(repeats)} row${repeats === 1 ? '' : 's'} repeat a key (${count(r.rows)} rows, ${count(r.keys)} ${keyName} values)`);
+  if (repeats > 0) parts.push(`${count(repeats)} ${repeats === 1 ? 'row repeats' : 'rows repeat'} a key (${count(r.rows)} rows, ${count(r.keys)} ${keyName} values)`);
   if (r.blank > 0) parts.push(`${count(r.blank)} row${r.blank === 1 ? '' : 's'} with a blank ${keyName}`);
   if (r.missing > 0) parts.push(`${count(r.missing)} key${r.missing === 1 ? '' : 's'} of ${of ?? 'the other node'} with no row`);
   if (r.extra > 0) parts.push(`${count(r.extra)} row${r.extra === 1 ? '' : 's'} not in ${of ?? 'the other node'}`);

@@ -4327,7 +4327,8 @@ async function checksTab(card: string, id: string): Promise<HTMLElement> {
   const watched = Object.keys(state.doc.publish?.watch ?? {}).some((w) => w.toLowerCase() === id.toLowerCase());
   const run = isOutput(id) && !watched ? (onScreen() ?? latest()) : undefined;
   const built = run?.result.manifest.nodes.find((n) => n.origin.toLowerCase() === id.toLowerCase());
-  const rule = state.doc.gates?.[id]?.reconcile ?? Object.entries(state.doc.gates ?? {}).find(([k]) => k.toLowerCase() === id.toLowerCase())?.[1].reconcile ?? null;
+  // The gate cell's key, else the ontology's rows entry for the table (Q-118).
+  const rule = writtenRules(state.doc, id).reconcile;
   const box = h('div', { class: 'checks-tab' });
   const owner = isOwner();
   box.append(h('p', { class: 'lede' }, `${layer[0]!.toUpperCase()}${layer.slice(1)} gate: ${LAYER_SAID[layer]}. Written checks hold the day; learned ones warn, unless the ontology marks the value bad.`));
@@ -4338,7 +4339,7 @@ async function checksTab(card: string, id: string): Promise<HTMLElement> {
   const goldToday = (name: CheckName): Child | null => {
     if (!run) return h('span', { class: 'ch-quiet' }, 'no run yet');
     if (name === 'reconcile') {
-      if (!rule) return h('span', { class: 'ch-quiet' }, 'no key written: reconcile: { key, of } in the gate cell names one');
+      if (!rule) return h('span', { class: 'ch-quiet' }, 'no key written: a rows entry in the ontology names one, or reconcile: { key, of } in the gate cell');
       const rc = built?.gate?.reconcile;
       if (!rc) return h('span', { class: 'ch-quiet' }, 'not counted by this run');
       const said = reconcileSaid(rc, rule.key, rule.of ?? null);
@@ -5294,10 +5295,11 @@ function sealPart(r: RunRecord): HTMLElement {
   const gold = m.nodes.filter((n) => n.gate);
   const lines: Child[] = [];
   for (const n of gold) {
-    const g = Object.entries(state.doc.gates ?? {}).find(([k]) => k.toLowerCase() === n.origin.toLowerCase())?.[1];
+    // The key the run counted by: the gate cell's, else the ontology's rows entry for the table (Q-118).
+    const rule = writtenRules(state.doc, n.origin).reconcile;
     const rc = n.gate!.reconcile;
-    const said = g?.reconcile ? reconcileSaid(rc, g.reconcile.key, g.reconcile.of ?? null) : null;
-    lines.push(h('li', { class: said ? 'bad' : '' }, h('span', { class: said ? 'bad' : 'ok' }, said ? 'failed' : 'ok'), h('span', {}, `${n.origin} · reconcile by ${g?.reconcile?.key.join(' and ') ?? 'key'}${g?.reconcile?.of ? ` with ${g.reconcile.of}` : ''}: ${said ? said.replace(/^rows don't reconcile: /, '') : `${fmtInt(rc.rows)} rows, ${fmtInt(rc.keys)} keys`}`)));
+    const said = rule ? reconcileSaid(rc, rule.key, rule.of ?? null) : null;
+    lines.push(h('li', { class: said ? 'bad' : '' }, h('span', { class: said ? 'bad' : 'ok' }, said ? 'failed' : 'ok'), h('span', {}, `${n.origin} · reconcile by ${rule?.key.join(' and ') ?? 'key'}${rule?.of ? ` with ${rule.of}` : ''}: ${said ? said.replace(/^rows don't reconcile: /, '') : `${fmtInt(rc.rows)} rows, ${fmtInt(rc.keys)} keys`}`)));
   }
   const now = pauseOf(r);
   for (const x of r.result.holds) lines.push(h('li', { class: now && now.state !== 'waiting' ? '' : 'bad' }, h('span', { class: now && now.state !== 'waiting' ? 'ok' : 'bad' }, now && now.state !== 'waiting' ? PAUSE_PILL[now.state] : 'held'), h('span', {}, `${x.origin}: ${x.said}`)));

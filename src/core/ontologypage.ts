@@ -22,7 +22,7 @@ import { ACTION_SAID, checkStepOf, ruleOn, rulesOf, ruleSaid, type OntologyRule 
  * history, fixed once set or rolling over those days, and a rule the app discovered in the data.
  */
 
-/** How a rule over loose ids (`ObjectType.ids`) says so. */
+/** How a rule over loose ids (a rows entry's or a gate cell's scope's `ids`, Q-176) says so. */
 const LOOSE_SAID = '; an id is the same whatever its case and the spaces around it';
 export type RuleOrigin =
   | { how: 'set'; in: 'ontology' | 'notebook' }

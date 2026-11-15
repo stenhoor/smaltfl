@@ -993,7 +993,8 @@ function validateExtras(doc: Record<string, unknown>, ids: Map<string, string>, 
         if (types.has(t.id)) add(`$.ontology.objectTypes[${i}].id`, `duplicate object type ${t.id}`);
         types.add(t.id);
         if (!known(t.dataset)) add(`$.ontology.objectTypes[${i}].dataset`, `no source or step ${String(t.dataset)}`);
-        if (t.ids !== undefined && t.ids !== 'exact' && t.ids !== 'loose') add(`$.ontology.objectTypes[${i}].ids`, 'exact, or loose: the same id whatever its case and the spaces around it');
+        // How ids match is said by each check that counts objects (Q-176, ADR 0022 §3), no longer once on the type.
+        if (t.ids !== undefined) add(`$.ontology.objectTypes[${i}].ids`, 'said by each check that counts objects now (Q-176): a rows entry’s ids, or a gate cell’s scope’s');
       });
       o.linkTypes.forEach((l: unknown, i: number) => {
         if (!isRecord(l) || !types.has(String(l.from)) || !types.has(String(l.to))) add(`$.ontology.linkTypes[${i}]`, 'a link between two object types');
@@ -1100,8 +1101,9 @@ function validateExtras(doc: Record<string, unknown>, ids: Map<string, string>, 
             if (!known(r.dataset)) add(`${at}.dataset`, `no source or step ${r.dataset}`);
             else if (tied.has(r.dataset.toLowerCase())) add(`${at}.dataset`, `${r.dataset} has two entries (ids are compared without case): a dataset’s rows are one thing`);
             // An entry on a dataset nothing watches is taken: it says what the rows are, and gives no rule until a watch
-            // judges the dataset (a flow is run with no publish block while a step's history is built). What reads the
-            // entry says so ("not watched"), never that it was checked.
+            // judges the dataset (a flow is run with no publish block while a step's history is built), but for a
+            // published table's key, which its gold gate reconciles by (Q-118). What reads the entry says so ("not
+            // watched"), never that it was checked.
             tied.add(r.dataset.toLowerCase());
             const type = objectTypes.find((t: unknown) => isRecord(t) && t.id === r.of) as Record<string, unknown> | undefined;
             // The type's key is what both rules count by: column names, or the plan has nothing the engine can read.
@@ -1109,6 +1111,7 @@ function validateExtras(doc: Record<string, unknown>, ids: Map<string, string>, 
             if (!type) add(`${at}.of`, `no object type ${r.of}`);
             else if (!keyed) add(`${at}.of`, `${r.of}’s key isn’t a list of column names: a dataset’s rows are counted by the type’s key column`);
             else if (typeof type.dataset === 'string' && known(type.dataset) && !sources.has(type.dataset.toLowerCase())) add(`${at}.of`, `${r.of}'s objects are ${type.dataset}, a step: a dataset’s rows are counted against a type whose objects are a source, which is there before the run`);
+            if (r.ids !== undefined && r.ids !== 'exact' && r.ids !== 'loose') add(`${at}.ids`, 'exact, or loose: the same id whatever its case and the spaces around it, for this entry’s scope and one row an object');
             if (r.key !== undefined && (typeof r.key !== 'string' || r.key === '')) add(`${at}.key`, 'this dataset’s own name for the type’s key column');
             // A key of several columns gives no rule yet (ADR 0015 §1), so a name for one of them here would go unused.
             else if (r.key !== undefined && keyed && (type!.key as string[]).length > 1) add(`${at}.key`, `${r.of}’s key is several columns (${(type!.key as string[]).join(', ')}), which gives no rule yet: a name for it here would go unused`);

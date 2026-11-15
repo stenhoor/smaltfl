@@ -8,7 +8,7 @@
  */
 import type { FlowDocument } from './document.js';
 import type { Finding, Severity } from './news.js';
-import { looseIds, rowsOf } from './ontology.js';
+import { rowsOf } from './ontology.js';
 
 /** The three layers (ADR 0014 §1): a source as it arrives, a joined step, an output people read. */
 export const LAYERS = ['bronze', 'silver', 'gold'] as const;
@@ -94,6 +94,8 @@ export interface ScopeRule {
   where: string;
   /** The gated node's own key column, when it isn't `key`. */
   own?: string;
+  /** `loose`: ids match whatever their case and the spaces around them (Q-176); `exact`, the default. */
+  ids?: 'exact' | 'loose';
 }
 
 /**
@@ -120,8 +122,8 @@ export type WrittenScope = (
   | { from: 'gate'; of: string; key: string; own: string; where: string }
   | { from: 'ontology'; of: string; key: string; own: string; match: [column: string, values: string[]][]; type: string }
 ) & {
-  /** The inventory's key names objects of a type whose ids are loose (`ObjectType.ids`): ids are compared whatever their
-   * case and the spaces around them. Only when so. */
+  /** The check says its ids are loose (a rows entry's or a gate cell's scope's `ids`, Q-176): ids are compared whatever
+   * their case and the spaces around them. Only when so. */
   loose?: true;
 };
 
@@ -129,7 +131,8 @@ export type WrittenScope = (
 export interface WrittenRules {
   scope: WrittenScope | null;
   needs: NeedsRule[];
-  /** The ontology's one row an object compares ids as its type says (`loose`); a gate cell's key is the rows as written. */
+  /** The ontology's one row an object compares ids as its rows entry says (`loose`); a gate cell's key is the rows as
+   * written. */
   reconcile: (ReconcileRule & { from: RuleFrom; loose?: true }) | null;
 }
 
@@ -147,12 +150,13 @@ export function writtenRules(doc: Partial<Pick<FlowDocument, 'gates' | 'ontology
   const rows = rowsOf(doc.ontology, node);
   const tied = rows && rows.key !== null && rows.own !== null ? { key: rows.key, own: rows.own } : null;
   return {
-    scope: g?.scope ? { from: 'gate', of: g.scope.of, key: g.scope.key, own: g.scope.own ?? g.scope.key, where: g.scope.where, ...loosely(looseIds(doc.ontology, g.scope.of, g.scope.key)) }
-      : tied ? { from: 'ontology', of: rows!.type.dataset, key: tied.key, own: tied.own, match: rows!.where, type: rows!.type.id, ...loosely(rows!.type.ids === 'loose') }
+    // Each check says how it matches ids (Q-176): the gate cell's scope, or the ontology's rows entry for both its rules.
+    scope: g?.scope ? { from: 'gate', of: g.scope.of, key: g.scope.key, own: g.scope.own ?? g.scope.key, where: g.scope.where, ...loosely(g.scope.ids === 'loose') }
+      : tied ? { from: 'ontology', of: rows!.type.dataset, key: tied.key, own: tied.own, match: rows!.where, type: rows!.type.id, ...loosely(rows!.entry.ids === 'loose') }
       : null,
     needs: g?.needs ?? [],
-    // A gate cell's key is the rows as written; the ontology's one row an object compares ids as the type says.
-    reconcile: g?.reconcile ? { ...g.reconcile, from: 'gate' } : tied ? { key: [tied.own], from: 'ontology', ...loosely(rows!.type.ids === 'loose') } : null,
+    // A gate cell's key is the rows as written; the ontology's one row an object compares ids as its entry says.
+    reconcile: g?.reconcile ? { ...g.reconcile, from: 'gate' } : tied ? { key: [tied.own], from: 'ontology', ...loosely(rows!.entry.ids === 'loose') } : null,
   };
 }
 
@@ -281,8 +285,8 @@ export function gateProblems(g: unknown): string[] {
   const match = (m: unknown) => typeof m === 'object' && m !== null && !Array.isArray(m) && Object.keys(m).length > 0 && Object.values(m).every(values);
   if (r.scope !== undefined) {
     const sc = r.scope as Record<string, unknown> | null;
-    if (typeof sc !== 'object' || sc === null || Array.isArray(sc) || typeof sc.of !== 'string' || typeof sc.key !== 'string' || sc.key === '' || typeof sc.where !== 'string' || sc.where.trim() === '' || (sc.own !== undefined && (typeof sc.own !== 'string' || sc.own === '')) || Object.keys(sc).some((k) => !['of', 'key', 'where', 'own'].includes(k)))
-      out.push('scope is { of: a source, key, where, own? }: the inventory, its key column, the condition a key in scope meets, and the node’s own key column when it differs');
+    if (typeof sc !== 'object' || sc === null || Array.isArray(sc) || typeof sc.of !== 'string' || typeof sc.key !== 'string' || sc.key === '' || typeof sc.where !== 'string' || sc.where.trim() === '' || (sc.own !== undefined && (typeof sc.own !== 'string' || sc.own === '')) || (sc.ids !== undefined && sc.ids !== 'exact' && sc.ids !== 'loose') || Object.keys(sc).some((k) => !['of', 'key', 'where', 'own', 'ids'].includes(k)))
+      out.push('scope is { of: a source, key, where, own?, ids? }: the inventory, its key column, the condition a key in scope meets, the node’s own key column when it differs, and loose where ids match whatever their case and spaces');
   }
   if (r.needs !== undefined) {
     const list = Array.isArray(r.needs) ? r.needs : [r.needs];

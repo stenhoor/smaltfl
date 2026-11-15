@@ -132,7 +132,7 @@ describe('what the document refuses', () => {
   });
 
   it('refuses an unknown key by name, and a condition that isn’t { column: value | values }', async () => {
-    expect(await problems(withRows([{ dataset: 'tls', of: 'application', only: { internet_facing: 'yes' } }]))).toEqual([{ path: '$.ontology.rows[0].only', message: "only isn't a rows entry's setting (dataset, of, key, where): refused rather than ignored" }]);
+    expect(await problems(withRows([{ dataset: 'tls', of: 'application', only: { internet_facing: 'yes' } }]))).toEqual([{ path: '$.ontology.rows[0].only', message: "only isn't a rows entry's setting (dataset, of, key, where, ids): refused rather than ignored" }]);
     const where = '{ column: value | values } over the type’s dataset: every column to hold, a list any of its values (each once); left out, every object';
     for (const bad of [{}, "internet_facing = 'yes'", ['internet_facing'], { internet_facing: true }, { internet_facing: [] }, { internet_facing: ['yes', 'yes'] }, { criticality: ['high', 3] }, { internet_facing: '' }])
       expect(await problems(withRows([{ dataset: 'tls', of: 'application', where: bad }])), JSON.stringify(bad)).toEqual([{ path: '$.ontology.rows[0].where', message: where }]);
@@ -306,18 +306,22 @@ describe('the condition in the engine', () => {
   });
 });
 
-describe('loose ids: an object named whatever its case and the spaces around it', () => {
-  const LOOSE: Ontology = { ...ONTOLOGY, objectTypes: [{ ...APPLICATION, ids: 'loose' }] };
+describe('loose ids: an object named whatever its case and the spaces around it (said per check, Q-176)', () => {
+  const LOOSE: Ontology = { ...ONTOLOGY, rows: ONTOLOGY.rows!.map((r) => ({ ...r, ids: 'loose' as const })) };
 
-  it('is said on the type, and refused as anything but exact or loose', async () => {
+  it('is said by each check that counts objects: a rows entry, refused as anything but exact or loose, and no longer the type', async () => {
     expect(validateDocument(await doc({ ontology: LOOSE }))).toEqual([]);
-    expect(validateDocument(await doc({ ontology: { ...ONTOLOGY, objectTypes: [{ ...APPLICATION, ids: 'exact' }] } }))).toEqual([]);
-    expect(validateDocument(await doc({ ontology: { ...ONTOLOGY, objectTypes: [{ ...APPLICATION, ids: 'any case' as 'loose' }] } }))).toEqual([
-      { path: '$.ontology.objectTypes[0].ids', message: 'exact, or loose: the same id whatever its case and the spaces around it' },
+    expect(validateDocument(await doc({ ontology: { ...ONTOLOGY, rows: [{ ...ONTOLOGY.rows![0]!, ids: 'exact' }] } }))).toEqual([]);
+    expect(validateDocument(await doc({ ontology: { ...ONTOLOGY, rows: [{ ...ONTOLOGY.rows![0]!, ids: 'any case' as 'loose' }] } }))).toEqual([
+      { path: '$.ontology.rows[0].ids', message: 'exact, or loose: the same id whatever its case and the spaces around it, for this entry’s scope and one row an object' },
+    ]);
+    // Said once on the type, it was every check's: refused, saying where it goes now.
+    expect(validateDocument(await doc({ ontology: { ...ONTOLOGY, objectTypes: [{ ...APPLICATION, ids: 'loose' } as typeof APPLICATION] } }))).toEqual([
+      { path: '$.ontology.objectTypes[0].ids', message: 'said by each check that counts objects now (Q-176): a rows entry’s ids, or a gate cell’s scope’s' },
     ]);
   });
 
-  it('makes the scope over the type’s dataset and the ontology’s one row an object loose; a gate cell’s own key stays as written', async () => {
+  it('makes a rows entry’s scope and its one row an object loose; a gate cell’s scope says its own, its key as written', async () => {
     const d = await doc({ ontology: LOOSE });
     expect(writtenRules(d, 'tls')).toEqual({
       scope: { from: 'ontology', of: 'apps', key: 'app_id', own: 'app_id', match: [['internet_facing', ['yes']]], type: 'application', loose: true },
@@ -327,11 +331,13 @@ describe('loose ids: an object named whatever its case and the spaces around it'
     const w = await watches(d);
     expect(w.tls!.scope).toEqual({ table: 'apps_file', key: 'app_id', own: 'app_id', where: `"internet_facing" IN ('yes')`, loose: true });
     expect(w.tls!.reconcile).toEqual({ key: ['app_id'], table: null, loose: true });
-    // A gate cell's scope over the type's dataset by its key names the same objects: loose too. Its own key is the
-    // rows as written.
-    const cell = await doc({ ontology: LOOSE, nb: nb("cell('tls_gate');\nexport const tls_gate = gate(tls, { scope: { of: apps, key: 'app_id', where: \"internet_facing = 'yes'\" }, reconcile: { key: 'app_id' } });\n") });
-    expect(writtenRules(cell, 'tls').scope).toMatchObject({ from: 'gate', loose: true });
-    expect(writtenRules(cell, 'tls').reconcile).toEqual({ key: ['app_id'], from: 'gate' });
+    // A gate cell's scope is its own check: exact unless it says loose, whatever the rows entry says. Its key is the rows
+    // as written.
+    const cell = (ids: string) => doc({ ontology: LOOSE, nb: nb(`cell('tls_gate');\nexport const tls_gate = gate(tls, { scope: { of: apps, key: 'app_id', where: "internet_facing = 'yes'"${ids} }, reconcile: { key: 'app_id' } });\n`) });
+    expect(writtenRules(await cell(''), 'tls').scope).not.toHaveProperty('loose');
+    expect(writtenRules(await cell(", ids: 'loose'"), 'tls').scope).toMatchObject({ from: 'gate', loose: true });
+    expect(writtenRules(await cell(", ids: 'loose'"), 'tls').reconcile).toEqual({ key: ['app_id'], from: 'gate' });
+    await expect(cell(", ids: 'any'")).rejects.toThrow(/scope is \{ of: a source, key, where, own\?, ids\? \}/);
     // Exact ids, the default, write the plan they always wrote: no field for it.
     expect((await watches(await doc())).tls!.scope).not.toHaveProperty('loose');
   });

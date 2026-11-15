@@ -7,10 +7,12 @@
 import { describe, expect, it } from 'vitest';
 import { validateDocument, type FlowDocument } from '../src/core/document.js';
 import { emitReconcileCounts } from '../src/core/emit.js';
-import { LAYER_DEFAULTS } from '../src/core/gates.js';
+import { LAYER_DEFAULTS, writtenRules } from '../src/core/gates.js';
 import { reconcileSaid } from '../src/core/hold.js';
 import { planKind } from '../src/core/manifest.js';
 import { expandNotebooks } from '../src/core/notebook.js';
+import type { Ontology, RowsDef } from '../src/core/ontology.js';
+import { validatePlan } from '../src/core/plan.js';
 import { runFlow, translate, verifyRun } from '../src/index.js';
 import { openEngine, SMALTDB } from './helpers/engine.js';
 import { ts } from './helpers/notebooks.js';
@@ -88,6 +90,7 @@ describe('the reconciliation in the notebook, the plan and the engine', () => {
     expect(reconcileSaid({ rows: 406, keys: 203, blank: 0, missing: 0, extra: 0 }, ['app_id'], 'apps')).toBe("rows don't reconcile: 203 rows repeat a key (406 rows, 203 app_id values)");
     expect(reconcileSaid({ rows: 5, keys: 4, blank: 1, missing: 1, extra: 1 }, ['app_id'], 'apps')).toBe("rows don't reconcile: 1 row with a blank app_id; 1 key of apps with no row; 1 row not in apps");
     expect(reconcileSaid({ rows: 5, keys: 4, blank: 1, missing: 0, extra: 0 }, ['app_id', 'day'], null)).toBe("rows don't reconcile: 1 row with a blank app_id and day");
+    expect(reconcileSaid({ rows: 5, keys: 4, blank: 0, missing: 0, extra: 0 }, ['app_id'], null)).toBe("rows don't reconcile: 1 row repeats a key (5 rows, 4 app_id values)");
   });
 
   it('counts the gate over the dataset the run built, publishes when the rows reconcile, and verify counts it again', async () => {
@@ -133,6 +136,74 @@ describe('the reconciliation in the notebook, the plan and the engine', () => {
       expect(r3.manifest.nodes.find((n) => n.origin === 'posture')!.gate!.reconcile.rows).toBe(6);
       expect(r3.holds).toEqual([]);
       expect(r3.published).toEqual(['posture']);
+    } finally {
+      db.close();
+    }
+  });
+});
+
+/**
+ * The key from the ontology (Q-118, ADR 0022 §3): a gold table whose gate cell writes no key takes the one its rows entry
+ * gives, the type's key by the table's own name for it; a key written in the gate cell wins. Its ids loose only where the
+ * entry says so (Q-176).
+ */
+describe('a gold table’s key from the ontology (Q-118)', () => {
+  const ontology = (entry: Partial<RowsDef> = {}): Ontology => ({
+    objectTypes: [{ id: 'application', name: 'Application', dataset: 'apps', key: ['app_id'], title: 'app_id' }],
+    linkTypes: [],
+    actionTypes: [],
+    rows: [{ dataset: 'posture', of: 'application', ...entry }],
+  });
+  const tied = async (gateCell: string, o: Ontology | null = ontology(), posture?: string) => expandNotebooks({ ...flow(nb(gateCell, posture)), ...(o ? { ontology: o } : {}) }, ts);
+  const gateOf = async (d: FlowDocument) => {
+    const plan = await translate(d, { day: '2024-03-01' });
+    validatePlan(plan);
+    return { plan, g: (plan.publish as unknown as { gates: [number, { reconcile: { key: string[]; of: number | null; loose?: true } | null }][] }).gates[0]![1] };
+  };
+
+  it('takes the rows entry’s key where the gate cell writes none, by the table’s own name for it', async () => {
+    const d = await tied("gate(posture, { layer: 'gold' })");
+    expect(validateDocument(d)).toEqual([]);
+    expect(writtenRules(d, 'posture').reconcile).toEqual({ key: ['app_id'], from: 'ontology' });
+    expect((await gateOf(d)).g.reconcile).toEqual({ key: ['app_id'], of: null });
+    // Its own name for the type's key.
+    const own = await tied("gate(posture, { layer: 'gold' })", ontology({ key: 'application_id' }));
+    expect((await gateOf(own)).g.reconcile).toEqual({ key: ['application_id'], of: null });
+    // No entry, no key: the gate carries none, as before.
+    expect((await gateOf(await tied("gate(posture, { layer: 'gold' })", null))).g.reconcile).toBeNull();
+  });
+
+  it('lets a key written in the gate cell win, with the node it names', async () => {
+    const d = await tied("gate(posture, { layer: 'gold', reconcile: { key: ['app_id', 'business_unit'], of: apps } })");
+    expect(writtenRules(d, 'posture').reconcile).toEqual({ key: ['app_id', 'business_unit'], of: 'apps', from: 'gate' });
+    const { plan, g } = await gateOf(d);
+    expect(g.reconcile).toEqual({ key: ['app_id', 'business_unit'], of: plan.nodes.findIndex((n) => n.origin === 'apps') });
+  });
+
+  it('carries loose ids only where the entry says so, and the plan refuses any other loose', async () => {
+    const d = await tied("gate(posture, { layer: 'gold' })", ontology({ ids: 'loose' }));
+    const { plan, g } = await gateOf(d);
+    expect(g.reconcile).toEqual({ key: ['app_id'], of: null, loose: true });
+    const bad = structuredClone(plan) as unknown as { publish: { gates: [number, { reconcile: Record<string, unknown> }][] } };
+    bad.publish.gates[0]![1].reconcile.loose = false;
+    expect(() => validatePlan(bad)).toThrow('publish.gates[0].reconcile is null or { key, of, loose? }');
+  });
+
+  it('counts the run by the ontology’s key, holds on it, and verify counts it again; loose ids repeat whatever their case', async () => {
+    const db = openEngine();
+    try {
+      tables(db);
+      db.exec("INSERT INTO apps_file VALUES ('A1 ','Payments')");
+      const posture = 'SELECT a.app_id, a.business_unit FROM ${apps} a';
+      const exact = await runFlow(db, await tied("gate(posture, { layer: 'gold' })", ontology(), posture), { smaltdb: SMALTDB, parameters: { day: '2024-03-01' } });
+      expect(exact.manifest.nodes.find((n) => n.origin === 'posture')!.gate).toEqual({ reconcile: { rows: 5, keys: 5, blank: 0, missing: 0, extra: 0 } });
+      expect(exact.holds).toEqual([]);
+      const loose = await runFlow(db, await tied("gate(posture, { layer: 'gold' })", ontology({ ids: 'loose' }), posture), { smaltdb: SMALTDB, parameters: { day: '2024-03-01' } });
+      expect(loose.manifest.nodes.find((n) => n.origin === 'posture')!.gate).toEqual({ reconcile: { rows: 5, keys: 4, blank: 0, missing: 0, extra: 0 } });
+      expect(loose.holds[0]).toMatchObject({ by: 'checks', origin: 'posture', said: "rows don't reconcile: 1 row repeats a key (5 rows, 4 app_id values)" });
+      const v = await verifyRun(db, loose.run, { smaltdb: SMALTDB, level: 'rerun', manifest: loose.hash });
+      expect(v.ok).toBe(true);
+      expect(v.checks.find((c) => c.check === 'gate')).toMatchObject({ origin: 'posture', ok: true });
     } finally {
       db.close();
     }

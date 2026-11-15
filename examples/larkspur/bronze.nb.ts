@@ -101,7 +101,7 @@ cell('exceptions_gate');
 export const exceptions_gate = gate(exceptions, { layer: 'bronze', reconcile: { key: ['exception_id', 'version'] } });
 
 cell('findings_gate');
-export const findings_gate = gate(findings, { layer: 'bronze', reconcile: { key: 'finding_id' }, scope: { of: cmdb_apps, key: 'app_id', where: "hosting <> 'saas' AND lifecycle <> 'retired'" }, checks: { values: 'warn', amount: 'warn' } });
+export const findings_gate = gate(findings, { layer: 'bronze', reconcile: { key: 'finding_id' }, scope: { of: cmdb_apps, key: 'app_id', where: "hosting <> 'saas' AND lifecycle <> 'retired'", ids: 'loose' }, checks: { values: 'warn', amount: 'warn' } });
 
 cell('tls_gate');
 export const tls_gate = gate(tls, { layer: 'bronze' });

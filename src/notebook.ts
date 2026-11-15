@@ -81,7 +81,7 @@ export interface GateOptions {
    * the condition a key in scope meets (a SQL expression over the inventory), and the node's own key column when it
    * isn't `key`. The check counts the rows for keys out of scope and the keys in scope with no row.
    */
-  scope?: { of: unknown; key: string; where: string; own?: string };
+  scope?: { of: unknown; key: string; where: string; own?: string; ids?: 'exact' | 'loose' };
   /**
    * Dependency rules (ADR 0014 §4): a row matching `when` must match `then` (a value may be a list); within the row,
    * or, with `from` (a source, by its name) and `key`, `when` read on that source's row with the same key. A row that
