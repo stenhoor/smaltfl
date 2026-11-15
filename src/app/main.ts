@@ -7827,7 +7827,9 @@ function decisionSheet(shown0: RunRecord, story: Story | null): void {
   const status = anyone ? oneLine(t.status) : null;
   // The recommendation (the brief's proposal, ADR 0012 §2), named with its reason, never picked for the person: a
   // default weighs more when it looks endorsed, so it says why, and choosing stays theirs.
-  const brief = day ? briefOf(briefInputs(day)) : null;
+  // Told by the load the sheet decides (ADR 0023 §5): a file held on a flow whose views follow another dataset is
+  // recommended for by its own story, as the rows drawn above it are its own.
+  const brief = day ? briefOf(src !== loadSource() && told ? { ...briefInputs(day), story: told } : briefInputs(day)) : null;
   const recommended = anyone && brief && !brief.fix.picked ? brief.fix.proposed : null;
   const recOption = recommended ? t.options.find((x) => x.option === recommended && !x.off) : undefined;
   const recWhy = recommended === 'fill' && rem?.picks[0] ? `${(fixWords(rem.picks[0].day) ?? '').replace(/^./, (c) => c.toUpperCase())}: readers get a whole day, marked as filled.` : (brief?.fix.why ?? '');
@@ -12347,6 +12349,9 @@ function lifecycleOf(day: string): HTMLElement | null {
       else if (fa?.outcome === 'held') steps.push(['bad', `Held${fa.holds?.[0] ? `: ${fa.holds[0].origin}` : ''}`]);
       if (f.published) steps.push(['ok', !f.delivery && fa?.outcome === 'held' ? `Decided: ${DECIDED_WORD.asis}` : f.delivery ? 'Decided: published' : 'Published']);
       else if (f.decided?.option === 'dont') steps.push(['', 'Decided: kept back']);
+      // A fill readers had until a later version replaced it (ADR 0023 §5), or the part that arrived alone.
+      else if (f.decided?.option === 'fill') steps.push(['ok', `Decided: filled${f.decided.donor ? ` from ${dayShort(f.decided.donor)}` : ''}`]);
+      else if (f.decided?.option === 'complete') steps.push(['ok', `Decided: ${DECIDED_WORD.complete}`]);
     }
     const latest = facts.at(-1)!;
     if (latest.restated) {
@@ -13005,7 +13010,7 @@ interface VersionFact {
   v: number;
   delivery: (Delivered & { source: string }) | null;
   first: RecordEntry | null;
-  decided: { at: string; by: string; option: DecisionOption; reason: string | null } | null;
+  decided: { at: string; by: string; option: DecisionOption; reason: string | null; donor?: string | null } | null;
   published: boolean;
   /** A day run again under rules changed since (ADR 0021 §5): its change sets, whether it passed (else what held it), and
    * what its restatement decided (ticked: readers got it; else they kept the version they had). */
@@ -13035,7 +13040,7 @@ function versionFacts(k: number): VersionFact[] {
     return {
       v: i + 1, delivery: ver.delivery, first: mine[0] ?? null,
       ...(ver.made ? { made: { at: ver.made.first.at, by: ver.made.first.by.as, sources: ver.made.sources } } : {}),
-      decided: last ? { at: last.at, by: last.by.as, option: (last.about as unknown as DecideAbout).option, reason: last.reason } : null,
+      decided: last ? { at: last.at, by: last.by.as, option: (last.about as unknown as DecideAbout).option, reason: last.reason, donor: (last.about as unknown as DecideAbout).repair?.donor?.day ?? null } : null,
       published: mine.some((e) => (e.about as unknown as RunAbout).outcome === 'ok' || released.has(String((e.about as unknown as RunAbout).manifest))),
     };
   });
@@ -14472,6 +14477,13 @@ async function applyDecided(r: RunRecord): Promise<void> {
         const o = ds[0]!.about.option;
         const cited = ds.flatMap((d) => entryOf(d!.seq) ?? []);
         if ((o === 'asis' || o === 'accept') && ds.every((d) => d!.about.option === o) && cited.length === ds.length) await release(r, cited[0]!, keysForLoads(keys, r.result.holds, held), o, cited);
+        // A fill (or the part alone) is made again from its repair and released citing the decision about the file it
+        // fills (ADR 0023 §5); never for a version a later delivery replaced, which is no longer the day's to decide.
+        if ((o === 'fill' || o === 'complete') && ds.every((d) => d!.about.option === o) && !supersededBy(r)) {
+          const ofFile = ds.find((d) => d!.about.repair && d!.about.load?.source.toLowerCase() === d!.about.repair.source.toLowerCase()) ?? null;
+          const entry = ofFile ? entryOf(ofFile.seq) : null;
+          if (ofFile && entry) await applyRemedy(r, ofFile, [entry]);
+        }
         return;
       }
       for (const l of held) {
@@ -14982,7 +14994,7 @@ async function withdrawFill(d: RunRecord, decision: RecordEntry): Promise<Releas
  * document made again from the decision's repair, staged, and released citing the same decision when it made the keys
  * the decision names. Other keys (another build) leave the day as the record says, to be decided again by a person.
  */
-async function applyRemedy(r: RunRecord, d: Decided): Promise<void> {
+async function applyRemedy(r: RunRecord, d: Decided, cited: readonly RecordEntry[] = []): Promise<void> {
   const repair = d.about.repair;
   if (!repair || !ledger) return;
   const derived = await stage(r, repair, true);
@@ -14991,7 +15003,7 @@ async function applyRemedy(r: RunRecord, d: Decided): Promise<void> {
   if (!d.about.derived || !sameKeys(keys, d.about.derived.keys)) return;
   // Already out in this engine (the day stepped back to): its names show it, and there is nothing to apply again.
   if (derived.derived?.release?.outcome === 'applied' && Object.keys(keys).every((n) => state.names.get(n) === derived)) return;
-  await releaseDerived(derived, ledger.entries[d.seq]!, keys);
+  await releaseDerived(derived, entryOf(d.seq) ?? ledger.entries[d.seq]!, keys, undefined, cited);
 }
 
 /**
