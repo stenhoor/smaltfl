@@ -10,7 +10,8 @@ amendment 1, the news and the pause for any dataset in [adr/0010-any-dataset.md]
 the step surface in [adr/0011-notebooks-as-the-step-surface.md](adr/0011-notebooks-as-the-step-surface.md), the brief, the
 incident page, the drill and the phone canvas in [adr/0012-visual-first-in-two-minutes.md](adr/0012-visual-first-in-two-minutes.md), the
 bronze layer in [adr/0015-the-bronze-layer.md](adr/0015-the-bronze-layer.md), the mark in [adr/0016-the-mark.md](adr/0016-the-mark.md), time in [adr/0021-time.md](adr/0021-time.md), the answers of 2026-11-14 in
-[adr/0022-the-answers-of-2026-11-14.md](adr/0022-the-answers-of-2026-11-14.md). The
+[adr/0022-the-answers-of-2026-11-14.md](adr/0022-the-answers-of-2026-11-14.md), the demo as a tour in
+[adr/0023-the-demo-as-a-tour.md](adr/0023-the-demo-as-a-tour.md). The
 research behind the proposals is in [research/ecosystem-survey.md](research/ecosystem-survey.md).
 
 **Who decides:** the maintainers, together (ADR 0001 §1).
@@ -88,6 +89,19 @@ recommended, for the maintainers to confirm.
 | Q-204 | A file with an extra column and nothing missing, so everything the flow reads is still there: does it pause the day (Q-109)? | **Flagged, still published:** the day's News says "a new column: X", with an offer to add it to the ontology. Nothing the flow reads changed, so pausing would only add noise. Built as recommended (slice 2, first part), on the day's head rather than its News, where the day's story is: noted on the run's manifest, with Add it to the ontology for the owner (a description, listed on the Ontology page as not read by the flow); the maintainers to confirm | decided |
 | Q-205 | A renamed column a join reads (Q-146's "more flags"): how strict is mapping it? | **Its impact shown, confirmed twice:** the hold names each join on the column, the steps and outputs built from it, and how many of today's values still find a match on the join's other side; mapping it asks for a second confirmation naming those outputs. Built as recommended (slice 2, second part: `columnUses` in `src/core/uses.ts` finds the joins, today's matches counted from the day's files, the mapping's second confirmation on the day's head; the control estate's Mon Mar 18); the maintainers to confirm | decided |
 | Q-206 | A mapping someone confirms (the file's new name read as the old one), written in the ontology as the file's own: from when? | **From the held day on**, a dated change like the other rules over time (ADR 0021 §5): the held day runs again under it and is decided as usual, and later files read the new name with no hold. Each run's rules hash names it. Built as recommended (slice 2, first part: the edit `mapColumn`, a property's `fromFile`, the plan's `readAs`; Read X as Y on the day's head restates the day under it); the maintainers to confirm | decided |
+
+## The demo as a tour: the maintainer's direction (ADR 0023)
+
+On 2026-11-15, with Q-132 built, the maintainer asked for the demo to be thought through again from what a visitor
+should see: everything going normally; warnings and how to react; a hard rule's hold backfilled by a file sent later; a
+statistical anomaly approved as real, and one that was an issue, filled and then corrected; and fills forward, backward,
+from a specific day, and one file replaced. The plan was put in the chat, and the maintainer approved it ("Looks good").
+
+| # | Question | Answer | Status |
+|---|---|---|---|
+| Q-209 | What should the demo show? | **One capability a scene, six scenes** (ADR 0023 §1): a normal day; a warning and the reactions to it; a hard rule's hold, backfilled by the file sent again; a statistical anomaly that was real (published as is, paused again, then the new level accepted); one that was an issue (filled forward, then the corrected file replacing the fill); fills backward and from a specific day, and one file of a day replaced. Calm days between them, so the month reads as a story | decided |
+| Q-210 | On which data? | **Larkspur, with a tour month** (ADR 0023 §2): its generator plants the scenes on their days, and the demo at `/app/` builds that month. Today's month stays the tests' with its answer key; the tour has its own answer key and recorded story; two layering stories stay in it as "more to see". The control estate and the sign-in log stay as they are | decided |
+| Q-211 | Where is the walk? | **In the app** (ADR 0023 §4): the month screen lists the scenes, each opening its day and the place to look. The docs' demo page follows it | decided |
 
 ## Pausing and the examples: the maintainer's answers of 2026-11-15 (ADR 0022)
 
