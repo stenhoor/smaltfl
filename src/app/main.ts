@@ -2591,8 +2591,8 @@ function histogram(p: Profile, fmt: (v: number) => string = fmtOf(p), usual?: re
 /**
  * A column's values drawn, as its card in the Columns tab and its card on the Ontology page show them: a measure's or
  * a time's histogram with its numbers under it, else its most common values as bars. Nothing for a column with
- * neither. A bar carries one label: what its value stands for where that says more than the value does ("Card data"
- * for pci), else the value as the file writes it ("yes", never "Yes" beside it: `labelFor`).
+ * neither. A bar carries one label: what its value stands for in the ontology's words, even where that only repeats the
+ * value ("Not assessed" for not_assessed, Q-145), else the value as the file writes it (`drawnLabel`).
  */
 function columnShape(p: Profile, meaning?: PropertyType): HTMLElement[] {
   const f = p.facts;
@@ -2612,7 +2612,7 @@ function columnShape(p: Profile, meaning?: PropertyType): HTMLElement[] {
       ...stat('half fall between', `${fmt(q.p25)} and ${fmt(q.p75)}`))];
   }
   if (!p.top?.length) return [];
-  const names = p.top.map((t) => labelFor(meaning, t.value) ?? t.value);
+  const names = p.top.map((t) => drawnLabel(meaning, t.value));
   // A meaning that is a sentence ("Manhattan south of E 96th St…: only yellow cabs take street hails") has no room
   // beside a bar: with one, each name sits over its bar.
   const over = names.some((n) => n.length > 28);
@@ -4718,10 +4718,9 @@ function qualityVisual(f: Finding, id: string): Element | null {
     const raw = f.values?.[0] ?? '';
     let v: unknown = raw;
     try { v = JSON.parse(raw); } catch { /* as written */ }
-    const label = NEWS_NAMES.label(col, v);
-    return svgNode(dumbbellRows({ rows: [{ label: label === String(v) ? `${NEWS_NAMES.column(col)} ${label}` : label, today: f.value, low, high, todayLabel: pct(f.value), usualLabel: `band ${pct(low)}–${pct(high)}`, sev: f.severity === 'alert' ? 'alert' : 'warn' }], aria: `${f.title}, against the ontology’s band` }));
+    return svgNode(dumbbellRows({ rows: [{ label: drawnValue(id, col, v), today: f.value, low, high, todayLabel: pct(f.value), usualLabel: `band ${pct(low)}–${pct(high)}`, sev: f.severity === 'alert' ? 'alert' : 'warn' }], aria: `${f.title}, against the ontology’s band` }));
   }
-  return checkVisual(f, id) ?? findingVisual(f);
+  return checkVisual(f, id) ?? findingVisual(f, id);
 }
 
 /** A column's title in a file, for any file: the ontology's title where it has one, else the name as written. */
@@ -5376,10 +5375,11 @@ function miniDist(p: Profile, meaning?: PropertyType): SVGSVGElement | HTMLEleme
       x += w;
     });
     // The top value only, said short: its meaning when that is a word or two (a company's without its legal form,
-    // "Curb Mobility"), a money value in dollars, else its code (the rest is a tap away); its share after a "·".
+    // "Curb Mobility"; the ontology's label even where it only repeats the value, Q-145), a money value in dollars, else
+    // its code (the rest is a tap away); its share after a "·".
     const name = (t: { value: unknown }) => {
       // As the news names it ("Flex Fare", never "Flex Fare trip" or its code 0), a zone by its name where it fits.
-      const m = labelFor(meaning, t.value)?.replace(/\s+trips?$/i, '');
+      const m = meaningFor(meaning, t.value)?.replace(/\s+trips?$/i, '');
       const who = m && /,?\s+(LLC|L\.L\.C\.|Inc\.?|Ltd\.?|Corp\.?)$/i.test(m) ? shortWho(m) : m;
       if (who && (who.split(/\s+/).length <= 3 || who.length <= 22)) return who;
       const n = Number(t.value);
@@ -5873,7 +5873,7 @@ function usualShares(id: string, p: Profile, m: PropertyType | undefined): HTMLE
     let raw: unknown = key;
     try { raw = JSON.parse(key); } catch { /* as written */ }
     const out = v < r.low || v > r.high;
-    rows.push({ label: labelFor(m, raw) ?? String(raw), today: v, low: Math.max(0, r.low), high: Math.min(1, r.high), todayLabel: pct(v), usualLabel: `usually ${unitSpan(pct(Math.max(0, r.low)), pct(Math.min(1, r.high)))}`, sev: out ? 'warn' : null });
+    rows.push({ label: drawnLabel(m, raw), today: v, low: Math.max(0, r.low), high: Math.min(1, r.high), todayLabel: pct(v), usualLabel: `usually ${unitSpan(pct(Math.max(0, r.low)), pct(Math.min(1, r.high)))}`, sev: out ? 'warn' : null });
   }
   if (!rows.length) return null;
   return h('div', {}, svgNode(dumbbellRows({ rows, aria: `${p.name}: each common value’s share today against its usual range` })), h('p', { class: 'foot' }, 'The dot is today; the grey bar is what past days like this one had. A limit written for the file, where there is one, is under Today.'));
@@ -6424,8 +6424,8 @@ function gateVisual(g: Gate, big = false, countMax?: number): Element {
   }));
 }
 
-/** A finding's own visual, chosen by its kind. */
-function findingVisual(f: Finding): Element | null {
+/** A finding's own visual, chosen by its kind; `dataset`, the one it is about, where that isn't the one the views follow. */
+function findingVisual(f: Finding, dataset?: string): Element | null {
   const day = newsDay();
   if (!day) return null;
   const sev = f.severity === 'alert' || f.severity === 'warn' ? f.severity : null;
@@ -6444,10 +6444,10 @@ function findingVisual(f: Finding): Element | null {
   if ((f.kind === 'share' || f.kind === 'gone' || f.kind === 'missing') && (f.members?.length || f.range)) {
     const rows: Dumbbell[] = (f.members ?? [{ column: f.columns?.[0] ?? '', value: f.values?.[0] ?? 'null', label: '', share: f.value ?? 0, range: f.range!, rows: f.rows ?? 0 }]).map((m) => {
       const w = shareWords(m.share, m.range.low, m.range.high);
-      // A code's meaning says what it is on its own ("Store and forward trip"); a bare value is said with its column.
+      // A code's meaning says what it is on its own ("Store and forward trip"), in its own dataset's words (Q-145); a bare
+      // value is said with its column.
       const raw = m.value === 'null' ? null : JSON.parse(m.value) as unknown;
-      const said = m.value === 'null' ? 'blank' : m.label || NEWS_NAMES.label(m.column, raw);
-      const label = m.value !== 'null' && said !== String(raw) && !/^\$?-?[\d.,]+$/.test(said) ? said : `${NEWS_NAMES.column(m.column)} ${said}`;
+      const label = drawnValue(dataset ?? loadSource(), m.column, raw, m.label);
       return { label, today: m.share, low: m.range.low, high: m.range.high, todayLabel: m.share === 0 ? 'none' : w.value, usualLabel: `usually ${w.range}`, sev, gone: m.share === 0 };
     }).slice(0, 6);
     return svgNode(dumbbellRows({ rows, aria: `${f.title}` }));
@@ -6475,9 +6475,9 @@ function findingVisual(f: Finding): Element | null {
   return checkVisual(f, f.table ?? loadSource() ?? '');
 }
 
-/** A row of chips for the values a finding names: new values, a new pair, a schema change. */
-function chipsOf(f: Finding): HTMLElement | null {
-  if (f.kind === 'new' && f.values?.length) return h('div', { class: 'vf-chips' }, ...f.values.slice(0, 3).map((v) => h('span', { class: 'vf-chip new' }, NEWS_NAMES.label(f.columns?.[0] ?? '', JSON.parse(v)))), f.values.length > 3 ? h('span', { class: 'vf-chip' }, `+${f.values.length - 3}`) : null);
+/** A row of chips for the values a finding names: new values, a new pair, a schema change; each by its name in `dataset`. */
+function chipsOf(f: Finding, dataset?: string): HTMLElement | null {
+  if (f.kind === 'new' && f.values?.length) return h('div', { class: 'vf-chips' }, ...f.values.slice(0, 3).map((v) => h('span', { class: 'vf-chip new' }, drawnName(dataset ?? loadSource(), f.columns?.[0] ?? '', JSON.parse(v)))), f.values.length > 3 ? h('span', { class: 'vf-chip' }, `+${f.values.length - 3}`) : null);
   return null;
 }
 
@@ -6850,7 +6850,7 @@ function compositionOf(column: string, day: string, moved?: string, names?: [str
 /** What a tap on a finding opens: its visual, its day by day, one sentence, its verbs. */
 function findingDetail(f: Finding, card: string): void {
   const day = newsDay();
-  const body: (Node | null)[] = [findingVisual(f), chipsOf(f)];
+  const body: (Node | null)[] = [findingVisual(f, card), chipsOf(f, card)];
   if (day && f.metric && f.kind !== 'volume') {
     const days = stripOf(f.metric, day, 28, f.severity);
     // On a scale from 0 with its top printed (round 3, #23), a share's in percent, a count's as a count; and where today
@@ -9912,6 +9912,28 @@ const labelFor = (p: PropertyType | undefined, v: unknown): string | undefined =
   return saysMore(means, v) ? means : undefined;
 };
 
+/**
+ * A value as a drawing names it (Q-145, ADR 0022 §3): what it stands for in the ontology's words, even where that only
+ * repeats the value ("Not assessed" for not_assessed, "Pass" for pass), else the value as the file writes it. A drawing
+ * gives a value one name and never the code beside it; text that shows a value beside its meaning reads `labelFor`.
+ */
+const drawnLabel = (p: PropertyType | undefined, v: unknown): string => meaningFor(p, v) ?? String(v);
+
+/** A coded value's name in a drawing (Q-145): the ontology's label for it in its own dataset, even where it only repeats
+ * the value, else as the views name it (a money value in dollars), else the value as written. */
+const drawnName = (dataset: string | undefined, column: string, raw: unknown): string => (dataset ? meaningFor(meaningsOf(dataset)(column), raw) : undefined) ?? NEWS_NAMES.label(column, raw);
+
+/**
+ * A coded value as a drawing's row says it: its name alone where that isn't the value as written ("Not assessed",
+ * "Store and forward trip"), else after its column ("Status fail", "Fare $2.50"); a blank as blank. `told`: the label the
+ * finding was told with, taken where it isn't the value as written.
+ */
+function drawnValue(dataset: string | undefined, column: string, raw: unknown, told?: string): string {
+  if (raw === null || raw === undefined) return `${NEWS_NAMES.column(column)} blank`;
+  const said = (told && told !== String(raw) ? told : undefined) ?? drawnName(dataset, column, raw);
+  return said !== String(raw) && !/^\$?-?[\d.,]+$/.test(said) ? said : `${NEWS_NAMES.column(column)} ${said}`;
+}
+
 /** A value as people read it: in its unit, and for a code, with what it stands for (`means`). */
 function readValue(v: unknown, p: PropertyType | undefined): { text: string; cls: string; means?: string } {
   const c = cellOf(v);
@@ -10575,7 +10597,15 @@ function madePanel(): HTMLElement | null {
       if (p) inSection.add(p);
     }
   }
-  // A column the viewer reads in a file is described in that file's section: here, what they read only further on.
+  // A made dataset with a section of its own (Q-144) describes its columns there too.
+  for (const id of ontologyFiles.made) {
+    const view = fileView(id);
+    for (const c of view?.open ? view.columns : []) {
+      const p = propertyOf(o, id, c);
+      if (p) inSection.add(p);
+    }
+  }
+  // A column the viewer reads in a file, or in a made dataset with a section, is described there: here, the rest.
   const rest = props.filter((p) => where.has(p) && !inSection.has(p)).sort((a, b) => order.get(a)! - order.get(b)!);
   const made = rest.filter((p) => !fileOf.has(p));
   const carried = new Map<string, PropertyType[]>();
@@ -10611,12 +10641,34 @@ function madePanel(): HTMLElement | null {
 /** The file whose section is open, kept while the page is drawn again (a run, another viewer), and what the panel on
  * screen was drawn from: it is left as it is while that hasn't changed (an object picked or an action taken further
  * down the page draws the page again, and a section rebuilt under the reader would move what they are looking at). */
-const ontologyFiles = { open: null as string | null, doc: null as FlowDocument | null, from: '', who: '' };
+const ontologyFiles = { open: null as string | null, doc: null as FlowDocument | null, from: '', who: '', show: null as ((id: string | null, jump: boolean) => void) | null, made: [] as string[] };
+
+/** A file's or a made dataset's section on the Ontology page opened, and brought into view. */
+const openOntologySection = (id: string) => ontologyFiles.show?.(id, true);
+
+/** Under a file, the datasets the flow makes that read it (Q-144): each a tap to its own section; three, and how many
+ * more, until asked for all of them. */
+function readByLine(ids: readonly string[]): HTMLElement {
+  const p = h('p', { class: 'of-readby' });
+  const link = (id: string) => h('button', { type: 'button', class: 'linkish', 'data-made': id, onclick: () => openOntologySection(id) }, ...breakable(id));
+  const draw = (all: boolean) => {
+    const shown = all || ids.length <= 4 ? ids : ids.slice(0, 3);
+    const parts: (Node | string)[] = ['Read by '];
+    shown.forEach((id, k) => {
+      if (k) parts.push(k === shown.length - 1 && shown.length === ids.length ? ' and ' : ', ');
+      parts.push(link(id));
+    });
+    if (shown.length < ids.length) parts.push(' and ', h('button', { type: 'button', class: 'linkish of-readby-more', onclick: () => draw(true) }, `${ids.length - shown.length} more`));
+    p.replaceChildren(...parts);
+  };
+  draw(false);
+  return p;
+}
 
 /** A rule as a line: its sentence, how it came to be and what it is checked against, and why nothing judges it. On a
  * column's card a file's own rule is said for the column (`here`) and says whose it is: one rule, listed twice. */
-function ruleLine(r: Rule, here?: string, acts?: HTMLElement | null): HTMLElement {
-  const how = [originSaid(r.origin), here !== undefined ? 'one of this file’s checks' : r.against ? `checked against ${r.againstSaid ?? r.against}` : ''].filter(Boolean).join(' · ');
+function ruleLine(r: Rule, here?: string, acts?: HTMLElement | null, thing: 'file' | 'dataset' = 'file'): HTMLElement {
+  const how = [originSaid(r.origin), here !== undefined ? `one of this ${thing}’s checks` : r.against ? `checked against ${r.againstSaid ?? r.against}` : ''].filter(Boolean).join(' · ');
   // Today's state, as the file's card judges it (Q-160), and the way to the card: the check is the same on both.
   const file = r.id.split('/')[0]!;
   const st = ontologyStates.get(r.id);
@@ -10749,8 +10801,10 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
   const had = new Map(c.values);
   const all = [...c.values.map(([code]) => code), ...seen.filter((v) => !had.has(v))];
   const shown = all.slice(0, 40);
-  // A field holds the value's label where it says more than the value; "Yes" for yes is no label, and the field is empty.
-  const labels = shown.map((value, k) => ({ value, input: h('input', { type: 'text', id: `${uid}-v${k}`, value: saysMore(had.get(value), value) ? had.get(value)! : '', maxlength: '60', placeholder: 'No label', autocomplete: 'off', autocapitalize: 'sentences' }) }));
+  // A field holds the value's label where it says more than the value; "Yes" for yes is no label to edit, and the field
+  // is empty, showing it as the placeholder, since a drawing still names the value by it (Q-145).
+  const repeats = (value: string) => { const l = had.get(value); return l !== undefined && l !== value && !saysMore(l, value) ? l : undefined; };
+  const labels = shown.map((value, k) => ({ value, input: h('input', { type: 'text', id: `${uid}-v${k}`, value: saysMore(had.get(value), value) ? had.get(value)! : '', maxlength: '60', placeholder: repeats(value) ?? 'No label', autocomplete: 'off', autocapitalize: 'sentences' }) }));
   const err = h('p', { class: 'of-err', role: 'alert', hidden: true });
   const save = h('button', { type: 'submit', class: 'btn of-save' }, 'Save');
   // Where the column is used (ADR 0022 §2, Q-146), joins first: a change is the file's own, and goes on to the datasets
@@ -10772,7 +10826,7 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
     labels.length ? h('fieldset', { class: 'of-vals' }, h('legend', {}, labels.length === 1 ? 'A label for its value' : 'A label for each value'),
       ...labels.map((x) => h('div', { class: 'of-val' }, h('label', { for: x.input.id }, h('code', {}, ...breakable(x.value))), x.input)),
       all.length > shown.length ? h('p', { class: 'of-hint' }, `The first ${shown.length} of ${fmtInt(all.length)} values.`) : null,
-      h('p', { class: 'of-hint' }, 'A label is shown where it says more than the value itself.')) : null,
+      h('p', { class: 'of-hint' }, 'A drawing names each value by its label; beside the value, a label is shown where it says more than the value itself.')) : null,
     where,
     forWhom,
     err,
@@ -10832,7 +10886,9 @@ function sharedNote(file: string): HTMLElement | null {
  * declares, with their meanings and rules, which don't depend on the day, and nothing drawn. */
 function fileSection(f: FileSection, refused: boolean, day: string | null): HTMLElement {
   const slots = new Map<string, { slot: HTMLElement; meaning: PropertyType | undefined; seen: string[] }>();
-  const owner = isOwner();
+  // A dataset the flow makes (Q-144) is read here, not edited: its names and checks are its notebook's and the files'.
+  const owner = isOwner() && !f.made;
+  const thing: 'file' | 'dataset' = f.made ? 'dataset' : 'file';
   const columnNames = (f.columns ?? []).map((c) => c.name);
   /** The rule form opened in place of what was tapped (the Add button, or a rule's line), which comes back on Cancel. */
   const openRuleForm = (c: ColumnCard, was: OntologyRule | null, at: HTMLElement) => {
@@ -10872,7 +10928,7 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
     if (!refused) slots.set(c.name, drawn);
     // The file's own rules about this column first (its key has to be there, it must be an object the file covers),
     // then the column's own: no card says it has no rule under a rule that names its column.
-    const lines = [...c.fileRules.map((x) => ruleLine(x.rule, x.said)), ...c.rules.map((r) => ruleLine(r, undefined, owner && r.def ? setActs(c, r.def) : null))];
+    const lines = [...c.fileRules.map((x) => ruleLine(x.rule, x.said, null, thing)), ...c.rules.map((r) => ruleLine(r, undefined, owner && r.def ? setActs(c, r.def) : null, thing))];
     // Only the values whose meaning says more than the value does (`standFor`): no list of "yes: Yes".
     const codes = c.standFor;
     // Its names are the owner's to change, in place (`columnForm`): a reader sees no Edit.
@@ -10910,15 +10966,17 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
   });
   const wait = h('p', { class: 'of-none' },
     refused ? (cards.length ? `${day ? `${dayLabel(day)}’s` : 'This load’s'} file was refused, so none of it was read. These are the columns the flow expects, with their checks.` : 'This load’s file was refused: its columns weren’t read.')
-      : cards.length ? '' : f.columns ? 'No columns in this load.' : 'Run the flow to see this file’s columns.');
+      : cards.length ? '' : f.columns ? 'No columns in this load.' : `Run the flow to see this ${thing}’s columns.`);
   wait.hidden = cards.length > 0 && !refused;
   // The row above drops its line while the section is open: the whole description is here, said once.
   const sec = h('div', { class: 'of-sec', id: `of-sec-${f.id}`, role: 'region', 'aria-label': `${f.id}: what it is, its checks and its columns` },
     h('div', { class: 'of-about' },
       f.description ? h('p', { class: 'of-desc' }, f.description) : h('p', { class: 'of-none' }, 'Not described yet.'),
+      f.made ? h('p', { class: 'of-inv' }, `${f.made.layer ? `${f.made.layer[0]!.toUpperCase()}${f.made.layer.slice(1)}: a` : 'A'} dataset the flow makes${f.made.published ? ', which readers get' : ''}.`) : null,
       f.inventory ? h('p', { class: 'of-inv' }, `${f.inventory.said}.`) : null,
+      f.readBy?.length ? readByLine(f.readBy) : null,
       sharedNote(f.id)),
-    h('section', { class: 'of-part of-own' }, h('h3', { class: 'of-h' }, 'This file’s checks'), ruleList(f.rules, 'No checks of its own yet.')),
+    h('section', { class: 'of-part of-own' }, h('h3', { class: 'of-h' }, `This ${thing}’s checks`), ruleList(f.rules, 'No checks of its own yet.')),
     h('section', { class: 'of-part' }, h('h3', { class: 'of-h' }, cards.length ? `Columns · ${cards.length}` : 'Columns'), wait, cards.length ? h('div', { class: 'of-cols' }, ...cards) : null),
     // A column the file added, described as the file's own, which the flow doesn't read (ADR 0022 §2, Q-204).
     f.unread?.length ? h('section', { class: 'of-part of-unread' }, h('h3', { class: 'of-h' }, `Not read by the flow · ${f.unread.length}`),
@@ -10957,6 +11015,10 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
  */
 async function renderFiles(stale: () => boolean): Promise<void> {
   const page = ontologyPage({ ...state.doc, sources: state.doc.sources.filter((x) => fileView(x.id)?.open !== false) }, (id) => fileView(id)?.columns, fileColumns);
+  // The datasets the flow makes with rules (Q-144), as the viewer may read them; a file says only those that read it.
+  const made = page.made.filter((m) => fileView(m.id)?.open !== false);
+  const shownMade = new Set(made.map((m) => m.id));
+  const files = page.files.map((f) => (f.readBy ? { ...f, readBy: f.readBy.filter((id) => shownMade.has(id)) } : f));
   ontologyStates.clear();
   ontologyVerdicts.clear();
   if (latest()) for (const f of page.files) {
@@ -10968,7 +11030,7 @@ async function renderFiles(stale: () => boolean): Promise<void> {
   }
   const run = latest();
   const day = shownDay();
-  const from = JSON.stringify([run?.result.run ?? null, run?.result.hash ?? null, day ?? null, state.viewer, page.files.map((f) => [f.id, f.columns?.map((c) => c.name) ?? null])]);
+  const from = JSON.stringify([run?.result.run ?? null, run?.result.hash ?? null, day ?? null, state.viewer, [...files, ...made].map((f) => [f.id, f.columns?.map((c) => c.name) ?? null])]);
   if (ontologyFiles.doc === state.doc && ontologyFiles.from === from && $('ontology-files').querySelector('.of-list')) return;
   // Someone is typing in a card's form: the panel under it stays as it is until they save or cancel (which draws
   // it). Another viewer is another panel: theirs is drawn, and the form goes with the owner's.
@@ -10978,7 +11040,7 @@ async function renderFiles(stale: () => boolean): Promise<void> {
   const refused = new Set((run?.result.manifest.nodes ?? []).filter((n) => n.status === 'refused').map((n) => n.origin));
   if (run && state.engine) {
     const insp = await inspect(run);
-    for (const f of page.files) {
+    for (const f of [...files, ...made]) {
       const i = insp.index.get(f.id);
       const n = i === undefined || !insp.manifest.has(i) ? null : await rowsAs(insp, i).catch(() => null);
       if (n !== null) rows.set(f.id, n);
@@ -11002,20 +11064,29 @@ async function renderFiles(stale: () => boolean): Promise<void> {
     // The file tapped stays under the finger's eye: the section above it may just have closed.
     if (id && jump) requestAnimationFrame(() => items.get(id)?.el.scrollIntoView({ block: 'start' }));
   };
-  const list = h('div', { class: 'of-list' },
-    ...page.files.map((f) => {
-      const n = rows.get(f.id);
-      const what = f.summary ? h('span', { class: 'of-what' }, f.summary) : null;
-      const row = h('button', { type: 'button', class: 'of-row', 'aria-expanded': 'false', 'aria-controls': `of-sec-${f.id}`, onclick: () => show(ontologyFiles.open === f.id ? null : f.id, true) },
-        h('span', { class: 'of-chev', 'aria-hidden': 'true' }),
-        h('span', { class: 'of-main' },
-          h('span', { class: 'of-name' }, ...breakable(f.id)),
-          what,
-          h('span', { class: 'of-nums' }, `${n !== undefined ? `${counted(n, f.noun)} · ` : refused.has(f.id) ? 'file refused · ' : ''}${f.count ? plural(f.count, 'check') : 'no checks yet'}${ontologyVerdict(f.id)}`)));
-      const el = h('div', { class: 'of-item', 'data-file': f.id }, row);
-      items.set(f.id, { el, row, what, f });
-      return el;
-    }));
+  const rowOf = (f: FileSection) => {
+    const n = rows.get(f.id);
+    const what = f.summary ? h('span', { class: 'of-what' }, f.summary) : null;
+    const row = h('button', { type: 'button', class: 'of-row', 'aria-expanded': 'false', 'aria-controls': `of-sec-${f.id}`, onclick: () => show(ontologyFiles.open === f.id ? null : f.id, true) },
+      h('span', { class: 'of-chev', 'aria-hidden': 'true' }),
+      h('span', { class: 'of-main' },
+        h('span', { class: 'of-name' }, ...breakable(f.id)),
+        what,
+        h('span', { class: 'of-nums' }, `${f.made?.layer ? `${f.made.layer[0]!.toUpperCase()}${f.made.layer.slice(1)} · ` : ''}${n !== undefined ? `${counted(n, f.noun)} · ` : refused.has(f.id) ? 'file refused · ' : ''}${f.count ? plural(f.count, 'check') : 'no checks yet'}${ontologyVerdict(f.id)}`)));
+    const el = h('div', { class: 'of-item', [f.made ? 'data-made' : 'data-file']: f.id }, row);
+    items.set(f.id, { el, row, what, f });
+    return el;
+  };
+  const list = h('div', { class: 'of-list' }, ...files.map(rowOf));
+  const madeList = h('div', { class: 'of-list' }, ...made.map(rowOf));
+  ontologyFiles.show = show;
+  ontologyFiles.made = made.map((m) => m.id);
+  const madePanelEl = $('ontology-made');
+  madePanelEl.hidden = !made.length;
+  madePanelEl.replaceChildren(...(made.length ? [
+    h('h2', {}, 'Made by the flow'),
+    h('p', { class: 'sub' }, 'The datasets the flow makes that a gate judges, each with its checks, laid out as a file is. Tap one for its columns and checks.'),
+    madeList] : []));
   $('ontology-files').replaceChildren(
     h('h2', {}, 'Files'),
     h('p', { class: 'sub' }, !page.files.length ? `No file of this flow is open to ${personName(state.viewer)}.` : run ? `${day ? `${dayLabel(day)}’s load` : 'This run’s rows'}, read as ${personName(state.viewer)}. Tap a file for its columns and checks.` : 'Run the flow to see each file’s rows and columns.'),

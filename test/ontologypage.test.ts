@@ -152,6 +152,54 @@ describe('the control estate, file by file', () => {
   });
 });
 
+/**
+ * A dataset the flow makes has its rules on the page (Q-144, ADR 0022 §3): each one a gate judges and that has rules
+ * gets a section after the files, laid out like a file's, and each file names the made datasets that read it.
+ */
+describe('the datasets the flow makes', () => {
+  const said = (f: { rules: { id: string; said: string; origin: { how: string; in?: string }; unchecked?: string }[] }) => f.rules.map((r) => [r.id, r.said, r.origin.how === 'set' ? r.origin.in : r.origin.how, r.unchecked ?? null]);
+
+  it('lists the estate’s posture and its outputs after the files, with the gate cell’s key and the ontology’s needs rule', async () => {
+    const page = ontologyPage(await loadFlowDir(estateDir));
+    expect(page.files).toHaveLength(13);
+    expect(page.made.map((m) => m.id)).toEqual(['posture', 'app_scores', 'by_unit', 'by_control', 'by_type', 'by_profile', 'control_by_type', 'failed_together']);
+    const posture = file(page.made, 'posture');
+    expect(posture.made).toEqual({ layer: 'silver', published: true });
+    expect(said(posture)).toEqual([
+      ['posture/key', 'No Application blank or repeated', 'notebook', null],
+      ['posture/same', 'The same Application values as apps: none missing, none extra', 'notebook', null],
+      ['posture/needs#1', 'Where Key rotation is Passing, Encryption at rest must be Passing, Exception or Not assessed', 'ontology', null],
+    ]);
+    // A silver dataset's key is off by its layer's default: said as such, not as switched off in the notebook.
+    expect(said(file(page.made, 'app_scores')).map((r) => r[3])).toEqual(['not checked at the silver layer', 'not checked at the silver layer']);
+    // A gold table nothing watches has its key counted by each run.
+    expect(said(file(page.made, 'by_unit')).map((r) => r[3])).toEqual([null, null]);
+    // Every file is read by all of them, through the posture.
+    expect(file(page.files, 'tls').readBy).toEqual(page.made.map((m) => m.id));
+    // An intermediate step nothing judges has no section: the checks the control files go through.
+    expect(page.made.some((m) => m.id.endsWith('_checked'))).toBe(false);
+  });
+
+  it('gives Larkspur’s gold tables their rows entries and keys from the ontology, and says what nothing judges', async () => {
+    const page = ontologyPage(await loadFlowDir(new URL('../examples/larkspur/', import.meta.url)));
+    const org = file(page.made, 'dim_org');
+    expect(org.made).toEqual({ layer: 'gold', published: true });
+    expect(said(org)).toEqual([
+      ['dim_org/rows', 'One row an organisational unit', 'ontology', null],
+      ['dim_org/covers', 'Covers every unit, and no others', 'ontology', 'nothing watches this dataset'],
+      ['dim_org/key', 'No Unit blank or repeated', 'ontology', null],
+    ]);
+    expect(said(file(page.made, 'posture_wide'))[1]).toEqual(['posture_wide/needs#1', 'Where Status is Pass in key_rotation, Encryption at rest must be Pass, Excepted, Compensated, Not assessed, No data or Not applicable', 'ontology', null]);
+    expect(file(page.files, 'control_requirements').readBy).toEqual(['dim_control']);
+    expect(file(page.files, 'platforms').readBy).toBeUndefined();
+  });
+
+  it('has no made section in a flow with no gate', async () => {
+    expect(ontologyPage(await loadFlowDir(taxiDir)).made).toEqual([]);
+    expect(ontologyPage(await loadFlowDir(signinsDir)).made).toEqual([]);
+  });
+});
+
 describe('the other examples', () => {
   it('keeps the taxi flow’s object types, which have links and actions, and gives its files no rule it doesn’t write', async () => {
     const doc = await loadFlowDir(taxiDir);
@@ -325,8 +373,8 @@ describe('what the examples don’t write', () => {
   });
 
   it('says how a rule came to be, with room for a range kept from the history and for what is discovered', () => {
-    expect(originSaid({ how: 'set', in: 'ontology' })).toBe('Set by hand');
-    expect(originSaid({ how: 'set', in: 'notebook' })).toBe('Set by hand');
+    expect(originSaid({ how: 'set', in: 'ontology' })).toBe('Set in the ontology');
+    expect(originSaid({ how: 'set', in: 'notebook' })).toBe('Set in the notebook');
     expect(originSaid({ how: 'derived', days: 90, kept: 'rolling' })).toBe('From the last 90 days, rolling');
     expect(originSaid({ how: 'derived', days: 1, kept: 'fixed' })).toBe('From the last 1 day, fixed');
     expect(originSaid({ how: 'discovered' })).toBe('Discovered in the data');

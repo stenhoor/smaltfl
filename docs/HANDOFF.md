@@ -268,9 +268,13 @@ as decided as built, and the answers that change what is built or add to it are 
    - `ontology.needs` writes a dependency once, with the datasets it applies to; a gate cell adds one or overrides one
      about the same columns (Q-119). The estate's and Larkspur's rule is the ontology's.
 
-   **Next is its second part:**
-   - drawings say the ontology's label (Q-145);
-   - a made dataset's rules on the Ontology page (Q-144).
+   The second part is built too (2026-11-15):
+   - drawings name a coded value by the ontology's label, even where it only repeats the value (Q-145);
+   - "Made by the flow" on the Ontology page: a read-only section a dataset a gate judges with rules, laid out as a
+     file's, and "Read by" under each file (Q-144);
+   - a rule set by hand says where it is written: the ontology or the notebook.
+
+   **Next is slice 4.**
 4. **Pausing:**
    - keep pausing until accepted (Q-86, item 1 below);
    - an overwhelming learned finding pauses the day (Q-132);

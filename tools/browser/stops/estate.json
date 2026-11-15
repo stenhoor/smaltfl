@@ -120,7 +120,7 @@
  },
  {
   "name": "mar06-ontology-control",
-  "what": "Control estate, calm Wed Mar 6: the Ontology view with a control's file (the WAF's) opened in place: what the file is (said once: the open row drops its line), this file's rules (one row an application, the applications it covers, its key), a card a column with its values in the day's load drawn at the top (a bar has one label: what its value stands for where that says more than the value, Blocking for block, else the value as the file writes it), its meaning and its rules (on the Application card the file's two rules about it, so no \"No rules yet.\" under the key; then a new value, the bad value, the bands), then Discovered, empty. A column's name as the file writes it is beside its title only where the two differ (app_id beside Application, none beside Status), and \"What its values stand for\" lists only the values whose meaning says more (none for the WAF provider, whose four are named as themselves)",
+  "what": "Control estate, calm Wed Mar 6: the Ontology view with a control's file (the WAF's) opened in place: what the file is (said once: the open row drops its line), this file's rules (one row an application, the applications it covers, its key), a card a column with its values in the day's load drawn at the top (a bar has one label: what its value stands for in the ontology’s words, Blocking for block, and Akamai for akamai or Exception for exception though they only repeat the value (Q-145), else the value as the file writes it), its meaning and its rules (on the Application card the file's two rules about it, so no \"No rules yet.\" under the key; then a new value, the bad value, the bands), then Discovered, empty. A column's name as the file writes it is beside its title only where the two differ (app_id beside Application, none beside Status), and \"What its values stand for\" lists only the values whose meaning says more (none for the WAF provider, whose four are named as themselves)",
   "day": "Wed 6",
   "view": "ontology",
   "viewFirst": true,
@@ -132,9 +132,9 @@
     "One row an application",
     "Covers the applications where Internet-facing is Yes, and no others",
     "No Application blank or repeated",
-    "Set by hand · checked against the list of applications (apps)",
+    "Set in the ontology · checked against the list of applications (apps)",
     "Must be one of the applications this file covers",
-    "Set by hand · one of this file’s checks",
+    "Set in the ontology · one of this file’s checks",
     "A value never seen in this file before is flagged as wrong",
     "Off is a bad value: a jump above its usual share is flagged as wrong",
     "Not checked: this file’s band on Failing is checked instead",
@@ -172,6 +172,30 @@
     "#ontology-files .of-col[data-column=\"mode\"] details.whole": 1,
     "#ontology-files .of-draw .top .v code": 0,
     "#ontology-files .of-col .of-edit": 5
+   },
+   "textIn": {
+    "#ontology-files .of-col[data-column=\"provider\"] .of-draw": [
+     "Akamai",
+     "Cloudflare",
+     "AWS"
+    ],
+    "#ontology-files .of-col[data-column=\"status\"] .of-draw": [
+     "Passing",
+     "Exception"
+    ],
+    "#ontology-files .of-col[data-column=\"mode\"] .of-draw": [
+     "Blocking",
+     "Off"
+    ]
+   },
+   "noTextIn": {
+    "#ontology-files .of-col[data-column=\"provider\"] .of-draw": [
+     "akamai",
+     "cloudflare"
+    ],
+    "#ontology-files .of-col[data-column=\"status\"] .of-draw": [
+     "exception"
+    ]
    }
   }
  },
@@ -214,6 +238,59 @@
     "#ontology-files .of-col[data-column=\"hosting\"] details.whole": 1,
     "#ontology-files .of-col details.whole": 2,
     "#flow-edits": 0
+   }
+  }
+ },
+ {
+  "name": "mar06-ontology-readby",
+  "what": "Control estate, calm Wed Mar 6: TLS’s file says the datasets the flow makes from it (Q-144): three by name, each a tap to its own section, and how many more; the made datasets are listed after the files, closed",
+  "day": "Wed 6",
+  "view": "ontology",
+  "viewFirst": true,
+  "click": ".of-item[data-file=\"tls\"] .of-row",
+  "waitFor": ".of-item.open .of-readby",
+  "full": true,
+  "expect": {
+   "text": [
+    "Read by posture, app_scores, by_unit and 5 more",
+    "Made by the flow"
+   ],
+   "count": {
+    "#ontology-files .of-row": 13,
+    "#ontology-files .of-sec": 1,
+    "#ontology-made .of-row": 8,
+    "#ontology-made .of-sec": 0,
+    ".of-readby [data-made]": 3
+   }
+  }
+ },
+ {
+  "name": "mar06-ontology-made",
+  "what": "Control estate, calm Wed Mar 6: the posture’s own section, opened from TLS’s line (Q-144), laid out as a file’s and read-only: what it is (silver, which readers get), its checks (its key and the inventory’s, written in the notebook; key rotation needing encryption, written in the ontology, Q-119), then its columns",
+  "day": "Wed 6",
+  "view": "ontology",
+  "viewFirst": true,
+  "clicks": [
+   ".of-readby [data-made=\"posture\"]"
+  ],
+  "waitFor": ".of-item[data-made=\"posture\"].open .of-sec",
+  "full": true,
+  "expect": {
+   "text": [
+    "Silver: a dataset the flow makes, which readers get.",
+    "THIS DATASET’S CHECKS",
+    "No Application blank or repeated",
+    "The same Application values as apps: none missing, none extra",
+    "Set in the notebook · checked against apps",
+    "Where Key rotation is Passing, Encryption at rest must be Passing, Exception or Not assessed",
+    "Set in the ontology"
+   ],
+   "count": {
+    "#ontology-files .of-sec": 0,
+    "#ontology-made .of-sec": 1,
+    "#ontology-made .of-own .of-rule": 3,
+    "#ontology-made .of-edit": 0,
+    "#ontology-made .of-add": 0
    }
   }
  },
@@ -464,7 +541,7 @@
     "The file writes it as mode. That stays.",
     "What it means",
     "A label for each value",
-    "A label is shown where it says more than the value itself.",
+    "A drawing names each value by its label; beside the value, a label is shown where it says more than the value itself.",
     "Where it’s used: waf_checked passes it on.",
     "For waf, and waf_checked, which passes it on. A change is recorded, and takes effect from the next run.",
     "Save",
