@@ -359,7 +359,17 @@ release (smaltty ADR 0030).
   set from the day and one restatement (`mapColumnOnDay`; `defineTablesFor`, the recorder's `defineTables`); a new
   column noted, Add it to the ontology (`describeNewColumn`; `FileSection.unread`). The sign-ins plant both
   (`ADDED_DAY` Thu Mar 7, `RENAMED_DAY` Fri Mar 22); `test/columns.test.ts`, `test/refused.test.ts`,
-  `tools/browser/stops/columns.json`.
+  `tools/browser/stops/columns.json`. Slice 2, second part (Q-205, Q-146): where a column is used, `src/core/uses.ts`
+  (`columnUses`: the datasets that carry it by name, the joins on it with their other side, the steps that read it, the
+  outputs whose rows depend on it; SQL read from smaltql's parsed SELECT, the parser passed in; `usesSaid`, `joinsSaid`,
+  `joinImpactSaid`, `joinMatch`; `test/uses.test.ts`). The page loads the parser as its own bundle when asked
+  (`src/app/parse.ts`, `parse.js`; `sqlParser`, `usesOf`, `usesReady`). A held join column says its joins, what is
+  built from it and today's matches from the day's files (`joinCountOf`, `dayFileText`, `sourceColumnOf`), and its
+  mapping asks once more naming every output (`mappingColumn.confirm`); a mapping is declared only where the day's file
+  has the name (`readAsIn`, `pinnedHeaders`; the recorder's `headers`), and the run reads a file back on the column's
+  own name as declared. The owner's rename form says where the column is used and carries the change to the datasets
+  that pass it on (`nameColumnThrough` in flowedit.ts). The control estate plants TLS's app_id called AppID on Mon Mar 18
+  (`ESTATE_PLANTED.renamed`; `tools/browser/stops/joins.json`).
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -390,9 +400,9 @@ release (smaltty ADR 0030).
   the latest day when a past day is corrected, the audit of restatements), columns that change (a mismatched file
   paused, renames flagged with a suggested mapping and their impact), the ontology as the one place for rules, pausing
   (Q-86, Q-132, Q-84), and proposed declarations (Q-139). Slice 1 is built in two parts (its §"As built"). Slice 2,
-  columns that change, was designed in the question prompt (Q-203 to Q-206, built as recommended); its first part, a
-  file whose columns changed, is built, and its second part, a join column confirmed twice (Q-205) and the owner's own
-  rename carried through the steps, is next.
+  columns that change, was designed in the question prompt (Q-203 to Q-206, built as recommended); both its parts are
+  built: a file whose columns changed, and a join column confirmed twice (Q-205) with the owner's own rename carried
+  through the steps. Slice 3, the ontology as the one place for rules (Q-176, Q-118, Q-119, Q-145, Q-144), is next.
 
 ## Rules for this repository
 

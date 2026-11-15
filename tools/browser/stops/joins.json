@@ -1,0 +1,49 @@
+[
+  {
+    "name": "joins-held",
+    "what": "Control estate, Mon Mar 18: TLS's export calls app_id AppID (ADR 0022 §2). The day is held; its head says the mapping it suggests by name and type, that app_id is a join key (the posture matches it with the inventory's app_id) and what is built from it, and how many of today's AppID values still find an app_id there (Q-205)",
+    "day": "Mon 18",
+    "waitFor": "#loads .cm-match[data-counted]",
+    "element": "#loads",
+    "expect": {
+      "state": "held",
+      "text": ["COLUMNS THAT CHANGED", "tls: app_id is gone and AppID is new: AppID looks like app_id (its name and type).", "app_id is a join key: posture matches it with apps’s app_id; posture, app_scores, by_unit and 5 more are built from it.", "Today 203 of 203 AppID values find a match in apps’s app_id.", "Read AppID as app_id ›"],
+      "count": { "#loads .cm-joins": 1, "#loads .cm-map": 1 }
+    }
+  },
+  {
+    "name": "joins-form",
+    "what": "Read AppID as app_id: the form says what it does, that app_id is a join key whose outputs are named before it is done, and asks a reason",
+    "clicks": ["#loads .cm-map"],
+    "waitFor": "#loads .cm-form",
+    "element": "#loads .dh-columns",
+    "expect": {
+      "text": ["From Mon 18 on, tls’s AppID is read as app_id", "app_id is a join key: what is built from it is named before it is done.", "Read AppID as app_id", "Cancel"],
+      "count": { "#loads .cm-reason": 1 }
+    }
+  },
+  {
+    "name": "joins-confirm",
+    "what": "With a reason, the first tap asks once more for a join key (Q-205): every output built from it named, Yes and Back",
+    "clicks": [["#loads .cm-reason", "The new TLS export calls the application id AppID"], "#loads .cm-go"],
+    "waitFor": "#loads .cm-confirm",
+    "element": "#loads .dh-columns",
+    "expect": {
+      "text": ["app_id is a join key. posture matches it with apps’s app_id; posture, app_scores, by_unit, by_control, by_type, by_profile, control_by_type and failed_together are built from it. Each reads AppID as app_id from Mon 18 on.", "Yes, read AppID as app_id", "Back"],
+      "count": { "#loads .cm-reason": 0, "#loads .cm-yes": 1 }
+    }
+  },
+  {
+    "name": "joins-mapped",
+    "what": "Yes: the mapping written from Mon 18 on as a change set, the days it reaches run again (from Tue 19 the files say app_id again and are read as declared, the same as before), and one restatement: Mon 18 published",
+    "clicks": ["#loads .cm-yes"],
+    "waitFor": "#loads .dv[data-version=\"2\"].got",
+    "waitForMs": 400000,
+    "element": "#loads",
+    "expect": {
+      "pageText": ["2 VERSIONS OF THE DAY", "restated as version 2 before a decision", "Read tls’s AppID as app_id", "restated by Owner", "(“The new TLS export calls the application id AppID”)"],
+      "status": "^Restated 1 day under the new rules\\. Recorded\\.$",
+      "count": { "#loads .dh-columns": 0 }
+    }
+  }
+]

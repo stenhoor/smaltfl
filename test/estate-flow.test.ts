@@ -119,7 +119,8 @@ describe('the estate flow under its gates (ADR 0014 slice 1)', () => {
       expect(g.scope!.out).toHaveLength(w.bases[c]!.days.length);
     }
     // March: every control every day, but the four days planted on its scope or its rows (the day the logging file is
-    // refused has no measures at all).
+    // refused has no measures at all). The day TLS calls app_id AppID is measured as the page's claim measures it, by
+    // the columns' places, its rows as on any day: the run is what refuses it, by its header (ADR 0022 §2).
     const planted: Record<string, { scope: [number, number]; rows: number; keys: number }> = {
       [`${ESTATE_PLANTED.empty} mfa`]: { scope: [0, 600], rows: 0, keys: 0 },
       [`${ESTATE_PLANTED.scopeCreep} waf`]: { scope: [40, 0], rows: 243, keys: 243 },
@@ -184,6 +185,16 @@ describe('the estate flow under its gates (ADR 0014 slice 1)', () => {
     expect(estateHolds(result(plusDays(ESTATE_PLANTED.column, 1)))).not.toContain('checks:logging');
     expect(result(plusDays(ESTATE_PLANTED.column, 1)).manifest.nodes.find((n) => n.origin === 'logging')!.status).toBe('built');
   }, 120_000);
+
+  it('holds the day TLS calls app_id AppID, said with the mapping it suggests by name and type (ADR 0022 §2, Q-203)', () => {
+    const r = result(ESTATE_PLANTED.renamed);
+    expect(estateHolds(r)).toEqual(['checks:tls']);
+    expect(said(ESTATE_PLANTED.renamed, 'tls')).toBe('app_id is gone and AppID is new: AppID looks like app_id (its name and type)');
+    expect(r.manifest.nodes.find((n) => n.origin === 'tls')!.columns).toEqual({ gone: [], added: [], maps: [{ from: 'AppID', to: 'app_id', by: ['name', 'type'], share: null }] });
+    expect(r.published).toEqual([]);
+    // The next day's file has its header as declared again.
+    expect(result(plusDays(ESTATE_PLANTED.renamed, 1)).manifest.nodes.find((n) => n.origin === 'tls')!.status).toBe('built');
+  });
 
   it('holds the WAF collapse on its written band, said with the band (slice 2)', () => {
     expect(said(ESTATE_PLANTED.collapse, 'waf')).toBe('Status fail: 59.6% (band 0%–15%)');

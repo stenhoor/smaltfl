@@ -69,6 +69,7 @@ import type { ChangeSet } from '../../src/core/document.js';
 import { storyProblems, timelineOf, type StoryFile, type StoryRestatement } from '../../src/core/timeline.js';
 import { pinnedDdl, type Binding, type DataBindings } from '../../examples/sources.js';
 import { readAsOf } from '../../src/core/ontology.js';
+import { csvHeader, readAsIn } from '../../src/core/columns.js';
 import { bindingsPath, readFlow } from '../flow.js';
 
 declare const __SMALTDB_VERSION__: string | undefined;
@@ -191,10 +192,13 @@ async function main(): Promise<void> {
     // A column a file names otherwise from a day on (ADR 0022 §2, Q-146): each source's table declares the file's name
     // under the rules a run reads, defined again where that differs from how it stands.
     const tableReadAs = new Map<string, string>();
+    // Each source's file as last pinned, its header where it is a CSV file: a mapping is declared only where the day's
+    // file gives its name, and a file back on the column's own name is read as declared.
+    const headers = new Map<string, string[]>();
     const defineTables = async (d: FlowDocument): Promise<void> => {
       for (const [id, b] of Object.entries(bind.sources)) {
         if (!doc.sources.some((x) => x.id === id)) continue;
-        const readAs = readAsOf(d.ontology, id);
+        const readAs = readAsIn(readAsOf(d.ontology, id), headers.get(id) ?? null);
         const key = JSON.stringify(readAs);
         if ((tableReadAs.get(id) ?? '[]') === key) continue;
         await db.execAsync(`DROP EXTERNAL TABLE IF EXISTS ${(b as Binding).table}`);
@@ -211,6 +215,7 @@ async function main(): Promise<void> {
         const bytes = new Uint8Array(readFileSync(f.file));
         const sha = sha256(bytes);
         await pinFile(db, b.file, bytes, sha);
+        if (/^(csv|tsv)$/i.test((b as Binding).format)) headers.set(id, csvHeader(new TextDecoder().decode(bytes.subarray(0, 1 << 16))));
         shas[id] = sha;
         if (!keep) sources[id] = { path: `loads/${basename(f.file)}`, ...(bind.generate ? { from: bind.generate } : {}), at, sha256: sha };
       }

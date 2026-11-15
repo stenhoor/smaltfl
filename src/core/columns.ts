@@ -75,6 +75,16 @@ export function csvColumn(text: string, column: string, shape: CsvShape = {}, li
   return records.slice(1).map((r) => (r[at] === undefined || r[at] === '' ? null : r[at]!));
 }
 
+/**
+ * The mappings a host declares a source's table by for a day (ADR 0022 §2): those whose name the day's file gives. A file
+ * back on the column's own name (an export that went back) is read as declared; so is one with neither name, which its
+ * header check then says is gone. Without the header, every mapping.
+ */
+export function readAsIn(readAs: readonly (readonly [string, string])[], header: readonly string[] | null): [string, string][] {
+  const has = header ? new Set(header.map((h) => h.trim().toLowerCase())) : null;
+  return readAs.filter(([file]) => !has || has.has(file.toLowerCase())).map(([file, column]) => [file, column]);
+}
+
 /** A history's kept values as a file writes them: the history keeps each as JSON (`"success"` with its quotes, a number
  * bare), a null as an empty field. One it can't read stays as it is. */
 export function historyValues(kept: readonly string[]): string[] {

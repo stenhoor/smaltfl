@@ -108,12 +108,16 @@ export const ESTATE_PLANTED = {
   drLate: '2024-03-22',
   scopeLoss: '2024-03-26',
   reviewCluster: '2024-03-29',
+  /** TLS's export calls app_id AppID (ADR 0022 §2, Q-205): the column every control is joined to the inventory on. */
+  renamed: '2024-03-18',
 } as const;
 
 /** A trouble planted on a day: what, where, how. */
 export type EstateTrouble =
   | { day: string; control: EstateControl; kind: 'empty' | 'double' }
   | { day: string; control: EstateControl; kind: 'column'; column: string }
+  /** The file's header names a column otherwise, its rows as they are (ADR 0022 §2). */
+  | { day: string; control: EstateControl; kind: 'rename'; column: string; as: string }
   | { day: string; control: EstateControl; kind: 'collapse'; share: number }
   | { day: string; control: EstateControl; kind: 'not_assessed'; share: number }
   /** Rows of this control for `count` applications it doesn't apply to. */
@@ -135,6 +139,7 @@ export const ESTATE_TROUBLE: readonly EstateTrouble[] = [
   { day: ESTATE_PLANTED.double, control: 'tls', kind: 'double' },
   { day: ESTATE_PLANTED.drLate, control: 'dr_exercise', kind: 'late', rate: 0.6 },
   { day: ESTATE_PLANTED.scopeLoss, control: 'tls', kind: 'scope_loss', business_unit: 'Payments' },
+  { day: ESTATE_PLANTED.renamed, control: 'tls', kind: 'rename', column: 'app_id', as: 'AppID' },
 ];
 
 export interface EstateOptions {
@@ -466,6 +471,11 @@ export function estateRows(control: EstateControl, day: string, apps: readonly E
       if (at < 0) throw new Error(`${control} has no column ${t.column}`);
       columns.splice(at, 1);
       for (const r of rows) r.splice(at, 1);
+    }
+    if (t.kind === 'rename') {
+      const at = columns.indexOf(t.column);
+      if (at < 0) throw new Error(`${control} has no column ${t.column}`);
+      columns.splice(at, 1, t.as);
     }
   }
   return { columns, rows };

@@ -13,12 +13,12 @@
   },
   {
     "name": "columns-described",
-    "what": "Add client_app to the ontology: written at once as the file's own, a description saying the flow doesn't read it (a name says how people read the data, Q-198), and recorded; the note stays, the offer goes",
+    "what": "Add client_app to the ontology: written at once as the file's own, a description saying the flow doesn't read it (a name says how people read the data, Q-198), and recorded; the note stays, the offer goes, and the day's rules line says names and labels were edited here, no longer as shipped",
     "clicks": ["#loads .cm-add"],
     "element": "#loads",
     "expect": {
       "status": "^Added client_app to auth in the ontology\\. Recorded\\.$",
-      "text": ["auth: a new column: client_app."],
+      "text": ["auth: a new column: client_app.", "names and labels edited here"],
       "count": { "#loads .dh-columns": 1, "#loads .cm-add": 0 }
     }
   },

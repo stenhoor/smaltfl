@@ -167,7 +167,7 @@ describe('the planted days', () => {
   it('plants each kind where it says, and nothing on the other days', () => {
     const byDay = new Map<string, string[]>();
     for (const t of ESTATE_TROUBLE) byDay.set(t.day, [...(byDay.get(t.day) ?? []), `${t.kind}:${t.control}`]);
-    expect([...byDay.keys()].sort()).toEqual([ESTATE_PLANTED.empty, ESTATE_PLANTED.column, ESTATE_PLANTED.contradiction, ESTATE_PLANTED.collapse, ESTATE_PLANTED.scopeCreep, ESTATE_PLANTED.outage, ESTATE_PLANTED.double, ESTATE_PLANTED.drLate, ESTATE_PLANTED.scopeLoss].sort());
+    expect([...byDay.keys()].sort()).toEqual([ESTATE_PLANTED.empty, ESTATE_PLANTED.column, ESTATE_PLANTED.contradiction, ESTATE_PLANTED.collapse, ESTATE_PLANTED.scopeCreep, ESTATE_PLANTED.outage, ESTATE_PLANTED.double, ESTATE_PLANTED.drLate, ESTATE_PLANTED.scopeLoss, ESTATE_PLANTED.renamed].sort());
     for (const list of byDay.values()) expect(list).toHaveLength(1);
   });
 
@@ -179,6 +179,10 @@ describe('the planted days', () => {
     const na = [...statuses('backup', ESTATE_PLANTED.outage).values()].filter((s) => s === 'not_assessed').length;
     expect(na / statuses('backup', ESTATE_PLANTED.outage).size).toBeGreaterThan(0.4);
     expect(rows('tls', ESTATE_PLANTED.double).rows).toHaveLength(2 * statuses('tls', CALM[0]!).size);
+    // A column renamed (ADR 0022 §2): the header calls app_id AppID, the rows as they are.
+    const renamed = rows('tls', ESTATE_PLANTED.renamed);
+    expect(renamed.columns).toEqual(['AppID', ...rows('tls', CALM[0]!).columns.slice(1)]);
+    expect(renamed.rows).toEqual(rows('tls', ESTATE_PLANTED.renamed, { incidents: false }).rows);
   });
 
   it('the scope: rows for applications the control doesn’t apply to, and none for one business unit', () => {
