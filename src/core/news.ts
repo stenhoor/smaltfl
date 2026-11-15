@@ -1128,6 +1128,12 @@ function schemaCount(changes: readonly string[]): string {
  * an airport fee together. Told by the value that names them, when one isn't a blank ("Payment type Flex Fare trip:
  * 5.3% (usually 2.1–4.6%)", the others blank on the same trips), with its own numbers; else as the fields blank.
  */
+/** The overwhelming mark of a group of findings (Q-132): its member that moved the most rows, where any is. */
+function overwhelmingOfAll(all: readonly Finding[]): Pick<Finding, 'overwhelming'> {
+  const marks = all.flatMap((g) => (g.overwhelming ? [g.overwhelming] : []));
+  return marks.length ? { overwhelming: marks.reduce((a, b) => (b.moved > a.moved ? b : a)) } : {};
+}
+
 function together(findings: Finding[], rows: number, names: Names): Finding[] {
   const groupable = (f: Finding) => (f.kind === 'share' || f.kind === 'missing' || f.kind === 'gone') && f.rows !== undefined && f.rows > 0 && f.range !== undefined && f.value !== undefined;
   const out: Finding[] = [];
@@ -1169,6 +1175,8 @@ function together(findings: Finding[], rows: number, names: Names): Finding[] {
       columns: all.flatMap((g) => g.columns ?? []),
       values: all.flatMap((g) => g.values ?? []),
       members: [lead, ...others].map((g) => ({ column: g.columns![0]!, value: g.values![0]!, label: g.values?.[0] === 'null' ? 'blank' : (names.label ?? names.value)(g.columns![0]!, parse(g.values![0]!)), share: g.value!, range: g.range!, rows: g.rows! })),
+      // The group holds the day as its most overwhelming member does (Q-132), whichever member it is told by.
+      ...overwhelmingOfAll(all),
     });
   }
   void rows;

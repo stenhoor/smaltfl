@@ -11,7 +11,7 @@
 import { dayMid, dayShort, type DayState } from './days.js';
 import { overwhelmingSaid } from './gates.js';
 import type { DecisionOption } from './policy.js';
-import type { Story } from './story.js';
+import type { Story, Told } from './story.js';
 import { changeLabel, compact, wordsIn } from './story.js';
 
 /** The data-observability status words (Monte Carlo, Bigeye): what state the day's incident is in. */
@@ -38,7 +38,7 @@ export interface BriefIn {
   flow: string;
   /** The source's noun: `noun(1)` "trip", `noun(2)` "trips". */
   noun: (n: number) => string;
-  story: Pick<Story, 'state' | 'severity' | 'head' | 'amount' | 'split' | 'hours' | 'hoursLabels' | 'gate' | 'episode' | 'cause' | 'context'> | null;
+  story: Pick<Story, 'state' | 'severity' | 'head' | 'amount' | 'split' | 'hours' | 'hoursLabels' | 'gate' | 'episode' | 'cause' | 'context'> & Partial<Pick<Story, 'stories'>> | null;
   /** The day under the flow that holds: its state, the day readers see meanwhile, who decides; and `by`, what held it
    * when that isn't this story (ADR 0013 §5: another watched load's verdict, "backup: status fail with restore_tested
    * yes: 55"). Null for a flow that doesn't hold, or a day that wasn't held. */
@@ -164,6 +164,10 @@ export function impactOf(o: Pick<BriefIn, 'outputs' | 'objects' | 'readers' | 'p
   return lines.slice(0, 3);
 }
 
+/** The finding a day is held on by an overwhelming learned check (Q-132): the story's cause, else the first finding it
+ * tells beside it; null where none overwhelms. */
+const overwhelmingOf = (s: BriefIn['story']): Told | null => (s?.state === 'wrong' ? ([s.cause, ...(s.stories ?? [])].find((f) => !!f?.overwhelming) ?? null) : null);
+
 /** Cause: the facts the day's own rows and file show, then a theory only when the story links a finding to one. */
 export function causeOf(o: Pick<BriefIn, 'story' | 'file' | 'noun'>): { facts: string[]; theories: string[] } {
   const facts: string[] = [];
@@ -192,7 +196,8 @@ export function causeOf(o: Pick<BriefIn, 'story' | 'file' | 'noun'>): { facts: s
     facts.push(`The checks (${g.step}) dropped ${pct(g.share)} of rows${g.limit !== null ? ` (limit ${pct(g.limit)})` : ''}${g.held ? ', which held the day' : ''}`);
   }
   // An overwhelming learned finding (Q-132): what made it hold the day, beside what it found.
-  if (s?.state === 'wrong' && s.cause?.overwhelming) facts.push(overwhelmingSaid(s.cause.overwhelming));
+  const over = overwhelmingOf(s);
+  if (over?.overwhelming) facts.push(overwhelmingSaid(over.overwhelming));
   if (s?.episode && s.episode.days > 1) facts.push(`Day ${s.episode.days} of an episode since ${dayShort(s.episode.since)}`);
   if (o.file) {
     const c = o.file.check;
@@ -213,12 +218,13 @@ export function fixOf(o: Pick<BriefIn, 'options' | 'picked' | 'story' | 'pause' 
   const outage = o.story?.split?.kind === 'vanished' && (o.story.episode?.days ?? 1) > 1;
   // An overwhelming learned finding (Q-132): no written rule says what went wrong, so nothing is known to mend it;
   // readers keep the last good day while someone looks, the finding named.
-  const over = o.story?.state === 'wrong' ? o.story.cause?.overwhelming : undefined;
+  const lead = overwhelmingOf(o.story);
+  const over = lead?.overwhelming;
   const prefer: DecisionOption[] = over ? ['dont', 'fill', 'complete', 'accept', 'asis'] : o.story?.state === 'wrong' || o.story?.state === 'refused' ? (outage ? ['complete', 'fill', 'dont', 'accept', 'asis'] : ['fill', 'complete', 'dont', 'accept', 'asis']) : ['asis', 'accept', 'fill', 'complete', 'dont'];
   // A person's own proposal first, when it can go; else the app's.
   const own = o.prefer && open.some((x) => x.option === o.prefer) ? o.prefer : null;
   const proposed = o.picked ?? own ?? prefer.find((p) => open.some((x) => x.option === p)) ?? null;
-  const named = over && o.story?.cause ? o.story.cause.title.replace(/\s*\((usually [^)]*)\)$/, ', $1') : null;
+  const named = lead ? lead.title.replace(/\s*\((usually [^)]*)\)$/, ', $1') : null;
   const why = o.picked ? null : own ? 'Your proposal.' : proposed === 'dont' && over ? `A learned check moved ${Math.round((over.moved / over.of) * 100)}% of the day’s rows${named ? ` (${named})` : ''}: readers keep the last good day while someone looks.` : proposed === 'fill' ? 'A good day near it fills what is missing; readers get a whole day, marked.' : proposed === 'complete' ? (outage ? 'The outage is still running: what arrived goes out, marked as partial, rather than another day’s rows.' : 'The part that arrived goes out alone, marked as partial.') : proposed === 'dont' ? 'Something is wrong in the rows: readers keep the last good day until a corrected file arrives.' : proposed === 'accept' ? 'The change has lasted: accept it, and later days are judged at the new level.' : proposed === 'asis' ? 'Unusual, not wrong: publish it, marked.' : status === 'no action' ? 'Nothing to decide.' : null;
   return { options: o.options, proposed, picked: o.picked, why };
 }
