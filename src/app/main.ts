@@ -52,7 +52,8 @@ import { followsCause as followsFrom, ACT_VERB, CELL_KINDS, CELL_NAMES, CONTEXT_
 import { scoreSpark, scoreTrend, type ScorePoint, rowFlow, differenceMeter, fileTwins, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, degrees, weatherHours, chain, composition, contextBars, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
 import { sha256Hex } from '../core/hash.js';
 import { LEVEL_NAME, leaderSaid, postureTree, scoreSaid, trendSaid, unitCounts, type PostureNode } from '../core/posture.js';
-import { counted, glossOf, meaningOf, nounOf as ontologyNoun, propertyOf, saysMore, type Edit, type Noun, type PropertyType } from '../core/ontology.js';
+import { counted, glossOf, meaningOf, nounOf as ontologyNoun, propertyOf, readAsOf, saysMore, type Edit, type Noun, type PropertyType } from '../core/ontology.js';
+import { columnChangeSaid, columnsHold, type ColumnMap } from '../core/columns.js';
 import { ontologyPage, originSaid, typesShown, type ColumnCard, type FileSection, type Rule } from '../core/ontologypage.js';
 import { applyBand, asShipped, keptOf as keptFlow, nameColumn, restoreKept, setRule, type FlowEdit, type RuleInput } from '../core/flowedit.js';
 import { sharedOf } from '../core/shared.js';
@@ -10885,6 +10886,9 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
       sharedNote(f.id)),
     h('section', { class: 'of-part of-own' }, h('h3', { class: 'of-h' }, 'This file’s checks'), ruleList(f.rules, 'No checks of its own yet.')),
     h('section', { class: 'of-part' }, h('h3', { class: 'of-h' }, cards.length ? `Columns · ${cards.length}` : 'Columns'), wait, cards.length ? h('div', { class: 'of-cols' }, ...cards) : null),
+    // A column the file added, described as the file's own, which the flow doesn't read (ADR 0022 §2, Q-204).
+    f.unread?.length ? h('section', { class: 'of-part of-unread' }, h('h3', { class: 'of-h' }, `Not read by the flow · ${f.unread.length}`),
+      h('ul', { class: 'of-unread-list' }, ...f.unread.map((u) => h('li', { 'data-column': u.name }, h('b', {}, u.title), saysMore(u.name, u.title) ? h('code', {}, u.name) : '', u.description ? `: ${u.description}` : '')))) : null,
     h('section', { class: 'of-part of-disc' }, h('h3', { class: 'of-h' }, 'Discovered'),
       f.discovered.length ? ruleList(f.discovered, '') : h('p', { class: 'of-none' }, 'Nothing has been discovered yet. Rules the app finds in the data will be listed here to accept.')));
   // The drawings arrive once the load has been looked into, as the Data tab's do: the words show straight away. Read
@@ -11522,6 +11526,10 @@ function recordLine(day: string): HTMLElement | null {
   const shown = state.runs.find((r) => dayOfRun(r) === day && !r.derived);
   const e = recordedRunOf(day, shown ? inputsOf(shown.result.manifest).files : undefined, shown ? restatedKeyOfRun(shown) : undefined);
   const ran = state.runs.some((r) => dayOfRun(r) === day);
+  // Run again here under rules changed since (ADR 0021 §5, a column read by another name, ADR 0022 §2): the build
+  // recorded the day under the rules it first ran under, not this run.
+  const first = !e && shown?.result.manifest.restates ? recordedRunOf(day, inputsOf(shown.result.manifest).files, null) : undefined;
+  if (first) return h('p', { class: 'dh-rec', 'data-check': 'restated' }, `Recorded by the build, ${whenMin(first.at, day)}.`, ' Run here again under rules changed since, so it isn’t compared with the record.');
   if (!e) return ran && recorded ? h('p', { class: 'dh-rec' }, 'Run in this browser: the build recorded no run of this day.') : null;
   const head = `Recorded by the build, ${whenMin(e.at, day)}.`;
   const c = recordChecks.get(day);
@@ -11557,6 +11565,9 @@ function versionsPart(k: number): HTMLElement | null {
   // The versions a later file made: a restated one (ADR 0021 §5) replaces no file; each file version is replaced by the next.
   const fileFacts = facts.filter((f) => !f.restated);
   const nextFile = (f: VersionFact) => fileFacts[fileFacts.findIndex((x) => x.v === f.v) + 1];
+  // A held version a restatement decided before anyone decided it (a column read by another name, ADR 0022 §2): the day
+  // is the restated version's, and this one waits on nothing.
+  const restatedAfter = (f: VersionFact) => facts.find((x) => x.v > f.v && x.restated?.decision?.ticked);
   const said = (f: VersionFact): string => {
     const a = f.first?.about as unknown as RunAbout | undefined;
     // Run again under rules changed since (ADR 0021 §5): the rules, what it came to, and what its restatement decided.
@@ -11573,7 +11584,7 @@ function versionsPart(k: number): HTMLElement | null {
     if (hold) parts.push(`held: ${hold.origin}: ${hold.said}`);
     if (f.decided) parts.push(`${f.decided.option === 'dont' ? 'kept back' : f.published ? (f.delivery ? 'published' : DECIDED_WORD.asis) : (DECIDED_WORD[f.decided.option as DayState] ?? f.decided.option)} by ${whoSaid(f.decided.by)}, ${whenMin(f.decided.at, l.day)}${f.decided.reason ? ` (“${f.decided.reason}”)` : ''}`);
     else if (f.published) parts.push('published');
-    else if (a?.outcome === 'held') parts.push(nextFile(f) ? `replaced by version ${nextFile(f)!.v} before a decision` : DECIDED_WORD.waiting);
+    else if (a?.outcome === 'held') parts.push(nextFile(f) ? `replaced by version ${nextFile(f)!.v} before a decision` : restatedAfter(f) ? `restated as version ${restatedAfter(f)!.v} before a decision` : DECIDED_WORD.waiting);
     return parts.join(' · ');
   };
   return h('div', { class: 'dh-versions' }, h('p', { class: 'eyebrow' }, `${facts.length} versions of the day`),
@@ -12058,6 +12069,137 @@ function makePart(): HTMLElement | null {
     } }, 'Cancel')));
 }
 
+/** How each source's table was last defined: the columns it reads by the file's other name (ADR 0022 §2), as JSON. */
+const tableReadAs = new Map<string, string>();
+
+/**
+ * Each source's table as the rules being run read it (ADR 0022 §2, Q-146, Q-206): a column the file names otherwise is
+ * declared by the file's name (`readAsOf`), and the table defined again where that differs from how it stands, so the
+ * run reads the file's column as the declared one. Before every run.
+ */
+async function defineTablesFor(engine: Engine, doc: FlowDocument): Promise<void> {
+  const ddl: string[] = [];
+  for (const s of doc.sources) {
+    const b = bindingOf(s.id);
+    if (!b) continue;
+    const readAs = readAsOf(doc.ontology, s.id);
+    const key = JSON.stringify(readAs);
+    if ((tableReadAs.get(s.id) ?? '[]') === key) continue;
+    ddl.push(`DROP EXTERNAL TABLE IF EXISTS ${quoteIdent(b.table)}`, pinnedDdl(b, readAs));
+    tableReadAs.set(s.id, key);
+  }
+  if (ddl.length) await engine.exec(ddl.join(';\n'));
+}
+
+/** The column mapping being written on the day's head (ADR 0022 §2): the source and the new column, while its form is
+ * open. */
+let mappingColumn: { source: string; from: string } | null = null;
+
+/**
+ * Read a file's new column as a gone one from the held day on (ADR 0022 §2, Q-146, Q-206): one tap with a reason, on
+ * this screen. A change set from the day maps it in the ontology as the file's own (`mapColumn`), the day runs again
+ * under it, and one restatement decides it with the reason, readers getting it where it passes (as Make this the day's
+ * takes other rules, ADR 0022 §1). Files after it read the new name with no hold.
+ */
+async function mapColumnOnDay(k: number, source: string, m: ColumnMap, reason: string): Promise<void> {
+  const l = loads.list[k];
+  if (!l || !ledger || state.running) return;
+  if (!checkDecision(policies(), state.viewer, 'asis').allowed) return void setStatus('Reading a column by its new name decides the day: it is for someone who may publish a day.', true);
+  if (!reason.trim()) return void setStatus('Reading a column by its new name needs a reason.', true);
+  const day = l.day.slice(0, 10);
+  const got = gotEntry(k);
+  const of = got ? (got.about as unknown as RunAbout) : null;
+  if (!of?.manifest) return void setStatus('The day’s run isn’t in the record: there is nothing to run again under the new name.', true);
+  mappingColumn = null;
+  const cs: ChangeSet = { id: changeId(), from: day, recorded: new Date().toISOString(), by: state.viewer, why: reason.trim(), edits: [{ op: 'mapColumn', file: source, column: m.to, from: m.from }] };
+  ruleChanges = [...ruleChanges, cs];
+  await flowEdited(`Read ${source}’s ${m.from} as ${m.to} from ${dayShort(day)} on`);
+  // The recorded days it reaches, from the held day on (Q-206): each run again under it, latest first so the held day is
+  // left on screen, and one restatement decides them all with the reason, as a back-dated edit's does.
+  const p = pendingRestating();
+  if (!p) return;
+  const ids = p.changes.map((c) => c.id);
+  for (const d of p.days.filter((x) => x.k >= 0 && x.got && !x.r).reverse()) {
+    const was = (d.got!.about as unknown as RunAbout).manifest;
+    if (!was) continue;
+    await runLoad(d.k, { restating: { of: was, changes: ids } });
+    if (state.failed) return;
+  }
+  const done = pendingRestating();
+  if (!done || done.days.some((x) => x.k >= 0 && x.got && !x.r)) return;
+  const rows = done.days.map((x) => ({ day: x.day, r: x.r }));
+  await restateDays(done, rows.filter((x) => x.r?.changed), [], rows.filter((x) => !x.r?.changed), reason.trim());
+}
+
+/** A column a file added, described in the ontology as the file's own (ADR 0022 §2, Q-204): a name says how people read
+ * the data, so it takes effect at once, on every day (Q-198). */
+function describeNewColumn(source: string, column: string, day: string): void {
+  if (!isOwner() || state.running) return;
+  const change = { description: `New in ${source}’s file on ${dayLabel(day)}; the flow doesn’t read it.` };
+  const { said } = nameColumn(state.doc, source, column, change);
+  if (!said) return;
+  ruleBase = ruleParts(nameColumn(withRuleParts(state.doc, ruleBase), source, column, change).doc);
+  resolveDoc(resolvedFor.day, resolvedFor.asOf, true);
+  setStatus(`Added ${column} to ${source} in the ontology. Recorded.`, false);
+  void flowEdited(`Added ${source}’s new column ${column} to the ontology`);
+  renderLoads();
+}
+
+/**
+ * The day's columns that changed (ADR 0022 §2; Q-109, Q-146, Q-203, Q-204), on its head: each source whose file's
+ * columns aren't the declared ones, what is gone and new and which new column reads as a gone one, and, for someone
+ * who may decide, Read X as Y (its form says what it does and asks a reason). A new column alone is noted, with Add it
+ * to the ontology for the owner. Null where no file's columns changed.
+ */
+function columnsPart(k: number): HTMLElement | null {
+  const r = latest();
+  const l = loads.list[k];
+  if (!r || !l || r.load !== k || whatIf?.k === k) return null;
+  const day = l.day.slice(0, 10);
+  const changed = r.result.manifest.nodes.filter((n) => n.columns);
+  if (!changed.length) return null;
+  const may = checkDecision(policies(), state.viewer, 'asis').allowed;
+  const rows = changed.map((n) => {
+    const c = n.columns!;
+    const held = columnsHold(c);
+    const maps = c.maps.map((m) => {
+      if (mappingColumn?.source === n.origin && mappingColumn.from === m.from) {
+        const reason = h('textarea', { class: 'cm-reason', rows: '2', 'aria-label': `Why ${m.from} is read as ${m.to}`, placeholder: 'Why, in a sentence: the record keeps it.' }) as HTMLTextAreaElement;
+        const go = h('button', { type: 'button', class: 'btn small primary cm-go', onclick: () => {
+          if (!reason.value.trim()) {
+            setStatus('Reading a column by its new name needs a reason.', true);
+            reason.focus();
+            return;
+          }
+          go.disabled = true;
+          void mapColumnOnDay(k, n.origin, m, reason.value);
+        } }, `Read ${m.from} as ${m.to}`) as HTMLButtonElement;
+        return h('div', { class: 'cm-form', role: 'group', 'aria-label': `Read ${m.from} as ${m.to}` },
+          h('p', { class: 'cm-how' }, `From ${dayShort(day)} on, ${n.origin}’s ${m.from} is read as ${m.to}, written in the ontology as the file’s own. ${dayShort(day)} runs again under it and is restated: readers get it where it passes. Earlier days keep ${m.to}.`),
+          h('div', { class: 'of-field' }, h('label', {}, 'Why'), reason),
+          h('div', { class: 'wi-acts' }, go, h('button', { type: 'button', class: 'btn small cm-cancel', onclick: () => {
+            mappingColumn = null;
+            renderLoads();
+          } }, 'Cancel')));
+      }
+      return may && held
+        ? h('p', { class: 'cm-ask' }, h('button', { type: 'button', class: 'btn small primary cm-map', 'data-from': m.from, onclick: () => {
+          mappingColumn = { source: n.origin, from: m.from };
+          renderLoads();
+          document.querySelector<HTMLTextAreaElement>('#loads .cm-reason')?.focus();
+        } }, `Read ${m.from} as ${m.to} ›`))
+        : null;
+    });
+    const fresh = !held ? c.added.filter((col) => !propertyOf(state.doc.ontology, n.origin, col)) : [];
+    return h('div', { class: `cm-source${held ? ' held' : ''}`, 'data-source': n.origin },
+      h('p', { class: 'cm-said' }, h('b', {}, `${n.origin}: `), `${columnChangeSaid(c)}.`),
+      ...maps,
+      held && !c.maps.length ? h('p', { class: 'foot' }, `Keep the day back or replace the file on the decision sheet; a column read by another name is mapped from a file that has it.`) : '',
+      fresh.length && isOwner() ? h('p', { class: 'cm-ask' }, ...fresh.map((col) => h('button', { type: 'button', class: 'linkish cm-add', 'data-column': col, onclick: () => describeNewColumn(n.origin, col, day) }, `Add ${col} to the ontology ›`))) : '');
+  });
+  return h('section', { class: 'panel dh-columns', 'aria-label': 'Columns that changed' }, h('p', { class: 'eyebrow' }, 'Columns that changed'), ...rows);
+}
+
 /**
  * The what-if on the day's head (ADR 0021 §4): what it ran and what it came to, a tap from its comparison with what
  * readers got, how it would become the day's (Make this the day's, ADR 0022 §1), another, and back to the day; else,
@@ -12462,6 +12604,7 @@ function renderLoads(): void {
     (loads.at >= 0 ? restateLine(loads.at) : null) ?? '',
     (loads.at >= 0 ? versionsPart(loads.at) : null) ?? '',
     (loads.at >= 0 ? comparePart(loads.at) : null) ?? '',
+    (loads.at >= 0 ? columnsPart(loads.at) : null) ?? '',
     (loads.at >= 0 ? whatIfPart(loads.at) : null) ?? '',
     replacedBy && onVersion ? h('p', { class: 'loads-pause superseded', role: 'status' }, h('b', {}, `Version ${onVersion}, ${onVersion === 1 ? 'as it arrived' : 'sent again'}: replaced by version ${replacedBy.v}`), `${replacedBy.delivery ? `, ${replacedBy.delivery.source} sent again ${whenMin(replacedBy.delivery.arrived, now!.day)}` : replacedBy.made ? `, made the day’s from a what-if ${whenMin(replacedBy.made.at, now!.day)}` : ''}.${gotVersion ? ` Readers got version ${gotVersion}.` : ''} It isn’t decided: the later version is.`) : '',
     h('div', { class: `loads-now${top ? ` sev-${top.severity}` : ''}` },
@@ -13997,6 +14140,7 @@ async function run(early?: EarlyClaims): Promise<void> {
     const correct = loads.correct;
     loads.correct = null;
     const correction = loads.restates || loads.whatIf ? undefined : correct ?? (before && primarySource() ? { of: { run: before.result.run, manifest: before.result.hash }, sources: [primarySource()!] } : (sent ?? undefined));
+    await defineTablesFor(engine, state.doc);
     const result = await runFlow(engine, state.doc, { smaltdb: SMALTDB, parameters, data, log: recordHead(), ...(told ? { claims: told } : {}), ...(asked && Object.keys(asked.tell).length ? { tell: asked.tell } : {}), ...(Object.keys(sources).length ? { sources } : {}), ...(correction ? { correction } : {}), ...(loads.restates ? { restates: loads.restates } : {}), ...(loads.whatIf ? { whatIf: true as const } : {}) });
     const ms = performance.now() - t;
     mark('run: flow run');

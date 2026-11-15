@@ -79,6 +79,12 @@ export interface SecurityOptions {
   step?: { from: string; by: number };
   /** Variant E (phase 4): the collector's outage is the endpoint events', so the sign-ins have none. */
   edr?: boolean;
+  /** Days on which the file names columns otherwise (ADR 0022 §2): each column's name in that day's header, the rows as
+   * they are (the demo's export renaming result on its last day). Only the file's header: `csvOf`. */
+  renamed?: Record<string, Record<string, string>>;
+  /** Days on which the file has columns its source doesn't declare (ADR 0022 §2, Q-204): each column's values, taken in
+   * turn row by row, after the declared ones (the demo's export adding client_app). Only the file: `csvOf`. */
+  added?: Record<string, Record<string, readonly string[]>>;
   /** Rows added on chosen days, as a planted incident's are: each its rows (times `scale`), its hours and every coded
    * column's shares. What a test plants on a day of its own (a burst on a first-year holiday, a new tool). */
   extra?: Record<string, { n: number; hours: number[]; dist: Record<string, Dist> }[]>;
@@ -357,6 +363,12 @@ function homeCountry(id: number, dist: Dist): string {
  * classifier's: the rows look different).
  */
 export const DEMO_DAYS = { forest: '2024-03-14', missing: '2024-03-15', shares: '2024-03-18', classifier: '2024-03-19', combo: '2024-03-20' } as const;
+/** The demo's last day, after the month the models judge (ADR 0022 §2): the export calls result results, a column the
+ * page tells as renamed, suggests reading as result (its name, type and values), and maps from the day on. */
+export const RENAMED_DAY = '2024-03-22';
+/** A day on which the export adds a column the flow doesn't read (ADR 0022 §2, Q-204): client_app, noted on the day,
+ * which is judged and published as any other. */
+export const ADDED_DAY = '2024-03-07';
 const BUSINESS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17];
 export const SIGNIN_DEMO: SecurityOptions = {
   missing: [DEMO_DAYS.missing],
@@ -366,12 +378,16 @@ export const SIGNIN_DEMO: SecurityOptions = {
   },
   nudges: { [DEMO_DAYS.forest]: { result: { fail: 1.3, locked: 1.5 }, method: { password: 0.82, sso: 1.16, mfa_push: 1.16, passkey: 1.5, api_key: 0.7 } } },
   extra: { [DEMO_DAYS.combo]: [{ n: 8_000, hours: BUSINESS, dist: { result: { locked: 1 }, method: { api_key: 1 }, country: { US: 1 }, ua_family: { 'python-requests': 1 } } }] },
+  renamed: { [RENAMED_DAY]: { result: 'results' } },
+  added: { [ADDED_DAY]: { client_app: ['browser', 'mobile_app', 'browser', 'desktop_app'] } },
 };
 
 /** Rows as a CSV file with a header: what the example's loads are. */
-export function csvOf(rows: readonly (readonly (string | number | null)[])[]): string {
+export function csvOf(rows: readonly (readonly (string | number | null)[])[], renamed: Readonly<Record<string, string>> = {}, added: Readonly<Record<string, readonly string[]>> = {}): string {
   const cell = (v: string | number | null) => (v === null ? '' : typeof v === 'number' ? String(v) : /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
-  return `${SIGNIN_COLUMNS.join(',')}\n${rows.map((r) => r.map(cell).join(',')).join('\n')}\n`;
+  const more = Object.entries(added);
+  const head = [...SIGNIN_COLUMNS.map((c) => renamed[c] ?? c), ...more.map(([c]) => c)];
+  return `${head.join(',')}\n${rows.map((r, i) => [...r.map(cell), ...more.map(([, vs]) => cell(vs[i % vs.length] ?? null))].join(',')).join('\n')}\n`;
 }
 
 const SECURITY_RULES = [

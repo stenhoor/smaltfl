@@ -1,0 +1,74 @@
+[
+  {
+    "name": "columns-added",
+    "what": "The sign-ins, Thu Mar 7: the export adds client_app, a column the flow doesn't read (ADR 0022 §2, Q-204). The day is judged and published as any other, its head noting the new column, with Add it to the ontology for the owner",
+    "day": "Thu 7",
+    "element": "#loads",
+    "expect": {
+      "state": "done",
+      "text": ["COLUMNS THAT CHANGED", "auth: a new column: client_app.", "Add client_app to the ontology ›"],
+      "noText": ["Paused", "Read client_app as"],
+      "count": { "#loads .dh-columns": 1, "#loads .cm-map": 0, "#loads .cm-add": 1 }
+    }
+  },
+  {
+    "name": "columns-described",
+    "what": "Add client_app to the ontology: written at once as the file's own, a description saying the flow doesn't read it (a name says how people read the data, Q-198), and recorded; the note stays, the offer goes",
+    "clicks": ["#loads .cm-add"],
+    "element": "#loads",
+    "expect": {
+      "status": "^Added client_app to auth in the ontology\\. Recorded\\.$",
+      "text": ["auth: a new column: client_app."],
+      "count": { "#loads .dh-columns": 1, "#loads .cm-add": 0 }
+    }
+  },
+  {
+    "name": "columns-ontology",
+    "what": "The Ontology view, the sign-in file opened: client_app listed after its seven columns as not read by the flow, with what it holds; the change recorded above the files",
+    "view": "ontology",
+    "viewFirst": true,
+    "click": ".of-item[data-file=\"auth\"] .of-row",
+    "waitFor": ".of-item.open .of-unread-list",
+    "full": true,
+    "expect": {
+      "text": ["Added auth’s new column client_app to the ontology", "NOT READ BY THE FLOW · 1", "client_app: New in auth’s file on Thu Mar 7; the flow doesn’t read it.", "COLUMNS · 7"],
+      "count": { ".of-unread-list li": 1, ".of-col[data-column=\"client_app\"]": 0 }
+    }
+  },
+  {
+    "name": "columns-held",
+    "what": "The sign-ins, Fri Mar 22: the export calls result results (ADR 0022 §2, Q-109). The day is held, its head saying what changed and the mapping it suggests, by its name, type and values (Q-203)",
+    "day": "Fri 22",
+    "element": "#loads",
+    "expect": {
+      "state": "held",
+      "text": ["COLUMNS THAT CHANGED", "auth: result is gone and results is new: results looks like result (its name, type and 100% of its values).", "Read results as result ›"],
+      "count": { "#loads .dh-columns": 1, "#loads .cm-map": 1 }
+    }
+  },
+  {
+    "name": "columns-form",
+    "what": "Read results as result: on the same screen, what it does (the ontology maps it as the file's own from Fri 22 on, the day runs again under it and is restated) and the reason it asks for",
+    "day": "Fri 22",
+    "clicks": ["#loads .cm-map"],
+    "waitFor": "#loads .cm-form",
+    "element": "#loads .dh-columns",
+    "expect": {
+      "text": ["From Fri 22 on, auth’s results is read as result, written in the ontology as the file’s own. Fri 22 runs again under it and is restated: readers get it where it passes. Earlier days keep result.", "Read results as result", "Cancel"],
+      "count": { "#loads .cm-reason": 1 }
+    }
+  },
+  {
+    "name": "columns-mapped",
+    "what": "The reason given and the tap: the mapping written from Fri 22 on as a change set (Q-206), the day run again under it and restated by one decision, published; its columns read as declared, so nothing is held",
+    "clicks": [["#loads .cm-reason", "The export renamed result to results on Fri 22"], "#loads .cm-go"],
+    "waitFor": "#loads .dv[data-version=\"2\"].got",
+    "waitForMs": 120000,
+    "element": "#loads",
+    "expect": {
+      "pageText": ["2 VERSIONS OF THE DAY", "restated as version 2 before a decision", "Read auth’s results as result", "restated by Owner", "(“The export renamed result to results on Fri 22”)", "Run here again under rules changed since"],
+      "status": "^Restated 1 day under the new rules\\. Recorded\\.$",
+      "count": { "#loads .dh-columns": 0 }
+    }
+  }
+]

@@ -75,6 +75,19 @@ export function csvColumn(text: string, column: string, shape: CsvShape = {}, li
   return records.slice(1).map((r) => (r[at] === undefined || r[at] === '' ? null : r[at]!));
 }
 
+/** A history's kept values as a file writes them: the history keeps each as JSON (`"success"` with its quotes, a number
+ * bare), a null as an empty field. One it can't read stays as it is. */
+export function historyValues(kept: readonly string[]): string[] {
+  return kept.map((v) => {
+    try {
+      const x = JSON.parse(v) as unknown;
+      return x === null ? '' : String(x);
+    } catch {
+      return v;
+    }
+  });
+}
+
 /** What kind of values a column holds, as far as telling one column from another goes. */
 export type TypeFamily = 'integer' | 'number' | 'time' | 'boolean' | 'text';
 

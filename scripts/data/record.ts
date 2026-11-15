@@ -68,6 +68,7 @@ import { checkDecision } from '../../src/core/policy.js';
 import type { ChangeSet } from '../../src/core/document.js';
 import { storyProblems, timelineOf, type StoryFile, type StoryRestatement } from '../../src/core/timeline.js';
 import { pinnedDdl, type Binding, type DataBindings } from '../../examples/sources.js';
+import { readAsOf } from '../../src/core/ontology.js';
 import { bindingsPath, readFlow } from '../flow.js';
 
 declare const __SMALTDB_VERSION__: string | undefined;
@@ -187,6 +188,20 @@ async function main(): Promise<void> {
     // first files are all of its daily sources'; a later delivery pins only the file sent again, in place of the day's.
     // A day run again under rules changed since (ADR 0021 §5) pins its files again and says they came from where they did
     // (`keep`): nothing was pulled in anew.
+    // A column a file names otherwise from a day on (ADR 0022 §2, Q-146): each source's table declares the file's name
+    // under the rules a run reads, defined again where that differs from how it stands.
+    const tableReadAs = new Map<string, string>();
+    const defineTables = async (d: FlowDocument): Promise<void> => {
+      for (const [id, b] of Object.entries(bind.sources)) {
+        if (!doc.sources.some((x) => x.id === id)) continue;
+        const readAs = readAsOf(d.ontology, id);
+        const key = JSON.stringify(readAs);
+        if ((tableReadAs.get(id) ?? '[]') === key) continue;
+        await db.execAsync(`DROP EXTERNAL TABLE IF EXISTS ${(b as Binding).table}`);
+        await db.execAsync(pinnedDdl(b as Binding, readAs));
+        tableReadAs.set(id, key);
+      }
+    };
     const pinDay = async (d: Day, at: string, ids: readonly string[] = daily, keep = false): Promise<Record<string, string>> => {
       const shas: Record<string, string> = {};
       for (const id of ids) {
@@ -335,6 +350,7 @@ async function main(): Promise<void> {
       let entry: LogEntry;
       const read = { ...(opts.sources ?? sources) };
       try {
+        await defineTables(forDay(flowDoc, parameters, at));
         const r = await runFlow(db, flowDoc, { smaltdb: SMALTDB, parameters, data: null, asOf: at, ...(claims.length ? { claims } : {}), ...(Object.keys(tell).length ? { tell } : {}), sources: read, ...(correction ? { correction } : {}), ...(restates ? { restates } : {}) });
         if (!correction && !restates) {
           for (const m of r.measures ?? []) {

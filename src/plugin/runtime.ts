@@ -42,7 +42,7 @@ import { quoteIdent as q, type ParamValue } from '../core/sqltext.js';
 import type { TableHash } from './dataset-hash.js';
 import { hashTable, sourceColumns } from './dataset-hash.js';
 import { PINNED_PREFIX, pinned, pinnedJSON, pinnedLocation, takeOpened } from './pinned.js';
-import { columnChange, columnChangeSaid, columnsHold, csvColumn, csvHeader, type HeaderChange } from '../core/columns.js';
+import { columnChange, columnChangeSaid, columnsHold, csvColumn, csvHeader, historyValues, type HeaderChange } from '../core/columns.js';
 import { keepPrepared, pinnedSha, preparedFor } from './prepared.js';
 import { givenTypes, isTypesFile, TYPES_PATH, typesKey } from '../core/typed.js';
 import { isRangesFile, measuredAhead, rangesPath, type MeasuredAhead } from '../core/ranges.js';
@@ -125,13 +125,15 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
     // A file whose declared columns are gone holds the day in every flow that holds (ADR 0022 §2, Q-109): said with what
     // is gone, what is new and which new column reads as a gone one (Q-203), nothing built. A flow that can't hold fails,
     // as it did. New columns alone are noted on the source and read as declared (Q-204).
-    const change = headerChange(db, n, historyHeaderOf(plan, i));
-    if (change && columnsHold(change)) {
+    const header = headerChange(db, n, historyHeaderOf(plan, i));
+    const change = header?.change ?? null;
+    if (header && change && columnsHold(change)) {
       const why = `${n.origin}'s columns changed: ${columnChangeSaid(change)}`;
       if (!plan.publish) throw new RunError(why, n.origin);
       refused.set(i, why);
       keys.set(i, '');
-      record(i, 'refused', { refused: why, columns: change });
+      // The file refused, as pinned: which of the day's files it was, and its version of the day.
+      record(i, 'refused', { refused: why, columns: change, file: header.file });
       continue;
     }
     let snap: Snapshot;
@@ -668,7 +670,7 @@ const optionOn = (v: unknown, fallback: boolean): boolean => (v === undefined ||
  * such file, or its header is the declared columns. The engine itself picks declared columns by name only when all are
  * there and reads by place when as many fields are: this is said before it reads anything.
  */
-function headerChange(db: Database, n: TableNode, history: HistoryHeader | null): HeaderChange | null {
+function headerChange(db: Database, n: TableNode, history: HistoryHeader | null): { change: HeaderChange; file: SourceFile } | null {
   const sources = engine(n.origin, () => db.prepare(`SELECT * FROM ${q(n.table)}`).externalSources);
   const s = sources.length === 1 ? sources[0]! : null;
   if (!s || !s.location.startsWith(PINNED_PREFIX) || !s.columns?.length || !/^(csv|tsv)$/i.test(s.format)) return null;
@@ -688,8 +690,12 @@ function headerChange(db: Database, n: TableNode, history: HistoryHeader | null)
   }
   // The gone column's history is kept under its own name, the one the flow reads.
   const asRead = (col: string) => (n.readAs ?? []).find(([file]) => file.toLowerCase() === col.toLowerCase())?.[1] ?? col;
-  const change = columnChange(s.columns.map((c) => [c.name, c.declType] as const), header, { history: (col) => history?.values?.[asRead(col)]?.values, today: (col) => csvColumn(text, col, shape) });
-  return change.gone.length || change.added.length || change.maps.length ? change : null;
+  const seen = (col: string) => {
+    const kept = history?.values?.[asRead(col)]?.values;
+    return kept ? historyValues(kept) : undefined;
+  };
+  const change = columnChange(s.columns.map((c) => [c.name, c.declType] as const), header, { history: seen, today: (col) => csvColumn(text, col, shape) });
+  return change.gone.length || change.added.length || change.maps.length ? { change, file: { location: s.location, sha256: p.sha256, bytes: p.bytes.byteLength } } : null;
 }
 
 /**

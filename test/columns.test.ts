@@ -1,6 +1,6 @@
 // Columns that change (ADR 0022 §2; Q-109, Q-146, Q-203, Q-204): a file's header against its source's columns.
 import { describe, expect, it } from 'vitest';
-import { columnChange, columnChangeSaid, columnsHold, csvColumn, csvHeader, csvRecords, editDistance, familiesAgree, familyOf, inferFamily, namesClose, wordsOf } from '../src/core/columns.js';
+import { columnChange, columnChangeSaid, columnsHold, csvColumn, csvHeader, csvRecords, editDistance, familiesAgree, familyOf, historyValues, inferFamily, namesClose, wordsOf } from '../src/core/columns.js';
 
 const DECLARED: [string, string][] = [['app_id', 'TEXT'], ['customer_id', 'TEXT'], ['region', 'TEXT'], ['amount', 'REAL'], ['seen_at', 'TIMESTAMP']];
 
@@ -10,6 +10,10 @@ describe('reading a CSV file', () => {
     expect(csvRecords(text)).toEqual([['a', 'b, c', 'say "hi"'], ['1', 'two\nlines', '3'], ['4', '', '6']]);
     expect(csvRecords(text, {}, 1)).toEqual([['a', 'b, c', 'say "hi"']]);
     expect(csvRecords('x;y\n1;2', { delimiter: ';' })).toEqual([['x', 'y'], ['1', '2']]);
+  });
+
+  it('reads a history\'s kept values as the file writes them', () => {
+    expect(historyValues(['"success"', '"fail"', '12', 'null', 'bare'])).toEqual(['success', 'fail', '12', '', 'bare']);
   });
 
   it('reads a header, trimmed, and a column by its name in any case', () => {
@@ -111,5 +115,39 @@ describe('a file\'s columns against its source\'s (Q-109, Q-146, Q-203, Q-204)',
     expect(c.maps).toEqual([{ from: 'customer_ids', to: 'customer_id', by: ['name', 'type', 'values'], share: 1 }]);
     expect(c.added).toEqual(['custmer_id']);
     expect(columnChangeSaid(c)).toBe("customer_id is gone and customer_ids is new: customer_ids looks like customer_id (its name, type and 100% of its values); can't tell why custmer_id is new");
+  });
+});
+
+describe('the sign-ins demo\'s renamed day (ADR 0022 §2)', () => {
+  it('writes Fri Mar 22 with result called results, which reads as result by its name, type and values', async () => {
+    const { csvOf, RENAMED_DAY, SIGNIN_COLUMNS, SIGNIN_DEMO, securityDays, securityRows } = await import('./fixtures/security.js');
+    expect(RENAMED_DAY).toBe('2024-03-22');
+    const plan = securityDays(SIGNIN_DEMO).find((d) => d.day === RENAMED_DAY)!;
+    const text = csvOf(securityRows(plan, 0.002), SIGNIN_DEMO.renamed![RENAMED_DAY]);
+    const header = csvHeader(text);
+    expect(header).toEqual(SIGNIN_COLUMNS.map((c) => (c === 'result' ? 'results' : c)));
+    const declared = SIGNIN_COLUMNS.map((c) => [c, c === 'latency_ms' ? 'INTEGER' : 'TEXT'] as [string, string]);
+    const c = columnChange(declared, header, { history: (col) => (col === 'result' ? ['success', 'fail', 'locked'] : undefined), today: (col) => csvColumn(text, col) });
+    expect(c.maps).toEqual([{ from: 'results', to: 'result', by: ['name', 'type', 'values'], share: 1 }]);
+    expect(columnChangeSaid(c)).toBe('result is gone and results is new: results looks like result (its name, type and 100% of its values)');
+    // Any other day's file has the header as declared.
+    expect(csvHeader(csvOf(securityRows(securityDays(SIGNIN_DEMO).find((d) => d.day === '2024-03-21')!, 0.002)))).toEqual([...SIGNIN_COLUMNS]);
+  });
+
+  it('writes Thu Mar 7 with a column the flow doesn\'t read, noted and not held (Q-204)', async () => {
+    const { ADDED_DAY, csvOf, SIGNIN_COLUMNS, SIGNIN_DEMO, securityDays, securityRows } = await import('./fixtures/security.js');
+    expect(ADDED_DAY).toBe('2024-03-07');
+    const plan = securityDays(SIGNIN_DEMO).find((d) => d.day === ADDED_DAY)!;
+    const rows = securityRows(plan, 0.002);
+    const text = csvOf(rows, SIGNIN_DEMO.renamed?.[ADDED_DAY], SIGNIN_DEMO.added![ADDED_DAY]);
+    expect(csvHeader(text)).toEqual([...SIGNIN_COLUMNS, 'client_app']);
+    // The declared columns are the rows as they are, the new one after them.
+    expect(csvColumn(text, 'result')).toEqual(rows.map((r) => r[SIGNIN_COLUMNS.indexOf('result')]));
+    expect(new Set(csvColumn(text, 'client_app'))).toEqual(new Set(['browser', 'mobile_app', 'desktop_app']));
+    const declared = SIGNIN_COLUMNS.map((c) => [c, c === 'latency_ms' ? 'INTEGER' : 'TEXT'] as [string, string]);
+    const c = columnChange(declared, csvHeader(text));
+    expect(c).toEqual({ gone: [], added: ['client_app'], maps: [] });
+    expect(columnsHold(c)).toBe(false);
+    expect(columnChangeSaid(c)).toBe('a new column: client_app');
   });
 });

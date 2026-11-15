@@ -1998,6 +1998,21 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .wi-makeform { display: grid; gap: 8px; min-width: 0; padding: 10px; border: 1px solid var(--muted); border-radius: 8px; background: var(--bg); }
 .wi-make-how { margin: 0; overflow-wrap: anywhere; }
 .wi-reason { box-sizing: border-box; width: 100%; min-width: 0; min-height: 66px; border: 1px solid var(--muted); border-radius: 8px; padding: 9px 10px; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.35; }
+/* Columns that changed (ADR 0022 §2): what is gone and new in a day's file, and Read X as Y with its reason. */
+.dh-columns { display: grid; gap: 8px; min-width: 0; }
+.dh-columns .eyebrow { margin: 0; }
+.cm-source { display: grid; gap: 6px; min-width: 0; }
+.cm-source + .cm-source { padding-top: 8px; border-top: 1px solid var(--line); }
+.cm-said { margin: 0; overflow-wrap: anywhere; }
+.cm-source.held .cm-said { color: var(--bad); font-weight: 600; }
+.cm-ask { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 0; }
+.of-unread-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.of-unread-list li { min-width: 0; overflow-wrap: anywhere; }
+.of-unread-list code { margin: 0 4px; }
+.cm-add { border: 0; background: none; padding: 0; min-height: 32px; color: var(--smalt); font: inherit; font-weight: 600; cursor: pointer; text-align: left; overflow-wrap: anywhere; }
+.cm-form { display: grid; gap: 8px; min-width: 0; padding: 10px; border: 1px solid var(--muted); border-radius: 8px; background: var(--bg); }
+.cm-how { margin: 0; overflow-wrap: anywhere; }
+.cm-reason { box-sizing: border-box; width: 100%; min-width: 0; min-height: 66px; border: 1px solid var(--muted); border-radius: 8px; padding: 9px 10px; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.35; }
 .dh-whatif-ask { margin: 0; font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
 .wi-open { border: 0; background: none; padding: 0; min-height: 28px; color: var(--smalt); font: inherit; font-weight: 600; cursor: pointer; }
 .wi-file, .wi-rules { min-height: 44px; max-width: 100%; min-width: 0; border: 1px solid var(--muted); border-radius: 8px; padding: 6px 8px; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; }
