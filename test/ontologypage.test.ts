@@ -12,10 +12,10 @@ import type { FlowDocument } from '../src/core/document.js';
 import type { GateDef } from '../src/core/gates.js';
 import { ontologyPage, originSaid, typesShown, type FileSection, type Rule } from '../src/core/ontologypage.js';
 import type { Ontology } from '../src/core/ontology.js';
+import { EXAMPLE_DATA, exampleDoc } from './helpers/example.js';
 import { loadFlowDir, signinsDir } from './helpers/notebooks.js';
 
 const estateDir = new URL('../examples/control-estate/', import.meta.url);
-const taxiDir = new URL('../examples/nyc-taxis-weather/', import.meta.url);
 /** Each file's columns as an example's data list declares them: what a load of it has. */
 const columnsIn = (dir: URL) => {
   const data = JSON.parse(readFileSync(new URL('data.json', dir), 'utf8')) as DataBindings;
@@ -195,15 +195,15 @@ describe('the datasets the flow makes', () => {
   });
 
   it('has no made section in a flow with no gate', async () => {
-    expect(ontologyPage(await loadFlowDir(taxiDir)).made).toEqual([]);
+    expect(ontologyPage(exampleDoc()).made).toEqual([]);
     expect(ontologyPage(await loadFlowDir(signinsDir)).made).toEqual([]);
   });
 });
 
 describe('the other examples', () => {
-  it('keeps the taxi flow’s object types, which have links and actions, and gives its files no rule it doesn’t write', async () => {
-    const doc = await loadFlowDir(taxiDir);
-    const page = ontologyPage(doc, columnsIn(taxiDir));
+  it('keeps the taxi fixture’s object types, which have links and actions, and gives its files no rule it doesn’t write', () => {
+    // The retired taxi example's document, kept as a fixture (Q-208): the one flow with object types that link and act.
+    const page = ontologyPage(exampleDoc(), (f) => EXAMPLE_DATA.sources[f]?.columns?.map(([name]) => name));
     expect(page.types.map((t) => t.id)).toEqual(['District', 'Zone', 'ZoneHour', 'WeatherHour']);
     expect(page.files.map((f) => [f.id, f.summary, f.noun.many, f.watched, f.count])).toEqual([['trips', 'NYC TLC yellow taxi trip records', 'trips', true, 0], ['zones', 'The TLC taxi zone lookup', 'zones', false, 0], ['weather', 'Open-Meteo hourly weather, one point per district', 'weather hours', false, 0]]);
     // A parquet file declares no columns: no cards until a load is read.

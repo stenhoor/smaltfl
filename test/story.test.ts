@@ -67,7 +67,7 @@ describe('the cause, as a population', () => {
   });
 
   it('says there is nothing to do under an unusual head only when the day’s total is in its range (ADR 0008 §6)', () => {
-    // (A day whose total is in its range says it: New Year's Day 2024, test/story-real.test.ts.) Fewer trips, or more,
+    // (A day whose total is in its range says it: New Year's Day 2024 did, in the retired taxi example.) Fewer trips, or more,
     // than the range: unusual, but its total isn't in range, so nothing is said of acting.
     for (const t of [{ more: 0.8 }, { vendorSurge: 1.6 }]) {
       const low = story({ [DAY]: t });

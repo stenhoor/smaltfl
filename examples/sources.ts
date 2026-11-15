@@ -1,10 +1,9 @@
 /**
- * A flow's sources as the engine reads them (ADR 0010 §9): each source's binding, from the example's data list
- * (`<example>.data.json`), names the external table the document's source reads, the file's format, its name next to the
- * app, and the columns a CSV declares. The engine reads each file registered with `@smaltdb/external` under its name,
- * or pinned by the smaltfl plugin (`pinnedDdl`). The app, the history builder and the tests use the same bindings.
+ * A flow's sources as the engine reads them (ADR 0010 §9): each source's binding, from the flow's data list (its folder's
+ * `data.json`), names the external table the document's source reads, the file's format, its name next to the app, and
+ * the columns a CSV declares. The engine reads each file registered with `@smaltdb/external` under its name, or pinned
+ * by the smaltfl plugin (`pinnedDdl`). The app, the history builder and the tests use the same bindings.
  */
-import taxiData from './nyc-taxis-weather.data.json';
 
 /** One source's binding: its table, the file's format and name, a CSV's header and columns; `context` for a source
  * the news tells as context (the weather). */
@@ -71,8 +70,3 @@ export const pinnedDdl = (src: ExampleSource | Binding, readAs: readonly (readon
  */
 export const donorBinding = (source: string, b: Binding): Binding => ({ ...b, table: `${b.table}_donor`, file: `${source}_donor.${b.format}`, context: undefined });
 
-/** The example's data list (examples/nyc-taxis-weather.data.json). */
-export const EXAMPLE_DATA = taxiData as unknown as DataBindings;
-export const EXAMPLE_SOURCES: ExampleSource[] = Object.values(EXAMPLE_DATA.sources).map(sourceOf);
-/** The example's donor table, for the trips. */
-export const DONOR_SOURCE: ExampleSource = sourceOf(donorBinding('trips', EXAMPLE_DATA.sources.trips!));

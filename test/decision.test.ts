@@ -311,7 +311,7 @@ describe('the cause card’s pause row, the day after an episode, and the record
     expect(pauseLines({ ...base, state: 'dont', under: 'Fri', readers: '2023-09-21', past: true }).see).toBe('readers kept Thu 21');
     expect(pauseLines({ ...base, state: 'waiting', readers: null, past: true }).see).toBeNull();
     // A row and its verb, not a paragraph: at most 14 words with three outputs named and Change decision, in every state
-    // (the card's budget holds it: test/story-real.test.ts).
+    // (the card's budget holds it).
     for (const s of ['waiting', 'asis', 'dont'] as const) for (const may of [true, false]) for (const standing of [false, true]) {
       const l = pauseLines({ ...base, by: ['trips', 'checks'], state: s, may, who: 'Owner', at: '09:40', under: s === 'dont' && !standing ? 'Fri' : null, standing });
       expect(pauseWords(l), JSON.stringify(l)).toBeLessThanOrEqual(14);

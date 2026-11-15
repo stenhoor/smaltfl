@@ -6,8 +6,7 @@
  *
  * Plain DOM and SVG, as the family's apps are. Everything a person typed or a dataset holds is set with textContent.
  */
-import exampleDoc from '../../examples/nyc-taxis-weather.smaltfl.json';
-import { donorBinding, EXAMPLE_DATA, EXAMPLE_SOURCES, pinnedDdl, type Binding } from '../../examples/sources.js';
+import { donorBinding, pinnedDdl, type Binding } from '../../examples/sources.js';
 import { deliveriesOf, namedFiles, readDataList, versionsOfDay, type DataList, type Delivered, type PostureProduct } from './datalist.js';
 import { holidayOf, seasonOf, US_NYC_1, type Calendar } from '../core/calendar.js';
 
@@ -22,7 +21,7 @@ import { GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, validateDocumen
 import { notebookSectionId } from '../core/notebook.js';
 import { briefOf, briefText, type BriefIn, type BriefOption } from '../core/brief.js';
 import { compareSummary, diffKeyOf, diffOf, type RowDiff } from '../core/compare.js';
-import { createTable, emitCheckCounts, emitColumnFacts, emitCopy, emitDayHours, emitDiff, emitDistinct, emitHourValues, emitDrop, emitDropped, emitExcept, emitFailures, emitLookup, emitRead, emitRuleFailures, emitSample, emitSqlOver, emitUnionAll, emitUnmatched, sameColumns, stampShift, type EmitContext } from '../core/emit.js';
+import { createTable, emitCheckCounts, emitColumnFacts, emitCopy, emitDayHours, emitDiff, emitDistinct, emitHourValues, emitDrop, emitDropped, emitExcept, emitFailures, emitLookup, emitRead, emitRuleFailures, emitSample, emitUnmatched, sameColumns, stampShift, type EmitContext } from '../core/emit.js';
 import { effectOf, type Effect } from '../core/effect.js';
 import { daysFrom, HistoryRanges, isHistory, metricKey, QUANTILES, timeOf, type HistoryFile, type Metric } from '../core/history.js';
 import type { Identity, ManifestNode, SignedManifest, SourceFile, SourceIngestRecord } from '../core/manifest.js';
@@ -119,15 +118,17 @@ interface RunRecord {
 const sameFlow = (a: RunRecord, b: RunRecord): boolean => (a.base !== undefined && b.base !== undefined ? a.base === b.base : a.result.manifest.flow.hash === b.result.manifest.flow.hash);
 
 /**
- * The flow the page runs as shipped: the built example, or the document its data list names (ADR 0010 §9, a build's
- * `--flow`), read before anything else.
+ * The flow the page runs as shipped: the document its data list names (ADR 0010 §9, a build's `--flow`), read before
+ * anything else. Until then a flow of nothing, which a page whose list names none keeps, saying so: no flow is built into
+ * the page (the taxi example was, until it was retired, Q-208).
  */
-let shippedDoc = exampleDoc as unknown as FlowDocument;
-/** The data list the page opened (loads.json, either format): each source's binding and files, each watch's history. */
+const NO_FLOW: FlowDocument = { smaltfl: 1, id: 'none', name: 'No flow', sources: [], steps: [] };
+let shippedDoc = NO_FLOW;
+/** The data list the page opened (loads.json): each source's binding and files, each watch's history. */
 let dataList: DataList | null = null;
 
 const state = {
-  doc: structuredClone(exampleDoc) as unknown as FlowDocument,
+  doc: structuredClone(NO_FLOW),
   engine: null as Engine | null,
   runs: [] as RunRecord[],
   running: false,
@@ -211,19 +212,6 @@ function viewDoc(): FlowDocument {
     steps: d.steps.filter((x) => visible(x.id)).map((st) => ({ ...st, inputs: st.inputs.filter(visible) })) as StepDef[],
     groups: d.groups?.map((g) => ({ ...g, steps: g.steps.filter(visible) })).filter((g) => g.steps.length > 0),
   };
-}
-
-/**
- * A published dataset's rows as the viewer may read them, from the run on screen (on a held day, the last day before
- * it that passed, not whatever ran last), as a subquery, or null when closed.
- */
-async function readOutput(name: string): Promise<string | null> {
-  // Someone who may not decide reads an output kept back on a held day as readers have it (round 3, #2).
-  const run = asReaders(name, state.viewer) ? state.names.get(name) : latest();
-  if (!run || !state.engine) return null;
-  const insp = await inspect(run);
-  const o = insp.plan.outputs.find((x) => x.name === name);
-  return o ? readIn(insp, o.node) : readDataset(name);
 }
 
 /** A stored dataset's rows as the viewer may read them, as a subquery, or null when closed. */
@@ -715,11 +703,11 @@ const nodeOf = (id: string): ManifestNode | undefined => latest()?.result.manife
 
 const KIND: Record<string, string> = { sql: 'SQL', filter: 'FILTER', formula: 'FORMULAS', select: 'SELECT', join: 'JOIN', aggregate: 'AGGREGATE', expectations: 'CHECKS' };
 
-/** A source's binding (ADR 0010 §9): from the data list the page opened, else the example's. */
+/** A source's binding (ADR 0010 §9): from the data list the page opened. */
 const bindingOf = (id: string): Binding | undefined => {
   const src = state.doc.sources.find((x) => x.id === id);
   if (!src) return undefined;
-  const all = dataList?.sources ?? EXAMPLE_DATA.sources;
+  const all: Record<string, Binding> = dataList?.sources ?? {};
   return all[src.id] ?? Object.values(all).find((b) => b.table === src.table);
 };
 /** The file an input reads, where the app knows it: its binding's. */
@@ -10102,45 +10090,6 @@ async function renderResults(): Promise<void> {
       }))
       : h('p', { class: 'foot' }, `No output is open to ${personName(state.viewer)}.`),
   );
-  try {
-    const zh = await readOutput('zone_hour');
-    $('zones-panel').hidden = !zh;
-    if (zh) {
-      const zones = await engine.query(
-        `SELECT pu_zone AS zone, pu_borough AS borough, sum(trips) AS trips, round(sum(avg_duration_min * trips) / sum(trips), 1) AS minutes, round(sum(avg_speed_mph * trips) / sum(trips), 1) AS mph FROM (${zh}) GROUP BY 1, 2 ORDER BY 3 DESC LIMIT 8`,
-      );
-      $('zones-table').replaceChildren(bar() ?? '', table(zones.columns, zones.rows, undefined, false, meaningsOf('zone_hour')));
-    }
-    const we = await readOutput('weather_effect');
-    $('effect-panel').hidden = !we;
-    if (!we) return;
-    // A day's load has each hour once: a wet hour has no dry one at its time of day to set against. With daily
-    // loads, weather's effect is measured over every load run so far, the step's own SQL over their rows together.
-    let from = we;
-    let empty = 'Not enough wet or snowy hours, with trips, to compare with dry ones.';
-    const sub = $('effect-sub');
-    sub.textContent = 'Trips per hour in each kind of weather, against dry hours at the same hour of day.';
-    if (loads.list.length > 1) {
-      const across = await effectAcrossLoads(state.viewer);
-      const view = access('weather_effect');
-      const read = across && view ? wrapRead(view, across.sql) : null;
-      if (read && across) {
-        from = read;
-        const span = across.days.length === 1 ? dayLabel(across.days[0]!) : `${dayLabel(across.days[0]!)} to ${dayLabel(across.days.at(-1)!)}`;
-        sub.textContent = `Over the ${plural(across.days.length, 'load')} run so far (${span}): trips per hour in each kind of weather, against dry hours at the same hour of day on the other days.`;
-        empty = across.days.length < 2
-          ? 'A day’s load has each hour once, so a wet hour has no dry one at its time of day to set against. Run more loads: each brings other days’ hours.'
-          : `These ${across.days.length} days have too few wet or snowy hours, with enough trips, to compare: the week’s storm comes on Saturday and Sunday.`;
-      }
-    }
-    const effect = await engine.query(`SELECT borough, condition, hours, trips_per_hour, vs_dry FROM (${from}) WHERE condition <> 'dry' ORDER BY borough, condition`);
-    const dry = await engine.query(`SELECT borough, hours, trips_per_hour FROM (${from}) WHERE condition = 'dry'`);
-    const width = Math.min(720, Math.max(300, $('effect-chart').clientWidth || 340));
-    // The day on screen staged (ADR 0009 §12): its rows are in the effect, under the bar that says so.
-    $('effect-chart').replaceChildren(bar() ?? '', effectChart(effect.rows as [string, string, number, number, number][], dry.rows as [string, number, number][], width, empty));
-  } catch (e) {
-    $('effect-chart').replaceChildren(h('p', { class: 'foot' }, message(e)));
-  }
 }
 
 // ------------------------------------------------------------------ the posture dashboard
@@ -10312,88 +10261,6 @@ async function teamPosture(p: PostureProduct, n: PostureNode, into: HTMLElement)
   } catch (e) {
     box.replaceChildren(h('p', { class: 'status bad' }, message(e)));
   }
-}
-
-/**
- * Weather's effect over every load run so far, as a person reads it: weather_effect's own SQL (from the latest plan,
- * parameters filled in) with its input bound to the rows of that input from each load run on the same flow, together.
- */
-async function effectAcrossLoads(who: string): Promise<{ sql: string; days: string[] } | null> {
-  const run = latest();
-  if (!run) return null;
-  const insp = await inspect(run);
-  const at = insp.index.get('weather_effect');
-  const node = at === undefined ? undefined : insp.plan.nodes[at];
-  if (!node || node.op !== 'sql' || node.names.length !== 1) return null;
-  const input = node.names[0]!;
-  const parts: string[] = [];
-  const days: string[] = [];
-  // Only loads run on this same flow: their rows mean the same. A held day's rows count only on its own day, under its
-  // staged bar: readers never got them (ADR 0009).
-  for (const [k, l] of loads.list.entries()) {
-    const r = l.episode === loads.episode ? runOfLoad(k) : undefined;
-    // Someone who may not decide never counts a held day's rows, its own day's either (round 3, #2).
-    if (!r || !sameFlow(r, run) || ((r !== run || !mayDecide(who)) && !isPublished(r))) continue;
-    const ri = await inspect(r);
-    const i = ri.index.get(input);
-    const read = i === undefined ? null : readIn(ri, i, who);
-    if (!read) continue;
-    parts.push(read);
-    days.push(l.day);
-  }
-  return parts.length ? { sql: emitSqlOver(node.sql, [[input, emitUnionAll(parts)]]), days } : null;
-}
-
-/** Horizontal bars per borough and condition: trips per hour against dry hours at the same hour of day (1.0). */
-function effectChart(rows: [string, string, number, number, number][], dry: [string, number, number][], width: number, empty: string): HTMLElement {
-  const busy = new Set(dry.filter(([, , perHour]) => perHour >= 3).map(([b]) => b));
-  const shown = rows.filter(([b, , hours]) => busy.has(b) && hours >= 4);
-  if (shown.length === 0) return h('p', { class: 'foot effect-empty' }, empty);
-  // Drawn at the width it is shown, so its labels stay at their real size on a phone.
-  const left = Math.max(118, Math.round(width * 0.3));
-  // (The right margin holds each bar's percentage: right2 below.)
-  const barH = 18;
-  const gap = 8;
-  const groupGap = 18;
-  // Each ratio a bar from the dry hours' 1×, left for fewer trips and right for more (ADR 0008 §12), so +1% and −13%
-  // read apart. Ratios from ½× to many times: on a doubling scale, each doubling the same width, its ticks printed.
-  const vals = shown.map((r) => r[4]);
-  const lo = Math.min(0.5, ...vals.map((v) => Math.max(v, 1 / 64)));
-  const hi = Math.max(2, ...vals);
-  const [l2lo, l2hi] = [Math.floor(Math.log2(lo)), Math.ceil(Math.log2(hi))];
-  const pad = 10;
-  const right2 = 56;
-  const x = (v: number) => left + pad + ((Math.log2(Math.max(v, 1 / 64)) - l2lo) / Math.max(1, l2hi - l2lo)) * (width - left - right2 - pad * 2);
-  const boroughs = [...new Set(shown.map((r) => r[0]))];
-  let y = 26;
-  const marks: SVGElement[] = [];
-  for (const b of boroughs) {
-    marks.push(s('text', { x: 0, y: y + 12, 'font-weight': 600 }, b));
-    y += 20;
-    for (const [, condition, hours, , vs] of shown.filter((r) => r[0] === b)) {
-      const cls = condition === 'snow' ? 'snow' : condition === 'heavy rain' ? 'heavy' : 'rain';
-      marks.push(s('text', { x: 12, y: y + 13 }, `${condition} · ${hours} h`));
-      const [a, b] = [x(1), x(vs)];
-      marks.push(s('rect', { class: `bar ${cls}`, x: Math.min(a, b), y, width: Math.max(2, Math.abs(b - a)), height: barH, rx: 3 }));
-      const change = vs - 1;
-      const said = `${change >= 0 ? '+' : '−'}${Math.abs(change * 100).toFixed(0)}%`;
-      marks.push(s('text', { x: vs >= 1 ? Math.max(a, b) + 6 : Math.min(a, b) - 6, y: y + 13, class: 'num', 'text-anchor': vs >= 1 ? 'start' : 'end' }, said));
-      y += barH + gap;
-    }
-    y += groupGap - gap;
-  }
-  const height = y + 4;
-  const svg = s('svg', { viewBox: `0 0 ${width} ${height}`, width, height, role: 'img', 'aria-label': 'Trips per hour in rain, heavy rain and snow, against dry hours at the same hour of day' });
-  // A tick every doubling, or every other or fourth when there are many (never beside 1×, named as the dry hours).
-  const every = l2hi - l2lo > 10 ? 4 : l2hi - l2lo > 5 ? 2 : 1;
-  for (let e = l2lo; e <= l2hi; e++) {
-    if (e % every) continue;
-    const t = 2 ** e;
-    svg.append(s('line', { class: e === 0 ? 'base' : 'grid', x1: x(t), x2: x(t), y1: 18, y2: height }));
-    svg.append(s('text', { class: 'axis', x: x(t), y: 12, 'text-anchor': 'middle' }, e === 0 ? 'dry 1×' : t < 1 ? `${t === 0.5 ? '½' : `1/${1 / t}`}×` : `${t}×`));
-  }
-  svg.append(...marks);
-  return h('div', {}, svg, h('p', { class: 'foot' }, 'Only boroughs with at least 3 trips in a dry hour are shown, and conditions with 4 hours or more. Weather by Open-Meteo.com (CC BY 4.0); trips from the NYC TLC.'));
 }
 
 // ------------------------------------------------------------------ policies
@@ -11364,8 +11231,7 @@ const spanOf = (id: string): string => {
   return loads.list.length && src && (id === src || downstreamOf(src).includes(id)) ? 'today' : 'in this file';
 };
 /**
- * The source the loads feed (ADR 0010 §9): the one the data list gives loads, by id; else the flow's watched source;
- * else the example's trips.
+ * The source the loads feed (ADR 0010 §9): the one the data list gives loads, by id; else the flow's watched source.
  */
 const loadSource = (): string | undefined => {
   // The data's list may name the watched source or step the views follow (ADR 0013 §5): the posture across several
@@ -11374,10 +11240,7 @@ const loadSource = (): string | undefined => {
   if (judged && Object.keys(state.doc.publish?.watch ?? {}).some((id) => id.toLowerCase() === judged.toLowerCase()) && (state.doc.sources.some((x) => x.id === judged) || state.doc.steps.some((x) => x.id === judged))) return judged;
   const listed = dataList?.loadSource;
   if (listed && state.doc.sources.some((x) => x.id === listed)) return listed;
-  const watched = Object.keys(state.doc.publish?.watch ?? {}).find((id) => state.doc.sources.some((x) => x.id === id));
-  if (watched) return watched;
-  const table = EXAMPLE_SOURCES.find((x) => x.file === 'trips.parquet')?.table;
-  return state.doc.sources.find((x) => x.table === table)?.id;
+  return Object.keys(state.doc.publish?.watch ?? {}).find((id) => state.doc.sources.some((x) => x.id === id));
 };
 /** The name the loads' files are pinned under: their source's binding's file. */
 /** The source the daily loads feed first (the list's `loadSource`): the file a load's bytes are pinned as. */
@@ -15745,13 +15608,13 @@ async function start(): Promise<void> {
   // The engine's worker started first, so it loads while the page reads its lists and its record; waited for below.
   const engineReady = connect();
   engineReady.catch(() => undefined);
-  // The data list first (ADR 0010 §9): it binds each source by id, and names the flow when the page runs another than
-  // the built example, which is checked against the list before it is read.
+  // The data list first (ADR 0010 §9): it binds each source by id, and names the flow, which is checked against the list
+  // before it is read. A list that names none opens nothing, and says so.
   mark('start');
   const index = (await fetch('data/loads.json', { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).catch(() => null)) as unknown;
-  dataList = readDataList(index, EXAMPLE_DATA);
+  dataList = readDataList(index);
   mark('loads.json');
-  let opening: unknown = null;
+  let opening: unknown = dataList.flow ? null : new Error('This page’s data list (data/loads.json) names no flow to open.');
   if (dataList.flow) {
     try {
       const bytes = await fetchChecked(dataList.flow.path, dataList.flow, { commit: dataList.data?.commit ?? null, onCheck: noteCheck });
@@ -15991,7 +15854,10 @@ async function start(): Promise<void> {
     if (e instanceof IntegrityError) {
       const said = describeFile(e.check);
       state.failed = { message: `${said.title}. ${said.detail}`, file: e.check };
-    } else state.failed = { message: `The engine couldn't start: ${message(e)}` };
+    } else {
+      // A flow the page couldn't open says why in its own words; anything else stopped the engine.
+      state.failed = { message: e === opening ? message(e) : `The engine couldn't start: ${message(e)}` };
+    }
     setStatus(state.failed.message, true);
     renderRuns();
     renderCanvas();

@@ -29,19 +29,17 @@ npm ci && npm run deps   # dependencies, then the smalt builds pinned in packed.
 npm run deps:latest      # move the pins to the latest of stenhoor's repositories (ADR 0017)
 npm run check            # typecheck and tests
 npm run bench            # the scenario benchmarks (bench/results/node.json)
-npm run build:app        # the app, in dist/app (with the data branch's loads when fetched: git fetch origin data --depth 1)
-npm run build:app -- --flow examples/larkspur/flow.json --out dist/app-larkspur     # the demo
+npm run build:app        # the app on Larkspur, the demo, in dist/app (its data generated from a fixed seed)
+npm run build:app -- --flow examples/control-estate/flow.json --out dist/app-estate     # another example
 npm run docs:dev         # the site (VitePress), with live reload
 ```
 
 The tests are the worked example: [test/runtime.test.ts](test/runtime.test.ts) runs the reference flow
 ([test/fixtures/taxi.ts](test/fixtures/taxi.ts)) on a seeded stand-in for the scenario's taxi data and checks it
-against the same flow computed in plain JavaScript, and [test/example.test.ts](test/example.test.ts) runs
-[the weather example](examples/nyc-taxis-weather.smaltfl.json) on real data. [CLAUDE.md](CLAUDE.md) has the layout and
-the working rules.
+against the same flow computed in plain JavaScript. [CLAUDE.md](CLAUDE.md) has the layout and the working rules.
 
-**Data.** This project's cloud sessions can't reach the TLC and Open-Meteo hosts, so
-[a workflow](.github/workflows/data.yml) downloads the scenario's data on a GitHub runner and publishes it as the
-`data` branch, with every file's hash in its `MANIFEST.json`.
+**Data.** Every example's data is generated from a fixed seed by the build (`scripts/data/`): Larkspur, the control
+estate and the sign-in log need no outside host. The taxi example, on real trips published as a `data` branch, was
+retired on 2026-11-15 ([ADR 0022](docs/adr/0022-the-answers-of-2026-11-14.md), its addendum).
 
 MIT licence ([LICENSE](LICENSE)).

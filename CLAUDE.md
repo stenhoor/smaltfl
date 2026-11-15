@@ -18,7 +18,7 @@ match smaltdb's `CLAUDE.md`.
 | `npm run build` | `dist/`: the core (`index.js`), the runtime plugin (`plugin/index.js`) and their declarations | Packaging checks |
 | `npm run docs:dev` | The site (VitePress, `docs/`, the brand kit copied unchanged into `docs/.vitepress/theme/`); `.github/workflows/docs.yml` deploys it to GitHub Pages with Larkspur at `/app/` (the demo, ADR 0020), the control estate at `/estate/` and the sign-ins at `/signins/` (each build writes `index.html` beside `page.html`) | Docs and site changes |
 | `npm run bench` | The scenario benchmarks in `bench/`, written to `bench/results/node.json` | Changes that could affect speed |
-| `npm run build:app` | The app in `dist/app` on `examples/nyc-taxis-weather/` (its notebooks expanded, shipped as `data/flow.json`), with the `data` branch's daily loads if fetched (else the XS fixtures); `-- --flow examples/security-signins/flow.json --out dist/app-signins` for the sign-ins (its generator's `--demo` days from the data list's `generateArgs`). Bundles are named by content (`bundles.json`). A generated flow's days, histories and samples are kept in `node_modules/.cache/smaltfl/data/<hash of what makes them>/`: after a change to the app alone the build takes seconds, not minutes (the docs deploy caches the same folder) | Changes to `src/app` |
+| `npm run build:app` | The app in `dist/app` on Larkspur (`examples/larkspur/`, its notebooks expanded, shipped as `data/flow.json`, its days generated from its seed); `-- --flow examples/security-signins/flow.json --out dist/app-signins` for the sign-ins (its generator's `--demo` days from the data list's `generateArgs`). Bundles are named by content (`bundles.json`). A generated flow's days, histories and samples are kept in `node_modules/.cache/smaltfl/data/<hash of what makes them>/`: after a change to the app alone the build takes seconds, not minutes (the docs deploy caches the same folder) | Changes to `src/app` |
 | `node tools/browser/regress.cjs APP OUT estate notebook split@desktop,tablet-wide,wide` | The browser regression: each stop set at every size (phone, tablet, tablet-wide, desktop, wide), as many at once as there are cores, one table of what passed; `--devices` narrows the sizes. Copy the built app out of `dist/` first | Before a PR that touches `src/app`; one set and its sizes while iterating |
 
 `npm run typecheck` runs on TypeScript 7: `typescript7`, an npm alias, run as `node node_modules/typescript7/bin/tsc`.
@@ -37,15 +37,15 @@ release (smaltty ADR 0030).
 - `src/index.ts`: the core's exports, and `runFlow` / `verifyRun`.
 - `test/`: vitest on the in-process engine. `fixtures/taxi.ts` is the seeded stand-in for the scenario's data and the
   reference flow; `fixtures/reference.ts` computes the same flow in plain JavaScript to check results against;
-  `worker-protocol.test.ts` runs through the smaltdb client and engine server, the path a page takes.
+  `worker-protocol.test.ts` runs through the smaltdb client and engine server, the path a page takes. The retired taxi
+  example's document, data list and XS files are unit-test fixtures (`fixtures/taxi-example.*`, `fixtures/xs/`, Q-208).
 - `bench/`: the scenario benchmarks (docs/SCENARIO.md §7).
 - `src/app/`: the app. `main.ts` (plain DOM and SVG), `engine.ts` (smaltdb in a worker, `worker.ts`, or in the page,
   `inline.ts`), `layout.ts` (where cards sit), `page.html` (the page's content). `npm run build:app` writes `dist/app`.
-- `examples/`: flow documents and their sources; `fixtures/xs/`: real tier XS data for the tests.
-- `scripts/data/build.py` and `.github/workflows/data.yml`: the scenario's data, fetched on a GitHub runner into the
-  `data` branch (`git fetch origin data --depth 1`); `scripts/data/history.ts` measures the history's days there, on
-  the runtime (`node scripts/data/history.mjs --flow DOC --watch SOURCE --files LIST.json OUT.json`, or `DAYS_DIR
-  OUT.json` for the taxi example).
+- `examples/`: flow documents and their sources, each flow's days generated from a fixed seed (`scripts/data/`).
+- `scripts/data/history.ts` measures a flow's history day by day, on the runtime (`node scripts/data/history.mjs --flow
+  DOC --watch SOURCE --files LIST.json OUT.json`). The taxi example's data branch (`scripts/data/build.py`,
+  `.github/workflows/data.yml`) was retired with it on 2026-11-15 (ADR 0022's addendum, Q-208).
 - The day's news (ADR 0008): `src/core/news.ts` finds what is out of the ordinary, `src/core/story.ts` tells it as one
   cause with what follows from it, `src/app/viz.ts` draws it (SVG strings, tested in Node). Words at a glance are
   budgeted (`glanceStrings`, `wordsIn`); a new kind of finding gets its visual there too.
@@ -58,12 +58,13 @@ release (smaltty ADR 0030).
   `src/core/hold.ts` says what holds a run (its checks, the story's claim), what waits, and what the record decided;
   `src/plugin/runtime.ts` holds instead of throwing and `src/plugin/release.ts` publishes a held run as a recorded
   decision says; verify's *held* check and `src/core/audit.ts` check both; `src/core/decision.ts` and
-  `src/app/viz.ts` `decisionRow` draw and word the decision. The days `wrong` and `short` hold on the history are a
-  test vector (`test/hold-real.test.ts`): a story change that moves them is a decision, not a fix.
+  `src/app/viz.ts` `decisionRow` draw and word the decision. The days a demo's story holds are test vectors (its answer
+  key; the taxi's real history was one until it was retired, Q-208): a story change that moves them is a decision, not
+  a fix.
 - Filling a paused day (ADR 0009 amendment 1): the `fill` step marks every row with `filled_from`; `src/core/fill.ts`
   says what is missing, the donor and the derived document; `src/app/fills.ts` pins a donor and stages the derived
   run; the plugin releases it (`stage`, `release.ts`) and withdraws it (Q-61). ◧ filled, ◐ the part alone, stipple for
-  another day's rows inside the day (`viz.ts`). The donor table (`test/fill-real.test.ts`) is a test vector too.
+  another day's rows inside the day (`viz.ts`).
 - Any dataset (ADR 0010): `src/core/calendar.ts` takes the flow's calendar (`us-nyc/1`, `us/1`, `none`); format 3 and
   plan/2 say how a watched source is judged (`WatchDef`, `WatchPlan`); `judgeOf` and `flowNames` (news.ts) read the
   watch's settings, the ontology's marks (`bad`, `newValues`, `after`) and its nouns; a day with nothing to compare
@@ -76,8 +77,8 @@ release (smaltty ADR 0030).
   Phase 3: the calendar's own `days`, `windows` and `dates` (`recurringOf`, `occurrencesBefore`; normal.ts's
   occurrences' guess), the patterns `none` and `monthly`, breaks from accepted levels, the echo fix and `relearn`
   (off unless a watch asks) in `normal.ts`; `rangesFor(doc, source)` (hold.ts) is what a flow's ranges are made with.
-  The taxi example is format 3 (Election Day; 25 days under `wrong`; `exampleLegacy()` in `test/helpers/example.ts`
-  is its legacy form, 28 days), and `test/backtest-real.test.ts` (`SMALTFL_REAL=all`) prints the variants. Accept the
+  The taxi fixture is format 3 (`exampleDoc()` in `test/helpers/example.ts`, Election Day; `exampleLegacy()` is its
+  legacy form). Accept the
   new level (`accept`, Q-57): `fill.ts` `acceptable`/`levelMetrics`/`levelWays`, `hold.ts` `levelsOf`/`levelFor`, a
   decide entry's `level`, a claim's `levels`, the step mark `g-level` in `viz.ts`. Phase 4: a watch's `every` (a slot of a
   day, `slotOf`, `partsOf` in calendar.ts; `slotSeries` in history.ts judges a slot from the same slot of each day);
@@ -88,8 +89,8 @@ release (smaltty ADR 0030).
   `src/core/notebook.ts` derives them (`loadNotebooks`, `expandNotebooks`, `stepsOfNotebooks`) with smaltnb's parser
   and graph on smaltty (`smaltkit/typescript`, passed in); `src/notebook.ts` is `smaltfl/notebook`, what a notebook
   imports (`source`, `check`, `fill`); its plan is plan/3 (E14, `test/notebook.test.ts`). A flow is a folder:
-  `examples/security-signins/` and `examples/nyc-taxis-weather/` (`flow.json` and `*.nb.ts`, typechecked with the
-  repository; `test/notebook-taxi.test.ts` holds them to the JSON forms, which the real-history tests still read).
+  `examples/security-signins/`, `examples/control-estate/` and `examples/larkspur/` (`flow.json` and `*.nb.ts`,
+  typechecked with the repository).
   `scripts/flow.ts` reads either form from disk for the app build and the history builder. On the canvas a notebook
   is a box (a section folded, `notebookSectionId`), and tapping it opens the notebook read top to bottom
   (`renderNotebookSheet`, `notebookElements`), each cell a tap from its own sheet; `cells`, `groups` and `outline` are
@@ -380,7 +381,7 @@ release (smaltty ADR 0030).
   (`OntologyPage.made`, `FileSection.made` and `readBy`; the app's "Made by the flow", read-only, `readByLine`,
   `openOntologySection`), a hand-set rule saying where it is written (`originSaid`); tour.cjs's `textIn`/`noTextIn`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
-  with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
+  with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
 - **State of the work:** [docs/HANDOFF.md](docs/HANDOFF.md) says what is built, how to check it and what is left, in
   priority order. Read it before starting. **What comes next:** [ADR 0011](docs/adr/0011-notebooks-as-the-step-surface.md),
@@ -414,7 +415,9 @@ release (smaltty ADR 0030).
   through the steps. Slice 3, the ontology as the one place for rules (Q-176, Q-118, Q-119, Q-145, Q-144), is built in
   two parts: the written rules in the ontology (loose ids per check, a gold key from a rows entry, `ontology.needs`),
   then drawings in the ontology's labels and a made dataset's rules on the Ontology page. Slice 4, pausing (Q-86, Q-132,
-  Q-84), is next: before Q-132, a short design goes to the maintainer in the question prompt.
+  Q-84), is next. Its design was answered on 2026-11-15: a learned alert that moves a quarter of the day's rows pauses
+  the day, a parameter of the flow and of a dataset in the ontology (Q-207). The same day the taxi example was retired,
+  to focus on the generated demos (Q-208, ADR 0022's addendum).
 
 ## Rules for this repository
 

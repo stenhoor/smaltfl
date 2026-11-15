@@ -196,8 +196,8 @@ This build refuses any `every` but day (phase 4).
 quantiles from the profile's sample, its rows by hour (in the watch's zone), the counted columns' values and pairs,
 and the followed columns' values. The plugin measures them in the engine (`measure`, `src/plugin/measure.ts`, the
 statements emit.ts writes); the history builder (`scripts/data/history.ts`) calls the same method, so a period built
-offline and the same load measured by its own run are equal (`test/measures-real.test.ts` checks the data branch's
-loads against history.json). A history is smaltfl-history/3 (/2 still reads): its base, as the data's list gives it,
+offline and the same load measured by its own run are equal (`test/measures-real.test.ts` checked the taxi example's
+loads against its history.json until the example was retired, Q-208). A history is smaltfl-history/3 (/2 still reads): its base, as the data's list gives it,
 plus the source's *tail*, the measures of the loads the base lacks, appended from their own runs in this browser, one
 a slot, the first to arrive, never a derived run's (`appendPeriods`, `HistoryRanges.of`). The record keeps each run's
 measures, and the page rebuilds the tail from it when it opens. Under plan/2 a watched source is judged by claim/2:
@@ -216,9 +216,9 @@ three).
 `windows` are spans of the year, `dates` one-off days left out of learning. A watch's `pattern` is `weekly`, `none`
 (the ordinary periods before, whatever the weekday) or `monthly` (those, the same day of the month, and last year).
 The general form stops echoes (a share far from its weeks is not learned from), and with `relearn` re-learns a change
-that lasted 14 days and never held a day (X7); the taxi example leaves it off (ADR 0010 §13). `rangesFor(doc, source)`
-says what a flow's ranges are made with, and `flowStory` refuses others. The example is format 3, with Election Day
-in its calendar, and holds 25 days under `wrong` (Q-54). *Accept the new level* (`accept`, the owner and roles whose
+that lasted 14 days and never held a day (X7); the taxi fixture leaves it off (ADR 0010 §13). `rangesFor(doc, source)`
+says what a flow's ranges are made with, and `flowStory` refuses others. The taxi fixture is format 3, with Election
+Day in its calendar; on the real history it held 25 days under `wrong` (Q-54) until the example was retired (Q-208). *Accept the new level* (`accept`, the owner and roles whose
 rule lists it, Q-57) publishes a held day as is and records a level (`{ source, from, metrics }`): `levelsOf` reads
 the levels from the record, `HistoryRanges` learns from each as a break (the weeks since it, the miss under it), each
 claim names them (`levels`), and a later day held by the story alone, off only on the level's metrics and the same
@@ -631,9 +631,9 @@ Builder and drawn in the family's look. The first concepts are on the design can
   own, to review. The owner changes the flow; anyone may mark or note. What was done is kept in this browser as a
   hash-chained log (each entry's hash covers the one before), shown on the finding, and an incident on a day shows in
   the history's list of days something was wrong.
-- **Integrity, all the way through (ADR 0006).** Every data file is checked before it is used: build-app reads the
-  data branch at one commit and checks each file against its MANIFEST.json, and the app checks the list's hash and then
-  every file it fetches against it, refusing one that doesn't match (fetched once more first, past any cache): the
+- **Integrity, all the way through (ADR 0006).** Every data file is checked before it is used: build-app hashes each file it
+  ships into the data list (loads.json), and the app checks every file it fetches against it (a list published with a
+  MANIFEST.json, as the retired taxi example's data branch was, by the list's hash first), refusing one that doesn't match (fetched once more first, past any cache): the
   load doesn't run, the last good run stays on screen, and the sheet says so with both hashes and what can be done.
   The engine hashes each file again as the plugin pins it, and a run records the file each snapshot read. A card's
   seal says it is checked back to the bytes it was made from (an input whose file matched the list and was read by

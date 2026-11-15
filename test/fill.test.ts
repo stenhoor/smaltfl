@@ -1,7 +1,7 @@
 /**
  * Filling a paused day (ADR 0009 amendment 1), in the core: the missing part a story names, the donor each rule finds,
  * the derived document, the numbers each remedy gives readers, the options a held day gets, and a day's versions. On
- * the synthetic history and made-up record entries; the real history's donors are test/fill-real.test.ts.
+ * the synthetic history and made-up record entries (the retired taxi example's real donors were checked until 2026-11-15).
  */
 import { describe, expect, it } from 'vitest';
 import { isSpecial, NONE, US_1 } from '../src/core/calendar.js';

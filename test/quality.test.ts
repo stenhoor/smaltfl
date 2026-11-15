@@ -15,9 +15,8 @@ import { insertAfter } from '../src/core/document.js';
 import { shapeOf } from '../src/core/optimize.js';
 import { identifiers } from '../src/core/sqltext.js';
 import { columnSql, drift, fillGaps, isolationForest, madsOf, needOf, needWords, niceCeil, profileColumn, psi, quantile, random, renamesOf, secondsText, suggestChecks, unusual, type ColumnFacts } from '../src/core/quality.js';
-import { EXAMPLE_SOURCES } from '../examples/sources.js';
 import { SMALTDB } from './helpers/engine.js';
-import { examplePublishing } from './helpers/example.js';
+import { EXAMPLE_SOURCES, examplePublishing } from './helpers/example.js';
 
 const facts = (values: unknown[]): ColumnFacts => {
   const present = values.filter((v) => v !== null);
@@ -180,7 +179,7 @@ describe('data quality on real data', () => {
   it('suggests checks whose counts are what the run reports once they are added as a box', async () => {
     const db = Database.openMemory({ plugins: [io, external, parquet, smaltfl] });
     for (const s of EXAMPLE_SOURCES) {
-      await db.callPlugin('@smaltdb/external', 'registerFile', [s.file, new Uint8Array(readFileSync(new URL(`../fixtures/xs/${s.file}`, import.meta.url)))]);
+      await db.callPlugin('@smaltdb/external', 'registerFile', [s.file, new Uint8Array(readFileSync(new URL(`./fixtures/xs/${s.file}`, import.meta.url)))]);
       await db.execAsync(s.ddl);
     }
     const doc = examplePublishing();

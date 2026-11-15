@@ -14,7 +14,7 @@ import smaltfl from '../src/plugin/index.js';
 import { runFlow, type FlowDocument, type FlowPlan, type RunResult } from '../src/index.js';
 import { emitRead, emitRemoved, emitRuleFailures, emitUnmatched, type EmitContext } from '../src/core/emit.js';
 import { shapeOf } from '../src/core/optimize.js';
-import { EXAMPLE_SOURCES } from '../examples/sources.js';
+import { EXAMPLE_SOURCES } from './helpers/example.js';
 import { reference } from './fixtures/reference.js';
 import { loadFixture, makeTrips, visualFlow, ZONES } from './fixtures/taxi.js';
 import { SMALTDB } from './helpers/engine.js';
@@ -38,10 +38,10 @@ function inspect(db: Database, r: RunResult) {
 async function realRun() {
   const db = Database.openMemory({ plugins: [io, external, parquet, smaltfl] });
   for (const s of EXAMPLE_SOURCES) {
-    await db.callPlugin('@smaltdb/external', 'registerFile', [s.file, new Uint8Array(readFileSync(new URL(`../fixtures/xs/${s.file}`, import.meta.url)))]);
+    await db.callPlugin('@smaltdb/external', 'registerFile', [s.file, new Uint8Array(readFileSync(new URL(`./fixtures/xs/${s.file}`, import.meta.url)))]);
     await db.execAsync(s.ddl);
   }
-  const doc = JSON.parse(readFileSync(new URL('../examples/nyc-taxis-weather.smaltfl.json', import.meta.url), 'utf8')) as FlowDocument;
+  const doc = JSON.parse(readFileSync(new URL('./fixtures/taxi-example.smaltfl.json', import.meta.url), 'utf8')) as FlowDocument;
   return inspect(db, await runFlow(db, doc, { smaltdb: SMALTDB }));
 }
 

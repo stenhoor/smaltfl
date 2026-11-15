@@ -1,12 +1,19 @@
 import { readFileSync } from 'node:fs';
 import type { FlowDocument, StepDef } from '../../src/core/document.js';
+import { sourceOf, type DataBindings, type ExampleSource } from '../../examples/sources.js';
+import taxiData from '../fixtures/taxi-example.data.json';
 
-/** The example document as shipped: format 3 since phase 3 (ADR 0010 §13, the owner's Q-54), with a day parameter, a
+/** The retired taxi example's data list (ADR 0022, 2026-11-15): kept as the unit tests' fixture, not an example. Each
+ * source's binding, and each source as the engine reads it. */
+export const EXAMPLE_DATA = taxiData as unknown as DataBindings;
+export const EXAMPLE_SOURCES: ExampleSource[] = Object.values(EXAMPLE_DATA.sources).map(sourceOf);
+
+/** The retired taxi example's document, kept as the unit tests' fixture (test/fixtures/taxi-example.smaltfl.json): format 3 since phase 3 (ADR 0010 §13, the owner's Q-54), with a day parameter, a
  * publish block that holds a day that is off (ADR 0009 §2) and judges the trips in the general form (us-nyc/1 with
  * Election Day, weekly, fixed floors, the echo fix), and a fill step on its watched trips (amendment 1 S1). Its plan is
  * plan/2, so a run of it publishes only with a claim/2 for its day that doesn't hold. */
 export function exampleDoc(): FlowDocument {
-  return JSON.parse(readFileSync(new URL('../../examples/nyc-taxis-weather.smaltfl.json', import.meta.url), 'utf8')) as FlowDocument;
+  return JSON.parse(readFileSync(new URL('../fixtures/taxi-example.smaltfl.json', import.meta.url), 'utf8')) as FlowDocument;
 }
 
 /**

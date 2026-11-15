@@ -4,18 +4,16 @@
 // worker), parse.js (smaltql's SQL parser, loaded when a screen asks where a column is used), and data/ (a flow's files, listed in data/loads.json, format 2: each source's binding with its file or its
 // daily loads and the days a paused one may be filled from, and each watched source's history, ADR 0010 §9).
 //
-//   node scripts/build-app.mjs            the example (examples/nyc-taxis-weather/, its notebooks expanded, ADR 0011):
-//                                         the daily loads from origin/data, or the 10k fixtures
-//   node scripts/build-app.mjs --xs       the example on the 10k fixtures
+//   node scripts/build-app.mjs            Larkspur (examples/larkspur/, ADR 0020), the demo
 //   node scripts/build-app.mjs --flow examples/security-signins/flow.json [--out dist/app-signins]
-//                                         another example: its data list's generator (with its `generateArgs`) writes its daily files, the
-//                                         general builder its history. Every build ships its document as data/flow.json,
-//                                         a folder's with its notebooks' sources and the steps derived from them
+//                                         another example. The flow's data list names a generator; it writes the
+//                                         daily files (with the list's `generateArgs`) and the general builder writes
+//                                         the history. Every build ships its document as data/flow.json, and a
+//                                         folder's flow ships with its notebooks' sources and the steps derived from them
 import { build } from 'esbuild';
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -59,19 +57,17 @@ const common = {
   logLevel: 'warning',
 };
 
-// The artifact host serves text but not Parquet: a Parquet file goes base64-encoded as <name>.txt (src/app/main.ts).
-const put = (name, bytes) => (name.endsWith('.parquet') ? writeFileSync(`${out}/data/${name}.txt`, bytes.toString('base64')) : writeFileSync(`${out}/data/${name}`, bytes));
-const xs = process.argv.includes('--xs');
 const flowAt = process.argv.indexOf('--flow');
-const flowPath = flowAt >= 0 ? process.argv[flowAt + 1] : null;
+// The demo's flow unless another is named (ADR 0020 §8). The taxi example and its data branch were retired on 2026-11-15
+// (Q-208): every flow built here generates its own data.
+const flowPath = flowAt >= 0 ? process.argv[flowAt + 1] : 'examples/larkspur/flow.json';
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 // The flow reader (scripts/flow.ts), bundled for Node: a folder's flow.json comes back with its notebooks loaded and its
 // steps derived (ADR 0011); a .smaltfl.json as it is.
 const reader = 'node_modules/.cache/smaltfl/flow.mjs';
 await build({ entryPoints: ['scripts/flow.ts'], bundle: true, platform: 'node', format: 'esm', target: 'node20', outfile: reader, logLevel: 'warning' });
 const { readFlow, bindingsPath } = await import(pathToFileURL(reader).href);
-const EXAMPLE_FLOW = 'examples/nyc-taxis-weather/flow.json';
-// The example's bindings (ADR 0010 §9): each source's table, format and file name, which loads.json carries on.
+// A flow's bindings (ADR 0010 §9): each source's table, format and file name, which loads.json carries on.
 const bindingsOf = (doc) => JSON.parse(readFileSync(bindingsPath(doc), 'utf8'));
 /** The document the build ships, as data/flow.json, and its entry in loads.json. With a recorded story (ADR 0021 §6), its
  * changes to the rules people set ship as the document's own change sets (ADR 0021 §5): the page reads them as it reads
@@ -84,32 +80,7 @@ const shipFlow = async (path, storyPath = null) => {
   writeFileSync(`${out}/data/flow.json`, bytes);
   return { path: 'flow.json', from: path, sha256: sha256(bytes), bytes: bytes.length };
 };
-// The data branch at one commit, read by it for every file, so the list and the files can't come from two builds.
-let data = null;
-let manifestBytes = null;
-let manifest = null;
-if (!xs && !flowPath) {
-  try {
-    data = git('rev-parse', 'origin/data').toString().trim();
-  } catch {
-    // No data branch here: the fixtures.
-  }
-  // A data branch whose list can't be read fails the build, rather than quietly building from the fixtures.
-  if (data) {
-    manifestBytes = git('show', `${data}:MANIFEST.json`);
-    manifest = JSON.parse(manifestBytes.toString());
-  }
-}
-if (manifest) {
-  // A path listed twice has two hashes, and the app and an auditor could each take a different one.
-  const paths = manifest.files.map((f) => f.path);
-  const twice = paths.find((p, i) => paths.indexOf(p) !== i);
-  if (twice) throw new Error(`the data branch's MANIFEST.json at ${data} lists ${twice} twice`);
-}
-// The app is built knowing the list it may trust (its commit, hash and size), so a loads.json beside it that names
-// another is refused: the files, the list and loads.json can't be swapped together without rebuilding the app.
-const builtData = manifestBytes ? { commit: data, manifest: sha256(manifestBytes), bytes: manifestBytes.length } : null;
-await build({ ...common, define: { ...common.define, __SMALTFL_DATA__: JSON.stringify(builtData) }, entryPoints: { app: 'src/app/main.ts', worker: 'src/app/worker.ts', inline: 'src/app/inline.ts', parse: 'src/app/parse.ts' }, outdir: out });
+await build({ ...common, entryPoints: { app: 'src/app/main.ts', worker: 'src/app/worker.ts', inline: 'src/app/inline.ts', parse: 'src/app/parse.ts' }, outdir: out });
 // The bundles named by their content (app.3f2a9c1d.js), so a new build is never served from a browser's cache of the
 // last one under the same name: the page's script tag and the page's references to the worker and the in-page engine
 // take the new names; so does its reference to the SQL parser, loaded when a screen asks where a column is used.
@@ -131,62 +102,14 @@ const kitCss = readFileSync('node_modules/smaltkit/dist/ui.css', 'utf8').replace
 const pageHtml = readFileSync('src/app/page.html', 'utf8')
   .replace(/<style id="smaltkit-ui">[^<]*<\/style>/, () => `<style id="smaltkit-ui">\n${kitCss}</style>`)
   .replace('src="app.js"', `src="${hashed.app}"`)
-  .replace(/<title>[^<]*<\/title>/, `<title>${titleOf(await readFlow(flowPath ?? EXAMPLE_FLOW))}</title>`);
+  .replace(/<title>[^<]*<\/title>/, `<title>${titleOf(await readFlow(flowPath))}</title>`);
 writeFileSync(`${out}/page.html`, pageHtml);
 // The same page as a document of its own, for any static host (GitHub Pages serves it at the folder's address).
 writeFileSync(`${out}/index.html`, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>[hidden]{display:none!important}body{margin:0}</style></head><body>\n${pageHtml}\n</body></html>\n`);
 writeFileSync(`${out}/bundles.json`, JSON.stringify(hashed, null, 2) + '\n');
-const fromData = (path) => git('show', `${data}:${path}`);
-/** A data file's entry in the published list, checked against the bytes read: the list is what the app trusts. */
-const listed = (path, bytes) => {
-  const entry = manifest.files.find((f) => f.path === path);
-  if (!entry) throw new Error(`${path} is not in the data branch's MANIFEST.json`);
-  if (entry.sha256 !== sha256(bytes) || entry.bytes !== bytes.length) throw new Error(`${path} at ${data} doesn't match its entry in MANIFEST.json`);
-  return entry;
-};
-const days = manifest?.loads?.days ?? [];
-if (days.length) {
-  // Every file the app reads, with the sha256 and size the data branch publishes for it (ADR 0006 §2).
-  const file = (name, path) => {
-    const bytes = fromData(path);
-    listed(path, bytes);
-    put(name, bytes);
-    return { path: name, from: path, sha256: sha256(bytes), bytes: bytes.length };
-  };
-  writeFileSync(`${out}/data/MANIFEST.json`, manifestBytes);
-  const files = { zones: file('zones.csv', 'tlc/taxi_zone_lookup.csv'), weather: file('weather.csv', manifest.loads.weather ?? `weather/open-meteo_${manifest.month}.csv`) };
-  mkdirSync(`${out}/data/loads`, { recursive: true });
-  const entryOf = (day) => {
-    const path = `loads/yellow_tripdata_${day}.parquet`;
-    const bytes = fromData(path);
-    const entry = listed(path, bytes);
-    put(path, bytes);
-    // The app names the holidays itself (src/core/calendar.ts).
-    return { slot: day, file: path, rows: entry.rows, sha256: entry.sha256, bytes: entry.bytes };
-  };
-  const list = days.map(entryOf);
-  // Real incidents in the records, a few days each, to step through as the month is.
-  const episodes = (manifest.loads.episodes ?? []).map((e) => ({ name: e.name, about: e.about, loads: e.days.map(entryOf) }));
-  // The days a paused day may be filled from that aren't loads already (ADR 0009 amendment 1 S13): checked against the
-  // list like every file, pinned by the page only when a fill needs one. Not loads: the strip doesn't step through them.
-  const donors = (manifest.loads.donors ?? []).map(entryOf);
-  // Each day's numbers, for each load's normal range: a data branch built before the history has none.
-  const history = manifest.history ? file('history.json', 'history.json') : null;
-  const b = bindingsOf(EXAMPLE_FLOW).sources;
-  const source = manifest.loads.source ?? 'trips';
-  const index = {
-    format: 2, month: manifest.month, built: manifest.built, data: { commit: data, manifest: sha256(manifestBytes), bytes: manifestBytes.length }, flow: await shipFlow(EXAMPLE_FLOW),
-    sources: { [source]: { ...b[source], from: `the data branch (${data.slice(0, 7)}), scripts/data/build.py`, loads: list, donors }, zones: { ...b.zones, entry: files.zones }, weather: { ...b.weather, entry: files.weather } },
-    histories: history ? { [source]: history } : {},
-    episodes,
-  };
-  writeFileSync(`${out}/data/loads.json`, JSON.stringify(index, null, 2) + '\n');
-  const trips = (ls) => ls.reduce((n, l) => n + l.rows, 0).toLocaleString('en-US');
-  console.log(`built ${out} (${commit.slice(0, 12)}) with ${list.length} daily loads from data ${data.slice(0, 12)} (${trips(list)} trips), ${episodes.map((e) => `${e.loads.length} of ${e.name}`).join(', ') || 'no episodes'}, ${donors.length} donor days${history ? `, and the history from ${manifest.history.from} to ${manifest.history.to}` : ''}; every file checked against MANIFEST.json`);
-} else if (flowPath) {
-  // Another example (ADR 0010 §9): its data list's generator writes its daily files (generated, never fetched), the
-  // general builder measures the history from the days before the loads, and the document ships beside them. The
-  // build's own list: hashed here, never the data branch's.
+{
+  // Its data list's generator writes its daily files (generated, never fetched), the general builder measures the
+  // history from the days before the loads, and the document ships beside them (ADR 0010 §9).
   const bind = bindingsOf(flowPath);
   if (!bind.generate) throw new Error(`${flowPath}'s data list names no generator for its files`);
   const flowDoc = await readFlow(flowPath);
@@ -331,17 +254,6 @@ if (days.length) {
   const index = { format: 2, month: first?.slot.slice(0, 7), built: new Date().toISOString().slice(0, 19) + 'Z', data: null, flow: flowEntry, sources, histories, ...(Object.keys(samples).length ? { samples } : {}), ...(Object.keys(ranges).length ? { ranges } : {}), ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), episodes: [], ...(bind.judged ? { judged: bind.judged } : {}), ...(bind.posture ? { posture: bind.posture } : {}) };
   writeFileSync(`${out}/data/loads.json`, JSON.stringify(index, null, 2) + '\n');
   console.log(`built ${out} (${commit.slice(0, 12)}) with ${flowPath}: ${days} days of ${Object.values(sources).filter((s) => s.loads).length} daily source(s) and ${watches.length} histories, generated by ${bind.generate}`);
-} else {
-  // The fixtures: hashed here, as this build's own list, never as the data branch's.
-  const b = bindingsOf(EXAMPLE_FLOW).sources;
-  const sources = {};
-  for (const [id, binding] of Object.entries(b)) {
-    const bytes = readFileSync(`fixtures/xs/${binding.file}`);
-    put(binding.file, bytes);
-    sources[id] = { ...binding, entry: { path: binding.file, from: `fixtures/xs/${binding.file}`, sha256: sha256(bytes), bytes: bytes.length } };
-  }
-  writeFileSync(`${out}/data/loads.json`, JSON.stringify({ format: 2, data: null, flow: await shipFlow(EXAMPLE_FLOW), sources, histories: {}, episodes: [] }, null, 2) + '\n');
-  console.log(`built ${out} (${commit.slice(0, 12)}) with data from fixtures/xs (10,000 trips)`);
 }
 
 /** Runs `go` over `items`, at most `n` at a time. */

@@ -17,9 +17,8 @@ import { insertAfter } from '../src/core/document.js';
 import { nodeKey } from '../src/core/keys.js';
 import { shapeOf } from '../src/core/optimize.js';
 import { checksOver, selectsStar, suggestChecks, profileColumn } from '../src/core/quality.js';
-import { EXAMPLE_SOURCES } from '../examples/sources.js';
 import { SMALTDB } from './helpers/engine.js';
-import { examplePublishing } from './helpers/example.js';
+import { EXAMPLE_SOURCES, examplePublishing } from './helpers/example.js';
 import { visualFlow } from './fixtures/taxi.js';
 
 const example = examplePublishing;
@@ -139,7 +138,7 @@ describe('the example on real data', () => {
   beforeAll(async () => {
     db = Database.openMemory({ plugins: [io, external, parquet, smaltfl] });
     for (const s of EXAMPLE_SOURCES) {
-      await db.callPlugin('@smaltdb/external', 'registerFile', [s.file, new Uint8Array(readFileSync(new URL(`../fixtures/xs/${s.file}`, import.meta.url)))]);
+      await db.callPlugin('@smaltdb/external', 'registerFile', [s.file, new Uint8Array(readFileSync(new URL(`./fixtures/xs/${s.file}`, import.meta.url)))]);
       await db.execAsync(s.ddl);
     }
     first = await runFlow(db, doc, { smaltdb: SMALTDB });
