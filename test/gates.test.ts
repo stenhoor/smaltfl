@@ -14,6 +14,8 @@ import { planKind } from '../src/core/manifest.js';
 import { expandNotebooks, stepsOfNotebooks } from '../src/core/notebook.js';
 import { judgeOf, LEGACY_JUDGE, newsOf, type Finding } from '../src/core/news.js';
 import { translate, validatePlan } from '../src/core/plan.js';
+import { levelMetrics } from '../src/core/fill.js';
+import { storyOf } from '../src/core/story.js';
 import { exampleDoc } from './helpers/example.js';
 import { historyWith, vendorNames } from './helpers/history.js';
 import { ts } from './helpers/notebooks.js';
@@ -268,6 +270,29 @@ describe('the judges read the gate (Q-114)', () => {
     expect(gated(f('share', 900), LAYER_DEFAULTS.gold, day)).toBeNull();
     // A day of no rows moves no share of them.
     expect(gated(f('share', 0), LAYER_DEFAULTS.bronze, { rows: 0, overwhelming: 0.25 })).toMatchObject({ severity: 'warn' });
+  });
+
+  it('keeps holding a lasting, overwhelming change every day until its new level is accepted (Q-86)', () => {
+    // Vendor 1 from three in ten of a day's trips to all but every one, for two weeks from Wed Oct 11: in the general
+    // form a lasting change at three times its usual share is never lowered to a note, and in a gated flow it moves more
+    // than a quarter of the day's rows, so it holds each day, not the first alone (the owner: "keep pausing until
+    // accepted").
+    const days = Array.from({ length: 14 }, (_, i) => plusDays('2023-10-11', i));
+    const file = historyWith(Object.fromEntries(days.map((d) => [d, { vendorShare: 0.95 }])));
+    const bronze = { ...LEGACY_JUDGE, legacy: false, checks: LAYER_DEFAULTS.bronze };
+    const vendor1 = (h: HistoryRanges, day: string) => newsOf(h, day, vendorNames, { judge: bronze }).find((f) => f.key === 'share:VendorID=1');
+    const h = new HistoryRanges(file);
+    for (const day of days) expect(vendor1(h, day), day).toMatchObject({ severity: 'alert', check: 'shares', overwhelming: { at: 0.25 } });
+    // From its fifth day it has lasted, and still holds.
+    expect(vendor1(h, days[4]!)!.lasting).toBe(days[0]);
+    expect(vendor1(h, days[13]!)!.lasting).toBe(days[0]);
+    // The legacy form tells a lasting change as a note, as the owner accepted for the taxi example (Q-54).
+    expect(newsOf(h, days[13]!, vendorNames).find((f) => f.key === 'share:VendorID=1')).toMatchObject({ severity: 'note' });
+    // Accepted on its third day: learned from then on, and nothing after it is told.
+    const third = days[2]!;
+    const s = storyOf(h, third, newsOf(h, third, vendorNames, { judge: bronze }), { names: vendorNames, judge: bronze });
+    const accepted = new HistoryRanges(file, { levels: [{ from: third, metrics: levelMetrics(s) }] });
+    for (const day of days.slice(3)) expect(vendor1(accepted, day), day).toBeUndefined();
   });
 
   it('reads the threshold from the ontology, else the flow, else a quarter (Q-207)', () => {

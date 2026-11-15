@@ -236,7 +236,8 @@ The month screen lists the scenes. Today's month stays the tests'. The slices of
    none, Larkspur's twelve evidence feeds have fill cells with `filled_from` carried to gold, the decision sheet fills
    the one held source, and the recorder records a story's fill: Wed Mar 6 is filled from Tue 5, then replaced by
    Wednesday's own export;
-3. Q-86, keep pausing until accepted;
+3. Q-86, keep pausing until accepted: **built** (2026-11-15, ADR 0023 §"As built"). Every day of a lasting change at
+   its new level holds until someone accepts it; the app accepts the held file's level on any day of it;
 4. the tour month: the generator's preset, its story, its answer key and test;
 5. the scene list in the app, its stops at every size, and the demo guide rewritten as the tour.
 
@@ -307,9 +308,7 @@ as decided as built, and the answers that change what is built or add to it are 
      held.
 
    Left in slice 4:
-   - keep pausing until accepted (Q-86, item 1 below), checked on the demos' own data. The estate already shows it for
-     a bad value: its Sat 23 to Sun 31 hold, since a held day isn't learned from;
-   - levels and fills for slots of a day (Q-84).
+   - levels and fills for slots of a day (Q-84). Keep pausing until accepted (Q-86) is built, in ADR 0023 slice 3.
 5. **Proposed declarations** for a dataset with nothing declared (Q-139). Sharing as one package file (Q-35) comes later.
 
 Slice 4's Q-132 design was answered on 2026-11-15 (Q-207). Still open: Q-34 and Q-41 (smaltdb's work, with stenhoor
@@ -380,14 +379,9 @@ file's Quality tab still don't. The items below follow.
 
 Parked behind the notebook surface by the maintainer's decision of 2026-11-09 (Q-87, ADR 0011 §9). In priority order:
 
-1. **The owner's answer of 2026-11-09 isn't built yet** (Q-86, now ADR 0022 slice 4): a deliberate (lasting) change that nobody accepts must
-   **keep pausing until accepted**.
-   - **Today's code** pauses only its first day, then tells it as notes (ADR 0010 §15, "A deliberate change pauses once").
-   - **Where to change it:** `fill.ts` (`acceptable`, `levelMetrics`), the lowering in `news.ts` (`quiet`/`lasting`) and
-     `hold.ts` (`levelsOf`, `levelFor`).
-   - **Expected result:** the taxi hold vector was to grow from 25 to about 29–31 days, which the owner accepted; the
-     taxi example was retired on 2026-11-15 (Q-208), so it is checked on the demos' answer keys instead, and ADR 0010
-     §13/§15 and the security fixture's migration move on purpose.
+1. **The owner's answer of 2026-11-09 is built** (Q-86, ADR 0023 slice 3, 2026-11-15): a deliberate (lasting) change that
+   nobody accepts keeps pausing until accepted (`quiet` in `news.ts`). The sign-in log's migration moves on purpose; the
+   demos' answer keys don't.
 2. **The rest of the round-3 findings.** The judges ranked 37; these are left. They were found on the taxi app, retired on
    2026-11-15 (Q-208): each stands where the same screen shows on a demo (the Results weather card went with it):
    - **Cards that state numbers:**
@@ -449,7 +443,7 @@ Parked behind the notebook surface by the maintainer's decision of 2026-11-09 (Q
   - a day with nothing to compare against publishes, marked (Q-53);
   - new flows start with no calendar (Q-58);
   - the taxi example holds 25 days (Q-54);
-  - deliberate changes pause until accepted (Q-57; Q-86 is the strict reading, not built yet).
+  - deliberate changes pause until accepted (Q-57; Q-86, the strict reading, built in ADR 0023 slice 3).
 - **Hashes and encodings** have ADRs and test vectors: plan/1 (ADR 0009 E10), plan/2 (ADR 0010 E13), measures/0,
   tail/0. A change to any of them needs a new tag version and an ADR (CLAUDE.md).
 

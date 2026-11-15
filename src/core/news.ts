@@ -434,20 +434,17 @@ export function newsOf(h: HistoryRanges, day: string, names: Names, options: { c
   const quiet = (f: Finding, j: Parameters<typeof lasting>[0]): Finding => {
     const since = lasting(j);
     if (!since) return f;
-    // A deliberate change pauses (the owner: "pause until accepted"; ADR 0009 amendment 1 S6, Q-57b: "the change pauses
-    // once"): in the general form a value that was a part of the mix (1% or more), on the first day its lasting change
-    // crosses three times its usual share or a third of it (the relative rule), within the change's first week, is never
-    // lowered to a note but held as something wrong, so Accept the new level is offered: a migration from password to
-    // passkey holds the day it crosses. Once accepted, the ranges learn it from its day (a break, the column's mix with
-    // it), and it is no longer outside them. A change that crossed already (told, or held, that day), codes under 1%
-    // coming and going, smaller lasting changes and the legacy form's are told as notes: the taxi example's 25 days stay
-    // as the owner accepted them (Q-54).
-    if (!judge.legacy && f.metric?.of === 'value' && f.value !== undefined && f.range && f.range.expected >= 0.01 && daysBetween(since, day) <= 7) {
-      const crosses = (value: number | null, expected: number | undefined) => value !== null && expected !== undefined && expected > 0 && (value / expected >= 3 || value / expected <= 1 / 3);
-      // The first day it crosses: a day of the change before it that crossed already paused, or was told, then.
-      let first = true;
-      for (let d = since; d < day && first; d = plusDays(d, 1)) if (crosses(j.ranges.value(d), j.ranges.at(d)?.expected)) first = false;
-      if (first && crosses(f.value, f.range.expected) && Math.abs(f.value - f.range.expected) * rows >= M.rows) return { ...f, severity: 'alert', lasting: since };
+    // A deliberate change keeps pausing until someone accepts it (Q-86, the owner, 2026-11-09; it paused only the day it
+    // first crossed before, Q-57b): in the general form a value that was a part of the mix (1% or more) is never lowered
+    // to a note on a day of its lasting change that it stands at three times its usual share or a third of it (the
+    // relative rule) on enough rows, but held as something wrong, so Accept the new level is offered every such day: a
+    // migration from password to passkey holds each day it is at its new level. Once accepted, the ranges learn it from
+    // that day (a break, the column's mix with it), and it is no longer outside them; a day published as is is learned
+    // from too, so the old level gives way as the days go out. Codes under 1% coming and going, smaller lasting changes and
+    // the legacy form's are told as notes, as the owner accepted for the taxi example's 25 days (Q-54, retired, Q-208).
+    if (!judge.legacy && f.metric?.of === 'value' && f.value !== undefined && f.range && f.range.expected >= 0.01) {
+      const crosses = f.value / f.range.expected >= 3 || f.value / f.range.expected <= 1 / 3;
+      if (f.range.expected > 0 && crosses && Math.abs(f.value - f.range.expected) * rows >= M.rows) return { ...f, severity: 'alert', lasting: since };
     }
     // Told as a note, without its first day in words: which day a change began is for its chart to show (ADR 0008).
     return { ...f, severity: 'note', score: f.score / 10, lasting: since };
