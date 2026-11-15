@@ -10,7 +10,7 @@
       "text": ["FOR THE DAY", "AS KNOWN ON", "March 2024", "CONTROL POSTURE V1 · THE GROUP’S SCORE ON EACH DAY PUBLISHED", "93.6 on Fri 1, 92.0 on Sun 31"],
       "count": {
         "#view-month .mo-d": 31,
-        "#view-month .mo-d.st-paused": 9,
+        "#view-month .mo-d.st-paused": 11,
         "#view-month .mo-d.corrected:not(.restated)": 5,
         "#view-month .mo-d.restated": 2
       }
@@ -26,7 +26,7 @@
     "full": true,
     "element": "#view-month .mo-grid",
     "expect": {
-      "text": ["Corrected (5)", "Waiting for a decision (2)", "Held (14)"],
+      "text": ["Corrected (5)", "Waiting for a decision (4)", "Held (16)"],
       "count": {
         "#view-month .mo-gt thead th": 6,
         "#view-month .mg-filter[aria-pressed=\"true\"][data-filter=\"corrected\"]": 1

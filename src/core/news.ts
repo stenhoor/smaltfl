@@ -16,7 +16,7 @@ import { modelLeftOut } from './modelcols.js';
 import { daysBetween, namedOf, NONE, plusDays, resolveCalendar, specialOf, shortName, type Calendar } from './calendar.js';
 import { isGeneralWatch, sourceOf, type FlowDocument } from './document.js';
 import { apartEvidence, type Apart, type SampleFile } from './apart.js';
-import { gated, gateChecksOf, writtenRules, type CheckName, type GateChecks, type NeedsRule, type ReconcileRule } from './gates.js';
+import { gated, gateChecksOf, OVERWHELMING, overwhelmingOf, writtenRules, type CheckName, type GateChecks, type NeedsRule, type ReconcileRule } from './gates.js';
 import { HistoryRanges, lateAt, lateUsual, QUANTILES, type Metric, type ValueHistory } from './history.js';
 import type { NoRange, NormalRange, NormalRanges } from './normal.js';
 import { marksOn, nounOf, partNamed, propertyOf } from './ontology.js';
@@ -76,6 +76,13 @@ export interface Finding {
   due?: { due: number; late: number; within: number; usual?: number };
   /** What the classifier found (an `apart` finding, ADR 0014 §5). */
   apart?: Apart;
+  /** The rows the finding moved from what a day like it has, where that isn't its `rows` (Q-132, `movedOf` in gates.ts):
+   * a pair of values' rows beyond what its columns predict; a value's rows counted with its respellings (another case,
+   * spaces around it), which didn't move. */
+  moved?: number;
+  /** A learned check's alert that holds the day though its check only warns (Q-132): it moved `moved` of the day's `of`
+   * rows, at least the threshold `at` the node is judged by (Q-207). */
+  overwhelming?: { moved: number; of: number; at: number };
   /** A file that isn't fresh (a `stale` finding, ADR 0020 §2): the file's facts and the day it was loaded for. */
   file?: FileFacts & { day: string; same: boolean; early: boolean };
 }
@@ -146,6 +153,9 @@ export interface JudgeSettings {
   /** Why the two models leave a column out (modelcols.ts `modelLeftOut`: the ontology, a key, an id), or null where they
    * read it; absent, they read every column the data allows. */
   models?: (column: string) => string | null;
+  /** The share of the day's rows a learned check's alert must move to hold the day where its check only warns (Q-132,
+   * Q-207): the ontology's for the node, else the flow's; absent, a quarter (`OVERWHELMING`). */
+  overwhelming?: number;
 }
 
 /** The legacy form's settings: what every flow was judged by before ADR 0010. */
@@ -180,6 +190,7 @@ export function judgeOf(doc: Pick<FlowDocument, 'publish' | 'ontology' | 'calend
     reconcile: rules.reconcile ? { key: rules.reconcile.key, ...(rules.reconcile.of !== undefined ? { of: rules.reconcile.of } : {}) } : null,
     scopeKey: rules.scope?.own ?? null,
     models: (column) => modelLeftOut(doc.ontology, source, column),
+    overwhelming: overwhelmingOf(doc, source).at,
   };
 }
 
@@ -643,6 +654,18 @@ export function newsOf(h: HistoryRanges, day: string, names: Names, options: { c
   for (const [column, vh] of Object.entries(file.values ?? {})) {
     if (!vh.counts) continue;
     const badCodes = judge.bad.get(column.toLowerCase());
+    // The rows a value's share moved, counting its respellings with it (another case, spaces around it): rows that changed
+    // only how a value is written didn't move (Q-132), so a feed that writes its words in capitals one day overwhelms
+    // nothing; undefined where the value has no respelling. Its usual rows are the value's own and any respelling's
+    // judged before today.
+    const loose = (key: string) => String(parse(key)).trim().toLowerCase();
+    const respelledMoved = (i: number, usual: number): number | undefined => {
+      const same = vh.values.flatMap((v, x) => (x !== i && v !== 'null' && loose(v) === loose(vh.values[i]!) ? [x] : []));
+      if (!same.length) return undefined;
+      const today = [i, ...same].reduce((t, x) => t + (vh.counts![k]?.[x] ?? 0), 0);
+      const before = usual + same.reduce((t, x) => t + (judged({ of: 'value', column, value: vh.values[x]! })?.range.expected ?? 0), 0);
+      return Math.round(Math.abs(today - before * rows));
+    };
     vh.values.forEach((key, i) => {
       const bad = key !== 'null' && !!badCodes?.has(String(parse(key)));
       // A written band (ADR 0014 §3): the share against the band, and nothing else; a value with a band is judged by it,
@@ -708,10 +731,12 @@ export function newsOf(h: HistoryRanges, day: string, names: Names, options: { c
       // unit, three of them failing after two weeks of none, are counting.
       const back = judge.checks !== null && place === 'above' && j.range.expected * rows < 1 && !newIsUnusual(j.value * rows);
       const atLeast = (sv: Severity): Severity => (back ? 'note' : relative && RANK[sv] > RANK.warn ? 'warn' : sv);
+      const moved = key === 'null' ? undefined : respelledMoved(i, j.range.expected);
+      const respelled = moved === undefined ? {} : { moved };
       if (j.value === 0) {
-        out.push(marked(quiet({ key: `gone:${column}=${key}`, kind: 'gone', severity: atLeast(j.range.expected >= 0.2 ? 'alert' : 'warn'), score: cap(j.d), title: `${sentence(names.column(column))} ${said}: none`, detail: `Usually on ${w.range} of ${noun()}; none today.`, look: 'columns', columns: [column], values: [key], metric: { of: 'value', column, value: key }, value: j.value, range: j.range, rows: Math.round(-delta * rows), acts: ['incident', 'notify', 'expected'] }, j)));
+        out.push(marked(quiet({ key: `gone:${column}=${key}`, kind: 'gone', severity: atLeast(j.range.expected >= 0.2 ? 'alert' : 'warn'), score: cap(j.d), title: `${sentence(names.column(column))} ${said}: none`, detail: `Usually on ${w.range} of ${noun()}; none today.`, look: 'columns', columns: [column], values: [key], metric: { of: 'value', column, value: key }, value: j.value, range: j.range, rows: Math.round(-delta * rows), ...respelled, acts: ['incident', 'notify', 'expected'] }, j)));
       } else {
-        out.push(marked(quiet({ key: `share:${column}=${key}`, kind: key === 'null' ? 'missing' : 'share', severity: atLeast(shareSeverity(delta, j)), score: cap(j.d), title: key === 'null' ? `${sentence(names.column(column))} blank: ${w.value} (usually ${w.range})` : `${sentence(names.column(column))} ${said}: ${w.value} (usually ${w.range})`, detail: atShare(j.value, j.range.expected, rows, key === 'null' ? 'blank' : 'with it', noun()), look: 'columns', columns: [column], values: [key], metric: { of: 'value', column, value: key }, value: j.value, range: j.range, rows: Math.round(Math.abs(delta) * rows), acts: ['expected', 'rule', 'notify'] }, j)));
+        out.push(marked(quiet({ key: `share:${column}=${key}`, kind: key === 'null' ? 'missing' : 'share', severity: atLeast(shareSeverity(delta, j)), score: cap(j.d), title: key === 'null' ? `${sentence(names.column(column))} blank: ${w.value} (usually ${w.range})` : `${sentence(names.column(column))} ${said}: ${w.value} (usually ${w.range})`, detail: atShare(j.value, j.range.expected, rows, key === 'null' ? 'blank' : 'with it', noun()), look: 'columns', columns: [column], values: [key], metric: { of: 'value', column, value: key }, value: j.value, range: j.range, rows: Math.round(Math.abs(delta) * rows), ...respelled, acts: ['expected', 'rule', 'notify'] }, j)));
       }
     });
   }
@@ -887,7 +912,9 @@ export function newsOf(h: HistoryRanges, day: string, names: Names, options: { c
 
   // The gate's rule on each finding (ADR 0014 §2, Q-114): under a check that warns, something wrong is unusual at most
   // (a value marked bad excepted); under one that is off, nothing is told; a flow with no gate is judged as it was.
-  const passed = judge.checks ? out.map((f) => gated(f, judge.checks)).filter((f): f is Finding => f !== null) : out;
+  // A learned check's alert that moved at least the node's threshold of the day's rows holds the day all the same
+  // (Q-132): overwhelming, never the forest's or the classifier's.
+  const passed = judge.checks ? out.map((f) => gated(f, judge.checks, { rows, overwhelming: judge.overwhelming ?? OVERWHELMING })).filter((f): f is Finding => f !== null) : out;
   // What follows from what (a feed that stopped skews the mix of values, the shapes, what the checks drop) is the
   // story's to tell: storyOf (story.ts) sorts these findings by what the day's cause explains.
   const told = together(passed, rows, names);
@@ -1101,6 +1128,12 @@ function schemaCount(changes: readonly string[]): string {
  * an airport fee together. Told by the value that names them, when one isn't a blank ("Payment type Flex Fare trip:
  * 5.3% (usually 2.1–4.6%)", the others blank on the same trips), with its own numbers; else as the fields blank.
  */
+/** The overwhelming mark of a group of findings (Q-132): its member that moved the most rows, where any is. */
+function overwhelmingOfAll(all: readonly Finding[]): Pick<Finding, 'overwhelming'> {
+  const marks = all.flatMap((g) => (g.overwhelming ? [g.overwhelming] : []));
+  return marks.length ? { overwhelming: marks.reduce((a, b) => (b.moved > a.moved ? b : a)) } : {};
+}
+
 function together(findings: Finding[], rows: number, names: Names): Finding[] {
   const groupable = (f: Finding) => (f.kind === 'share' || f.kind === 'missing' || f.kind === 'gone') && f.rows !== undefined && f.rows > 0 && f.range !== undefined && f.value !== undefined;
   const out: Finding[] = [];
@@ -1142,6 +1175,8 @@ function together(findings: Finding[], rows: number, names: Names): Finding[] {
       columns: all.flatMap((g) => g.columns ?? []),
       values: all.flatMap((g) => g.values ?? []),
       members: [lead, ...others].map((g) => ({ column: g.columns![0]!, value: g.values![0]!, label: g.values?.[0] === 'null' ? 'blank' : (names.label ?? names.value)(g.columns![0]!, parse(g.values![0]!)), share: g.value!, range: g.range!, rows: g.rows! })),
+      // The group holds the day as its most overwhelming member does (Q-132), whichever member it is told by.
+      ...overwhelmingOfAll(all),
     });
   }
   void rows;

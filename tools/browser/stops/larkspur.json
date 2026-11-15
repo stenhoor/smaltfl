@@ -216,6 +216,25 @@
     }
   },
   {
+    "name": "lark-mar24-dr-quality",
+    "what": "Sun Mar 24: the DR exercises' file, held by its pass share though the shares check only warns: the late exercises fail on more than a quarter of its rows (Q-132)",
+    "day": "Sun 24",
+    "card": "dr_exercises",
+    "tab": "Quality",
+    "full": true,
+    "expect": {
+      "text": [
+        "the day is held",
+        "it only warns, but",
+        "of the day’s rows moved; from 25%, a learned check holds the day",
+        "Decide on the day"
+      ],
+      "count": {
+        "#sheet .bq-verdict.hold": 1
+      }
+    }
+  },
+  {
     "name": "lark-mar25-tls-quality",
     "what": "Walk 3, Mon Mar 25: the TLS file's Quality, a rise within reason",
     "day": "Mon 25",

@@ -276,11 +276,17 @@ as decided as built, and the answers that change what is built or add to it are 
 
    **Next is slice 4.** On 2026-11-15, before it, the taxi example was retired to focus on the generated demos (Q-208,
    ADR 0022's addendum).
-4. **Pausing:**
-   - keep pausing until accepted (Q-86, item 1 below), checked on the demos' own data;
-   - an overwhelming learned finding pauses the day (Q-132): a learned alert whose rows moved are at least a quarter of
-     the day's, the threshold a parameter of the flow and of a dataset in the ontology (Q-207, answered 2026-11-15).
-     The DR exercise's days (Mar 23 to 26) newly pause in the estate and Larkspur, and their answer keys move on purpose;
+4. **Pausing.** The first part is built (2026-11-15, ADR 0022 §"As built"):
+   - an overwhelming learned finding pauses the day (Q-132): in a flow with gates, a learned alert that moved at least
+     a quarter of the day's rows holds it though its check only warns, never the forest's or the classifier's. The
+     threshold is a parameter of the flow and of a dataset in the ontology (Q-207). A value respelled (case, spaces)
+     moves no rows. The brief proposes keeping the last good day, the finding named;
+   - Larkspur's DR exercises' file newly holds Sun 24 to Tue 26, waiting for the visitor; the estate holds the days it
+     held.
+
+   Left in slice 4:
+   - keep pausing until accepted (Q-86, item 1 below), checked on the demos' own data. The estate already shows it for
+     a bad value: its Sat 23 to Sun 31 hold, since a held day isn't learned from;
    - levels and fills for slots of a day (Q-84).
 5. **Proposed declarations** for a dataset with nothing declared (Q-139). Sharing as one package file (Q-35) comes later.
 
