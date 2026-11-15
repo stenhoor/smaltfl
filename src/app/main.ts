@@ -17,7 +17,7 @@ import { canonicalJSON } from '../core/canonical.js';
 import type { ChangeSet, ContractDef, FlowDocument, GroupDef, NotebookOutline, OutlineCell, ProfileDef, RuleEdit, StepDef } from '../core/document.js';
 import { applyEdit, changesOn, inForce, resolve as resolveRules, ruleParts, rulesHash, rulesInForce, versionRules, withRuleParts, type RuleParts } from '../core/inforce.js';
 import { diffSaid, ruleVersions, rulesDiff, versionKey, versionOn, type RuleVersion } from '../core/ruleversions.js';
-import { fillStepOf, GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
+import { GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
 import { notebookSectionId } from '../core/notebook.js';
 import { briefOf, briefText, type BriefIn, type BriefOption } from '../core/brief.js';
 import { compareSummary, diffKeyOf, diffOf, type RowDiff } from '../core/compare.js';
@@ -5255,7 +5255,9 @@ function feedbackPart(card: string, id: string, found: Finding[]): HTMLElement |
   const r = onScreen();
   const held = !!r && !!ownHoldOf(id) && pauseOf(r)?.state === 'waiting';
   const may = mayDecide(state.viewer);
-  const accept = r && held ? acceptFor(r) : null;
+  // The new level of the file the day's decision is about (Q-86: it is offered every day the change holds), on its card.
+  const subject = r && held ? sheetSubject(r, null) : null;
+  const accept = r && subject && subject.source === id ? acceptFor(r, subject) : null;
   const owner = isOwner();
   const rows = found.slice(0, 6).map((f) => {
     const check = f.check ?? checkOf(f.kind);
@@ -7693,7 +7695,7 @@ function decisionSheet(shown0: RunRecord, story: Story | null): void {
     const f = fixOfDonor(p);
     return f === 'forward' ? `carries ${dayShort(donor)} forward` : f === 'backward' ? `carries ${dayShort(donor)} back` : `${dayShort(donor)} stands in: an estimate`;
   };
-  const accept = acceptFor(r);
+  const accept = acceptFor(r, subject);
   const donors = rem ? rem.picks.map((p) => ({ day: p.day, counts: rem.counts.get(p.day)! })) : [];
   const draw = decisionDrawing(subject.h, told, day ?? '', readers?.day ?? null, { day: rows, readers: readers?.rows ?? null }, rem ? { missing: rem.missing, donors: rem.picks.map((p) => p.day) } : null, readers?.repair ? { missing: readers.repair.missing, donor: readers.repair.donor?.day ?? null } : null, keptLacks(readers, src));
   // The staged run of the remedy picked, once made (S4): whether it passes its checks, and the hash of what goes out.
@@ -14713,13 +14715,15 @@ function flowStoryOf(day: string): Story | null {
  * flow's verdict on the day (its cause and what it absorbed), the claim it was held on, and what holds it, whatever day
  * readers see (Q-51). Null on a derived run, or where the day can't be accepted.
  */
-function acceptFor(r: RunRecord): { offer: Offer; level: { source: string; from: string; metrics: string[]; band?: { column: string; value: string; share: [number, number] } } } | null {
+function acceptFor(r: RunRecord, subject: SheetSubject = sheetSubject(r, null)): { offer: Offer; level: { source: string; from: string; metrics: string[]; band?: { column: string; value: string; share: [number, number] } } } | null {
   const day = dayOfRun(r);
-  const src = loadSource();
+  // The load the sheet decides (ADR 0023 §5): a lasting change keeps holding every day until accepted (Q-86), so a held
+  // file's new level is accepted on whichever day someone decides, by its own story and claim.
+  const src = subject.source;
   if (!day || !src || r.derived) return null;
-  const story = flowStoryOf(day);
+  const story = src === loadSource() ? flowStoryOf(day) : subject.story;
   if (!story) return null;
-  const claim = claimsFor(day)?.find((c) => c.source === src) ?? null;
+  const claim = claimOfLoad(day, src);
   const level = acceptedLevel(story, claim, r.result.holds, day, src);
   if (!level) return null;
   // A band missed (ADR 0014 §3): the Accept is of a new band, which the decision records and the ontology is edited from.
@@ -14768,14 +14772,17 @@ interface SheetSubject {
 }
 function sheetSubject(r: RunRecord, story: Story | null): SheetSubject {
   const own: SheetSubject = { source: loadSource(), h: history, story, rows: tripsOf(r), noun: rowNoun(loadSource() ?? '') };
-  const day = dayOfRun(r);
   const held = heldSources(r);
-  if (!day || held.length !== 1) return own;
-  const source = held[0]!;
-  if (source === loadSource() || !fillStepOf(state.doc, source)) return own;
+  if (held.length !== 1 || held[0] === loadSource()) return own;
+  return subjectFor(r, held[0]!) ?? own;
+}
+
+/** A held source as a sheet decides it: its history, its story of the run's day, its rows in the run and their noun. */
+function subjectFor(r: RunRecord, source: string): SheetSubject | null {
+  const day = dayOfRun(r);
   const h = rangesForLoad(source);
-  const told = storyOfLoad(source, day);
-  return h && told ? { source, h, story: told, rows: tripsOf(r, source), noun: rowNoun(source) } : own;
+  const told = day ? storyOfLoad(source, day) : null;
+  return h && told ? { source, h, story: told, rows: tripsOf(r, source), noun: rowNoun(source) } : null;
 }
 
 /** The sources of the loads holding a run (ADR 0010 §7), each once: a watched step's load is left out. */

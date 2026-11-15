@@ -36,7 +36,7 @@ answers that change what is built or add to it are recorded in [adr/0022-the-ans
   Q-162, and Q-179 by the first day's 4.5 s.
 - **Changed or newly decided, to build in ADR 0022's slices**, each row marked where it stands: Q-199, Q-202 (time);
   Q-176, Q-132 (the next phase); Q-139, Q-144, Q-145, Q-146 (the bronze layer); Q-118, Q-119 (gates); Q-109 (checks
-  nobody wrote); and Q-84, Q-51 and Q-35 below. Q-86, the owner's answer of 2026-11-09, is built in slice 4.
+  nobody wrote); and Q-84, Q-51 and Q-35 below. Q-86, the owner's answer of 2026-11-09, is built (ADR 0023 slice 3).
 - **Closed as decided as built:** the questions below, and Q-149 to Q-155 where they stand.
 - **Still open:** Q-34 and Q-41 above. (Q-75 and Q-133 closed with the taxi example, 2026-11-15, Q-208.)
 
@@ -307,7 +307,7 @@ record them are proposed; where an answer differs from what the designs proposed
 
 | ID | Question | Decision | Status |
 | --- | --- | --- | --- |
-| Q-86 | A deliberate (lasting) change that nobody accepts: does it pause once and then go back to notes (as the last pass built it, keeping the taxi vector at 25 days), keep pausing every day until someone accepts it (the taxi example then pauses about 29–31 days), or pause for up to a week? | The owner, 2026-11-09: "Keep pausing until accepted": every following day at the new level pauses until someone accepts it; the owner was told the taxi example then pauses about 29–31 days. **Not built yet** (docs/HANDOFF.md, "What is not done" 1): the code still pauses the change's first day only (ADR 0010 §15) To build in ADR 0022 slice 4. The taxi example was retired on 2026-11-15 (Q-208): it is checked on the demos' own data instead. | decided, not built |
+| Q-86 | A deliberate (lasting) change that nobody accepts: does it pause once and then go back to notes (as the last pass built it, keeping the taxi vector at 25 days), keep pausing every day until someone accepts it (the taxi example then pauses about 29–31 days), or pause for up to a week? | The owner, 2026-11-09: "Keep pausing until accepted": every following day at the new level pauses until someone accepts it; the owner was told the taxi example then pauses about 29–31 days. **Built on 2026-11-15** (ADR 0023 slice 3, its §"As built"): every day of a lasting change at its new level holds until someone accepts it; the sign-in log's migration to passkeys holds 36 days unaccepted. The taxi example was retired on 2026-11-15 (Q-208): it is checked on the demos' own data instead. | decided, built |
 | Q-67 | On some days only part of the data arrived and that part fails the checks (Sep 18, 2022; Sep 22–24, 2023). Should "publish only the part that arrived" still be offered there? | The owner: "Show it, marked": shown with "fails its checks", so it's clear why it can't go (ADR 0009 amendment 1 S5) | decided |
 | Q-66 | Should the taxi example mark payment type 4 (Dispute) as a bad value, so a surge in disputes always alerts? | The owner: "Not now": the paused days stay as they are; it can be added later, with its own backtest (ADR 0010 §13) | decided |
 | Q-64 | During an outage of several days (Nov 14–20, 2022), can one fill decision cover the following days, each filled from its own good day? | The owner: "Yes, until a day passes": one decision, stopping at the first normal day, the way Don't publish can stand (ADR 0009 amendment 1 S5) | decided |

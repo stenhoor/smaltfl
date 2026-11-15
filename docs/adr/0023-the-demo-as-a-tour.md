@@ -165,6 +165,30 @@ ADR 0022's Q-84 (levels and fills for slots of a day) and slice 5 (Q-139, propos
   the same in the engine on a snapshot: filled whole from the day before, released and verified, then replaced by the
   corrected file.
 
+### Slice 3: Q-86, keep pausing until accepted (2026-11-15)
+
+- **A lasting change keeps pausing until someone accepts it** (`quiet` in `src/core/news.ts`), the owner's answer of
+  2026-11-09.
+  - In the general form, a value that was a part of the mix (1% or more) is never lowered to a note on a day of its
+    lasting change that it stands at three times its usual share or a third of it, on enough rows. It holds as something
+    wrong every such day, not the first alone, with Accept the new level offered each day.
+  - Once accepted, the ranges learn it from that day (a break), and nothing after it holds. A day published as is is
+    learned from too, so the old level gives way as the days go out; a day kept back isn't, so a change nobody accepts
+    or publishes keeps holding.
+  - In a flow with gates, a learned check caps the alert at a warning, so the change warns every day until accepted,
+    unless it moved a quarter of the day's rows (Q-132): then it holds every day, as the tour's scene 4 needs.
+  - Smaller lasting changes, codes under 1% and the legacy form's are told as notes, as before.
+- **What moves:** the sign-in log's migration to passkeys, unaccepted, holds every day from Sun Jun 9 to Sun Jul 14 (36
+  days, passkey's share and then password's at their new levels) until the ranges have learned it; accepted on its first
+  day, only that day holds, and accepted on Wed Jun 12, Sun 9 to Wed 12 (`test/security.test.ts`). Larkspur's and the
+  control estate's held days don't move (`npm run test:slow`).
+- **The app accepts the held file's level** (`acceptFor`, `sheetSubject`, `subjectFor` in `src/app/main.ts`). On a flow
+  watching several datasets, where one file holds the day, the sheet decides that file whether or not it has a fill
+  step, and Accept the new level reads that file's story and claim, on any day of the change. A card offers "The new
+  level" only for the file the decision is about.
+- `test/gates.test.ts`: a gated flow's lasting change that moves most of the rows holds every day of two weeks, not its
+  first alone, and nothing after the day it is accepted.
+
 ## Consequences
 
 - **The demo at `/app/` changes:** its month, its story and its walks (`tools/browser/stops/larkspur.json`, `month.json`,

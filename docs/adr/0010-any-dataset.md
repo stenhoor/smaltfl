@@ -854,8 +854,8 @@ app work, for the fills.
   said as a shortfall when the rest rose ("Sign-ins 2.5× usual; Locked out held"); and a bad value that alerts with no
   clean split heads the day itself ("Failed 14× usual", Open an incident).
 - **A deliberate change pauses once (the owner: "pause until accepted"; Q-57b). Superseded on 2026-11-09 (Q-86): the
-  owner chose "keep pausing until accepted", so every following day at an unaccepted new level pauses; not built yet
-  (docs/HANDOFF.md). As built today:** In the general form, a value that was a
+  owner chose "keep pausing until accepted", so every following day at an unaccepted new level pauses; built on
+  2026-11-15 (ADR 0023 slice 3), which drops the first-day and first-week limits below. As built until then:** In the general form, a value that was a
   part of the mix (1% or more), on the first day its lasting change crosses three times its usual share or a third of it,
   within the change's first week, is held instead of lowered to a note, and Accept is offered there: the sign-in
   migration to passkeys holds on Jun 9, 2024, and once accepted holds nothing after it. A change that crossed already,

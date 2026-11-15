@@ -32,6 +32,14 @@ const ranges = (incidents = true) => new HistoryRanges(securityHistory({ inciden
 const h = ranges();
 const story = (day: string): Story => storyOf(h, day, newsOf(h, day, names, { judge }), { names, judge, step: 'auth_valid', limit: 0.05 });
 const claimsOf = (r: HistoryRanges): StoryClaim[] => r.file.days.filter((d) => d >= '2023-01-01').map((d) => dayClaim(r, doc, ref, d, 'auth', 'dev')!);
+/** The last day the migration to passkeys holds unaccepted (Q-86): its new level learned by the ranges from then on. */
+const MIGRATION_LEARNED = '2024-07-14';
+/** Every day from one to another, both included. */
+const daysFrom = (from: string, to: string): string[] => {
+  const out: string[] = [];
+  for (let d = from; d <= to; d = new Date(Date.parse(`${d}T00:00:00Z`) + 864e5).toISOString().slice(0, 10)) out.push(d);
+  return out;
+};
 
 describe('the sign-in flow (ADR 0010 §10)', () => {
   it('is a format-3 document whose plan judges its source as it says, its bad codes and serious columns marked', async () => {
@@ -48,16 +56,20 @@ describe('the sign-in flow (ADR 0010 §10)', () => {
 describe('the planted incidents, as the flow judges them (phase 1)', () => {
   it('holds exactly the planted days that are something wrong, 2023 to 2024', () => {
     const held = claimsOf(h).filter((c) => claimHolds(doc.publish!.hold, c));
-    expect(held.map((c) => [c.day, c.head])).toEqual([
+    const migration = held.filter((c) => c.day >= PLANTED.migrationHeld && c.day <= MIGRATION_LEARNED);
+    expect(held.filter((c) => !migration.includes(c)).map((c) => [c.day, c.head])).toEqual([
       [PLANTED.burst, 'result fail 15× usual'],
       [PLANTED.mfa[0], 'method mfa_push almost gone'],
       [PLANTED.mfa[1], 'method mfa_push almost gone'],
-      // The migration to passkeys, a deliberate change: it pauses the day passkey's share first crosses three times its
-      // usual, once, and Accept the new level is offered there (the owner: "pause until accepted").
-      [PLANTED.migrationHeld, 'Method passkey: 9.0% (usually 2.6–3.4%)'],
       [PLANTED.outage, 'Gap in sign-ins, 06:00–12:00'],
       [PLANTED.hydra, 'result fail 4.7× usual'],
     ]);
+    // The migration to passkeys, a deliberate change nobody accepts: it keeps pausing every day it is at its new level
+    // (the owner, "keep pausing until accepted", Q-86), from the day passkey's share first crosses three times its usual
+    // until the ranges have learned it from the days published, password's share falling with it.
+    expect(migration.map((c) => c.day)).toEqual(daysFrom(PLANTED.migrationHeld, MIGRATION_LEARNED));
+    expect(migration[0]!.head).toBe('Method passkey: 9.0% (usually 2.6–3.4%)');
+    expect(migration.every((c) => /passkey|password/i.test(c.head))).toBe(true);
   }, 120_000);
 
   it('tells credential stuffing by its failed sign-ins, a value marked bad, with an incident as its verb', () => {
@@ -98,17 +110,27 @@ describe('the planted incidents, as the flow judges them (phase 1)', () => {
   });
 });
 
-describe('a deliberate change: the migration from password to passkey (the owner: pause until accepted, Q-57b)', () => {
-  it('holds once, the day it crosses, offers Accept there, and holds nothing after it once accepted', () => {
+describe('a deliberate change: the migration from password to passkey (the owner: keep pausing until accepted, Q-86)', () => {
+  const days = h.file.days.filter((d) => d >= PLANTED.migration && d <= '2024-08-31');
+  const held = (r: HistoryRanges) => days.filter((d) => claimHolds(doc.publish!.hold, dayClaim(r, doc, ref, d, 'auth', 'dev')!));
+  const acceptedOn = (day: string) => new HistoryRanges(securityHistory(), { ...rangesFor(doc, 'auth'), levels: [{ from: day, metrics: levelMetrics(story(day)) }] });
+
+  it('keeps pausing every day at its new level, offering Accept on each, until someone accepts it', () => {
     const s = story(PLANTED.migrationHeld);
     expect(s).toMatchObject({ state: 'wrong' });
     expect(acceptable(s, { state: 'wrong' }, [{ by: 'story' }])).toBe(true);
-    const days = h.file.days.filter((d) => d >= PLANTED.migration && d <= '2024-08-31');
-    const held = (r: HistoryRanges) => days.filter((d) => claimHolds(doc.publish!.hold, dayClaim(r, doc, ref, d, 'auth', 'dev')!));
-    expect(held(h)).toEqual([PLANTED.migrationHeld]);
-    // Accepted on it: the column's mix is learned from that day, and the month it goes on moving holds nothing more.
-    const accepted = new HistoryRanges(securityHistory(), { ...rangesFor(doc, 'auth'), levels: [{ from: PLANTED.migrationHeld, metrics: levelMetrics(s) }] });
-    expect(held(accepted)).toEqual([PLANTED.migrationHeld]);
+    expect(held(h)).toEqual(daysFrom(PLANTED.migrationHeld, MIGRATION_LEARNED));
+    // A later day of it is a new level too, Accept offered there as on its first.
+    const later = story('2024-06-12');
+    expect(later.state).toBe('wrong');
+    expect(acceptable(later, { state: 'wrong' }, [{ by: 'story' }])).toBe(true);
+  }, 60_000);
+
+  it('holds nothing after the day it is accepted: on its first day, or on a later one', () => {
+    // Accepted on its first day: the column's mix is learned from that day, and the month it goes on moving holds nothing.
+    expect(held(acceptedOn(PLANTED.migrationHeld))).toEqual([PLANTED.migrationHeld]);
+    // Accepted on Wed Jun 12: the days before it were held, as they were, and none after it.
+    expect(held(acceptedOn('2024-06-12'))).toEqual(daysFrom(PLANTED.migrationHeld, '2024-06-12'));
   }, 60_000);
 });
 

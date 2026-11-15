@@ -790,7 +790,8 @@ watches, and attribution through silver (Q-173).
   - **The freeze isn't named** (§5 has it told as notes, the freeze): what it adds stays within what the failures vary
     by, and nothing in the files says a freeze is on.
   - The reorg is told Mon 11 to Thu 14 and is calm from Fri 15, its days having become the usual; nobody accepts it.
-    Q-86 (a lasting change keeps pausing until accepted) isn't built, and would matter only for a change that holds.
+    Q-86 (a lasting change keeps pausing until accepted, built in ADR 0023 slice 3) would matter only for a change that
+    holds.
   - Fri 8's contradiction is 17 applications at the tests' scale, not 18: the push lowers one of them its encryption
     failure.
   - The seal is as today (the app's `sealOfRun`, ADR 0014 §6): nothing in it is Larkspur's own, and it is seen with the

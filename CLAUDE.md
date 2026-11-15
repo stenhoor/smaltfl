@@ -437,7 +437,9 @@ release (smaltty ADR 0030).
   rows (`tellStep`, under the held run's flow hash; its release cites the filled file's decision alone), the decision
   sheet deciding the one held source that has a fill (`sheetSubject`), and the recorder recording a story's fill (`StoryDecision.fill`, `fillOnce`): Larkspur's
   story fills Wed Mar 6 from Tue 5, and Wednesday's own export replaces the fill (`test/fill-whole.test.ts` in the
-  engine). ADR 0022's Q-84 and slice 5 (Q-139) come after.
+  engine). Slice 3 is built: a lasting change keeps pausing until accepted (Q-86; `quiet` in `news.ts` holds every day
+  a value of the mix stands at three times its usual share or a third of it, not its first alone), and the app accepts
+  the held file's level on any day of it (`acceptFor`, `subjectFor`). ADR 0022's Q-84 and slice 5 (Q-139) come after.
 
 ## Rules for this repository
 
