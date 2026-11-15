@@ -133,6 +133,9 @@ export interface PublishDef {
   meanwhile?: Meanwhile;
   /** Whether a person must close a pause (`decision`, the default), or a later day publishing closes it (`normal`). */
   until?: Until;
+  /** The share of a day's rows a learned check's alert must move to hold the day where its check only warns (Q-132,
+   * Q-207): a quarter unless set; a dataset's own in the ontology (`ontology.overwhelming`) wins. */
+  overwhelming?: number;
 }
 
 /** The donor rules (S3): the same weekday 7, 14, 21 or 28 days away, or the nearest good day 1 to 28 days away. */
@@ -238,7 +241,7 @@ export const REACHES = ['sources', 'downstream'] as const;
 export type Reach = (typeof REACHES)[number];
 
 /** The publish block's fields this version knows: any other is refused, never ignored. */
-const PUBLISH_FIELDS = ['hold', 'watch', 'period', 'together', 'reach', 'donor', 'meanwhile', 'until'];
+const PUBLISH_FIELDS = ['hold', 'watch', 'period', 'together', 'reach', 'donor', 'meanwhile', 'until', 'overwhelming'];
 
 export interface FlowDocument {
   smaltfl: DocumentFormat;
@@ -921,6 +924,7 @@ function validatePublish(doc: Record<string, unknown>, params: Map<string, Param
   if (p.period !== undefined) textParam(p.period, '$.publish.period', 'the period is a text parameter, such as a day');
   else if (unperiod > 0) add('$.publish.period', 'a watch needs a period: the parameter whose value is the day a claim names');
   if (p.together !== undefined && typeof p.together !== 'boolean') add('$.publish.together', 'true or false');
+  if (p.overwhelming !== undefined && !isShareOfRows(p.overwhelming)) add('$.publish.overwhelming', 'the share of a day’s rows a learned check’s alert must move to hold the day: a number above 0, at most 1 (a quarter is 0.25)');
   if (p.reach !== undefined && !(REACHES as readonly unknown[]).includes(p.reach)) add('$.publish.reach', `one of ${REACHES.join(', ')}`);
   else if (p.reach !== undefined && p.together !== false) add('$.publish.reach', 'what a hold reaches matters only where outputs publish apart: it needs together: false');
   else if (p.reach !== undefined && documentFormat(doc) < 3) add('$.publish.reach', 'a format-3 or later document’s: refused rather than ignored');
@@ -1167,6 +1171,15 @@ function validateExtras(doc: Record<string, unknown>, ids: Map<string, string>, 
       // A shared ontology is brought in when the flow is read (shared.ts): a document still listing paths wasn't.
       if ((o as Record<string, unknown>).import !== undefined) add('$.ontology.import', 'shared ontologies are brought in when the flow is read (readFlow): this document lists paths it was never read with');
       if (o.shared !== undefined && (!Array.isArray(o.shared) || o.shared.some((x: unknown) => !isRecord(x) || typeof x.file !== 'string' || typeof x.path !== 'string' || !known(x.file) || !Array.isArray(x.columns) || x.columns.some((c: unknown) => typeof c !== 'string')))) add('$.ontology.shared', 'where each shared part came from: [{ file: a source, path, columns }]');
+      // The threshold each dataset is judged by (Q-207): a source's or a step's, a share of the day's rows.
+      if (o.overwhelming !== undefined) {
+        if (!isRecord(o.overwhelming)) add('$.ontology.overwhelming', 'the share of a day’s rows a learned check’s alert must move to hold the day, by dataset: { dataset: 0.25 }');
+        else for (const [d, v] of Object.entries(o.overwhelming)) {
+          const named = (list: unknown) => (Array.isArray(list) ? list : []).some((x: unknown) => isRecord(x) && typeof x.id === 'string' && x.id.toLowerCase() === d.toLowerCase());
+          if (!named(doc.sources) && !named(doc.steps)) add(`$.ontology.overwhelming.${d}`, `no source or step ${d}`);
+          if (!isShareOfRows(v)) add(`$.ontology.overwhelming.${d}`, 'a number above 0, at most 1 (a quarter is 0.25)');
+        }
+      }
       // The fixes each file allows (rules.ts): a source's own, each one of the vocabulary, each once.
       if (o.fixes !== undefined) {
         if (!isRecord(o.fixes)) add('$.ontology.fixes', 'the fixes each file allows: { file: [forward, backward, impute, part, replace] }');
@@ -1361,6 +1374,11 @@ function fits(value: unknown, type: ParamType): boolean {
   if (type === 'text') return typeof value === 'string';
   if (type === 'integer') return typeof value === 'bigint' || (typeof value === 'number' && Number.isSafeInteger(value));
   return typeof value === 'number' && Number.isFinite(value);
+}
+
+/** A share of a day's rows, as a threshold takes it (Q-207): above 0, at most 1. */
+function isShareOfRows(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= 1;
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {

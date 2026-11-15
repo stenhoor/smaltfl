@@ -156,7 +156,9 @@ export function bronzeOf(section: FileSection, gate: GateChecks | null, findings
   const wrong = checks.filter((c) => c.state === 'alert').sort((a, b) => score(b) - score(a));
   const unusual = checks.filter((c) => c.state === 'warn').sort((a, b) => score(b) - score(a));
   const judgedList = checks.filter((c) => c.state !== 'off' && c.state !== 'unjudged');
-  const holds = wrong.some((c) => c.mode === 'hold');
+  // A check that holds found something wrong, or a learned check's alert moved enough of the day's rows to hold it
+  // though the check only warns (Q-132).
+  const holds = wrong.some((c) => c.mode === 'hold' || c.findings.some((f) => f.overwhelming));
   const verdict = holds ? 'hold' : wrong.length || unusual.length ? 'look' : judgedList.length ? 'clean' : 'unjudged';
   return { file, verdict, wrong, unusual, checks, passed: judgedList.filter((c) => c.state === 'ok').length, judged: judgedList.length };
 }

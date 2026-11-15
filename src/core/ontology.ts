@@ -222,6 +222,10 @@ export interface Ontology {
   /** The fixes a held day of each file may be offered (rules.ts `FIX_KINDS`), by file: what the news, the brief and the
    * decision sheet suggest and offer. A file not listed allows every one. */
   fixes?: Record<string, FixKind[]>;
+  /** The share of a day's rows a learned check's alert must move to hold the day where its check only warns (Q-132,
+   * Q-207), by dataset (a source or a watched step): it wins over the flow's (`publish.overwhelming`), which wins over
+   * a quarter. */
+  overwhelming?: Record<string, number>;
 }
 
 /** A condition in one order however it was written, the order the emitter writes it in: `[column, values]`, by column,

@@ -13,7 +13,7 @@ import { DONOR_RULES, HOLD_KINDS, isGeneralWatch, MEANWHILES, missingProblem, pe
 import { emitMatch, emitRuleCheck } from './emit.js';
 import { hashOf } from './hash.js';
 import { dayOf, inForce } from './inforce.js';
-import { CHECK_NAMES, gateChecksOf, hasGates, writtenRules, type GateChecks } from './gates.js';
+import { CHECK_NAMES, gateChecksOf, hasGates, overwhelmingOf, writtenRules, type GateChecks } from './gates.js';
 import { conditionOf, marksOn, readAsOf, type Ontology } from './ontology.js';
 import { enforcedBy, ON_FAIL, type OntologyRule } from './rules.js';
 import type { ParamType, ParamValue } from './sqltext.js';
@@ -181,6 +181,10 @@ export interface WatchPlan {
   needs?: NeedsPlan[];
   /** plan/4 only (ADR 0014 §6): the gate's reconciliation, the other node by its table (a source), or null. */
   reconcile?: ReconcilePlan | null;
+  /** plan/4 only (Q-132, Q-207): the share of a day's rows a learned check's alert must move to hold the day where its
+   * check only warns, where the ontology or the flow declares one; without it a quarter, and every plan made before it
+   * hashes as it did. */
+  overwhelming?: number;
 }
 
 export interface ReconcilePlan {
@@ -455,7 +459,13 @@ export async function translate(given: FlowDocument, values: Readonly<Record<str
       reconcile: r.reconcile ? { key: [...r.reconcile.key], table: r.reconcile.of ? tableOf(r.reconcile.of) : null, ...(r.reconcile.loose ? { loose: true as const } : {}) } : null,
     };
   };
-  const watch = entries.map((e): [number, WatchPlan] => [e.node, { ...watchPlan(e.w, e.id, p.period ?? null, doc.ontology, gates), ...(gates ? { checks: gateChecksOf(doc, e.id)!, ...rulesOf(e.id) } : {}) }]);
+  // A threshold the document declares for the node (Q-207): the ontology's, else the flow's; none, and the plan is as
+  // it was.
+  const overwhelming = (id: string) => {
+    const declared = overwhelmingOf(doc, id).declared;
+    return declared === null ? {} : { overwhelming: declared };
+  };
+  const watch = entries.map((e): [number, WatchPlan] => [e.node, { ...watchPlan(e.w, e.id, p.period ?? null, doc.ontology, gates), ...(gates ? { checks: gateChecksOf(doc, e.id)!, ...rulesOf(e.id), ...overwhelming(e.id) } : {}) }]);
   // The gates on published nodes the plan doesn't watch (ADR 0014 §6): the run counts their reconciliation itself.
   const watchedNodes = new Set(entries.map((e) => e.node));
   // A gold table's key (Q-118): the gate cell's where it writes one, else the ontology's rows entry for the table, its
@@ -700,7 +710,10 @@ function validatePublish2(p: FlowPlan, fail: (message: string) => never, gated =
     if (i > 0 && !((pairs[i - 1] as [number, unknown])[0] < node)) fail('publish.watch is sorted by node, each node once');
     const at = `publish.watch[${i}]`;
     const fields = gated ? WATCH_PLAN_FIELDS_4 : WATCH_PLAN_FIELDS;
-    if (Object.keys(w).sort().join() !== fields.join()) fail(`${at} has ${Object.keys(w).sort().join(', ')}; a watch has exactly ${fields.join(', ')}`);
+    // plan/4's threshold only where the document declares one (Q-207).
+    const keys = Object.keys(w).filter((k) => !(gated && k === 'overwhelming')).sort().join();
+    if (keys !== fields.join()) fail(`${at} has ${Object.keys(w).sort().join(', ')}; a watch has exactly ${fields.join(', ')}${gated ? ', and overwhelming where declared' : ''}`);
+    if (w.overwhelming !== undefined && !(typeof w.overwhelming === 'number' && Number.isFinite(w.overwhelming) && w.overwhelming > 0 && w.overwhelming <= 1)) fail(`${at}.overwhelming is a share of the day's rows, above 0 and at most 1`);
     if (typeof w.history !== 'string' || w.history === '') fail(`${at}.history is a file`);
     if (w.period === null ? period === null : !text(w.period)) fail(`${at}.period ${String(w.period)} is not one of the plan's text parameters`);
     if (!isEvery(w.every)) fail(`${at}.every ${String(w.every)} is not one this version can judge (${EVERIES.join(', ')})`);

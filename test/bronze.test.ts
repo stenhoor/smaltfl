@@ -56,6 +56,19 @@ describe('the estate’s waf on Tue Mar 12', () => {
     expect(verdictSaid(b)).toBe('1 issue and 2 things to look at: the day is held');
   });
 
+  it('holds the day on a learned check that only warns when its alert is overwhelming (Q-132)', async () => {
+    const { section, gate } = await setup();
+    // The shares check only warns at bronze; its alert moved 55% of the day's rows, past the quarter that holds a day.
+    const over = finding({ kind: 'share', severity: 'alert', columns: ['mode'], values: ['"block"'], title: 'Mode block: 40% (usually 91–98%)', score: 9, check: 'shares', rows: 112, overwhelming: { moved: 112, of: 203, at: 0.25 } });
+    const b = bronzeOf(section, gate, [over], { judged: true });
+    expect(b.checks.find((c) => c.id === 'waf/~shares')).toMatchObject({ mode: 'warn', state: 'alert' });
+    expect(b.verdict).toBe('hold');
+    expect(verdictSaid(b)).toBe('1 issue: the day is held');
+    // The same alert, not overwhelming (a check set to hold, say, would hold; one that warns is looked at).
+    const { overwhelming: _o, ...plain } = over;
+    expect(bronzeOf(section, gate, [plain as Finding], { judged: true }).verdict).toBe('look');
+  });
+
   it('says off for a check the gate switches off, and unjudged for a day with no history', async () => {
     const { doc, section } = await setup();
     const gate = { ...gateChecksOf(doc, 'waf')!, shares: 'off' as const };

@@ -279,18 +279,59 @@ export function checkOf(kind: Finding['kind']): CheckName | null {
 }
 
 /**
+ * The learned checks whose alert holds the day though the check only warns, when it moved enough of the day's rows
+ * (Q-132): the shares of a column's values, the pairs of values, the hours and the shape. Never the forest or the
+ * classifier, which only ever warn (Q-107).
+ */
+export const OVERWHELMS: ReadonlySet<CheckName> = new Set<CheckName>(['shares', 'pairs', 'hours', 'shape']);
+
+/** The share of a day's rows such an alert must move to hold the day, where neither the ontology nor the flow sets one:
+ * a quarter (the maintainer, Q-207). */
+export const OVERWHELMING = 0.25;
+
+/** The rows a learned finding moved from what a day like it has: its own count (a share's rows moved, a value gone's
+ * usual rows, the hours' missing rows), or a pair of values' rows beyond what its columns predict (`moved`). */
+export const movedOf = (f: Pick<Finding, 'rows' | 'moved'>): number => f.moved ?? f.rows ?? 0;
+
+/**
+ * The threshold a node is judged by (Q-207): the ontology's for the dataset (`ontology.overwhelming`), else the flow's
+ * (`publish.overwhelming`), else a quarter. `declared` is what the document says, which the plan carries; null where it
+ * says nothing, and the plan hashes as it did.
+ */
+export function overwhelmingOf(doc: Partial<Pick<FlowDocument, 'ontology' | 'publish'>>, node: string): { at: number; declared: number | null; from: 'ontology' | 'flow' | null } {
+  const own = Object.entries(doc.ontology?.overwhelming ?? {}).find(([d]) => d.toLowerCase() === node.toLowerCase())?.[1];
+  if (typeof own === 'number') return { at: own, declared: own, from: 'ontology' };
+  const flow = doc.publish?.overwhelming;
+  if (typeof flow === 'number') return { at: flow, declared: flow, from: 'flow' };
+  return { at: OVERWHELMING, declared: null, from: null };
+}
+
+/** What made a finding overwhelming, said (Q-132): "38% of the day’s rows moved; from 25%, a learned check holds the
+ * day". */
+export function overwhelmingSaid(o: NonNullable<Finding['overwhelming']>): string {
+  const pct = (x: number) => `${Math.round(x * 100)}%`;
+  return `${pct(o.moved / o.of)} of the day’s rows moved; from ${pct(o.at)}, a learned check holds the day`;
+}
+
+/**
  * The gate's rule on a finding (Q-114): under `hold` the finding keeps its own severity, and holds the day when that
  * is something wrong; under `warn` it is unusual at most, unless the ontology marks its value bad (a bad value is
- * always something wrong); under `off` it isn't told (null). A finding of no check passes through.
+ * always something wrong), or it is a learned check's alert that moved at least `day.overwhelming` of the day's rows
+ * (Q-132): overwhelming, it keeps its severity and holds the day, marked so; under `off` it isn't told (null). A finding
+ * of no check passes through.
  */
-export function gated(f: Finding, checks: GateChecks | null): Finding | null {
+export function gated(f: Finding, checks: GateChecks | null, day?: { rows: number; overwhelming: number }): Finding | null {
   if (!checks) return f;
   const check = checkOf(f.kind);
   if (!check) return f;
   const mode = checks[check];
   if (mode === 'off') return null;
-  const severity: Severity = mode === 'warn' && f.severity === 'alert' && !f.bad ? 'warn' : f.severity;
-  return severity === f.severity ? { ...f, check } : { ...f, check, severity };
+  const capped = mode === 'warn' && f.severity === 'alert' && !f.bad;
+  if (!capped) return { ...f, check };
+  const moved = movedOf(f);
+  if (day && day.rows > 0 && OVERWHELMS.has(check) && moved / day.rows >= day.overwhelming) return { ...f, check, overwhelming: { moved, of: day.rows, at: day.overwhelming } };
+  const severity: Severity = 'warn';
+  return { ...f, check, severity };
 }
 
 /** Whether a value is a gate as the document writes it. */

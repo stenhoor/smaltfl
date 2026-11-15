@@ -27,7 +27,7 @@ import { daysFrom, HistoryRanges, isHistory, metricKey, QUANTILES, timeOf, type 
 import type { Identity, ManifestNode, SignedManifest, SourceFile, SourceIngestRecord } from '../core/manifest.js';
 import type { Backtest, NormalRange, NormalRanges, Place } from '../core/normal.js';
 import { flowNames, isPlaceholder, judgeOf, labelOf, newsOf, shareWords, tableNewsOf, usualHours, type Act, type FileFacts, type Finding, type Names, type Severity, type TableFacts } from '../core/news.js';
-import { writtenRules, CHECK_MODES, CHECK_NAMES, CHECK_SAID, checkOf, gateChecksOf, gateLayerOf, hasGates, JUDGED, LAYER_SAID, WRITTEN, type CheckMode, type CheckName, type GateChecks } from '../core/gates.js';
+import { writtenRules, CHECK_MODES, CHECK_NAMES, CHECK_SAID, checkOf, gateChecksOf, gateLayerOf, hasGates, JUDGED, LAYER_SAID, overwhelmingSaid, WRITTEN, type CheckMode, type CheckName, type GateChecks } from '../core/gates.js';
 import { calendarHead, heldLoadLine, dayMid, dayShort, guessWords, judgedWords, lacked, MARK as REMEDY_MARK, noRowsBefore, reachLabel, readersOf as readersHad, readersSee, rowsFrom, shortfall, shownRun, stagedBar, stoppedLine as stoppedWords, toldLine, type DayState, type EpisodeDay, type KeptMark, type PauseState, type RemedyMark } from '../core/days.js';
 import { UNTIL, afterLine, betweenLine, dayPausedLine, daySentence, decidedLines, decisionDrawing, donorPicked, failLine, goShown, heldLine, outputPausedLine, passedLine, pausedChecks, pauseLines, pauseReasons, pickFails, receiptLines, remedyHead, ribbonOf, runFigures, sheetText, versionLines, checksSeen, filesSeen, findingOf, type RunSight, type AfterPart, type KeptLacks, type RemedySaid, type SheetIn, type SheetPick, type SheetText, type Sight } from '../core/decision.js';
 import { contractSaid, countedChecks, rangesFor, dayClaim, dayState, flowStory, learnedMeasures, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, upstreamSteps, tailPath, type Claim, decisionFor, decisionForLoad, standingForLoad, heldLoadsOf, dayPauseOfLoads, loadDecisions, keysForLoads, loadKey, loadsOf, byLoad, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, latestPublished, publishedDays, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
@@ -4848,12 +4848,13 @@ function issueCard(card: string, id: string, c: BronzeCheck): HTMLElement {
   const day = newsDay() ?? viewedDay();
   const fixes = h('div', { class: 'bq-fixes' },
     h('span', { class: 'bq-k' }, 'What you can do'),
-    waits && day && c.mode === 'hold' && sev === 'alert' ? h('button', { type: 'button', class: 'btn small primary', onclick: () => decideDay(day) }, 'Decide on the day ›') : null,
+    waits && day && (c.mode === 'hold' || !!f?.overwhelming) && sev === 'alert' ? h('button', { type: 'button', class: 'btn small primary', onclick: () => decideDay(day) }, 'Decide on the day ›') : null,
     h('button', { type: 'button', class: 'btn small', onclick: () => ((issueFocus = c.id), openTab(card, 'notebook')) }, 'See the rows in the notebook ›'),
     f && f.acts.length ? moreOnly(actionsOf(f, card, null, null, waits, true)) : null);
   return h('article', { class: `bq-issue ${sev}`, 'data-check': c.id },
     h('h4', {}, glyphEl(sev, 16), h('span', {}, f?.apart ? `Today’s ${ontologyNounMany(id)} look ${DIFFERENCE_SAID[differenceStep(f.apart.auc)]} from earlier days` : f?.unlike ? `The day as a whole is ${unlikeSaid(f.unlike).strength}` : (f?.title ?? c.said))),
-    h('p', { class: 'bq-check' }, h('span', { class: 'bq-k' }, 'The check'), ` ${c.said} · ${c.mode === 'hold' ? 'it stops the day going out' : c.mode === 'warn' ? 'it only warns: the day still goes out' : 'switched off'} · `,
+    // A learned check that only warns, whose alert moved enough of the day's rows to hold it all the same (Q-132).
+    h('p', { class: 'bq-check' }, h('span', { class: 'bq-k' }, 'The check'), ` ${c.said} · ${c.mode === 'hold' ? 'it stops the day going out' : f?.overwhelming ? `it only warns, but ${overwhelmingSaid(f.overwhelming)}` : c.mode === 'warn' ? 'it only warns: the day still goes out' : 'switched off'} · `,
       c.from === 'ontology' ? h('button', { type: 'button', class: 'linkish', onclick: () => openOntologyCheck(id, c.id) }, 'defined on the Ontology page ›')
         : h('button', { type: 'button', class: 'linkish', onclick: () => ((issueFocus = `gate:${id}`), openTab(card, 'notebook')) }, 'set in the notebook’s gate cell ›')),
     vis ? h('button', { type: 'button', class: 'bq-vis', 'aria-label': `${f!.title}: more`, onclick: () => findingDetail(f!, card) }, vis) : null,

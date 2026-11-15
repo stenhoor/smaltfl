@@ -6,9 +6,11 @@ import { describe, expect, it } from 'vitest';
 import { briefBanned, briefOf, briefText, briefWords, situationOf, statusOf, type BriefIn } from '../src/core/brief.js';
 import { HistoryRanges } from '../src/core/history.js';
 import { rangesFor } from '../src/core/hold.js';
-import { flowNames, judgeOf, newsOf } from '../src/core/news.js';
+import { LAYER_DEFAULTS } from '../src/core/gates.js';
+import { flowNames, judgeOf, LEGACY_JUDGE, newsOf } from '../src/core/news.js';
 import { storyOf, wordsIn, type Story } from '../src/core/story.js';
 import { PLANTED, securityDoc, securityHistory } from './fixtures/security.js';
+import { historyWith, vendorNames } from './helpers/history.js';
 
 const doc = securityDoc();
 const names = flowNames(doc, 'auth');
@@ -105,5 +107,31 @@ describe('a calm day and a flow that does not hold', () => {
     expect(s).toBe('Mon Mar 11: published.');
     const paused = situationOf({ day: '2024-03-11', story: null, pause: { state: 'waiting', readers: null, deciders: 'Owner', may: true }, outputs: [{ name: 'a', fate: 'waits' }], noun });
     expect(paused).toBe('Mon Mar 11: 1 of 1 outputs wait.');
+  });
+});
+
+describe('an overwhelming learned finding (Q-132)', () => {
+  // Vendor 1's share of the day doubled from three in ten to six, in a gated flow: the shares check only warns, but the
+  // finding moved 30% of the day's rows (vendor 2's fall), past the quarter that holds a day; the day's count is usual.
+  const vh = new HistoryRanges(historyWith({ '2023-10-11': { vendorShare: 0.6 } }));
+  const gatedJudge = { ...LEGACY_JUDGE, checks: LAYER_DEFAULTS.bronze };
+  const s = storyOf(vh, '2023-10-11', newsOf(vh, '2023-10-11', vendorNames, { judge: gatedJudge }), { names: vendorNames, judge: gatedJudge });
+
+  it('holds the day, says what made it overwhelming among the facts, and proposes keeping the last good day', () => {
+    expect(s.state).toBe('wrong');
+    expect(s.cause?.overwhelming).toMatchObject({ at: 0.25 });
+    const b = briefOf({ ...base('2023-10-11'), story: s, options: [...options, { option: 'fill', label: 'Fill from Wed 4', line: 'a good day fills what is missing', off: null }] });
+    expect(b.cause.facts).toContain('30% of the day’s rows moved; from 25%, a learned check holds the day');
+    // No written rule says what went wrong: no remedy is known to fit, so not a fill, even where one is on offer.
+    expect(b.fix.proposed).toBe('dont');
+    expect(b.fix.why).toMatch(/^A learned check moved 30% of the day’s rows \(.+\): readers keep the last good day while someone looks\.$/);
+    expect(briefBanned(b)).toEqual([]);
+  });
+
+  it('is unusual at most, and proposes what it always did, under a threshold it doesn’t reach', () => {
+    const higher = { ...gatedJudge, overwhelming: 0.5 };
+    const calm = storyOf(vh, '2023-10-11', newsOf(vh, '2023-10-11', vendorNames, { judge: higher }), { names: vendorNames, judge: higher });
+    expect(calm.cause?.overwhelming).toBeUndefined();
+    expect(briefOf({ ...base('2023-10-11'), story: calm }).cause.facts.some((f) => /learned check/.test(f))).toBe(false);
   });
 });

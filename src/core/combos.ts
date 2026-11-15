@@ -147,6 +147,8 @@ export function comboNews(h: HistoryRanges, day: string, o: ComboOptions): Findi
       value: c.value,
       range: c.range,
       rows: c.n,
+      // What the pair moved (Q-132): its rows beyond what its columns' own counts and the usual odds predict.
+      moved: Math.round(Math.abs(c.n - c.usual)),
       acts: ['incident', 'expected', 'rule', 'notify'],
     });
   }

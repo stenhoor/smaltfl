@@ -7,16 +7,19 @@
 import { describe, expect, it } from 'vitest';
 import { plusDays } from '../src/core/calendar.js';
 import { validateDocument, type FlowDocument } from '../src/core/document.js';
-import { CHECK_NAMES, checkOf, gateChecksOf, gated, LAYER_DEFAULTS, resolveGate, type GateChecks } from '../src/core/gates.js';
+import { CHECK_NAMES, checkOf, gateChecksOf, gated, LAYER_DEFAULTS, OVERWHELMING, overwhelmingOf, resolveGate, type GateChecks } from '../src/core/gates.js';
 import { HistoryRanges } from '../src/core/history.js';
 import { appendPeriods, emptyHistory, measuresOf, type MeasureSettings, type Measures } from '../src/core/measures.js';
 import { planKind } from '../src/core/manifest.js';
 import { expandNotebooks, stepsOfNotebooks } from '../src/core/notebook.js';
-import { judgeOf, LEGACY_JUDGE, newsOf } from '../src/core/news.js';
+import { judgeOf, LEGACY_JUDGE, newsOf, type Finding } from '../src/core/news.js';
 import { translate, validatePlan } from '../src/core/plan.js';
 import { exampleDoc } from './helpers/example.js';
 import { historyWith, vendorNames } from './helpers/history.js';
 import { ts } from './helpers/notebooks.js';
+
+/** An ontology with no types, for a test that sets one of its other fields. */
+const NO_TYPES = { objectTypes: [], linkTypes: [], actionTypes: [] };
 
 const SETUP = "import { cell, md, param, sql } from 'smaltnb';\nimport { check, fill, gate, publish, source } from 'smaltfl/notebook';\n";
 
@@ -140,6 +143,48 @@ export const auth_gate = gate(auth, { checks: { shares: 'hold', forest: 'off' } 
     // A plan/3 publish block carries no gates: with them, it is refused as such.
     expect(() => validatePlan({ ...plan, smaltflPlan: 3 })).toThrow(/publish.gates is plan\/4/);
   });
+
+  it('carries a threshold the ontology or the flow declares, and none it doesn’t, so no plan made before moves (Q-207)', async () => {
+    type Watch = [number, Record<string, unknown>][];
+    const watchOf = async (extra: Partial<FlowDocument>) => {
+      const doc = await expandNotebooks(flow(gatedNb, extra), ts);
+      expect(validateDocument(doc)).toEqual([]);
+      const plan = await translate(doc, { day: '2024-01-02' });
+      expect(() => validatePlan(plan)).not.toThrow();
+      return { plan, by: Object.fromEntries((plan.publish as unknown as { watch: Watch }).watch.map(([node, w]) => [plan.nodes[node]!.origin, w])) };
+    };
+    const none = await watchOf({});
+    expect(Object.values(none.by).every((w) => !('overwhelming' in w))).toBe(true);
+    const base = flow(gatedNb).publish!;
+    const flowWide = await watchOf({ publish: { ...base, overwhelming: 0.4 } });
+    expect(flowWide.by.auth!.overwhelming).toBe(0.4);
+    expect(flowWide.by.by_hour!.overwhelming).toBe(0.4);
+    // The dataset's own wins, by its id whatever its case; the others keep the flow's.
+    const own = await watchOf({ publish: { ...base, overwhelming: 0.4 }, ontology: { ...NO_TYPES, overwhelming: { AUTH: 0.1 } } });
+    expect(own.by.auth!.overwhelming).toBe(0.1);
+    expect(own.by.by_hour!.overwhelming).toBe(0.4);
+    expect(judgeOf(await expandNotebooks(flow(gatedNb, { ontology: { ...NO_TYPES, overwhelming: { auth: 0.1 } } }), ts), 'auth').overwhelming).toBe(0.1);
+    expect(judgeOf(await expandNotebooks(flow(gatedNb), ts), 'auth').overwhelming).toBe(OVERWHELMING);
+    // A threshold moves the plan: it changes what holds a day.
+    expect(own.plan.flow.hash).not.toBe(none.plan.flow.hash);
+    // A plan's threshold is a share of the day's rows.
+    const pub = flowWide.plan.publish as unknown as { watch: Watch };
+    const odd = { ...flowWide.plan, publish: { ...pub, watch: pub.watch.map(([n, w]) => [n, { ...w, overwhelming: 2 }]) } } as unknown as typeof flowWide.plan;
+    expect(() => validatePlan(odd)).toThrow(/overwhelming is a share of the day's rows/);
+  });
+
+  it('refuses a threshold that isn’t a share of the day’s rows, or names no dataset of the flow (Q-207)', async () => {
+    const base = flow(gatedNb).publish!;
+    const said = async (extra: Partial<FlowDocument>) => validateDocument(await expandNotebooks(flow(gatedNb, extra), ts)).map((i) => i.path);
+    expect(await said({ publish: { ...base, overwhelming: 0 } })).toEqual(['$.publish.overwhelming']);
+    expect(await said({ publish: { ...base, overwhelming: 1.5 } })).toEqual(['$.publish.overwhelming']);
+    expect(await said({ publish: { ...base, overwhelming: '25%' as unknown as number } })).toEqual(['$.publish.overwhelming']);
+    expect(await said({ publish: { ...base, overwhelming: 1 } })).toEqual([]);
+    expect(await said({ ontology: { ...NO_TYPES, overwhelming: { waf: 0.2 } } })).toEqual(['$.ontology.overwhelming.waf']);
+    expect(await said({ ontology: { ...NO_TYPES, overwhelming: { auth: -1 } } })).toEqual(['$.ontology.overwhelming.auth']);
+    expect(await said({ ontology: { ...NO_TYPES, overwhelming: { by_hour: 0.3 } } })).toEqual([]);
+    expect(await said({ ontology: { ...NO_TYPES, overwhelming: [0.2] as unknown as Record<string, number> } })).toEqual(['$.ontology.overwhelming']);
+  });
 });
 
 describe('the judges read the gate (Q-114)', () => {
@@ -171,24 +216,66 @@ describe('the judges read the gate (Q-114)', () => {
     expect(plain.find((f) => f.kind === 'volume')!.severity).toBe('alert');
     expect(plain.every((f) => f.check === undefined)).toBe(true);
     const bronze = { ...LEGACY_JUDGE, checks: LAYER_DEFAULTS.bronze };
+    // Vendor 1, three in ten of a day's trips, gone: a learned check's alert that moved 30% of the day's rows, past the
+    // quarter a node is judged by unless the ontology or the flow says (Q-132, Q-207). Overwhelming, it holds, marked.
     const gatedNews = newsOf(h, '2023-10-11', vendorNames, { judge: bronze });
     const gone = gatedNews.find((f) => f.kind === 'gone')!;
-    expect(gone.severity).toBe('warn');
-    expect(gone.check).toBe('shares');
+    expect(gone).toMatchObject({ severity: 'alert', check: 'shares', overwhelming: { at: 0.25 } });
+    expect(gone.overwhelming!.moved / gone.overwhelming!.of).toBeCloseTo(0.3, 2);
+    // Judged by a higher threshold, it is unusual at most (Q-114), and not marked.
+    const higher = newsOf(h, '2023-10-11', vendorNames, { judge: { ...bronze, overwhelming: 0.35 } }).find((f) => f.kind === 'gone')!;
+    expect(higher).toMatchObject({ severity: 'warn', check: 'shares' });
+    expect(higher.overwhelming).toBeUndefined();
     expect(gatedNews.find((f) => f.kind === 'volume')).toMatchObject({ severity: 'alert', check: 'amount' });
     // Off: not told at all; the rest unchanged.
     const off = newsOf(h, '2023-10-11', vendorNames, { judge: { ...bronze, checks: { ...LAYER_DEFAULTS.bronze, shares: 'off', amount: 'off' } } });
     expect(off.some((f) => f.kind === 'gone' || f.kind === 'share' || f.kind === 'volume')).toBe(false);
     // A value the ontology marks bad is always something wrong, whatever the check's mode: vendor 1 marked bad and up
-    // to 90% of the day holds under shares: warn, while vendor 2's own fall is unusual at most.
+    // to 90% of the day holds under shares: warn, while vendor 2's own fall, judged by a threshold of nine in ten, is
+    // unusual at most. At a quarter its fall, 60% of the day's rows, is overwhelming.
     const up = new HistoryRanges(historyWith({ '2023-10-11': { vendorShare: 0.9 } }));
-    const bad = newsOf(up, '2023-10-11', vendorNames, { judge: { ...bronze, bad: new Map([['vendorid', new Set(['1'])]]) } });
+    const bad = newsOf(up, '2023-10-11', vendorNames, { judge: { ...bronze, bad: new Map([['vendorid', new Set(['1'])]]), overwhelming: 0.9 } });
     expect(bad.find((f) => f.key === 'share:VendorID=1')).toMatchObject({ severity: 'alert', bad: true, check: 'shares' });
+    expect(bad.find((f) => f.key === 'share:VendorID=1')!.overwhelming).toBeUndefined();
     expect(bad.find((f) => f.key === 'share:VendorID=2')).toMatchObject({ severity: 'warn', check: 'shares' });
+    const atQuarter = newsOf(up, '2023-10-11', vendorNames, { judge: { ...bronze, bad: new Map([['vendorid', new Set(['1'])]]) } });
+    expect(atQuarter.find((f) => f.key === 'share:VendorID=2')).toMatchObject({ severity: 'alert', check: 'shares', overwhelming: { at: 0.25 } });
     // The rule on one finding, by itself.
     expect(gated({ key: 'x', kind: 'share', severity: 'alert', score: 1, title: '', detail: '', look: 'columns', acts: [] }, LAYER_DEFAULTS.silver)).toMatchObject({ severity: 'warn', check: 'shares' });
     expect(gated({ key: 'x', kind: 'calm', severity: 'ok', score: 0, title: '', detail: '', look: 'history', acts: [] }, LAYER_DEFAULTS.gold)).toMatchObject({ severity: 'ok' });
     expect(gated({ key: 'x', kind: 'share', severity: 'alert', score: 1, title: '', detail: '', look: 'columns', acts: [] }, LAYER_DEFAULTS.gold)).toBeNull();
+  });
+
+  it('holds on an overwhelming learned alert: a quarter of the day’s rows moved, never the forest or the classifier (Q-132)', () => {
+    const f = (kind: Finding['kind'], rows: number, more: Partial<Finding> = {}): Finding => ({ key: kind, kind, severity: 'alert', score: 1, title: '', detail: '', look: 'columns', acts: [], rows, ...more });
+    const day = { rows: 1000, overwhelming: 0.25 };
+    // A share that moved 250 of 1,000 rows: at the threshold, it holds; 249 doesn't.
+    expect(gated(f('share', 250), LAYER_DEFAULTS.bronze, day)).toMatchObject({ severity: 'alert', check: 'shares', overwhelming: { moved: 250, of: 1000, at: 0.25 } });
+    expect(gated(f('share', 249), LAYER_DEFAULTS.bronze, day)).toMatchObject({ severity: 'warn', check: 'shares' });
+    expect(gated(f('share', 249), LAYER_DEFAULTS.bronze, day)!.overwhelming).toBeUndefined();
+    // A value gone and the hours count their own rows; a pair of values what it moved beyond what its columns predict.
+    expect(gated(f('gone', 400), LAYER_DEFAULTS.silver, day)).toMatchObject({ severity: 'alert', check: 'shares' });
+    expect(gated(f('hours', 300), LAYER_DEFAULTS.bronze, day)).toMatchObject({ severity: 'alert', check: 'hours' });
+    expect(gated(f('combo', 900, { moved: 100 }), LAYER_DEFAULTS.bronze, day)).toMatchObject({ severity: 'warn', check: 'pairs' });
+    expect(gated(f('combo', 900, { moved: 300 }), LAYER_DEFAULTS.bronze, day)).toMatchObject({ severity: 'alert', check: 'pairs', overwhelming: { moved: 300 } });
+    // The forest and the classifier only ever warn (Q-107), whatever they cover.
+    expect(gated(f('unlike', 1000), LAYER_DEFAULTS.bronze, day)).toMatchObject({ severity: 'warn', check: 'forest' });
+    expect(gated(f('apart', 1000), LAYER_DEFAULTS.bronze, day)).toMatchObject({ severity: 'warn', check: 'classifier' });
+    // Under hold the alert is the check's own, not overwhelming; under off nothing is told; at gold the learned checks
+    // are off.
+    expect(gated(f('share', 900), { ...LAYER_DEFAULTS.bronze, shares: 'hold' }, day)).toMatchObject({ severity: 'alert' });
+    expect(gated(f('share', 900), { ...LAYER_DEFAULTS.bronze, shares: 'hold' }, day)!.overwhelming).toBeUndefined();
+    expect(gated(f('share', 900), LAYER_DEFAULTS.gold, day)).toBeNull();
+    // A day of no rows moves no share of them.
+    expect(gated(f('share', 0), LAYER_DEFAULTS.bronze, { rows: 0, overwhelming: 0.25 })).toMatchObject({ severity: 'warn' });
+  });
+
+  it('reads the threshold from the ontology, else the flow, else a quarter (Q-207)', () => {
+    expect(overwhelmingOf({}, 'waf')).toEqual({ at: OVERWHELMING, declared: null, from: null });
+    expect(OVERWHELMING).toBe(0.25);
+    expect(overwhelmingOf({ publish: { hold: ['wrong'], overwhelming: 0.4 } }, 'waf')).toEqual({ at: 0.4, declared: 0.4, from: 'flow' });
+    expect(overwhelmingOf({ publish: { hold: ['wrong'], overwhelming: 0.4 }, ontology: { ...NO_TYPES, overwhelming: { WAF: 0.1 } } }, 'waf')).toEqual({ at: 0.1, declared: 0.1, from: 'ontology' });
+    expect(overwhelmingOf({ publish: { hold: ['wrong'], overwhelming: 0.4 }, ontology: { ...NO_TYPES, overwhelming: { tls: 0.1 } } }, 'waf')).toEqual({ at: 0.4, declared: 0.4, from: 'flow' });
   });
 });
 

@@ -16,7 +16,7 @@ import { modelLeftOut } from './modelcols.js';
 import { daysBetween, namedOf, NONE, plusDays, resolveCalendar, specialOf, shortName, type Calendar } from './calendar.js';
 import { isGeneralWatch, sourceOf, type FlowDocument } from './document.js';
 import { apartEvidence, type Apart, type SampleFile } from './apart.js';
-import { gated, gateChecksOf, writtenRules, type CheckName, type GateChecks, type NeedsRule, type ReconcileRule } from './gates.js';
+import { gated, gateChecksOf, OVERWHELMING, overwhelmingOf, writtenRules, type CheckName, type GateChecks, type NeedsRule, type ReconcileRule } from './gates.js';
 import { HistoryRanges, lateAt, lateUsual, QUANTILES, type Metric, type ValueHistory } from './history.js';
 import type { NoRange, NormalRange, NormalRanges } from './normal.js';
 import { marksOn, nounOf, partNamed, propertyOf } from './ontology.js';
@@ -76,6 +76,12 @@ export interface Finding {
   due?: { due: number; late: number; within: number; usual?: number };
   /** What the classifier found (an `apart` finding, ADR 0014 §5). */
   apart?: Apart;
+  /** The rows the finding moved from what a day like it has, where that isn't its `rows`: a pair of values' rows beyond
+   * what its columns predict (Q-132, `movedOf` in gates.ts). */
+  moved?: number;
+  /** A learned check's alert that holds the day though its check only warns (Q-132): it moved `moved` of the day's `of`
+   * rows, at least the threshold `at` the node is judged by (Q-207). */
+  overwhelming?: { moved: number; of: number; at: number };
   /** A file that isn't fresh (a `stale` finding, ADR 0020 §2): the file's facts and the day it was loaded for. */
   file?: FileFacts & { day: string; same: boolean; early: boolean };
 }
@@ -146,6 +152,9 @@ export interface JudgeSettings {
   /** Why the two models leave a column out (modelcols.ts `modelLeftOut`: the ontology, a key, an id), or null where they
    * read it; absent, they read every column the data allows. */
   models?: (column: string) => string | null;
+  /** The share of the day's rows a learned check's alert must move to hold the day where its check only warns (Q-132,
+   * Q-207): the ontology's for the node, else the flow's; absent, a quarter (`OVERWHELMING`). */
+  overwhelming?: number;
 }
 
 /** The legacy form's settings: what every flow was judged by before ADR 0010. */
@@ -180,6 +189,7 @@ export function judgeOf(doc: Pick<FlowDocument, 'publish' | 'ontology' | 'calend
     reconcile: rules.reconcile ? { key: rules.reconcile.key, ...(rules.reconcile.of !== undefined ? { of: rules.reconcile.of } : {}) } : null,
     scopeKey: rules.scope?.own ?? null,
     models: (column) => modelLeftOut(doc.ontology, source, column),
+    overwhelming: overwhelmingOf(doc, source).at,
   };
 }
 
@@ -887,7 +897,9 @@ export function newsOf(h: HistoryRanges, day: string, names: Names, options: { c
 
   // The gate's rule on each finding (ADR 0014 §2, Q-114): under a check that warns, something wrong is unusual at most
   // (a value marked bad excepted); under one that is off, nothing is told; a flow with no gate is judged as it was.
-  const passed = judge.checks ? out.map((f) => gated(f, judge.checks)).filter((f): f is Finding => f !== null) : out;
+  // A learned check's alert that moved at least the node's threshold of the day's rows holds the day all the same
+  // (Q-132): overwhelming, never the forest's or the classifier's.
+  const passed = judge.checks ? out.map((f) => gated(f, judge.checks, { rows, overwhelming: judge.overwhelming ?? OVERWHELMING })).filter((f): f is Finding => f !== null) : out;
   // What follows from what (a feed that stopped skews the mix of values, the shapes, what the checks drop) is the
   // story's to tell: storyOf (story.ts) sorts these findings by what the day's cause explains.
   const told = together(passed, rows, names);

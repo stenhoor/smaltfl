@@ -380,6 +380,14 @@ release (smaltty ADR 0030).
   `drawnValue`, a finding's in its own dataset), text beside a value keeps `labelFor`; the Ontology page's made datasets
   (`OntologyPage.made`, `FileSection.made` and `readBy`; the app's "Made by the flow", read-only, `readByLine`,
   `openOntologySection`), a hand-set rule saying where it is written (`originSaid`); tour.cjs's `textIn`/`noTextIn`.
+  The addendum of 2026-11-15: the taxi example retired (Q-208); Q-132's threshold (Q-207). Slice 4, first part (Q-132):
+  in a gated flow a learned check's alert (shares, pairs, hours, shape; never the forest or the classifier) that moved at
+  least the node's threshold of the day's rows holds it though the check only warns (`gated`'s `day`, `OVERWHELMS`,
+  `movedOf`, `Finding.moved` a pair's rows beyond what its columns predict, `Finding.overwhelming`); the threshold is a
+  quarter (`OVERWHELMING`) unless the ontology sets the dataset's (`ontology.overwhelming`) or the flow its own
+  (`publish.overwhelming`; `overwhelmingOf`, `JudgeSettings.overwhelming`), carried by plan/4's watch only where declared
+  (`WatchPlan.overwhelming`); the brief's fact and its proposal to keep the last good day (`overwhelmingSaid`, `fixOf`),
+  the bronze verdict (`bronzeOf`) and the issue card say it.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
