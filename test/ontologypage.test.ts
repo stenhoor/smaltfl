@@ -373,8 +373,8 @@ describe('what the examples don’t write', () => {
   });
 
   it('says how a rule came to be, with room for a range kept from the history and for what is discovered', () => {
-    expect(originSaid({ how: 'set', in: 'ontology' })).toBe('Set by hand');
-    expect(originSaid({ how: 'set', in: 'notebook' })).toBe('Set by hand');
+    expect(originSaid({ how: 'set', in: 'ontology' })).toBe('Set in the ontology');
+    expect(originSaid({ how: 'set', in: 'notebook' })).toBe('Set in the notebook');
     expect(originSaid({ how: 'derived', days: 90, kept: 'rolling' })).toBe('From the last 90 days, rolling');
     expect(originSaid({ how: 'derived', days: 1, kept: 'fixed' })).toBe('From the last 1 day, fixed');
     expect(originSaid({ how: 'discovered' })).toBe('Discovered in the data');

@@ -147,9 +147,10 @@ const withArticle = (word: string) => `${/^(?:[aeio]|u(?!ni|se|sa|ti))/i.test(wo
 const percent = (x: number) => `${Math.round(x * 1000) / 10}%`;
 const days = (n: number) => `${n} ${n === 1 ? 'day' : 'days'}`;
 
-/** How a rule came to be, in a few words: "Set by hand", "From the last 90 days, rolling", "Discovered in the data". */
+/** How a rule came to be, in a few words, and where a rule set by hand is written (the ontology, or the notebook's gate
+ * cell, Q-119): "Set in the ontology", "Set in the notebook", "From the last 90 days, rolling", "Discovered in the data". */
 export function originSaid(o: RuleOrigin): string {
-  if (o.how === 'set') return 'Set by hand';
+  if (o.how === 'set') return o.in === 'notebook' ? 'Set in the notebook' : 'Set in the ontology';
   if (o.how === 'derived') return `From the last ${days(o.days)}, ${o.kept}`;
   return 'Discovered in the data';
 }
@@ -282,14 +283,14 @@ export function ontologyPage(doc: PageDoc, columns: (file: string) => readonly s
           // are the column's meaning (its card lists them), and one of them never seen is as new as any other.
           if (mine(marks.newValues).length) {
             const known = Object.keys(p?.values ?? {});
-            own.push({ id: `${at}/values`, kind: 'values', said: 'A value never seen in this file before is flagged as wrong', ...(known.length ? { values: known } : {}), origin, ...quiet('values') });
+            own.push({ id: `${at}/values`, kind: 'values', said: `A value never seen in this ${thing} before is flagged as wrong`, ...(known.length ? { values: known } : {}), origin, ...quiet('values') });
           }
           // A value that is the miss of a due date in this file is told through the due date (ADR 0014 §3, news.ts's
           // `dueMiss`): neither its jump nor a band on it is judged. One with a band is judged by the band alone: its
           // jump isn't. Each says so.
           const missOf = new Set(dues.filter(([, status]) => lower(status) === lower(name)).map(([, , miss]) => miss));
           const banded = new Set(mine(marks.expect).map(([, value]) => value));
-          const instead = (code: string, band: boolean) => (missOf.has(code) ? 'this file’s due date is checked instead' : band && banded.has(code) ? `this file’s band on ${word(id, name, code)} is checked instead` : undefined);
+          const instead = (code: string, band: boolean) => (missOf.has(code) ? `this ${thing}’s due date is checked instead` : band && banded.has(code) ? `this ${thing}’s band on ${word(id, name, code)} is checked instead` : undefined);
           for (const [, ...codes] of mine(marks.bad)) for (const code of codes) own.push({ id: `${at}/bad=${code}`, kind: 'bad', said: `${word(id, name, code)} is a bad value: a jump above its usual share is flagged as wrong`, values: [code], origin, ...quiet('shares', instead(code, true)) });
           for (const [, value, low, high] of mine(marks.expect)) own.push({ id: `${at}/band=${value}`, kind: 'band', said: `${word(id, name, value)} between ${percent(low)} and ${percent(high)} of ${noun.many}`, numbers: { low, high }, values: [value], origin, ...quiet('values', instead(value, false)) });
           for (const [, status, miss, within] of mine(marks.due)) own.push({ id: `${at}/due`, kind: 'due', said: `A due date: a row is late if its ${title(id, status)} is still ${word(id, status, miss)} the day after; flagged as wrong when more are late than usual`, numbers: { days: within }, values: [miss], origin, ...quiet('due') });

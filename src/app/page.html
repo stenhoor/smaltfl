@@ -977,8 +977,11 @@ th .th-title { display: block; font-family: var(--font); font-size: 10.5px; font
 /* The Ontology page's files (ADR 0015 amendment 1): a row a file, its section opened in place under it. Open is said
    by the chevron's turn, the row's weight and the section itself, not by colour. A section's parts: what the file
    is (plain), its own rules (a sunk box), a card a column (boxed), what was discovered (a dashed box: nothing yet). */
-#ontology-files { display: grid; grid-template-columns: minmax(0, 1fr); }
-#ontology-files .sub { margin-bottom: 6px; }
+#ontology-files, #ontology-made { display: grid; grid-template-columns: minmax(0, 1fr); }
+#ontology-files .sub, #ontology-made .sub { margin-bottom: 6px; }
+/* Under a file, the datasets the flow makes from it (Q-144): each name a tap to its own section. */
+.of-readby { margin: 0; font-size: 13.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.of-readby .linkish { background: none; border: 0; padding: 0; min-height: 28px; color: var(--smalt); font: inherit; font-weight: 600; cursor: pointer; overflow-wrap: anywhere; }
 .of-list { display: grid; grid-template-columns: minmax(0, 1fr); }
 .of-item { border-top: 1px solid var(--line); scroll-margin-top: calc(var(--head, 170px) + 4px); min-width: 0; }
 .of-row { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 0 8px; width: 100%; min-height: 56px; padding: 10px 0; border: 0; background: none; text-align: left; color: var(--ink); }
@@ -2066,10 +2069,11 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
   </section>
 
   <section class="view" id="view-ontology" aria-label="Ontology" hidden>
-    <p class="lede">Each file the flow reads: what its columns hold, and the checks its data is held to. Each check’s state today is beside it, a tap from the file’s card.</p>
+    <p class="lede">Each file the flow reads, then each dataset it makes that a gate judges: what its columns hold, and the checks its data is held to. Each check’s state today is beside it, a tap from the file’s card.</p>
     <div id="rules-time" role="region" aria-label="The rules over time" hidden></div>
     <div id="flow-edits" role="region" aria-label="Changes made to this flow here" hidden></div>
     <div class="panel" id="ontology-files"><h2>Files</h2><p class="foot">Run the flow to see its files.</p></div>
+    <div class="panel" id="ontology-made" hidden></div>
     <div class="panel" id="properties" hidden></div>
     <div id="ontology-map" hidden></div>
     <div class="panel" id="objects" hidden><p class="foot">Choose an object type to see its objects.</p></div>

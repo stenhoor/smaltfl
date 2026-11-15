@@ -238,5 +238,53 @@
         "Platform_id ca-int-2"
       ]
     }
+  },
+  {
+    "name": "lark-mar12-ontology-gold",
+    "what": "Larkspur, Tue Mar 12: the datasets the flow makes listed after the files (Q-144), and the organisation dimension opened: a gold table nothing watches, its rows one an organisational unit and its key from the ontology (Q-118), its key counted by each run, and the units it covers said as nothing judging them",
+    "day": "Tue 12",
+    "view": "ontology",
+    "viewFirst": true,
+    "click": ".of-item[data-made=\"dim_org\"] .of-row",
+    "waitFor": ".of-item[data-made=\"dim_org\"].open .of-sec",
+    "full": true,
+    "expect": {
+      "text": [
+        "Made by the flow",
+        "Gold: a dataset the flow makes, which readers get.",
+        "One row an organisational unit",
+        "Covers every unit, and no others",
+        "Not checked: nothing watches this dataset",
+        "No Unit blank or repeated",
+        "Set in the ontology"
+      ],
+      "count": {
+        "#ontology-made .of-row": 13,
+        "#ontology-made .of-sec": 1,
+        "#ontology-made .of-own .of-rule": 3,
+        "#ontology-made .of-edit": 0
+      }
+    }
+  },
+  {
+    "name": "lark-mar12-ontology-needs",
+    "what": "Larkspur, Tue Mar 12: the wide posture’s section: key rotation passing needs encryption that isn’t failing, written once in the ontology (Q-119) and read on the key rotation file’s row by the application",
+    "day": "Tue 12",
+    "view": "ontology",
+    "viewFirst": true,
+    "click": ".of-item[data-made=\"posture_wide\"] .of-row",
+    "waitFor": ".of-item[data-made=\"posture_wide\"].open .of-sec",
+    "full": true,
+    "expect": {
+      "text": [
+        "Silver: a dataset the flow makes, which readers get.",
+        "Where Status is Pass in key_rotation, Encryption at rest must be Pass, Excepted, Compensated, Not assessed, No data or Not applicable",
+        "Set in the ontology · checked against key_rotation"
+      ],
+      "count": {
+        "#ontology-made .of-sec": 1,
+        "#ontology-made .of-own .of-rule": 2
+      }
+    }
   }
 ]

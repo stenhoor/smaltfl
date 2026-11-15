@@ -10597,7 +10597,15 @@ function madePanel(): HTMLElement | null {
       if (p) inSection.add(p);
     }
   }
-  // A column the viewer reads in a file is described in that file's section: here, what they read only further on.
+  // A made dataset with a section of its own (Q-144) describes its columns there too.
+  for (const id of ontologyFiles.made) {
+    const view = fileView(id);
+    for (const c of view?.open ? view.columns : []) {
+      const p = propertyOf(o, id, c);
+      if (p) inSection.add(p);
+    }
+  }
+  // A column the viewer reads in a file, or in a made dataset with a section, is described there: here, the rest.
   const rest = props.filter((p) => where.has(p) && !inSection.has(p)).sort((a, b) => order.get(a)! - order.get(b)!);
   const made = rest.filter((p) => !fileOf.has(p));
   const carried = new Map<string, PropertyType[]>();
@@ -10633,12 +10641,34 @@ function madePanel(): HTMLElement | null {
 /** The file whose section is open, kept while the page is drawn again (a run, another viewer), and what the panel on
  * screen was drawn from: it is left as it is while that hasn't changed (an object picked or an action taken further
  * down the page draws the page again, and a section rebuilt under the reader would move what they are looking at). */
-const ontologyFiles = { open: null as string | null, doc: null as FlowDocument | null, from: '', who: '' };
+const ontologyFiles = { open: null as string | null, doc: null as FlowDocument | null, from: '', who: '', show: null as ((id: string | null, jump: boolean) => void) | null, made: [] as string[] };
+
+/** A file's or a made dataset's section on the Ontology page opened, and brought into view. */
+const openOntologySection = (id: string) => ontologyFiles.show?.(id, true);
+
+/** Under a file, the datasets the flow makes that read it (Q-144): each a tap to its own section; three, and how many
+ * more, until asked for all of them. */
+function readByLine(ids: readonly string[]): HTMLElement {
+  const p = h('p', { class: 'of-readby' });
+  const link = (id: string) => h('button', { type: 'button', class: 'linkish', 'data-made': id, onclick: () => openOntologySection(id) }, ...breakable(id));
+  const draw = (all: boolean) => {
+    const shown = all || ids.length <= 4 ? ids : ids.slice(0, 3);
+    const parts: (Node | string)[] = ['Read by '];
+    shown.forEach((id, k) => {
+      if (k) parts.push(k === shown.length - 1 && shown.length === ids.length ? ' and ' : ', ');
+      parts.push(link(id));
+    });
+    if (shown.length < ids.length) parts.push(' and ', h('button', { type: 'button', class: 'linkish of-readby-more', onclick: () => draw(true) }, `${ids.length - shown.length} more`));
+    p.replaceChildren(...parts);
+  };
+  draw(false);
+  return p;
+}
 
 /** A rule as a line: its sentence, how it came to be and what it is checked against, and why nothing judges it. On a
  * column's card a file's own rule is said for the column (`here`) and says whose it is: one rule, listed twice. */
-function ruleLine(r: Rule, here?: string, acts?: HTMLElement | null): HTMLElement {
-  const how = [originSaid(r.origin), here !== undefined ? 'one of this file’s checks' : r.against ? `checked against ${r.againstSaid ?? r.against}` : ''].filter(Boolean).join(' · ');
+function ruleLine(r: Rule, here?: string, acts?: HTMLElement | null, thing: 'file' | 'dataset' = 'file'): HTMLElement {
+  const how = [originSaid(r.origin), here !== undefined ? `one of this ${thing}’s checks` : r.against ? `checked against ${r.againstSaid ?? r.against}` : ''].filter(Boolean).join(' · ');
   // Today's state, as the file's card judges it (Q-160), and the way to the card: the check is the same on both.
   const file = r.id.split('/')[0]!;
   const st = ontologyStates.get(r.id);
@@ -10856,7 +10886,9 @@ function sharedNote(file: string): HTMLElement | null {
  * declares, with their meanings and rules, which don't depend on the day, and nothing drawn. */
 function fileSection(f: FileSection, refused: boolean, day: string | null): HTMLElement {
   const slots = new Map<string, { slot: HTMLElement; meaning: PropertyType | undefined; seen: string[] }>();
-  const owner = isOwner();
+  // A dataset the flow makes (Q-144) is read here, not edited: its names and checks are its notebook's and the files'.
+  const owner = isOwner() && !f.made;
+  const thing: 'file' | 'dataset' = f.made ? 'dataset' : 'file';
   const columnNames = (f.columns ?? []).map((c) => c.name);
   /** The rule form opened in place of what was tapped (the Add button, or a rule's line), which comes back on Cancel. */
   const openRuleForm = (c: ColumnCard, was: OntologyRule | null, at: HTMLElement) => {
@@ -10896,7 +10928,7 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
     if (!refused) slots.set(c.name, drawn);
     // The file's own rules about this column first (its key has to be there, it must be an object the file covers),
     // then the column's own: no card says it has no rule under a rule that names its column.
-    const lines = [...c.fileRules.map((x) => ruleLine(x.rule, x.said)), ...c.rules.map((r) => ruleLine(r, undefined, owner && r.def ? setActs(c, r.def) : null))];
+    const lines = [...c.fileRules.map((x) => ruleLine(x.rule, x.said, null, thing)), ...c.rules.map((r) => ruleLine(r, undefined, owner && r.def ? setActs(c, r.def) : null, thing))];
     // Only the values whose meaning says more than the value does (`standFor`): no list of "yes: Yes".
     const codes = c.standFor;
     // Its names are the owner's to change, in place (`columnForm`): a reader sees no Edit.
@@ -10934,15 +10966,17 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
   });
   const wait = h('p', { class: 'of-none' },
     refused ? (cards.length ? `${day ? `${dayLabel(day)}’s` : 'This load’s'} file was refused, so none of it was read. These are the columns the flow expects, with their checks.` : 'This load’s file was refused: its columns weren’t read.')
-      : cards.length ? '' : f.columns ? 'No columns in this load.' : 'Run the flow to see this file’s columns.');
+      : cards.length ? '' : f.columns ? 'No columns in this load.' : `Run the flow to see this ${thing}’s columns.`);
   wait.hidden = cards.length > 0 && !refused;
   // The row above drops its line while the section is open: the whole description is here, said once.
   const sec = h('div', { class: 'of-sec', id: `of-sec-${f.id}`, role: 'region', 'aria-label': `${f.id}: what it is, its checks and its columns` },
     h('div', { class: 'of-about' },
       f.description ? h('p', { class: 'of-desc' }, f.description) : h('p', { class: 'of-none' }, 'Not described yet.'),
+      f.made ? h('p', { class: 'of-inv' }, `${f.made.layer ? `${f.made.layer[0]!.toUpperCase()}${f.made.layer.slice(1)}: a` : 'A'} dataset the flow makes${f.made.published ? ', which readers get' : ''}.`) : null,
       f.inventory ? h('p', { class: 'of-inv' }, `${f.inventory.said}.`) : null,
+      f.readBy?.length ? readByLine(f.readBy) : null,
       sharedNote(f.id)),
-    h('section', { class: 'of-part of-own' }, h('h3', { class: 'of-h' }, 'This file’s checks'), ruleList(f.rules, 'No checks of its own yet.')),
+    h('section', { class: 'of-part of-own' }, h('h3', { class: 'of-h' }, `This ${thing}’s checks`), ruleList(f.rules, 'No checks of its own yet.')),
     h('section', { class: 'of-part' }, h('h3', { class: 'of-h' }, cards.length ? `Columns · ${cards.length}` : 'Columns'), wait, cards.length ? h('div', { class: 'of-cols' }, ...cards) : null),
     // A column the file added, described as the file's own, which the flow doesn't read (ADR 0022 §2, Q-204).
     f.unread?.length ? h('section', { class: 'of-part of-unread' }, h('h3', { class: 'of-h' }, `Not read by the flow · ${f.unread.length}`),
@@ -10981,6 +11015,10 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
  */
 async function renderFiles(stale: () => boolean): Promise<void> {
   const page = ontologyPage({ ...state.doc, sources: state.doc.sources.filter((x) => fileView(x.id)?.open !== false) }, (id) => fileView(id)?.columns, fileColumns);
+  // The datasets the flow makes with rules (Q-144), as the viewer may read them; a file says only those that read it.
+  const made = page.made.filter((m) => fileView(m.id)?.open !== false);
+  const shownMade = new Set(made.map((m) => m.id));
+  const files = page.files.map((f) => (f.readBy ? { ...f, readBy: f.readBy.filter((id) => shownMade.has(id)) } : f));
   ontologyStates.clear();
   ontologyVerdicts.clear();
   if (latest()) for (const f of page.files) {
@@ -10992,7 +11030,7 @@ async function renderFiles(stale: () => boolean): Promise<void> {
   }
   const run = latest();
   const day = shownDay();
-  const from = JSON.stringify([run?.result.run ?? null, run?.result.hash ?? null, day ?? null, state.viewer, page.files.map((f) => [f.id, f.columns?.map((c) => c.name) ?? null])]);
+  const from = JSON.stringify([run?.result.run ?? null, run?.result.hash ?? null, day ?? null, state.viewer, [...files, ...made].map((f) => [f.id, f.columns?.map((c) => c.name) ?? null])]);
   if (ontologyFiles.doc === state.doc && ontologyFiles.from === from && $('ontology-files').querySelector('.of-list')) return;
   // Someone is typing in a card's form: the panel under it stays as it is until they save or cancel (which draws
   // it). Another viewer is another panel: theirs is drawn, and the form goes with the owner's.
@@ -11002,7 +11040,7 @@ async function renderFiles(stale: () => boolean): Promise<void> {
   const refused = new Set((run?.result.manifest.nodes ?? []).filter((n) => n.status === 'refused').map((n) => n.origin));
   if (run && state.engine) {
     const insp = await inspect(run);
-    for (const f of page.files) {
+    for (const f of [...files, ...made]) {
       const i = insp.index.get(f.id);
       const n = i === undefined || !insp.manifest.has(i) ? null : await rowsAs(insp, i).catch(() => null);
       if (n !== null) rows.set(f.id, n);
@@ -11026,20 +11064,29 @@ async function renderFiles(stale: () => boolean): Promise<void> {
     // The file tapped stays under the finger's eye: the section above it may just have closed.
     if (id && jump) requestAnimationFrame(() => items.get(id)?.el.scrollIntoView({ block: 'start' }));
   };
-  const list = h('div', { class: 'of-list' },
-    ...page.files.map((f) => {
-      const n = rows.get(f.id);
-      const what = f.summary ? h('span', { class: 'of-what' }, f.summary) : null;
-      const row = h('button', { type: 'button', class: 'of-row', 'aria-expanded': 'false', 'aria-controls': `of-sec-${f.id}`, onclick: () => show(ontologyFiles.open === f.id ? null : f.id, true) },
-        h('span', { class: 'of-chev', 'aria-hidden': 'true' }),
-        h('span', { class: 'of-main' },
-          h('span', { class: 'of-name' }, ...breakable(f.id)),
-          what,
-          h('span', { class: 'of-nums' }, `${n !== undefined ? `${counted(n, f.noun)} · ` : refused.has(f.id) ? 'file refused · ' : ''}${f.count ? plural(f.count, 'check') : 'no checks yet'}${ontologyVerdict(f.id)}`)));
-      const el = h('div', { class: 'of-item', 'data-file': f.id }, row);
-      items.set(f.id, { el, row, what, f });
-      return el;
-    }));
+  const rowOf = (f: FileSection) => {
+    const n = rows.get(f.id);
+    const what = f.summary ? h('span', { class: 'of-what' }, f.summary) : null;
+    const row = h('button', { type: 'button', class: 'of-row', 'aria-expanded': 'false', 'aria-controls': `of-sec-${f.id}`, onclick: () => show(ontologyFiles.open === f.id ? null : f.id, true) },
+      h('span', { class: 'of-chev', 'aria-hidden': 'true' }),
+      h('span', { class: 'of-main' },
+        h('span', { class: 'of-name' }, ...breakable(f.id)),
+        what,
+        h('span', { class: 'of-nums' }, `${f.made?.layer ? `${f.made.layer[0]!.toUpperCase()}${f.made.layer.slice(1)} · ` : ''}${n !== undefined ? `${counted(n, f.noun)} · ` : refused.has(f.id) ? 'file refused · ' : ''}${f.count ? plural(f.count, 'check') : 'no checks yet'}${ontologyVerdict(f.id)}`)));
+    const el = h('div', { class: 'of-item', [f.made ? 'data-made' : 'data-file']: f.id }, row);
+    items.set(f.id, { el, row, what, f });
+    return el;
+  };
+  const list = h('div', { class: 'of-list' }, ...files.map(rowOf));
+  const madeList = h('div', { class: 'of-list' }, ...made.map(rowOf));
+  ontologyFiles.show = show;
+  ontologyFiles.made = made.map((m) => m.id);
+  const madePanelEl = $('ontology-made');
+  madePanelEl.hidden = !made.length;
+  madePanelEl.replaceChildren(...(made.length ? [
+    h('h2', {}, 'Made by the flow'),
+    h('p', { class: 'sub' }, 'The datasets the flow makes that a gate judges, each with its checks, laid out as a file is. Tap one for its columns and checks.'),
+    madeList] : []));
   $('ontology-files').replaceChildren(
     h('h2', {}, 'Files'),
     h('p', { class: 'sub' }, !page.files.length ? `No file of this flow is open to ${personName(state.viewer)}.` : run ? `${day ? `${dayLabel(day)}’s load` : 'This run’s rows'}, read as ${personName(state.viewer)}. Tap a file for its columns and checks.` : 'Run the flow to see each file’s rows and columns.'),
