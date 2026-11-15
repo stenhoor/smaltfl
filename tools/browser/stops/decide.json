@@ -51,14 +51,14 @@
   },
   {
     "name": "decide-sun24-fill",
-    "what": "Sun Mar 24, held by the DR exercises file alone (ADR 0023 §5): the sheet decides that file, its rows drawn against its own history, and offers it filled whole from a good day, none of the day's rows kept, so keeping the last good day stays what is recommended; picked, the fill is staged in the engine, every step built from the file told again of the filled rows",
+    "what": "Sun Mar 24, held by the DR exercises file alone (ADR 0023 §5): the sheet decides that file, its rows drawn against its own history, and offers it filled whole from a good day, none of the day's rows kept, so keeping the last good day stays what is recommended, told by the file's own story (a learned check that moved a third of its rows, Q-132); picked, the fill is staged in the engine, every step built from the file told again of the filled rows",
     "day": "Sun 24",
     "clicks": [".vf-decide-day", ".vf-option[data-option=fill]"],
     "waitFor": ".vf-go:not([disabled])",
     "waitForMs": 240000,
     "full": true,
     "expect": {
-      "pageText": ["Fill from Fri 22", "carries Fri 22 forward", "Recommended", "Something is wrong in the rows"],
+      "pageText": ["Fill from Fri 22", "carries Fri 22 forward", "Recommended", "A learned check moved", "readers keep the last good day while someone looks"],
       "noPageText": ["refused", "watches several sources", "No good day near", "Unusual, not wrong"]
     }
   },
