@@ -13,7 +13,7 @@
  * passenger count, a rate code and a surcharge) are told once. A day with nothing to tell says so. No DOM, no engine.
  */
 import { modelLeftOut } from './modelcols.js';
-import { daysBetween, namedOf, NONE, plusDays, resolveCalendar, specialOf, shortName, type Calendar } from './calendar.js';
+import { namedOf, NONE, plusDays, resolveCalendar, specialOf, shortName, type Calendar } from './calendar.js';
 import { isGeneralWatch, sourceOf, type FlowDocument } from './document.js';
 import { apartEvidence, type Apart, type SampleFile } from './apart.js';
 import { gated, gateChecksOf, OVERWHELMING, overwhelmingOf, writtenRules, type CheckName, type GateChecks, type NeedsRule, type ReconcileRule } from './gates.js';
