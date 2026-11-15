@@ -5,7 +5,9 @@
  * through, March 2024.
  *
  *   node scripts/data/larkspur.mjs OUT_DIR [--from 2023-09-01] [--steps-from 2024-01-19] [--base-to 2024-02-29]
- *        [--to 2024-03-31] [--apps 2600] [--seed 7] [--story examples/larkspur/story.json]
+ *        [--to 2024-03-31] [--apps 2600] [--seed 7] [--tour] [--story examples/larkspur/story.json]
+ *
+ * `--tour` plants the tour's days (LARKSPUR_TOUR, ADR 0023 §3) in place of the answer key's month: the demo's.
  *
  * Writes OUT_DIR/fixed/<file>.csv (platforms, platform_links), OUT_DIR/days/<file>_<day>.csv and:
  * - OUT_DIR/base.json, each file's history: `[{ slot, files: { <file>: path, … } }]` from `--from`, six months, every
@@ -23,22 +25,24 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { storyProblems, timelineOf, type StoryFile } from '../../src/core/timeline.js';
-import { csvOf, DAILY_FILES, dayFile, exportedAtOf, fixedFiles, larkspur, larkspurDays, LARKSPUR_TO, sentAgain, type DailyFile, type SentAgain } from '../../test/fixtures/larkspur.js';
+import { csvOf, DAILY_FILES, dayFile, exportedAtOf, fixedFiles, larkspur, larkspurDays, LARKSPUR_TO, LARKSPUR_TOUR, sentAgain, type DailyFile, type SentAgain } from '../../test/fixtures/larkspur.js';
 
 const args = process.argv.slice(2);
 const flag = (name: string, fallback: string) => {
   const at = args.indexOf(`--${name}`);
   return at >= 0 ? args[at + 1]! : fallback;
 };
-const out = args.find((a, i) => !a.startsWith('--') && !args[i - 1]?.startsWith('--'));
-if (!out) throw new Error('usage: node scripts/data/larkspur.mjs OUT_DIR [--from DAY] [--steps-from DAY] [--base-to DAY] [--to DAY] [--apps N] [--seed N] [--story STORY.json]');
+/** The flags that take no value. */
+const BARE = new Set(['--tour']);
+const out = args.find((a, i) => !a.startsWith('--') && !(args[i - 1]?.startsWith('--') && !BARE.has(args[i - 1]!)));
+if (!out) throw new Error('usage: node scripts/data/larkspur.mjs OUT_DIR [--from DAY] [--steps-from DAY] [--base-to DAY] [--to DAY] [--apps N] [--seed N] [--tour] [--story STORY.json]');
 const from = flag('from', '2023-09-01');
 const stepsFrom = flag('steps-from', '2024-01-19');
 const baseTo = flag('base-to', '2024-02-29');
 const to = flag('to', LARKSPUR_TO);
 if (!(from <= stepsFrom && stepsFrom <= baseTo && baseTo < to)) throw new Error(`the days must run --from ${from} ≤ --steps-from ${stepsFrom} ≤ --base-to ${baseTo} < --to ${to}`);
 const started = Date.now();
-const w = larkspur({ apps: Number(flag('apps', '2600')), seed: Number(flag('seed', '7')) });
+const w = larkspur({ apps: Number(flag('apps', '2600')), seed: Number(flag('seed', '7')), ...(args.includes('--tour') ? { trouble: LARKSPUR_TOUR } : {}) });
 
 mkdirSync(join(out, 'fixed'), { recursive: true });
 mkdirSync(join(out, 'days'), { recursive: true });

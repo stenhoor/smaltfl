@@ -12,13 +12,15 @@
  * - the risk register keeps a row a version, an extension keeping the first expiry;
  * - a day at the demo's scale is about 2,400 applications and 25,000 rows;
  * - each bronze day ADR 0020 §5 plants is in its file as the table says, and in no other file that day;
- * - a file sent again later (ADR 0021 §6) is the file as it should have been, or a doubled one with half its repeats out.
+ * - a file sent again later (ADR 0021 §6) is the file as it should have been, or a doubled one with half its repeats out;
+ * - the tour's month (ADR 0023 §3) plants each scene on its day, in its file alone: the log pipelines' migration lasting
+ *   from its day, the encryption export's mislabel on its day.
  */
 import { describe, expect, it } from 'vitest';
 import {
   addDays, appliesTo, appsOn, CONTROL, CONTROL_IDS, CONTROLS, csvOf, DAILY_FILES, dayFile, dayFiles, daysFrom, EVIDENCE_FILES, exceptedOn, exportedAt, exportedAtOf, FILE_CONTROL, fixedFiles,
-  findingsOf, goldFactor, larkspur, LARKSPUR_FROM, LARKSPUR_GOLD, LARKSPUR_GOLD_TROUBLE, LARKSPUR_LOADS_FROM, LARKSPUR_PLANTED, LARKSPUR_SILVER, LARKSPUR_SILVER_TROUBLE, LARKSPUR_TROUBLE, leaderOf, LEVELS, orgOn, ownedOn, patchTuesday, PLATFORMS, rawStatus, REQUIREMENTS, sentAgain, SEVERITY_DAYS, vulnOn,
-  type AppOn, type Cell, type DailyFile, type Table,
+  findingsOf, goldFactor, larkspur, LARKSPUR_FROM, LARKSPUR_GOLD, LARKSPUR_GOLD_TROUBLE, LARKSPUR_LOADS_FROM, LARKSPUR_PLANTED, LARKSPUR_SILVER, LARKSPUR_SILVER_TROUBLE, LARKSPUR_TOUR, LARKSPUR_TOUR_DAYS, LARKSPUR_TROUBLE, leaderOf, LEVELS, orgOn, ownedOn, patchTuesday, PLATFORMS, rawStatus, REQUIREMENTS, sentAgain, SEVERITY_DAYS, vulnOn,
+  type AppOn, type Cell, type DailyFile, type Table, type Trouble,
 } from './fixtures/larkspur.js';
 
 /** The estate with its bronze days planted: what slices 1 and 2 hold the data to. */
@@ -880,5 +882,106 @@ describe('a day’s file sent again (ADR 0021 §6, Q-194, Q-195)', () => {
     expect(() => sentAgain(gold, 'mfa', addDays(P.empty, 1))).toThrow(/nothing was wrong/);
     expect(() => sentAgain(gold, 'waf', P.monitor)).toThrow(/drawn as it was/);
     expect(() => sentAgain(gold, 'mfa', P.empty, 'half')).toThrow(/wasn't doubled/);
+  });
+});
+
+describe('the tour’s month (ADR 0023 §3): a scene a day, in its file alone', () => {
+  const D = LARKSPUR_TOUR_DAYS;
+  const tour = larkspur({ apps: 650, trouble: LARKSPUR_TOUR });
+  /** The tour without some of its trouble: what a scene's file is compared with. */
+  const but = (out: (t: Trouble) => boolean) => larkspur({ apps: 650, trouble: LARKSPUR_TOUR.filter((t) => !out(t)) });
+  const shareOf = (t: Table, column: string, value: string) => t.rows.filter((r) => r[col(t, column)] === value).length / t.rows.length;
+  const byApp = (t: Table) => new Map(t.rows.map((r) => [String(r[col(t, 'app_id')]), r]));
+
+  it('plants nothing on the normal day: every file as the estate draws it with nothing planted', () => {
+    for (const f of DAILY_FILES) expect(dayFile(tour, f, D.normal), f).toEqual(dayFile(calm, f, D.normal));
+  });
+
+  it('plants each scene in its own file, and leaves the day’s other files as they were', () => {
+    const one = new Map<string, DailyFile[]>();
+    for (const t of LARKSPUR_TOUR) if (t.kind !== 'migration' && t.kind !== 'dissolve') one.set(t.day, [...(one.get(t.day) ?? []), t.file]);
+    for (const [day, planted] of one) {
+      const quiet = but((t) => t.day === day && t.kind !== 'migration' && t.kind !== 'dissolve');
+      for (const f of DAILY_FILES) {
+        if (planted.includes(f)) expect(dayFile(tour, f, day), `${day} ${f}`).not.toEqual(dayFile(quiet, f, day));
+        else expect(dayFile(tour, f, day), `${day} ${f}`).toEqual(dayFile(quiet, f, day));
+      }
+    }
+  });
+
+  it('empties the MFA file on Mon 4, the EDR file on Sat 23 and the access reviews on Wed 27, each sent right with its rows', () => {
+    for (const [file, day] of [['mfa', D.empty], ['edr_coverage', D.weekend], ['access_reviews', D.missing]] as const) {
+      expect(dayFile(tour, file, day).rows, file).toHaveLength(0);
+      const again = sentAgain(tour, file, day);
+      expect(again.rows.length, file).toBeGreaterThan(100);
+      expect(again).toEqual(dayFile(but((t) => t.day === day && t.file === file), file, day));
+    }
+  });
+
+  it('moves the data centres’ healthy applications to their side’s cloud pipeline from Tue 12, for good', () => {
+    const before = dayFile(tour, 'logging_coverage', addDays(D.migration, -1));
+    const on = dayFile(tour, 'logging_coverage', D.migration);
+    // About two fifths of the rows go through the data centres' pipeline the day before; only those failing or not
+    // assessed on the day stay, a twentieth or so.
+    expect(shareOf(before, 'pipeline', 'log-dc')).toBeGreaterThan(0.35);
+    expect(shareOf(on, 'pipeline', 'log-dc')).toBeLessThan(0.08);
+    const stayed = on.rows.filter((r) => r[col(on, 'pipeline')] === 'log-dc');
+    expect(stayed.length).toBeGreaterThan(0);
+    expect(stayed.every((r) => r[col(on, 'status')] !== 'pass')).toBe(true);
+    // A third of the file moved, east or west as its site, and nothing else in any row changed.
+    const unmoved = byApp(dayFile(but((t) => t.kind === 'migration'), 'logging_coverage', D.migration));
+    let moved = 0;
+    for (const r of on.rows) {
+      const was = unmoved.get(String(r[col(on, 'app_id')]))!;
+      const p = col(on, 'pipeline');
+      if (was[p] !== r[p]) {
+        moved++;
+        expect(was[p]).toBe('log-dc');
+        expect(['log-east', 'log-west']).toContain(r[p]);
+      }
+      expect(r.filter((_, i) => i !== p)).toEqual(was.filter((_, i) => i !== p));
+    }
+    expect(moved / on.rows.length).toBeGreaterThan(0.3);
+    // It lasts: at the month's end the data centres' pipeline carries only applications that stayed on the day.
+    const stayers = new Set(stayed.map((r) => String(r[col(on, 'app_id')])));
+    const end = dayFile(tour, 'logging_coverage', '2024-03-31');
+    const dc = end.rows.filter((r) => r[col(end, 'pipeline')] === 'log-dc').map((r) => String(r[col(end, 'app_id')]));
+    expect(dc.length).toBeGreaterThan(0);
+    expect(dc.every((a) => stayers.has(a))).toBe(true);
+    expect(() => sentAgain(tour, 'logging_coverage', D.migration)).toThrow(/drawn as it was/);
+  });
+
+  it('mislabels a third of the encryption file on Mon 18, statuses untouched; the file sent again is as it should have been', () => {
+    const on = dayFile(tour, 'encryption', D.mislabel);
+    const right = dayFile(but((t) => t.kind === 'mislabel'), 'encryption', D.mislabel);
+    expect(on.rows).toHaveLength(right.rows.length);
+    const e = col(on, 'encrypted');
+    let changed = 0;
+    on.rows.forEach((r, i) => {
+      const was = right.rows[i]!;
+      if (r[e] !== was[e]) {
+        changed++;
+        expect([was[e], r[e]]).toEqual(['yes', 'no']);
+      }
+      expect(r.filter((_, k) => k !== e)).toEqual(was.filter((_, k) => k !== e));
+    });
+    expect(changed / on.rows.length).toBeGreaterThan(0.3);
+    expect(changed / on.rows.length).toBeLessThan(0.4);
+    // Where it says no, the statuses still pass: the file contradicts itself, as an export bug would.
+    expect(on.rows.filter((r) => r[e] === 'no' && r[col(on, 'status')] === 'pass').length).toBe(changed);
+    expect(sentAgain(tour, 'encryption', D.mislabel)).toEqual(right);
+    expect(dayFile(tour, 'encryption', addDays(D.mislabel, 1))).toEqual(dayFile(but((t) => t.kind === 'mislabel'), 'encryption', addDays(D.mislabel, 1)));
+  });
+
+  it('keeps two of the month’s layering stories: a department dropped on Fri 8, and a certificate authority behind two controls on Mon 25', () => {
+    expect(tour.planted.dissolved).toMatchObject({ day: D.dissolve });
+    expect(tour.planted.moves).toEqual([]);
+    const tls = dayFile(tour, 'tls', D.ca);
+    const lapsed = tls.rows.filter((r) => r[col(tls, 'issuer')] === 'ca-int-2');
+    expect(lapsed.length).toBeGreaterThan(0);
+    expect(lapsed.every((r) => r[col(tls, 'status')] === 'fail')).toBe(true);
+    expect(dayFile(tour, 'tls', D.double).rows).toHaveLength(2 * sentAgain(tour, 'tls', D.double).rows.length);
+    const findings = dayFile(tour, 'findings', D.capitals);
+    expect(findings.rows.some((r) => r[col(findings, 'severity')] === 'HIGH')).toBe(true);
   });
 });

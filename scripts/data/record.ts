@@ -58,7 +58,7 @@ import { periodOf, watchHistory } from '../../src/core/document.js';
 import { gateChecksOf } from '../../src/core/gates.js';
 import { isHistory, type HistoryFile } from '../../src/core/history.js';
 import { byLoad, heldLoadsOf, heldOutputs, inputsOf, keysForLoads, learnedMeasures, levelsOf, loadClaim, loadDecisions, loadsOf, skipOf, stagedKeys, tailPath, type Claim, type DecideAbout, type HistoryRef, type Hold, type Inputs, type ReleaseAbout } from '../../src/core/hold.js';
-import { donorIdOf, missingFor, repairDocument, type Repair } from '../../src/core/fill.js';
+import { donorIdOf, levelOf, missingFor, repairDocument, type Repair } from '../../src/core/fill.js';
 import type { Story } from '../../src/core/story.js';
 import { entryLeaf, type JSONValue, type LogEntry } from '../../src/core/log.js';
 import { settingsFor, tailBefore, type Measures } from '../../src/core/measures.js';
@@ -531,26 +531,43 @@ async function main(): Promise<void> {
       }
     };
 
+    /**
+     * The level a story's Accept records (ADR 0009 amendment 1 S6, Q-57, Q-86), as the page works it out (main.ts
+     * `acceptFor`): of the one file holding the day, by its story and claim, from the day decided. Later days are judged
+     * at it (`levelsOf`), once its release is applied.
+     */
+    const levelToAccept = (target: Made, day: string, said: string): NonNullable<DecideAbout['level']> => {
+      const holding = [...new Set(heldLoadsOf(target.holds).map((l) => l.source).filter(isSource))];
+      if (holding.length !== 1) throw new Error(`${storyPath}: an Accept of ${said}, which ${holding.join(', ') || 'no file'} holds: a new level is accepted for one file at a time`);
+      const source = holding[0]!;
+      const story = Object.entries(target.stories).find(([id]) => id.toLowerCase() === source.toLowerCase())?.[1];
+      const claim = target.claims.find((c) => c.source.toLowerCase() === source.toLowerCase()) ?? null;
+      const level = story ? levelOf(story, claim, target.holds, day, source) : null;
+      if (!level) throw new Error(`${storyPath}: an Accept of ${said}: ${source}'s cause isn't a new level`);
+      return level;
+    };
+
     const decideOnce = async (day: string, n: number, at: string, by: string, option: DecideAbout['option'], reason: string | null, fill?: StoryFill): Promise<void> => {
       const said = `${day}'s ${n ? `delivery ${n}` : 'first files'}`;
       const target = made.get(day)?.filter((x) => !x.restates)[n];
       if (!target) throw new Error(`${storyPath}: a decision about ${said}, which weren't run`);
       if (!target.holds.length) throw new Error(`${storyPath}: a decision about ${said}, which nothing held`);
       if (option === 'fill' && fill) return fillOnce(day, n, at, by, reason, fill, target, said);
-      if (option !== 'asis' && option !== 'dont') throw new Error(`${storyPath}: a decision about ${said} to ${option}: the recorder publishes as is, keeps back or fills`);
+      if (option !== 'asis' && option !== 'dont' && option !== 'accept') throw new Error(`${storyPath}: a decision about ${said} to ${option}: the recorder publishes as is, accepts a new level, keeps back or fills`);
       const may = checkDecision(doc.policies, by, option);
       if (!may.allowed) throw new Error(`${storyPath}: ${by} may not decide ${said}: ${may.reason}`);
+      const level = option === 'accept' ? levelToAccept(target, day, said) : null;
       const loads = heldLoadsOf(target.holds);
       const abouts: DecideAbout[] = loads.length
-        ? loadDecisions({ run: target.run, manifest: target.manifest, inputs: target.inputs, loads, option, scope: 'day', policies, rule: may.rule ?? null })
-        : [{ day, run: target.run, manifest: target.manifest, inputs: target.inputs, outputs: target.keys, option, scope: 'day', policies, rule: may.rule ?? null }];
+        ? loadDecisions({ run: target.run, manifest: target.manifest, inputs: target.inputs, loads, option, scope: 'day', policies, rule: may.rule ?? null, level })
+        : [{ day, run: target.run, manifest: target.manifest, inputs: target.inputs, outputs: target.keys, option, scope: 'day', policies, rule: may.rule ?? null, ...(level ? { level } : {}) }];
       const decided = abouts.map((about) => {
         const e: LogEntry = { smaltflLog: 1, origin, seq: entries.length, kind: 'decide', at, by: { card: null, as: by }, about: about as unknown as JSONValue, reason, amends: null, nonce: nonce(day, entries.length) };
         entries.push(e);
         return e;
       });
-      console.log(`${day}: ${by} decided ${said}: ${option}${loads.length > 1 ? ` (${loads.length} loads)` : ''}`);
-      if (option !== 'asis') return;
+      console.log(`${day}: ${by} decided ${said}: ${option}${level ? ` (${level.source}'s level from ${level.from}: ${level.metrics.join(', ')})` : ''}${loads.length > 1 ? ` (${loads.length} loads)` : ''}`);
+      if (option !== 'asis' && option !== 'accept') return;
       const keys = loads.length ? keysForLoads(target.keys, target.holds, loads) : target.keys;
       const leaf = entryLeaf(decided[0]!);
       const out = await releaseRun(db, { run: target.run, manifest: target.manifest, keys, option, actor: by, reason, decision: leaf, ...(loads.length ? { loads: decided.map((e) => ({ load: (e.about as unknown as DecideAbout).load!, option, actor: by, reason, decision: entryLeaf(e) })) } : {}) });

@@ -4,6 +4,12 @@
   "generate": "scripts/data/larkspur.mjs",
   "judged": "effective",
   "story": "examples/larkspur/story.json",
+  "variants": {
+    "tour": {
+      "generateArgs": ["--tour"],
+      "story": "examples/larkspur/tour.json"
+    }
+  },
   "posture": {
     "title": "Control Posture v1",
     "units": "org_posture",
