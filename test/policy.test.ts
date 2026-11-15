@@ -10,9 +10,8 @@ import external from '@smaltdb/external';
 import parquet from '@smaltdb/parquet';
 import smaltfl from '../src/plugin/index.js';
 import { checkAction, checkDecision, checkRun, DECIDE, readView, runFlow, validateDocument, wrapRead, type Edit, type FlowDocument, type Policies } from '../src/index.js';
-import { EXAMPLE_SOURCES } from '../examples/sources.js';
 import { SMALTDB } from './helpers/engine.js';
-import { examplePublishing } from './helpers/example.js';
+import { EXAMPLE_SOURCES, examplePublishing } from './helpers/example.js';
 
 const doc = examplePublishing();
 const p = doc.policies!;
@@ -20,7 +19,7 @@ const p = doc.policies!;
 async function ran(): Promise<Database> {
   const db = Database.openMemory({ plugins: [io, external, parquet, smaltfl] });
   for (const s of EXAMPLE_SOURCES) {
-    await db.callPlugin('@smaltdb/external', 'registerFile', [s.file, new Uint8Array(readFileSync(new URL(`../fixtures/xs/${s.file}`, import.meta.url)))]);
+    await db.callPlugin('@smaltdb/external', 'registerFile', [s.file, new Uint8Array(readFileSync(new URL(`./fixtures/xs/${s.file}`, import.meta.url)))]);
     await db.execAsync(s.ddl);
   }
   await runFlow(db, doc, { smaltdb: SMALTDB });

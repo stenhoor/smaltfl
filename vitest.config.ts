@@ -10,10 +10,10 @@ const core = (path: string): string => fileURLToPath(new URL(`./node_modules/sma
 /**
  * The tests too long for `npm test` (under a minute on four cores), run by `npm run test:slow` and by CI beside it: the
  * estate's month through the engine a day at a time (no day can start before the day before has run), the models on a
- * year of the sign-in log (test/models.test.ts, through the engine at the app's scale), and the tests on
- * the real history, which run only where `dist/app/data/history.json` was built from the data branch (minutes each).
+ * year of the sign-in log (test/models.test.ts, through the engine at the app's scale), and Larkspur's six months
+ * (test/larkspur-flow.test.ts).
  */
-const SLOW = ['test/estate-flow.test.ts', 'test/larkspur-flow.test.ts', 'test/models.test.ts', 'test/*-real.test.ts'];
+const SLOW = ['test/estate-flow.test.ts', 'test/larkspur-flow.test.ts', 'test/models.test.ts'];
 
 /**
  * The files that take longest, started first in this order, so none of them is left to run alone at the end: a world of
@@ -59,7 +59,7 @@ export default defineConfig({
     // The test files share each worker's loaded modules (the engine's source above all, which every engine test would
     // otherwise load again): the core keeps no state between calls but caches of pure results, so a file can't see
     // another's. `npm run test:isolated` runs every file in a fresh module graph, to rule that out.
-    // The slow tests run as they always did: a process a file, each with its own heap (the real history is large).
+    // The slow tests run as they always did: a process a file, each with its own heap (a world of engine runs is large).
     isolate: !!process.env.SMALTFL_ISOLATE || !!process.env.SMALTFL_SLOW,
     pool: process.env.SMALTFL_SLOW ? 'forks' : 'threads',
     sequence: { sequencer: LongestFirst },

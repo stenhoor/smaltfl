@@ -6,19 +6,20 @@ only the app's screens.
 
 ## Protocol
 
-1. **Capture.** Build the app on the data branch's loads (`npm run build:app`), then capture the input card's News
-   tab for each test day at phone size with `tools/browser/tour.cjs` and a stop set like this:
+1. **Capture.** Build the app on Larkspur (`npm run build:app`, which builds `examples/larkspur/flow.json`), then
+   capture the day screen for each test day at phone size with `tools/browser/tour.cjs` and a stop set like this:
    ```json
-   [{ "name": "sep21-2023", "episode": "September 2023", "day": "Thu 21", "card": "trips_profile", "tab": "News", "full": true }]
+   [{ "name": "lark-mar12", "day": "Tue 12", "full": true }]
    ```
-   The days: Thu Sep 21, 2023 (the trips fall at 13:00, only Flex Fare after), Sat Sep 17, 2022 (the same at 15:00,
-   nothing after), Tue Nov 15, 2022 (a week a quarter short, Vendor 1 missing), and a calm day (Tue Jan 9, 2024).
+   The days: Tue Mar 12 (a configuration push puts an ingress's WAF in monitor mode), Mon Mar 18 (the HR extract
+   drops a department without reassigning its teams), Mon Mar 25 (a certificate authority's intermediate expires: TLS
+   and log forwarding fail together), and a calm day (Fri Mar 1). ADR 0020 §5 is their answer key. (Until 2026-11-15
+   the test ran on the retired taxi example's real days.)
 2. **Judge.** Two judges, each an agent given one screenshot at a time and nothing else, told they have two minutes
    and must write what they would send leadership: what happened (one sentence), its impact, its cause as far as the
    screen shows it, and the fix they propose. One judge is an on-call data engineer; the other a newcomer who has never
    seen the app. Each also says what they could not tell from the screen.
-3. **Grade** each answer against the day's facts (`hour-fall-truth.md` for the hour-fall days; the history for the
-   others) on five points, each 0 or 1: the day and what happened are right; the number or time is right; the impact
+3. **Grade** each answer against the day's facts (ADR 0020 §5's answer key) on five points, each 0 or 1: the day and what happened are right; the number or time is right; the impact
    (what waits, what readers see) is right; the proposed fix is one the app offers and fits; nothing false is stated.
    A calm day scores on saying nothing is wrong and proposing nothing.
 4. **Record** the scores in docs/HANDOFF.md's table of rounds, with the build they were taken on, and open a fix list

@@ -1,11 +1,10 @@
 /**
- * The data list a page opens (loads.json, ADR 0010 §9), read into one shape whatever its format: format 2 binds each
- * source by id to its file, or to its daily loads and the days a paused one may be filled from, and names each watched
- * source's history; format 1 (the data branch as the fills shipped it, and the XS fixtures) named the files by the
- * example's file names, its loads and donors at the top. Pure: the app reads it at start, the real-data tests read the
- * same file through it.
+ * The data list a page opens (loads.json, ADR 0010 §9), read into one shape: format 2 binds each source by id to its
+ * file, or to its daily loads and the days a paused one may be filled from, and names each watched source's history and
+ * the flow it is for. (Format 1, the taxi example's data branch and fixtures, was retired with the example, Q-208.)
+ * Pure: the app reads it at start.
  */
-import type { Binding, DataBindings } from '../../examples/sources.js';
+import type { Binding } from '../../examples/sources.js';
 import type { Expected } from './fetch-checked.js';
 
 /** A day's file of a source, as the data lists it, checked against MANIFEST.json at start. */
@@ -46,7 +45,7 @@ export interface ListedSource extends Binding {
 
 /** A data list, read. */
 export interface DataList {
-  format: 1 | 2;
+  format: 2;
   month?: string;
   built?: string;
   /** The data branch commit and list hash it was built from (null for a build's own list). */
@@ -108,10 +107,10 @@ const deliveredOf = (l: RawLoad & { n?: unknown; arrived?: unknown; why?: unknow
   Number.isInteger(l.n) && typeof l.arrived === 'string' && typeof l.why === 'string' ? { ...listedOf(l), n: l.n as number, arrived: l.arrived, why: l.why } : null;
 
 /**
- * A loads.json read: format 2 as it says; format 1 bound by the example's bindings (`fallback`), each of its files found
- * by its source's id (its file name without the extension), its loads and donors the trips'.
+ * A loads.json read: format 2 as it says. Anything else (no list, or the retired format 1) reads as a list of nothing for
+ * no flow, which the page says it can't open.
  */
-export function readDataList(raw: unknown, fallback: DataBindings): DataList {
+export function readDataList(raw: unknown): DataList {
   const index = isRecord(raw) ? raw : {};
   const data = (index.data ?? null) as DataList['data'];
   const episodesOf = (src: unknown) => (Array.isArray(src) ? src : []).map((e: Record<string, unknown>) => ({ name: String(e.name), ...(typeof e.about === 'string' ? { about: e.about } : {}), loads: ((e.loads ?? []) as RawLoad[]).map(listedOf) }));
@@ -158,30 +157,7 @@ export function readDataList(raw: unknown, fallback: DataBindings): DataList {
       loads, episodes: episodesOf(index.episodes), donors: loadSource ? sources[loadSource]!.donors ?? [] : [], files,
     };
   }
-  // Format 1: the example's files by name.
-  const files = (index.files ?? {}) as Record<string, FileEntry>;
-  const sources: Record<string, ListedSource> = {};
-  const loads = ((index.loads ?? []) as RawLoad[]).map(listedOf);
-  const donors = ((index.donors ?? []) as RawLoad[]).map(listedOf);
-  let loadSource: string | null = null;
-  for (const [id, b] of Object.entries(fallback.sources)) {
-    const key = b.file.split('.')[0]!;
-    if (b.format === 'parquet' && (loads.length || !files[key])) {
-      loadSource = id;
-      sources[id] = { ...b, loads, donors, ...(files[key] ? { entry: files[key] } : {}) };
-    } else sources[id] = { ...b, ...(files[key] ? { entry: files[key] } : {}) };
-  }
-  const histories: Record<string, FileEntry> = files.history && loadSource ? { [loadSource]: files.history } : {};
-  const out: Record<string, FileEntry> = {};
-  for (const [id, s] of Object.entries(sources)) if (s.entry) out[id] = s.entry;
-  if (files.history) {
-    out.history = files.history;
-    if (loadSource) out[`history:${loadSource}`] = files.history;
-  }
-  return {
-    format: 1, ...(typeof index.month === 'string' ? { month: index.month } : {}), ...(typeof index.built === 'string' ? { built: index.built } : {}), data, flow: null, sources, histories, samples: {}, ranges: {},
-    loadSource: loads.length ? loadSource : null, daily: loads.length && loadSource ? [loadSource] : [], judged: loads.length ? loadSource : null, loads, episodes: episodesOf(index.episodes), donors, files: out,
-  };
+  return { format: 2, data, flow: null, sources: {}, histories: {}, samples: {}, ranges: {}, loadSource: null, daily: [], judged: null, loads: [], episodes: [], donors: [], files: {} };
 }
 
 /** Every file a list names, with the sha256 and size it gives: what must be in MANIFEST.json, as it says. */

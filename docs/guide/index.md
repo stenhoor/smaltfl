@@ -41,5 +41,5 @@ npx serve dist/app-larkspur     # or any static file server
 dataset's history on the runtime and writes a static page. Larkspur's data take about five minutes to make on four
 cores the first time; they are kept by a hash of what makes them, so a build after a change to the app alone takes
 seconds. Other examples: `--flow examples/control-estate/flow.json`, `--flow examples/security-signins/flow.json`,
-`--flow examples/controls/flow.json`, and the taxi example (the default, on the `data` branch's real trips:
-`git fetch origin data --depth 1`).
+and `--flow examples/controls/flow.json`. Without `--flow` the build makes Larkspur, in `dist/app`. (The taxi example,
+on real trips, was retired on 2026-11-15.)

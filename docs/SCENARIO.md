@@ -7,6 +7,12 @@
 One realistic example that smaltfl is built, tested and optimized against (ADR 0001 §15). Every feature is checked
 against it, the benchmarks run on it, and the UI is judged by how easily someone can build it.
 
+> **Retired as an example, 2026-11-15** ([ADR 0022](adr/0022-the-answers-of-2026-11-14.md), its addendum; Q-208). The
+> example built on this scenario, its `data` branch and the tests on its real history were retired to focus on the
+> generated demos (Larkspur, the control estate, the sign-in log). The benchmarks still run on its seeded stand-in
+> (`test/fixtures/taxi.ts`), and its document, data list and XS files are unit-test fixtures (`test/fixtures/`). This
+> page is kept as the design's starting point; what it says of the data branch and the app is history.
+
 > **To verify.** This session's network policy blocks the data hosts, so the sizes and row counts below come from
 > the publishers' documentation and earlier releases, not from a download. They are marked *(to verify)* until the
 > first fixture build measures them.

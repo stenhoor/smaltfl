@@ -15,9 +15,9 @@ import { canonicalJSON } from '../src/core/canonical.js';
 import { appendPeriods, emptyHistory, hourOf, measuresHash, measuresLeaf, measuresOf, periodOf, periodOfMeasures, samePeriod, scanColumns, tailBefore, tailRef, type MeasureSettings, type Measures } from '../src/core/measures.js';
 import { measureLoad, pinFile, runFlow, type ExpectationsStep, type FlowDocument } from '../src/index.js';
 import { measureTable } from '../src/plugin/measure.js';
-import { EXAMPLE_SOURCES, pinnedDdl } from '../examples/sources.js';
+import { pinnedDdl } from '../examples/sources.js';
 import { SMALTDB } from './helpers/engine.js';
-import { exampleDoc } from './helpers/example.js';
+import { EXAMPLE_SOURCES, exampleDoc } from './helpers/example.js';
 
 /** E11's literal: a day of sign-ins, `rows` of them, `fail` failed and `locked` locked out. */
 const literal = (slot: string, rows: number, fail: number, locked: number): Measures => ({
@@ -142,10 +142,10 @@ describe('appendPeriods and periodOf', () => {
 });
 
 describe('a load measured in the engine (XS)', () => {
-  const fixture = (name: string) => new Uint8Array(readFileSync(new URL(`../fixtures/xs/${name}`, import.meta.url)));
+  const fixture = (name: string) => new Uint8Array(readFileSync(new URL(`./fixtures/xs/${name}`, import.meta.url)));
   const doc = exampleDoc();
   const checks = doc.steps.find((x): x is ExpectationsStep => x.id === 'trips_valid')!;
-  // The taxi's legacy counts (scripts/data/build.py): the coded columns, the zones followed, every coded one but extra paired.
+  // The taxi's legacy counts (as its retired data branch measured them): the coded columns, the zones followed, every coded one but extra paired.
   const CODED = ['VendorID', 'passenger_count', 'RatecodeID', 'store_and_fwd_flag', 'payment_type', 'extra', 'mta_tax', 'improvement_surcharge', 'congestion_surcharge', 'Airport_fee'];
   const settings: MeasureSettings = {
     source: 'trips', slot: '2024-01', every: 'day', checks: { step: 'trips_valid', rules: checks.rules.map((r) => ({ name: r.name, check: r.check, onFail: r.onFail })) },

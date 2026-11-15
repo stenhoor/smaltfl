@@ -1,11 +1,10 @@
 /**
  * The data list a page opens (ADR 0010 §9): format 2 binds each source by id, its file or its loads and donors, and
- * each watched source's history; format 1, the data branch's list before it, still reads, bound by the example's
- * bindings. Either way the page and the real-data tests get one shape.
+ * each watched source's history. Anything else (the retired format 1 among it, Q-208) reads as a list of nothing.
  */
 import { describe, expect, it } from 'vitest';
 import { deliveriesOf, namedFiles, readDataList, versionsOfDay } from '../src/app/datalist.js';
-import { ddlOf, donorBinding, EXAMPLE_DATA, pinnedDdl } from '../examples/sources.js';
+import { ddlOf, donorBinding, pinnedDdl } from '../examples/sources.js';
 
 const SHA = (c: string) => c.repeat(64);
 const day = (d: string, c: string) => ({ file: `loads/yellow_tripdata_${d}.parquet`, rows: 100, sha256: SHA(c), bytes: 10 });
@@ -15,22 +14,10 @@ describe('readDataList', () => {
   const zones = { path: 'zones.csv', from: 'tlc/taxi_zone_lookup.csv', sha256: SHA('z'), bytes: 3 };
   const weather = { path: 'weather.csv', from: 'weather/open-meteo_loads.csv', sha256: SHA('w'), bytes: 4 };
 
-  it('reads format 1 by the example\'s bindings: the trips\' loads and donors, the files by source', () => {
-    const list = readDataList({ month: '2024-01', data: { commit: 'c', manifest: SHA('m'), bytes: 9 }, files: { zones, weather, history }, loads: [{ day: '2024-01-01', ...day('2024-01-01', 'a') }], episodes: [{ name: 'September 2023', about: 'x', loads: [{ day: '2023-09-21', ...day('2023-09-21', 'b') }] }], donors: [{ day: '2023-09-14', ...day('2023-09-14', 'd') }], history: 'history.json' }, EXAMPLE_DATA);
-    expect(list).toMatchObject({ format: 1, month: '2024-01', loadSource: 'trips', flow: null, histories: { trips: history } });
-    expect(list.loads).toEqual([{ day: '2024-01-01', ...day('2024-01-01', 'a') }]);
-    expect(list.donors.map((l) => l.day)).toEqual(['2023-09-14']);
-    expect(list.episodes[0]!.loads[0]!.day).toBe('2023-09-21');
-    expect(Object.keys(list.files).sort()).toEqual(['history', 'history:trips', 'weather', 'zones']);
-    expect(list.sources.weather).toMatchObject({ table: 'weather_file', context: 'weather', entry: weather });
-  });
-
-  it('reads the XS fixtures\' format 1: no loads, the trips one file', () => {
-    const trips = { path: 'trips.parquet', from: 'fixtures/xs/trips.parquet', sha256: SHA('t'), bytes: 7 };
-    const list = readDataList({ data: null, files: { trips, zones, weather }, loads: [], donors: [] }, EXAMPLE_DATA);
-    expect(list.loadSource).toBeNull();
-    expect(list.files.trips).toEqual(trips);
-    expect(list.histories).toEqual({});
+  it('reads anything but format 2 as a list of nothing for no flow (format 1 was retired with the taxi example)', () => {
+    for (const raw of [null, {}, { data: null, files: { zones, weather, history }, loads: [], donors: [] }]) {
+      expect(readDataList(raw)).toMatchObject({ format: 2, flow: null, sources: {}, loads: [], loadSource: null, files: {} });
+    }
   });
 
   it('reads format 2 as it says: bindings by id, slots as days, histories by watched source, the flow it is for', () => {
@@ -39,7 +26,7 @@ describe('readDataList', () => {
       format: 2, month: '2024-03', data: null, flow,
       sources: { auth: { table: 'auth_file', format: 'csv', file: 'auth.csv', header: true, columns: [['event_time', 'TEXT']], loads: [{ slot: '2024-03-12', file: 'loads/auth_2024-03-12.csv', sha256: SHA('a'), bytes: 1, rows: 3 }], donors: [] } },
       histories: { auth: history }, episodes: [],
-    }, EXAMPLE_DATA);
+    });
     expect(list).toMatchObject({ format: 2, loadSource: 'auth', flow, histories: { auth: history } });
     expect(list.loads).toEqual([{ day: '2024-03-12', file: 'loads/auth_2024-03-12.csv', sha256: SHA('a'), bytes: 1, rows: 3 }]);
     expect(list.files).toEqual({ history, 'history:auth': history, flow });
@@ -59,7 +46,7 @@ describe('readDataList', () => {
         mfa: { table: 'mfa_file', format: 'csv', file: 'mfa.csv', header: true, loads: [l('mfa', '2024-03-05', 'c')], donors: [] },
       },
       histories: { tls: hist('tls'), mfa: hist('mfa'), posture: hist('posture') }, episodes: [],
-    }, EXAMPLE_DATA);
+    });
     expect(list).toMatchObject({ format: 2, loadSource: 'tls', daily: ['tls', 'mfa'], judged: 'posture' });
     expect(list.loads.map((x) => [x.day, x.file, Object.keys(x.files!)])).toEqual([['2024-03-04', 'loads/tls_2024-03-04.csv', ['tls']], ['2024-03-05', 'loads/tls_2024-03-05.csv', ['tls', 'mfa']]]);
     expect(list.files['history:posture']).toEqual(hist('posture'));
@@ -81,7 +68,7 @@ describe('readDataList', () => {
         mfa: { table: 'mfa_file', format: 'csv', file: 'mfa.csv', header: true, loads: [l('mfa', '2024-03-21', 'm')], donors: [] },
       },
       histories: {}, episodes: [],
-    }, EXAMPLE_DATA);
+    });
     const ds = deliveriesOf(list, '2024-03-21');
     expect(ds.map((d) => [d.source, d.n, d.file, d.exported ?? null, d.why])).toEqual([['tls', 1, 'loads/tls_2024-03-21.v2.csv', null, 'repeats taken out'], ['tls', 2, 'loads/tls_2024-03-21.v3.csv', '2024-03-22T03:30:00Z', 'every certificate once']]);
     expect(deliveriesOf(list, '2024-03-22')).toEqual([]);

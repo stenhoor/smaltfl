@@ -10,7 +10,7 @@ answers and what is still open).
 |---|---|
 | The code | `beepboopbop64/smaltfl_fork` (a fork of `stenhoor/smaltfl`): `main` is the handoff (`5bdb1b4`); ADRs 0011 to 0014 are on `claude/gallant-mendel-uckiwr` (tip `b37762a`, handed over mid-check); the review of 2026-11-10 is on `claude/jolly-archimedes-og91mn`, on top of it. No PR is open. `beepboopbop64/smaltfl` (`claude/elegant-knuth-r8364a`) is the repository the work moved from |
 | stenhoor's initial commit | merged in (remote `stenhoor/main`); the move to `stenhoor/smaltfl` (ADR 0007) was blocked by GitHub access, see "Moving the repository" |
-| The data | the fork's `data` branch: tip `618e81a` on 2026-11-10 (history format `smaltfl-history/3`, 31 days of January 2024, three incident episodes, 11 donor days, with the pairs' cells and a kept sample), rebuilt by `.github/workflows/data.yml` on every push that touches `scripts/data/**`. The taxi hold vector does not hold on it (Q-133) |
+| The data | every demo's days are generated from its seed by the build (`scripts/data/`: Larkspur, the control estate, the sign-in log). The taxi example and its `data` branch were retired on 2026-11-15 (Q-208, ADR 0022's addendum); its document, data list and XS files stay as unit-test fixtures (`test/fixtures/`) |
 | The app, published | a private claude.ai artifact (version 22, built from `6be5755`): it doesn't have the last three commits (round 3 below). The notebook form (ADR 0011, slice 4) is published separately: https://claude.ai/artifact/3xkiHJnRGK4viZkT4y5k6u, built from the fork's `claude/gallant-mendel-uckiwr` on the data branch's loads; the sign-ins with the demo's three days (ADR 0012) as a second artifact (https://claude.ai/artifact/YNfh3yNapW9pv4HCtoWdCu), built with `--flow examples/security-signins/flow.json --out dist/app-signins`; the controls posture (ADR 0013) as a third, https://claude.ai/artifact/EaLvZcxsnu5ZNP5kNNCahH, built with `--flow examples/controls/flow.json --out dist/app-controls`; the control estate (ADR 0013 §8) as a fourth, https://claude.ai/artifact/NonRDwrC3eNjLmhfRwEgvP, built with `--flow examples/control-estate/flow.json --out dist/app-estate` |
 | Browser checks and judging tools | [tools/](../tools/README.md) (added for this handoff; they lived in a session scratch folder before) |
 
@@ -50,7 +50,8 @@ audited as built, each audit checked by a second reader. The maintainer's answer
    - plan/4 and sample/0 have no pinned vectors, and the kept sample ships rows for every watch.
 7. **The base is not green.** CI failed on the last five pushes: `test/fill-general.test.ts` passes vitest's
    five-second default. With `dist/app/data/history.json` from the fork's data, `hold-real` and `story-real` fail six
-   tests, and the taxi example holds 41 days under `wrong`, not 25 (Q-133). CI skips those tests.
+   tests, and the taxi example holds 41 days under `wrong`, not 25 (Q-133). CI skips those tests. *Closed on 2026-11-15:*
+   the real-history tests went with the taxi example (Q-208).
 8. **The family has moved.** smaltdb's head has the public plan API, exact percentiles, pivot and typed dates, and
    runs SQL only with smaltql registered. *Done on 2026-11-11 (ADR 0017, Q-156):* every pin is at stenhoor's main and
    smaltql is pinned and registered; sessions move the pins again first (`npm run deps:latest`). The fork of smalt-brand is behind
@@ -201,11 +202,10 @@ Each piece has its ADR, tests, and a line in CLAUDE.md's layout.
 ```sh
 npm ci && npm run deps                      # then the builds of stenhoor's repositories pinned in packed.json
 npm run deps:latest                         # every session first: move the pins to each repository's main (ADR 0017)
-git fetch origin data --depth 1             # the real data; without it the app builds on the XS fixtures
 npm run check                               # typecheck + about 900 tests, under a minute on four cores
-npm run test:slow                           # the estate's month and the real-history tests (CI runs it beside)
+npm run test:slow                           # the estate's month, Larkspur's six months and the models (CI runs it beside)
 npm run build                               # declarations; NOTE: wipes dist/, so build the app again after it
-npm run build:app                           # dist/app from the data branch; the bundles are named by content (app.<hash>.js), so a
+npm run build:app                           # dist/app on Larkspur, its days generated; the bundles are named by content (app.<hash>.js), so a
                                             # browser never serves a stale build under the old name (bundles.json says which)
 ```
 
@@ -214,8 +214,8 @@ Results on 2026-11-09, at `e42d9ec` on data `0ca4dd1`:
 - **The 5-second default:** under a busy machine, `test/fill-general.test.ts` (and a few others) can time out. They pass
   alone or with the longer timeout; they aren't wrong results.
 - **Browser suites:** episode 20/20, integrity 13/13, and the pause stops report no problems (see [tools/](../tools/README.md)).
-- **Real-history tests** (`hold-real`, `story-real`, `fill-real`, `backtest-real`) need `dist/app/data/history.json`.
-  They skip without it.
+- **Real-history tests** (`hold-real`, `story-real`, `fill-real`, `backtest-real`) needed `dist/app/data/history.json`.
+  They, the episode and integrity suites and the taxi app went with the taxi example on 2026-11-15 (Q-208).
 
 ## What is not done
 
@@ -274,15 +274,24 @@ as decided as built, and the answers that change what is built or add to it are 
      file's, and "Read by" under each file (Q-144);
    - a rule set by hand says where it is written: the ontology or the notebook.
 
-   **Next is slice 4.**
+   **Next is slice 4.** On 2026-11-15, before it, the taxi example was retired to focus on the generated demos (Q-208,
+   ADR 0022's addendum).
 4. **Pausing:**
-   - keep pausing until accepted (Q-86, item 1 below);
-   - an overwhelming learned finding pauses the day (Q-132);
+   - keep pausing until accepted (Q-86, item 1 below), checked on the demos' own data;
+   - an overwhelming learned finding pauses the day (Q-132): a learned alert whose rows moved are at least a quarter of
+     the day's, the threshold a parameter of the flow and of a dataset in the ontology (Q-207, answered 2026-11-15).
+     The DR exercise's days (Mar 23 to 26) newly pause in the estate and Larkspur, and their answer keys move on purpose;
    - levels and fills for slots of a day (Q-84).
 5. **Proposed declarations** for a dataset with nothing declared (Q-139). Sharing as one package file (Q-35) comes later.
 
-Before slice 4's Q-132, a short design goes to the maintainer in the question prompt, as slice 2's did. Still open:
-Q-34 and Q-41 (smaltdb's work, with stenhoor first), Q-75 and Q-133.
+Slice 4's Q-132 design was answered on 2026-11-15 (Q-207). Still open: Q-34 and Q-41 (smaltdb's work, with stenhoor
+first). Q-75 and Q-133 closed with the taxi example.
+
+**Left by the taxi example's retirement (Q-208), each a small PR of its own:**
+- the app's weather and hour views, and its check against a published data list (`MANIFEST.json`, a list's `data` and
+  episodes), have no demo that reaches them: remove them or give a demo a reason to;
+- the browser integrity suite (`tools/browser/integrity.cjs`, in the history) ran on the taxi app: port it to Larkspur
+  (a tampered day refused, the Integrity tab, re-derive, the record, the audit bag).
 
 **Built: [ADR 0021](adr/0021-time.md), time** (accepted 2026-11-13, Q-181 to Q-192): two screens, a month to pick a
 day from (a calendar, a grid of files and steps by day, the posture's trend, *for the day* and *as known on*) and the
@@ -348,9 +357,11 @@ Parked behind the notebook surface by the maintainer's decision of 2026-11-09 (Q
    - **Today's code** pauses only its first day, then tells it as notes (ADR 0010 §15, "A deliberate change pauses once").
    - **Where to change it:** `fill.ts` (`acceptable`, `levelMetrics`), the lowering in `news.ts` (`quiet`/`lasting`) and
      `hold.ts` (`levelsOf`, `levelFor`).
-   - **Expected result:** the taxi hold vector grows from 25 to about 29–31 days. The owner was told this and accepted it.
-     Re-measure it, and move `test/hold-real.test.ts`, ADR 0010 §13/§15 and the security fixture's migration on purpose.
-2. **The rest of the round-3 findings.** The judges ranked 37; these are left:
+   - **Expected result:** the taxi hold vector was to grow from 25 to about 29–31 days, which the owner accepted; the
+     taxi example was retired on 2026-11-15 (Q-208), so it is checked on the demos' answer keys instead, and ADR 0010
+     §13/§15 and the security fixture's migration move on purpose.
+2. **The rest of the round-3 findings.** The judges ranked 37; these are left. They were found on the taxi app, retired on
+   2026-11-15 (Q-208): each stands where the same screen shows on a demo (the Results weather card went with it):
    - **Cards that state numbers:**
      - the Results weather card states false findings, and its °C line is drawn on the rain axis (#5, #24);
      - Jan 7's snow still reads as the cause, and its filled "Mark as expected" button invites action (#8);

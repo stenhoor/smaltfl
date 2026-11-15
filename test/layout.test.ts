@@ -8,7 +8,7 @@ import type { FlowDocument } from '../src/core/document.js';
 import { edgePath, frameAt, freeSlot, GRID, gridLayout, groupKey, pinLayout, routeVia } from '../src/app/layout.js';
 import { visualFlow } from './fixtures/taxi.js';
 
-const example = JSON.parse(readFileSync(new URL('../examples/nyc-taxis-weather.smaltfl.json', import.meta.url), 'utf8')) as FlowDocument;
+const example = JSON.parse(readFileSync(new URL('./fixtures/taxi-example.smaltfl.json', import.meta.url), 'utf8')) as FlowDocument;
 
 /** The reference flow in three sections, laid out automatically (the fixture places two cards by hand). */
 const sectioned = (): FlowDocument => ({

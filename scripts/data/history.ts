@@ -15,24 +15,23 @@
  *   each watch's file with {watch} (history.{watch}.json)
  *   node scripts/data/history.mjs --types OUT --flow DOC --next '{ slot, files: { source: path, … } }'
  *        the first loads day's types computed ahead (typesAhead)
- *   node scripts/data/history.mjs DAYS_DIR OUT.json      the taxi example, as before: its trips, its legacy columns
  *
  * LIST.json is `[{ "file": path, "slot": "2024-01-31" }, …]`, or each load the day's files (`{ slot, files: { source:
  * path, … } }`), the watched source's own among them and those its rules read beside it. DATA.json is the flow's bindings (default
  * examples/<doc>.data.json). The columns: `--count` (else the watch's `count`, else the ontology's columns that list
  * values or bad codes), `--follow` (else the watch's `follow`, else its serious columns), `--pair` (else the counted
  * columns whose values number 20 or fewer, so any two multiply to 400 or fewer). `--param` sets the document's other
- * parameters for each load, from its slot (the taxi's checks read `:month`). The loads are measured in parallel, one
+ * parameters for each load, from its slot (for a check that reads `:month`, say). The loads are measured in parallel, one
  * worker thread a core, each with an engine per load.
  */
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { HistoryRanges } from '../../src/core/history.js';
 import { loadClaim, rangesFor } from '../../src/core/hold.js';
 import { rangesOf } from '../../src/core/ranges.js';
 import { recordAhead } from '../../src/core/ahead.js';
 import { availableParallelism } from 'node:os';
-import { basename, join } from 'node:path';
+import { basename } from 'node:path';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { Database } from 'smaltdb/engine';
 import '@smaltworks/smaltql/register';
@@ -58,15 +57,6 @@ declare const __SMALTDB_VERSION__: string | undefined;
 const SMALTDB = typeof __SMALTDB_VERSION__ === 'string' ? __SMALTDB_VERSION__ : (JSON.parse(readFileSync('node_modules/smaltdb/package.json', 'utf8')) as { version: string }).version;
 /** A history past this size is too big for a page to fetch and fold (ADR 0010, risks). */
 const LIMIT = 8 * 1024 * 1024;
-/** The taxi example's legacy columns (scripts/data/build.py): the coded columns counted, value by value and in pairs
- * (all but `extra`, whose amounts are many), the zones followed for new values, the trips by pickup hour. */
-const TAXI = {
-  count: ['VendorID', 'passenger_count', 'RatecodeID', 'store_and_fwd_flag', 'payment_type', 'extra', 'mta_tax', 'improvement_surcharge', 'congestion_surcharge', 'Airport_fee'],
-  follow: ['PULocationID', 'DOLocationID'],
-  pair: ['VendorID', 'passenger_count', 'RatecodeID', 'store_and_fwd_flag', 'payment_type', 'mta_tax', 'improvement_surcharge', 'congestion_surcharge', 'Airport_fee'],
-  time: 'tpep_pickup_datetime',
-};
-
 /** A load: a source's file for a slot; for a watched step, each source's file for the slot (ADR 0013 §4). */
 interface LoadFiles {
   slot: string;
@@ -233,13 +223,7 @@ async function jobOf(args: string[]): Promise<{ jobs: Job[]; out: string; sample
     } else rest.push(a);
   }
   const one = (k: string) => flags.get(k)?.at(-1);
-  if (!flags.has('flow')) {
-    // The taxi example, as build.py has always called it: a directory of daily files.
-    const [dir, out] = rest;
-    if (!dir || !out) throw new Error('usage: node scripts/data/history.mjs --flow DOC --watch SOURCE --files LIST.json OUT.json, or DAYS_DIR OUT.json');
-    const files = readdirSync(dir).filter((x) => /^yellow_tripdata_\d{4}-\d{2}-\d{2}\.parquet$/.test(x)).sort().map((x) => ({ file: join(dir, x), slot: /(\d{4}-\d{2}-\d{2})/.exec(x)![1]! }));
-    return jobOf(['--flow', 'examples/nyc-taxis-weather.smaltfl.json', '--watch', 'trips', '--files', JSON.stringify(files), '--count', TAXI.count.join(','), '--follow', TAXI.follow.join(','), '--pair', TAXI.pair.join(','), '--time', TAXI.time, '--param', 'month={slot:7}', out]);
-  }
+  if (!flags.has('flow')) throw new Error('usage: node scripts/data/history.mjs --flow DOC --watch SOURCE --files LIST.json OUT.json');
   const flowPath = one('flow')!;
   const doc = await readFlow(flowPath);
   const sources = list(one('watch')) ?? [Object.keys(doc.publish?.watch ?? {})[0]].filter((x): x is string => !!x);

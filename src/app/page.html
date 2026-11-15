@@ -209,13 +209,10 @@ section.view { display: grid; gap: 14px; }
 .chart .axis { fill: var(--muted); font-size: 11px; }
 .chart .grid { stroke: var(--line); stroke-width: 1; }
 .chart .base { stroke: var(--ink-2); stroke-width: 1.5; }
-.chart .bar.rain { fill: var(--smalt); } .chart .bar.heavy { fill: var(--teal-fill); } .chart .bar.snow { fill: var(--muted); }
 
 .scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .scroll.fade-r { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
 /* The busiest zones fit a phone: a zone's name wraps, its numbers stay narrow. */
-#zones-table td:first-child { white-space: normal; min-width: 7em; }
-#zones-table th, #zones-table td { padding: 6px 6px; }
 table { border-collapse: collapse; font-size: 13px; width: 100%; }
 th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 th { font-weight: 600; color: var(--ink-2); background: var(--sunk); position: sticky; top: 0; }
@@ -2091,15 +2088,7 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 
   <section class="view" id="view-results" aria-label="Results" hidden>
     <div class="panel posture" id="posture-panel" hidden></div>
-    <div class="panel chart" id="effect-panel">
-      <h2>When it rains or snows, how many taxis do people take?</h2>
-      <p class="sub" id="effect-sub">Trips per hour in each kind of weather, against dry hours at the same hour of day.</p>
-      <div id="effect-chart"><p class="foot">Run the flow to see the results.</p></div>
-    </div>
-    <div class="grid2">
-      <div class="panel" id="zones-panel"><h2>Busiest pickup zones</h2><p class="sub">From zone_hour: the load's trips per pickup zone.</p><div id="zones-table"></div></div>
-      <div class="panel"><h2>Outputs</h2><p class="sub">The datasets the flow publishes. Tap one to look inside.</p><div id="datasets"></div></div>
-    </div>
+    <div class="panel"><h2>Outputs</h2><p class="sub">The datasets the flow publishes. Tap one to look inside.</p><div id="datasets"></div></div>
   </section>
 
   <section class="view" id="view-runs" aria-label="Runs" hidden>
