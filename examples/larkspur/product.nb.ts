@@ -43,7 +43,7 @@ export const dim_org = check(dim_org_rows, {
 });
 
 cell('dim_org_gate');
-export const dim_org_gate = gate(dim_org, { layer: 'gold', reconcile: { key: 'org_unit_id' } });
+export const dim_org_gate = gate(dim_org, { layer: 'gold' });
 
 cell('about_dim_app', { lang: 'md' });
 md`The applications, one row each: their attributes, owning team and owner chain, platform and lifecycle. Two members say what is unknown: an owner chain that doesn't resolve is **Unassigned**, never blank, and the cloud's resources under tags no CMDB record names belong to the **Unregistered** application, owned by no one, visibly. Its business units' shares are watched: a reorg that moves applications between leaders warns here, said as following the owner chains it comes from`;
@@ -81,7 +81,7 @@ export const dim_control = sql`
   FROM ${control_catalog_checked} c`;
 
 cell('dim_control_gate');
-export const dim_control_gate = gate(dim_control, { layer: 'gold', reconcile: { key: 'control_id' } });
+export const dim_control_gate = gate(dim_control, { layer: 'gold' });
 
 cell('about_facts', { lang: 'md' });
 md`# The facts
@@ -203,7 +203,7 @@ export const app_scorecard = check(scorecard_rows, {
 });
 
 cell('app_scorecard_gate');
-export const app_scorecard_gate = gate(app_scorecard, { layer: 'gold', reconcile: { key: 'app_id' } });
+export const app_scorecard_gate = gate(app_scorecard, { layer: 'gold' });
 
 cell('about_org_posture', { lang: 'md' });
 md`Every unit at every level, over all the applications beneath it: how many, how many critical (tier 1), the tier-weighted score and coverage (a tier 1 application counting three, tier 2 two, tier 3 one), the critical applications failing a control, the items overdue and the exceptions expiring. An application whose chain doesn't resolve is counted under Unassigned, not under the group`;

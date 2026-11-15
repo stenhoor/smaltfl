@@ -11,11 +11,12 @@ import io from '@smaltdb/io';
 import { plusDays } from '../src/core/calendar.js';
 import { validateDocument, type FlowDocument } from '../src/core/document.js';
 import { emitNeedsCounts, emitScopeCounts } from '../src/core/emit.js';
-import { LAYER_DEFAULTS } from '../src/core/gates.js';
+import { LAYER_DEFAULTS, writtenRules } from '../src/core/gates.js';
 import { HistoryRanges } from '../src/core/history.js';
 import { appendPeriods, emptyHistory, measuresOf, type MeasureSettings, type Measures } from '../src/core/measures.js';
 import { expandNotebooks, stepsOfNotebooks } from '../src/core/notebook.js';
-import { LEGACY_JUDGE, newsOf } from '../src/core/news.js';
+import { judgeOf, LEGACY_JUDGE, newsOf } from '../src/core/news.js';
+import type { NeedsDef, Ontology } from '../src/core/ontology.js';
 import { translate } from '../src/core/plan.js';
 import { storyOf } from '../src/core/story.js';
 import { historyWith, vendorNames } from './helpers/history.js';
@@ -66,7 +67,7 @@ describe('the rules in the notebook and the plan', () => {
     // A step named as the inventory: smaltnb says it is read before it is defined, and the gate says it isn't a source.
     expect(await issues("cell('tls_gate');\nexport const tls_gate = gate(tls, { scope: { of: posture, key: 'app_id', where: 'x' } });\n")).toEqual(['defined-later: "posture" is defined further down, in cell "posture". A notebook reads top to bottom: move this cell below it.', "gate(tls, …): scope.of names a source of the flow; posture isn't one"]);
     expect(await issues("cell('tls_gate');\nexport const tls_gate = gate(tls, { scope: { of: nobody, key: 'app_id', where: 'x' } });\n")).toEqual(["gate(tls, …): scope.of names a source of the flow; nobody isn't one"]);
-    expect(await issues("cell('tls_gate');\nexport const tls_gate = gate(tls, { scope: { of: apps, where: 'x' } });\n")).toEqual(['gate(tls, …): scope is { of: a source, key, where, own? }: the inventory, its key column, the condition a key in scope meets, and the node’s own key column when it differs']);
+    expect(await issues("cell('tls_gate');\nexport const tls_gate = gate(tls, { scope: { of: apps, where: 'x' } });\n")).toEqual(['gate(tls, …): scope is { of: a source, key, where, own?, ids? }: the inventory, its key column, the condition a key in scope meets, the node’s own key column when it differs, and loose where ids match whatever their case and spaces']);
     expect(await issues("cell('tls_gate');\nexport const tls_gate = gate(tls, { needs: { when: { a: 'x' } } });\n")).toEqual(['gate(tls, …): needs is { when: { column: value }, then: { column: value }, from?: a source, key? }: a row matching when must match then (a value may be a list), within the row or, with from and key, against the other dataset’s row with the same key']);
   });
 });
@@ -173,5 +174,79 @@ describe('a finding explained upstream (ADR 0014 §2)', () => {
     // Without a gate, a flow is judged as it always was (ADR 0013's controls): nothing upstream is read.
     const ungated = storyOf(h, '2023-10-11', newsOf(h, '2023-10-11', vendorNames), { names: vendorNames, upstream: [{ source: 'VendorID', state: 'wrong', head: 'x' }] });
     expect(ungated.state).toBe('wrong');
+  });
+});
+
+/**
+ * A needs rule written once in the ontology (Q-119, ADR 0022 §3): applied wherever the datasets it names are judged,
+ * counted and said as a gate cell's rule is; a gate cell adds one of its own, or overrides one about the same columns.
+ */
+describe('needs rules in the ontology (Q-119)', () => {
+  const ROTATION: NeedsDef = { id: 'rotation_needs_encryption', datasets: ['posture'], when: { key_rotation: 'pass' }, then: { encryption: ['pass', 'exception'] }, description: 'A key rotated is a key encrypted' };
+  const TLS_FAIL: NeedsDef = { id: 'tls_fail_carried', datasets: ['posture'], from: 'tls', key: 'app_id', when: { status: 'fail' }, then: { tls: 'fail' } };
+  const ontology = (needs: NeedsDef[]): Ontology => ({ objectTypes: [], linkTypes: [], actionTypes: [], needs });
+  /** The notebook with the posture's gate cell as given, and the ontology. */
+  const withGate = async (gateCell: string, needs: NeedsDef[] = [ROTATION, TLS_FAIL]) => expandNotebooks({ ...flow(NB.replace(/export const posture_gate = gate\(posture, .*\);/, `export const posture_gate = ${gateCell};`)), ontology: ontology(needs) }, ts);
+  const watchOf = async (d: FlowDocument) => {
+    const plan = await translate(d, { day: '2024-03-01' });
+    return Object.fromEntries((plan.publish as unknown as { watch: [number, Record<string, unknown>][] }).watch.map(([n, w]) => [plan.nodes[n]!.origin, w]));
+  };
+
+  it('applies the ontology’s rules where the gate cell writes none, the plan the same as the cell’s', async () => {
+    const d = await withGate('gate(posture, {})');
+    expect(validateDocument(d)).toEqual([]);
+    expect(writtenRules(d, 'posture').needs).toEqual([
+      { when: { key_rotation: 'pass' }, then: { encryption: ['pass', 'exception'] }, written: 'ontology', id: 'rotation_needs_encryption' },
+      { from: 'tls', key: 'app_id', when: { status: 'fail' }, then: { tls: 'fail' }, written: 'ontology', id: 'tls_fail_carried' },
+    ]);
+    // Written in the cell or in the ontology, the engine counts the same and the judge says the same.
+    const cell = await expandNotebooks(flow(), ts);
+    expect((await watchOf(d)).posture).toEqual((await watchOf(cell)).posture);
+    expect(judgeOf(d, 'posture').needs.map(({ from, key, when, then }) => ({ from, key, when, then }))).toEqual(judgeOf(cell, 'posture').needs.map(({ from, key, when, then }) => ({ from, key, when, then })));
+    // A dataset no rule names has none.
+    expect(writtenRules(d, 'tls').needs).toEqual([]);
+  });
+
+  it('applies one rule to every dataset it names that is judged', async () => {
+    const both = await withGate('gate(posture, {})', [{ ...TLS_FAIL, datasets: ['posture', 'TLS'] }]);
+    const w = await watchOf(both);
+    expect(w.posture!.needs).toEqual([{ table: 'tls_file', key: 'app_id', when: [['status', ['fail']]], then: [['tls', ['fail']]] }]);
+    expect(w.tls!.needs).toEqual(w.posture!.needs);
+  });
+
+  it('lets a gate cell override a rule about the same columns in its place, and add others after', async () => {
+    const d = await withGate("gate(posture, { needs: [{ when: { tier: 'gold' }, then: { tls: 'pass' } }, { when: { KEY_ROTATION: ['pass', 'fail'] }, then: { encryption: 'pass' } }] })");
+    expect(writtenRules(d, 'posture').needs).toEqual([
+      { when: { KEY_ROTATION: ['pass', 'fail'] }, then: { encryption: 'pass' }, written: 'gate', overrides: 'rotation_needs_encryption' },
+      { from: 'tls', key: 'app_id', when: { status: 'fail' }, then: { tls: 'fail' }, written: 'ontology', id: 'tls_fail_carried' },
+      { when: { tier: 'gold' }, then: { tls: 'pass' }, written: 'gate' },
+    ]);
+    // Another dataset read for the condition is another rule, though its columns are named alike.
+    const other = await withGate("gate(posture, { needs: { from: tls, key: 'app_id', when: { key_rotation: 'pass' }, then: { encryption: 'pass' } } })", [ROTATION]);
+    expect(writtenRules(other, 'posture').needs.map((n) => [n.written, n.overrides ?? n.id ?? null])).toEqual([['ontology', 'rotation_needs_encryption'], ['gate', null]]);
+  });
+
+  it('refuses a rule that isn’t one, by name', async () => {
+    const issues = async (needs: unknown[], gates = true) => {
+      const d = await expandNotebooks({ ...flow(), ontology: { objectTypes: [], linkTypes: [], actionTypes: [], needs } as unknown as Ontology }, ts);
+      return validateDocument(gates ? d : { ...d, gates: {} }).map((p) => `${p.path}: ${p.message}`);
+    };
+    expect(await issues([ROTATION, TLS_FAIL])).toEqual([]);
+    expect(await issues([{ ...ROTATION, id: 'Rotation' }, { ...TLS_FAIL, id: 'rotation_needs_encryption' }, { ...TLS_FAIL, id: 'rotation_needs_encryption' }])).toEqual([
+      '$.ontology.needs[0].id: its name: lowercase letters, digits and underscores, starting with a letter',
+      '$.ontology.needs[2].id: rotation_needs_encryption names two rules: each rule has its own name',
+    ]);
+    expect(await issues([{ ...ROTATION, datasets: ['posture', 'nowhere', 'POSTURE'] }])).toEqual(['$.ontology.needs[0].datasets[1]: no source or step nowhere', '$.ontology.needs[0].datasets[2]: POSTURE is listed twice (ids are compared without case)']);
+    expect(await issues([{ ...ROTATION, datasets: [] }])).toEqual(['$.ontology.needs[0].datasets: the sources or steps it applies to, a list']);
+    expect(await issues([{ ...ROTATION, when: {}, then: { encryption: ['pass', 'pass'] } }])).toEqual([
+      '$.ontology.needs[0].when: { column: value | values }: the rows the rule is about, every column to hold, a list any of its values (each once)',
+      '$.ontology.needs[0].then: { column: value | values }: what those rows need, every column to hold, a list any of its values (each once)',
+    ]);
+    expect(await issues([{ ...TLS_FAIL, from: 'posture' }, { ...TLS_FAIL, id: 'keyless', key: undefined }])).toEqual([
+      "$.ontology.needs[0].from: posture isn't a source: a condition is read on a source’s row, which is there before the run",
+      '$.ontology.needs[1].from: from and key go together: the source the condition is read on, and the key column its rows share with the dataset’s',
+    ]);
+    expect(await issues([{ ...ROTATION, strict: true }])).toEqual(["$.ontology.needs[0].strict: strict isn't a needs rule's setting (id, datasets, from, key, when, then, description): refused rather than ignored"]);
+    expect(await issues([ROTATION], false)).toContain('$.ontology.needs: a dependency is a gate’s written check (ADR 0014 §4): the flow has no gate');
   });
 });

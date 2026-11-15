@@ -877,7 +877,7 @@ export function countGate(db: Database, plan: FlowPlan, node: number, ctx: EmitC
   if (!g?.reconcile) return null;
   const rc = g.reconcile;
   const of = rc.of === null ? null : emitRead(plan, rc.of, ctx);
-  const row = engine(plan.nodes[node]!.origin, () => db.query(emitReconcileCounts(emitRead(plan, node, ctx), rc.key, of)).rows[0]!);
+  const row = engine(plan.nodes[node]!.origin, () => db.query(emitReconcileCounts(emitRead(plan, node, ctx), rc.key, of, rc.loose === true)).rows[0]!);
   return { reconcile: reconcileOf(row) };
 }
 

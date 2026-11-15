@@ -4,7 +4,7 @@
 // row an application with a column a control, which the pairs, the forest and the classifier read.
 import { cell, md, param, sql } from 'smaltnb';
 import { gate, publish } from 'smaltfl/notebook';
-import { control_catalog_checked, exceptions_checked, key_rotation, platforms } from './bronze.nb.js';
+import { control_catalog_checked, exceptions_checked, platforms } from './bronze.nb.js';
 import { apps } from './apps.nb.js';
 import { leaders, org_units } from './org.nb.js';
 import { results } from './evidence.nb.js';
@@ -138,7 +138,7 @@ cell('platform_impact_gate');
 export const platform_impact_gate = gate(platform_impact, { layer: 'silver', checks: { amount: 'off', values: 'warn', pairs: 'off', forest: 'off' } });
 
 cell('about_wide', { lang: 'md' });
-md`One row an application, a column a control's status as a person reads it, not applicable where the control doesn't apply. The pairs, the forest and the classifier read it: they compare the columns within a row. Where key rotation reports a pass, encryption at rest mustn't be failing: there would be no managed key to rotate, so one of the two feeds is wrong, and the posture holds`;
+md`One row an application, a column a control's status as a person reads it, not applicable where the control doesn't apply. The pairs, the forest and the classifier read it: they compare the columns within a row. Where key rotation reports a pass, encryption at rest mustn't be failing: there would be no managed key to rotate, so one of the two feeds is wrong, and the posture holds. That rule is the ontology's, rotation_needs_encryption, written once beside the controls it links`;
 
 cell('posture_wide', { lang: 'sql' });
 export const posture_wide = sql`
@@ -165,7 +165,6 @@ cell('posture_wide_gate');
 export const posture_wide_gate = gate(posture_wide, {
   layer: 'silver',
   reconcile: { key: 'app_id' },
-  needs: { from: key_rotation, key: 'app_id', when: { status: 'pass' }, then: { encryption: ['pass', 'excepted', 'compensated', 'not_assessed', 'no_data', 'not_applicable'] } },
   checks: { reconcile: 'hold' },
 });
 

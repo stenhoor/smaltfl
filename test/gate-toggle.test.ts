@@ -129,11 +129,11 @@ describe('a toggle on the document', () => {
     // = 'yes'" } });`. The ontology's rows say which applications TLS covers now, and the cell writes no scope.
     expect(nb.source).toContain("gate(tls, { layer: 'bronze', checks: { schema: 'hold', amount: 'hold', blanks: 'hold', values: 'hold', rules: 'hold', shares: 'warn', pairs: 'warn', forest: 'warn', classifier: 'warn' } });");
     await agrees(t.doc);
-    // The posture's cell still writes its rules, and a toggle leaves them as written.
+    // The posture's cell still writes its key, and a toggle leaves it as written; its dependency is the ontology's (Q-119).
     const silver = toggleCheck(t.doc, 'posture', 'pairs', 'hold');
     expect(silver.doc.gates!.posture!.checks).toEqual({ reconcile: 'hold', pairs: 'hold' });
     expect(silver.doc.gates!.posture).toEqual({ ...doc.gates!.posture, checks: { reconcile: 'hold', pairs: 'hold' } });
-    expect(silver.doc.notebooks!.find((n) => n.path === 'posture.nb.ts')!.source).toContain("needs: { when: { key_rotation: 'pass' }, then: { encryption: ['pass', 'exception', 'not_assessed'] } }, reconcile: { key: 'app_id', of: apps } });");
+    expect(silver.doc.notebooks!.find((n) => n.path === 'posture.nb.ts')!.source).toContain("export const posture_gate = gate(posture, { layer: 'silver', checks: { reconcile: 'hold', pairs: 'hold' }, reconcile: { key: 'app_id', of: apps } });");
     await agrees(silver.doc);
     // The WAF's cell is its layer alone: a toggle writes its first check beside it.
     const waf = toggleCheck(doc, 'waf', 'forest', 'off');

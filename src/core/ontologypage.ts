@@ -22,7 +22,7 @@ import { ACTION_SAID, checkStepOf, ruleOn, rulesOf, ruleSaid, type OntologyRule 
  * history, fixed once set or rolling over those days, and a rule the app discovered in the data.
  */
 
-/** How a rule over loose ids (`ObjectType.ids`) says so. */
+/** How a rule over loose ids (a rows entry's or a gate cell's scope's `ids`, Q-176) says so. */
 const LOOSE_SAID = '; an id is the same whatever its case and the spaces around it';
 export type RuleOrigin =
   | { how: 'set'; in: 'ontology' | 'notebook' }
@@ -213,7 +213,8 @@ export function ontologyPage(doc: PageDoc, columns: (file: string) => readonly s
       const then = listed(n.then).map(([c, vs]) => `${title(id, c)} must be ${either(vs.map((v) => word(id, c, v)))}`).join(' and ');
       // The columns of this file it names: what must hold, and the condition's where that is read here.
       const about = [...new Set([...(n.from ? [] : Object.keys(n.when)), ...Object.keys(n.then)])];
-      rules.push({ id: `${id}/needs#${k + 1}`, kind: 'needs', said: `Where ${where(from, listed(n.when))}${n.from ? ` in ${n.from}` : ''}, ${then}`, ...(n.from ? { against: n.from, againstSaid: n.from } : {}), columns: about, origin: { how: 'set', in: 'notebook' }, ...quiet('needs') });
+      // Written once in the ontology (Q-119), or in the gate cell, which may override one of the ontology's.
+      rules.push({ id: `${id}/needs#${k + 1}`, kind: 'needs', said: `Where ${where(from, listed(n.when))}${n.from ? ` in ${n.from}` : ''}, ${then}${n.overrides ? ` (the notebook’s, in place of the ontology’s ${n.overrides})` : ''}`, ...(n.from ? { against: n.from, againstSaid: n.from } : {}), columns: about, origin: { how: 'set', in: n.written === 'gate' ? 'notebook' : 'ontology' }, ...quiet('needs') });
     });
 
     // The rules people set on this file's columns (rules.ts): enforced by the check step that reads the file, said as

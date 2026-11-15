@@ -174,7 +174,6 @@
         "key": [
           "app_id"
         ],
-        "ids": "loose",
         "title": "name",
         "description": "An application of the CMDB: what every evidence feed’s rows are one each of. Its id is the same whatever its case and the spaces around it, as silver conforms it"
       },
@@ -437,6 +436,7 @@
       {
         "dataset": "tls",
         "of": "application",
+        "ids": "loose",
         "where": {
           "exposure": [
             "internet",
@@ -451,6 +451,7 @@
       {
         "dataset": "waf",
         "of": "application",
+        "ids": "loose",
         "where": {
           "exposure": "internet",
           "hosting": [
@@ -466,6 +467,7 @@
       {
         "dataset": "pentest_schedule",
         "of": "application",
+        "ids": "loose",
         "where": {
           "exposure": [
             "internet",
@@ -484,6 +486,7 @@
       {
         "dataset": "encryption",
         "of": "application",
+        "ids": "loose",
         "where": {
           "datastore": "yes",
           "lifecycle": [
@@ -495,6 +498,7 @@
       {
         "dataset": "key_rotation",
         "of": "application",
+        "ids": "loose",
         "where": {
           "data_class": [
             "pci",
@@ -510,6 +514,7 @@
       {
         "dataset": "backup_jobs",
         "of": "application",
+        "ids": "loose",
         "where": {
           "datastore": "yes",
           "hosting": [
@@ -525,6 +530,7 @@
       {
         "dataset": "dr_exercises",
         "of": "application",
+        "ids": "loose",
         "where": {
           "tier": "1",
           "lifecycle": [
@@ -536,6 +542,7 @@
       {
         "dataset": "mfa",
         "of": "application",
+        "ids": "loose",
         "where": {
           "lifecycle": [
             "active",
@@ -546,6 +553,7 @@
       {
         "dataset": "access_reviews",
         "of": "application",
+        "ids": "loose",
         "where": {
           "data_class": [
             "pci",
@@ -561,6 +569,7 @@
       {
         "dataset": "logging_coverage",
         "of": "application",
+        "ids": "loose",
         "where": {
           "hosting": [
             "cloud",
@@ -575,6 +584,7 @@
       {
         "dataset": "privileged_vault",
         "of": "application",
+        "ids": "loose",
         "where": {
           "tier": [
             "1",
@@ -589,6 +599,7 @@
       {
         "dataset": "edr_coverage",
         "of": "application",
+        "ids": "loose",
         "where": {
           "hosting": [
             "cloud",
@@ -599,6 +610,42 @@
             "retiring"
           ]
         }
+      },
+      {
+        "dataset": "dim_org",
+        "of": "org_unit"
+      },
+      {
+        "dataset": "dim_control",
+        "of": "control"
+      },
+      {
+        "dataset": "app_scorecard",
+        "of": "application"
+      }
+    ],
+    "needs": [
+      {
+        "id": "rotation_needs_encryption",
+        "datasets": [
+          "posture_wide"
+        ],
+        "from": "key_rotation",
+        "key": "app_id",
+        "when": {
+          "status": "pass"
+        },
+        "then": {
+          "encryption": [
+            "pass",
+            "excepted",
+            "compensated",
+            "not_assessed",
+            "no_data",
+            "not_applicable"
+          ]
+        },
+        "description": "Where key rotation reports a pass, encryption at rest mustn’t be failing: there would be no managed key to rotate, so one of the two feeds is wrong"
       }
     ],
     "properties": [

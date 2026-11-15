@@ -450,7 +450,7 @@ export function emitRuleCheck(rule: { column: string; kind: 'required' | 'oneOf'
   }
 }
 
-/** An id as a loose type compares it (`ObjectType.ids`): whatever its case and the spaces around it. */
+/** An id as a loose check compares it (`ids: 'loose'`, Q-176): whatever its case and the spaces around it. */
 const loosened = (column: string): string => `upper(trim(${column}))`;
 
 /**

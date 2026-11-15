@@ -8,7 +8,7 @@
 import { calendarProblems, EVERIES, isEvery, type CalendarDef, type Every } from './calendar.js';
 import type { AcceptedBand, ColumnChange, RuleInput } from './flowedit.js';
 import { CHECK_MODES, CHECK_NAMES, gateProblems, type CheckMode, type CheckName, type GateDef } from './gates.js';
-import { marksVerdicts, ROWS_FIELDS, type Ontology } from './ontology.js';
+import { marksVerdicts, NEEDS_FIELDS, ROWS_FIELDS, type Ontology } from './ontology.js';
 import { FIX_KINDS, rulesIssues } from './rules.js';
 import { DECIDE, DECIDE_OPTIONS, type Policies } from './policy.js';
 import type { ParamType, ParamValue } from './sqltext.js';
@@ -993,7 +993,8 @@ function validateExtras(doc: Record<string, unknown>, ids: Map<string, string>, 
         if (types.has(t.id)) add(`$.ontology.objectTypes[${i}].id`, `duplicate object type ${t.id}`);
         types.add(t.id);
         if (!known(t.dataset)) add(`$.ontology.objectTypes[${i}].dataset`, `no source or step ${String(t.dataset)}`);
-        if (t.ids !== undefined && t.ids !== 'exact' && t.ids !== 'loose') add(`$.ontology.objectTypes[${i}].ids`, 'exact, or loose: the same id whatever its case and the spaces around it');
+        // How ids match is said by each check that counts objects (Q-176, ADR 0022 §3), no longer once on the type.
+        if (t.ids !== undefined) add(`$.ontology.objectTypes[${i}].ids`, 'said by each check that counts objects now (Q-176): a rows entry’s ids, or a gate cell’s scope’s');
       });
       o.linkTypes.forEach((l: unknown, i: number) => {
         if (!isRecord(l) || !types.has(String(l.from)) || !types.has(String(l.to))) add(`$.ontology.linkTypes[${i}]`, 'a link between two object types');
@@ -1100,8 +1101,9 @@ function validateExtras(doc: Record<string, unknown>, ids: Map<string, string>, 
             if (!known(r.dataset)) add(`${at}.dataset`, `no source or step ${r.dataset}`);
             else if (tied.has(r.dataset.toLowerCase())) add(`${at}.dataset`, `${r.dataset} has two entries (ids are compared without case): a dataset’s rows are one thing`);
             // An entry on a dataset nothing watches is taken: it says what the rows are, and gives no rule until a watch
-            // judges the dataset (a flow is run with no publish block while a step's history is built). What reads the
-            // entry says so ("not watched"), never that it was checked.
+            // judges the dataset (a flow is run with no publish block while a step's history is built), but for a
+            // published table's key, which its gold gate reconciles by (Q-118). What reads the entry says so ("not
+            // watched"), never that it was checked.
             tied.add(r.dataset.toLowerCase());
             const type = objectTypes.find((t: unknown) => isRecord(t) && t.id === r.of) as Record<string, unknown> | undefined;
             // The type's key is what both rules count by: column names, or the plan has nothing the engine can read.
@@ -1109,6 +1111,7 @@ function validateExtras(doc: Record<string, unknown>, ids: Map<string, string>, 
             if (!type) add(`${at}.of`, `no object type ${r.of}`);
             else if (!keyed) add(`${at}.of`, `${r.of}’s key isn’t a list of column names: a dataset’s rows are counted by the type’s key column`);
             else if (typeof type.dataset === 'string' && known(type.dataset) && !sources.has(type.dataset.toLowerCase())) add(`${at}.of`, `${r.of}'s objects are ${type.dataset}, a step: a dataset’s rows are counted against a type whose objects are a source, which is there before the run`);
+            if (r.ids !== undefined && r.ids !== 'exact' && r.ids !== 'loose') add(`${at}.ids`, 'exact, or loose: the same id whatever its case and the spaces around it, for this entry’s scope and one row an object');
             if (r.key !== undefined && (typeof r.key !== 'string' || r.key === '')) add(`${at}.key`, 'this dataset’s own name for the type’s key column');
             // A key of several columns gives no rule yet (ADR 0015 §1), so a name for one of them here would go unused.
             else if (r.key !== undefined && keyed && (type!.key as string[]).length > 1) add(`${at}.key`, `${r.of}’s key is several columns (${(type!.key as string[]).join(', ')}), which gives no rule yet: a name for it here would go unused`);
@@ -1124,6 +1127,41 @@ function validateExtras(doc: Record<string, unknown>, ids: Map<string, string>, 
             }
           });
           if (!(isRecord(doc.gates) && Object.keys(doc.gates).length > 0)) add('$.ontology.rows', 'what a dataset’s rows are is a gate’s written check (ADR 0015): the flow has no gate');
+        }
+      }
+      // The dependencies written once (Q-119): each applied wherever its datasets are judged, as a gate cell's needs are.
+      if (o.needs !== undefined) {
+        if (!Array.isArray(o.needs)) add('$.ontology.needs', 'a list of { id, datasets, from?, key?, when, then, description? }: the dependencies each dataset is judged by');
+        else {
+          const sources = new Set((Array.isArray(doc.sources) ? doc.sources : []).filter((s: unknown) => isRecord(s) && typeof s.id === 'string').map((s: Record<string, unknown>) => String(s.id).toLowerCase()));
+          const values = (v: unknown) => (typeof v === 'string' && v !== '') || (Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === 'string' && x !== '') && new Set(v).size === v.length);
+          const condition = (m: unknown) => isRecord(m) && Object.keys(m).length > 0 && Object.keys(m).every((c) => c !== '') && Object.values(m).every(values) && new Set(Object.keys(m).map((c) => c.toLowerCase())).size === Object.keys(m).length;
+          const ids = new Set<string>();
+          o.needs.forEach((n: unknown, i: number) => {
+            const at = `$.ontology.needs[${i}]`;
+            if (!isRecord(n)) return add(at, '{ id, datasets, from?, key?, when, then, description? }: its name, the datasets it applies to, and the condition a row meets and what it then needs');
+            for (const k of Object.keys(n)) if (!(NEEDS_FIELDS as readonly string[]).includes(k)) add(`${at}.${k}`, `${k} isn't a needs rule's setting (${NEEDS_FIELDS.join(', ')}): refused rather than ignored`);
+            if (typeof n.id !== 'string' || !/^[a-z][a-z0-9_]*$/.test(n.id)) add(`${at}.id`, 'its name: lowercase letters, digits and underscores, starting with a letter');
+            else if (ids.has(n.id)) add(`${at}.id`, `${n.id} names two rules: each rule has its own name`);
+            else ids.add(n.id);
+            if (!Array.isArray(n.datasets) || n.datasets.length === 0 || n.datasets.some((d: unknown) => typeof d !== 'string')) add(`${at}.datasets`, 'the sources or steps it applies to, a list');
+            else {
+              const seen = new Set<string>();
+              n.datasets.forEach((d: string, j: number) => {
+                if (!known(d)) add(`${at}.datasets[${j}]`, `no source or step ${d}`);
+                else if (seen.has(d.toLowerCase())) add(`${at}.datasets[${j}]`, `${d} is listed twice (ids are compared without case)`);
+                seen.add(d.toLowerCase());
+              });
+            }
+            if (!condition(n.when)) add(`${at}.when`, '{ column: value | values }: the rows the rule is about, every column to hold, a list any of its values (each once)');
+            if (!condition(n.then)) add(`${at}.then`, '{ column: value | values }: what those rows need, every column to hold, a list any of its values (each once)');
+            // Read on another dataset's row: a source, there before the run, by a key column both name alike.
+            if (n.from !== undefined && (typeof n.from !== 'string' || !sources.has(n.from.toLowerCase()))) add(`${at}.from`, `${String(n.from)} isn't a source: a condition is read on a source’s row, which is there before the run`);
+            if ((n.from === undefined) !== (n.key === undefined)) add(`${at}.${n.from === undefined ? 'key' : 'from'}`, 'from and key go together: the source the condition is read on, and the key column its rows share with the dataset’s');
+            else if (n.key !== undefined && (typeof n.key !== 'string' || n.key === '')) add(`${at}.key`, 'the key column the source’s rows share with the dataset’s');
+            if (n.description !== undefined && typeof n.description !== 'string') add(`${at}.description`, 'why it holds, for people: text');
+          });
+          if (!(isRecord(doc.gates) && Object.keys(doc.gates).length > 0)) add('$.ontology.needs', 'a dependency is a gate’s written check (ADR 0014 §4): the flow has no gate');
         }
       }
       // A shared ontology is brought in when the flow is read (shared.ts): a document still listing paths wasn't.

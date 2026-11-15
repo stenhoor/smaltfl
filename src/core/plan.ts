@@ -186,7 +186,7 @@ export interface WatchPlan {
 export interface ReconcilePlan {
   key: string[];
   table: string | null;
-  /** Ids compared whatever their case and the spaces around them (`ObjectType.ids`); only when so, so every plan made
+  /** Ids compared whatever their case and the spaces around them (a check's `ids`, Q-176); only when so, so every plan made
    * before it hashes as it did. */
   loose?: true;
 }
@@ -195,7 +195,8 @@ export interface ReconcilePlan {
  * the other node by its place in the plan. The run counts it over the dataset it built. */
 export interface GatePlan {
   checks: GateChecks;
-  reconcile: { key: string[]; of: number | null } | null;
+  /** The key the rows reconcile by, the other node, and `loose` only where the ontology's rows entry says its ids are (Q-176). */
+  reconcile: { key: string[]; of: number | null; loose?: true } | null;
 }
 
 /**
@@ -215,7 +216,7 @@ export interface ScopePlan {
   key: string;
   own: string;
   where: string;
-  /** Ids compared whatever their case and the spaces around them (`ObjectType.ids`); only when so. */
+  /** Ids compared whatever their case and the spaces around them (a check's `ids`, Q-176); only when so. */
   loose?: true;
 }
 
@@ -457,11 +458,13 @@ export async function translate(given: FlowDocument, values: Readonly<Record<str
   const watch = entries.map((e): [number, WatchPlan] => [e.node, { ...watchPlan(e.w, e.id, p.period ?? null, doc.ontology, gates), ...(gates ? { checks: gateChecksOf(doc, e.id)!, ...rulesOf(e.id) } : {}) }]);
   // The gates on published nodes the plan doesn't watch (ADR 0014 §6): the run counts their reconciliation itself.
   const watchedNodes = new Set(entries.map((e) => e.node));
+  // A gold table's key (Q-118): the gate cell's where it writes one, else the ontology's rows entry for the table, its
+  // type's key by the table's own name for it (`writtenRules`).
   const goldGates = gates
     ? outputs.filter((o) => !watchedNodes.has(o.node) && gateChecksOf(doc, o.name)).map((o): [number, GatePlan] => {
-      const g = Object.entries(doc.gates ?? {}).find(([k]) => k.toLowerCase() === o.name.toLowerCase())?.[1];
-      const of = g?.reconcile?.of ? index.get(g.reconcile.of.toLowerCase()) : undefined;
-      return [o.node, { checks: gateChecksOf(doc, o.name)!, reconcile: g?.reconcile ? { key: [...g.reconcile.key], of: of ?? null } : null }];
+      const rc = writtenRules(doc, o.name).reconcile;
+      const of = rc?.of ? index.get(rc.of.toLowerCase()) : undefined;
+      return [o.node, { checks: gateChecksOf(doc, o.name)!, reconcile: rc ? { key: [...rc.key], of: of ?? null, ...(rc.loose ? { loose: true as const } : {}) } : null }];
     }).sort((a, b) => a[0] - b[0])
     : [];
   // The contracts (Q-171): what the run checks of each, only where the document declares any, so every other plan hashes
@@ -669,7 +672,7 @@ function validatePublish2(p: FlowPlan, fail: (message: string) => never, gated =
       const c = g.checks as Record<string, unknown> | null;
       if (typeof c !== 'object' || c === null || Object.keys(c).sort().join() !== [...CHECK_NAMES].sort().join() || Object.values(c).some((m) => m !== 'hold' && m !== 'warn' && m !== 'off')) fail(`publish.gates[${i}].checks is every check, each hold, warn or off`);
       const rc = g.reconcile as Record<string, unknown> | null;
-      if (rc !== null && (typeof rc !== 'object' || !Array.isArray(rc.key) || (rc.key as unknown[]).length === 0 || (rc.key as unknown[]).some((k) => typeof k !== 'string') || !(rc.of === null || (Number.isInteger(rc.of) && p.nodes[rc.of as number])) || Object.keys(rc).sort().join() !== 'key,of')) fail(`publish.gates[${i}].reconcile is null or { key, of }`);
+      if (rc !== null && (typeof rc !== 'object' || !Array.isArray(rc.key) || (rc.key as unknown[]).length === 0 || (rc.key as unknown[]).some((k) => typeof k !== 'string') || !(rc.of === null || (Number.isInteger(rc.of) && p.nodes[rc.of as number])) || !(Object.keys(rc).sort().join() === 'key,of' || (rc.loose === true && Object.keys(rc).sort().join() === 'key,loose,of')))) fail(`publish.gates[${i}].reconcile is null or { key, of, loose? }`);
       if (Object.keys(g).sort().join() !== 'checks,reconcile') fail(`publish.gates[${i}] is { checks, reconcile }`);
     });
   }
@@ -725,7 +728,7 @@ function validatePublish2(p: FlowPlan, fail: (message: string) => never, gated =
       rows('expect', (r) => r.length === 4 && typeof r[1] === 'string' && typeof r[2] === 'number' && typeof r[3] === 'number' && (r[2] as number) >= 0 && (r[2] as number) <= (r[3] as number) && (r[3] as number) <= 1);
       rows('due', (r) => r.length === 4 && typeof r[1] === 'string' && typeof r[2] === 'string' && Number.isInteger(r[3]) && (r[3] as number) >= 1);
       const sc = w.scope as Record<string, unknown> | null;
-      // `loose` only where ids are (`ObjectType.ids`), and then true.
+      // `loose` only where a check says its ids are (Q-176), and then true.
       const loose = (x: Record<string, unknown>, fields: string) => Object.keys(x).sort().join() === fields || (x.loose === true && Object.keys(x).filter((k) => k !== 'loose').sort().join() === fields);
       if (sc !== null && (typeof sc !== 'object' || typeof sc.table !== 'string' || typeof sc.key !== 'string' || typeof sc.own !== 'string' || typeof sc.where !== 'string' || !loose(sc, 'key,own,table,where'))) fail(`${at}.scope is null or { table, key, own, where, loose? }`);
       const match = (m: unknown) => Array.isArray(m) && m.length > 0 && m.every((x) => Array.isArray(x) && x.length === 2 && typeof x[0] === 'string' && Array.isArray(x[1]) && (x[1] as unknown[]).length > 0 && (x[1] as unknown[]).every((v) => typeof v === 'string'));

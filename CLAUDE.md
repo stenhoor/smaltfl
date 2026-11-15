@@ -241,8 +241,8 @@ release (smaltty ADR 0030).
   feed as one long table; the vulnerability SLA told from the ledger) and `posture.nb.ts` (what applies, coverage, the
   effective status with its reason, remediation, `platform_impact`, `posture_wide` with the key-rotation needs rule).
   Watched in the engine: `apps`, `effective`, `posture_wide`, `platform_impact`, `shadow_assets` (the world builds their
-  histories from runs of the flow, `stepsFrom`). An object type's `ids: 'loose'` (Q-176) matches ids whatever their
-  case and spaces in the scope and the ontology's one row an object (`looseIds`, `emitScopeCounts`); `publish.reach:
+  histories from runs of the flow, `stepsFrom`). Loose ids (Q-176, said per check since ADR 0022: a rows entry's or a
+  gate cell's scope's `ids: 'loose'`) match whatever their case and spaces (`emitScopeCounts`, `emitReconcileCounts`); `publish.reach:
   'downstream'` (Q-177) makes a step's hold reach the outputs built from it (`reachOf`); a refused file holds every
   output, since nothing was built. Slice 4, gold (first part): `product.nb.ts`, Control Posture v1 (`dim_org`,
   `dim_app` with Unassigned and Unregistered, `dim_control`, `fact_control_status`, `fact_finding`, `app_scorecard`,
@@ -369,7 +369,12 @@ release (smaltty ADR 0030).
   has the name (`readAsIn`, `pinnedHeaders`; the recorder's `headers`), and the run reads a file back on the column's
   own name as declared. The owner's rename form says where the column is used and carries the change to the datasets
   that pass it on (`nameColumnThrough` in flowedit.ts). The control estate plants TLS's app_id called AppID on Mon Mar 18
-  (`ESTATE_PLANTED.renamed`; `tools/browser/stops/joins.json`).
+  (`ESTATE_PLANTED.renamed`; `tools/browser/stops/joins.json`). Slice 3, first part (Q-176, Q-118, Q-119): loose ids
+  said per check (a rows entry's `ids`, a gate cell's scope's `ids`; an object type's refused); a published table
+  nothing watches reconciles by the key its rows entry gives where its gate cell writes none (`goldGates` through
+  `writtenRules`, `GatePlan.reconcile.loose`; `test/reconcile.test.ts`); `ontology.needs` (`NeedsDef`, `needsOf`), each
+  rule written once with the datasets it applies to, a gate cell's rule about the same columns overriding it in place
+  and its others added (`needsFor`, `WrittenNeeds`; `test/scope-needs.test.ts`).
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -402,7 +407,10 @@ release (smaltty ADR 0030).
   (Q-86, Q-132, Q-84), and proposed declarations (Q-139). Slice 1 is built in two parts (its §"As built"). Slice 2,
   columns that change, was designed in the question prompt (Q-203 to Q-206, built as recommended); both its parts are
   built: a file whose columns changed, and a join column confirmed twice (Q-205) with the owner's own rename carried
-  through the steps. Slice 3, the ontology as the one place for rules (Q-176, Q-118, Q-119, Q-145, Q-144), is next.
+  through the steps. Slice 3, the ontology as the one place for rules (Q-176, Q-118, Q-119, Q-145, Q-144), is in two
+  parts: the first, the written rules in the ontology (loose ids per check, a gold key from a rows entry,
+  `ontology.needs`), is built; the second, drawings in the ontology's labels (Q-145) and a made dataset's rules on the
+  Ontology page (Q-144), is next.
 
 ## Rules for this repository
 
