@@ -1,7 +1,7 @@
 // Builds the app into dist/app: page.html (the page's content; the artifact host adds the document skeleton), index.html
 // (the same page as a document, for a static host such as GitHub Pages),
 // app.js (the page), worker.js (the engine worker), inline.js (the engine in the page, for browsers without the
-// worker), and data/ (a flow's files, listed in data/loads.json, format 2: each source's binding with its file or its
+// worker), parse.js (smaltql's SQL parser, loaded when a screen asks where a column is used), and data/ (a flow's files, listed in data/loads.json, format 2: each source's binding with its file or its
 // daily loads and the days a paused one may be filled from, and each watched source's history, ADR 0010 §9).
 //
 //   node scripts/build-app.mjs            the example (examples/nyc-taxis-weather/, its notebooks expanded, ADR 0011):
@@ -109,12 +109,12 @@ if (manifest) {
 // The app is built knowing the list it may trust (its commit, hash and size), so a loads.json beside it that names
 // another is refused: the files, the list and loads.json can't be swapped together without rebuilding the app.
 const builtData = manifestBytes ? { commit: data, manifest: sha256(manifestBytes), bytes: manifestBytes.length } : null;
-await build({ ...common, define: { ...common.define, __SMALTFL_DATA__: JSON.stringify(builtData) }, entryPoints: { app: 'src/app/main.ts', worker: 'src/app/worker.ts', inline: 'src/app/inline.ts' }, outdir: out });
+await build({ ...common, define: { ...common.define, __SMALTFL_DATA__: JSON.stringify(builtData) }, entryPoints: { app: 'src/app/main.ts', worker: 'src/app/worker.ts', inline: 'src/app/inline.ts', parse: 'src/app/parse.ts' }, outdir: out });
 // The bundles named by their content (app.3f2a9c1d.js), so a new build is never served from a browser's cache of the
 // last one under the same name: the page's script tag and the page's references to the worker and the in-page engine
-// take the new names.
+// take the new names; so does its reference to the SQL parser, loaded when a screen asks where a column is used.
 const hashed = {};
-for (const name of ['worker', 'inline', 'app']) {
+for (const name of ['worker', 'inline', 'parse', 'app']) {
   let js = readFileSync(`${out}/${name}.js`, 'utf8');
   for (const [from, to] of Object.entries(hashed)) js = js.split(`./${from}.js`).join(`./${to}`);
   const to = `${name}.${sha256(Buffer.from(js)).slice(0, 8)}.js`;

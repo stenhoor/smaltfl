@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { validateDocument, withoutDisplay, type FlowDocument } from '../src/core/document.js';
-import { applyBand, asShipped, keptOf, mapColumn, nameColumn, restoreKept, stepsPrint, type FlowEdit } from '../src/core/flowedit.js';
+import { applyBand, asShipped, keptOf, mapColumn, nameColumn, nameColumnThrough, restoreKept, stepsPrint, type FlowEdit } from '../src/core/flowedit.js';
 import { toggleCheck } from '../src/core/gatecell.js';
 import { expandNotebooks } from '../src/core/notebook.js';
 import { marksOn, meaningBeyond, plainOf, propertyOf, readAsOf, saysMore, type Ontology, type PropertyType } from '../src/core/ontology.js';
@@ -180,6 +180,27 @@ describe('a column renamed in one file', () => {
     const { ontology: _none, ...bare } = doc;
     const made = nameColumn(bare as FlowDocument, 'left', 'code', { title: 'Short code' });
     expect(made.doc.ontology).toEqual({ objectTypes: [], linkTypes: [], actionTypes: [], properties: [{ column: 'code', title: 'Short code', description: '', datasets: ['left'] }] });
+  });
+});
+
+describe('a rename carried through the steps that pass the column on (ADR 0022 §2, Q-146)', () => {
+  it('writes the same change for each one, said once with where it went, and moves no mark and no plan', async () => {
+    const doc = await estate();
+    // Where columnUses finds TLS's status passed on under its name: its check step.
+    const { doc: next, said } = nameColumnThrough(doc, 'tls', 'status', { title: 'Result', values: { fail: 'Broken' } }, ['tls_checked']);
+    expect(said).toBe('Renamed status to Result and labelled status’s fail as Broken in tls, carried to tls_checked');
+    expect(validateDocument(next)).toEqual([]);
+    expect(props(next, 'status').map((p) => [p.title, p.datasets?.join() ?? null]).sort()).toEqual([['Result', 'tls'], ['Result', 'tls_checked'], ['Status', null]]);
+    for (const d of ['tls', 'tls_checked']) expect(propertyOf(next.ontology, d, 'status')).toMatchObject({ title: 'Result', values: { fail: 'Broken' } });
+    // The posture reads it under another name (tls): not carried, the dictionary's name there.
+    expect(propertyOf(next.ontology, 'posture', 'status')!.title).toBe('Status');
+    for (const s of doc.sources) expect(marksOn(next.ontology, s.id), s.id).toEqual(marksOn(doc.ontology, s.id));
+    for (const st of doc.steps) expect(marksOn(next.ontology, st.id), st.id).toEqual(marksOn(doc.ontology, st.id));
+    const [before, after] = [await translate(doc, { day: '2024-03-04' }), await translate(next, { day: '2024-03-04' })];
+    expect({ ...after, flow: null }).toEqual({ ...before, flow: null });
+    // Nothing to carry it to, or a dataset that already reads so: said as a rename in the file alone.
+    expect(nameColumnThrough(doc, 'tls', 'status', { title: 'Result' }, []).said).toBe('Renamed status to Result in tls');
+    expect(nameColumnThrough(next, 'tls', 'status', { title: 'Result', values: { fail: 'Broken' } }, ['tls_checked']).said).toBeNull();
   });
 });
 

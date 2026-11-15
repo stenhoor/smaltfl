@@ -449,7 +449,7 @@
  },
  {
   "name": "names-form",
-  "what": "Control estate, Wed Mar 6, as the owner: the WAF file's WAF mode card with its quiet Edit tapped: a small form in place of the card's body (the name, what it means, a label for each of its three values, Save and Cancel), with the file's own name for the column said under the name field (it never changes), and one line that a change is recorded and takes effect from the next run",
+  "what": "Control estate, Wed Mar 6, as the owner: the WAF file's WAF mode card with its quiet Edit tapped: a small form in place of the card's body (the name, what it means, a label for each of its three values, Save and Cancel), with the file's own name for the column said under the name field (it never changes), where the column is used (its check passes it on, ADR 0022 §2), and one line that a change is recorded and takes effect from the next run, for the file and the step that passes it on",
   "day": "Wed 6",
   "view": "ontology",
   "viewFirst": true,
@@ -457,7 +457,7 @@
    ".of-item[data-file=\"waf\"] .of-row",
    ".of-item.open .of-col[data-column=\"mode\"] .of-edit"
   ],
-  "waitFor": ".of-item.open .of-form",
+  "waitFor": ".of-item.open .of-form .of-where[data-known]",
   "full": true,
   "expect": {
    "text": [
@@ -465,7 +465,7 @@
     "What it means",
     "A label for each value",
     "A label is shown where it says more than the value itself.",
-    "For waf only. A change is recorded, and takes effect from the next run.",
+    "Where it’s used: waf_checked passes it on.", "For waf, and waf_checked, which passes it on. A change is recorded, and takes effect from the next run.",
     "Save",
     "Cancel"
    ],
@@ -500,7 +500,7 @@
   "waitFor": ".of-item.open .of-col[data-column=\"status\"] .of-draw .colline",
   "full": true,
   "expect": {
-   "status": "^Renamed status to Result and labelled status’s fail as Broken in tls\\. Recorded; the next run uses it\\.$",
+   "status": "^Renamed status to Result and labelled status’s fail as Broken in tls, carried to tls_checked\\. Recorded; the next run uses it\\.$",
    "text": [
     "1 change to this flow, kept in this browser",
     "Renamed status to Result and labelled status’s fail as Broken in tls",
@@ -715,12 +715,12 @@
   "clicks": [
    ".of-item.open .of-col[data-column=\"mode\"] .of-edit"
   ],
-  "waitFor": ".of-item.open .of-form",
+  "waitFor": ".of-item.open .of-form .of-where[data-known]",
   "full": true,
   "expect": {
    "text": [
     "The file writes it as mode. That stays.",
-    "For waf only. A change is recorded, and takes effect from the next run. A day waiting for a decision is judged again when it next runs."
+    "Where it’s used: waf_checked passes it on.", "For waf, and waf_checked, which passes it on. A change is recorded, and takes effect from the next run. A day waiting for a decision is judged again when it next runs."
    ],
    "count": {
     ".of-form": 1,

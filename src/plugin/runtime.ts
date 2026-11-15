@@ -683,10 +683,15 @@ function headerChange(db: Database, n: TableNode, history: HistoryHeader | null)
   if (Number.isInteger(skip) && skip > 0) text = text.split(/\r?\n/).slice(skip).join('\n');
   const header = csvHeader(text, shape);
   if (!header.length) return null;
-  // A mapped column (ADR 0022 §2): its table declares the file's name, or it would be read by its place.
+  // A mapped column (ADR 0022 §2): its table declares the file's name, or it would be read by its place. A file that
+  // has the column's own name again (the export went back) is read as declared, its table declaring that name: the
+  // mapping reads a name the file gives, never one it doesn't.
+  const inHeader = new Set(header.map((h) => h.toLowerCase()));
   for (const [file, column] of n.readAs ?? []) {
     const named = new Set(s.columns.map((c) => c.name.toLowerCase()));
-    if (!named.has(file.toLowerCase())) throw new RunError(`${n.origin}'s table declares ${named.has(column.toLowerCase()) ? column : 'neither name'}, and the flow reads the file's ${file} as ${column}: its table declares ${file}`, n.origin);
+    if (named.has(file.toLowerCase())) continue;
+    if (named.has(column.toLowerCase()) && inHeader.has(column.toLowerCase()) && !inHeader.has(file.toLowerCase())) continue;
+    throw new RunError(`${n.origin}'s table declares ${named.has(column.toLowerCase()) ? column : 'neither name'}, and the flow reads the file's ${file} as ${column}: its table declares ${file}`, n.origin);
   }
   // The gone column's history is kept under its own name, the one the flow reads.
   const asRead = (col: string) => (n.readAs ?? []).find(([file]) => file.toLowerCase() === col.toLowerCase())?.[1] ?? col;

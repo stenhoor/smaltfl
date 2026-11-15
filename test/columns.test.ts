@@ -1,6 +1,6 @@
 // Columns that change (ADR 0022 §2; Q-109, Q-146, Q-203, Q-204): a file's header against its source's columns.
 import { describe, expect, it } from 'vitest';
-import { columnChange, columnChangeSaid, columnsHold, csvColumn, csvHeader, csvRecords, editDistance, familiesAgree, familyOf, historyValues, inferFamily, namesClose, wordsOf } from '../src/core/columns.js';
+import { columnChange, columnChangeSaid, columnsHold, csvColumn, csvHeader, csvRecords, editDistance, familiesAgree, familyOf, historyValues, inferFamily, namesClose, readAsIn, wordsOf } from '../src/core/columns.js';
 
 const DECLARED: [string, string][] = [['app_id', 'TEXT'], ['customer_id', 'TEXT'], ['region', 'TEXT'], ['amount', 'REAL'], ['seen_at', 'TIMESTAMP']];
 
@@ -115,6 +115,16 @@ describe('a file\'s columns against its source\'s (Q-109, Q-146, Q-203, Q-204)',
     expect(c.maps).toEqual([{ from: 'customer_ids', to: 'customer_id', by: ['name', 'type', 'values'], share: 1 }]);
     expect(c.added).toEqual(['custmer_id']);
     expect(columnChangeSaid(c)).toBe("customer_id is gone and customer_ids is new: customer_ids looks like customer_id (its name, type and 100% of its values); can't tell why custmer_id is new");
+  });
+});
+
+describe('the mappings a table is declared by for a day (ADR 0022 §2)', () => {
+  it('keeps a mapping whose name the day\'s file gives, and reads a file back on the column\'s own name as declared', () => {
+    const readAs: [string, string][] = [['AppID', 'app_id'], ['state', 'status']];
+    expect(readAsIn(readAs, ['appid', 'state', 'protocol'])).toEqual(readAs);
+    expect(readAsIn(readAs, ['app_id', 'state', 'protocol'])).toEqual([['state', 'status']]);
+    expect(readAsIn(readAs, ['app_id', 'protocol'])).toEqual([]);
+    expect(readAsIn(readAs, null)).toEqual(readAs);
   });
 });
 

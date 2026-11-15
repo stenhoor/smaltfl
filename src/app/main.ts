@@ -53,9 +53,10 @@ import { scoreSpark, scoreTrend, type ScorePoint, rowFlow, differenceMeter, file
 import { sha256Hex } from '../core/hash.js';
 import { LEVEL_NAME, leaderSaid, postureTree, scoreSaid, trendSaid, unitCounts, type PostureNode } from '../core/posture.js';
 import { counted, glossOf, meaningOf, nounOf as ontologyNoun, propertyOf, readAsOf, saysMore, type Edit, type Noun, type PropertyType } from '../core/ontology.js';
-import { columnChangeSaid, columnsHold, type ColumnMap } from '../core/columns.js';
+import { columnChangeSaid, columnsHold, csvColumn, csvHeader, readAsIn, type ColumnMap } from '../core/columns.js';
+import { columnUses, joinImpactSaid, joinMatch, usesSaid, type ColumnUses, type JoinUse, type ParseSql } from '../core/uses.js';
 import { ontologyPage, originSaid, typesShown, type ColumnCard, type FileSection, type Rule } from '../core/ontologypage.js';
-import { applyBand, asShipped, keptOf as keptFlow, nameColumn, restoreKept, setRule, type FlowEdit, type RuleInput } from '../core/flowedit.js';
+import { applyBand, asShipped, keptOf as keptFlow, nameColumn, nameColumnThrough, restoreKept, setRule, type FlowEdit, type RuleInput } from '../core/flowedit.js';
 import { sharedOf } from '../core/shared.js';
 import { fixesOf, fixOfDonor, type FixKind } from '../core/rules.js';
 import { ACTION_SAID, checkStepOf, RULE_ACTIONS, ruleOn, rulesOf, ruleSaid, type OntologyRule, type OntologyRuleKind, type RuleAction } from '../core/rules.js';
@@ -10735,6 +10736,18 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
   const labels = shown.map((value, k) => ({ value, input: h('input', { type: 'text', id: `${uid}-v${k}`, value: saysMore(had.get(value), value) ? had.get(value)! : '', maxlength: '60', placeholder: 'No label', autocomplete: 'off', autocapitalize: 'sentences' }) }));
   const err = h('p', { class: 'of-err', role: 'alert', hidden: true });
   const save = h('button', { type: 'submit', class: 'btn of-save' }, 'Save');
+  // Where the column is used (ADR 0022 §2, Q-146), joins first: a change is the file's own, and goes on to the datasets
+  // that pass the column on under its name, so a step's output reads as the file does.
+  const scope = (through: readonly string[]) => `For ${f.id}${through.length ? `, and ${listed(through)}, which ${through.length === 1 ? 'passes' : 'pass'} it on` : ' only'}. A change is recorded, and takes effect from the next run.${anyDayWaits() ? ` ${WAITS_AGAIN}` : ''}`;
+  const where = h('p', { class: 'of-hint of-where' }, 'Finding where it’s used…');
+  const forWhom = h('p', { class: 'of-hint of-scope' }, scope([]));
+  void usesReady(f.id, c.name).then((u) => {
+    if (!u) return void where.remove();
+    const said = usesSaid(u);
+    where.textContent = said ? `Where it’s used: ${said}` : 'No step uses it.';
+    where.dataset.known = '1';
+    forWhom.textContent = scope(u.carried.slice(1));
+  });
   const form = h('form', { class: 'of-form', 'aria-label': `Edit ${c.title} in ${f.id}`, novalidate: true },
     h('div', { class: 'of-field' }, h('label', { for: name.id }, 'Name'), name,
       h('p', { class: 'of-hint' }, 'The file writes it as ', h('code', {}, ...breakable(c.name)), '. That stays.')),
@@ -10743,38 +10756,42 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
       ...labels.map((x) => h('div', { class: 'of-val' }, h('label', { for: x.input.id }, h('code', {}, ...breakable(x.value))), x.input)),
       all.length > shown.length ? h('p', { class: 'of-hint' }, `The first ${shown.length} of ${fmtInt(all.length)} values.`) : null,
       h('p', { class: 'of-hint' }, 'A label is shown where it says more than the value itself.')) : null,
-    h('p', { class: 'of-hint' }, `For ${f.id} only. A change is recorded, and takes effect from the next run.${anyDayWaits() ? ` ${WAITS_AGAIN}` : ''}`),
+    where,
+    forWhom,
     err,
     h('div', { class: 'of-acts' }, save, h('button', { type: 'button', class: 'btn quiet', onclick: close }, 'Cancel')));
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    if (!isOwner()) return;
-    // A run under way was started on the flow as it was: the change waits for it, so run and record agree.
-    if (state.running) {
-      err.textContent = 'The flow is running. Save again when the run has ended.';
-      err.hidden = false;
-      return;
-    }
-    const change = { title: name.value, description: mean.value, values: Object.fromEntries(labels.map((x) => [x.value, x.input.value])) };
-    const { doc, said } = nameColumn(state.doc, f.id, c.name, change);
-    if (!said) return close();
-    const issues = validateDocument(doc);
-    if (issues.length) {
-      err.textContent = `That can’t be saved: ${issues[0]!.message}.`;
-      err.hidden = false;
-      return;
-    }
-    save.disabled = true;
-    // A name or a label is how people read the column, not a rule its data is held to (ADR 0021 §5): it takes effect at
-    // once, on every day, in the rules before any change set.
-    ruleBase = ruleParts(nameColumn(withRuleParts(state.doc, ruleBase), f.id, c.name, change).doc);
-    resolveDoc(resolvedFor.day, resolvedFor.asOf, true);
-    setStatus(`${said}. Recorded; the next run uses it.`, false);
-    void flowEdited(said);
-    requestCanvas();
-    if (state.selected) void renderSheet();
-    // The page drawn again from the edited document, the card that was edited brought back under the eye.
-    void renderOntology().then(() => requestAnimationFrame(() => Array.from(document.querySelectorAll<HTMLElement>('#ontology-files .of-item.open .of-col')).find((el) => el.dataset.column === c.name)?.scrollIntoView({ block: 'nearest' })));
+    void (async () => {
+      if (!isOwner()) return;
+      // A run under way was started on the flow as it was: the change waits for it, so run and record agree.
+      if (state.running) {
+        err.textContent = 'The flow is running. Save again when the run has ended.';
+        err.hidden = false;
+        return;
+      }
+      const change = { title: name.value, description: mean.value, values: Object.fromEntries(labels.map((x) => [x.value, x.input.value])) };
+      const through = (await usesReady(f.id, c.name))?.carried.slice(1) ?? [];
+      const { doc, said } = nameColumnThrough(state.doc, f.id, c.name, change, through);
+      if (!said) return close();
+      const issues = validateDocument(doc);
+      if (issues.length) {
+        err.textContent = `That can’t be saved: ${issues[0]!.message}.`;
+        err.hidden = false;
+        return;
+      }
+      save.disabled = true;
+      // A name or a label is how people read the column, not a rule its data is held to (ADR 0021 §5): it takes effect at
+      // once, on every day, in the rules before any change set.
+      ruleBase = ruleParts(nameColumnThrough(withRuleParts(state.doc, ruleBase), f.id, c.name, change, through).doc);
+      resolveDoc(resolvedFor.day, resolvedFor.asOf, true);
+      setStatus(`${said}. Recorded; the next run uses it.`, false);
+      void flowEdited(said);
+      requestCanvas();
+      if (state.selected) void renderSheet();
+      // The page drawn again from the edited document, the card that was edited brought back under the eye.
+      void renderOntology().then(() => requestAnimationFrame(() => Array.from(document.querySelectorAll<HTMLElement>('#ontology-files .of-item.open .of-col')).find((el) => el.dataset.column === c.name)?.scrollIntoView({ block: 'nearest' })));
+    })();
   });
   return form;
 }
@@ -12071,6 +12088,9 @@ function makePart(): HTMLElement | null {
 
 /** How each source's table was last defined: the columns it reads by the file's other name (ADR 0022 §2), as JSON. */
 const tableReadAs = new Map<string, string>();
+/** The header of each source's file as last pinned, where it is a CSV file: what its table is declared by. */
+const pinnedHeaders = new Map<string, string[]>();
+const headerOfBytes = (id: string, bytes: Uint8Array): string[] | null => (/^(csv|tsv)$/i.test(bindingOf(id)?.format ?? '') ? csvHeader(new TextDecoder().decode(bytes.subarray(0, 1 << 16))) : null);
 
 /**
  * Each source's table as the rules being run read it (ADR 0022 §2, Q-146, Q-206): a column the file names otherwise is
@@ -12082,7 +12102,8 @@ async function defineTablesFor(engine: Engine, doc: FlowDocument): Promise<void>
   for (const s of doc.sources) {
     const b = bindingOf(s.id);
     if (!b) continue;
-    const readAs = readAsOf(doc.ontology, s.id);
+    // A mapping the day's file gives the name of; a file back on the column's own name is read as declared.
+    const readAs = readAsIn(readAsOf(doc.ontology, s.id), pinnedHeaders.get(s.id) ?? null);
     const key = JSON.stringify(readAs);
     if ((tableReadAs.get(s.id) ?? '[]') === key) continue;
     ddl.push(`DROP EXTERNAL TABLE IF EXISTS ${quoteIdent(b.table)}`, pinnedDdl(b, readAs));
@@ -12092,8 +12113,85 @@ async function defineTablesFor(engine: Engine, doc: FlowDocument): Promise<void>
 }
 
 /** The column mapping being written on the day's head (ADR 0022 §2): the source and the new column, while its form is
- * open. */
-let mappingColumn: { source: string; from: string } | null = null;
+ * open; for a join key (Q-205), the reason given and the second confirmation it then asks. */
+let mappingColumn: { source: string; from: string; reason?: string; confirm?: boolean } | null = null;
+
+// ------------------------------------------------------------- where a column is used (ADR 0022 §2; Q-146, Q-205)
+
+/** smaltql's parser, in a bundle of its own (`parse.js`), loaded the first time a screen asks where a column is used:
+ * the page's first load never waits on it. Null until it has loaded, or where it can't. */
+let sqlParse: ParseSql | null = null;
+let sqlParseLoad: Promise<ParseSql | null> | null = null;
+function loadSqlParser(): Promise<ParseSql | null> {
+  return (sqlParseLoad ??= import(/* @vite-ignore */ new URL('./parse.js', import.meta.url).href)
+    .then((m: { parseOne(sql: string): { stmt: unknown } }) => (sqlParse = (sql: string) => m.parseOne(sql).stmt))
+    .catch(() => null));
+}
+/** The parser where it has loaded; else it starts loading, and the day's head is drawn again once it has. */
+function sqlParser(): ParseSql | null {
+  if (!sqlParse && !sqlParseLoad) void loadSqlParser().then((p) => p && renderLoads());
+  return sqlParse;
+}
+/** Where a source column is used, once the parser has loaded (null where it can't). */
+async function usesReady(source: string, column: string): Promise<ColumnUses | null> {
+  await loadSqlParser();
+  return usesOf(source, column);
+}
+
+/** Where each source column is used (`columnUses`), worked out once for the flow's steps: the page never changes a
+ * step's SQL or its inputs. Null while the parser loads. */
+const usesMemo = { steps: null as readonly StepDef[] | null, map: new Map<string, ColumnUses>() };
+function usesOf(source: string, column: string): ColumnUses | null {
+  const parse = sqlParser();
+  if (!parse) return null;
+  if (usesMemo.steps !== state.doc.steps) [usesMemo.steps, usesMemo.map] = [state.doc.steps, new Map()];
+  const key = `${source.toLowerCase()}\u0000${column.toLowerCase()}`;
+  let u = usesMemo.map.get(key);
+  if (!u) usesMemo.map.set(key, (u = columnUses(state.doc, source, column, { parse })));
+  return u;
+}
+
+/** The source a dataset's column comes from, followed by its name: a source's own, or one a step passes on. */
+function sourceColumnOf(dataset: string, column: string): { source: string; column: string } | null {
+  if (state.doc.sources.some((x) => x.id === dataset)) return { source: dataset, column };
+  for (const x of state.doc.sources) if (usesOf(x.id, column)?.carried.includes(dataset)) return { source: x.id, column };
+  return null;
+}
+
+/** A source's file on a load day, as the day's latest run read it, as text: from what the page holds, else fetched and
+ * checked against the data's list. */
+async function dayFileText(k: number, source: string): Promise<string | null> {
+  const node = latest()?.result.manifest.nodes.find((n) => n.origin === source && n.file);
+  const l = loads.list[k];
+  if (!node?.file || !l) return null;
+  const sha = node.file.sha256;
+  const listed = [l, ...Object.values(l.files ?? {}), ...versionsOfLoad(k).flatMap((v) => Object.values(v.files))].find((f) => f.sha256 === sha);
+  if (!listed) return null;
+  const held = (l.sha256 === sha ? loads.bytes.get(k) : undefined) ?? Object.entries(loads.others.get(k) ?? {}).find(([at]) => at.endsWith(`:${sha}`))?.[1];
+  const bytes = held ?? (await checked(listed.file, { sha256: sha, bytes: listed.bytes ?? -1, from: listed.file }));
+  return new TextDecoder().decode(bytes);
+}
+
+/** How many of today's values of a column a held file names otherwise find a match on a join's other side (Q-205),
+ * counted from the day's files once: 'counting' while they are read, null where the other side is no file's column. */
+const joinCounts = new Map<string, { values: number; matched: number } | 'counting' | null>();
+function joinCountOf(k: number, source: string, from: string, j: JoinUse): { values: number; matched: number } | 'counting' | null {
+  if (!j.other.dataset || !j.other.column) return null;
+  const key = [k, source, from, j.other.dataset, j.other.column].join('\u0000');
+  if (joinCounts.has(key)) return joinCounts.get(key)!;
+  const there = sourceColumnOf(j.other.dataset, j.other.column);
+  if (!there) return (joinCounts.set(key, null), null);
+  joinCounts.set(key, 'counting');
+  void (async () => {
+    const [mine, theirs] = await Promise.all([dayFileText(k, source), dayFileText(k, there.source)]);
+    joinCounts.set(key, mine !== null && theirs !== null ? joinMatch(csvColumn(mine, from, {}, Infinity), csvColumn(theirs, there.column, {}, Infinity)) : null);
+    renderLoads();
+  })().catch(() => {
+    joinCounts.set(key, null);
+    renderLoads();
+  });
+  return 'counting';
+}
 
 /**
  * Read a file's new column as a gone one from the held day on (ADR 0022 §2, Q-146, Q-206): one tap with a reason, on
@@ -12148,8 +12246,10 @@ function describeNewColumn(source: string, column: string, day: string): void {
 /**
  * The day's columns that changed (ADR 0022 §2; Q-109, Q-146, Q-203, Q-204), on its head: each source whose file's
  * columns aren't the declared ones, what is gone and new and which new column reads as a gone one, and, for someone
- * who may decide, Read X as Y (its form says what it does and asks a reason). A new column alone is noted, with Add it
- * to the ontology for the owner. Null where no file's columns changed.
+ * who may decide, Read X as Y (its form says what it does and asks a reason). A gone column a join reads (Q-205) says
+ * each join, what is built from it and how many of today's values still find a match on its other side, and its
+ * mapping asks once more, naming those outputs. A new column alone is noted, with Add it to the ontology for the owner.
+ * Null where no file's columns changed.
  */
 function columnsPart(k: number): HTMLElement | null {
   const r = latest();
@@ -12162,20 +12262,54 @@ function columnsPart(k: number): HTMLElement | null {
   const rows = changed.map((n) => {
     const c = n.columns!;
     const held = columnsHold(c);
+    // Each gone column a join reads (Q-205): the joins and what is built from them, and today's matches on the other
+    // side where a new column reads as it.
+    const joins = held ? [...c.gone, ...c.maps.map((m) => m.to)].flatMap((g) => {
+      const u = usesOf(n.origin, g);
+      if (!u?.joins.length) return [];
+      const m = c.maps.find((x) => x.to === g);
+      const matches = m ? u.joins.map((j) => [j, joinCountOf(k, n.origin, m.from, j)] as const).filter(([, x]) => x !== null) : [];
+      return [h('div', { class: 'cm-joins', 'data-column': g },
+        h('p', { class: 'cm-join-said' }, h('b', {}, `${g} is a join key: `), joinImpactSaid(u)),
+        ...matches.map(([j, x]) => h('p', { class: 'cm-match', ...(x === 'counting' ? {} : { 'data-counted': '1' }) }, x === 'counting' ? `Counting today’s matches in ${j.other.dataset}…` : `Today ${fmtInt(x!.matched)} of ${fmtInt(x!.values)} ${m!.from} values find a match in ${j.other.dataset}’s ${j.other.column}.`)))];
+    }) : [];
     const maps = c.maps.map((m) => {
+      const ju = usesOf(n.origin, m.to);
+      const joined = !!ju?.joins.length;
+      if (mappingColumn?.source === n.origin && mappingColumn.from === m.from && mappingColumn.confirm && joined) {
+        // Asked once more for a join key (Q-205), naming every output built from it.
+        const yes = h('button', { type: 'button', class: 'btn small primary cm-yes', onclick: () => {
+          yes.disabled = true;
+          void mapColumnOnDay(k, n.origin, m, mappingColumn?.reason ?? '');
+        } }, `Yes, read ${m.from} as ${m.to}`) as HTMLButtonElement;
+        return h('div', { class: 'cm-form cm-confirm', role: 'group', 'aria-label': `Read ${m.from} as ${m.to}: once more` },
+          h('p', { class: 'cm-how' }, h('b', {}, `${m.to} is a join key. `), `${joinImpactSaid(ju!, true)} Each reads ${m.from} as ${m.to} from ${dayShort(day)} on.`),
+          h('div', { class: 'wi-acts' }, yes, h('button', { type: 'button', class: 'btn small cm-back', onclick: () => {
+            mappingColumn = { source: n.origin, from: m.from, reason: mappingColumn?.reason };
+            renderLoads();
+          } }, 'Back')));
+      }
       if (mappingColumn?.source === n.origin && mappingColumn.from === m.from) {
         const reason = h('textarea', { class: 'cm-reason', rows: '2', 'aria-label': `Why ${m.from} is read as ${m.to}`, placeholder: 'Why, in a sentence: the record keeps it.' }) as HTMLTextAreaElement;
+        reason.value = mappingColumn.reason ?? '';
         const go = h('button', { type: 'button', class: 'btn small primary cm-go', onclick: () => {
           if (!reason.value.trim()) {
             setStatus('Reading a column by its new name needs a reason.', true);
             reason.focus();
             return;
           }
+          // A join key is asked once more, on the same screen (Q-205).
+          if (joined) {
+            mappingColumn = { source: n.origin, from: m.from, reason: reason.value, confirm: true };
+            renderLoads();
+            document.querySelector<HTMLButtonElement>('#loads .cm-yes')?.focus();
+            return;
+          }
           go.disabled = true;
           void mapColumnOnDay(k, n.origin, m, reason.value);
         } }, `Read ${m.from} as ${m.to}`) as HTMLButtonElement;
         return h('div', { class: 'cm-form', role: 'group', 'aria-label': `Read ${m.from} as ${m.to}` },
-          h('p', { class: 'cm-how' }, `From ${dayShort(day)} on, ${n.origin}’s ${m.from} is read as ${m.to}, written in the ontology as the file’s own. ${dayShort(day)} runs again under it and is restated: readers get it where it passes. Earlier days keep ${m.to}.`),
+          h('p', { class: 'cm-how' }, `From ${dayShort(day)} on, ${n.origin}’s ${m.from} is read as ${m.to}, written in the ontology as the file’s own. ${dayShort(day)} runs again under it and is restated: readers get it where it passes. Earlier days keep ${m.to}.${joined ? ` ${m.to} is a join key: what is built from it is named before it is done.` : ''}`),
           h('div', { class: 'of-field' }, h('label', {}, 'Why'), reason),
           h('div', { class: 'wi-acts' }, go, h('button', { type: 'button', class: 'btn small cm-cancel', onclick: () => {
             mappingColumn = null;
@@ -12193,6 +12327,7 @@ function columnsPart(k: number): HTMLElement | null {
     const fresh = !held ? c.added.filter((col) => !propertyOf(state.doc.ontology, n.origin, col)) : [];
     return h('div', { class: `cm-source${held ? ' held' : ''}`, 'data-source': n.origin },
       h('p', { class: 'cm-said' }, h('b', {}, `${n.origin}: `), `${columnChangeSaid(c)}.`),
+      ...joins,
       ...maps,
       held && !c.maps.length ? h('p', { class: 'foot' }, `Keep the day back or replace the file on the decision sheet; a column read by another name is mapped from a file that has it.`) : '',
       fresh.length && isOwner() ? h('p', { class: 'cm-ask' }, ...fresh.map((col) => h('button', { type: 'button', class: 'linkish cm-add', 'data-column': col, onclick: () => describeNewColumn(n.origin, col, day) }, `Add ${col} to the ontology ›`))) : '');
@@ -13038,6 +13173,8 @@ async function pinLoad(engine: Engine, k: number, opts: PinOpts, quiet = false):
   }
   // The loads' source first.
   const day: { name: string; bytes: Uint8Array; sha256: string }[] = [{ name: loadFile(), bytes, sha256: replaced?.sha256 ?? top.sha256 }];
+  // Each file's header, where it is a CSV file: what its table is declared by (ADR 0022 §2).
+  const headers = new Map<string, string[] | null>(main ? [[main, headerOfBytes(main, bytes)]] : []);
   // The other daily sources' files for the day (ADR 0013 §5), each checked and pinned under its binding's name.
   const others = loads.others.get(k) ?? {};
   const pulled: [string, string, string][] = [];
@@ -13047,12 +13184,14 @@ async function pinLoad(engine: Engine, k: number, opts: PinOpts, quiet = false):
     const at = `${id}:${f.sha256}`;
     others[at] ??= await checked(f.file, { sha256: f.sha256, bytes: f.bytes ?? -1, from: f.file });
     day.push({ name: b.file, bytes: others[at], sha256: f.sha256 });
+    headers.set(id, headerOfBytes(id, others[at]));
     pulled.push([id, f.file, f.sha256]);
   }
   // A what-if's files are never a day's own: no run but its own reads them (ADR 0021 §4). Those of a what-if made the
   // day's are: a version of it, pinned as one again.
   if (opts.whatIf) whatIfPinned = true;
   await pinFiles(engine, day);
+  for (const [id, header] of headers) if (header) pinnedHeaders.set(id, header); else pinnedHeaders.delete(id);
   if (!opts.whatIf) {
     whatIfPinned = false;
     ownPinned = { k, opts: opts.make ? {} : opts };

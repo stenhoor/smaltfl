@@ -96,6 +96,27 @@ export function nameColumn(doc: FlowDocument, file: string, column: string, chan
 }
 
 /**
+ * A column named in a file and carried through the datasets that pass it on under its name (ADR 0022 §2, Q-146): the
+ * same change made each one's own, as `nameColumn` makes it, so a step's output reads as the file's column does. Said
+ * once, with where it went: "Renamed status to Result in tls, carried to tls_checked". `through` is where the column
+ * goes on (`columnUses`'s `carried` after the file); a dataset that already reads so is passed over.
+ */
+export function nameColumnThrough(doc: FlowDocument, file: string, column: string, change: ColumnChange, through: readonly string[]): { doc: FlowDocument; said: string | null } {
+  const first = nameColumn(doc, file, column, change);
+  if (!first.said) return first;
+  let out = first.doc;
+  const carried: string[] = [];
+  for (const dataset of through) {
+    if (lower(dataset) === lower(file)) continue;
+    const r = nameColumn(out, dataset, column, change);
+    if (!r.said) continue;
+    out = r.doc;
+    carried.push(dataset);
+  }
+  return { doc: out, said: carried.length ? `${first.said}, carried to ${listed(carried)}` : first.said };
+}
+
+/**
  * A file's column read by the name the file gives it now (ADR 0022 §2, Q-146, Q-206): its own property's `fromFile`, so
  * the source's table declares that name and the run reads it as `column`. Made the file's own as `nameColumn` makes it
  * (a property shared with other files stops naming this one); `from` null reads it by its own name again. A dated change

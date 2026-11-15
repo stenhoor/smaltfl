@@ -17,6 +17,7 @@ import { utf8 } from '../src/core/hash.js';
 import { expandNotebooks } from '../src/core/notebook.js';
 import { forDay, pinFile, releaseRun, runFlow, validateDocument, verifyRun } from '../src/index.js';
 import { readAsOf } from '../src/core/ontology.js';
+import { readAsIn } from '../src/core/columns.js';
 import { SMALTDB } from './helpers/engine.js';
 import { ts } from './helpers/notebooks.js';
 
@@ -221,6 +222,23 @@ describe('a column the file names otherwise, mapped (ADR 0022 §2, Q-146, Q-206)
     } finally {
       db1.close();
       db2.close();
+    }
+  });
+
+  it('reads a later file back on the column’s own name as declared, the table declared by the day’s file (an export that went back)', async () => {
+    const doc = mapped(await expandNotebooks(flow(false), ts));
+    // The host declares a mapping only where the day's file gives its name (readAsIn): here, none.
+    const header = ['app_id', 'status', 'protocol'];
+    expect(readAsIn(readAsOf(doc.ontology, 'tls'), header)).toEqual([]);
+    expect(readAsIn(readAsOf(doc.ontology, 'tls'), ['app_id', 'state', 'protocol'])).toEqual([['state', 'status']]);
+    const db = await mappedSetup('app_id,status,protocol\na1,pass,TLS1.3\na2,fail,TLS1.0\n', readAsIn(readAsOf(doc.ontology, 'tls'), header));
+    try {
+      const r = await runFlow(db, doc, { smaltdb: SMALTDB, parameters: { day: '2024-03-01' } });
+      expect(r.holds).toEqual([]);
+      expect(r.published).toEqual(['posture']);
+      expect(db.query('SELECT app_id, tls FROM posture ORDER BY app_id').rows).toEqual([['a1', 'pass'], ['a2', 'fail']]);
+    } finally {
+      db.close();
     }
   });
 
