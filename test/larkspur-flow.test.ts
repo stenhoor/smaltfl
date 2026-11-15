@@ -68,6 +68,11 @@ const held = (day: string, among: 'files' | 'steps' = 'files'): Record<string, s
   return out;
 };
 const MARCH = Array.from({ length: 31 }, (_, i) => addDays('2024-03-01', i));
+/** The last day before `day` gold published. */
+const lastBefore = (day: string) => {
+  for (let d = addDays(day, -1); d >= '2024-03-01'; d = addDays(d, -1)) if (gold.has(d)) return gold.get(d)!;
+  throw new Error(`no gold published before ${day}`);
+};
 
 describe('bronze: each file judged as it arrives (ADR 0020 §5)', () => {
   const HELD: Record<string, Record<string, string>> = {
@@ -79,7 +84,11 @@ describe('bronze: each file judged as it arrives (ADR 0020 §5)', () => {
     [P.controller]: { backup_jobs: 'values' },
     [P.double]: { tls: 'reconcile' },
     [addDays(P.drLate, 1)]: { dr_exercises: 'due' },
-    [P.scopeLoss]: { tls: 'scope' },
+    // The late DR exercises fail where they pass, a share that moves more than a quarter of the file's rows, so the
+    // shares check holds though it only warns (Q-132): overwhelming, Sun 24 to Tue 26.
+    [addDays(P.drLate, 2)]: { dr_exercises: 'shares' },
+    [addDays(P.drLate, 3)]: { dr_exercises: 'shares' },
+    [P.scopeLoss]: { dr_exercises: 'shares', tls: 'scope' },
   };
 
   it('runs every day of March', () => {
@@ -199,7 +208,8 @@ describe('silver: the company conformed, and the rules applied (ADR 0020 §5)', 
   });
 
   it('tells the certificate authority behind TLS and logging failing together (Mon 25), a note at the tests’ scale', () => {
-    expect(held(S.ca)).toEqual({});
+    // Held only by the DR exercises' file, overwhelming (Q-132): nothing of the certificate authority's holds.
+    expect(held(S.ca)).toEqual({ dr_exercises: 'shares' });
     expect(findingsOf(S.ca, 'platform_impact').find((f) => f.values?.[0] === '"ca-int-2"')).toMatchObject({ kind: 'share', title: expect.stringMatching(/^Platform_id ca-int-2: /) });
   });
 
@@ -257,12 +267,6 @@ describe('gold: Control Posture v1, its contracts and its gates (ADR 0020 §4, �
     }
   });
 
-  /** The last day before `day` gold published. */
-  const lastBefore = (day: string) => {
-    for (let d = addDays(day, -1); d >= '2024-03-01'; d = addDays(d, -1)) if (gold.has(d)) return gold.get(d)!;
-    throw new Error(`no gold published before ${day}`);
-  };
-
   it('says the new control’s missing evidence as coverage, not as failing (Wed 27): the score holds', () => {
     const before = lastBefore(S.sbom);
     const g = gold.get(S.sbom)!;
@@ -311,13 +315,15 @@ describe('gold over the month: the reorg, the handover, the push and the freeze 
   });
 
   it('shows the freeze’s overdue vulnerabilities rising, within what the failures vary by: calm or notes, published', () => {
-    expect(gold.get(G.freezeUntil)!.vulnFailing).toBeGreaterThan(gold.get(addDays(G.freeze, -1))!.vulnFailing);
-    // Nothing gold says holds a day of the freeze. Tue 26 (the TLS file's scope, bronze) and Thu 28 (the loop, silver)
-    // are held upstream, and their holds reach it; every other day publishes it, calm or with notes.
+    expect(gold.get(G.freezeUntil)!.vulnFailing).toBeGreaterThan(lastBefore(G.freeze).vulnFailing);
+    // Nothing gold says holds a day of the freeze. Mon 25 and Tue 26 (the DR exercises' pass share, overwhelming,
+    // Q-132; Tue 26 the TLS file's scope too, bronze) and Thu 28 (the loop, silver) are held upstream, and their holds
+    // reach it; every other day publishes it, calm or with notes.
     const freeze = MARCH.filter((d) => d >= G.freeze && d <= G.freezeUntil);
+    const upstream: string[] = [G.freeze, P.scopeLoss, S.loop];
     for (const d of freeze) expect(result(d).holds.filter((h) => h.origin === 'failing_by_unit'), d).toEqual([]);
-    expect(freeze.filter((d) => !result(d).published.includes('failing_by_unit'))).toEqual([P.scopeLoss, S.loop]);
-    for (const d of freeze.filter((x) => x !== P.scopeLoss && x !== S.loop)) expect(['calm', 'notes'], d).toContain(said(d, 'failing_by_unit').state);
+    expect(freeze.filter((d) => !result(d).published.includes('failing_by_unit'))).toEqual(upstream);
+    for (const d of freeze.filter((x) => !upstream.includes(x))) expect(['calm', 'notes'], d).toContain(said(d, 'failing_by_unit').state);
     // The reorg's leftovers, the few applications still in the business unit it emptied, failing again after two weeks
     // of none, are worth knowing, not unusual.
     const left = JSON.stringify(reorg().from);

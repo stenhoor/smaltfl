@@ -290,7 +290,8 @@ export const OVERWHELMS: ReadonlySet<CheckName> = new Set<CheckName>(['shares', 
 export const OVERWHELMING = 0.25;
 
 /** The rows a learned finding moved from what a day like it has: its own count (a share's rows moved, a value gone's
- * usual rows, the hours' missing rows), or a pair of values' rows beyond what its columns predict (`moved`). */
+ * usual rows, the hours' missing rows), or what `moved` says: a pair of values' rows beyond what its columns predict, a
+ * value's counted with its respellings (rows that only changed case or spaces didn't move). */
 export const movedOf = (f: Pick<Finding, 'rows' | 'moved'>): number => f.moved ?? f.rows ?? 0;
 
 /**

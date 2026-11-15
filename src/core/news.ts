@@ -76,8 +76,9 @@ export interface Finding {
   due?: { due: number; late: number; within: number; usual?: number };
   /** What the classifier found (an `apart` finding, ADR 0014 §5). */
   apart?: Apart;
-  /** The rows the finding moved from what a day like it has, where that isn't its `rows`: a pair of values' rows beyond
-   * what its columns predict (Q-132, `movedOf` in gates.ts). */
+  /** The rows the finding moved from what a day like it has, where that isn't its `rows` (Q-132, `movedOf` in gates.ts):
+   * a pair of values' rows beyond what its columns predict; a value's rows counted with its respellings (another case,
+   * spaces around it), which didn't move. */
   moved?: number;
   /** A learned check's alert that holds the day though its check only warns (Q-132): it moved `moved` of the day's `of`
    * rows, at least the threshold `at` the node is judged by (Q-207). */
@@ -653,6 +654,18 @@ export function newsOf(h: HistoryRanges, day: string, names: Names, options: { c
   for (const [column, vh] of Object.entries(file.values ?? {})) {
     if (!vh.counts) continue;
     const badCodes = judge.bad.get(column.toLowerCase());
+    // The rows a value's share moved, counting its respellings with it (another case, spaces around it): rows that changed
+    // only how a value is written didn't move (Q-132), so a feed that writes its words in capitals one day overwhelms
+    // nothing; undefined where the value has no respelling. Its usual rows are the value's own and any respelling's
+    // judged before today.
+    const loose = (key: string) => String(parse(key)).trim().toLowerCase();
+    const respelledMoved = (i: number, usual: number): number | undefined => {
+      const same = vh.values.flatMap((v, x) => (x !== i && v !== 'null' && loose(v) === loose(vh.values[i]!) ? [x] : []));
+      if (!same.length) return undefined;
+      const today = [i, ...same].reduce((t, x) => t + (vh.counts![k]?.[x] ?? 0), 0);
+      const before = usual + same.reduce((t, x) => t + (judged({ of: 'value', column, value: vh.values[x]! })?.range.expected ?? 0), 0);
+      return Math.round(Math.abs(today - before * rows));
+    };
     vh.values.forEach((key, i) => {
       const bad = key !== 'null' && !!badCodes?.has(String(parse(key)));
       // A written band (ADR 0014 §3): the share against the band, and nothing else; a value with a band is judged by it,
@@ -718,10 +731,12 @@ export function newsOf(h: HistoryRanges, day: string, names: Names, options: { c
       // unit, three of them failing after two weeks of none, are counting.
       const back = judge.checks !== null && place === 'above' && j.range.expected * rows < 1 && !newIsUnusual(j.value * rows);
       const atLeast = (sv: Severity): Severity => (back ? 'note' : relative && RANK[sv] > RANK.warn ? 'warn' : sv);
+      const moved = key === 'null' ? undefined : respelledMoved(i, j.range.expected);
+      const respelled = moved === undefined ? {} : { moved };
       if (j.value === 0) {
-        out.push(marked(quiet({ key: `gone:${column}=${key}`, kind: 'gone', severity: atLeast(j.range.expected >= 0.2 ? 'alert' : 'warn'), score: cap(j.d), title: `${sentence(names.column(column))} ${said}: none`, detail: `Usually on ${w.range} of ${noun()}; none today.`, look: 'columns', columns: [column], values: [key], metric: { of: 'value', column, value: key }, value: j.value, range: j.range, rows: Math.round(-delta * rows), acts: ['incident', 'notify', 'expected'] }, j)));
+        out.push(marked(quiet({ key: `gone:${column}=${key}`, kind: 'gone', severity: atLeast(j.range.expected >= 0.2 ? 'alert' : 'warn'), score: cap(j.d), title: `${sentence(names.column(column))} ${said}: none`, detail: `Usually on ${w.range} of ${noun()}; none today.`, look: 'columns', columns: [column], values: [key], metric: { of: 'value', column, value: key }, value: j.value, range: j.range, rows: Math.round(-delta * rows), ...respelled, acts: ['incident', 'notify', 'expected'] }, j)));
       } else {
-        out.push(marked(quiet({ key: `share:${column}=${key}`, kind: key === 'null' ? 'missing' : 'share', severity: atLeast(shareSeverity(delta, j)), score: cap(j.d), title: key === 'null' ? `${sentence(names.column(column))} blank: ${w.value} (usually ${w.range})` : `${sentence(names.column(column))} ${said}: ${w.value} (usually ${w.range})`, detail: atShare(j.value, j.range.expected, rows, key === 'null' ? 'blank' : 'with it', noun()), look: 'columns', columns: [column], values: [key], metric: { of: 'value', column, value: key }, value: j.value, range: j.range, rows: Math.round(Math.abs(delta) * rows), acts: ['expected', 'rule', 'notify'] }, j)));
+        out.push(marked(quiet({ key: `share:${column}=${key}`, kind: key === 'null' ? 'missing' : 'share', severity: atLeast(shareSeverity(delta, j)), score: cap(j.d), title: key === 'null' ? `${sentence(names.column(column))} blank: ${w.value} (usually ${w.range})` : `${sentence(names.column(column))} ${said}: ${w.value} (usually ${w.range})`, detail: atShare(j.value, j.range.expected, rows, key === 'null' ? 'blank' : 'with it', noun()), look: 'columns', columns: [column], values: [key], metric: { of: 'value', column, value: key }, value: j.value, range: j.range, rows: Math.round(Math.abs(delta) * rows), ...respelled, acts: ['expected', 'rule', 'notify'] }, j)));
       }
     });
   }

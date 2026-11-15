@@ -306,3 +306,39 @@ describe('a value back on a few rows, in a gated flow (ADR 0020 slice 4)', () =>
     expect(told(3, null)).toMatchObject({ kind: 'share', severity: 'warn' });
   });
 });
+
+describe('a value respelled moves no rows (Q-132)', () => {
+  /** A day of a file with one coded column, its rows by value. */
+  const day = (d: string, values: Record<string, number>): Measures => {
+    const scan: unknown[][] = [];
+    for (const [v, n] of Object.entries(values)) for (let i = 0; i < n; i++) scan.push([v]);
+    const s: MeasureSettings = { source: 'findings', slot: d, every: 'day', checks: null, counting: null, counted: ['status'], followed: [], paired: [], time: null, zone: null, sample: 2000 };
+    return measuresOf(s, { file: null, snapshot: 'x', schema: [['status', 'text']], facts: [scan.length, scan.length, Object.keys(values).length, null, null, null], sample: [], scan, checks: null });
+  };
+  /** Sixty days of three in five findings open and the rest closed, then `today`'s rows. */
+  const today = plusDays('2024-01-01', 60);
+  const told = (rows: Record<string, number>) => {
+    const ms: Measures[] = [];
+    for (let i = 0; i < 60; i++) ms.push(day(plusDays('2024-01-01', i), { open: 300 + (i % 7) * 3, closed: 200 - (i % 5) * 2 }));
+    ms.push(day(today, rows));
+    const start = emptyHistory({ flow: 'f', source: 'findings', settings: { checks: null, counted: ['status'], followed: [], paired: [], time: null, zone: null, sample: 2000 }, columns: ms[0]!.columns, types: ms[0]!.types, kinds: ms[0]!.kinds, warmup: 3 });
+    const h = new HistoryRanges(appendPeriods(start, ms), { pattern: 'none' });
+    const judge = { ...LEGACY_JUDGE, legacy: false, scale: 'volume' as const, pattern: 'none' as const, checks: LAYER_DEFAULTS.bronze };
+    return newsOf(h, today, vendorNames, { judge }).find((f) => f.values?.[0] === '"open"');
+  };
+
+  it('keeps a value gone because the feed wrote it in capitals unusual at most, where gone for good it is overwhelming', () => {
+    // Open written OPEN: its usual three in five are gone, but they arrived respelled; nothing moved.
+    const capitals = told({ OPEN: 310, closed: 190 });
+    expect(capitals).toMatchObject({ kind: 'gone', severity: 'warn', check: 'shares' });
+    expect(capitals!.moved).toBeLessThan(25);
+    expect(capitals!.overwhelming).toBeUndefined();
+    // Open truly gone, its findings closed: 60% of the day's rows moved.
+    const closed = told({ closed: 500 });
+    expect(closed).toMatchObject({ kind: 'gone', severity: 'alert', check: 'shares' });
+    expect(closed!.moved).toBeUndefined();
+    expect(closed!.overwhelming!.moved / closed!.overwhelming!.of).toBeGreaterThan(0.55);
+    // Spaces around a value are a respelling too.
+    expect(told({ ' open ': 305, closed: 195 })).toMatchObject({ kind: 'gone', severity: 'warn' });
+  });
+});
