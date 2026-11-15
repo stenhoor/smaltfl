@@ -250,12 +250,20 @@ as decided as built, and the answers that change what is built or add to it are 
    - the sign-ins plant both: Thu Mar 7 adds client_app, and Fri Mar 22 calls result results
      (`tools/browser/stops/columns.json`).
 
-   **Next is its second part:**
-   - a join column confirmed twice, its impact said (Q-205);
-   - the owner's own rename showing where the column is used, joins first, and carried through the steps (Q-146).
+   The second part is built too (2026-11-15):
+   - where a column is used, followed by its name through the steps, SQL read from smaltql's parse
+     (`src/core/uses.ts`; the page loads the parser as its own bundle when asked);
+   - a held join column says each join, what is built from it and how many of today's values still match. Its mapping
+     asks once more, naming every output (Q-205; the control estate's Mon Mar 18, `tools/browser/stops/joins.json`);
+   - a mapping is declared only where the day's file has the name, so a later file back on the column's own name is
+     read as declared;
+   - the owner's rename form says where the column is used, joins first, and carries the change to the datasets that
+     pass the column on (Q-146).
 
-   Also worth a look: after a name or a label is edited, the rules line still says "as shipped" where no change set was
-   made, though the hash moved (Q-198's edits change the base).
+   **Next is slice 3**, the ontology as the one place for rules.
+
+   Also worth a look (queued as a separate task): after a name or a label is edited, the rules line still says "as
+   shipped" where no change set was made, though the hash moved (Q-198's edits change the base).
 3. **The ontology as the one place for rules:**
    - loose ids per check (Q-176);
    - the gold reconcile key and silver needs rules from the ontology (Q-118, Q-119);
