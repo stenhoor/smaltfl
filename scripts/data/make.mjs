@@ -2,10 +2,17 @@
 // files, the general builder measures a history and keeps a sample for each watch from the days before the loads, the
 // first loads day's ranges and types are computed ahead (ADR 0019), and the month is recorded with its story. The app
 // build makes it into its cache (scripts/build-app.mjs); the tour's answer key into a folder of its own, at the tests'
-// scale (test/larkspur-tour.test.ts).
+// scale (test/larkspur-tour.test.ts), from the command line:
+//
+//   node scripts/data/make.mjs --flow FLOW --work DIR [--variant NAME] [--more "--apps 650"]
+//
+// DIR is made empty first. `--variant` takes the data list's variant (its generator's arguments and story, ADR 0023 §2);
+// `--more` adds arguments to the generator's.
+import { build } from 'esbuild';
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 /** What each watch's files are called: `history.json` for one watch, else `history.<watch>.json`; samples and ranges the
  * same way. */
@@ -96,4 +103,30 @@ async function inParallel(items, n, go) {
   await Promise.all(Array.from({ length: Math.min(n, queue.length) }, async () => {
     while (queue.length) await go(queue.shift());
   }));
+}
+
+if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+  const args = process.argv.slice(2);
+  const flag = (name) => {
+    const at = args.indexOf(`--${name}`);
+    return at >= 0 ? args[at + 1] : undefined;
+  };
+  const flowPath = flag('flow');
+  const work = flag('work');
+  if (!flowPath || !work) throw new Error('usage: node scripts/data/make.mjs --flow FLOW --work DIR [--variant NAME] [--more "ARGS"]');
+  // The flow reader (scripts/flow.ts), bundled for Node as the app build bundles it: a folder's flow.json comes back
+  // with its notebooks loaded and its steps derived (ADR 0011).
+  const reader = `node_modules/.cache/smaltfl/flow.${process.pid}.mjs`;
+  process.on('exit', () => rmSync(reader, { force: true }));
+  await build({ entryPoints: ['scripts/flow.ts'], bundle: true, platform: 'node', format: 'esm', target: 'node20', outfile: reader, logLevel: 'warning' });
+  const { readFlow } = await import(pathToFileURL(resolve(reader)).href);
+  const listed = JSON.parse(readFileSync(flowPath.endsWith('.smaltfl.json') ? flowPath.replace(/\.smaltfl\.json$/, '.data.json') : join(dirname(flowPath), 'data.json'), 'utf8'));
+  const variant = flag('variant');
+  if (variant && !listed.variants?.[variant]) throw new Error(`${flowPath}'s data list has no variant ${variant}`);
+  const bind = variant ? { ...listed, ...listed.variants[variant] } : listed;
+  if (!bind.generate) throw new Error(`${flowPath}'s data list names no generator for its files`);
+  const more = (flag('more') ?? '').split(/\s+/).filter(Boolean);
+  rmSync(work, { recursive: true, force: true });
+  mkdirSync(work, { recursive: true });
+  await makeData({ flowPath, flowDoc: await readFlow(flowPath), work, generate: bind.generate, generateArgs: [...(bind.generateArgs ?? []), ...more], story: bind.story ?? null });
 }

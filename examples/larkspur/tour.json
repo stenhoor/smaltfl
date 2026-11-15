@@ -12,7 +12,7 @@
     { "day": "2024-03-04", "delivery": 1, "at": "2024-03-05T04:50:00Z", "by": "ciso", "option": "asis", "reason": "The full export, checked against the directory" },
     { "day": "2024-03-08", "delivery": 1, "at": "2024-03-08T11:45:00Z", "by": "ciso", "option": "asis", "reason": "Every team has a department again, and every owner chain is whole" },
     { "day": "2024-03-12", "at": "2024-03-12T08:30:00Z", "by": "ciso", "option": "asis", "reason": "The data centres' healthy applications moved to the cloud log pipelines overnight, as planned: the change is real" },
-    { "day": "2024-03-13", "at": "2024-03-13T08:40:00Z", "by": "ciso", "option": "accept", "reason": "The migration is done: the cloud pipelines carry the data centres' logs from now on" },
+    { "day": "2024-03-13", "at": "2024-03-13T08:40:00Z", "by": "owner", "option": "accept", "reason": "The migration is done: the cloud pipelines carry the data centres' logs from now on" },
     { "day": "2024-03-18", "at": "2024-03-18T08:30:00Z", "by": "ciso", "option": "fill", "fill": { "source": "encryption", "from": "2024-03-17" }, "reason": "A third of the stores can't have lost their encryption overnight while their statuses still pass: the scanner's export mislabelled them. Sunday's file carries forward, marked as Sunday's, until the vendor sends Monday's again" },
     { "day": "2024-03-18", "delivery": 1, "at": "2024-03-20T04:30:00Z", "by": "ciso", "option": "asis", "reason": "Monday's own file, every store as it was" },
     { "day": "2024-03-21", "delivery": 1, "at": "2024-03-21T14:30:00Z", "by": "ciso", "option": "asis", "reason": "Every certificate once" },
