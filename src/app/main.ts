@@ -3054,6 +3054,21 @@ let ruleChanges: ChangeSet[] = [];
 let resolvedSets: string | null = null;
 let resolvedFor: { day: string | null; asOf: string | null } = { day: null, asOf: null };
 
+/**
+ * Whether the rules before any change set are other than the shipped flow's: a name, a label or a meaning edited here
+ * changes them at once, on every day, with no change set (Q-198), so the rules on screen are no longer as shipped
+ * though no change set says so. Worked out again only when either changes.
+ */
+const baseMemo = { shipped: null as FlowDocument | null, shippedJson: '', base: null as RuleParts | null, edited: false };
+function baseEdited(): boolean {
+  const json = (x: RuleParts) => canonicalJSON(x as unknown as Parameters<typeof canonicalJSON>[0]);
+  if (baseMemo.shipped !== shippedDoc) [baseMemo.shipped, baseMemo.shippedJson, baseMemo.base] = [shippedDoc, json(ruleParts(shippedDoc)), null];
+  if (baseMemo.base !== ruleBase) [baseMemo.base, baseMemo.edited] = [ruleBase, json(ruleBase) !== baseMemo.shippedJson];
+  return baseMemo.edited;
+}
+/** The rules as shipped in words, with what was edited here where a name or a label was. */
+const asShippedSaid = (lead: string): string => (baseEdited() ? `${lead}, names and labels edited here` : lead);
+
 /** The flow as kept and recorded: the document on screen with the rules before any change set, and the change sets. */
 function baseDoc(): FlowDocument {
   const { changes: _changes, ...rest } = withRuleParts(state.doc, ruleBase);
@@ -3563,7 +3578,7 @@ function rulesLine(day: string, prev: string | null): HTMLElement | null {
   // A what-if's rules are a version picked for it (ADR 0021 §4), not the day's.
   if (whatIf?.run && loads.list[whatIf.k]?.day.slice(0, 10) === day.slice(0, 10)) return h('p', { class: 'dh-rules' }, h('span', { class: 'dh-rules-k' }, 'Rules of the what-if'), ' ', hashCode(rulesHashOf(state.doc), 'dh-hash'));
   return h('p', { class: 'dh-rules' }, h('span', { class: 'dh-rules-k' }, 'Rules in force'), ' ', hashCode(rulesHashOf(state.doc), 'dh-hash'),
-    since.length ? h('span', { class: 'dh-rules-new' }, ` · new on this day: ${since.flatMap((a) => a.said).join('; ')}`) : ruleChanges.length ? '' : h('span', { class: 'dh-rules-new' }, ' · as shipped'));
+    since.length ? h('span', { class: 'dh-rules-new' }, ` · new on this day: ${since.flatMap((a) => a.said).join('; ')}`) : ruleChanges.length ? '' : h('span', { class: 'dh-rules-new' }, baseEdited() ? ' · names and labels edited here' : ' · as shipped'));
 }
 
 /**
@@ -3584,7 +3599,7 @@ function renderRulesTime(): void {
   const applied = new Set(resolvedSets ? resolvedSets.split('\n') : []);
   const where = (c: ChangeSet) => (applied.has(c.id) ? 'in force on the day on screen' : day && c.from > day ? 'from a later day' : 'made after the version on screen ran');
   box.replaceChildren(
-    h('p', { class: 'rt-head' }, h('b', {}, day ? `The rules in force on ${dayLabel(day)}` : 'The rules in force'), ' ', hashCode(rulesHashOf(state.doc), 'rt-hash'), ruleChanges.length ? ` · ${plural(ruleChanges.length, 'change set')}` : ' · as shipped'),
+    h('p', { class: 'rt-head' }, h('b', {}, day ? `The rules in force on ${dayLabel(day)}` : 'The rules in force'), ' ', hashCode(rulesHashOf(state.doc), 'rt-hash'), ruleChanges.length ? ` · ${plural(ruleChanges.length, 'change set')}${baseEdited() ? '; names and labels edited here' : ''}` : baseEdited() ? ' · names and labels edited here' : ' · as shipped'),
     ruleChanges.length ? h('ol', { class: 'rt-list' }, ...ruleChanges.map((c) => h('li', { class: `rt-item${applied.has(c.id) ? ' on' : ''}`, 'data-change': c.id },
       h('span', { class: 'rt-from' }, `From ${dayLabel(c.from)}`), ' ', changeSaid(c),
       h('span', { class: 'rt-where' }, ` · ${where(c)} · recorded ${new Date(c.recorded).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} by ${personName(c.by)}${c.why ? `: “${c.why}”` : ''}`)))) : '',
@@ -3643,7 +3658,7 @@ function ruleVersionsPart(): HTMLElement | null {
   const known = day && monthView.at ? versionOn({ changes: ruleChanges }, day, monthView.at) : null;
   const n = (k: string | null) => (k === null ? -1 : keys.indexOf(k));
   const label = (i: number) => (i >= 0 ? `Version ${i + 1}` : 'rules of its own');
-  const what = (v: RuleVersion) => (v.changes.length ? v.changes.map((id) => ruleChanges.find((c) => c.id === id)).filter((c): c is ChangeSet => !!c).map((c) => `${changeSaid(c)} (from ${dayShort(c.from)})`).join('; ') : 'The rules as shipped');
+  const what = (v: RuleVersion) => (v.changes.length ? v.changes.map((id) => ruleChanges.find((c) => c.id === id)).filter((c): c is ChangeSet => !!c).map((c) => `${changeSaid(c)} (from ${dayShort(c.from)})`).join('; ') : asShippedSaid('The rules as shipped'));
   // How many recorded runs ran under each version, by the rules hash each manifest names.
   const runsBy = new Map<string, number>();
   for (const e of allEntries()) {
@@ -11842,7 +11857,7 @@ function rulesVersionsOf(): RuleVersion[] {
 /** A version of the rules in words: its number, as the Ontology view gives it, and what its change sets did. */
 function ruleVersionSaid(changes: readonly string[]): string {
   const i = rulesVersionsOf().findIndex((v) => versionKey(v.changes) === versionKey(changes));
-  const what = changes.length ? changes.map((id) => ruleChanges.find((c) => c.id === id)).filter((c): c is ChangeSet => !!c).map((c) => changeSaid(c)).join('; ') : 'the rules as shipped';
+  const what = changes.length ? changes.map((id) => ruleChanges.find((c) => c.id === id)).filter((c): c is ChangeSet => !!c).map((c) => changeSaid(c)).join('; ') : asShippedSaid('the rules as shipped');
   return `${i >= 0 ? `version ${i + 1} of the rules` : 'rules of their own'} (${what})`;
 }
 
@@ -11986,7 +12001,7 @@ function whatIfSheet(k: number): void {
   const chosen = was ? versionKey(was.rules) : nowKey;
   const rules = h('select', { class: 'wi-rules', 'aria-label': 'The version of the rules' }, ...rv.map((v, i) => {
     const key = versionKey(v.changes);
-    const what = v.changes.length ? v.changes.map((id) => ruleChanges.find((c) => c.id === id)).filter((c): c is ChangeSet => !!c).map((c) => changeSaid(c)).join('; ') : 'as shipped';
+    const what = v.changes.length ? v.changes.map((id) => ruleChanges.find((c) => c.id === id)).filter((c): c is ChangeSet => !!c).map((c) => changeSaid(c)).join('; ') : asShippedSaid('as shipped');
     return h('option', { value: key, ...(key === chosen ? { selected: true } : {}) }, `Version ${i + 1}${key === nowKey ? ', in force on this day now' : ''}: ${what}`);
   })) as HTMLSelectElement;
   const go = h('button', { type: 'button', class: 'btn small primary wi-go' }, 'Run the what-if ▶') as HTMLButtonElement;
@@ -12165,10 +12180,14 @@ async function dayFileText(k: number, source: string): Promise<string | null> {
   const l = loads.list[k];
   if (!node?.file || !l) return null;
   const sha = node.file.sha256;
-  const listed = [l, ...Object.values(l.files ?? {}), ...versionsOfLoad(k).flatMap((v) => Object.values(v.files))].find((f) => f.sha256 === sha);
+  // A daily file of the day or of one of its versions, or a source's one file (the inventory, a fixed list).
+  const fixed = dataList?.sources[source]?.entry;
+  const listed = [l, ...Object.values(l.files ?? {}), ...versionsOfLoad(k).flatMap((v) => Object.values(v.files))].map((f) => ({ path: f.file, sha256: f.sha256, bytes: f.bytes }))
+    .concat(fixed ? [{ path: fixed.path, sha256: fixed.sha256, bytes: fixed.bytes }] : [])
+    .find((f) => f.sha256 === sha);
   if (!listed) return null;
   const held = (l.sha256 === sha ? loads.bytes.get(k) : undefined) ?? Object.entries(loads.others.get(k) ?? {}).find(([at]) => at.endsWith(`:${sha}`))?.[1];
-  const bytes = held ?? (await checked(listed.file, { sha256: sha, bytes: listed.bytes ?? -1, from: listed.file }));
+  const bytes = held ?? (await checked(listed.path, { sha256: sha, bytes: listed.bytes ?? -1, from: listed.path }));
   return new TextDecoder().decode(bytes);
 }
 

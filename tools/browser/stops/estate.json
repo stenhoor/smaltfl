@@ -465,7 +465,8 @@
     "What it means",
     "A label for each value",
     "A label is shown where it says more than the value itself.",
-    "Where it’s used: waf_checked passes it on.", "For waf, and waf_checked, which passes it on. A change is recorded, and takes effect from the next run.",
+    "Where it’s used: waf_checked passes it on.",
+    "For waf, and waf_checked, which passes it on. A change is recorded, and takes effect from the next run.",
     "Save",
     "Cancel"
    ],
@@ -481,7 +482,7 @@
  },
  {
   "name": "names-rename",
-  "what": "Control estate, as the owner: the TLS file's Status renamed to Result and its value fail labelled Broken, saved (the WAF's open form closes with its section): the card's head says Result with the file's own name, status, beside it; its bar and its rules say Broken; and above the files a strip says one change is kept in this browser, what it was, that it takes effect from the next run, and offers the way back to the flow as shipped. The status line says what was recorded",
+  "what": "Control estate, as the owner: the TLS file's Status renamed to Result and its value fail labelled Broken, saved (the WAF's open form closes with its section): the card's head says Result with the file's own name, status, beside it; its bar and its rules say Broken; and above the files a strip says one change is kept in this browser, what it was, that it takes effect from the next run, and offers the way back to the flow as shipped. The status line says what was recorded; the rules in force say names and labels were edited here, no longer as shipped",
   "view": "ontology",
   "viewFirst": true,
   "clicks": [
@@ -514,7 +515,10 @@
     ".of-form": 0,
     "#flow-edits .fe-back": 1,
     "#ontology-files .of-sec": 1
-   }
+   },
+   "pageText": [
+    "names and labels edited here"
+   ]
   }
  },
  {
@@ -619,7 +623,7 @@
  },
  {
   "name": "names-back",
-  "what": "Control estate, as the owner again: Back to the flow as shipped, tapped twice (it asks first). Every change is taken away and recorded: the strip is gone, the TLS file's column is Status again with no name beside it, and its bad value Failing",
+  "what": "Control estate, as the owner again: Back to the flow as shipped, tapped twice (it asks first). Every change is taken away and recorded: the strip is gone, the TLS file's column is Status again with no name beside it, and its bad value Failing; the rules are as shipped again",
   "select": [
    "#viewer",
    "owner"
@@ -645,7 +649,13 @@
     "#flow-edits": 0,
     ".of-item.open .of-col[data-column=\"status\"] .of-col-head code": 0,
     ".of-item.open .of-col .of-edit": 5
-   }
+   },
+   "noPageText": [
+    "names and labels edited here"
+   ],
+   "pageText": [
+    "as shipped"
+   ]
   }
  },
  {
@@ -720,7 +730,8 @@
   "expect": {
    "text": [
     "The file writes it as mode. That stays.",
-    "Where it’s used: waf_checked passes it on.", "For waf, and waf_checked, which passes it on. A change is recorded, and takes effect from the next run. A day waiting for a decision is judged again when it next runs."
+    "Where it’s used: waf_checked passes it on.",
+    "For waf, and waf_checked, which passes it on. A change is recorded, and takes effect from the next run. A day waiting for a decision is judged again when it next runs."
    ],
    "count": {
     ".of-form": 1,
