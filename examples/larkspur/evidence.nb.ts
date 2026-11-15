@@ -42,20 +42,20 @@ export const vuln_status = sql`
   WHERE a.hosting <> 'saas' AND a.lifecycle IN ('active', 'retiring')`;
 
 cell('about_results', { lang: 'md' });
-md`Every feed as one long table: an application and a control a row, the status as its tool reports it in one vocabulary (pass, fail, not assessed), the date it falls due where the control has one, the platforms the row names (the ingress and the certificate's issuer, the key store, the backup controller, the identity provider, the log pipeline and its forwarder's issuer, the vault, the scanner), and whether a private link stands in for TLS`;
+md`Every feed as one long table: an application and a control a row, the status as its tool reports it in one vocabulary (pass, fail, not assessed), the date it falls due where the control has one, the platforms the row names (the ingress and the certificate's issuer, the key store, the backup controller, the identity provider, the log pipeline and its forwarder's issuer, the vault, the scanner), whether a private link stands in for TLS, and the day a row's evidence was carried from where a fill stood in for its feed's file`;
 
 cell('results', { lang: 'sql' });
 export const results = sql`
-  SELECT upper(trim(app_id)) AS app_id, 'tls' AS control_id, lower(trim(status)) AS status, CAST(NULL AS TEXT) AS due_on, ingress AS platform, issuer AS platform2, private_link AS compensating FROM ${tls_checked}
-  UNION ALL SELECT upper(trim(app_id)), 'waf', lower(trim(status)), NULL, ingress, NULL, NULL FROM ${waf_checked}
-  UNION ALL SELECT upper(trim(app_id)), 'pentest', lower(trim(status)), next_due, NULL, NULL, NULL FROM ${pentest_schedule_checked}
-  UNION ALL SELECT upper(trim(app_id)), 'encryption', lower(trim(status)), NULL, key_store, NULL, NULL FROM ${encryption_checked}
-  UNION ALL SELECT upper(trim(app_id)), 'key_rotation', lower(trim(status)), next_due, key_store, NULL, NULL FROM ${key_rotation_checked}
-  UNION ALL SELECT upper(trim(app_id)), 'backup', lower(trim(status)), NULL, controller, NULL, NULL FROM ${backup_jobs_checked}
-  UNION ALL SELECT upper(trim(app_id)), 'dr_exercise', lower(trim(status)), next_due, NULL, NULL, NULL FROM ${dr_exercises_checked}
-  UNION ALL SELECT upper(trim(app_id)), 'mfa', lower(trim(status)), NULL, CASE WHEN idp LIKE 'idp-%' THEN idp END, NULL, NULL FROM ${mfa_checked}
-  UNION ALL SELECT upper(trim(app_id)), 'access_review', lower(trim(status)), next_due, NULL, NULL, NULL FROM ${access_reviews_checked}
-  UNION ALL SELECT upper(trim(app_id)), 'logging', lower(trim(status)), NULL, pipeline, forwarder_issuer, NULL FROM ${logging_coverage_checked}
-  UNION ALL SELECT upper(trim(app_id)), 'privileged_access', lower(trim(status)), NULL, vault, NULL, NULL FROM ${privileged_vault_checked}
-  UNION ALL SELECT upper(trim(app_id)), 'edr', lower(trim(status)), NULL, NULL, NULL, NULL FROM ${edr_coverage_checked}
-  UNION ALL SELECT app_id, 'vuln_sla', status, NULL, scanner, NULL, NULL FROM ${vuln_status}`;
+  SELECT upper(trim(app_id)) AS app_id, 'tls' AS control_id, lower(trim(status)) AS status, CAST(NULL AS TEXT) AS due_on, ingress AS platform, issuer AS platform2, private_link AS compensating, filled_from FROM ${tls_checked}
+  UNION ALL SELECT upper(trim(app_id)), 'waf', lower(trim(status)), NULL, ingress, NULL, NULL, filled_from FROM ${waf_checked}
+  UNION ALL SELECT upper(trim(app_id)), 'pentest', lower(trim(status)), next_due, NULL, NULL, NULL, filled_from FROM ${pentest_schedule_checked}
+  UNION ALL SELECT upper(trim(app_id)), 'encryption', lower(trim(status)), NULL, key_store, NULL, NULL, filled_from FROM ${encryption_checked}
+  UNION ALL SELECT upper(trim(app_id)), 'key_rotation', lower(trim(status)), next_due, key_store, NULL, NULL, filled_from FROM ${key_rotation_checked}
+  UNION ALL SELECT upper(trim(app_id)), 'backup', lower(trim(status)), NULL, controller, NULL, NULL, filled_from FROM ${backup_jobs_checked}
+  UNION ALL SELECT upper(trim(app_id)), 'dr_exercise', lower(trim(status)), next_due, NULL, NULL, NULL, filled_from FROM ${dr_exercises_checked}
+  UNION ALL SELECT upper(trim(app_id)), 'mfa', lower(trim(status)), NULL, CASE WHEN idp LIKE 'idp-%' THEN idp END, NULL, NULL, filled_from FROM ${mfa_checked}
+  UNION ALL SELECT upper(trim(app_id)), 'access_review', lower(trim(status)), next_due, NULL, NULL, NULL, filled_from FROM ${access_reviews_checked}
+  UNION ALL SELECT upper(trim(app_id)), 'logging', lower(trim(status)), NULL, pipeline, forwarder_issuer, NULL, filled_from FROM ${logging_coverage_checked}
+  UNION ALL SELECT upper(trim(app_id)), 'privileged_access', lower(trim(status)), NULL, vault, NULL, NULL, filled_from FROM ${privileged_vault_checked}
+  UNION ALL SELECT upper(trim(app_id)), 'edr', lower(trim(status)), NULL, NULL, NULL, NULL, filled_from FROM ${edr_coverage_checked}
+  UNION ALL SELECT app_id, 'vuln_sla', status, NULL, scanner, NULL, NULL, NULL FROM ${vuln_status}`;

@@ -54,6 +54,18 @@ describe('a recorded story', () => {
     expect(storyProblems(null)).toEqual(['a story is a JSON object']);
   });
 
+  it('takes a fill that names its source and the day it fills from, another than its own (ADR 0023 §5)', () => {
+    const fill = { day: '2024-03-06', at: '2024-03-06T08:30:00Z', by: 'ciso', option: 'fill' as const, reason: 'Tuesday carries forward', fill: { source: 'mfa', from: '2024-03-05' } };
+    expect(storyProblems({ ...story, decisions: [fill] }, { sources: ['mfa', 'tls'], principals: ['ciso'] })).toEqual([]);
+    expect(storyProblems({ ...story, decisions: [{ ...fill, fill: { source: 'mfa', from: '2024-03-12', rule: 'weekday' as const } }] })).toEqual([]);
+    const said = (d: unknown) => storyProblems({ ...story, decisions: [d] }, { sources: ['mfa', 'tls'], principals: ['ciso'] });
+    expect(said({ ...fill, fill: undefined })).toEqual(['decision 1: a fill names its source and the day it fills from: fill { source, from }']);
+    expect(said({ ...fill, fill: { source: 'waf', from: '2024-03-06' } })).toEqual(["decision 1: waf isn't a source of the flow", 'decision 1: a fill comes from another day than its own']);
+    expect(said({ ...fill, fill: { source: 'mfa', from: 'Tuesday', rule: 'last' } })).toEqual(["decision 1: a fill's day is YYYY-MM-DD", "decision 1: a fill's rule is nearest or weekday"]);
+    expect(said({ ...fill, option: 'dont' })).toEqual(['decision 1: only a fill names a day to fill from']);
+    expect(said({ ...fill, option: 'complete', fill: undefined })).toEqual(["decision 1: the part that arrived alone isn't recorded from a story"]);
+  });
+
   it('puts the month in time order, each day’s deliveries numbered in the order they arrived', () => {
     const days = ['2024-03-04', '2024-03-05', '2024-03-21', '2024-03-22'];
     const t = timelineOf(days, (d) => `${d}T05:25:00Z`, story);

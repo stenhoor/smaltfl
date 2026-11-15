@@ -50,15 +50,40 @@
     }
   },
   {
+    "name": "decide-sun24-fill",
+    "what": "Sun Mar 24, held by the DR exercises file alone (ADR 0023 §5): the sheet decides that file, its rows drawn against its own history, and offers it filled whole from a good day, none of the day's rows kept, so keeping the last good day stays what is recommended, told by the file's own story (a learned check that moved a third of its rows, Q-132); picked, the fill is staged in the engine, every step built from the file told again of the filled rows",
+    "day": "Sun 24",
+    "clicks": [".vf-decide-day", ".vf-option[data-option=fill]"],
+    "waitFor": ".vf-go:not([disabled])",
+    "waitForMs": 240000,
+    "full": true,
+    "expect": {
+      "pageText": ["Fill from Fri 22", "carries Fri 22 forward", "Recommended", "A learned check moved", "readers keep the last good day while someone looks"],
+      "noPageText": ["refused", "watches several sources", "No good day near", "Unusual, not wrong"]
+    }
+  },
+  {
+    "name": "decide-sun24-filled",
+    "what": "The fill decided: one choice recorded as a decision for each held file, released by the decision about the DR exercises file; readers stay on the latest day, and Sun 24 is filled",
+    "day": "Sun 24",
+    "clicks": [".vf-decide-day", ".vf-option[data-option=fill]", ".vf-go"],
+    "waitFor": "#loads .vf-rc-head",
+    "waitForMs": 240000,
+    "expect": {
+      "noPageText": ["refused", "watches several sources", "is about one load"],
+      "loads": { "Sun 24": ", filled" }
+    }
+  },
+  {
     "name": "decide-reload",
-    "what": "After a reload, Thu 28 runs again and its decisions are applied again from the record: still published as is, and Sat 23 still kept back",
+    "what": "After a reload, Thu 28 runs again and its decisions are applied again from the record: still published as is, Sat 23 still kept back and Sun 24 still filled",
     "reload": true,
     "day": "Thu 28",
     "waitFor": "#loads .vf-rc-head",
     "expect": {
       "pageText": ["Published as is"],
       "noPageText": ["refused"],
-      "loads": { "Thu 28": ", published as is", "Sat 23": ", not published" }
+      "loads": { "Thu 28": ", published as is", "Sat 23": ", not published", "Sun 24": ", filled" }
     }
   }
 ]

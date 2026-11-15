@@ -58,6 +58,8 @@ import { periodOf, watchHistory } from '../../src/core/document.js';
 import { gateChecksOf } from '../../src/core/gates.js';
 import { isHistory, type HistoryFile } from '../../src/core/history.js';
 import { byLoad, heldLoadsOf, heldOutputs, inputsOf, keysForLoads, learnedMeasures, levelsOf, loadClaim, loadDecisions, loadsOf, skipOf, stagedKeys, tailPath, type Claim, type DecideAbout, type HistoryRef, type Hold, type Inputs, type ReleaseAbout } from '../../src/core/hold.js';
+import { donorIdOf, missingFor, repairDocument, type Repair } from '../../src/core/fill.js';
+import type { Story } from '../../src/core/story.js';
 import { entryLeaf, type JSONValue, type LogEntry } from '../../src/core/log.js';
 import { settingsFor, tailBefore, type Measures } from '../../src/core/measures.js';
 import { MONTH_FORMAT, restatedOutcome, restatedRuns, type MonthFile, type PostureMark, type RestateAbout } from '../../src/core/month.js';
@@ -65,9 +67,9 @@ import type { FileFacts } from '../../src/core/news.js';
 import { isPublish2, type FlowPlan } from '../../src/core/plan.js';
 import { policiesHash, type RunManifest } from '../../src/core/manifest.js';
 import { checkDecision } from '../../src/core/policy.js';
-import type { ChangeSet } from '../../src/core/document.js';
-import { storyProblems, timelineOf, type StoryFile, type StoryRestatement } from '../../src/core/timeline.js';
-import { pinnedDdl, type Binding, type DataBindings } from '../../examples/sources.js';
+import { fillStepOf, type ChangeSet } from '../../src/core/document.js';
+import { storyProblems, timelineOf, type StoryFile, type StoryFill, type StoryRestatement } from '../../src/core/timeline.js';
+import { donorBinding, pinnedDdl, type Binding, type DataBindings } from '../../examples/sources.js';
 import { readAsOf } from '../../src/core/ontology.js';
 import { csvHeader, readAsIn } from '../../src/core/columns.js';
 import { bindingsPath, readFlow } from '../flow.js';
@@ -111,6 +113,10 @@ interface Made {
   files: Day;
   sources: Record<string, { path: string; from?: string; at: string; sha256: string }>;
   restates?: { of: string; changes: string[] };
+  /** The claims its watched files were given, and each file's story as told for them: what a fill of it is worked out
+   * from, and runs again with (ADR 0023 §5). */
+  claims: Claim[];
+  stories: Record<string, Story>;
 }
 
 const arg = (args: string[], k: string) => {
@@ -206,6 +212,10 @@ async function main(): Promise<void> {
         tableReadAs.set(id, key);
       }
     };
+    // Each source's file as pinned now: what a fill decided after later days ran puts back once its own day's are run.
+    const pinnedNow = new Map<string, string>();
+    /** The donor tables defined: each reads whatever file is pinned under its donor's name now. */
+    const donorTables = new Set<string>();
     const pinDay = async (d: Day, at: string, ids: readonly string[] = daily, keep = false): Promise<Record<string, string>> => {
       const shas: Record<string, string> = {};
       for (const id of ids) {
@@ -215,6 +225,7 @@ async function main(): Promise<void> {
         const bytes = new Uint8Array(readFileSync(f.file));
         const sha = sha256(bytes);
         await pinFile(db, b.file, bytes, sha);
+        pinnedNow.set(id, f.file);
         if (/^(csv|tsv)$/i.test((b as Binding).format)) headers.set(id, csvHeader(new TextDecoder().decode(bytes.subarray(0, 1 << 16))));
         shas[id] = sha;
         if (!keep) sources[id] = { path: `loads/${basename(f.file)}`, ...(bind.generate ? { from: bind.generate } : {}), at, sha256: sha };
@@ -312,6 +323,7 @@ async function main(): Promise<void> {
       const skip = skipOf(entries, period);
       const claims: Claim[] = [];
       const told: Claim[] = [];
+      const stories: Record<string, Story> = {};
       const tell: Record<string, { skip: string[]; levels: ReturnType<typeof levelsOf> }> = {};
       const kept = new Map<string, unknown[][]>();
       for (const w of watches) {
@@ -350,7 +362,7 @@ async function main(): Promise<void> {
         const file = shas[w] ? factsOf(dayDoc, w, d, shas[w]!) : undefined;
         const t = await loadClaim({ doc: dayDoc, source: w, flow: plan.flow.hash, base: known?.file ?? null, baseRef: known?.ref ?? null, tail, measures: m, settings, skip, levels, build, ...(rows && samples.get(w) ? { sample: samples.get(w)!, kept: rows } : {}), ...(file ? { file } : {}) });
         await pinFile(db, tailPath(w), t?.tail.length ? new TextEncoder().encode(canonicalJSON(t.tail as unknown as Parameters<typeof canonicalJSON>[0])) : null);
-        if (t) (claims.push(t.claim), told.push(t.claim));
+        if (t) (claims.push(t.claim), told.push(t.claim), (stories[w] = t.story));
       }
       let entry: LogEntry;
       const read = { ...(opts.sources ?? sources) };
@@ -394,7 +406,7 @@ async function main(): Promise<void> {
           reason: null, amends: null, nonce: nonce(day, entries.length),
         };
         const contents = Object.fromEntries(Object.entries(r.manifest.outputs).map(([n, o]) => [n, o.content]));
-        made.set(day, [...(made.get(day) ?? []), { run: r.run, manifest: r.hash, inputs, holds: r.holds, keys, at, ok: !held, contents, files: d, sources: read, ...(restates ? { restates } : {}) }]);
+        made.set(day, [...(made.get(day) ?? []), { run: r.run, manifest: r.hash, inputs, holds: r.holds, keys, at, ok: !held, contents, files: d, sources: read, ...(restates ? { restates } : {}), claims: [...claims], stories }]);
         if (!restates) markPosture(day, r.published, (n) => r.manifest.outputs[n]?.key);
         const said = [...new Set(r.holds.filter((h) => h.by !== 'restated').map((h) => `${h.by === 'checks' ? '' : `${h.by}:`}${h.origin}`))];
         console.log(`${day}${correction ? ` (${correction.sources.join(', ')} sent again)` : restates ? ' (again, under rules changed since)' : ''}: ${said.length ? `held (${said.join(', ')})` : held ? 'restated' : 'ok'}, ${((Date.now() - t0) / 1000).toFixed(0)} s`);
@@ -412,12 +424,120 @@ async function main(): Promise<void> {
      * deliveries: checked against the flow's policies, recorded as the page records one (a decision a held load on a
      * flow that watches several datasets, Q-193), and, to publish, released in the engine, the release recorded beside it.
      */
-    const decideOnce = async (day: string, n: number, at: string, by: string, option: DecideAbout['option'], reason: string | null): Promise<void> => {
+    /**
+     * A fill of the story (ADR 0023 §5), as the page makes one: the version's own files pinned again, the donor day's
+     * file of the source pinned as its donor and judged by its own claim (told as the page tells a donor's, from the
+     * history before the donor's day), the missing part the held file's story and claim say (the whole day where its
+     * rows are wrong, not short), the derived run staged and recorded, then decided by load and released. What was
+     * pinned before is put back, so the month goes on as it was.
+     */
+    const fillOnce = async (day: string, n: number, at: string, by: string, reason: string | null, fill: StoryFill, target: Made, said: string): Promise<void> => {
+      const step = fillStepOf(flowDoc, fill.source);
+      if (!step) throw new Error(`${storyPath}: a fill of ${said}: ${fill.source} has no fill step`);
+      // The file's load first: its decision is the one the release cites (a fill is about one load); the steps built from
+      // it, holding the day too, are decided by the same choice (Q-193).
+      const held0 = heldLoadsOf(target.holds);
+      const loads = [...held0.filter((l) => l.source.toLowerCase() === fill.source.toLowerCase()), ...held0.filter((l) => l.source.toLowerCase() !== fill.source.toLowerCase())];
+      const holding = [...new Set(loads.map((l) => l.source).filter(isSource))];
+      if (holding.length !== 1 || holding[0]!.toLowerCase() !== fill.source.toLowerCase()) throw new Error(`${storyPath}: a fill of ${said} fills ${fill.source}, and ${holding.join(', ') || 'no file'} holds it: fills are for one file at a time`);
+      const donorDay = filesNow.get(fill.from);
+      const donorFile = donorDay?.files[fill.source];
+      if (!donorFile) throw new Error(`${storyPath}: a fill of ${said} from ${fill.from}, whose files weren't run`);
+      const claim = target.claims.find((c) => c.source.toLowerCase() === fill.source.toLowerCase()) ?? null;
+      const story = target.stories[fill.source];
+      const missing = story ? missingFor(story, claim, step.time) : null;
+      if (!missing) throw new Error(`${storyPath}: a fill of ${said}: ${fill.source}'s story doesn't say a part or a day to fill (it fills a day held as wrong)`);
+      const b = bind.sources[fill.source] as Binding | undefined;
+      if (!b) throw new Error(`${storyPath}: a fill of ${said}: ${fill.source} has no binding`);
+      const saved = new Map(pinnedNow);
+      const parameters = parametersOf(day);
+      await pinDay(target.files, at, daily, true);
+      await defineTables(forDay(flowDoc, parameters, at));
+      // The donor's file under its donor binding, and its claim as the page tells a donor's (main.ts donorClaim2).
+      const donor = donorBinding(fill.source, b);
+      const bytes = new Uint8Array(readFileSync(donorFile.file));
+      const sha = sha256(bytes);
+      await pinFile(db, donor.file, bytes, sha);
+      if (!donorTables.has(donor.table)) (await db.execAsync(pinnedDdl(donor)), donorTables.add(donor.table));
+      const dParameters = parametersOf(fill.from);
+      const dDoc = forDay(flowDoc, dParameters, at);
+      const dPlan = await translate(dDoc, dParameters);
+      const node = dPlan.nodes.findIndex((x) => x.op === 'table' && x.origin === fill.source);
+      const known = bases.get(fill.source);
+      const settings = node >= 0 ? settingsFor(dPlan, node, known?.file ?? null, doc.steps) : null;
+      if (!settings) throw new Error(`${storyPath}: a fill of ${said}: ${fill.source} isn't measured`);
+      const m = await measureLoad(db, donor.table, settings);
+      const told = await loadClaim({ doc: dDoc, source: fill.source, flow: dPlan.flow.hash, base: known?.file ?? null, baseRef: known?.ref ?? null, tail: tailOf(fill.source), measures: m, settings, skip: skipOf(entries, period), levels: levelsOf(entries, fill.source), build });
+      if (!told) throw new Error(`${storyPath}: a fill of ${said}: ${fill.from}'s ${fill.source} can't be judged`);
+      const donorClaim = { ...told.claim, source: donorIdOf(fill.source) } as Claim;
+      const repair: Repair = {
+        kind: 'fill', step: step.id, source: fill.source, missing,
+        donor: { rule: fill.rule ?? 'nearest', direction: fill.from < day ? 'before' : 'after', day: fill.from, file: { path: `loads/${basename(donorFile.file)}`, sha256: sha, bytes: bytes.length }, claim: donorClaim as never },
+      };
+      // The watched steps told again by the engine, of the filled day, as a run tells them.
+      const plan = await translate(forDay(flowDoc, parameters, at), parameters);
+      const tell: Record<string, { skip: string[]; levels: ReturnType<typeof levelsOf> }> = {};
+      for (const w of watches) if (plan.nodes.some((x) => x.origin === w && x.op !== 'table')) tell[w] = { skip: skipOf(entries, period), levels: levelsOf(entries, w) };
+      const read = { ...target.sources, [donorIdOf(fill.source)]: { path: repair.donor!.file.path, ...(bind.generate ? { from: bind.generate } : {}), at, sha256: sha } };
+      const r = await runFlow(db, repairDocument(flowDoc, repair), { smaltdb: SMALTDB, parameters, data: null, asOf: at, claims: [...target.claims, donorClaim], ...(Object.keys(tell).length ? { tell } : {}), sources: read, stage: true, from: { run: target.run, manifest: target.manifest } });
+      manifests[r.hash] = r.manifest;
+      const typed = db.query('SELECT plan FROM _smaltfl_plans WHERE hash = ?', [r.manifest.plan]).rows[0];
+      const typedPlan = typed ? (JSON.parse(String(typed[0])) as FlowPlan) : null;
+      if (!typedPlan) throw new Error(`${storyPath}: a fill of ${said}: its plan wasn't kept`);
+      const fails = r.holds.some((x) => x.by !== 'story') || (r.derived?.holds ?? []).some((x) => x.by !== 'derived');
+      if (fails) throw new Error(`${storyPath}: the fill of ${said} from ${fill.from} can't go: ${[...r.holds, ...(r.derived?.holds ?? [])].filter((x) => x.by !== 'story' && x.by !== 'derived').map((x) => `${x.origin}: ${x.said}`).join('; ')}`);
+      const keys = stagedKeys(r.manifest, heldOutputs(typedPlan, [...r.holds, ...(r.derived?.holds ?? [])]));
+      const files = r.manifest.nodes.filter((x) => x.file).map((x) => ({ source: x.origin, ...x.file! }));
+      // The derived run in the record, as the page records one (fills.ts derivedAbout): the held run it repairs and how.
+      const filledNode = r.manifest.nodes.find((x) => x.origin === step.id);
+      entries.push({
+        smaltflLog: 1, origin, seq: entries.length, kind: 'run', at, by: { card: null, as: 'build' },
+        about: {
+          run: r.run, manifest: r.hash, outcome: 'derived', day, inputs: inputsOf(r.manifest), holds: [...r.holds, ...(r.derived?.holds ?? [])], waiting: r.waiting, keys,
+          from: { run: target.run, manifest: target.manifest }, repair, ...(filledNode?.rows !== undefined ? { rows: filledNode.rows } : {}), load: day, files, data: null,
+        } as unknown as JSONValue,
+        reason: null, amends: null, nonce: nonce(day, entries.length),
+      });
+      // One decision a held load (Q-193), each carrying the repair and the derived run whose versions go out.
+      const may = checkDecision(doc.policies, by, 'fill');
+      if (!may.allowed) throw new Error(`${storyPath}: ${by} may not fill ${said}: ${may.reason}`);
+      const derived = { run: r.run, manifest: r.hash, keys };
+      const abouts: DecideAbout[] = loads.length
+        ? loadDecisions({ run: target.run, manifest: target.manifest, inputs: target.inputs, loads, option: 'fill', scope: 'day', policies, rule: may.rule ?? null }).map((x) => ({ ...x, repair, derived }))
+        : [{ day, run: target.run, manifest: target.manifest, inputs: target.inputs, outputs: target.keys, option: 'fill', scope: 'day', policies, rule: may.rule ?? null, repair, derived }];
+      const decided = abouts.map((about) => {
+        const e: LogEntry = { smaltflLog: 1, origin, seq: entries.length, kind: 'decide', at, by: { card: null, as: by }, about: about as unknown as JSONValue, reason, amends: null, nonce: nonce(day, entries.length) };
+        entries.push(e);
+        return e;
+      });
+      const leaf = entryLeaf(decided[0]!);
+      const from = { run: target.run, manifest: target.manifest };
+      const ofFile = loads.length ? [decided[0]!] : [];
+      const out = await releaseRun(db, { run: r.run, manifest: r.hash, keys, option: 'fill', actor: by, reason, decision: leaf, from, repair, ...(ofFile.length ? { loads: ofFile.map((e) => ({ load: (e.about as unknown as DecideAbout).load!, option: 'fill' as const, actor: by, reason, decision: entryLeaf(e) })) } : {}) });
+      const about: ReleaseAbout = { run: r.run, manifest: r.hash, outputs: keys, decision: decided[0]!.seq, ...(ofFile.length ? { decisions: ofFile.map((e) => e.seq) } : {}), leaf, outcome: out.outcome, why: out.why, from, repair, filled: out.filled ?? 0 };
+      entries.push({ smaltflLog: 1, origin, seq: entries.length, kind: 'release', at, by: { card: null, as: by }, about: about as unknown as JSONValue, reason: null, amends: null, nonce: nonce(day, entries.length) });
+      if (out.outcome !== 'applied') throw new Error(`${storyPath}: the release of the fill of ${said} was refused: ${out.why}`);
+      markPosture(day, out.published, (name) => r.manifest.outputs[name]?.key);
+      console.log(`${day}: ${by} filled ${said} from ${fill.from} (${'all' in missing ? 'the whole day' : 'its missing part'}), ${out.filled ?? 0} rows carried in`);
+      // The files pinned before, back as they were.
+      for (const [id, file] of saved) {
+        if (pinnedNow.get(id) === file) continue;
+        const sb = bind.sources[id] as Binding | undefined;
+        if (!sb) continue;
+        const again = new Uint8Array(readFileSync(file));
+        await pinFile(db, sb.file, again, sha256(again));
+        pinnedNow.set(id, file);
+        if (/^(csv|tsv)$/i.test(sb.format)) headers.set(id, csvHeader(new TextDecoder().decode(again.subarray(0, 1 << 16))));
+      }
+    };
+
+    const decideOnce = async (day: string, n: number, at: string, by: string, option: DecideAbout['option'], reason: string | null, fill?: StoryFill): Promise<void> => {
       const said = `${day}'s ${n ? `delivery ${n}` : 'first files'}`;
       const target = made.get(day)?.filter((x) => !x.restates)[n];
       if (!target) throw new Error(`${storyPath}: a decision about ${said}, which weren't run`);
       if (!target.holds.length) throw new Error(`${storyPath}: a decision about ${said}, which nothing held`);
-      if (option !== 'asis' && option !== 'dont') throw new Error(`${storyPath}: a decision about ${said} to ${option}: the recorder publishes as is or keeps back`);
+      if (option === 'fill' && fill) return fillOnce(day, n, at, by, reason, fill, target, said);
+      if (option !== 'asis' && option !== 'dont') throw new Error(`${storyPath}: a decision about ${said} to ${option}: the recorder publishes as is, keeps back or fills`);
       const may = checkDecision(doc.policies, by, option);
       if (!may.allowed) throw new Error(`${storyPath}: ${by} may not decide ${said}: ${may.reason}`);
       const loads = heldLoadsOf(target.holds);
@@ -565,8 +685,8 @@ async function main(): Promise<void> {
         const shas = await pinDay(d, at, [f.source]);
         await runOnce(d, at, shas, { correction: { of: { run: latest.run, manifest: latest.manifest }, sources: [f.source] } });
       } else if (ev.kind === 'decision') {
-        const { day, by, option, reason } = ev.decision;
-        await decideOnce(day, ev.n, at, by, option, reason);
+        const { day, by, option, reason, fill } = ev.decision;
+        await decideOnce(day, ev.n, at, by, option, reason, fill);
       } else if (ev.kind === 'change') {
         await changeOnce(ev.change, at);
       } else {

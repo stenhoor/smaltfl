@@ -137,6 +137,8 @@ const CASTS: Partial<Record<ColumnType, string>> = { int: 'INTEGER', real: 'REAL
  * value like another); or, for the rest, any other value.
  */
 export function missingSql(m: Missing, columns: readonly Column[]): string {
+  // The whole day (ADR 0023 §5): every row is inside.
+  if ('all' in m) return '1 = 1';
   const typeOf = (c: string) => columns.find(([n]) => n.toLowerCase() === c.toLowerCase())?.[1];
   if ('hours' in m) {
     const t = q(m.time);
@@ -383,6 +385,11 @@ export function emitColumnFacts(sql: string, columns: readonly { name: string; n
     parts.push(`count(${x})`, `count(DISTINCT ${x})`, `min(${x})`, `max(${x})`, c.numeric ? `avg(${x})` : 'NULL');
   }
   return `SELECT ${parts.join(', ')} FROM (\n${sql}\n)`;
+}
+
+/** A table's rows with the columns given, in their order: what a measure reads of it, all of them or all but some. */
+export function emitColumnsOf(table: string, columns: readonly string[]): string {
+  return `SELECT ${columns.map(q).join(', ')} FROM ${q(table)}`;
 }
 
 /**

@@ -33,7 +33,8 @@ export interface Delivery {
 /**
  * A decision in the story: the day; which of its versions it is about (0 or absent: its first files; n: its n-th
  * delivery, counted from 1 in the order they arrived); when, by whom (a principal of the flow's policies), the option
- * and the reason.
+ * and the reason. A fill (ADR 0023 §5) names the source it fills, the one source holding that version, and the day whose
+ * file stands in: before it, carried forward; after it, carried back; by `weekday`, the like day an estimate.
  */
 export interface StoryDecision {
   day: string;
@@ -42,6 +43,13 @@ export interface StoryDecision {
   by: string;
   option: DecisionOption;
   reason: string | null;
+  fill?: StoryFill;
+}
+
+export interface StoryFill {
+  source: string;
+  from: string;
+  rule?: 'nearest' | 'weekday';
 }
 
 /**
@@ -136,6 +144,18 @@ export function storyProblems(v: unknown, o: { sources?: readonly string[]; prin
     if ((d.option === 'asis' || d.option === 'accept') && (typeof d.reason !== 'string' || !d.reason.trim())) out.push(`${at}: ${d.option === 'asis' ? 'publish as is' : 'accept'} needs a reason`);
     if (typeof d.by !== 'string' || !d.by) out.push(`${at}: it names who decided`);
     else if (o.principals && !o.principals.includes(d.by)) out.push(`${at}: ${d.by} isn't a principal of the flow`);
+    if (d.option === 'fill') {
+      const f = d.fill;
+      if (!f || typeof f !== 'object') out.push(`${at}: a fill names its source and the day it fills from: fill { source, from }`);
+      else {
+        if (typeof f.source !== 'string' || !f.source) out.push(`${at}: a fill names the source it fills`);
+        else if (o.sources && !o.sources.includes(f.source)) out.push(`${at}: ${f.source} isn't a source of the flow`);
+        if (typeof f.from !== 'string' || !DAY.test(f.from)) out.push(`${at}: a fill's day is YYYY-MM-DD`);
+        else if (f.from === d.day) out.push(`${at}: a fill comes from another day than its own`);
+        if (f.rule !== undefined && f.rule !== 'nearest' && f.rule !== 'weekday') out.push(`${at}: a fill's rule is nearest or weekday`);
+      }
+    } else if (d.fill !== undefined) out.push(`${at}: only a fill names a day to fill from`);
+    else if (d.option === 'complete') out.push(`${at}: the part that arrived alone isn't recorded from a story`);
     const n = d.delivery ?? 0;
     const of = deliveries.filter((x) => x?.day === d.day);
     if (!Number.isInteger(n) || n < 0 || n > of.length) out.push(`${at}: ${d.day} has no delivery ${n}`);

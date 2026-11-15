@@ -59,6 +59,15 @@ describe('the brief of a paused day (ADR 0012 §1)', () => {
     expect(briefBanned(b)).toEqual([]);
   });
 
+  it('proposes a fill for a part that is missing, and keeps the last good day before filling the whole day (ADR 0023 §5)', () => {
+    const fill = { option: 'fill' as const, label: 'Fill from Tue 5', line: 'carries Tue 5 forward, marked as filled', off: null };
+    expect(briefOf(base(PLANTED.burst, { options: [...options, fill] })).fix.proposed).toBe('fill');
+    // None of the day's own rows would go out: offered, not proposed first.
+    const whole = briefOf(base(PLANTED.burst, { options: [...options, { ...fill, whole: true }] }));
+    expect(whole.fix.proposed).toBe('dont');
+    expect(whole.fix.options.map((x) => x.option)).toEqual(['asis', 'dont', 'fill']);
+  });
+
   it('reads as SBAR when copied, with the decision asked of whoever decides', () => {
     const text = briefText(b, { flow: 'Sign-ins', pause: base(PLANTED.burst).pause });
     expect(text.split('\n')[0]).toBe(`${b.title} · investigating`);

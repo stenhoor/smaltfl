@@ -13,7 +13,8 @@
 import type { Database } from 'smaltdb/engine';
 import { isEvery, isSlotOf } from '../core/calendar.js';
 import { canonicalJSON } from '../core/canonical.js';
-import { createTable, emitColumnFacts, emitNeedsCounts, emitReconcileCounts, emitRuleCounts, emitSample, emitScopeCounts } from '../core/emit.js';
+import { FILLED_FROM } from '../core/document.js';
+import { createTable, emitColumnFacts, emitColumnsOf, emitNeedsCounts, emitReconcileCounts, emitRuleCounts, emitSample, emitScopeCounts } from '../core/emit.js';
 import { hex } from '../core/hash.js';
 import { isHistory, type HistoryFile } from '../core/history.js';
 import { measuresLeaf, measuresOf, measuresProblem, scanColumns, type HistoryHeader, type MeasureSettings, type Measures } from '../core/measures.js';
@@ -61,10 +62,13 @@ export function settingsOf(v: unknown): MeasureSettings {
 
 /** A snapshot's measures: its rows counted where a count is kept, an even sample for the medians and quantiles. */
 export async function measureTable(db: Database, table: string, s: MeasureSettings, file: string | null, snapshot: string): Promise<Measures> {
-  const read = `SELECT * FROM ${q(table)}`;
-  const st = db.prepare(read);
+  const st = db.prepare(`SELECT * FROM ${q(table)}`);
   const types = st.columnTypes;
-  const schema: Column[] = st.columns.map((name, k): Column => [name, types[k] as Column[1]]);
+  // A fill's mark (ADR 0009 amendment 1 S1) says where a row came from, not what it says: it is never measured, so a
+  // watched step a fill reaches is judged by its rows alone, filled or not, and no history learns the mark (ADR 0023
+  // §5). A table without one is read whole, as always.
+  const schema: Column[] = st.columns.flatMap((name, k): Column[] => (name.toLowerCase() === FILLED_FROM ? [] : [[name, types[k] as Column[1]]]));
+  const read = schema.length === st.columns.length ? `SELECT * FROM ${q(table)}` : emitColumnsOf(table, schema.map(([c]) => c));
   const facts = (await db.queryAsync(emitColumnFacts(read, schema.map(([name, type]) => ({ name, numeric: NUMERIC.has(type) }))))).rows[0]!;
   const rows = Number(facts[0]);
   const sample = rows ? (await db.queryAsync(emitSample(read, schema.map(([c]) => c), Math.ceil(rows / s.sample)))).rows : [];

@@ -12,7 +12,7 @@
   "decisions": [
     { "day": "2024-03-04", "at": "2024-03-04T08:10:00Z", "by": "ciso", "option": "dont", "reason": "The MFA export came through empty: the vendor runs it again tonight" },
     { "day": "2024-03-04", "delivery": 1, "at": "2024-03-05T04:50:00Z", "by": "ciso", "option": "asis", "reason": "The full export, checked against the directory" },
-    { "day": "2024-03-06", "at": "2024-03-06T08:30:00Z", "by": "ciso", "option": "dont", "reason": "The backup file is Tuesday's again: the export job didn't run" },
+    { "day": "2024-03-06", "at": "2024-03-06T08:30:00Z", "by": "ciso", "option": "fill", "fill": { "source": "backup_jobs", "from": "2024-03-05" }, "reason": "The backup file is Tuesday's again: the export job didn't run. Tuesday's statuses carry forward, marked as Tuesday's, until Wednesday's own arrive" },
     { "day": "2024-03-06", "delivery": 1, "at": "2024-03-07T04:40:00Z", "by": "ciso", "option": "asis", "reason": "Wednesday's own backup jobs, exported after the day" },
     { "day": "2024-03-07", "delivery": 1, "at": "2024-03-07T10:05:00Z", "by": "ciso", "option": "asis", "reason": "retention_days is back, and the rows are the morning's" },
     { "day": "2024-03-08", "at": "2024-03-08T09:15:00Z", "by": "ciso", "option": "dont", "reason": "Key rotation passes where encryption at rest fails: the vault team is checking their feed" },

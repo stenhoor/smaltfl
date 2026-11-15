@@ -100,6 +100,20 @@
     }
   },
   {
+    "name": "day-filled",
+    "what": "Wed Mar 6 by its link (ADR 0023 §5): its backup file was Tuesday's again, so the security lead filled the day from Tue 5, the whole day carried forward and marked; Wednesday's own export, sent overnight, replaced the fill once decided and is what readers got",
+    "day": "Wed 6",
+    "waitFor": ".dh-rec[data-check=\"matches\"]",
+    "element": "#loads",
+    "expect": {
+      "text": ["Wed Mar 6", "Held: backup_jobs", "Decided: filled from Tue 5", "Sent again: backup_jobs", "Decided: published", "3 VERSIONS OF THE DAY", "The same file as Tue 5’s", "filled by Sloane Marsden", "Tuesday's statuses carry forward", "backup_jobs sent again Thu, Mar 7, 03:05 UTC", "what readers got", "Published version 2"],
+      "count": {
+        ".dh-versions .dv": 3,
+        ".dh-versions .dv.on.got": 1
+      }
+    }
+  },
+  {
     "name": "day-v1",
     "what": "Mon Mar 18's first version by its link (#day/2024-03-18/v1): the extract as it arrived, held by the org chain, replaced by the one sent again; not the visitor's to decide, and checked against the recorded run of the same version",
     "day": "Mon 18",

@@ -229,6 +229,8 @@ describe('gold: Control Posture v1, its contracts and its gates (ADR 0020 ยง4, ย
   const result = (day: string) => w.result(day);
   const GOLD = ['app_scorecard', 'dim_app', 'dim_control', 'dim_org', 'exceptions_register', 'fact_control_status', 'fact_finding', 'failing_by_unit', 'org_posture', 'remediation_queue'];
   const CHAIN = ['dim_app', 'dim_org', 'failing_by_unit', 'org_posture'];
+  /** The gold datasets the evidence feeds' fills reach: each carries the day its evidence was carried from. */
+  const FILLED = ['app_scorecard', 'fact_control_status', 'failing_by_unit', 'org_posture', 'remediation_queue'];
 
   it('publishes every gold dataset on a day nothing upstream holds', () => {
     for (const day of ['2024-03-01', '2024-03-02', P.capitals, P.reinstall, '2024-03-11', S.expiries, S.duplicates, S.sbom]) expect(GOLD.filter((g) => !result(day).published.includes(g)), day).toEqual([]);
@@ -240,7 +242,8 @@ describe('gold: Control Posture v1, its contracts and its gates (ADR 0020 ยง4, ย
       if (Object.keys(r.manifest.outputs).length === 0) continue; // nothing was built: a refused file
       const nodes = r.manifest.nodes.filter((n) => GOLD.includes(n.origin) && n.contract);
       expect(nodes.map((n) => n.origin).sort(), day).toEqual(GOLD);
-      for (const n of nodes) expect(n.contract, `${day} ${n.origin}`).toEqual({ version: '1.0.0', missing: [], extra: [], retyped: [], blank: [], outside: [] });
+      // The contracts a fill reaches name its mark, filled_from (ADR 0023 ยง5): 1.1.0, the column added; the rest 1.0.0.
+      for (const n of nodes) expect(n.contract, `${day} ${n.origin}`).toEqual({ version: FILLED.includes(n.origin) ? '1.1.0' : '1.0.0', missing: [], extra: [], retyped: [], blank: [], outside: [] });
       const own = [...new Set(r.holds.filter((h) => GOLD.includes(h.origin)).map((h) => `${h.origin}: ${h.said}`))];
       if (day === P.double) {
         // The doubled rows flow through to gold, whose own keys say so too (one status an application and control): the

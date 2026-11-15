@@ -522,7 +522,9 @@ describe('a fill step (ADR 0009 amendment 1 S1)', () => {
       return validateDocument(doc);
     };
     const fill = (doc: FlowDocument) => doc.steps.find((s) => s.id === 'trips_filled') as unknown as Record<string, unknown>;
-    expect(issues((d) => (fill(d).time = 'pickup time'))).toEqual([{ path: '$.steps[0].time', message: 'the column an hours cause is of: a letter or _, then letters, digits or _' }]);
+    expect(issues((d) => (fill(d).time = 'pickup time'))).toEqual([{ path: '$.steps[0].time', message: 'the column an hours cause is of: a letter or _, then letters, digits or _; none for a file with no time of day, filled whole' }]);
+    // A file with no time of day: its fill step names none (ADR 0023 §5).
+    expect(issues((d) => delete fill(d).time)).toEqual([]);
     expect(issues((d) => (fill(d).shift = ['a', 'A', 3]))).toEqual([
       { path: '$.steps[0].shift[1]', message: 'A is listed twice' },
       { path: '$.steps[0].shift[2]', message: 'a column: a letter or _, then letters, digits or _' },
@@ -555,7 +557,15 @@ describe('a fill step (ADR 0009 amendment 1 S1)', () => {
     expect(missing({ column: 'VendorID' })).toEqual([{ path: '$.steps[0].missing', message: 'a part names its value: text, a number, true, false or null' }]);
     expect(missing({ column: 'VendorID', value: 1, rest: 'yes' })).toEqual([{ path: '$.steps[0].missing', message: 'rest is true or false' }]);
     expect(missing({ column: 'VendorID', value: 1, also: 2 })).toEqual([{ path: '$.steps[0].missing', message: 'a part is { column, value, rest }, nothing else' }]);
-    expect(missing('Vendor 1')).toEqual([{ path: '$.steps[0].missing', message: '{ time, hours: [from, to] } or { column, value, rest }' }]);
+    expect(missing('Vendor 1')).toEqual([{ path: '$.steps[0].missing', message: '{ time, hours: [from, to] }, { column, value, rest } or { all: true }' }]);
+    // The whole day (ADR 0023 §5): a file filled whole, with or without a time column.
+    expect(missing({ all: true })).toEqual([]);
+    expect(missing({ all: false })).toEqual([{ path: '$.steps[0].missing', message: 'the whole day is { all: true }, nothing else' }]);
+    expect(missing({ all: true, column: 'VendorID' })).toEqual([{ path: '$.steps[0].missing', message: 'the whole day is { all: true }, nothing else' }]);
+    const timeless = (m: unknown) => issues((d) => { delete fill(d).time; Object.assign(fill(d), { missing: m, from: null }); });
+    expect(timeless({ all: true })).toEqual([]);
+    expect(timeless({ column: 'VendorID', value: 1 })).toEqual([]);
+    expect(timeless({ time: 'tpep_pickup_datetime', hours: [13, 23] })).toEqual([{ path: '$.steps[0].missing', message: 'a fill with no time column names no hours: it fills its day whole, { all: true }' }]);
   });
 
   it('takes a donor that nothing else reads or watches, and fills from a day only with a period', () => {
@@ -631,7 +641,12 @@ describe('the fill node (ADR 0009 amendment 1 S1, S4)', () => {
     expect(node({ from: 'last week' })).toThrow('from and to are YYYY-MM-DD');
     expect(node({ missing: { column: 'VendorID' } })).toThrow('node 2 (fill): its missing part isn\'t one: a part names its value');
     expect(node({ missing: null })).toThrow('node 2 (fill) fills from 2022-11-07 with no missing part');
-    expect(node({ shift: [1] })).toThrow('node 2 (fill) names its time and the columns it shifts');
+    expect(node({ shift: [1] })).toThrow('node 2 (fill) names its time (or null, for a file filled whole) and the columns it shifts');
+    expect(node({ time: '' })).toThrow('node 2 (fill) names its time (or null, for a file filled whole) and the columns it shifts');
+    // A file with no time of day (ADR 0023 §5): its fill's time is null, and it fills whole or by a part of a column.
+    expect(node({ time: null })).not.toThrow();
+    expect(node({ time: null, missing: { all: true } })).not.toThrow();
+    expect(node({ time: null, missing: { time: 't', hours: [0, 23] } })).toThrow('node 2 (fill): its missing part isn\'t one: a fill with no time column names no hours');
     const complete = await translate(derived({ time: 'tpep_pickup_datetime', hours: [13, 23] }, null), { day: '2023-09-21' });
     const p = structuredClone(complete);
     Object.assign(p.nodes[1]!, { to: '2023-09-21' });
@@ -662,6 +677,13 @@ describe('the fill node (ADR 0009 amendment 1 S1, S4)', () => {
     expect(missingSql({ column: 'store_and_fwd_flag', value: 'N' }, types)).toBe(`"store_and_fwd_flag" IS 'N'`);
     expect(missingSql({ column: 'store_and_fwd_flag', value: null }, types)).toBe('"store_and_fwd_flag" IS NULL');
     expect(missingSql({ time: 'pickup', hours: [0, 5] }, [['pickup', 'real']])).toBe(`CAST(strftime('%H', "pickup") AS INTEGER) BETWEEN 0 AND 5`);
+    // The whole day (ADR 0023 §5): nothing of the day kept, every row of the donor's moved and marked.
+    expect(missingSql({ all: true }, types)).toBe('1 = 1');
+    expect(await sql(derived({ all: true }, '2022-11-07'), '2022-11-14')).toBe(
+      'SELECT "VendorID", "tpep_pickup_datetime", "tpep_dropoff_datetime", "fare_amount", CAST(NULL AS TEXT) AS "filled_from" FROM "t0" WHERE CASE WHEN (1 = 1) THEN 1 ELSE 0 END = 0\n' +
+        'UNION ALL\n' +
+        `SELECT CAST("VendorID" AS INTEGER) AS "VendorID", CAST((date(substr("tpep_pickup_datetime", 1, 10), '+7 days') || substr("tpep_pickup_datetime", 11)) AS TEXT) AS "tpep_pickup_datetime", CAST((date(substr("tpep_dropoff_datetime", 1, 10), '+7 days') || substr("tpep_dropoff_datetime", 11)) AS TEXT) AS "tpep_dropoff_datetime", CAST("fare_amount" AS REAL) AS "fare_amount", CAST('2022-11-07' AS TEXT) AS "filled_from" FROM "t1" WHERE CASE WHEN (1 = 1) THEN 1 ELSE 0 END = 1`,
+    );
     expect(shiftSql('"t"', -3, 'text')).toBe(`(date(substr("t", 1, 10), '-3 days') || substr("t", 11))`);
     expect(shiftSql('"t"', 2, 'int')).toBe('("t" + 172800)');
     expect(shiftSql('"t"', 2, 'real')).toBe('("t" + 2)');

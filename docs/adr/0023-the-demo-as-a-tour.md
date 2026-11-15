@@ -113,6 +113,58 @@ tab, the decision. The walk the docs describe today becomes the app's own; the d
 
 ADR 0022's Q-84 (levels and fills for slots of a day) and slice 5 (Q-139, proposed declarations) come after the tour.
 
+## As built
+
+### Slice 2: fills in Larkspur, and a correction replacing a fill (2026-11-15)
+
+- **A day filled whole.** A fill took only the part a short day was missing (its hours, a part that vanished). It now
+  takes the whole day from another where the day's rows all came but are wrong, or where the file came empty (`Missing`
+  gains `{ all: true }`; `missingFor`, `wholeDay` in `src/core/fill.ts`).
+  - A fill step's `time` is optional: a file with no time of day (a daily snapshot) names none, its plan node's `time`
+    is null, and it fills whole or by a part of a column, never by hours (`missingProblem`).
+  - Never whole over a value the ontology marks bad (I8, C9).
+  - The offer is marked `whole` and offers no part that arrived; the brief proposes keeping the last good day before a
+    whole fill, since none of the day's own rows would go out (`fixOf`).
+  - `emit.ts` writes the whole day as `1 = 1`; a derived run says "fills the whole day from …".
+- **Larkspur's twelve evidence feeds have fill cells** (`bronze.nb.ts`, `fill(tls, {})`), and each feed's check reads its
+  fill.
+  - No column is shifted: a carried row keeps its dates, the evidence's own.
+  - `filled_from` is carried row by row through `results`, `coverage`, `effective`, `remediation` and
+    `platform_impact`, and rolled up by `max()` in `posture_wide`, `app_scorecard` and `org_posture`, so no gate's key
+    gains a row (Q-65).
+  - The five gold contracts the fills reach name it: `fact_control_status`, `app_scorecard`, `org_posture`,
+    `remediation_queue` and `failing_by_unit` are at version 1.1.0.
+  - The plan's hash moves. No held day of the answer key moves (`test/larkspur-flow.test.ts`).
+- **The mark is never measured** (`measureTable`, `sampleTable`). It says where a row came from, not what it says: a
+  watched step a fill reaches is judged by its rows alone, and no history or kept sample learns it.
+- **A derived run tells its watched steps** (`tellStep` in `src/plugin/runtime.ts`). A fill on a flow that watches a step
+  built from the filled file builds that step again from the filled rows, so the engine measures it and tells its claim,
+  as a day's own run does, under the held run's flow hash, as the derived run's sources are judged (C4).
+  - Its measures are kept with the derived run, and verify reads them from there (`storedMeasuredOf`).
+  - The release checks that the derived run's *files* are judged as the held run's; a step's story is its own, and a
+    step still held keeps back what it reaches.
+  - A fill is about one load: each held load is decided by the same choice (Q-193), and the release cites the decision
+    about the file it fills, which comes first. `test/fill-steps.test.ts`.
+- **The sheet decides the held load** (`sheetSubject` in `src/app/main.ts`). On a flow watching several datasets, where
+  one source holds the day and has a fill step, the decision sheet draws that source's history, story and rows and
+  offers its fills.
+  - Its donors are read from the day's other files in the data list (`listedFileOf`).
+  - The donor's claim is told from that source's own base (`donorClaim2`).
+  - Fills are for one source at a time (`holding`, `heldSources`).
+  - Its recommendation is told by that file's story, not by the dataset the views follow.
+  - After a reload, a recorded fill on such a flow is staged again and released citing the file's decision, never for a
+    version a later delivery replaced (`applyDecided`).
+  - The day's lifecycle says a fill readers had before a later version replaced it: "Decided: filled from Tue 5".
+  - Stops: `month.json`'s Wed 6, and `decide.json` filling Sun 24 from Fri 22 in the sheet, still filled after a reload.
+- **The recorder records a fill** (`StoryDecision.fill`; `fillOnce` in `scripts/data/record.ts`):
+  - the version's files are pinned again, and the donor's file is pinned as its donor and judged by its own claim;
+  - the derived run is staged and recorded, then one decision a held load carrying the repair, then the release;
+  - what was pinned before is put back.
+- **Larkspur's story fills Wed Mar 6 from Tue 5** (the backup file was Tuesday's again, the export job hadn't run).
+  Wednesday's own export, sent overnight, replaces the fill once decided (Q-62, Q-183). `test/fill-whole.test.ts` runs
+  the same in the engine on a snapshot: filled whole from the day before, released and verified, then replaced by the
+  corrected file.
+
 ## Consequences
 
 - **The demo at `/app/` changes:** its month, its story and its walks (`tools/browser/stops/larkspur.json`, `month.json`,

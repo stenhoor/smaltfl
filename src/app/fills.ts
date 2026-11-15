@@ -12,11 +12,11 @@
 import { fixesOf, fixOfDonor } from '../core/rules.js';
 import { donorBinding, pinnedDdl, type Binding } from '../../examples/sources.js';
 import { fillStepOf, type FlowDocument } from '../core/document.js';
-import { donorChoices, donorRuleOf, fillCounts, missingOf, offersOf, repairDocument, type DonorPick, type FillCounts, type Missing, type NoDonor, type Offer, type Repair } from '../core/fill.js';
+import { donorChoices, donorRuleOf, fillCounts, missingFor, offersOf, repairDocument, type DonorPick, type FillCounts, type Missing, type NoDonor, type Offer, type Repair } from '../core/fill.js';
 import type { HistoryRanges } from '../core/history.js';
 import { heldOutputs, inputsOf, stagedKeys, type Claim, type DerivedAbout, type HistoryRef } from '../core/hold.js';
 import type { FlowPlan } from '../core/plan.js';
-import type { RunResult } from '../core/protocol.js';
+import type { RunResult, TellFor } from '../core/protocol.js';
 import type { StagedFail } from '../core/decision.js';
 import type { Story } from '../core/story.js';
 import { pinFile, runFlow } from '../index.js';
@@ -53,10 +53,11 @@ export interface Remedies {
  * the watch's own rule first), each with the counts its drawing and row show (fillCounts, S4: the same number the
  * derived run counts).
  */
-export function donorsOf(o: { h: HistoryRanges; doc: FlowDocument; day: string; source: string; story: Pick<Story, 'hero' | 'hours' | 'split'>; claim: Claim | null; listed: (day: string) => HistoryRef | null; history: HistoryRef; build: string; later: string | null; readers: 'fill' | 'complete' | null; partFails: boolean; arrived?: (day: string) => boolean; current?: string | null }): Remedies | null {
+export function donorsOf(o: { h: HistoryRanges; doc: FlowDocument; day: string; source: string; story: Pick<Story, 'hero' | 'hours' | 'split'> & Partial<Pick<Story, 'amount' | 'cause'>>; claim: Claim | null; listed: (day: string) => HistoryRef | null; history: HistoryRef; build: string; later: string | null; readers: 'fill' | 'complete' | null; partFails: boolean; arrived?: (day: string) => boolean; current?: string | null; holding?: number }): Remedies | null {
   const step = fillStepOf(o.doc, o.source);
   if (!step) return null;
-  const missing = missingOf(o.story, step.time);
+  // The part the story names on a short day; else the whole day, where its rows are wrong (ADR 0023 §5).
+  const missing = missingFor(o.story, o.claim, step.time);
   if (!missing) return null;
   const { picks, none } = donorChoices({ h: o.h, doc: o.doc, day: o.day, source: o.source, listed: o.listed, history: o.history, build: o.build, ...(o.arrived ? { arrived: o.arrived } : {}) }, donorRuleOf(o.doc, o.source));
   const counts = new Map<string, FillCounts>();
@@ -69,7 +70,8 @@ export function donorsOf(o: { h: HistoryRanges; doc: FlowDocument; day: string; 
   // day, and a file that never allows the estimate never gets a like day offered.
   const fixes = fixesOf(o.doc.ontology, o.source);
   const usable = picks.filter((p) => counts.has(p.day) && fixes.has(fixOfDonor(p)));
-  const offers = offersOf({ story: o.story, claim: o.claim, fill: step, donors: usable, later: o.later, partFails: o.partFails, readers: o.readers, fixes });
+  // Watched sources holding the day: fills are for one at a time (S5).
+  const offers = offersOf({ story: o.story, claim: o.claim, fill: step, donors: usable, later: o.later, partFails: o.partFails, readers: o.readers, fixes, ...(o.holding !== undefined ? { holding: o.holding } : {}) });
   if (!offers.length) return null;
   return { step: step.id, source: o.source, missing, offers, picks: usable, none, counts, part: fillCounts(o.h, o.day, missing, null) };
 }
@@ -105,10 +107,12 @@ export async function pinDonor(engine: Engine, source: string, binding: Binding,
  * run's parameters, with the day's claim and the donor's, every output held whatever else holds, naming the held run it
  * repairs. Its versions are kept and hashed like any run's, and go out only by a decision's release.
  */
-export async function stageRepair(engine: Engine, o: { doc: FlowDocument; held: RunResult; repair: Repair; claims: readonly Claim[]; smaltdb: string; data: { commit: string; manifest: string } | null; log: { origin: string; size: number; root: string } | null }): Promise<{ doc: FlowDocument; result: RunResult }> {
+export async function stageRepair(engine: Engine, o: { doc: FlowDocument; held: RunResult; repair: Repair; claims: readonly Claim[]; smaltdb: string; data: { commit: string; manifest: string } | null; log: { origin: string; size: number; root: string } | null; tell?: Record<string, TellFor> }): Promise<{ doc: FlowDocument; result: RunResult }> {
   const doc = repairDocument(o.doc, o.repair);
   const claims = [...o.claims, ...(o.repair.donor ? [o.repair.donor.claim] : [])];
-  const result = await runFlow(engine, doc, { smaltdb: o.smaltdb, parameters: { ...o.held.manifest.parameters } as Record<string, string>, data: o.data, log: o.log, claims, stage: true, from: { run: o.held.run, manifest: o.held.hash } });
+  // The watched steps it builds are told again by the engine, of the filled rows (ADR 0023 §5), from what the page says
+  // of the record, as a day's own run tells them.
+  const result = await runFlow(engine, doc, { smaltdb: o.smaltdb, parameters: { ...o.held.manifest.parameters } as Record<string, string>, data: o.data, log: o.log, claims, stage: true, from: { run: o.held.run, manifest: o.held.hash }, ...(o.tell && Object.keys(o.tell).length ? { tell: o.tell } : {}) });
   return { doc, result };
 }
 

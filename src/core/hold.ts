@@ -746,6 +746,8 @@ export interface Derived {
  */
 function fillSaid(n: Extract<FlowPlan['nodes'][number], { op: 'fill' }>): string {
   const m = n.missing!;
+  // The whole day (ADR 0023 §5): "fills the whole day from 2024-03-17".
+  if ('all' in m) return n.from !== null ? `fills the whole day from ${n.from}` : 'keeps nothing of the day';
   const part = 'hours' in m ? `${String(m.hours[0]).padStart(2, '0')}:00–${String(m.hours[1]).padStart(2, '0')}:59` : `${m.column} ${JSON.stringify(m.value)}`;
   const rest = !('hours' in m) && m.rest === true;
   if (n.from !== null) return `fills ${rest ? 'all but ' : ''}${part} from ${n.from}`;

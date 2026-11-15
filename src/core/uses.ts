@@ -318,7 +318,7 @@ export function columnUses(doc: Pick<FlowDocument, 'steps' | 'sources'>, source:
         break;
       case 'fill':
         passes = true;
-        reads1 = lower(s.time) === col || s.shift.some((x) => lower(x) === col);
+        reads1 = (s.time !== undefined && lower(s.time) === col) || s.shift.some((x) => lower(x) === col);
         break;
       case 'formula':
         passes = true;

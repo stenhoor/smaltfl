@@ -45,6 +45,9 @@ describe('the remedies a held day gets in the app (S2, S3, S5)', () => {
     const none = ask({ listed: () => null })!;
     expect(none.picks).toEqual([]);
     expect(none.offers[0]).toMatchObject({ option: 'fill', off: 'No good day near' });
+    // Two sources holding the day: fills are for one at a time (S5), so nothing is offered.
+    expect(ask({ holding: 2 })).toBeNull();
+    expect(ask({ holding: 1 })).not.toBeNull();
   });
 
   it('names the repair a decision carries: the donor’s file as the data lists it, or no donor for the part alone', () => {

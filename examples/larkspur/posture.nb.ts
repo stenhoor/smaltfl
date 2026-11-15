@@ -45,21 +45,22 @@ export const expected = sql`
    AND (c.applies_hosting = '*' OR instr(';' || c.applies_hosting || ';', ';' || a.hosting || ';') > 0)`;
 
 cell('about_coverage', { lang: 'md' });
-md`What applies against the evidence: each expected pair with its result, or none (missing evidence, which is no data, not a failure), and the results for a pair nothing expects, kept and said. One full join of the two, each side marked, so the evidence is read once`;
+md`What applies against the evidence: each expected pair with its result, or none (missing evidence, which is no data, not a failure), and the results for a pair nothing expects, kept and said. One full join of the two, each side marked, so the evidence is read once. A result carried from another day by a fill keeps the day it came from`;
 
 cell('coverage', { lang: 'sql' });
 export const coverage = sql`
   WITH evidence AS (
-    SELECT app_id, control_id, status, due_on, platform, platform2, compensating, 1 AS seen FROM ${results}
+    SELECT app_id, control_id, status, due_on, platform, platform2, compensating, filled_from, 1 AS seen FROM ${results}
     UNION ALL
-    SELECT app_id, control_id, status, NULL, NULL, NULL, NULL, 1 FROM ${ownership}
+    SELECT app_id, control_id, status, NULL, NULL, NULL, NULL, NULL, 1 FROM ${ownership}
   ),
   wanted AS (SELECT *, 1 AS listed FROM ${expected})
   SELECT CASE WHEN e.listed IS NULL THEN r.app_id ELSE e.app_id END AS app_id,
          CASE WHEN e.listed IS NULL THEN r.control_id ELSE e.control_id END AS control_id,
          e.weight, e.depends_on, e.compensated_by,
          r.status AS raw_status, r.due_on, r.platform, r.platform2, r.compensating,
-         CASE WHEN e.listed IS NULL THEN 'not expected' WHEN r.seen IS NULL THEN 'missing' ELSE 'present' END AS evidence
+         CASE WHEN e.listed IS NULL THEN 'not expected' WHEN r.seen IS NULL THEN 'missing' ELSE 'present' END AS evidence,
+         r.filled_from
   FROM wanted e
   FULL JOIN evidence r ON r.app_id = e.app_id AND r.control_id = e.control_id`;
 
@@ -83,7 +84,7 @@ export const effective = sql`
     LEFT JOIN ex x ON x.app_id = c.app_id AND x.control_id = c.control_id
     WHERE c.evidence <> 'not expected'
   )
-  SELECT app_id, control_id, weight, raw_status, due_on, platform, platform2,
+  SELECT app_id, control_id, weight, raw_status, due_on, platform, platform2, filled_from,
          CASE WHEN evidence = 'missing' THEN 'no_data'
               WHEN raw_status = 'not_assessed' THEN 'not_assessed'
               WHEN raw_status = 'pass' AND depends_status = 'fail' THEN 'fail'
@@ -113,7 +114,7 @@ cell('remediation', { lang: 'sql' });
 export const remediation = sql`
   SELECT e.app_id, a.name, e.control_id, e.reason, e.due_on,
          CASE WHEN e.due_on IS NOT NULL AND e.due_on < ${params.day} THEN CAST(julianday(${params.day}) - julianday(e.due_on) AS INTEGER) END AS days_overdue,
-         a.owner_team_id, u.name AS team, COALESCE(u.leader_id, u.acting_leader_id) AS team_leader_id
+         a.owner_team_id, u.name AS team, COALESCE(u.leader_id, u.acting_leader_id) AS team_leader_id, e.filled_from
   FROM ${effective} e
   JOIN ${apps} a ON a.app_id = e.app_id
   LEFT JOIN ${org_units} u ON u.org_unit_id = a.owner_team_id
@@ -124,12 +125,12 @@ md`Today's failures and unassessed results by the platforms they share: one row 
 
 cell('platform_impact', { lang: 'sql' });
 export const platform_impact = sql`
-  SELECT c.platform AS platform_id, p.kind, c.control_id, c.raw_status AS status, c.app_id
+  SELECT c.platform AS platform_id, p.kind, c.control_id, c.raw_status AS status, c.app_id, c.filled_from
   FROM ${coverage} c
   JOIN ${platforms} p ON p.platform_id = c.platform
   WHERE c.evidence = 'present' AND c.raw_status IN ('fail', 'not_assessed')
   UNION ALL
-  SELECT c.platform2, p.kind, c.control_id, c.raw_status, c.app_id
+  SELECT c.platform2, p.kind, c.control_id, c.raw_status, c.app_id, c.filled_from
   FROM ${coverage} c
   JOIN ${platforms} p ON p.platform_id = c.platform2
   WHERE c.evidence = 'present' AND c.raw_status IN ('fail', 'not_assessed')`;
@@ -138,7 +139,7 @@ cell('platform_impact_gate');
 export const platform_impact_gate = gate(platform_impact, { layer: 'silver', checks: { amount: 'off', values: 'warn', pairs: 'off', forest: 'off' } });
 
 cell('about_wide', { lang: 'md' });
-md`One row an application, a column a control's status as a person reads it, not applicable where the control doesn't apply. The pairs, the forest and the classifier read it: they compare the columns within a row. Where key rotation reports a pass, encryption at rest mustn't be failing: there would be no managed key to rotate, so one of the two feeds is wrong, and the posture holds. That rule is the ontology's, rotation_needs_encryption, written once beside the controls it links`;
+md`One row an application, a column a control's status as a person reads it, not applicable where the control doesn't apply, and the latest day any of its evidence was carried from where a fill stood in. The pairs, the forest and the classifier read it: they compare the columns within a row. Where key rotation reports a pass, encryption at rest mustn't be failing: there would be no managed key to rotate, so one of the two feeds is wrong, and the posture holds. That rule is the ontology's, rotation_needs_encryption, written once beside the controls it links`;
 
 cell('posture_wide', { lang: 'sql' });
 export const posture_wide = sql`
@@ -156,7 +157,8 @@ export const posture_wide = sql`
          COALESCE(max(CASE WHEN e.control_id = 'logging' THEN e.status END), 'not_applicable') AS logging,
          COALESCE(max(CASE WHEN e.control_id = 'privileged_access' THEN e.status END), 'not_applicable') AS privileged_access,
          COALESCE(max(CASE WHEN e.control_id = 'edr' THEN e.status END), 'not_applicable') AS edr,
-         COALESCE(max(CASE WHEN e.control_id = 'ownership' THEN e.status END), 'not_applicable') AS ownership
+         COALESCE(max(CASE WHEN e.control_id = 'ownership' THEN e.status END), 'not_applicable') AS ownership,
+         max(e.filled_from) AS filled_from
   FROM ${apps} a
   JOIN ${effective} e ON e.app_id = a.app_id
   GROUP BY a.app_id`;

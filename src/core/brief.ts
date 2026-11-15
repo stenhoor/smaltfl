@@ -31,6 +31,8 @@ export interface BriefOption {
   line: string | null;
   /** Why it can't be taken now, when it can't. */
   off: string | null;
+  /** A fill that carries in the whole day, none of its own rows kept (ADR 0023 §5). */
+  whole?: boolean;
 }
 
 export interface BriefIn {
@@ -220,7 +222,11 @@ export function fixOf(o: Pick<BriefIn, 'options' | 'picked' | 'story' | 'pause' 
   // readers keep the last good day while someone looks, the finding named.
   const lead = overwhelmingOf(o.story);
   const over = lead?.overwhelming;
-  const prefer: DecisionOption[] = over ? ['dont', 'fill', 'complete', 'accept', 'asis'] : o.story?.state === 'wrong' || o.story?.state === 'refused' ? (outage ? ['complete', 'fill', 'dont', 'accept', 'asis'] : ['fill', 'complete', 'dont', 'accept', 'asis']) : ['asis', 'accept', 'fill', 'complete', 'dont'];
+  // A fill is proposed for a day short of a part (its hours, a part that vanished): another day carries in what is
+  // missing. A fill of the whole day (ADR 0023 §5: a file whose rows arrived wrong, or that came empty) is a choice to
+  // offer, never proposed before keeping the last good day: none of the day's own rows would go out.
+  const whole = o.options.some((x) => x.option === 'fill' && x.whole);
+  const prefer: DecisionOption[] = over ? ['dont', 'fill', 'complete', 'accept', 'asis'] : o.story?.state === 'wrong' || o.story?.state === 'refused' ? (outage ? ['complete', 'fill', 'dont', 'accept', 'asis'] : whole ? ['dont', 'fill', 'complete', 'accept', 'asis'] : ['fill', 'complete', 'dont', 'accept', 'asis']) : ['asis', 'accept', 'fill', 'complete', 'dont'];
   // A person's own proposal first, when it can go; else the app's.
   const own = o.prefer && open.some((x) => x.option === o.prefer) ? o.prefer : null;
   const proposed = o.picked ?? own ?? prefer.find((p) => open.some((x) => x.option === p)) ?? null;

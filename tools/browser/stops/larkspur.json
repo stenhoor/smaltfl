@@ -29,7 +29,7 @@
   },
   {
     "name": "lark-mar11-fbu-contract",
-    "what": "Mon Mar 11: failing_by_unit's Contract, kept, with its columns and service levels",
+    "what": "Mon Mar 11: failing_by_unit's Contract, kept, with its columns and service levels; version 1.1.0 names filled_from, the day a row's evidence was carried from where a fill stood in (ADR 0023 §5)",
     "day": "Mon 11",
     "card": "failing_by_unit",
     "tab": "Contract",
@@ -41,10 +41,11 @@
       "text": [
         "Kept on Mon 11",
         "Available by",
-        "07:00 UTC"
+        "07:00 UTC",
+        "filled_from"
       ],
       "count": {
-        "#sheet .ct-col": 7,
+        "#sheet .ct-col": 8,
         "#sheet .ct-col.alert": 0
       }
     }

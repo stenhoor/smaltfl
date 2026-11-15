@@ -429,8 +429,15 @@ release (smaltty ADR 0030).
   scenes on a tour month of Larkspur (a normal day; a warning and the reactions to it; a hard rule's hold backfilled by
   the file sent again; a statistical anomaly that was real, then accepted; one that was an issue, filled, then
   corrected; fills each way and one file replaced), walked from the app's month screen, in the slices of its §6: fills
-  in Larkspur, Q-86 (keep pausing until accepted), the tour month, the scene list. ADR 0022's Q-84 and slice 5 (Q-139)
-  come after.
+  in Larkspur, Q-86 (keep pausing until accepted), the tour month, the scene list. Slice 2 is built (its §"As built"):
+  a day filled whole (`Missing` `{ all: true }`, a fill step's `time` optional for a file with no time of day,
+  `missingFor`, `wholeDay`, a `whole` offer proposed only after keeping the last good day), a fill cell on each of
+  Larkspur's twelve evidence feeds with `filled_from` carried through silver and gold (the five gold contracts it
+  reaches at 1.1.0), the mark never measured or kept in a sample, a derived run telling its watched steps of the filled
+  rows (`tellStep`, under the held run's flow hash; its release cites the filled file's decision alone), the decision
+  sheet deciding the one held source that has a fill (`sheetSubject`), and the recorder recording a story's fill (`StoryDecision.fill`, `fillOnce`): Larkspur's
+  story fills Wed Mar 6 from Tue 5, and Wednesday's own export replaces the fill (`test/fill-whole.test.ts` in the
+  engine). ADR 0022's Q-84 and slice 5 (Q-139) come after.
 
 ## Rules for this repository
 
