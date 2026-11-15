@@ -95,6 +95,39 @@ export function nameColumn(doc: FlowDocument, file: string, column: string, chan
   return { doc: { ...doc, ontology: { ...o, properties } }, said };
 }
 
+/**
+ * A file's column read by the name the file gives it now (ADR 0022 §2, Q-146, Q-206): its own property's `fromFile`, so
+ * the source's table declares that name and the run reads it as `column`. Made the file's own as `nameColumn` makes it
+ * (a property shared with other files stops naming this one); `from` null reads it by its own name again. A dated change
+ * set carries it, from the day the file first named it so.
+ */
+export function mapColumn(doc: FlowDocument, file: string, column: string, from: string | null): { doc: FlowDocument; said: string | null } {
+  const o: Ontology = doc.ontology ?? { objectTypes: [], linkTypes: [], actionTypes: [] };
+  const props = o.properties ?? [];
+  const was = propertyOf(o, file, column);
+  const own = (p: PropertyType) => p.datasets?.length === 1 && lower(p.datasets[0]!) === lower(file);
+  const had = was && own(was) ? (was.fromFile ?? null) : null;
+  const next = from === null || from.trim() === '' ? null : from.trim();
+  if (next === had || (next !== null && lower(next) === lower(column))) return { doc, said: null };
+  const said = next === null ? `Read ${column} in ${file} by its own name again` : `Read ${file}’s ${next} as ${column}`;
+  const set = (p: PropertyType): PropertyType => {
+    if (next !== null) return { ...p, fromFile: next };
+    const { fromFile: _fromFile, ...rest } = p;
+    return rest;
+  };
+  let properties: PropertyType[];
+  if (was && own(was)) properties = props.map((p) => (p === was ? set(p) : p));
+  else if (was) {
+    const bands = was.expect?.filter((b) => !b.datasets || b.datasets.some((d) => lower(d) === lower(file)));
+    const { expect: _expect, ...rest } = was;
+    const mine = set({ ...rest, ...(bands?.length ? { expect: bands } : {}), datasets: [file] });
+    const left = (p: PropertyType): PropertyType => (p.datasets ? { ...p, datasets: p.datasets.filter((d) => lower(d) !== lower(file)) } : p);
+    properties = props.flatMap((p) => (p === was ? [left(p), mine] : [p]));
+  } else if (next === null) return { doc, said: null };
+  else properties = [...props, { column, title: column, description: '', fromFile: next, datasets: [file] }];
+  return { doc: { ...doc, ontology: { ...o, properties } }, said };
+}
+
 /** A band accepted for a value of a source's column (ADR 0014 §3, Accept the new band). */
 export interface AcceptedBand {
   column: string;

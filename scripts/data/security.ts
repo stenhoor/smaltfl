@@ -44,7 +44,7 @@ for (const plan of securityDays(options)) {
   if (plan.day < from || plan.day > to) continue;
   const rows = securityRows(plan, scale);
   const file = resolve(out, 'days', `auth_${plan.day}.csv`);
-  writeFileSync(file, csvOf(rows));
+  writeFileSync(file, csvOf(rows, options.renamed?.[plan.day], options.added?.[plan.day]));
   (plan.day <= baseTo ? base : loads).push({ file, slot: plan.day, rows: rows.length } as never);
 }
 writeFileSync(join(out, 'base.json'), JSON.stringify(base));

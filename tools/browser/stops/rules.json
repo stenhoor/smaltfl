@@ -26,7 +26,7 @@
   },
   {
     "name": "rules-add-form",
-    "what": "The owner taps Add a check on the User card, and has edits take effect from the day on screen (Thu Mar 21, the last recorded day, ADR 0021 §5): the form in place of the button, what User must be (never blank by default), what a row that breaks it does, Add the check and Cancel",
+    "what": "The owner taps Add a check on the User card, and has edits take effect from the day on screen (Thu Mar 21, ADR 0021 §5; they reach Fri Mar 22, the last recorded day, too): the form in place of the button, what User must be (never blank by default), what a row that breaks it does, Add the check and Cancel",
     "view": "ontology",
     "viewFirst": true,
     "clicks": [
@@ -43,26 +43,27 @@
         "A row that breaks it",
         "Add the check",
         "For auth only. On once saved",
-        "Back-dated: 1 recorded day (Thu Mar 21, 1 published) run again under the new rules, and one decision restates them."
+        "Back-dated: 2 recorded days (Thu Mar 21 to Fri Mar 22, 1 published) run again under the new rules, and one decision restates them."
       ]
     }
   },
   {
     "name": "rules-added",
-    "what": "The rule added, in force from Thu Mar 21: the day runs again under it and comes out the same, and the restatement opens for its sign-off (Q-199 as answered, ADR 0022 §1); User is never blank, else flag the row and keep it, listed on the User card and among the changes above the files; the check cell auth_valid gains user_required: 'on' in its ontology list",
+    "what": "The rule added, in force from Thu Mar 21: Thu 21 and Fri 22 run again under it and come out the same (Fri 22 still held for its renamed column), and the restatement opens for its sign-off (Q-199 as answered, ADR 0022 §1); User is never blank, else flag the row and keep it, listed on the User card and among the changes above the files; the check cell auth_valid gains user_required: 'on' in its ontology list",
     "view": "ontology",
     "viewFirst": true,
     "clicks": [
       ".of-rule-form .of-save"
     ],
-    "waitFor": ".of-col[data-column=\"user\"] .of-rule-acts",
+    "waitFor": ".vf-detail .rs-go",
+    "waitForMs": 120000,
     "full": true,
     "expect": {
       "pageText": [
         "User is never blank: else flag the row and keep it",
         "Added a rule to auth: User is never blank, else flag the row and keep it, in force from Thu Mar 21",
         "The new rules change no published day",
-        "Sign off 1 day as the same"
+        "Sign off 2 days as the same"
       ],
       "count": {
         "#ontology-files .of-rule-form": 0,
@@ -72,14 +73,14 @@
   },
   {
     "name": "rules-signed-off",
-    "what": "The restatement opened from the day's head, and the day that came out the same signed off with a reason: one restatement recorded, nothing decided again",
+    "what": "The restatement opened from the day's head, and the two days that came out the same signed off with a reason: one restatement recorded, nothing decided again",
     "clicks": [
       "#loads .rs-line button.btn",
       [".vf-detail .rs-reason", "The same day under the new rule: User is never blank"],
       ".vf-detail .rs-go"
     ],
     "expect": {
-      "status": "^1 recorded day ran again under the new rules: it comes out the same\\. Signed off and recorded\\.$",
+      "status": "^2 recorded days ran again under the new rules: they come out the same\\. Signed off and recorded\\.$",
       "count": {
         ".vf-detail-wrap": 0
       }
@@ -113,11 +114,13 @@
     "clicks": [
       "#sheet .rl-item[data-rule=\"latency_ms_range\"] .rl-switch"
     ],
+    "waitFor": ".vf-detail .rs-go",
+    "waitForMs": 120000,
     "full": true,
     "expect": {
       "text": [
         "Switched off a rule of auth: Latency is from 0 to 30,000 ms, in auth_valid (from Thu Mar 21)",
-        "Sign off 1 day as the same"
+        "Sign off 2 days as the same"
       ],
       "count": {
         "#sheet .rl-switch[aria-checked=\"false\"]": 1
@@ -133,7 +136,7 @@
       ".vf-detail .rs-go"
     ],
     "expect": {
-      "status": "^1 recorded day ran again under the new rules: it comes out the same\\. Signed off and recorded\\.$",
+      "status": "^2 recorded days ran again under the new rules: they come out the same\\. Signed off and recorded\\.$",
       "count": {
         ".vf-detail-wrap": 0
       }

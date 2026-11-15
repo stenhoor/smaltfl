@@ -238,12 +238,24 @@ as decided as built, and the answers that change what is built or add to it are 
    a correction or a decision about an earlier day moves no name back. Publish as is, a fill and Accept stay offered
    for it, and the receipts say "readers stay on Sun 31".
 
-   **Next is slice 2**, columns that change (Q-109, Q-146). A short design goes to the maintainer in the question
-   prompt first.
-2. **Columns that change:**
-   - a file whose columns don't match pauses the day, in every flow (Q-109);
-   - renamed columns flagged, with a suggested mapping, the impact on joins, and names carried through the steps
-     (Q-146).
+2. **Columns that change** (Q-109, Q-146). The design went to the maintainer first (Q-203 to Q-206), and the
+   maintainer said to continue: each is built as recommended, for the maintainers to confirm. The first part is built
+   (2026-11-15, ADR 0022 §"As built"):
+   - the plugin reads each pinned CSV file's header before reading it. A column gone, or a new one read as a gone one,
+     holds the day in any flow with a publish block, saying what changed; a new column alone is noted (Q-109, Q-204);
+   - a new column is read as a gone one where their names are close, their types agree and most of today's values were
+     in the gone column's history (Q-203). The day's head says so, and Read X as Y, with a reason, writes it in the
+     ontology as the file's own from that day on (`mapColumn`, a property's `fromFile`), runs the day again under it
+     and restates it (Q-206);
+   - the sign-ins plant both: Thu Mar 7 adds client_app, and Fri Mar 22 calls result results
+     (`tools/browser/stops/columns.json`).
+
+   **Next is its second part:**
+   - a join column confirmed twice, its impact said (Q-205);
+   - the owner's own rename showing where the column is used, joins first, and carried through the steps (Q-146).
+
+   Also worth a look: after a name or a label is edited, the rules line still says "as shipped" where no change set was
+   made, though the hash moved (Q-198's edits change the base).
 3. **The ontology as the one place for rules:**
    - loose ids per check (Q-176);
    - the gold reconcile key and silver needs rules from the ontology (Q-118, Q-119);
@@ -255,7 +267,7 @@ as decided as built, and the answers that change what is built or add to it are 
    - levels and fills for slots of a day (Q-84).
 5. **Proposed declarations** for a dataset with nothing declared (Q-139). Sharing as one package file (Q-35) comes later.
 
-Before slice 2, and before slice 4's Q-132, a short design goes to the maintainer in the question prompt. Still open:
+Before slice 4's Q-132, a short design goes to the maintainer in the question prompt, as slice 2's did. Still open:
 Q-34 and Q-41 (smaltdb's work, with stenhoor first), Q-75 and Q-133.
 
 **Built: [ADR 0021](adr/0021-time.md), time** (accepted 2026-11-13, Q-181 to Q-192): two screens, a month to pick a

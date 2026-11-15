@@ -202,9 +202,12 @@ export type RuleEdit =
   | { op: 'setCheck'; node: string; check: CheckName; mode: CheckMode }
   /** The rules of a version (ADR 0022 §1, Q-202): the base with these change sets, in the order they were recorded,
    * whatever their days; none, the rules as shipped. What a what-if made a day's keeps for that day only (`until`). */
-  | { op: 'useVersion'; changes: string[] };
+  | { op: 'useVersion'; changes: string[] }
+  /** A file's column read by the name the file gives it now (ADR 0022 §2, Q-146, Q-206): its own property's `fromFile`;
+   * `from` null reads it by its own name again. */
+  | { op: 'mapColumn'; file: string; column: string; from: string | null };
 
-export const EDIT_OPS = ['setRule', 'removeRule', 'switchRule', 'nameColumn', 'acceptBand', 'setCheck', 'useVersion'] as const;
+export const EDIT_OPS = ['setRule', 'removeRule', 'switchRule', 'nameColumn', 'acceptBand', 'setCheck', 'useVersion', 'mapColumn'] as const;
 
 /**
  * A dated change set (ADR 0021 §5, Q-184): edits of the rules people set, in force from a business day, as known from
@@ -803,6 +806,11 @@ function validateChanges(doc: Record<string, unknown>, add: (path: string, messa
         case 'useVersion':
           need('changes', Array.isArray(e.changes) && e.changes.every((x: unknown) => text(x)), 'the change sets whose rules it takes: a list of their names (empty: the rules as shipped)');
           return;
+        case 'mapColumn':
+          need('file', text(e.file), 'the file the column is of');
+          need('column', text(e.column), 'the column, as the source declares it');
+          need('from', e.from === null || (text(e.from) && String(e.from).toLowerCase() !== String(e.column).toLowerCase()), 'the name the file gives the column now, not its own; null to read it by its own name again');
+          return;
       }
     });
   });
@@ -1040,6 +1048,14 @@ function validateExtras(doc: Record<string, unknown>, ids: Map<string, string>, 
             if (p.name !== undefined && (typeof p.name !== 'string' || !p.name.includes('{code}'))) add(`${at}.name`, 'how a part is named, with {code} for its code: "Vendor {code}"');
             if (p.role !== undefined && p.role !== 'sender') add(`${at}.role`, 'sender: the column names who sent the rows');
             if (p.after !== undefined && (!isRecord(p.after) || typeof p.after.of !== 'string' || p.after.of === '' || typeof p.after.minutes !== 'number' || !Number.isFinite(p.after.minutes))) add(`${at}.after`, '{ of: a time column, minutes }');
+            // A column the file now names otherwise (ADR 0022 §2, Q-146): a file's own, read by that name.
+            if (p.fromFile !== undefined) {
+              const sets: unknown[] = Array.isArray(p.datasets) ? p.datasets : [];
+              const sources: unknown[] = Array.isArray(doc.sources) ? doc.sources : [];
+              const source = sets.length === 1 && sources.some((s) => isRecord(s) && typeof s.id === 'string' && s.id.toLowerCase() === String(sets[0]).toLowerCase());
+              if (typeof p.fromFile !== 'string' || p.fromFile.trim() === '' || p.fromFile.toLowerCase() === p.column.toLowerCase()) add(`${at}.fromFile`, 'the name the file gives the column now: text, other than the column’s own');
+              else if (!source) add(`${at}.fromFile`, 'a column the file names otherwise is that file’s own: datasets names the one source that reads it');
+            }
             // Bands and due marks (ADR 0014 §3) are a gate's written checks: a document without gates has none.
             const gated = isRecord(doc.gates) && Object.keys(doc.gates).length > 0;
             if (p.expect !== undefined) {

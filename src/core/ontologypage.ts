@@ -109,6 +109,10 @@ export interface FileSection {
   rules: Rule[];
   /** A card a column, in the file's order; null while the file's columns aren't known (no load read yet). */
   columns: ColumnCard[] | null;
+  /** The columns the ontology describes as this file's own that the flow doesn't read (a column a file added, described
+   * from its day, ADR 0022 §2, Q-204): what each is called and holds. Absent where there are none, or the file's columns
+   * aren't known. */
+  unread?: { name: string; title: string; description?: string }[];
   /** What the app discovered in the data, to accept: nothing writes here yet. */
   discovered: Rule[];
   /** How many rules the file has: its own and its columns'. */
@@ -262,6 +266,13 @@ export function ontologyPage(doc: PageDoc, columns: (file: string) => readonly s
     // file's own, so it is never out of sight.
     const carded = new Set((cards ?? []).map((c) => lower(c.name)));
     for (const r of setRules) if (!carded.has(lower(r.column))) rules.push({ ...setRule(r), columns: [r.column] });
+    // The columns described as this file's own that it doesn't have as the flow reads it (ADR 0022 §2, Q-204): all of
+    // its columns (`every`), so a column hidden from the viewer is read, not listed here.
+    const read = every(id) ?? has;
+    const unread = read
+      ? (o?.properties ?? []).filter((p) => p.datasets?.length === 1 && lower(p.datasets[0]!) === lower(id) && !read.some((c) => lower(c) === lower(p.column)))
+        .map((p) => ({ name: p.column, title: p.title ?? p.column, ...(p.description ? { description: p.description } : {}) }))
+      : [];
     // The files whose scope reads this one: it is the list they are checked against.
     const against = doc.sources.filter((x) => lower(x.id) !== lower(id) && lower(writtenRules(doc, x.id).scope?.of ?? '') === lower(id)).map((x) => x.id);
     const first = /^(.*?)(?:: |\. |\.$|$)/s.exec(src.description ?? '')?.[1]?.trim();
@@ -274,6 +285,7 @@ export function ontologyPage(doc: PageDoc, columns: (file: string) => readonly s
       watched,
       rules,
       columns: cards,
+      ...(unread.length ? { unread } : {}),
       discovered: [],
       count: rules.length + (cards ?? []).reduce((n, c) => n + c.rules.length, 0),
     };

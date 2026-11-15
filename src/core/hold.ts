@@ -16,6 +16,7 @@
  */
 import type { GivenRanges } from './ranges.js';
 import { canonicalJSON } from './canonical.js';
+import { columnChangeSaid } from './columns.js';
 import type { DayState, PauseState } from './days.js';
 import { stepRules } from './rules.js';
 import { isGeneralWatch, sourceOf, type FlowDocument, type HoldKind, type WatchDef } from './document.js';
@@ -770,7 +771,7 @@ export function holdsOf(plan: Pick<FlowPlan, 'nodes' | 'outputs' | 'publish'>, m
   // The run built nothing after it, so the refusal reaches every output, those that don't read the file too: under
   // `together: false` there is still nothing of the day to publish.
   const refused = manifest.nodes.filter((m) => m.status === 'refused');
-  for (const m of refused) out.push({ by: 'checks', node: m.node, origin: m.origin, said: refusedSaid(m.refused ?? 'the file was refused'), reaches: plan.outputs.map((o) => o.name) });
+  for (const m of refused) out.push({ by: 'checks', node: m.node, origin: m.origin, said: m.columns ? columnChangeSaid(m.columns) : refusedSaid(m.refused ?? 'the file was refused'), reaches: plan.outputs.map((o) => o.name) });
   // Nothing was built after a refusal: no check was counted, and none is held for it.
   if (pub.hold.includes('checks') && !refused.length)
     plan.nodes.forEach((n, i) => {

@@ -296,6 +296,17 @@ describe('what the examples don’t write', () => {
     expect(bad(ontologyPage(doc(), shown))).toBe('this file’s band on Failing is checked instead');
   });
 
+  it('lists a column described as a file\'s own that the file doesn\'t have as the flow reads it (Q-204)', () => {
+    const o: Ontology = { ...ONTOLOGY, properties: [...ONTOLOGY.properties!, { column: 'notes', title: 'notes', datasets: ['tls'], description: 'New in tls’s file on Thu Mar 7; the flow doesn’t read it.' }, { column: 'region', title: 'Region', description: 'Anywhere' }] };
+    const page = ontologyPage({ ...doc(), ontology: o }, columns);
+    expect(file(page.files, 'tls').unread).toEqual([{ name: 'notes', title: 'notes', description: 'New in tls’s file on Thu Mar 7; the flow doesn’t read it.' }]);
+    // A shared description of a column no file has says nothing of any one file; a file's own due column it has is read.
+    expect(page.files.filter((f) => f.unread).map((f) => f.id)).toEqual(['tls']);
+    // Hidden from the viewer, a column the file has is read, not listed; with no columns known, nothing is.
+    expect(file(ontologyPage({ ...doc(), ontology: o }, (f) => COLUMNS[f]?.filter((c) => c !== 'code'), columns).files, 'tls').unread).toHaveLength(1);
+    expect(file(ontologyPage({ ...doc(), ontology: o }).files, 'tls').unread).toBeUndefined();
+  });
+
   it('keeps a type with a link, an action, or no file tied to it, and drops one that only says what rows are', () => {
     // `application` and `unit` are linked; `seat` only says what the desks' rows are.
     expect(typesShown(ONTOLOGY).map((t) => t.id)).toEqual(['application', 'unit']);

@@ -5,6 +5,7 @@
  *
  * WebCrypto only: ECDSA P-256 with SHA-256. A private key is created non-extractable and never leaves its browser.
  */
+import type { HeaderChange } from './columns.js';
 import { canonicalJSON } from './canonical.js';
 import { hashOf, hex, unhex, utf8 } from './hash.js';
 import type { KeyEnv } from './keys.js';
@@ -29,9 +30,14 @@ export interface ManifestNode {
   key: string;
   /** built: a new version was stored (for a source: a new snapshot); reused: its key was already stored; folded: computed
    * inside a stored node's statement; refused (plan/4, ADR 0014 §2): the engine couldn't read the source as declared,
-   * so nothing was built and the run is held under the schema check, `refused` saying why. */
+   * so nothing was built and the run is held under the schema check, `refused` saying why. A file whose declared
+   * columns are gone is refused so in every flow that holds (ADR 0022 §2, Q-109), `columns` saying what changed. */
   status: 'built' | 'reused' | 'folded' | 'refused';
   refused?: string;
+  /** A source read from a pinned CSV file whose header isn't the columns its table declares (ADR 0022 §2): what is gone,
+   * what is new, and which new column reads as a gone one (Q-203). Refused with anything gone; built and noted with new
+   * columns alone (Q-204). Absent when the header is the declared columns. */
+  columns?: HeaderChange;
   /** Stored nodes: the content hash and row count of their version. */
   content?: string;
   rows?: number;

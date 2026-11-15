@@ -8,10 +8,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { validateDocument, withoutDisplay, type FlowDocument } from '../src/core/document.js';
-import { applyBand, asShipped, keptOf, nameColumn, restoreKept, stepsPrint, type FlowEdit } from '../src/core/flowedit.js';
+import { applyBand, asShipped, keptOf, mapColumn, nameColumn, restoreKept, stepsPrint, type FlowEdit } from '../src/core/flowedit.js';
 import { toggleCheck } from '../src/core/gatecell.js';
 import { expandNotebooks } from '../src/core/notebook.js';
-import { marksOn, meaningBeyond, plainOf, propertyOf, saysMore, type Ontology, type PropertyType } from '../src/core/ontology.js';
+import { marksOn, meaningBeyond, plainOf, propertyOf, readAsOf, saysMore, type Ontology, type PropertyType } from '../src/core/ontology.js';
 import { ontologyPage } from '../src/core/ontologypage.js';
 import { flowHash, translate } from '../src/core/plan.js';
 import { runFlow, verifyRun } from '../src/index.js';
@@ -326,5 +326,36 @@ describe('a run before and after a rename', () => {
       expect(v.checks.filter((c) => !c.ok).map((c) => `${c.origin}:${c.check}`), `run ${r.run}`).toEqual([]);
       expect(v.checks.some((c) => c.check === 'flow' && c.ok)).toBe(true);
     }
+  });
+});
+
+describe('a column the file names otherwise (ADR 0022 §2, Q-146, Q-206)', () => {
+  const base = (properties: PropertyType[] = []): FlowDocument => ({ ...visualFlow(), ontology: { objectTypes: [], linkTypes: [], actionTypes: [], properties } });
+
+  it('makes the mapping the file’s own, reads it by its own name again, and says each', () => {
+    const r = mapColumn(base(), 'trips', 'RatecodeID', 'rate_code');
+    expect(r.said).toBe('Read trips’s rate_code as RatecodeID');
+    expect(propertyOf(r.doc.ontology, 'trips', 'RatecodeID')).toMatchObject({ column: 'RatecodeID', fromFile: 'rate_code', datasets: ['trips'] });
+    expect(readAsOf(r.doc.ontology, 'trips')).toEqual([['rate_code', 'RatecodeID']]);
+    expect(validateDocument(r.doc)).toEqual([]);
+    expect(mapColumn(r.doc, 'trips', 'RatecodeID', 'rate_code')).toEqual({ doc: r.doc, said: null });
+    const back = mapColumn(r.doc, 'trips', 'RatecodeID', null);
+    expect(back.said).toBe('Read RatecodeID in trips by its own name again');
+    expect(propertyOf(back.doc.ontology, 'trips', 'RatecodeID')!.fromFile).toBeUndefined();
+    expect(readAsOf(back.doc.ontology, 'trips')).toEqual([]);
+    // Nothing to read by its own name again where nothing was mapped.
+    expect(mapColumn(base(), 'trips', 'RatecodeID', null).said).toBeNull();
+  });
+
+  it('copies a property the flow shares into the file’s own, as a rename does', () => {
+    const shared: PropertyType = { column: 'RatecodeID', title: 'Rate code', description: 'The rate', values: { '1': 'Standard' } };
+    const r = mapColumn(base([shared]), 'trips', 'RatecodeID', 'rate_code');
+    expect(r.doc.ontology!.properties).toEqual([shared, { ...shared, fromFile: 'rate_code', datasets: ['trips'] }]);
+  });
+
+  it('refuses a mapping that isn’t one file’s own, or names the column itself', () => {
+    const at = (p: PropertyType) => validateDocument(base([p])).map((x) => `${x.path}: ${x.message}`);
+    expect(at({ column: 'RatecodeID', title: 'Rate code', description: '', fromFile: 'rate_code' })).toEqual(['$.ontology.properties[0].fromFile: a column the file names otherwise is that file’s own: datasets names the one source that reads it']);
+    expect(at({ column: 'RatecodeID', title: 'Rate code', description: '', fromFile: 'ratecodeid', datasets: ['trips'] })).toEqual(['$.ontology.properties[0].fromFile: the name the file gives the column now: text, other than the column’s own']);
   });
 });

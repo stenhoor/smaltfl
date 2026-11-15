@@ -38,6 +38,7 @@ import { manifestHash, ontologyHash, planHash, policiesHash } from '../core/mani
 import { shapeOf } from '../core/optimize.js';
 import type { FlowPlan } from '../core/plan.js';
 import { dayKeyOf, flowHash, periodsOf, translate, validatePlan } from '../core/plan.js';
+import { columnsHold } from '../core/columns.js';
 import type { VerifyCheck, VerifyLevel, VerifyOptions, VerifyResult } from '../core/protocol.js';
 import type { ParamValue } from '../core/sqltext.js';
 import { quoteIdent as q } from '../core/sqltext.js';
@@ -85,8 +86,11 @@ export async function verifyRun(db: Database, runId: number, options: VerifyOpti
   if (manifest.flow.id !== plan.flow.id || manifest.flow.hash !== plan.flow.hash) problems.push("the flow isn't the plan's");
   if (!same(manifest.parameters, plan.parameters)) problems.push("the parameters aren't the plan's");
   // A run with a source refused (plan/4, ADR 0014 §2) built nothing: its nodes are the plan's sources alone, no outputs.
+  // A file whose declared columns are gone is refused in every flow that holds (ADR 0022 §2, Q-109); any other refusal
+  // only under gates.
   const refusedRun = manifest.nodes.some((m) => m.status === 'refused');
-  if (refusedRun && plan.smaltflPlan !== 4) problems.push('a source is refused, which only a flow with gates holds on');
+  const changedOnly = manifest.nodes.every((m) => m.status !== 'refused' || (m.columns !== undefined && columnsHold(m.columns)));
+  if (refusedRun && plan.smaltflPlan !== 4 && !(plan.publish && changedOnly)) problems.push(plan.publish ? 'a source is refused, which only a flow with gates holds on, but for columns gone' : 'a source is refused, and the flow holds nothing');
   if (!same(manifest.nodes.map((m) => m.node), refusedRun ? needed.filter((i) => plan.nodes[i]!.op === 'table') : needed)) problems.push("the nodes aren't the ones the plan needs, in its order");
   for (const m of manifest.nodes) {
     const n = plan.nodes[m.node];

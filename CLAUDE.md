@@ -348,7 +348,18 @@ release (smaltty ADR 0030).
   back; verify checks a day's kept versions. `latestPublished` (hold.ts) is readers' day by day; the audit's
   `shownBefore` reads names the same way. No option is off for a later day out, and the receipts say "readers stay on"
   it (`receiptLines`'s `latest`, `passedLine`, `readersLatest`). "Later days too" goes off only when the next day is
-  out (`nextDayOut`, the sheet's `nextOut`).
+  out (`nextDayOut`, the sheet's `nextOut`). Slice 2, first part (Q-109, Q-146): a file whose columns changed.
+  `src/core/columns.ts` reads a CSV header (`csvHeader`, `csvColumn`) and says what is gone, new, and read as a gone
+  column by name, type and the history's values (`columnChange`, `ColumnMap`, `namesClose`, `familiesAgree`,
+  `historyValues`, `columnChangeSaid`); the runtime checks each pinned CSV source's header before reading it
+  (`headerChange`): a gone or mapped column refuses the source in any flow with a publish block (`ManifestNode.columns`,
+  held under the checks; verify's `changedOnly`), a new column alone is noted. A property's `fromFile` and the edit
+  `mapColumn` read the file's name as the column (`readAsOf`, `TableNode.readAs`, `ddlOf`'s `readAs`, the snapshot
+  renaming back by place). The day head's **Columns that changed** (`columnsPart`): Read X as Y with a reason, a change
+  set from the day and one restatement (`mapColumnOnDay`; `defineTablesFor`, the recorder's `defineTables`); a new
+  column noted, Add it to the ontology (`describeNewColumn`; `FileSection.unread`). The sign-ins plant both
+  (`ADDED_DAY` Thu Mar 7, `RENAMED_DAY` Fri Mar 22); `test/columns.test.ts`, `test/refused.test.ts`,
+  `tools/browser/stops/columns.json`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -379,7 +390,9 @@ release (smaltty ADR 0030).
   the latest day when a past day is corrected, the audit of restatements), columns that change (a mismatched file
   paused, renames flagged with a suggested mapping and their impact), the ontology as the one place for rules, pausing
   (Q-86, Q-132, Q-84), and proposed declarations (Q-139). Slice 1 is built in two parts (its §"As built"). Slice 2,
-  columns that change, is next, after a short design in the question prompt.
+  columns that change, was designed in the question prompt (Q-203 to Q-206, built as recommended); its first part, a
+  file whose columns changed, is built, and its second part, a join column confirmed twice (Q-205) and the owner's own
+  rename carried through the steps, is next.
 
 ## Rules for this repository
 
