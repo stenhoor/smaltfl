@@ -374,7 +374,11 @@ release (smaltty ADR 0030).
   nothing watches reconciles by the key its rows entry gives where its gate cell writes none (`goldGates` through
   `writtenRules`, `GatePlan.reconcile.loose`; `test/reconcile.test.ts`); `ontology.needs` (`NeedsDef`, `needsOf`), each
   rule written once with the datasets it applies to, a gate cell's rule about the same columns overriding it in place
-  and its others added (`needsFor`, `WrittenNeeds`; `test/scope-needs.test.ts`).
+  and its others added (`needsFor`, `WrittenNeeds`; `test/scope-needs.test.ts`). Slice 3, second part (Q-145, Q-144): a
+  drawing names a coded value by the ontology's label even where it only repeats the value (`drawnLabel`, `drawnName`,
+  `drawnValue`, a finding's in its own dataset), text beside a value keeps `labelFor`; the Ontology page's made datasets
+  (`OntologyPage.made`, `FileSection.made` and `readBy`; the app's "Made by the flow", read-only, `readByLine`,
+  `openOntologySection`), a hand-set rule saying where it is written (`originSaid`); tour.cjs's `textIn`/`noTextIn`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, the episode and integrity suites, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -407,10 +411,10 @@ release (smaltty ADR 0030).
   (Q-86, Q-132, Q-84), and proposed declarations (Q-139). Slice 1 is built in two parts (its §"As built"). Slice 2,
   columns that change, was designed in the question prompt (Q-203 to Q-206, built as recommended); both its parts are
   built: a file whose columns changed, and a join column confirmed twice (Q-205) with the owner's own rename carried
-  through the steps. Slice 3, the ontology as the one place for rules (Q-176, Q-118, Q-119, Q-145, Q-144), is in two
-  parts: the first, the written rules in the ontology (loose ids per check, a gold key from a rows entry,
-  `ontology.needs`), is built; the second, drawings in the ontology's labels (Q-145) and a made dataset's rules on the
-  Ontology page (Q-144), is next.
+  through the steps. Slice 3, the ontology as the one place for rules (Q-176, Q-118, Q-119, Q-145, Q-144), is built in
+  two parts: the written rules in the ontology (loose ids per check, a gold key from a rows entry, `ontology.needs`),
+  then drawings in the ontology's labels and a made dataset's rules on the Ontology page. Slice 4, pausing (Q-86, Q-132,
+  Q-84), is next: before Q-132, a short design goes to the maintainer in the question prompt.
 
 ## Rules for this repository
 
