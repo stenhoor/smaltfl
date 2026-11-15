@@ -624,6 +624,30 @@
         "of": "application"
       }
     ],
+    "needs": [
+      {
+        "id": "rotation_needs_encryption",
+        "datasets": [
+          "posture_wide"
+        ],
+        "from": "key_rotation",
+        "key": "app_id",
+        "when": {
+          "status": "pass"
+        },
+        "then": {
+          "encryption": [
+            "pass",
+            "excepted",
+            "compensated",
+            "not_assessed",
+            "no_data",
+            "not_applicable"
+          ]
+        },
+        "description": "Where key rotation reports a pass, encryption at rest mustn’t be failing: there would be no managed key to rotate, so one of the two feeds is wrong"
+      }
+    ],
     "properties": [
       {
         "column": "org_unit_id",

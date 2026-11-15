@@ -240,6 +240,14 @@ describe('what the examples don’t write', () => {
     expect(tls.count).toBe(10);
   });
 
+  it('says a needs rule the ontology writes as the ontology’s, and a gate cell’s in its place as the notebook’s (Q-119)', () => {
+    const o = { ...ONTOLOGY, needs: [{ id: 'pass_needs_code', datasets: ['tls'], when: { status: 'pass' }, then: { code: ['a', 'b'] } }] };
+    const needs = (page: ReturnType<typeof ontologyPage>) => file(page.files, 'tls').rules.filter((r) => r.kind === 'needs').map((r) => [r.id, r.said, r.origin]);
+    expect(needs(ontologyPage({ ...doc(), ontology: o } as FlowDocument, columns))).toEqual([['tls/needs#1', 'Where Status is Passing, Code must be A or B', { how: 'set', in: 'ontology' }]]);
+    const over = ontologyPage({ ...doc({ gates: { tls: { layer: 'bronze', checks: {}, needs: [{ when: { status: 'pass' }, then: { code: 'a' } }] } } }), ontology: o } as FlowDocument, columns);
+    expect(needs(over)).toEqual([['tls/needs#1', 'Where Status is Passing, Code must be A (the notebook’s, in place of the ontology’s pass_needs_code)', { how: 'set', in: 'notebook' }]]);
+  });
+
   it('says why a rule isn’t judged: a check switched off, a file nothing watches, a key of several columns', () => {
     const off = ontologyPage(doc({ gates: { tls: { layer: 'bronze', checks: { scope: 'off', values: 'off' } } } }), columns);
     const tls = file(off.files, 'tls');

@@ -172,6 +172,32 @@ export interface RowsDef {
 /** A rows entry's settings: any other is refused by name. */
 export const ROWS_FIELDS = ['dataset', 'of', 'key', 'where', 'ids'] as const;
 
+/**
+ * A dependency written once (Q-119, ADR 0022 §3): a row that matches `when` must match `then`, in each dataset it names,
+ * wherever that dataset is judged (a watched source or step of a gated flow); one that doesn't is a contradiction,
+ * counted as a gate cell's `needs` rule is (`NeedsRule`, gates.ts). Within the row, or, with `from` (a source) and
+ * `key`, `when` read on that source's row with the same key. A gate cell adds a rule of its own, or overrides this one
+ * with a rule about the same columns: the same `from`, and the same columns in `when` and in `then`.
+ */
+export interface NeedsDef {
+  /** Its name, unique among the ontology's needs: what the page lists it by. */
+  id: string;
+  /** The datasets it is applied to, sources or steps, each once. */
+  datasets: string[];
+  from?: string;
+  key?: string;
+  when: Condition;
+  then: Condition;
+  /** Why it holds, for people. Not part of the plan, nor of any key. */
+  description?: string;
+}
+
+/** A needs rule's settings: any other is refused by name. */
+export const NEEDS_FIELDS = ['id', 'datasets', 'from', 'key', 'when', 'then', 'description'] as const;
+
+/** The ontology's needs rules applied to a dataset (Q-119), in the ontology's order; ids are compared without case. */
+export const needsOf = (ontology: Ontology | undefined, dataset: string): NeedsDef[] => (ontology?.needs ?? []).filter((n) => n.datasets.some((d) => d.toLowerCase() === dataset.toLowerCase()));
+
 export interface Ontology {
   objectTypes: ObjectType[];
   linkTypes: LinkType[];
@@ -185,6 +211,8 @@ export interface Ontology {
   nouns?: Record<string, Noun>;
   /** What each dataset's rows are (ADR 0015 §1): one row an object of a type, for the objects a condition selects. */
   rows?: RowsDef[];
+  /** The dependencies between columns or controls (Q-119): each written once, applied wherever its datasets are judged. */
+  needs?: NeedsDef[];
   /** Rules people set on a file's columns (rules.ts, ADR 0015 amendment 1): each one file's own, enforced by the check
    * step that reads the file. */
   rules?: OntologyRule[];

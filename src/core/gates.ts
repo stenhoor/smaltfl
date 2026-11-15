@@ -8,7 +8,7 @@
  */
 import type { FlowDocument } from './document.js';
 import type { Finding, Severity } from './news.js';
-import { rowsOf } from './ontology.js';
+import { needsOf, rowsOf, type Ontology } from './ontology.js';
 
 /** The three layers (ADR 0014 §1): a source as it arrives, a joined step, an output people read. */
 export const LAYERS = ['bronze', 'silver', 'gold'] as const;
@@ -110,8 +110,19 @@ export interface NeedsRule {
   then: Record<string, string | string[]>;
 }
 
-/** Where a written rule comes from: the node's gate cell, or the ontology's `rows` entry for it (ADR 0015 §1). */
+/** Where a written rule comes from: the node's gate cell, or the ontology (its `rows` entry for the node, ADR 0015 §1;
+ * a `needs` rule naming it, Q-119). */
 export type RuleFrom = 'gate' | 'ontology';
+
+/**
+ * A dependency as a node is judged by it (`writtenRules`): where it is written (`written`), the ontology rule's name
+ * (`id`), and for a gate cell's rule about the same columns as one of the ontology's, the name of the rule it
+ * overrides (`overrides`).
+ */
+export type WrittenNeeds = NeedsRule & { written: RuleFrom; id?: string; overrides?: string };
+
+/** The columns a dependency is about, as one text: the same `from`, `when`'s columns and `then`'s, whatever their case. */
+const needsColumns = (n: NeedsRule): string => [n.from ?? '', Object.keys(n.when).map((c) => c.toLowerCase()).sort().join(','), Object.keys(n.then).map((c) => c.toLowerCase()).sort().join(',')].join('|').toLowerCase();
 
 /**
  * A node's scope rule, from wherever it is written: the gate cell's (its condition as its author wrote it for the
@@ -130,7 +141,7 @@ export type WrittenScope = (
 /** A node's written rules (`writtenRules`): its scope, its dependencies, and its key, each with where it is written. */
 export interface WrittenRules {
   scope: WrittenScope | null;
-  needs: NeedsRule[];
+  needs: WrittenNeeds[];
   /** The ontology's one row an object compares ids as its rows entry says (`loose`); a gate cell's key is the rows as
    * written. */
   reconcile: (ReconcileRule & { from: RuleFrom; loose?: true }) | null;
@@ -142,7 +153,9 @@ export interface WrittenRules {
  * own; where the cell writes none, the ontology's `rows` entry for the node gives two: the scope (the type's dataset
  * as the inventory, its key, the entry's condition; no condition is every object) and the key (a reconciliation by
  * the node's key column alone, against no other node: one row each, never blank). A type whose key is several
- * columns gives neither yet. Dependencies are only ever the gate cell's.
+ * columns gives neither yet. A published table nothing watches reconciles by that key too (Q-118). Dependencies are
+ * the ontology's `needs` rules naming the node, in its order (Q-119), each replaced in place by a gate cell's rule
+ * about the same columns, then the gate cell's others in its order.
  */
 export function writtenRules(doc: Partial<Pick<FlowDocument, 'gates' | 'ontology'>>, node: string): WrittenRules {
   const lower = node.toLowerCase();
@@ -154,7 +167,7 @@ export function writtenRules(doc: Partial<Pick<FlowDocument, 'gates' | 'ontology
     scope: g?.scope ? { from: 'gate', of: g.scope.of, key: g.scope.key, own: g.scope.own ?? g.scope.key, where: g.scope.where, ...loosely(g.scope.ids === 'loose') }
       : tied ? { from: 'ontology', of: rows!.type.dataset, key: tied.key, own: tied.own, match: rows!.where, type: rows!.type.id, ...loosely(rows!.entry.ids === 'loose') }
       : null,
-    needs: g?.needs ?? [],
+    needs: needsFor(doc.ontology, node, g?.needs ?? []),
     // A gate cell's key is the rows as written; the ontology's one row an object compares ids as its entry says.
     reconcile: g?.reconcile ? { ...g.reconcile, from: 'gate' } : tied ? { key: [tied.own], from: 'ontology', ...loosely(rows!.entry.ids === 'loose') } : null,
   };
@@ -162,6 +175,18 @@ export function writtenRules(doc: Partial<Pick<FlowDocument, 'gates' | 'ontology
 
 /** `loose: true` where ids are loose, nothing otherwise: a rule over exact ids is the one it always was. */
 const loosely = (loose: boolean): { loose?: true } => (loose ? { loose: true } : {});
+
+/** A node's dependencies (Q-119): the ontology's for it, a gate cell's rule about the same columns in its place, then
+ * the gate cell's others. */
+function needsFor(ontology: Ontology | undefined, node: string, own: readonly NeedsRule[]): WrittenNeeds[] {
+  const out: WrittenNeeds[] = needsOf(ontology, node).map((n) => ({ ...(n.from !== undefined ? { from: n.from } : {}), ...(n.key !== undefined ? { key: n.key } : {}), when: n.when, then: n.then, written: 'ontology', id: n.id }));
+  for (const r of own) {
+    const at = out.findIndex((x) => x.written === 'ontology' && needsColumns(x) === needsColumns(r));
+    if (at >= 0) out[at] = { ...r, written: 'gate', overrides: out[at]!.id! };
+    else out.push({ ...r, written: 'gate' });
+  }
+  return out;
+}
 
 /** A gate with every check's mode filled in from its layer: what the plan carries and the judges read. */
 export type GateChecks = Record<CheckName, CheckMode>;

@@ -277,6 +277,25 @@
         }
       }
     ],
+    "needs": [
+      {
+        "id": "rotation_needs_encryption",
+        "datasets": [
+          "posture"
+        ],
+        "when": {
+          "key_rotation": "pass"
+        },
+        "then": {
+          "encryption": [
+            "pass",
+            "exception",
+            "not_assessed"
+          ]
+        },
+        "description": "Key rotation needs encryption at rest: an application passing key rotation while failing encryption is a contradiction"
+      }
+    ],
     "properties": [
       {
         "column": "app_id",
