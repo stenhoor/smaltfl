@@ -262,8 +262,6 @@ as decided as built, and the answers that change what is built or add to it are 
 
    **Next is slice 3**, the ontology as the one place for rules.
 
-   Also worth a look (queued as a separate task): after a name or a label is edited, the rules line still says "as
-   shipped" where no change set was made, though the hash moved (Q-198's edits change the base).
 3. **The ontology as the one place for rules:**
    - loose ids per check (Q-176);
    - the gold reconcile key and silver needs rules from the ontology (Q-118, Q-119);
