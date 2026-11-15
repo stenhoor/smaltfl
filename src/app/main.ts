@@ -15854,7 +15854,10 @@ async function start(): Promise<void> {
     if (e instanceof IntegrityError) {
       const said = describeFile(e.check);
       state.failed = { message: `${said.title}. ${said.detail}`, file: e.check };
-    } else state.failed = { message: `The engine couldn't start: ${message(e)}` };
+    } else {
+      // A flow the page couldn't open says why in its own words; anything else stopped the engine.
+      state.failed = { message: e === opening ? message(e) : `The engine couldn't start: ${message(e)}` };
+    }
     setStatus(state.failed.message, true);
     renderRuns();
     renderCanvas();
