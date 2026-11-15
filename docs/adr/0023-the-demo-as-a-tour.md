@@ -151,6 +151,11 @@ ADR 0022's Q-84 (levels and fills for slots of a day) and slice 5 (Q-139, propos
   - Its donors are read from the day's other files in the data list (`listedFileOf`).
   - The donor's claim is told from that source's own base (`donorClaim2`).
   - Fills are for one source at a time (`holding`, `heldSources`).
+  - Its recommendation is told by that file's story, not by the dataset the views follow.
+  - After a reload, a recorded fill on such a flow is staged again and released citing the file's decision, never for a
+    version a later delivery replaced (`applyDecided`).
+  - The day's lifecycle says a fill readers had before a later version replaced it: "Decided: filled from Tue 5".
+  - Stops: `month.json`'s Wed 6, and `decide.json` filling Sun 24 from Fri 22 in the sheet, still filled after a reload.
 - **The recorder records a fill** (`StoryDecision.fill`; `fillOnce` in `scripts/data/record.ts`):
   - the version's files are pinned again, and the donor's file is pinned as its donor and judged by its own claim;
   - the derived run is staged and recorded, then one decision a held load carrying the repair, then the release;
