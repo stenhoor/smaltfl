@@ -29,7 +29,9 @@
  *   clean on every day, and verify counts it again.
  * Slice 7 (a refused file as the schema check's hold):
  * - the day the logging file lacks a column is a held run, not a failed one: the file is recorded as refused, nothing
- *   is built, the hold says "file has 4 of 5 columns", verify finds the manifest coherent, and the next day publishes.
+ *   is built, the hold says which column is gone ("retention_days is gone", read from the file's header before the
+ *   engine reads it, ADR 0022 §2; it said "file has 4 of 5 columns", the engine's refusal), verify finds the manifest
+ *   coherent, and the next day publishes.
  * - still wrong against the key: the pentest cluster holds by the bad value and the DR problem by the new value,
  *   since with two and a half months of history neither control has had twenty due dates for the due check to
  *   learn from (the app's year of history judges both; the test's base is short for speed). The seal itself is the
@@ -167,7 +169,8 @@ describe('the estate flow under its gates (ADR 0014 slice 1)', () => {
   it('holds the day the logging file lacks a column under the schema check, nothing built, and verifies it (slice 7)', async () => {
     const r = result(ESTATE_PLANTED.column);
     expect(estateHolds(r)).toEqual(['checks:logging']);
-    expect(said(ESTATE_PLANTED.column, 'logging')).toBe('file has 4 of 5 columns');
+    expect(said(ESTATE_PLANTED.column, 'logging')).toBe('retention_days is gone');
+    expect(r.manifest.nodes.find((n) => n.origin === 'logging')!.columns).toEqual({ gone: ['retention_days'], added: [], maps: [] });
     expect(r.published).toEqual([]);
     expect(r.manifest.outputs).toEqual({});
     expect(r.manifest.nodes.find((n) => n.origin === 'logging')).toMatchObject({ status: 'refused', key: '' });
