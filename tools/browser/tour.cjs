@@ -52,6 +52,8 @@
 //                                         or "✕|" also needs the card's glyph mark (.card-mark) present; "-|" none
 //   "loads": { "Thu 21": ", paused" }     what the month says of the day contains this ("!…": doesn't)
 //   "words": { "sel": max }               words outside drawings in the first visible match, at most max
+//   "textIn": { "sel": ["…"] }            each string is in the first visible match's text, its drawings' included
+//   "noTextIn": { "sel": ["…"] }          none is
 //
 // Writes <outDir>/<name>.png and <outDir>/metrics.json: per stop, the status line, the visible text of the
 // sheet (or the canvas page), its word count, its paragraphs of more than 25 words, the number of charts
@@ -371,6 +373,21 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
             (m.glance ??= {})[sel] = { words: e.words, all: e.all, text: e.text };
             if (e.words > max) fail(`${e.words} words in ${sel} outside drawings ("${e.text.slice(0, 100)}…"), at most ${max}`);
           }
+        }
+        // Text inside one element, its drawings' text included (a bar's or a dumbbell's label).
+        const textOf = (sel) => p.evaluate((s) => {
+          const e = [...document.querySelectorAll(s)].find((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
+          return e ? (e.textContent ?? '').replace(/\s+/g, ' ') : null;
+        }, sel);
+        for (const [sel, want] of Object.entries(x.textIn ?? {})) {
+          const got = await textOf(sel);
+          if (got === null) fail(`no ${sel} to read`);
+          else for (const t of want) if (!got.includes(t)) fail(`no "${t}" in ${sel}`);
+        }
+        for (const [sel, unwanted] of Object.entries(x.noTextIn ?? {})) {
+          const got = await textOf(sel);
+          if (got === null) fail(`no ${sel} to read`);
+          else for (const t of unwanted) if (got.includes(t)) fail(`"${t}" in ${sel}`);
         }
         for (const [card, want] of Object.entries(x.cards ?? {})) {
           const got = await p.evaluate((c) => { const g = document.querySelector(`g.card[data-card="${c}"]`); return g ? { line: g.querySelector('text.what')?.textContent ?? '', mark: !!g.querySelector('.card-mark') } : null; }, card);

@@ -2591,8 +2591,8 @@ function histogram(p: Profile, fmt: (v: number) => string = fmtOf(p), usual?: re
 /**
  * A column's values drawn, as its card in the Columns tab and its card on the Ontology page show them: a measure's or
  * a time's histogram with its numbers under it, else its most common values as bars. Nothing for a column with
- * neither. A bar carries one label: what its value stands for where that says more than the value does ("Card data"
- * for pci), else the value as the file writes it ("yes", never "Yes" beside it: `labelFor`).
+ * neither. A bar carries one label: what its value stands for in the ontology's words, even where that only repeats the
+ * value ("Not assessed" for not_assessed, Q-145), else the value as the file writes it (`drawnLabel`).
  */
 function columnShape(p: Profile, meaning?: PropertyType): HTMLElement[] {
   const f = p.facts;
@@ -2612,7 +2612,7 @@ function columnShape(p: Profile, meaning?: PropertyType): HTMLElement[] {
       ...stat('half fall between', `${fmt(q.p25)} and ${fmt(q.p75)}`))];
   }
   if (!p.top?.length) return [];
-  const names = p.top.map((t) => labelFor(meaning, t.value) ?? t.value);
+  const names = p.top.map((t) => drawnLabel(meaning, t.value));
   // A meaning that is a sentence ("Manhattan south of E 96th St…: only yellow cabs take street hails") has no room
   // beside a bar: with one, each name sits over its bar.
   const over = names.some((n) => n.length > 28);
@@ -4718,10 +4718,9 @@ function qualityVisual(f: Finding, id: string): Element | null {
     const raw = f.values?.[0] ?? '';
     let v: unknown = raw;
     try { v = JSON.parse(raw); } catch { /* as written */ }
-    const label = NEWS_NAMES.label(col, v);
-    return svgNode(dumbbellRows({ rows: [{ label: label === String(v) ? `${NEWS_NAMES.column(col)} ${label}` : label, today: f.value, low, high, todayLabel: pct(f.value), usualLabel: `band ${pct(low)}–${pct(high)}`, sev: f.severity === 'alert' ? 'alert' : 'warn' }], aria: `${f.title}, against the ontology’s band` }));
+    return svgNode(dumbbellRows({ rows: [{ label: drawnValue(id, col, v), today: f.value, low, high, todayLabel: pct(f.value), usualLabel: `band ${pct(low)}–${pct(high)}`, sev: f.severity === 'alert' ? 'alert' : 'warn' }], aria: `${f.title}, against the ontology’s band` }));
   }
-  return checkVisual(f, id) ?? findingVisual(f);
+  return checkVisual(f, id) ?? findingVisual(f, id);
 }
 
 /** A column's title in a file, for any file: the ontology's title where it has one, else the name as written. */
@@ -5376,10 +5375,11 @@ function miniDist(p: Profile, meaning?: PropertyType): SVGSVGElement | HTMLEleme
       x += w;
     });
     // The top value only, said short: its meaning when that is a word or two (a company's without its legal form,
-    // "Curb Mobility"), a money value in dollars, else its code (the rest is a tap away); its share after a "·".
+    // "Curb Mobility"; the ontology's label even where it only repeats the value, Q-145), a money value in dollars, else
+    // its code (the rest is a tap away); its share after a "·".
     const name = (t: { value: unknown }) => {
       // As the news names it ("Flex Fare", never "Flex Fare trip" or its code 0), a zone by its name where it fits.
-      const m = labelFor(meaning, t.value)?.replace(/\s+trips?$/i, '');
+      const m = meaningFor(meaning, t.value)?.replace(/\s+trips?$/i, '');
       const who = m && /,?\s+(LLC|L\.L\.C\.|Inc\.?|Ltd\.?|Corp\.?)$/i.test(m) ? shortWho(m) : m;
       if (who && (who.split(/\s+/).length <= 3 || who.length <= 22)) return who;
       const n = Number(t.value);
@@ -5873,7 +5873,7 @@ function usualShares(id: string, p: Profile, m: PropertyType | undefined): HTMLE
     let raw: unknown = key;
     try { raw = JSON.parse(key); } catch { /* as written */ }
     const out = v < r.low || v > r.high;
-    rows.push({ label: labelFor(m, raw) ?? String(raw), today: v, low: Math.max(0, r.low), high: Math.min(1, r.high), todayLabel: pct(v), usualLabel: `usually ${unitSpan(pct(Math.max(0, r.low)), pct(Math.min(1, r.high)))}`, sev: out ? 'warn' : null });
+    rows.push({ label: drawnLabel(m, raw), today: v, low: Math.max(0, r.low), high: Math.min(1, r.high), todayLabel: pct(v), usualLabel: `usually ${unitSpan(pct(Math.max(0, r.low)), pct(Math.min(1, r.high)))}`, sev: out ? 'warn' : null });
   }
   if (!rows.length) return null;
   return h('div', {}, svgNode(dumbbellRows({ rows, aria: `${p.name}: each common value’s share today against its usual range` })), h('p', { class: 'foot' }, 'The dot is today; the grey bar is what past days like this one had. A limit written for the file, where there is one, is under Today.'));
@@ -6424,8 +6424,8 @@ function gateVisual(g: Gate, big = false, countMax?: number): Element {
   }));
 }
 
-/** A finding's own visual, chosen by its kind. */
-function findingVisual(f: Finding): Element | null {
+/** A finding's own visual, chosen by its kind; `dataset`, the one it is about, where that isn't the one the views follow. */
+function findingVisual(f: Finding, dataset?: string): Element | null {
   const day = newsDay();
   if (!day) return null;
   const sev = f.severity === 'alert' || f.severity === 'warn' ? f.severity : null;
@@ -6444,10 +6444,10 @@ function findingVisual(f: Finding): Element | null {
   if ((f.kind === 'share' || f.kind === 'gone' || f.kind === 'missing') && (f.members?.length || f.range)) {
     const rows: Dumbbell[] = (f.members ?? [{ column: f.columns?.[0] ?? '', value: f.values?.[0] ?? 'null', label: '', share: f.value ?? 0, range: f.range!, rows: f.rows ?? 0 }]).map((m) => {
       const w = shareWords(m.share, m.range.low, m.range.high);
-      // A code's meaning says what it is on its own ("Store and forward trip"); a bare value is said with its column.
+      // A code's meaning says what it is on its own ("Store and forward trip"), in its own dataset's words (Q-145); a bare
+      // value is said with its column.
       const raw = m.value === 'null' ? null : JSON.parse(m.value) as unknown;
-      const said = m.value === 'null' ? 'blank' : m.label || NEWS_NAMES.label(m.column, raw);
-      const label = m.value !== 'null' && said !== String(raw) && !/^\$?-?[\d.,]+$/.test(said) ? said : `${NEWS_NAMES.column(m.column)} ${said}`;
+      const label = drawnValue(dataset ?? loadSource(), m.column, raw, m.label);
       return { label, today: m.share, low: m.range.low, high: m.range.high, todayLabel: m.share === 0 ? 'none' : w.value, usualLabel: `usually ${w.range}`, sev, gone: m.share === 0 };
     }).slice(0, 6);
     return svgNode(dumbbellRows({ rows, aria: `${f.title}` }));
@@ -6475,9 +6475,9 @@ function findingVisual(f: Finding): Element | null {
   return checkVisual(f, f.table ?? loadSource() ?? '');
 }
 
-/** A row of chips for the values a finding names: new values, a new pair, a schema change. */
-function chipsOf(f: Finding): HTMLElement | null {
-  if (f.kind === 'new' && f.values?.length) return h('div', { class: 'vf-chips' }, ...f.values.slice(0, 3).map((v) => h('span', { class: 'vf-chip new' }, NEWS_NAMES.label(f.columns?.[0] ?? '', JSON.parse(v)))), f.values.length > 3 ? h('span', { class: 'vf-chip' }, `+${f.values.length - 3}`) : null);
+/** A row of chips for the values a finding names: new values, a new pair, a schema change; each by its name in `dataset`. */
+function chipsOf(f: Finding, dataset?: string): HTMLElement | null {
+  if (f.kind === 'new' && f.values?.length) return h('div', { class: 'vf-chips' }, ...f.values.slice(0, 3).map((v) => h('span', { class: 'vf-chip new' }, drawnName(dataset ?? loadSource(), f.columns?.[0] ?? '', JSON.parse(v)))), f.values.length > 3 ? h('span', { class: 'vf-chip' }, `+${f.values.length - 3}`) : null);
   return null;
 }
 
@@ -6850,7 +6850,7 @@ function compositionOf(column: string, day: string, moved?: string, names?: [str
 /** What a tap on a finding opens: its visual, its day by day, one sentence, its verbs. */
 function findingDetail(f: Finding, card: string): void {
   const day = newsDay();
-  const body: (Node | null)[] = [findingVisual(f), chipsOf(f)];
+  const body: (Node | null)[] = [findingVisual(f, card), chipsOf(f, card)];
   if (day && f.metric && f.kind !== 'volume') {
     const days = stripOf(f.metric, day, 28, f.severity);
     // On a scale from 0 with its top printed (round 3, #23), a share's in percent, a count's as a count; and where today
@@ -9912,6 +9912,28 @@ const labelFor = (p: PropertyType | undefined, v: unknown): string | undefined =
   return saysMore(means, v) ? means : undefined;
 };
 
+/**
+ * A value as a drawing names it (Q-145, ADR 0022 §3): what it stands for in the ontology's words, even where that only
+ * repeats the value ("Not assessed" for not_assessed, "Pass" for pass), else the value as the file writes it. A drawing
+ * gives a value one name and never the code beside it; text that shows a value beside its meaning reads `labelFor`.
+ */
+const drawnLabel = (p: PropertyType | undefined, v: unknown): string => meaningFor(p, v) ?? String(v);
+
+/** A coded value's name in a drawing (Q-145): the ontology's label for it in its own dataset, even where it only repeats
+ * the value, else as the views name it (a money value in dollars), else the value as written. */
+const drawnName = (dataset: string | undefined, column: string, raw: unknown): string => (dataset ? meaningFor(meaningsOf(dataset)(column), raw) : undefined) ?? NEWS_NAMES.label(column, raw);
+
+/**
+ * A coded value as a drawing's row says it: its name alone where that isn't the value as written ("Not assessed",
+ * "Store and forward trip"), else after its column ("Status fail", "Fare $2.50"); a blank as blank. `told`: the label the
+ * finding was told with, taken where it isn't the value as written.
+ */
+function drawnValue(dataset: string | undefined, column: string, raw: unknown, told?: string): string {
+  if (raw === null || raw === undefined) return `${NEWS_NAMES.column(column)} blank`;
+  const said = (told && told !== String(raw) ? told : undefined) ?? drawnName(dataset, column, raw);
+  return said !== String(raw) && !/^\$?-?[\d.,]+$/.test(said) ? said : `${NEWS_NAMES.column(column)} ${said}`;
+}
+
 /** A value as people read it: in its unit, and for a code, with what it stands for (`means`). */
 function readValue(v: unknown, p: PropertyType | undefined): { text: string; cls: string; means?: string } {
   const c = cellOf(v);
@@ -10749,8 +10771,10 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
   const had = new Map(c.values);
   const all = [...c.values.map(([code]) => code), ...seen.filter((v) => !had.has(v))];
   const shown = all.slice(0, 40);
-  // A field holds the value's label where it says more than the value; "Yes" for yes is no label, and the field is empty.
-  const labels = shown.map((value, k) => ({ value, input: h('input', { type: 'text', id: `${uid}-v${k}`, value: saysMore(had.get(value), value) ? had.get(value)! : '', maxlength: '60', placeholder: 'No label', autocomplete: 'off', autocapitalize: 'sentences' }) }));
+  // A field holds the value's label where it says more than the value; "Yes" for yes is no label to edit, and the field
+  // is empty, showing it as the placeholder, since a drawing still names the value by it (Q-145).
+  const repeats = (value: string) => { const l = had.get(value); return l !== undefined && l !== value && !saysMore(l, value) ? l : undefined; };
+  const labels = shown.map((value, k) => ({ value, input: h('input', { type: 'text', id: `${uid}-v${k}`, value: saysMore(had.get(value), value) ? had.get(value)! : '', maxlength: '60', placeholder: repeats(value) ?? 'No label', autocomplete: 'off', autocapitalize: 'sentences' }) }));
   const err = h('p', { class: 'of-err', role: 'alert', hidden: true });
   const save = h('button', { type: 'submit', class: 'btn of-save' }, 'Save');
   // Where the column is used (ADR 0022 §2, Q-146), joins first: a change is the file's own, and goes on to the datasets
@@ -10772,7 +10796,7 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
     labels.length ? h('fieldset', { class: 'of-vals' }, h('legend', {}, labels.length === 1 ? 'A label for its value' : 'A label for each value'),
       ...labels.map((x) => h('div', { class: 'of-val' }, h('label', { for: x.input.id }, h('code', {}, ...breakable(x.value))), x.input)),
       all.length > shown.length ? h('p', { class: 'of-hint' }, `The first ${shown.length} of ${fmtInt(all.length)} values.`) : null,
-      h('p', { class: 'of-hint' }, 'A label is shown where it says more than the value itself.')) : null,
+      h('p', { class: 'of-hint' }, 'A drawing names each value by its label; beside the value, a label is shown where it says more than the value itself.')) : null,
     where,
     forWhom,
     err,
