@@ -219,7 +219,25 @@ Results on 2026-11-09, at `e42d9ec` on data `0ca4dd1`:
 
 ## What is not done
 
-**First: [ADR 0022](adr/0022-the-answers-of-2026-11-14.md), the maintainer's answers of 2026-11-14.** With ADR 0021
+**First: [ADR 0023](adr/0023-the-demo-as-a-tour.md), the demo as a tour of what a flow can do** (2026-11-15, Q-209 to
+Q-211). The maintainer asked for the demo to be thought through again from what a visitor should see. Six scenes on a
+tour month of Larkspur, each showing one capability:
+- a normal day;
+- a warning, and the reactions to it;
+- a hard rule's hold, backfilled by the file sent again;
+- a statistical anomaly that was real: published as is, paused again, then the new level accepted;
+- one that was an issue: filled forward, then the corrected file replacing the fill;
+- fills backward and from a specific day, and one file of a day replaced.
+
+The month screen lists the scenes. Today's month stays the tests'. The slices of its §6, one PR each:
+1. the ADR;
+2. fills in Larkspur's flow (it has none), and a correction replacing a fill;
+3. Q-86, keep pausing until accepted;
+4. the tour month: the generator's preset, its story, its answer key and test;
+5. the scene list in the app, its stops at every size, and the demo guide rewritten as the tour.
+
+**Then the rest of [ADR 0022](adr/0022-the-answers-of-2026-11-14.md), the maintainer's answers of 2026-11-14:** Q-84 and
+slice 5 (Q-139). With ADR 0021
 built, the maintainer went through every open question in the question prompt: most were confirmed as built, 34 closed
 as decided as built, and the answers that change what is built or add to it are ADR 0022's, built in the slices of its
 §6, one PR each:

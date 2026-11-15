@@ -423,9 +423,14 @@ release (smaltty ADR 0030).
   through the steps. Slice 3, the ontology as the one place for rules (Q-176, Q-118, Q-119, Q-145, Q-144), is built in
   two parts: the written rules in the ontology (loose ids per check, a gold key from a rows entry, `ontology.needs`),
   then drawings in the ontology's labels and a made dataset's rules on the Ontology page. Slice 4, pausing (Q-86, Q-132,
-  Q-84), is next: its first part, an overwhelming learned finding (Q-132, the threshold Q-207), is built; Q-86 and
-  Q-84 follow. The taxi example was retired on 2026-11-15, to focus on the generated demos (Q-208, ADR 0022's
-  addendum).
+  Q-84): its first part, an overwhelming learned finding (Q-132, the threshold Q-207), is built. The taxi example was
+  retired on 2026-11-15, to focus on the generated demos (Q-208, ADR 0022's addendum). **Next:**
+  [ADR 0023](docs/adr/0023-the-demo-as-a-tour.md), the demo as a tour of what a flow can do (Q-209 to Q-211): six
+  scenes on a tour month of Larkspur (a normal day; a warning and the reactions to it; a hard rule's hold backfilled by
+  the file sent again; a statistical anomaly that was real, then accepted; one that was an issue, filled, then
+  corrected; fills each way and one file replaced), walked from the app's month screen, in the slices of its §6: fills
+  in Larkspur, Q-86 (keep pausing until accepted), the tour month, the scene list. ADR 0022's Q-84 and slice 5 (Q-139)
+  come after.
 
 ## Rules for this repository
 
