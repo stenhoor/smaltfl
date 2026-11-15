@@ -423,9 +423,9 @@ release (smaltty ADR 0030).
   through the steps. Slice 3, the ontology as the one place for rules (Q-176, Q-118, Q-119, Q-145, Q-144), is built in
   two parts: the written rules in the ontology (loose ids per check, a gold key from a rows entry, `ontology.needs`),
   then drawings in the ontology's labels and a made dataset's rules on the Ontology page. Slice 4, pausing (Q-86, Q-132,
-  Q-84), is next. Its design was answered on 2026-11-15: a learned alert that moves a quarter of the day's rows pauses
-  the day, a parameter of the flow and of a dataset in the ontology (Q-207). The same day the taxi example was retired,
-  to focus on the generated demos (Q-208, ADR 0022's addendum).
+  Q-84), is next: its first part, an overwhelming learned finding (Q-132, the threshold Q-207), is built; Q-86 and
+  Q-84 follow. The taxi example was retired on 2026-11-15, to focus on the generated demos (Q-208, ADR 0022's
+  addendum).
 
 ## Rules for this repository
 
