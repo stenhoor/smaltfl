@@ -112,7 +112,8 @@ export interface ExpectNode extends NodeBase {
  */
 export interface FillNode extends NodeBase {
   op: 'fill';
-  time: string;
+  /** The column an hours cause's hours are of; null for a file with no time of day, filled whole (ADR 0023 §5). */
+  time: string | null;
   shift: string[];
   missing: Missing | null;
   from: string | null;
@@ -567,7 +568,7 @@ function translateStep(step: StepDef, base: Base, at: string, bind: (sql: string
       };
     case 'fill': {
       const from = step.from ?? null;
-      return { op: 'fill', ...base, time: step.time, shift: [...step.shift], missing: step.missing ? structuredClone(step.missing) : null, from, to: from === null ? null : day };
+      return { op: 'fill', ...base, time: step.time ?? null, shift: [...step.shift], missing: step.missing ? structuredClone(step.missing) : null, from, to: from === null ? null : day };
     }
   }
 }
@@ -765,7 +766,7 @@ function checkHold(hold: unknown, fail: (message: string) => never): void {
 
 /** A fill node's own fields (ADR 0009 amendment 1 S1): its source and donor are snapshots, and its days are days. */
 function fillProblem(p: FlowPlan, n: FillNode, i: number, fail: (message: string) => never): void {
-  if (typeof n.time !== 'string' || n.time === '' || !Array.isArray(n.shift) || n.shift.some((c) => typeof c !== 'string' || c === '')) fail(`node ${i} (fill) names its time and the columns it shifts`);
+  if (!(n.time === null || (typeof n.time === 'string' && n.time !== '')) || !Array.isArray(n.shift) || n.shift.some((c) => typeof c !== 'string' || c === '')) fail(`node ${i} (fill) names its time (or null, for a file filled whole) and the columns it shifts`);
   if (n.inputs.some((j) => p.nodes[j]?.op !== 'table')) fail(`node ${i} (fill) reads a node that isn't a source: it fills a source, from a source`);
   if (n.missing !== null && missingProblem(n.missing, n.time) !== null) fail(`node ${i} (fill): its missing part isn't one: ${missingProblem(n.missing, n.time)}`);
   // From a day to a day, or (ADR 0010 §7) from a slot to the same slot of another day.

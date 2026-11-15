@@ -137,6 +137,8 @@ const CASTS: Partial<Record<ColumnType, string>> = { int: 'INTEGER', real: 'REAL
  * value like another); or, for the rest, any other value.
  */
 export function missingSql(m: Missing, columns: readonly Column[]): string {
+  // The whole day (ADR 0023 §5): every row is inside.
+  if ('all' in m) return '1 = 1';
   const typeOf = (c: string) => columns.find(([n]) => n.toLowerCase() === c.toLowerCase())?.[1];
   if ('hours' in m) {
     const t = q(m.time);

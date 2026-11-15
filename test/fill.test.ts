@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { isSpecial, NONE, US_1 } from '../src/core/calendar.js';
 import type { FlowDocument } from '../src/core/document.js';
 import { validateDocument } from '../src/core/document.js';
-import { acceptable, dayVersions, donorChoices, donorFor, donorRuleOf, fillable, fillCounts, levelMetrics, levelOf, levelStray, levelWays, missingOf, offersOf, partLabel, partRows, repairDocument, type DonorQuery, type Repair } from '../src/core/fill.js';
+import { acceptable, dayVersions, donorChoices, donorFor, donorRuleOf, fillable, fillCounts, levelMetrics, levelOf, levelStray, levelWays, missingFor, missingOf, offersOf, partLabel, partRows, repairDocument, wholeDay, type DonorQuery, type Repair } from '../src/core/fill.js';
 import { HistoryRanges } from '../src/core/history.js';
 import { donorGood, flowStory, rangesFor, type HistoryRef } from '../src/core/hold.js';
 import type { LogEntry } from '../src/core/log.js';
@@ -52,15 +52,41 @@ describe('the missing part (S2)', () => {
     expect(missingOf(story({ hero: 'split', hours: hours(13, 23), split: null }), 't')).toBeNull();
   });
 
-  it('is filled only on a short day with something wrong, one source holding', () => {
+  it('is filled on a day with something wrong, one source holding: the part where the day is short, else the whole day', () => {
     const s = story({ hero: 'split', split: split({}) });
     expect(fillable({ state: 'wrong', below: true }, s, 't')).toBe(true);
-    // Dec 19, 2022: a code gone while the trips stayed in range. Its rows were coded another way: no fill.
-    expect(fillable({ state: 'wrong', below: false }, s, 't')).toBe(false);
+    expect(missingFor(s, { state: 'wrong', below: true }, 't')).toEqual({ column: 'VendorID', value: 1 });
+    // Dec 19, 2022: a code gone while the trips stayed in range. Its rows were coded another way, so no part of the day
+    // is missing: it may be filled whole (ADR 0023 §5), the brief proposing to keep the last good day first.
+    expect(fillable({ state: 'wrong', below: false }, s, 't')).toBe(true);
+    expect(missingFor(s, { state: 'wrong', below: false }, 't')).toEqual({ all: true });
     expect(fillable({ state: 'unusual', below: true }, s, 't')).toBe(false);
     expect(fillable(null, s, 't')).toBe(false);
-    expect(fillable({ state: 'wrong', below: true }, story({ hero: 'amount' }), 't')).toBe(false);
+    expect(missingFor(s, { state: 'unusual', below: true }, 't')).toBeNull();
+    // Short with no part to name: the whole day.
+    expect(fillable({ state: 'wrong', below: true }, story({ hero: 'amount' }), 't')).toBe(true);
+    expect(missingFor(story({ hero: 'amount' }), { state: 'wrong', below: true }, 't')).toEqual({ all: true });
     expect(fillable({ state: 'wrong', below: true }, s, 't', 2)).toBe(false);
+    // A value marked bad, surging, is something that happened (I8, C9): never filled whole, whether the split or the
+    // cause says it.
+    const surge = story({ hero: 'split', split: split({ kind: 'surged', bad: true }) });
+    expect(fillable({ state: 'wrong', below: false }, surge, 't')).toBe(false);
+    expect(missingFor({ ...story({ hero: 'calm' }), cause: { bad: true } as Story['cause'] }, { state: 'wrong', below: false }, 't')).toBeNull();
+  });
+
+  it('is the whole day for a file that came with no rows: every hour, or the day itself where the file has no time', () => {
+    const empty = { ...story({ hero: 'amount' }), amount: { value: 0, low: 900, high: 1100, expected: 1000, change: -1 } };
+    expect(missingOf(empty, 't')).toEqual({ time: 't', hours: [0, 23] });
+    expect(missingOf(empty)).toEqual({ all: true });
+    expect(missingFor(empty, { state: 'wrong', below: true })).toEqual({ all: true });
+    // A file with no time of day names no hours: an hours cause there is no part a fill can take, so the day goes whole.
+    expect(missingOf(story({ hero: 'hours', hours: hours(13, 23) }))).toBeNull();
+    expect(missingFor(story({ hero: 'hours', hours: hours(13, 23) }), { state: 'wrong', below: true })).toEqual({ all: true });
+    expect(wholeDay({ all: true })).toBe(true);
+    expect(wholeDay({ time: 't', hours: [0, 23] })).toBe(true);
+    expect(wholeDay({ time: 't', hours: [13, 23] })).toBe(false);
+    expect(wholeDay({ column: 'VendorID', value: 1 })).toBe(false);
+    expect(partLabel({ all: true })).toBe('Nothing of the day');
   });
 
   it('is told from the flow’s story on the synthetic history', () => {
@@ -286,11 +312,22 @@ describe('the options a held day gets (S5)', () => {
     ]);
   });
 
-  it('offers neither without a fill step, without a missing part, on a day that isn’t short, or with two sources held', () => {
+  it('offers neither without a fill step, with two sources held, or over a bad value’s surge', () => {
     expect(offersOf({ story: hoursDay, claim: short, fill: undefined, donors: [{ day: '2023-09-14' }] })).toEqual([]);
-    expect(offersOf({ story: story({ hero: 'amount' }), claim: short, fill: fillOf, donors: [{ day: '2023-09-14' }] })).toEqual([]);
-    expect(offersOf({ story: hoursDay, claim: { state: 'wrong', below: false }, fill: fillOf, donors: [{ day: '2023-09-14' }] })).toEqual([]);
     expect(offersOf({ story: hoursDay, claim: short, fill: fillOf, donors: [{ day: '2023-09-14' }], holding: 2 })).toEqual([]);
+    expect(offersOf({ story: story({ hero: 'split', split: split({ kind: 'surged', bad: true }) }), claim: { state: 'wrong', below: false }, fill: fillOf, donors: [{ day: '2023-09-14' }] })).toEqual([]);
+  });
+
+  it('fills the whole day where no part is missing, with no part that arrived to offer (ADR 0023 §5)', () => {
+    // Short with no part to name, and a day that isn’t short with something wrong in it: filled whole.
+    expect(offersOf({ story: story({ hero: 'amount' }), claim: short, fill: fillOf, donors: [{ day: '2023-09-14' }] })).toEqual([{ option: 'fill', label: 'Fill from Thu 14', whole: true }]);
+    expect(offersOf({ story: hoursDay, claim: { state: 'wrong', below: false }, fill: fillOf, donors: [{ day: '2023-09-14' }] })).toEqual([{ option: 'fill', label: 'Fill from Thu 14', whole: true }]);
+    // A file with no time of day: its fill names no time, and an hours cause fills the day whole.
+    expect(offersOf({ story: hoursDay, claim: short, fill: {}, donors: [{ day: '2023-09-14' }] })).toEqual([{ option: 'fill', label: 'Fill from Thu 14', whole: true }]);
+    // No good day near: off, and still whole.
+    expect(offersOf({ story: story({ hero: 'amount' }), claim: short, fill: fillOf, donors: [] })).toEqual([{ option: 'fill', label: 'Fill', off: 'No good day near', whole: true }]);
+    // A file whose fixes allow only the part gets nothing on a day filled whole.
+    expect(offersOf({ story: story({ hero: 'amount' }), claim: short, fill: fillOf, donors: [{ day: '2023-09-14' }], fixes: new Set(['part']) })).toEqual([]);
   });
 
   it('offers to withdraw a fill or a part readers have (Q-61)', () => {

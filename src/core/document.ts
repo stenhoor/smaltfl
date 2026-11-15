@@ -468,9 +468,11 @@ export interface ExpectationsStep extends StepBase {
 /**
  * The part of a day a fill takes from another day, or leaves out (ADR 0009 amendment 1 S2): the hours from `hours[0]`
  * to `hours[1]` (both included) by the fill step's `time` column; or the rows whose `column` is `value` (a value as the
- * data types it: 1, "N", null); or, with `rest`, the rows whose `column` is not `value` (the part that held stays).
+ * data types it: 1, "N", null); or, with `rest`, the rows whose `column` is not `value` (the part that held stays); or
+ * the whole day (`all`, ADR 0023 §5): every row of it set aside and the donor's in their place, for a file that is wrong
+ * rather than short, or one with no time of day to name hours by.
  */
-export type Missing = { time: string; hours: [number, number] } | { column: string; value: string | number | boolean | null; rest?: boolean };
+export type Missing = { time: string; hours: [number, number] } | { column: string; value: string | number | boolean | null; rest?: boolean } | { all: true };
 
 /**
  * A watched source that may be filled (ADR 0009 amendment 1 S1): it reads the source and whatever read the source reads
@@ -481,8 +483,9 @@ export type Missing = { time: string; hours: [number, number] } | { column: stri
  */
 export interface FillStep extends StepBase {
   kind: 'fill';
-  /** The column an hours cause's hours are of. */
-  time: string;
+  /** The column an hours cause's hours are of. A file with no time of day (a day's snapshot, ADR 0023 §5) has none, and
+   * is filled whole. */
+  time?: string;
   /** The columns a donor's rows are moved by whole days. */
   shift: string[];
   missing?: Missing;
@@ -1304,7 +1307,7 @@ function validateConfig(s: Record<string, unknown>, at: string, add: (path: stri
       break;
     }
     case 'fill': {
-      if (typeof s.time !== 'string' || !COLUMN.test(s.time)) add(`${at}.time`, 'the column an hours cause is of: a letter or _, then letters, digits or _');
+      if (s.time !== undefined && (typeof s.time !== 'string' || !COLUMN.test(s.time))) add(`${at}.time`, 'the column an hours cause is of: a letter or _, then letters, digits or _; none for a file with no time of day, filled whole');
       if (!Array.isArray(s.shift)) add(`${at}.shift`, 'the columns a donor’s rows are moved by, a list');
       else {
         const seen = new Set<string>();
@@ -1316,7 +1319,8 @@ function validateConfig(s: Record<string, unknown>, at: string, add: (path: stri
       }
       const has = s.missing !== undefined;
       if (has) {
-        const problem = missingProblem(s.missing, s.time);
+        // A fill with no time column names no hours: it fills its day whole.
+        const problem = missingProblem(s.missing, s.time ?? null);
         if (problem) add(`${at}.missing`, problem);
       }
       if (s.from !== undefined && s.from !== null && (typeof s.from !== 'string' || !(DAY.test(s.from) || SLOT_ID.test(s.from)))) add(`${at}.from`, 'the donor’s day, YYYY-MM-DD (or its slot, YYYY-MM-DDTHH, ADR 0010 §7), or null for the part that arrived alone');
@@ -1326,10 +1330,13 @@ function validateConfig(s: Record<string, unknown>, at: string, add: (path: stri
   }
 }
 
-/** Why a value isn't a missing part (Missing), or null when it is. */
+/** Why a value isn't a missing part (Missing), or null when it is. `time` is the fill step's time column, null where it
+ * has none (no hours then), undefined where it isn't known. */
 export function missingProblem(m: unknown, time?: unknown): string | null {
-  if (!isRecord(m)) return '{ time, hours: [from, to] } or { column, value, rest }';
+  if (!isRecord(m)) return '{ time, hours: [from, to] }, { column, value, rest } or { all: true }';
+  if ('all' in m) return Object.keys(m).length === 1 && m.all === true ? null : 'the whole day is { all: true }, nothing else';
   if ('hours' in m || 'time' in m) {
+    if (time === null) return 'a fill with no time column names no hours: it fills its day whole, { all: true }';
     if (Object.keys(m).some((k) => k !== 'time' && k !== 'hours')) return 'hours are { time, hours: [from, to] }, nothing else';
     const h = m.hours;
     if (!Array.isArray(h) || h.length !== 2 || !h.every((x) => Number.isInteger(x)) || !(0 <= h[0] && h[0] <= h[1] && h[1] <= 23)) return 'hours are [from, to], whole hours with 0 ≤ from ≤ to ≤ 23';

@@ -7180,7 +7180,7 @@ function briefInputs(day: string): BriefIn {
     const rem = remediesFor(r);
     const firstDonor = rem?.picks[0];
     const carried = firstDonor ? fixOfDonor(firstDonor) : null;
-    for (const o of rem?.offers ?? []) if (o.option === 'fill' || o.option === 'complete') options.push({ option: o.option, label: o.label, line: o.option === 'fill' ? (carried === 'forward' ? `carries ${dayShort(firstDonor!.day)} forward, marked as filled` : carried === 'backward' ? `carries ${dayShort(firstDonor!.day)} back, marked as filled` : carried === 'impute' ? `${dayShort(firstDonor!.day)} stands in, an estimate, marked as filled` : 'a good day near it fills what is missing, marked') : 'the part that arrived goes out alone, marked', off: o.off ?? (can(o.option).allowed ? null : `${deciders()} decides`) });
+    for (const o of rem?.offers ?? []) if (o.option === 'fill' || o.option === 'complete') options.push({ option: o.option, label: o.label, line: o.option === 'fill' ? (carried === 'forward' ? `carries ${dayShort(firstDonor!.day)} forward, marked as filled` : carried === 'backward' ? `carries ${dayShort(firstDonor!.day)} back, marked as filled` : carried === 'impute' ? `${dayShort(firstDonor!.day)} stands in, an estimate, marked as filled` : 'a good day near it fills what is missing, marked') : 'the part that arrived goes out alone, marked', off: o.off ?? (can(o.option).allowed ? null : `${deciders()} decides`), ...(o.whole ? { whole: true } : {}) });
     const acc = acceptFor(r);
     if (acc) options.push({ option: 'accept', label: acc.offer.label, line: 'later days are judged at the new level', off: acc.offer.off ?? (can('accept').allowed ? null : `${deciders()} decides`) });
   }

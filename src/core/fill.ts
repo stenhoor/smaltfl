@@ -82,10 +82,13 @@ function valueOf(json: string): string | number | boolean | null {
  * Null for any other cause, a part that surged among them: nothing is missing. A slot's hours are its own, named as
  * the day's (06:00–10:00 of the 06–12 slot is hours 6 to 9, ADR 0010 §7).
  */
-export function missingOf(story: Pick<Story, 'hero' | 'hours' | 'split'> & Partial<Pick<Story, 'amount'>>, time: string): Missing | null {
-  // A day whose file came with no rows at all is missing whole: every hour of it is what another day carries in.
-  if (story.hero === 'amount' && story.amount && story.amount.value === 0) return { time, hours: [0, 23] };
+export function missingOf(story: Pick<Story, 'hero' | 'hours' | 'split'> & Partial<Pick<Story, 'amount'>>, time?: string): Missing | null {
+  // A day whose file came with no rows at all is missing whole: every hour of it is what another day carries in, or,
+  // for a file with no time of day, the day as a whole (ADR 0023 §5).
+  if (story.hero === 'amount' && story.amount && story.amount.value === 0) return time === undefined ? { all: true } : { time, hours: [0, 23] };
   if (story.hero === 'hours' && story.hours) {
+    // A file with no time column names no hours.
+    if (time === undefined) return null;
     // A slot's parts are its own hours, placed in the day (ADR 0010 §7); quarter hours (a slot under 3 hours) are no
     // hours a fill can name: nothing it can take.
     const { start = 0, width = 60 } = story.hours;
@@ -105,9 +108,26 @@ export function missingOf(story: Pick<Story, 'hero' | 'hours' | 'split'> & Parti
  * and its rows are below their range, its story names a missing part, and it is the one source holding the day (a fill
  * of several sources at once is ADR 0010 §7's, per load).
  */
-export function fillable(claim: Pick<StoryClaim, 'state' | 'below'> | null, story: Pick<Story, 'hero' | 'hours' | 'split'>, time: string, holding = 1): boolean {
-  return holding === 1 && !!claim && claim.state === 'wrong' && claim.below && missingOf(story, time) !== null;
+export function fillable(claim: Pick<StoryClaim, 'state' | 'below'> | null, story: Pick<Story, 'hero' | 'hours' | 'split'> & Partial<Pick<Story, 'amount' | 'cause'>>, time?: string, holding = 1): boolean {
+  return holding === 1 && missingFor(story, claim, time) !== null;
 }
+
+/**
+ * What a fill takes of a held day (S2, ADR 0023 §5): the part its story names, where its rows are short of their range
+ * (`missingOf`); else the whole day, where its claim says something is wrong with rows that arrived (a file mislabelled,
+ * its rows twice), carried in whole from a good day before or after it, or a like day. Null for a day nothing holds as
+ * wrong.
+ */
+export function missingFor(story: Pick<Story, 'hero' | 'hours' | 'split'> & Partial<Pick<Story, 'amount' | 'cause'>>, claim: Pick<StoryClaim, 'state' | 'below'> | null, time?: string): Missing | null {
+  if (!claim || claim.state !== 'wrong') return null;
+  const part = claim.below ? missingOf(story, time) : null;
+  // A value the ontology marks bad, surging, is something that happened (I8, C9): the day is never filled whole over it.
+  if (story.split?.bad || story.cause?.bad) return part;
+  return part ?? { all: true };
+}
+
+/** Whether a missing part is the whole day: a file filled whole, or every hour of it. */
+export const wholeDay = (m: Missing): boolean => 'all' in m || ('hours' in m && m.hours[0] === 0 && m.hours[1] === 23);
 
 // ------------------------------------------------------------------ the donor
 
@@ -235,7 +255,7 @@ export function repairDocument(doc: FlowDocument, repair: Repair): FlowDocument 
     : { ...step, inputs: [step.inputs[0]!], missing: structuredClone(repair.missing), from: null };
   return {
     ...doc,
-    sources: repair.donor ? [...doc.sources, { id: donor.id, table: donor.table, description: `${source.id} of ${repair.donor.day}, filling ${repair.missing && 'hours' in repair.missing ? 'its hours' : 'its part'}` }] : doc.sources,
+    sources: repair.donor ? [...doc.sources, { id: donor.id, table: donor.table, description: `${source.id} of ${repair.donor.day}, filling ${'all' in repair.missing ? 'the whole day' : 'hours' in repair.missing ? 'its hours' : 'its part'}` }] : doc.sources,
     steps: doc.steps.map((s) => (s.id === step.id ? filled : s)),
   };
 }
@@ -256,6 +276,8 @@ export function partRows(h: HistoryRanges, day: string, missing: Missing): numbe
   const f = h.file;
   const k = f.days.indexOf(day);
   if (k < 0) return null;
+  // The whole day: every row of it.
+  if ('all' in missing) return f.rows[k]!;
   if ('hours' in missing) {
     const hours = f.hours?.[k];
     return hours ? hours.slice(missing.hours[0], missing.hours[1] + 1).reduce((a, b) => a + b, 0) : null;
@@ -291,6 +313,7 @@ const clock = (hour: number) => `${String(hour).padStart(2, '0')}:00`;
  * held). `name` is the split's part as the story names it.
  */
 export function partLabel(missing: Missing, name?: string): string {
+  if ('all' in missing) return 'Nothing of the day';
   if ('hours' in missing) {
     const [a, b] = missing.hours;
     if (b === 23 && a > 0) return `Before ${clock(a)} only`;
@@ -311,11 +334,14 @@ export interface Offer {
   note?: string;
   /** A don't publish that takes back a fill readers have (Q-61): "Withdraw the fill". */
   withdraws?: true;
+  /** A fill that carries in the whole day, none of the day's own rows kept (ADR 0023 §5): proposed only after keeping
+   * the last good day. */
+  whole?: true;
 }
 
 export interface OfferInput {
   /** The flow's story of the day, and the claim the run was held on. */
-  story: Pick<Story, 'hero' | 'hours' | 'split'>;
+  story: Pick<Story, 'hero' | 'hours' | 'split'> & Partial<Pick<Story, 'amount' | 'cause'>>;
   claim: Pick<StoryClaim, 'state' | 'below'> | null;
   /** The watched source's fill step, if the flow has one. */
   fill: Pick<FillStep, 'time'> | undefined;
@@ -351,12 +377,12 @@ export interface OfferInput {
 export function offersOf(o: OfferInput): Offer[] {
   const out: Offer[] = [];
   if (o.fill && fillable(o.claim, o.story, o.fill.time, o.holding ?? 1)) {
-    const missing = missingOf(o.story, o.fill.time)!;
+    const missing = missingFor(o.story, o.claim, o.fill.time)!;
     const donor = o.donors[0];
     const fills = !o.fixes || ['forward', 'backward', 'impute'].some((f) => o.fixes!.has(f as FixKind));
-    if (fills) out.push({ option: 'fill', label: donor ? `Fill from ${dayShort(donor.day)}` : 'Fill', ...(!donor ? { off: 'No good day near' } : {}) });
+    if (fills) out.push({ option: 'fill', label: donor ? `Fill from ${dayShort(donor.day)}` : 'Fill', ...(!donor ? { off: 'No good day near' } : {}), ...(wholeDay(missing) ? { whole: true as const } : {}) });
     // A whole day missing has no part that arrived; a file that allows no fill but the part still gets the part.
-    if ((o.fixes?.has('part') ?? true) && !('hours' in missing && missing.hours[0] === 0 && missing.hours[1] === 23)) out.push({ option: 'complete', label: partLabel(missing, o.story.split?.name), ...(o.partFails ? { note: 'fails its checks' } : {}) });
+    if ((o.fixes?.has('part') ?? true) && !wholeDay(missing)) out.push({ option: 'complete', label: partLabel(missing, o.story.split?.name), ...(o.partFails ? { note: 'fails its checks' } : {}) });
   }
   if (o.readers === 'fill' || o.readers === 'complete') out.push({ option: 'dont', label: o.readers === 'fill' ? 'Withdraw the fill' : 'Withdraw the part', withdraws: true });
   // Accept the new level (S6), for the day and the days after it, whatever day readers see (Q-51).

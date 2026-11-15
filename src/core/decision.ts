@@ -189,7 +189,7 @@ function drawingOf(h: HistoryRanges | null, story: Pick<Story, 'hero' | 'hours' 
   const days = [...before, day];
   // A day missing whole (its file came with no rows, fill.ts `missingOf`): a fill carries a donor's whole day in, its
   // rows as the history has them, drawn stippled as another day's.
-  const whole = remedy && 'hours' in remedy.missing && remedy.missing.hours[0] === 0 && remedy.missing.hours[1] === 23 ? remedy.missing.hours : null;
+  const whole = remedy && ('all' in remedy.missing || ('hours' in remedy.missing && remedy.missing.hours[0] === 0 && remedy.missing.hours[1] === 23)) ? [0, 23] as [number, number] : null;
   // The week before the day, the donor and the days between it and the day, in date order (a fill forward has its donor
   // before the day, a fill back after): the donor solid, the other days faded beside it as examples of what the days
   // around looked like, the day itself stippled with the donor's rows. Two weeks at most: further, the donor and the

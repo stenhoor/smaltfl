@@ -58,8 +58,11 @@ export function publish<T>(step: T, options: PublishOptions = {}): T {
 /** A fill step's settings (ADR 0009 amendment 1): the time column its hours are of, and the columns a donor's rows
  * are moved by whole days. */
 export interface FillOptions {
-  time: string;
-  shift: string[];
+  /** The column an hours cause's hours are of; none for a file with no time of day (a day's snapshot), filled whole
+   * (ADR 0023 §5). */
+  time?: string;
+  /** The columns a donor's rows are moved by whole days. */
+  shift?: string[];
 }
 
 /** The `fill` step over a watched source: its rows with `filled_from` (null until a day is filled). */
