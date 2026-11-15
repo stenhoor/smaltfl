@@ -92,7 +92,7 @@ describe('the estate flow under its gates (ADR 0014 slice 1)', () => {
     expect(w.doc.ontology!.objectTypes).toMatchObject([{ id: 'application', dataset: 'apps', key: ['app_id'] }]);
     expect(w.doc.ontology!.rows!.map((r) => r.dataset)).toEqual([...ESTATE_CONTROLS]);
     const plan = await translate(w.doc, { day: '2024-03-04' });
-    const watch = Object.fromEntries((plan.publish as unknown as { watch: [number, { checks: Record<string, string>; scope: unknown; reconcile: unknown }][] }).watch.map(([n, x]) => [plan.nodes[n]!.origin, x]));
+    const watch = Object.fromEntries((plan.publish as unknown as { watch: [number, { checks: Record<string, string>; scope: unknown; needs: unknown; reconcile: unknown }][] }).watch.map(([n, x]) => [plan.nodes[n]!.origin, x]));
     const where: Record<string, string> = {
       tls: `"internet_facing" IN ('yes')`, waf: `"internet_facing" IN ('yes')`, pentest: `"criticality" IN ('critical', 'high') AND "internet_facing" IN ('yes')`,
       encryption: `"datastore" IN ('yes')`, key_rotation: `"data_class" IN ('pci', 'pii') AND "datastore" IN ('yes')`, backup: `"datastore" IN ('yes')`,
