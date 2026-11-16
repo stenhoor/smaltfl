@@ -46,3 +46,24 @@ jobs:
       - run: node scripts/fetch-packed.mjs
       - run: npm run test:slow
       - run: npm run test:isolated
+
+  # Beside the others: the tour's month at the demo's own scale (test/larkspur-tour.test.ts, ADR 0023), its data made as
+  # the app build makes it and its answer key checked. The demo's scale is the point: at the tests' smaller one a register
+  # of sixty rows moves by a twentieth when five exceptions are approved, which the demo's never does.
+  tour:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .cache/packed/*.tgz
+            .cache/packed/*-files
+          key: packed-${{ hashFiles('packed.json') }}
+      - run: node scripts/fetch-packed.mjs
+      - run: npm run test:tour

@@ -699,8 +699,12 @@ async function main(): Promise<void> {
         if (!now || !latest) throw new Error(`${storyPath}: ${ev.delivery.file} is sent again for ${ev.day} before the day's first run`);
         const d: Day = { slot: ev.day, files: { ...now.files, [f.source]: { file: f.file, rows: f.rows, exported_at: f.exported_at } } };
         filesNow.set(ev.day, d);
+        // The day's other files as they were, pinned again: a later day may have run since (a file sent again days after,
+        // as the tour's encryption file is, ADR 0023 §1), and its files are the ones pinned. They keep what the day's run
+        // said of where each came from; the file sent again says when it arrived.
+        await pinDay(d, at, daily.filter((id) => id !== f.source), true);
         const shas = await pinDay(d, at, [f.source]);
-        await runOnce(d, at, shas, { correction: { of: { run: latest.run, manifest: latest.manifest }, sources: [f.source] } });
+        await runOnce(d, at, shas, { correction: { of: { run: latest.run, manifest: latest.manifest }, sources: [f.source] }, sources: { ...latest.sources, [f.source]: sources[f.source]! } });
       } else if (ev.kind === 'decision') {
         const { day, by, option, reason, fill } = ev.decision;
         await decideOnce(day, ev.n, at, by, option, reason, fill);

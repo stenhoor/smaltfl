@@ -16,6 +16,14 @@ const core = (path: string): string => fileURLToPath(new URL(`./node_modules/sma
 const SLOW = ['test/estate-flow.test.ts', 'test/larkspur-flow.test.ts', 'test/models.test.ts'];
 
 /**
+ * The tour's month at the demo's own scale (test/larkspur-tour.test.ts, ADR 0023 §2): its data made as the app build
+ * makes it, the month recorded with its story, its answer key checked. Longer than every slow test together, so run by
+ * `npm run test:tour` and by a CI job of its own.
+ */
+const TOUR = ['test/larkspur-tour.test.ts'];
+const only = process.env.SMALTFL_SLOW ? SLOW : process.env.SMALTFL_TOUR ? TOUR : null;
+
+/**
  * The files that take longest, started first in this order, so none of them is left to run alone at the end: a world of
  * engine runs built before its tests, or every day of two years judged. The others follow vitest's own order.
  */
@@ -47,8 +55,8 @@ export default defineConfig({
   // engine takes seconds on a busy runner (test/fill-general.test.ts passed vitest's five-second default on CI and
   // failed five pushes in a row): thirty seconds a test, the time docs/HANDOFF.md has always run them with.
   test: {
-    include: process.env.SMALTFL_BENCH ? ['bench/**/*.bench.ts'] : process.env.SMALTFL_SLOW ? SLOW : ['test/**/*.test.ts'],
-    exclude: process.env.SMALTFL_BENCH || process.env.SMALTFL_SLOW ? [] : SLOW,
+    include: process.env.SMALTFL_BENCH ? ['bench/**/*.bench.ts'] : only ?? ['test/**/*.test.ts'],
+    exclude: process.env.SMALTFL_BENCH || only ? [] : [...SLOW, ...TOUR],
     testTimeout: 30000,
     // smaltdb runs no SQL of its own (its ADR 0017): test/setup-sql.ts registers smaltql's. smaltql (packed.json) is
     // transformed with smaltdb so its imports of smaltdb resolve to the same source: one engine, one registry.
@@ -60,8 +68,8 @@ export default defineConfig({
     // otherwise load again): the core keeps no state between calls but caches of pure results, so a file can't see
     // another's. `npm run test:isolated` runs every file in a fresh module graph, to rule that out.
     // The slow tests run as they always did: a process a file, each with its own heap (a world of engine runs is large).
-    isolate: !!process.env.SMALTFL_ISOLATE || !!process.env.SMALTFL_SLOW,
-    pool: process.env.SMALTFL_SLOW ? 'forks' : 'threads',
+    isolate: !!process.env.SMALTFL_ISOLATE || !!only,
+    pool: only ? 'forks' : 'threads',
     sequence: { sequencer: LongestFirst },
   },
 });
