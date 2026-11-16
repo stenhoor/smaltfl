@@ -8,13 +8,15 @@
  * missing, a wash with a dashed edge (dashes mean absent and nothing else: a limit is a solid tick, a link a solid
  * hairline); not today's run, a hatch (another day's rows shown instead of the day); another day's rows inside the day
  * (a fill, ADR 0009 amendment 1 S12), a stipple of the ink's dots under a solid top edge, so they read as present. A
- * mark for a non-zero number is never under 3 px. Colours are the app's tokens,
+ * mark for a non-zero number is never under 3 px. On the month (ADR 0024): decided, the box of not published, ticked; and
+ * a day as a bar (`dayBars`), low for nothing to report, half height unusual, full height held, hollow once decided, and
+ * no bar at all for a day with no run. Colours are the app's tokens,
  * set by class in page.html under `.viz`, so light and dark both work.
  */
 
 import type { DrawCause, ReaderRows } from '../core/decision.js';
 
-export type Mark = 'alert' | 'warn' | 'note' | 'held' | 'flag' | 'closed' | 'explained' | 'info' | 'chev' | 'more' | 'seal' | 'ack' | 'publish' | 'keep' | 'unlearned' | 'fill' | 'part' | 'level' | 'lock' | 'corrected';
+export type Mark = 'alert' | 'warn' | 'note' | 'held' | 'flag' | 'closed' | 'decided' | 'explained' | 'info' | 'chev' | 'more' | 'seal' | 'ack' | 'publish' | 'keep' | 'unlearned' | 'fill' | 'part' | 'level' | 'lock' | 'corrected';
 
 export const esc = (s: unknown): string => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const sum = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0);
@@ -38,6 +40,11 @@ export function glyph(kind: Mark, size = 16): string {
       return `<svg ${a}><rect class="g-wall" x="3" y="1.5" width="1.8" height="13" rx=".9"/><path class="g-wall" d="M4.8 2.2h8.4l-2.3 3.3 2.3 3.3H4.8z"/></svg>`;
     case 'closed':
       return `<svg ${a}><rect class="g-box" x="2" y="2" width="12" height="12" rx="2"/><path class="g-x" d="M5.2 5.2l5.6 5.6M10.8 5.2l-5.6 5.6"/></svg>`;
+    // On the month (ADR 0024 §3): a paused day a decision published, however it went out (as is, filled, as a new
+    // level, on a file sent again). The same box as not published, ticked: a person's decision is the box, and what is
+    // in it says whether the day went out. How it went out is a word beside it, never another glyph.
+    case 'decided':
+      return `<svg ${a}><rect class="g-box" x="2" y="2" width="12" height="12" rx="2"/><path class="g-x g-tick" d="M4.9 8.4l2.2 2.2 4-4.7"/></svg>`;
     // The decision sheet's options (ADR 0009 §12): publish, an arrow up out of a tray; keep the day readers have, the
     // hatched swatch another day's rows are drawn in (ADR 0008 §10).
     case 'publish':
@@ -1846,7 +1853,7 @@ export interface ScorePoint {
  * by a dashed line (the missing-data convention), the axis zoomed to the values and printed at its ends, the last
  * score labelled.
  */
-export function scoreTrend(o: { days: readonly string[]; points: readonly ScorePoint[]; w?: number; h?: number; aria: string; gap?: string }): string {
+export function scoreTrend(o: { days: readonly string[]; points: readonly ScorePoint[]; w?: number; h?: number; aria: string; gap?: string; focus?: { from: string; to: string } }): string {
   const w = o.w ?? 334;
   const h = o.h ?? 132;
   const at = new Map(o.points.map((p) => [p.day, p]));
@@ -1864,6 +1871,17 @@ export function scoreTrend(o: { days: readonly string[]; points: readonly ScoreP
   s += `<text x="${gx}" y="10" class="key">— score</text><text x="${gx + 64}" y="10" class="key lbl-m">— coverage</text><text x="${gx + 146}" y="10" class="key lbl-m">┄ ${esc(o.gap ?? 'not run')}</text>`;
   s += `<line class="base" x1="${gx}" x2="${w - 4}" y1="${f1(base)}" y2="${f1(base)}"/><line class="hair" x1="${gx}" x2="${w - 4}" y1="${f1(top)}" y2="${f1(top)}"/>`;
   s += `<text x="0" y="${f1(top + 4)}" class="lbl-m">${hi}</text><text x="0" y="${f1(base + 4)}" class="lbl-m">${lo}</text>`;
+  // The month on show, where the days span more than one (ADR 0024 §6): a wash behind its days and a rule under them on
+  // the axis, so the line reads over every month with this one marked.
+  if (o.focus) {
+    const a = o.days.indexOf(o.focus.from);
+    const b = o.days.indexOf(o.focus.to);
+    if (a >= 0 && b >= a) {
+      const x0 = Math.max(gx, x(a) - cw / 2);
+      const x1 = Math.min(w - 4, x(b) + cw / 2);
+      s += `<rect class="focus" x="${f1(x0)}" y="${f1(top)}" width="${f1(x1 - x0)}" height="${f1(base - top)}"/><line class="focus-rule" x1="${f1(x0)}" x2="${f1(x1)}" y1="${f1(base + 1.5)}" y2="${f1(base + 1.5)}"/>`;
+    }
+  }
   const series = (pick: (p: ScorePoint) => number | null, cls: string) => {
     let out = '';
     const pts = known.map(({ i, p }) => ({ i, v: pick(p) })).filter((q): q is { i: number; v: number } => q.v !== null);
@@ -1877,8 +1895,10 @@ export function scoreTrend(o: { days: readonly string[]; points: readonly ScoreP
   const cov = series((p) => p.coverage, 'line cov');
   const score = series((p) => p.score, 'line');
   s += cov.out + score.out;
-  for (const { i, v } of score.pts) s += `<circle class="pt" cx="${f1(x(i))}" cy="${f1(y(v))}" r="2.6"/>`;
+  // A point a day where the days have room for one; else the line alone, with its last point (a phone's sixty days
+  // would be one smear of dots).
   const last = score.pts.at(-1);
+  for (const { i, v } of cw >= 5 ? score.pts : last ? [last] : []) s += `<circle class="pt" cx="${f1(x(i))}" cy="${f1(y(v))}" r="2.6"/>`;
   if (last) s += `<text x="${f1(Math.min(w - 30, x(last.i) + 5))}" y="${f1(Math.max(top + 10, y(last.v) - 6))}" class="lbl-b">${last.v.toFixed(1)}</text>`;
   if (o.days.length) {
     // Days over more than one month say their month too ("Thu Feb 1"), as their numbers alone repeat.
@@ -1910,5 +1930,58 @@ export function scoreSpark(o: { days: readonly string[]; points: readonly ScoreP
   }
   const last = pts.at(-1)!;
   s += `<circle class="pt" cx="${f1(x(last.i))}" cy="${f1(y(last.v))}" r="2.2"/>`;
+  return `${s}</svg>`;
+}
+
+/** A day of a row of bars (`dayBars`): how it went, and whether a bad day has been handled since. */
+export interface BarDay {
+  day: string;
+  /** none: no run, or nothing built; ok: nothing to report; unjudged: nothing to compare it with; warn: unusual; bad:
+   * held, paused or refused. */
+  level: 'none' | 'ok' | 'unjudged' | 'warn' | 'bad';
+  /** A bad day someone has decided since, or whose file was sent again: drawn hollow, as closed. */
+  done?: boolean;
+  /** What pointing at the day says. */
+  title?: string;
+}
+
+/**
+ * A row of days as bars (ADR 0024 §4, §5): a bar a day, its height what the day came to. A day with nothing to report is
+ * a low tick; an unusual one half height; a held one full height, solid while it waits and hollow once decided; a day
+ * not judged a low hollow tick; a day with no run nothing at all (the missing-data convention: absence is never drawn
+ * as fine). The height says it, so the row reads in grey. A week starts on a taller hair of the baseline, and `ticks`
+ * names each Monday's date under it. Each day is a column to point at or tap (`data-day`, its `title`).
+ */
+export function dayBars(o: { days: readonly BarDay[]; w?: number; h?: number; pick?: string | null; ticks?: boolean; aria: string }): string {
+  const w = o.w ?? 334;
+  const bh = o.h ?? 20;
+  const n = Math.max(1, o.days.length);
+  const cw = w / n;
+  const gap = cw >= 7 ? 2 : cw >= 4 ? 1 : 0.5;
+  const bw = Math.max(1.5, cw - gap);
+  const base = bh + 1;
+  const H = base + 1 + (o.ticks ? 12 : 0);
+  const height: Record<BarDay['level'], number> = { none: 0, ok: 3, unjudged: 3, warn: Math.max(6, Math.round(bh * 0.55)), bad: bh };
+  const isMonday = (day: string) => new Date(`${day}T12:00:00Z`).getUTCDay() === 1;
+  const at = o.days.findIndex((d, i) => i > 0 && isMonday(d.day));
+  const firstMonday = at < 0 ? Infinity : at;
+  let s = open(w, H, o.aria, 'data-y0="0"');
+  s += `<line class="base" x1="0" x2="${f1(w)}" y1="${f1(base)}" y2="${f1(base)}"/>`;
+  o.days.forEach((d, i) => {
+    const x = i * cw + gap / 2;
+    const monday = isMonday(d.day);
+    if (d.day === o.pick) s += `<rect class="db-pick" x="${f1(i * cw)}" y="0" width="${f1(cw)}" height="${f1(base)}" rx="2"/>`;
+    if (monday && i > 0) s += `<line class="db-week" x1="${f1(i * cw)}" x2="${f1(i * cw)}" y1="${f1(base - 2)}" y2="${f1(base + 3)}"/>`;
+    const hgt = height[d.level];
+    if (hgt > 0) {
+      const hollow = d.level === 'unjudged' || (d.level === 'bad' && d.done);
+      // A hollow bar's stroke sits inside its box, so it is as tall and as wide as a solid one.
+      const inset = hollow ? 0.75 : 0;
+      s += `<rect class="db db-${d.level}${d.level === 'bad' && d.done ? ' done' : ''}" x="${f1(x + inset)}" y="${f1(base - hgt + inset)}" width="${f1(Math.max(1, bw - 2 * inset))}" height="${f1(Math.max(1, hgt - 2 * inset))}" rx="${bw >= 5 ? 1.5 : 0.5}"/>`;
+    }
+    s += `<rect class="db-hit" data-day="${esc(d.day)}" x="${f1(i * cw)}" y="0" width="${f1(cw)}" height="${f1(base)}">${d.title ? `<title>${esc(d.title)}</title>` : ''}</rect>`;
+    // Each Monday's date, and the first day's where the first Monday is far enough from it for both to be read.
+    if (o.ticks && (monday || (i === 0 && firstMonday * cw >= 16))) s += `<text class="tick${d.day === o.pick ? ' at' : ''}" x="${f1(i * cw + cw / 2)}" y="${f1(H - 1)}" text-anchor="middle">${Number(d.day.slice(8, 10))}</text>`;
+  });
   return `${s}</svg>`;
 }

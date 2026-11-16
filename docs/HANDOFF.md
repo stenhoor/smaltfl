@@ -222,7 +222,35 @@ Results on 2026-11-09, at `e42d9ec` on data `0ca4dd1`:
 
 ## What is not done
 
-**First: [ADR 0023](adr/0023-the-demo-as-a-tour.md), the demo as a tour of what a flow can do** (2026-11-15, Q-209 to
+**For the maintainers to confirm: [ADR 0024](adr/0024-the-month-at-a-glance.md), the month at a glance** (2026-11-16,
+Q-219 to Q-225). The maintainer looked at the tour's month and asked for research into how such a screen is best done,
+and a solution: page through the months; the panel for a day didn't say what went on that day; the symbols were
+confusing; the score and why it moves weren't explained; the files and steps, opened, were overwhelming. The research
+is [research/ui-month-overview.md](research/ui-month-overview.md), in five threads (how tools show the health of many
+things over many days, the design literature, status symbols, explaining a score, paging and the panel for a day).
+Built as proposed:
+
+- **The month's order**: what waits for a decision, in any month, above everything; the months side by side; the month
+  in a sentence beside the month before, with its counts; the calendar and the day picked; what needed a look; each file
+  and step as a row of the month's days; the product's score. The scene list is behind a bar, closed at first (Q-221).
+- **One month on screen**, with ‹ › and a link of its own (`#month/2024-03`), opening on the latest month with a day
+  known and on its first day still waiting (Q-220). The arrow keys move through the days.
+- **Five marks, and words** (Q-219): ✓ normal, ⚠ unusual, ‖ paused, ☑ decided, ☒ not published. How a decided day went
+  out is a word. Colour is for the day that waits.
+- **A day told in order**, from the record: what held it, what it held back, what happened (the files arriving, each
+  file sent again with the sender's reason, each decision with who, how long after and why), and the score that day.
+- **Rows of days in place of the grid** (Q-222, Q-223): the worst first, the clean folded; a day's bar the worst its
+  runs said; a step that only followed a file told apart from a step with trouble of its own.
+- **The score said** (Q-224): the number and what it is a share of, steady or not by a rule, what it is in a sentence,
+  what moved it. The recorder adds each published day's checks and the applications failing each control, so every
+  demo's data is made again.
+- **A day reads the same once it has run here** (Q-225): ADR 0023's second point left, below, is closed by it.
+
+`tools/browser/stops/overview.json` walks it on the tour. Not built, in its §"Not built": a link to the day picked, a
+year at a time, a usual range for the score, the score split by rate and by mix, days of one cause merged into one
+incident.
+
+**Built: [ADR 0023](adr/0023-the-demo-as-a-tour.md), the demo as a tour of what a flow can do** (2026-11-15, Q-209 to
 Q-211). The maintainer asked for the demo to be thought through again from what a visitor should see. Six scenes on a
 tour month of Larkspur, each showing one capability:
 - a normal day;
@@ -260,7 +288,7 @@ The month screen lists the scenes. Today's month stays the tests'. The slices of
    - the month marks a day from the record by every watched dataset's claim, but a day run in the browser by the
      dataset the views follow alone (`calendarDayOf` in `src/app/main.ts`, `stateOfRun` in `src/core/month.ts`), so a
      calm day with a file's note (the tour's Tue Feb 6, say) shows ✓ once run where the record says that file was
-     unusual.
+     unusual. *Closed, 2026-11-16 (ADR 0024 §9, Q-225):* a day run here reads as its record does.
 
 **Built: [ADR 0022](adr/0022-the-answers-of-2026-11-14.md), the maintainer's answers of 2026-11-14:** its last slice,
 proposed declarations (Q-139), is built (2026-11-16); sharing as one package file (Q-35) comes later. With ADR 0021

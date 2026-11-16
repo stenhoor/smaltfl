@@ -722,6 +722,12 @@ select.ch-mode.hold { color: var(--bad); } select.ch-mode.warn { color: var(--wa
 .posture .pv-apps li > .pv-grade { grid-area: grade; }
 .posture .pv-apps .pu-nums { grid-area: nums; font-variant-numeric: tabular-nums; } .posture .pv-apps .pu-counts { grid-area: counts; }
 .viz .line.cov { stroke: var(--muted); stroke-width: 1.2; } .viz .line.gap { stroke-dasharray: 3 3; } .viz .pt { fill: var(--ink); }
+/* The month on show on a line over several months (ADR 0024 §6), and a row of days as bars (viz.ts dayBars): a low bar a
+   day with nothing to report, half height unusual, full height held (hollow once decided), a low hollow bar not judged. */
+.viz .focus { fill: var(--smalt-wash); opacity: 0.7; } .viz .focus-rule { stroke: var(--smalt); stroke-width: 3; stroke-linecap: round; }
+.viz .db-ok { fill: var(--muted); } .viz .db-warn { fill: var(--warn); } .viz .db-bad { fill: var(--bad); }
+.viz .db-bad.done { fill: none; stroke: var(--bad); stroke-width: 1.5; } .viz .db-unjudged { fill: none; stroke: var(--muted); stroke-width: 1; }
+.viz .db-pick { fill: var(--smalt-wash); } .viz .db-week { stroke: var(--muted); stroke-width: 1; } .viz .db-hit { fill: transparent; cursor: pointer; }
 @media (min-width: 820px) {
   .posture .pv-tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .posture .pu-kids { margin-left: 12px; padding-left: 12px; }
@@ -1855,35 +1861,66 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 @keyframes bq-flash { 0%, 30% { box-shadow: 0 0 0 3px var(--smalt); } 100% { box-shadow: 0 0 0 0 transparent; } }
 @media (prefers-reduced-motion: reduce) { .flash { animation: none; outline: 2px solid var(--smalt); } }
 
-/* The month (ADR 0021 §3): for the day and as known on, the product's trend, the calendar, the day picked, the grid. */
+/* The month (ADR 0021 §3, laid out by ADR 0024): the month on show with its pager and as known on; what waits; the
+   months side by side; the month in a sentence with its counts; the calendar and the day picked; what needed a look;
+   each file and step as a row of days; the product's score. A phone's order is the order of the page. */
 #view-month:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .mo-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px 16px; }
-.mo-name { margin: 2px 0 0; font-size: 22px; line-height: 1.2; }
+.mo-pager { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.mo-name { margin: 0; font-size: 22px; line-height: 1.2; }
+.mo-page { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; min-height: 40px; padding: 0; font-size: 20px; line-height: 1; text-decoration: none; }
+.mo-page.off { color: var(--muted); border-style: dashed; cursor: default; }
 .mo-known { display: grid; gap: 2px; font-size: 13px; min-width: 0; }
 .mo-known select { font: inherit; padding: 6px 8px; min-height: 36px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); max-width: 100%; }
-.mo-trend svg { display: block; max-width: 100%; height: auto; }
+
+/* What waits for a decision, in any month: the one part of the month in the colour of something wrong. */
+.mo-wait { display: grid; gap: 6px; border-color: var(--bad); background: var(--bad-wash); }
+.mo-wait .eyebrow { margin: 0; color: var(--bad); }
+.mo-wait-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.mo-wait-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.mo-wait-row > .g { flex: none; }
+.mo-wait-said { flex: 1 1 200px; min-width: 0; font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; }
+.mo-wait-day { border: 0; background: none; padding: 0; min-height: 28px; color: var(--ink); font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.mo-wait-since { color: var(--ink-2); }
+.mo-wait-row .btn { text-decoration: none; }
+.mo-wait .mo-wait-fold { color: var(--bad); }
+
+/* The months side by side: one design each, its days as bars, its counts in two lines; the one on show ringed. */
+.mo-months { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.mo-card { display: grid; gap: 1px; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); text-decoration: none; }
+.mo-card[aria-current] { border-color: var(--smalt); box-shadow: inset 0 0 0 1px var(--smalt); }
+.mo-card-name { font-size: 14px; font-weight: 700; }
+.mo-card svg { margin: 3px 0 2px; }
+.mo-card-said { font-size: 13px; }
+.mo-card-more, .mo-card-score { font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
+.mo-card-wait { color: var(--bad); }
+
+/* The month in a sentence, beside the one before, and its counts: each a mark with its number and its word. */
+.mo-summary { display: grid; gap: 6px; }
+.mo-said { margin: 0; font-size: 16px; font-weight: 600; line-height: 1.35; }
+.mo-against { margin: 0; font-size: 13px; color: var(--ink-2); }
+.mo-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.mo-chip { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 0 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
+.mo-chip[aria-pressed="true"] { border-color: var(--smalt); background: var(--smalt-wash); box-shadow: inset 0 0 0 1px var(--smalt); }
+.mo-chip.oc-waiting { border-color: var(--bad); }
+.mo-chip-n { font-variant-numeric: tabular-nums; }
+
+/* The calendar: a day a cell with one of five marks; from tablet width a word and the dataset the day is about. Colour
+   is for the day that waits: the one filled cell. */
 .mo-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
-/* Days over more than one month: a calendar a month, each under its name (ADR 0023 amendment 1), one above the other,
-   side by side only where a window is wide enough for both at the tablet's cell size. */
-.mo-cals { display: grid; gap: 16px; }
-.mo-month-name { margin: 0 0 6px; font-size: 15px; font-weight: 700; }
-@media (min-width: 1800px) {
-  .mo-cals { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
-}
 .mo-wd { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); text-align: center; }
-.mo-d { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; min-height: 52px; padding: 6px 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.mo-d { display: flex; flex-direction: column; align-items: stretch; gap: 2px; min-width: 0; min-height: 52px; padding: 6px 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .mo-d[aria-pressed="true"] { outline: 2px solid var(--smalt); outline-offset: 1px; }
 .mo-d.at { box-shadow: inset 0 -3px 0 var(--smalt); }
-.mo-d.st-notRun, .mo-d.st-notArrived { border-style: dashed; background: transparent; color: var(--muted); }
-.mo-d.st-paused { border-color: var(--bad); background: var(--bad-wash); }
-.mo-d.st-unusual { border-color: var(--warn); }
-.mo-d.st-failed { border-color: var(--bad); }
-.mo-d[class*="dec-"] { border-color: var(--line); background: var(--surface); }
+.mo-d.oc-notRun, .mo-d.oc-notArrived { border-style: dashed; background: transparent; color: var(--muted); }
+.mo-d.oc-waiting { border-color: var(--bad); background: var(--bad-wash); }
+.mo-d.oc-failed { border-color: var(--bad); }
+.mo-d.dim { opacity: 0.38; }
+.mo-top { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .mo-date { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .mo-mark { display: flex; align-items: center; min-height: 16px; }
-.mo-ok { color: var(--teal); font-size: 12px; line-height: 1; }
-.mo-corr { display: inline-flex; align-items: flex-start; gap: 1px; color: var(--ink-2); }
-.mo-vn { font-size: 10px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.mo-ok { color: var(--muted); font-size: 12px; line-height: 1; }
+.mo-w, .mo-hl { display: none; }
 /* A day whose outcome would change under rules changed since (ADR 0021 §5): a dashed edge and a Δ beside its mark, the
    words in its label; never the colour alone. */
 .mo-d.would-change { outline: 2px dashed var(--warn); outline-offset: -3px; }
@@ -1896,48 +1933,138 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .rs-reason { box-sizing: border-box; width: 100%; min-width: 0; min-height: 66px; border: 1px solid var(--muted); border-radius: 8px; padding: 9px 10px; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.35; }
 .rs-line .btn { margin-left: 4px; }
 .rs-would.changed { color: var(--warn); }
-.mo-hl { display: none; }
 .mo-pad { min-height: 52px; }
-.mo-key { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 8px 0 0; font-size: 12px; color: var(--ink-2); }
-.mo-key .mk { display: inline-flex; align-items: center; gap: 4px; }
+.mo-key { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 8px 0 0; font-size: 12px; color: var(--ink-2); }
+.mo-key .mk { display: inline-flex; align-items: center; gap: 5px; }
 .mo-key .mk-dash { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px dashed var(--muted); }
 .mo-live { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 8px; }
 .mo-checked { font-size: 12.5px; color: var(--ink-2); }
+
+/* The day picked, told in order: what it came to, what the checks found, what it held back, what happened, what to do. */
+.mo-sum { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.mo-sum-top { display: grid; gap: 8px; }
 .mo-sum-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
 .mo-sum-head h3 { margin: 0; font-size: 17px; }
 .mo-word { color: var(--ink-2); font-size: 13px; }
-.mo-sum-hl { margin: 6px 0; font-weight: 600; overflow-wrap: anywhere; }
-.mo-facts { margin: 6px 0 12px; padding-left: 18px; font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
-.mo-open { display: inline-flex; align-items: center; text-decoration: none; background: var(--smalt); border-color: var(--smalt); color: var(--surface); font-weight: 600; }
-.mo-grid { display: none; }
-.mo-grid-scroll { overflow-x: auto; margin-top: 6px; }
-.mo-gt { border-collapse: collapse; font-size: 12px; }
-.mo-gt th, .mo-gt td { padding: 0; text-align: center; }
-.mo-gt thead th { font-family: var(--mono); font-size: 10px; font-weight: 500; color: var(--muted); padding: 2px; min-width: 24px; }
-.mo-gt tbody th { position: sticky; left: 0; z-index: 1; padding: 2px 10px 2px 0; text-align: left; white-space: nowrap; background: var(--surface); font-weight: 500; }
-.mo-gt tr.lv1 th { padding-left: 18px; color: var(--ink-2); font-weight: 400; font-family: var(--mono); font-size: 11px; }
-.mo-gt .mg-pick { background: var(--smalt-wash); }
-.mo-gt thead th.mg-pick { color: var(--smalt); font-weight: 700; }
-.mo-gt .mg-row { background: none; border: 0; padding: 4px 0; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
-.mg-cell { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; }
-.mg-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
-.mg-filter[aria-pressed="true"] { background: var(--smalt); border-color: var(--smalt); color: var(--surface); }
-.mg-ok { color: var(--muted); }
-.mg-absent { color: var(--line); }
+.mo-sum-said { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.35; }
+.mo-sum.oc-waiting .mo-sum-said { color: var(--bad); }
+.mo-sum-hl { margin: 0; font-size: 13.5px; overflow-wrap: anywhere; }
+.mo-sub, .mo-sub-k { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.mo-sub { margin: 4px 0 0; }
+.mo-sub.quiet { font-family: var(--font); font-size: 13px; letter-spacing: 0; text-transform: none; color: var(--ink-2); }
+.mo-fs { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.mo-f { display: flex; align-items: baseline; gap: 7px; font-size: 13.5px; line-height: 1.35; overflow-wrap: anywhere; }
+.mo-f > .g { flex: none; position: relative; top: 2px; }
+.mo-f-what { min-width: 0; }
+.mo-f-of { font-family: var(--mono); font-size: 12.5px; font-weight: 600; }
+.mo-f-kind { font-size: 11.5px; color: var(--muted); }
+.mo-f.more { color: var(--ink-2); font-size: 12.5px; }
+.mo-reach, .mo-day-score { margin: 0; font-size: 13px; line-height: 1.4; color: var(--ink-2); overflow-wrap: anywhere; }
+.mo-day-score b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.mo-events { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.mo-ev { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 8px; font-size: 13px; line-height: 1.38; }
+.mo-ev-when { font-family: var(--mono); font-size: 11px; line-height: 1.6; color: var(--muted); }
+.mo-ev-what { min-width: 0; overflow-wrap: anywhere; border-left: 2px solid var(--line); padding-left: 8px; }
+.mo-ev.bad .mo-ev-what { border-left-color: var(--bad); }
+.mo-ev.ok .mo-ev-what { border-left-color: var(--teal); }
+.mo-ev.wait .mo-ev-what { border-left-color: var(--warn); }
+.mo-ev-why { display: block; color: var(--ink-2); }
+.mo-sum-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+.mo-open { display: inline-flex; align-items: center; text-decoration: none; font-weight: 600; }
+.mo-open.primary, .mo-decide.primary { background: var(--smalt); border-color: var(--smalt); color: var(--surface); font-weight: 600; }
+.mo-prov { margin: 0; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+
+/* What needed a look: the month's days that weren't simply normal, a line each. */
+.mo-log { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.mo-log .eyebrow, .mo-log-all { margin: 0; }
+.mo-log-all .linkish { min-height: 32px; }
+.mo-log-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.mo-log-row { display: flex; align-items: stretch; border-top: 1px solid var(--line); }
+.mo-log-btn { flex: 1; min-width: 0; display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 2px 8px; align-items: baseline; min-height: 44px; padding: 9px 4px; border: 0; border-radius: 6px; background: none; color: var(--ink); font: inherit; font-size: 13.5px; line-height: 1.35; text-align: left; cursor: pointer; }
+.mo-log-btn[aria-pressed="true"] { background: var(--smalt-wash); }
+.mo-log-day { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mo-log-state { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.mo-log-row.oc-waiting .mo-log-state { color: var(--bad); }
+.mo-log-what { grid-column: 1 / -1; min-width: 0; color: var(--ink-2); overflow-wrap: anywhere; }
+.mo-log-what code { font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.mo-log-more { color: var(--muted); }
+.mo-log-open { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 40px; color: var(--smalt); }
+
+/* Each file and step over the month: its name, a bar a day, and its days in words; a group's clean rows folded. */
+.mo-health { display: grid; gap: 12px; min-width: 0; }
+.mo-health .eyebrow { margin: 0; }
+.mh-group { display: grid; gap: 6px; min-width: 0; }
+.mh-head { margin: 0; font-size: 13.5px; line-height: 1.35; }
+.mh-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.mh-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; align-items: baseline; min-width: 0; }
+.mh-name { font-family: var(--mono); font-size: 12.5px; font-weight: 600; overflow-wrap: anywhere; }
+.mh-rows.fine .mh-name { font-weight: 400; color: var(--ink-2); }
+.mh-bars { grid-column: 1 / -1; grid-row: 2; min-width: 0; }
+.mh-said { font-size: 12.5px; color: var(--ink-2); text-align: right; overflow-wrap: anywhere; }
+.mh-row.off .mh-said { color: var(--ink); }
+.mh-fold { justify-self: start; min-height: 36px; border: 0; background: none; padding: 0; color: var(--smalt); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.mh-key { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 5px; margin: 0; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12px; color: var(--ink-2); }
+.mh-key svg { flex: none; margin-left: 10px; }
+.mh-key svg:first-child { margin-left: 0; }
+.mh-key-none { margin-left: 10px; }
+
+/* The product's score: the number, a verdict, what it is, its line and what moved it. */
+.mo-trend { display: grid; gap: 6px; min-width: 0; }
+.mo-trend .eyebrow { margin: 0; }
+.mo-trend svg { display: block; max-width: 100%; height: auto; }
+.mo-score-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 18px; }
+.mo-score-n { margin: 0; white-space: nowrap; }
+.mo-score-n b { font-size: 30px; font-weight: 650; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.mo-score-of { font-size: 13px; color: var(--ink-2); }
+.mo-score-said { flex: 1 1 260px; margin: 0; font-size: 14.5px; font-weight: 600; line-height: 1.35; }
+.mo-score-checks, .mo-score-about { margin: 0; max-width: 84ch; font-size: 13px; line-height: 1.4; color: var(--ink-2); }
+.mo-movers { display: grid; gap: 4px; }
+.mo-mover-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; max-width: 560px; }
+.mo-mover { display: grid; grid-template-columns: minmax(0, 1fr) auto 52px; gap: 10px; align-items: baseline; font-size: 13px; }
+.mo-mover-name { min-width: 0; overflow-wrap: anywhere; }
+.mo-mover-n { color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mo-mover-d { text-align: right; font-variant-numeric: tabular-nums; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 @media (min-width: 820px) {
-  .mo-grid { display: block; }
-  .mo-d { align-items: flex-start; min-height: 76px; padding: 6px; }
-  .mo-pad { min-height: 76px; }
-  .mo-hl { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 11px; line-height: 1.25; color: var(--ink-2); text-align: left; overflow-wrap: anywhere; }
+  .mo-months { grid-template-columns: repeat(auto-fill, minmax(236px, 1fr)); }
+  .mo-d { min-height: 80px; padding: 6px 7px; }
+  .mo-pad { min-height: 80px; }
+  .mo-top { flex-direction: row; justify-content: space-between; align-items: center; }
+  .mo-w { display: block; font-size: 11.5px; font-weight: 650; line-height: 1.2; }
+  .mo-w.mo-note { font-weight: 400; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mo-d.oc-waiting .mo-w { color: var(--bad); }
+  .mo-hl { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; line-height: 1.25; color: var(--ink-2); }
+  .mo-log-btn { grid-template-columns: 56px 116px minmax(0, 1fr); }
+  .mo-log-what { grid-column: auto; }
+  .mh-row { grid-template-columns: minmax(120px, 190px) auto minmax(0, 1fr); align-items: end; gap: 14px; }
+  .mh-bars { grid-column: auto; grid-row: auto; }
+  .mh-said { padding-bottom: 1px; text-align: left; }
 }
 @media (min-width: 1180px) {
-  #view-month:not([hidden]) { grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); align-items: start; }
-  #view-month > .mo-head, #view-month > .mo-trend, #view-month > .mo-grid { grid-column: 1 / -1; }
+  #view-month:not([hidden]) { grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr); align-items: start; }
+  #view-month > * { grid-column: 1 / -1; }
+  /* Two or three months sit in the head's row, beside the pager, so the calendar starts higher. */
+  #view-month.mo-few > .mo-head { grid-column: 1; align-self: end; justify-content: flex-start; gap: 8px 32px; }
+  #view-month.mo-few > .mo-months { grid-column: 2; grid-row: 1; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
+  #view-month > .mo-cal-panel, #view-month > .mo-log { grid-column: 1; }
+  #view-month > .mo-sum { grid-column: 2; grid-row: span 2; }
+}
+@media (min-width: 1800px) {
+  #view-month:not([hidden]) { grid-template-columns: minmax(0, 1.5fr) minmax(340px, 1fr) minmax(340px, 1fr); }
+  #view-month > .mo-sum { grid-column: 2; grid-row: auto; }
+  #view-month > .mo-log { grid-column: 3; }
+  #view-month > .mo-health { grid-column: 1 / 3; }
+  #view-month > .mo-trend { grid-column: 3; }
+  #view-month.mo-few > .mo-head { grid-column: 1 / 3; }
+  #view-month.mo-few > .mo-months { grid-column: 3; }
 }
 
 /* The demo's scenes (ADR 0023 §4): what it shows, a numbered list, each place to look a link (a 40 px target); the
-   stories kept from the month after them, as more to see. */
+   stories kept from the month after them, as more to see. Behind a bar at the head of the month (ADR 0024 §1). */
+.mo-scenes > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; min-height: 28px; cursor: pointer; }
+.mo-scenes > summary .eyebrow { margin: 0; color: var(--smalt); }
+.sc-sum-n { font-size: 13.5px; color: var(--ink-2); }
+.mo-scenes[open] > summary { margin-bottom: 4px; }
 .mo-scenes .sc-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 14px; }
 .sc { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 0 10px; align-items: start; }
 .sc-more .sc { grid-template-columns: minmax(0, 1fr); }

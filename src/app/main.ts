@@ -29,9 +29,10 @@ import type { Backtest, NormalRange, NormalRanges, Place } from '../core/normal.
 import { flowNames, isPlaceholder, judgeOf, labelOf, newsOf, shareWords, tableNewsOf, usualHours, type Act, type FileFacts, type Finding, type Names, type Severity, type TableFacts } from '../core/news.js';
 import { writtenRules, CHECK_MODES, CHECK_NAMES, CHECK_SAID, checkOf, gateChecksOf, gateLayerOf, hasGates, JUDGED, LAYER_SAID, overwhelmingSaid, WRITTEN, type CheckMode, type CheckName, type GateChecks } from '../core/gates.js';
 import { calendarHead, heldLoadLine, dayMid, dayShort, guessWords, judgedWords, lacked, MARK as REMEDY_MARK, noRowsBefore, reachLabel, readersOf as readersHad, readersSee, rowsFrom, shortfall, shownRun, stagedBar, stoppedLine as stoppedWords, toldLine, type DayState, type EpisodeDay, type KeptMark, type PauseState, type RemedyMark } from '../core/days.js';
-import { UNTIL, afterLine, betweenLine, dayPausedLine, daySentence, decidedLines, decisionDrawing, donorPicked, failLine, goShown, heldLine, outputPausedLine, passedLine, pausedChecks, pauseLines, pauseReasons, pickFails, receiptLines, remedyHead, ribbonOf, runFigures, sheetText, versionLines, checksSeen, filesSeen, findingOf, type RunSight, type AfterPart, type KeptLacks, type RemedySaid, type SheetIn, type SheetPick, type SheetText, type Sight } from '../core/decision.js';
+import { UNTIL, afterLabel, afterLine, betweenLine, dayPausedLine, daySentence, decidedLines, decisionDrawing, donorPicked, failLine, goShown, heldLine, outputPausedLine, passedLine, pausedChecks, pauseLines, pauseReasons, pickFails, receiptLines, remedyHead, ribbonOf, runFigures, sheetText, versionLines, waitedLabel, checksSeen, filesSeen, findingOf, type RunSight, type AfterPart, type KeptLacks, type RemedySaid, type SheetIn, type SheetPick, type SheetText, type Sight } from '../core/decision.js';
 import { contractSaid, countedChecks, rangesFor, dayClaim, dayState, flowStory, learnedMeasures, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, upstreamSteps, tailPath, type Claim, decisionFor, decisionForLoad, standingForLoad, heldLoadsOf, dayPauseOfLoads, loadDecisions, keysForLoads, loadKey, loadsOf, byLoad, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, latestPublished, publishedDays, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
-import { checkAgainst as againstRecord, endOfDay, gridOf as monthGrid, isMonthFile, isRestate, knownOn, layered, monthOf, ownHolds, restatedOutcome, runDay, runsByDay, versionsOf, type CellState, type DayState as MonthState, type GridRow as MonthRow, type MonthDay, type MonthFile, type RecordCheck, type RestateAbout, type RunAbout } from '../core/month.js';
+import { checkAgainst as againstRecord, endOfDay, isMonthFile, isRestate, knownOn, layered, monthOf, ownHolds, restatedOutcome, runDay, runsByDay, versionsOf, type CellState, type DayState as MonthState, type MonthDay, type MonthFile, type RecordCheck, type RestateAbout, type RunAbout } from '../core/month.js';
+import { againstSaid, againstWay, countSaid, findingsOf, followsFiles, headlineOf, healthOf as monthHealth, healthRows, healthSaid, HOW_WORD, monthsOf, moversOf, offDays, OUTCOME_WORD, outcomeOf, outcomeSaid, pointsSaid, readSaid, scoreRead, summaryOf, worstFirst, type DayFinding, type DayOutcome, type HealthRow, type Outcome } from '../core/overview.js';
 import { dayVersions, donorIdOf, fillCounts, levelOf as acceptedLevel, levelWays, partLabel as remedyPart, type Offer, type Repair, type Version } from '../core/fill.js';
 import { gridOf, shadeOf, shareOf, standOut } from './grid.js';
 import { setUpSplit, showWorkspace } from './split.js';
@@ -48,7 +49,7 @@ import type { EditorSchema, SchemaColumn } from 'smaltkit/editor';
 import type { GridRow } from 'smaltkit/grid';
 import { derivedAbout, derivedFails, derivedKeys, derivedWhy, donorsOf, filledRows, pinDonor, repairOf, stageRepair, type Listed, type Remedies } from './fills.js';
 import { followsCause as followsFrom, ACT_VERB, CELL_KINDS, CELL_NAMES, HEALTH_HEAD, STRIP_KEY, approx, axisShare, recentSpan, cardWords, changeLabel, compact, countLabel, countRange, fallSteps, gateHead, overLabel, gateLabels, gateOf, partLabel, ruleOrder, ruleUsual, shortWho, splitSentence, splitSteps, saidOf, storyOf, type Cell, type DayStep, type Gate, type HourValues, type Story, type Told, type Upstream } from '../core/story.js';
-import { scoreSpark, scoreTrend, type ScorePoint, rowFlow, differenceMeter, fileTwins, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, chain, composition, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
+import { dayBars, scoreSpark, scoreTrend, type BarDay, type ScorePoint, rowFlow, differenceMeter, fileTwins, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, chain, composition, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
 import { sha256Hex } from '../core/hash.js';
 import { LEVEL_NAME, leaderSaid, postureTree, scoreSaid, trendSaid, unitCounts, type PostureNode } from '../core/posture.js';
 import { counted, glossOf, meaningBeyond, meaningOf, nounOf as ontologyNoun, propertyOf, readAsOf, saysMore, type Edit, type Noun, type PropertyType } from '../core/ontology.js';
@@ -11447,12 +11448,12 @@ function loadSummary(): string {
 
 // ------------------------------------------------------------------ the month (ADR 0021 §3)
 
-/** The month screen's own state: the day picked on it (its summary, under the calendar), the moment it is read as known
- * on (null: now), and the notebooks opened in its grid. */
-const monthView = { pick: null as string | null, at: null as string | null, open: new Set<string>(), filter: 'all' as GridFilter };
-/** The grid's filters (ADR 0021 §3): every day, or only those waiting for a decision, corrected, or held. */
-type GridFilter = 'all' | 'waiting' | 'corrected' | 'held';
-const GRID_FILTERS: [GridFilter, string][] = [['all', 'Every day'], ['waiting', 'Waiting for a decision'], ['corrected', 'Corrected'], ['held', 'Held']];
+/** The month screen's own state: the month on show (`YYYY-MM`; null: the latest with a day known), the day picked on it
+ * (its panel, beside the calendar), the moment it is read as known on (null: now), the outcome its counts filter the
+ * calendar and the list by, the folded rows opened under its files and steps, and whether the demo's scenes are open. */
+const monthView = { month: null as string | null, pick: null as string | null, at: null as string | null, filter: 'all' as MonthFilter, open: new Set<string>(), scenes: false };
+/** What the month's counts filter by (ADR 0024 §2): every day, or the days of one outcome. */
+type MonthFilter = 'all' | Outcome;
 
 /** Each day run here that the build recorded, checked against its recorded run (ADR 0021 §4), by day: the latest run's.
  * `flow` and `inputs` say it ran under another flow or on other files than the record's, so it wasn't compared. */
@@ -11493,18 +11494,26 @@ const MONTH_WORD: Record<MonthState, string> = { published: VERDICT_WORD.ok, unu
 /** What a decision made of a held day, in a word. */
 const DECIDED_WORD: Record<DayState, string> = { waiting: 'waiting on a decision', asis: 'published as is', dont: 'not published', fill: 'filled', complete: 'the part that arrived published', accepted: 'published as a new level' };
 
-/** A day's mark: corrected, with its count of versions; what a decision made of it; else what became of it; never a
- * colour alone (ADR 0021 §3). */
-function dayMark(state: MonthState, decided: DayState | null, size = 14, corrected = 0): Node | null {
-  if (corrected > 1) return h('span', { class: 'mo-corr' }, glyphEl('corrected', size), h('span', { class: 'mo-vn' }, String(corrected)));
-  if (decided && decided !== 'waiting') return glyphEl(PAUSE_MARK[decided], size);
-  if (state === 'paused') return glyphEl('held', size);
-  if (state === 'unusual') return glyphEl('warn', size);
-  if (state === 'unlearned') return glyphEl('unlearned', size);
-  if (state === 'failed') return glyphEl('alert', size);
-  if (state === 'published') return h('span', { class: 'mo-ok', 'aria-hidden': 'true' }, '✓');
-  return null;
+/**
+ * A day's mark on the month (ADR 0024 §3): one of five by what the day came to, each its own shape, never a colour alone.
+ * How a decided day went out (as is, filled, as a new level, on a file sent again) is a word beside the mark, not another
+ * glyph. A normal day's is small and grey: there is nothing to do about it.
+ */
+function outcomeMark(o: Outcome, size = 14): Node | null {
+  if (o === 'normal') return h('span', { class: 'mo-ok', 'aria-hidden': 'true' }, '✓');
+  const g: Partial<Record<Outcome, VizMark>> = { unusual: 'warn', waiting: 'held', decided: 'decided', kept: 'closed', unjudged: 'unlearned', failed: 'alert' };
+  return g[o] ? glyphEl(g[o]!, size) : null;
 }
+/** Each mark's meaning, as the key under the calendar says it. */
+const OUTCOME_KEY: Partial<Record<Outcome, string>> = {
+  normal: 'normal: published, every check passed',
+  unusual: 'unusual: published, with something to look at',
+  waiting: 'paused: it waits for a decision',
+  decided: 'decided: paused, then published by a decision',
+  kept: 'not published: paused, then kept back',
+  unjudged: 'not judged yet: published',
+  failed: 'the run failed: nothing published',
+};
 
 /**
  * A day as the calendar says it: by its run here, as the strip said it (its story's verdict, its pause, its count); else
@@ -11554,6 +11563,12 @@ function calendarDayOf(d: MonthDay): { label: string; decided: DayState | null; 
     const hold = pm || held ? runOfLoad(k)!.result.holds[0] : undefined;
     const label = `${dayLabel(d.day)}${note}${counted && count !== null ? `: ${rowsSaid(count)}` : ''}${hold ? `, ${VERDICT_WORD.alert}: ${hold.origin}: ${hold.said}` : top ? (top.kind === 'unlearned' ? `, not judged yet${top.detail ? `: ${top.detail}` : ''}` : `, ${VERDICT_WORD[top.severity]}${saysHead(top) ? `: ${top.title}` : ''}`) : ''}${held ? ', held' : ''}${pm ? pauseSaid(d.day, pm) : ''}`;
     const st: MonthState = pm ? 'paused' : top?.severity === 'alert' && top.key.startsWith('failed:') ? 'failed' : top?.severity === 'alert' || top?.severity === 'warn' ? 'unusual' : top?.kind === 'unlearned' ? 'unlearned' : 'published';
+    // The dataset the views follow was calm, and another watched dataset was told something unusual: the day is unusual
+    // by it, as its recorded run says it (core/month.ts `stateOfRun`), so a day reads the same once it has run here
+    // (ADR 0024 §3).
+    if (st === 'published' && !held && d.state === 'unusual' && d.headline) {
+      return { label: `${dayLabel(d.day)}${note}${counted && count !== null ? `: ${rowsSaid(count)}` : ''}, ${MONTH_WORD.unusual}: ${d.headline}`, decided: pm, state: 'unusual', headline: d.headline, sev: 'warn', corrected: 0 };
+    }
     const headline = hold ? `${hold.origin}: ${hold.said}` : top && saysHead(top) ? top.title : null;
     return { label, decided: pm, state: held ? 'paused' : st, headline, sev: hold ? 'alert' : top ? top.severity : null, corrected: 0 };
   }
@@ -12521,203 +12536,346 @@ function storyOfDay(day: string): HTMLElement | null {
   return h('details', { class: 'dh-story' }, h('summary', {}, `The day’s story · ${lines.length} ${lines.length === 1 ? 'entry' : 'entries'}`), h('ol', {}, ...lines));
 }
 
-/** The grid's rows (ADR 0021 §3): each notebook and the datasets it makes, by the cells the flow keeps, after the files
- * it reads first (a file shown with the first notebook whose steps read it, where its checks hold it); a file no
- * notebook reads, in a row of files atop them; a flow without notebooks, its files and its steps. */
-function gridRows(): MonthRow[] {
-  const nbs = state.doc.notebooks ?? [];
-  const cells = (state.doc.cells ?? {}) as Record<string, { notebook?: string }>;
-  const sources = state.doc.sources.map((x) => x.id);
-  const steps = new Map(state.doc.steps.map((x) => [x.id, x]));
-  if (nbs.length) {
-    const placed = new Set<string>();
-    const rows = nbs.map((nb) => {
-      const own = Object.entries(cells).filter(([id, c]) => !id.includes(':') && c.notebook === nb.path && (steps.has(id) || sources.includes(id))).map(([id]) => id);
-      const files = sources.filter((s) => !placed.has(s) && !own.includes(s) && own.some((id) => steps.get(id)?.inputs.includes(s)));
-      for (const id of [...files, ...own]) placed.add(id);
-      return { id: nb.path, label: nb.path.replace(/^.*\//, '').replace(/\.nb\.ts$/, ''), origins: [...files, ...own] };
-    }).filter((r) => r.origins.length);
-    const rest = sources.filter((s) => !placed.has(s));
-    return rest.length ? [{ id: 'files', label: 'files', origins: rest }, ...rows] : rows;
+/** A file's or step's state on a day, in words: what pointing at its bar says. */
+const CELL_WORD: Record<CellState, string> = { refused: 'its file was refused', held: 'held the day', unusual: 'unusual', unlearned: 'not judged yet', ok: 'fine', absent: 'not built' };
+
+/**
+ * What the checks first said of a day, as known on a moment (ADR 0024 §4): the findings of the first of its runs that
+ * holds or marks anything (its first files', before any file was sent again), else its first run's. A day sent again
+ * right still says what was wrong with it.
+ */
+function dayFindings(day: string, at: string | null): DayFinding[] {
+  const runs = runsByDay(knownOn(allEntries(), at)).get(day) ?? [];
+  // The cause before the symptom (ADR 0013 §5): within what held the day, and within what was unusual, a file's finding
+  // leads a step's, which often only follows it.
+  const rank = (x: DayFinding) => (x.level === 'held' ? 0 : x.level === 'unusual' ? 2 : 4) + (kindOf(x.origin) === 'file' ? 0 : 1);
+  const ordered = (found: DayFinding[]) => found.map((x, i) => ({ x, i })).sort((a, b) => rank(a.x) - rank(b.x) || a.i - b.i).map(({ x }) => x);
+  for (const e of runs) {
+    const found = findingsOf(e.about as unknown as RunAbout);
+    if (found.some((x) => x.level !== 'unjudged')) return ordered(found);
   }
-  return [{ id: 'files', label: 'files', origins: sources }, { id: 'steps', label: 'steps', origins: state.doc.steps.map((x) => x.id) }];
+  return runs[0] ? ordered(findingsOf(runs[0].about as unknown as RunAbout)) : [];
 }
 
-const CELL_WORD: Record<CellState, string> = { refused: 'a file refused', held: 'held', unusual: 'unusual', unlearned: 'not judged yet', ok: 'fine', absent: 'not built' };
-function cellMark(c: CellState | null): Node | string {
-  if (c === 'refused') return glyphEl('alert', 12);
-  if (c === 'held') return glyphEl('held', 12);
-  if (c === 'unusual') return glyphEl('warn', 12);
-  if (c === 'unlearned') return glyphEl('unlearned', 12);
-  if (c === 'ok') return h('span', { class: 'mg-ok', 'aria-hidden': 'true' }, '·');
-  if (c === 'absent') return h('span', { class: 'mg-absent', 'aria-hidden': 'true' }, '–');
-  return '';
+/** A finding's words as the viewer may read them: what a dataset closed to them was told isn't said. */
+const findingSaid = (f: DayFinding): string => (isOwner() || visible(f.origin) ? f.said : 'closed to you');
+
+/** Whether a dataset is one of the flow's files (a source) or a step it builds. */
+const kindOf = (origin: string): 'file' | 'step' => (state.doc.sources.some((x) => x.id.toLowerCase() === origin.toLowerCase()) ? 'file' : 'step');
+
+/** The file each of its own steps reads (a step that reads that file and nothing else: its fill, its checks), by the
+ * step's id in lower case (core/overview.ts `healthRows`). */
+function ownFiles(): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const r of healthRows(state.doc)) if (r.kind === 'file') for (const o of r.origins.slice(1)) out.set(o.toLowerCase(), r.id);
+  return out;
+}
+
+/** The day screen on a day with its decision opened once the day has run, as a scene's look opens one (ADR 0023 §4). */
+function openDecision(day: string): void {
+  pendingLook = { day, label: dayLabel(day), decide: true };
+  if (location.hash === dayHash(day)) showView();
+  else location.hash = dayHash(day);
+}
+
+/** A decision in a few words, by its option: what the day's story on the month says someone did (ADR 0024 §4). */
+const DECISION_SAID: Record<DecisionOption, string> = { asis: 'published it as is', dont: 'kept it back: nothing was published for the day', fill: 'filled it from another day', complete: 'published the part that arrived', accept: 'accepted the new level' };
+
+/** One thing that happened to a day: when, what, the reason someone gave, and how it reads (held, published, waiting). */
+interface DayEvent {
+  at: string;
+  text: string;
+  why: string | null;
+  cls: '' | 'bad' | 'ok' | 'wait';
 }
 
 /**
- * The month screen (ADR 0021 §3): for the day (the episode on show) and as known on; the product's trend where the data
- * list names one; the calendar, a day a cell with its mark; the day picked, in a few lines with a link to the day; and,
- * from tablet width, the grid of notebooks and their datasets by day. It reads the record and the recorded month and
- * runs nothing.
+ * What happened to a day, in the order it happened, as known on a moment (ADR 0024 §4): its files arriving and what the
+ * checks made of them, each file sent again and why, each decision with who took it, how long after and why, and each
+ * restatement. One choice recorded as a decision a held load (Q-193) is said once. A fill's own run is part of the
+ * decision that made it, and a run made here of a day the build recorded only checks it (the record's line says so).
+ */
+function dayTimeline(day: string, at: string | null, subject: (origin: string) => string = (o) => o): DayEvent[] {
+  const recordedDay = recordedEntries.some((e) => runDay(e) === day);
+  const deliveries = dataList ? deliveriesOf(dataList, day) : [];
+  const l = loads.list.find((x) => x.day === day);
+  const files = l?.files ? Object.keys(l.files).length : l ? 1 : 0;
+  const out: DayEvent[] = [];
+  let same = '';
+  let heldAt: string | null = null;
+  let sentAgain = false;
+  let runs = 0;
+  for (const e of knownOn(allEntries(), at)) {
+    if (e.kind === 'decide') {
+      const d = e.about as Partial<DecideAbout> | null;
+      if (d?.day !== day || !d.option) continue;
+      const key = `${d.option}|${e.at}|${e.by.as}|${e.reason}`;
+      if (key === same) continue;
+      same = key;
+      const donor = d.repair?.donor?.day;
+      const said = d.option === 'fill' && donor ? `filled it from ${dayLabel(donor)}` : d.option === 'asis' && sentAgain ? 'published the version sent again' : DECISION_SAID[d.option];
+      const after = heldAt && e.at > heldAt ? `, ${afterLabel((Date.parse(e.at) - Date.parse(heldAt)) / 60000)} it was held` : '';
+      out.push({ at: e.at, text: `${whoSaid(e.by.as)} ${said}${after}.`, why: e.reason, cls: d.option === 'dont' ? '' : 'ok' });
+      continue;
+    }
+    same = '';
+    if (e.kind === 'restate' && isRestate(e.about)) {
+      const t = e.about.days.find((x) => x.day === day);
+      const kept = e.about.kept.some((x) => x.day === day);
+      if (!t && !kept && !e.about.same.some((x) => x.day === day)) continue;
+      out.push({ at: e.at, text: `${whoSaid(e.by.as)} ${t ? (t.passes ? 'restated the day: published under the rules changed since' : 'restated the day: not published, the rules changed since hold it') : kept ? 'left the day as readers had it' : 'noted the day as the same under the rules changed since'}.`, why: e.reason, cls: t ? (t.passes ? 'ok' : 'bad') : '' });
+      continue;
+    }
+    if (e.kind !== 'run' || runDay(e) !== day) continue;
+    const a = e.about as unknown as RunAbout & { correction?: { sources?: string[] } };
+    if (a.outcome === 'derived') continue;
+    const sent = a.correction?.sources ?? [];
+    if (recordedDay && e.by.as !== 'build' && !sent.length) continue;
+    const found = findingsOf(a);
+    const held = [...new Set(found.filter((x) => x.level === 'held').map((x) => subject(x.origin)))];
+    const odd = [...new Set(found.filter((x) => x.level === 'unusual').map((x) => subject(x.origin)))];
+    if (a.outcome === 'restated') {
+      out.push({ at: e.at, text: `Run again under rules changed since: ${held.length ? `it would be held by ${held[0]}` : 'it would pass'}.`, why: null, cls: held.length ? 'bad' : '' });
+      continue;
+    }
+    if (sent.length) {
+      sentAgain = true;
+      const d = deliveries.find((x) => sent.includes(x.source) && x.arrived.slice(0, 16) === e.at.slice(0, 16)) ?? deliveries.find((x) => sent.includes(x.source));
+      out.push({ at: e.at, text: `${sent.join(', ')} sent again${held.length ? `, and still held by ${held[0]}` : ''}. A later file waits for a decision.`, why: d?.why ?? null, cls: 'wait' });
+      continue;
+    }
+    runs += 1;
+    const came = runs === 1 ? (files > 1 ? `${plural(files, 'file')} arrived` : 'The file arrived') : 'Run again';
+    if (a.outcome === 'failed') out.push({ at: e.at, text: `${came}. The run failed: ${a.error ?? 'no reason given'}.`, why: null, cls: 'bad' });
+    else if (held.length) {
+      heldAt ??= e.at;
+      out.push({ at: e.at, text: `${came}. Held by ${held[0]}${held.length > 1 ? ` and ${held.length - 1} more` : ''}: nothing built from ${held.length > 1 ? 'them' : 'it'} was published.`, why: null, cls: 'bad' });
+    } else out.push({ at: e.at, text: `${came}${odd.length ? `. Published, with something unusual in ${odd.length === 1 ? odd[0] : plural(odd.length, 'dataset')}.` : ' and every check passed. Published.'}`, why: null, cls: 'ok' });
+  }
+  return out;
+}
+
+/** How many days the month's list shows before folding the rest, and how many rows a group of files or steps. */
+const LOG_ROWS = 12;
+const GROUP_ROWS = 8;
+/** How many waiting days the month lists above everything before folding the rest: those that have waited longest. */
+const WAIT_ROWS = 3;
+
+/** The word beside a day's mark (ADR 0024 §3): how a decided day went out, that a day was restated (published or not: its
+ * mark says which), else its outcome; none for a normal day, which needs no word. */
+const dayWord = (o: Pick<DayOutcome, 'outcome' | 'how'>): string | null =>
+  o.how === 'restated' ? HOW_WORD.restated : o.outcome === 'decided' ? HOW_WORD[o.how ?? 'asis'] : o.outcome === 'normal' || o.outcome === 'notRun' || o.outcome === 'notArrived' ? null : OUTCOME_WORD[o.outcome];
+
+/** A bar for a day's outcome (viz.ts `dayBars`): its height what the day came to, hollow once someone has decided it. */
+const barOfOutcome = (o: Outcome): Pick<BarDay, 'level' | 'done'> =>
+  o === 'normal' ? { level: 'ok' } : o === 'unjudged' ? { level: 'unjudged' } : o === 'unusual' ? { level: 'warn' } : o === 'waiting' || o === 'failed' ? { level: 'bad' } : o === 'decided' || o === 'kept' ? { level: 'bad', done: true } : { level: 'none' };
+
+/** A bar for a file's or a step's state on a day; `done` once the day no longer waits. */
+const barOfCell = (c: CellState | null, done: boolean): Pick<BarDay, 'level' | 'done'> =>
+  c === 'held' || c === 'refused' ? { level: 'bad', done } : c === 'unusual' ? { level: 'warn' } : c === 'unlearned' ? { level: 'unjudged' } : c === 'ok' ? { level: 'ok' } : { level: 'none' };
+
+/** The month on show a day's bar picks: its own, with the day picked. */
+function pickDay(day: string): void {
+  monthView.pick = day;
+  monthView.month = day.slice(0, 7);
+  renderMonth();
+}
+
+/**
+ * The month screen (ADR 0021 §3, as ADR 0024 lays it out): the month on show, paged, and as known on; what waits for a
+ * decision, in any month; the months side by side; the month in a sentence, with its counts, each the key to its mark;
+ * the calendar, a day a cell with one of five marks and a word; the day picked, told in order (what the checks found,
+ * what it held back, what happened, what to do); what needed a look, as a list; each file and step as a row of the
+ * month's days, the worst first; and the product's score, said and drawn. It reads the record and the recorded month
+ * and runs nothing.
  */
 function renderMonth(): void {
   const box = $('view-month');
   if (!box || box.hidden) return;
+  // What had the keyboard's focus, by its key: the month is drawn again whole, and the focus goes back where it was.
+  const focused = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>('#view-month [data-fk]')?.dataset.fk ?? null;
   const days = daysShown();
-  // The months the days span: one, or more (ADR 0023 amendment 1: the tour's February and March).
-  const months = [...new Set(days.map((d) => d.slice(0, 7)))];
+  const months = monthsOf(days);
   const at = monthView.at;
-  const month = monthOf(days, allEntries(), { at, judged: loadSource() });
+  const entries = allEntries();
+  const month = monthOf(days, entries, { at, judged: loadSource() });
   const facts = new Map(month.map((d) => [d.day, calendarDay(d)]));
+  const outcomes: DayOutcome[] = month.map((d) => ({ day: d.day, ...outcomeOf(facts.get(d.day)!) }));
+  const byDay = new Map(outcomes.map((o) => [o.day, o]));
   // The days run again under rules changed since and not restated yet (ADR 0021 §5): those whose outcome would change.
   const pend = at === null && !restating ? pendingRestating() : null;
   const would = new Map((pend?.days ?? []).flatMap((x) => (x.r ? [[x.day, x.r] as const] : [])));
   const now = loads.list[loads.at]?.day;
   const lastKnown = [...month].reverse().find((d) => d.state !== 'notRun' && d.state !== 'notArrived')?.day;
-  const pick = monthView.pick && days.includes(monthView.pick) ? monthView.pick : now && days.includes(now) ? now : (lastKnown ?? days[0] ?? null);
+  // The month on show: the one paged to; else the picked day's; else the latest with a day known.
+  const shown = monthView.month && months.includes(monthView.month) ? monthView.month
+    : monthView.pick && days.includes(monthView.pick) ? monthView.pick.slice(0, 7)
+    : (lastKnown ?? days[0] ?? '').slice(0, 7);
+  const monthDays = days.filter((d) => d.startsWith(shown));
+  const waiting = outcomes.filter((o) => o.outcome === 'waiting').map((o) => o.day);
+  const waits = new Set(waiting);
+  // The day picked: the one tapped; else the first of the month still waiting; else the day on screen; else the latest.
+  const knownIn = [...monthDays].reverse().find((d) => !['notRun', 'notArrived'].includes(byDay.get(d)!.outcome));
+  const pick = monthView.pick && monthDays.includes(monthView.pick) ? monthView.pick
+    : monthDays.find((d) => waits.has(d)) ?? (now && monthDays.includes(now) ? now : (knownIn ?? monthDays[0] ?? null));
   const busy = state.running || !state.engine;
-  // The head: the days on show, as known on.
+  const several = months.length > 1;
+  const named = (d: string) => (several ? dayLabel(d) : dayShort(d));
+  // What a day is about: the file, where one of the file's own steps (its fill, its checks) is what said it.
+  const fileOf = ownFiles();
+  const subject = (origin: string) => fileOf.get(origin.toLowerCase()) ?? origin;
+  const W = box.clientWidth || 358;
+
+  // ---- The head: the month on show, the months either side, and as known on.
   const known = h('select', { id: 'mo-known', onchange: (e: Event) => {
     const v = (e.target as HTMLSelectElement).value;
     monthView.at = v ? endOfDay(v) : null;
     renderMonth();
   } }, h('option', { value: '' }, 'now'), ...days.map((d) => h('option', { value: d, ...(at === endOfDay(d) ? { selected: true } : {}) }, `the end of ${dayLabel(d)}`)));
+  const mi = months.indexOf(shown);
+  const page = (m: string | undefined, label: string, text: string, fk: string) => (m
+    ? h('a', { class: 'btn small mo-page', href: `#month/${m}`, 'data-fk': fk, 'aria-label': `${label}: ${monthName(m)}`, title: monthName(m) }, text)
+    : h('span', { class: 'btn small mo-page off', 'aria-disabled': 'true', title: `No month ${label === 'The month before' ? 'before' : 'after'} ${monthName(shown)}` }, text));
   const head = h('div', { class: 'mo-head' },
-    h('div', { class: 'mo-for' }, h('p', { class: 'eyebrow' }, 'For the day'), h('h2', { class: 'mo-name' }, loads.span)),
+    h('div', { class: 'mo-for' }, h('p', { class: 'eyebrow' }, 'For the day'),
+      h('div', { class: 'mo-pager' },
+        several ? page(months[mi - 1], 'The month before', '‹', 'p:prev') : null,
+        h('h2', { class: 'mo-name', 'aria-live': 'polite' }, several ? monthName(shown) : loads.span),
+        several ? page(months[mi + 1], 'The month after', '›', 'p:next') : null)),
     h('label', { class: 'mo-known' }, h('span', { class: 'eyebrow' }, 'As known on'), known));
-  // The product's score on each day published (Q-186), so a dip lines up with its day. A day a restatement took back
-  // (ADR 0021 §5: restated under rules that hold it) isn't published any more, as known from the restatement.
+
+  // ---- What waits for a decision, in any month: above everything, and gone when nothing waits (ADR 0024 §1).
+  const may = mayDecide(state.viewer);
+  const waitPart = waiting.length
+    ? h('section', { class: 'panel mo-wait', 'aria-label': 'Waiting for a decision' },
+        h('p', { class: 'eyebrow' }, `Waiting for a decision · ${plural(waiting.length, 'day')}`),
+        h('ul', { class: 'mo-wait-list' }, ...(waiting.length > WAIT_ROWS + 1 && !monthView.open.has('wait') ? waiting.slice(0, WAIT_ROWS) : waiting).map((d) => {
+          const lead = dayFindings(d, at).find((x) => x.level === 'held');
+          const first = (runsByDay(knownOn(entries, at)).get(d) ?? [])[0];
+          const waited = first && at === null ? waitedLabel((storyMs(Date.now(), first.at) - Date.parse(first.at)) / 60000) : null;
+          return h('li', { class: 'mo-wait-row', 'data-day': d },
+            glyphEl('held', 16),
+            h('div', { class: 'mo-wait-said' },
+              h('button', { type: 'button', class: 'linkish mo-wait-day', 'data-fk': `w:${d}`, onclick: () => pickDay(d) }, dayLabel(d)),
+              lead ? h('span', { class: 'mo-wait-why' }, ` ${subject(lead.origin)}: ${findingSaid(lead)}`) : null,
+              waited ? h('span', { class: 'mo-wait-since' }, ` · ${waited.replace(/^W/, 'w')}`) : null),
+            at === null && may
+              ? h('button', { type: 'button', class: 'btn small primary mo-decide', 'aria-label': `Decide what readers get for ${dayMid(d)}`, onclick: () => openDecision(d) }, 'Decide ›')
+              : h('a', { class: 'btn small', href: dayHash(d) }, 'Open the day ›'));
+        })),
+        // Many days waiting: the ones that have waited longest, the rest a tap away, so the month still starts near the top.
+        waiting.length > WAIT_ROWS + 1 ? h('button', { type: 'button', class: 'linkish mh-fold mo-wait-fold', 'data-fold': 'wait', 'data-fk': 'f:wait', 'aria-expanded': String(monthView.open.has('wait')), onclick: () => {
+          if (monthView.open.has('wait')) monthView.open.delete('wait');
+          else monthView.open.add('wait');
+          renderMonth();
+        } }, monthView.open.has('wait') ? `▾ Show the ${WAIT_ROWS} that have waited longest` : `▸ ${waiting.length - WAIT_ROWS} more days wait`) : null)
+    : null;
+
+  // ---- The product's score on each day published (Q-186), as known: a day a restatement took back isn't published.
   const post = dataList?.posture;
   const marks = recorded?.posture;
   const takenBack = takenBackDays(at);
-  const shown = (d: string) => (!at || endOfDay(d) <= at) && !takenBack.has(d);
-  const points = marks ? days.map((d) => ({ day: d, score: shown(d) ? (marks[d]?.score ?? null) : null, coverage: shown(d) ? (marks[d]?.coverage ?? null) : null })) : [];
-  const scored = points.filter((p) => p.score !== null);
-  const trend = post && scored.length >= 2
-    ? h('div', { class: 'panel mo-trend' }, h('p', { class: 'eyebrow' }, `${post.title} · the group’s score on each day published`),
-        svgNode(scoreTrend({ days, points, w: Math.min(1600, Math.max(280, (box.clientWidth || 358) - 34)), aria: `${post.title}: the group’s score and coverage on each day published`, gap: 'not published' })),
-        h('p', { class: 'foot' }, `${scored[0]!.score!.toFixed(1)} on ${months.length > 1 ? dayLabel(scored[0]!.day) : dayShort(scored[0]!.day)}, ${scored.at(-1)!.score!.toFixed(1)} on ${months.length > 1 ? dayLabel(scored.at(-1)!.day) : dayShort(scored.at(-1)!.day)}${at ? ', as known then' : ''}.`))
-    : null;
-  // The calendar: a week a row from Monday, a day a cell, a gap for a day the episode doesn't have. Days that span more
-  // than one month are drawn a calendar a month, each under its name (ADR 0023 amendment 1: the tour's February and
-  // March), so a week never runs across two months.
-  const monthCells = (span: readonly string[]): Node[] => {
-    const cells: Node[] = [];
-    if (span.length) {
-      for (let i = 0, lead = (dateOf(span[0]!).getUTCDay() + 6) % 7; i < lead; i++) cells.push(h('span', { class: 'mo-pad', 'aria-hidden': 'true' }));
-      for (let d = span[0]!; d <= span.at(-1)!; d = dayPlus(d, 1)) {
-        const md = month.find((x) => x.day === d);
-        const f = facts.get(d);
-        if (!md || !f) {
-          cells.push(h('span', { class: 'mo-pad', 'aria-hidden': 'true' }));
-          continue;
-        }
-        const w = would.get(d);
-        const label = f.label;
-        cells.push(h('button', { type: 'button', class: `mo-d st-${f.state}${f.decided && f.decided !== 'waiting' ? ` dec-${f.decided}` : ''}${f.corrected ? ' corrected' : ''}${f.restated ? ' restated' : ''}${w?.changed ? ' would-change' : ''}${d === now ? ' at' : ''}`, 'data-day': d, 'aria-pressed': String(d === pick), 'aria-label': label, title: label, onclick: () => {
-          monthView.pick = d;
-          renderMonth();
-        }, ondblclick: () => (location.hash = dayHash(d)) },
-          h('span', { class: 'mo-date' }, String(dateOf(d).getUTCDate())),
-          h('span', { class: 'mo-mark' }, dayMark(f.state, f.decided, 14, f.corrected), w?.changed ? h('span', { class: 'mo-delta', 'aria-hidden': 'true' }, 'Δ') : null),
-          f.headline ? h('span', { class: 'mo-hl' }, f.headline) : null));
-      }
-    }
-    return cells;
-  };
-  const weekdays = () => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((w) => h('span', { class: 'mo-wd', 'aria-hidden': 'true' }, w));
-  const cal = months.length > 1
-    ? h('div', { class: 'mo-cals' }, ...months.map((m) => {
-        const name = monthName(m);
-        return h('section', { class: 'mo-month', 'aria-label': name, 'data-month': m },
-          h('h3', { class: 'mo-month-name' }, name),
-          h('div', { class: 'mo-cal', role: 'group', 'aria-label': `${name}: each day and what became of it` }, ...weekdays(), ...monthCells(days.filter((d) => d.startsWith(m)))));
+  const shownScore = (d: string) => (!at || endOfDay(d) <= at) && !takenBack.has(d);
+  const markOf = (d: string) => (marks && shownScore(d) ? marks[d] : undefined);
+  const points = marks ? days.map((d) => ({ day: d, score: markOf(d)?.score ?? null, coverage: markOf(d)?.coverage ?? null })) : [];
+  const monthPoints = points.filter((p) => p.day.startsWith(shown));
+
+  // ---- The months side by side (ADR 0024 §1): one design each, its days as bars and its counts, the one on show marked.
+  const sums = new Map(months.map((m) => [m, summaryOf(m, outcomes)]));
+  const cards = several
+    ? h('nav', { class: 'mo-months', 'aria-label': 'The months' }, ...months.map((m) => {
+        const s = sums.get(m)!;
+        const md = days.filter((d) => d.startsWith(m));
+        const read = scoreRead(points.filter((p) => p.day.startsWith(m)));
+        const said = !s.arrived ? 'not arrived yet' : `${s.auto} of ${s.arrived} on their own`;
+        const more = [s.unusual ? `${s.unusual} unusual` : '', s.paused ? `${s.paused} paused` : '', s.failed ? `${s.failed} failed` : ''].filter(Boolean).join(' · ');
+        return h('a', { class: 'mo-card', href: `#month/${m}`, 'data-month': m, 'data-fk': `m:${m}`, ...(m === shown ? { 'aria-current': 'true' } : {}), 'aria-label': `${monthName(m)}: ${headlineOf(s)}` },
+          h('span', { class: 'mo-card-name' }, monthName(m)),
+          svgNode(dayBars({ days: md.map((d) => ({ day: d, ...barOfOutcome(byDay.get(d)!.outcome) })), w: 220, h: 16, aria: `${monthName(m)}, day by day` })),
+          h('span', { class: 'mo-card-said' }, said),
+          h('span', { class: 'mo-card-more' }, more || (s.arrived ? 'nothing to look at' : ''), s.waiting ? h('b', { class: 'mo-card-wait' }, ` · ${s.waiting} ${s.waiting === 1 ? 'waits' : 'wait'}`) : null),
+          read && read.days > 1 ? h('span', { class: 'mo-card-score' }, `score ${read.first.score.toFixed(1)} → ${read.last.score.toFixed(1)}`) : null);
       }))
-    : h('div', { class: 'mo-cal', role: 'group', 'aria-label': `${loads.span}: each day and what became of it` }, ...weekdays(), ...monthCells(days));
-  // The key: each mark the calendar draws, with its word.
-  const shownStates = new Set(month.map((d) => facts.get(d.day)!).map((f) => (f.restated ? 'restated' : f.corrected ? 'corrected' : f.decided && f.decided !== 'waiting' ? `dec-${f.decided}` : f.state)));
-  if ([...would.values()].some((w) => w.changed)) shownStates.add('would');
-  const key = h('p', { class: 'mo-key' }, ...(['published', 'unusual', 'unlearned', 'paused', 'failed', 'dec-asis', 'corrected', 'restated', 'would', 'dec-dont', 'dec-fill', 'dec-complete', 'dec-accepted', 'notRun', 'notArrived'] as const).filter((s) => shownStates.has(s)).map((s) => {
-    if (s === 'corrected') return h('span', { class: 'mk st-published' }, dayMark('published', null, 12, 2), 'corrected: sent again, with its count of versions');
-    if (s === 'restated') return h('span', { class: 'mk st-published' }, dayMark('published', null, 12, 2), 'restated under rules changed since, with its count of versions');
-    if (s === 'would') return h('span', { class: 'mk would-change' }, h('span', { class: 'mo-delta', 'aria-hidden': 'true' }, 'Δ'), 'would change under the rules changed since: waiting for the restatement');
-    const dec = s.startsWith('dec-') ? (s.slice(4) as DayState) : null;
-    const st = (dec ? 'published' : s) as MonthState;
-    return h('span', { class: `mk st-${st}` }, s === 'notRun' || s === 'notArrived' ? h('span', { class: 'mk-dash', 'aria-hidden': 'true' }) : dayMark(st, dec, 12), dec ? DECIDED_WORD[dec] : s === 'paused' ? 'paused' : MONTH_WORD[st]);
-  }));
-  // The day picked: its words, when it arrived, its count, what waits, and the way to it.
-  const pd = pick ? month.find((d) => d.day === pick) : undefined;
-  const pf = pd ? facts.get(pd.day)! : undefined;
-  let summary: HTMLElement | null = null;
-  if (pd && pf) {
-    const runs = runsByDay(knownOn(allEntries(), at)).get(pd.day) ?? [];
-    const last = runs.at(-1);
-    const a = last ? (last.about as unknown as RunAbout) : null;
-    const count = countOfDay(pd);
-    const src = loadSource();
-    // What waits, while the day waits: a day decided, or corrected and published, has nothing waiting.
-    const waiting = a?.outcome === 'held' && !pf.corrected && (!pf.decided || pf.decided === 'waiting') ? (a.waiting ?? []) : [];
-    const c = recordChecks.get(pd.day);
-    // Its versions, where it was sent again (ADR 0021 §2): each delivery, when it arrived, and the one readers got.
-    const kd = loads.list.findIndex((l) => l.day === pd.day);
-    const vfs = at === null && kd >= 0 ? versionFacts(kd) : [];
-    const shown = pf.restated ? wentWith(kd) : pf.corrected ? correctedOf(kd)?.got.v ?? null : null;
-    const w = would.get(pd.day);
-    summary = h('div', { class: 'panel mo-sum', 'aria-live': 'polite', 'data-day': pd.day },
-      h('div', { class: 'mo-sum-head' }, h('h3', {}, dayLabel(pd.day)), dayMark(pf.state, pf.decided, 16, pf.corrected), h('span', { class: 'mo-word' }, pf.restated ? `restated: version ${shown} of ${pf.corrected}${pf.state === 'published' ? ' published' : ', not published'}` : pf.corrected ? `corrected: version ${shown} of ${pf.corrected} published` : pf.decided && pf.decided !== 'waiting' ? DECIDED_WORD[pf.decided] : pf.state === 'paused' ? 'paused, waiting on a decision' : MONTH_WORD[pf.state])),
-      pf.headline ? h('p', { class: 'mo-sum-hl' }, pf.headline) : null,
-      w ? h('p', { class: `mo-sum-hl rs-would${w.changed ? ' changed' : ''}` }, `Under the rules changed since: ${w.before} → ${w.after}${w.changed ? '. It waits for the restatement.' : '. Noted: the same.'}`) : null,
-      h('ul', { class: 'mo-facts' },
-        pd.at ? h('li', {}, `Arrived ${whenMin(pd.at, pd.day)}`) : null,
-        ...vfs.slice(1).map((f) => h('li', {}, f.restated ? `Run again under rules changed since: version ${f.v}${f.published ? ', published' : f.restated.decision ? (f.restated.decision.ticked ? ', not published: held under them' : f.restated.decision.same ? ', the same: noted' : ', left as readers had it') : ', waiting for the restatement'}` : `${f.delivery!.source} sent again ${whenMin(f.delivery!.arrived, pd.day)}: version ${f.v}${f.published ? ', published' : f.decided?.option === 'dont' ? ', kept back' : ', waiting on a decision'}`)),
-        count !== null && (!src || visible(src)) ? h('li', {}, rowsSaid(count)) : null,
-        waiting.length ? h('li', {}, `What waits: ${waiting.slice(0, 4).join(', ')}${waiting.length > 4 ? ` and ${waiting.length - 4} more` : ''}`) : null,
-        last ? h('li', {}, runs.some((e) => e.by.as === 'build') ? `Recorded by the build${c && c !== 'flow' && c !== 'inputs' ? (c.matches ? ' · run here, the same as the record ✓' : ' · run here, it differs from the record') : ''}` : 'Run in this browser') : null),
-      h('a', { class: 'btn primary mo-open', href: dayHash(pd.day) }, pd.state === 'notRun' ? 'Run the day ›' : 'Open the day ›'));
-  }
-  // The grid, from tablet width (ADR 0021 §3): which file or step was what on which day.
-  const rows = gridRows();
-  const flat: { row: MonthRow; level: 0 | 1 }[] = rows.flatMap((r) => [{ row: r, level: 0 as const }, ...(monthView.open.has(r.id) ? r.origins.map((o) => ({ row: { id: `${r.id}/${o}`, label: o, origins: [o] }, level: 1 as const })) : [])]);
-  // Its filters (ADR 0021 §3): a day waiting for a decision, corrected (sent again, a later version published), or held
-  // (its first files or its latest run paused, decided or not).
-  const passes = (d: string, filter: GridFilter): boolean => {
-    const f = facts.get(d);
-    if (!f || filter === 'all') return true;
-    // Sent again: a day restated under other rules (ADR 0021 §5) is another set of rules, not another file.
-    if (filter === 'corrected') return f.corrected > 1 && !f.restated;
-    if (filter === 'waiting') return f.state === 'paused' && (!f.decided || f.decided === 'waiting');
-    return f.state === 'paused' || f.corrected > 1;
-  };
-  const gridDays = days.filter((d) => passes(d, monthView.filter));
-  const grid = monthGrid(flat.map((x) => x.row), gridDays, allEntries(), manifestOf, at);
-  const filters = h('div', { class: 'mg-filters', role: 'group', 'aria-label': 'Which days the grid shows' }, ...GRID_FILTERS.map(([id, label]) => h('button', { type: 'button', class: 'btn small mg-filter', 'data-filter': id, 'aria-pressed': String(monthView.filter === id), onclick: () => {
-    monthView.filter = id;
-    renderMonth();
-  } }, id === 'all' ? label : `${label} (${days.filter((d) => passes(d, id)).length})`)));
-  const table = rows.length && days.length
-    ? h('div', { class: 'panel mo-grid' }, h('p', { class: 'eyebrow' }, 'Files and steps, day by day'), filters,
-        !gridDays.length ? h('p', { class: 'mo-checked' }, 'No day of the month is so.') : null,
-        h('div', { class: 'scroll mo-grid-scroll' }, h('table', { class: 'mo-gt' },
-          // Over more than one month, the first day shown of each month says its month ("Mar 1"), as the numbers start again.
-          h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, h('span', { class: 'sr' }, 'Notebook')), ...gridDays.map((d, j) => h('th', { scope: 'col', class: d === pick ? 'mg-pick' : '' }, months.length > 1 && (j === 0 || gridDays[j - 1]!.slice(0, 7) !== d.slice(0, 7)) ? `${dateOf(d).toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })} ${dateOf(d).getUTCDate()}` : String(dateOf(d).getUTCDate()))))),
-          h('tbody', {}, ...flat.map((x, i) => h('tr', { class: `lv${x.level}` },
-            h('th', { scope: 'row' }, x.level === 0
-              ? h('button', { type: 'button', class: 'linkish mg-row', 'aria-expanded': String(monthView.open.has(x.row.id)), onclick: () => {
-                  if (monthView.open.has(x.row.id)) monthView.open.delete(x.row.id);
-                  else monthView.open.add(x.row.id);
-                  renderMonth();
-                } }, `${monthView.open.has(x.row.id) ? '▾' : '▸'} ${x.row.label}`)
-              : x.row.label),
-            ...gridDays.map((d, j) => {
-              const c = grid[i]![j]!;
-              return h('td', { class: `mg-${c ?? 'none'}${d === pick ? ' mg-pick' : ''}`, title: `${x.row.label}, ${dayLabel(d)}: ${c ? CELL_WORD[c] : 'no run'}` }, h('button', { type: 'button', class: 'mg-cell', 'aria-label': `${x.row.label}, ${dayLabel(d)}: ${c ? CELL_WORD[c] : 'no run'}`, onclick: () => {
-                monthView.pick = d;
-                renderMonth();
-              } }, cellMark(c)));
-            })))))))
     : null;
-  // Where no month was recorded, the days run here in order, as the strip ran them; where one was, every day run here in
-  // order and checked against its record, the paused ones too.
+
+  // ---- The month in a sentence, beside the one before, and its counts: each mark taught by its number (ADR 0024 §2).
+  const sum = sums.get(shown) ?? summaryOf(shown, outcomes);
+  const prev = mi > 0 ? sums.get(months[mi - 1]!)! : null;
+  const against = againstSaid(prev, sum, (m) => dateOf(`${m}-01`).toLocaleDateString('en-US', { month: 'long', timeZone: 'UTC' }));
+  const way = againstWay(prev, sum);
+  if (monthView.filter !== 'all' && !sum[monthView.filter as 'normal']) monthView.filter = 'all';
+  const filter = monthView.filter;
+  const chip = (o: Outcome) => h('button', { type: 'button', class: `mo-chip oc-${o}`, 'data-outcome': o, 'data-fk': `c:${o}`, 'aria-pressed': String(filter === o), title: OUTCOME_KEY[o] ?? OUTCOME_WORD[o], onclick: () => {
+    monthView.filter = filter === o ? 'all' : o;
+    renderMonth();
+  } }, outcomeMark(o, 14), h('b', { class: 'mo-chip-n' }, String(sum[o as 'normal'])), ` ${OUTCOME_WORD[o]}`);
+  const chips = (['waiting', 'decided', 'kept', 'failed', 'unusual', 'unjudged', 'normal'] as const).filter((o) => sum[o] > 0);
+  const summaryPart = h('section', { class: 'panel mo-summary', 'aria-label': `${monthName(shown)} in short` },
+    h('p', { class: 'mo-said' }, headlineOf(sum)),
+    against ? h('p', { class: `mo-against way-${way}` }, way === 'better' ? '↓ ' : way === 'worse' ? '↑ ' : '', against) : null,
+    chips.length ? h('div', { class: 'mo-chips', role: 'group', 'aria-label': 'The days by what they came to: tap one to show only those' }, ...chips.map(chip)) : null);
+
+  // ---- The calendar: a week a row from Monday, a day a cell with its mark and, from tablet width, a word and the
+  // dataset the day is about. One month at a time.
+  const leads = new Map(monthDays.map((d) => [d, dayFindings(d, at).find((x) => x.level !== 'unjudged')] as const));
+  const cells: Node[] = [];
+  if (monthDays.length) {
+    for (let i = 0, lead = (dateOf(monthDays[0]!).getUTCDay() + 6) % 7; i < lead; i++) cells.push(h('span', { class: 'mo-pad', 'aria-hidden': 'true' }));
+    for (let d = monthDays[0]!; d <= monthDays.at(-1)!; d = dayPlus(d, 1)) {
+      const f = facts.get(d);
+      const o = byDay.get(d);
+      if (!f || !o) {
+        cells.push(h('span', { class: 'mo-pad', 'aria-hidden': 'true' }));
+        continue;
+      }
+      const w = would.get(d);
+      const l = loads.list.find((x) => x.day === d);
+      const word = dayWord(o);
+      const about = leads.get(d) ? subject(leads.get(d)!.origin) : null;
+      const dim = filter !== 'all' && o.outcome !== filter;
+      cells.push(h('button', { type: 'button', class: `mo-d st-${f.state} oc-${o.outcome}${f.decided && f.decided !== 'waiting' ? ` dec-${f.decided}` : ''}${f.corrected ? ' corrected' : ''}${f.restated ? ' restated' : ''}${w?.changed ? ' would-change' : ''}${d === now ? ' at' : ''}${dim ? ' dim' : ''}`, 'data-day': d, 'data-fk': `d:${d}`, tabindex: d === pick ? '0' : '-1', 'aria-pressed': String(d === pick), 'aria-label': f.label, title: f.label, onclick: () => {
+        monthView.pick = d;
+        renderMonth();
+        // Where the day's panel sits under the calendar (a phone, a tablet), a tap brings it into view: what the tap
+        // asked for is never left below the fold.
+        const shownPanel = box.querySelector<HTMLElement>('.mo-sum');
+        const calBox = box.querySelector<HTMLElement>('.mo-cal-panel');
+        if (shownPanel && calBox && shownPanel.getBoundingClientRect().top >= calBox.getBoundingClientRect().bottom - 1 && shownPanel.getBoundingClientRect().top > window.innerHeight - 120) {
+          shownPanel.scrollIntoView({ block: 'nearest', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+        }
+      }, ondblclick: () => (location.hash = dayHash(d)) },
+        h('span', { class: 'mo-top' }, h('span', { class: 'mo-date' }, String(dateOf(d).getUTCDate())), h('span', { class: 'mo-mark' }, outcomeMark(o.outcome, 14), w?.changed ? h('span', { class: 'mo-delta', 'aria-hidden': 'true' }, 'Δ') : null)),
+        word ? h('span', { class: 'mo-w' }, word) : l?.note ? h('span', { class: 'mo-w mo-note' }, l.note) : null,
+        about && o.outcome !== 'normal' ? h('span', { class: 'mo-hl' }, about) : null));
+    }
+  }
+  const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((w) => h('span', { class: 'mo-wd', 'aria-hidden': 'true' }, w));
+  // The arrow keys move through the days, and the day they land on is the day picked (the panel follows); Page Up and
+  // Page Down turn the month (the ARIA practices' calendar grid).
+  const onKey = (e: Event) => {
+    const k = (e as KeyboardEvent).key;
+    const from = (e.target as HTMLElement).closest<HTMLElement>('.mo-d')?.dataset.day;
+    if (!from) return;
+    const wd = (dateOf(from).getUTCDay() + 6) % 7;
+    const to = k === 'ArrowLeft' ? dayPlus(from, -1) : k === 'ArrowRight' ? dayPlus(from, 1) : k === 'ArrowUp' ? dayPlus(from, -7) : k === 'ArrowDown' ? dayPlus(from, 7) : k === 'Home' ? dayPlus(from, -wd) : k === 'End' ? dayPlus(from, 6 - wd) : null;
+    const turn = k === 'PageUp' ? months[mi - 1] : k === 'PageDown' ? months[mi + 1] : undefined;
+    const go = to && days.includes(to) ? to : turn ? (days.filter((d) => d.startsWith(turn)).find((d) => d.slice(8) === from.slice(8)) ?? days.filter((d) => d.startsWith(turn)).at(-1)) : undefined;
+    if (!go) return;
+    e.preventDefault();
+    pickDay(go);
+    // The focus goes with the day picked: the month is drawn again, and the day the key landed on has the keyboard.
+    box.querySelector<HTMLElement>(`.mo-d[data-day="${go}"]`)?.focus();
+  };
+  const cal = h('div', { class: 'mo-cal', role: 'group', 'aria-label': `${monthName(shown)}: each day and what became of it. The arrow keys move through the days${several ? ', Page Up and Page Down through the months' : ''}.`, onkeydown: onKey }, ...weekdays, ...cells);
+  // The key: each mark the month draws, with its meaning in words.
+  const present = new Set(monthDays.map((d) => byDay.get(d)!.outcome));
+  const key = h('p', { class: 'mo-key' },
+    ...(['normal', 'unusual', 'waiting', 'decided', 'kept', 'unjudged', 'failed'] as const).filter((o) => present.has(o)).map((o) => h('span', { class: `mk oc-${o}` }, outcomeMark(o, 12), OUTCOME_KEY[o] ?? '')),
+    present.has('notRun') || present.has('notArrived') ? h('span', { class: 'mk' }, h('span', { class: 'mk-dash', 'aria-hidden': 'true' }), present.has('notArrived') ? MONTH_WORD.notArrived : MONTH_WORD.notRun) : null,
+    monthDays.some((d) => facts.get(d)?.restated) ? h('span', { class: 'mk' }, h('b', {}, 'Restated'), ' run again under rules changed since: published, or not') : null,
+    monthDays.some((d) => would.get(d)?.changed) ? h('span', { class: 'mk would-change' }, h('span', { class: 'mo-delta', 'aria-hidden': 'true' }, 'Δ'), 'would change under the rules changed since: waiting for the restatement') : null);
+  // Where no month was recorded, the days run here in order; where one was, every day run here in order and checked
+  // against its record, the paused ones too.
   const runs = mayRun();
   const at0 = days.indexOf(now ?? '');
   const checked = days.filter((d) => recordChecks.has(d)).length;
@@ -12729,9 +12887,221 @@ function renderMonth(): void {
         : h('p', { class: 'loads-lock', title: `${deciders()} runs the days: a day that passes publishes` }, glyphEl('lock', 13), `${deciders()} runs days`),
       recorded && checked ? h('span', { class: 'mo-checked' }, ` ${checked} of ${days.length} days checked here`) : null)
     : null;
-  // What the demo shows, where it says (ADR 0023 §4): before the month it walks.
+  const calPanel = h('div', { class: 'panel mo-cal-panel' }, cal, key, live ?? '');
+
+  // ---- The day picked, told in order (ADR 0024 §4): what it came to, what the checks found, what it held back, what
+  // happened, what to do now. Sentences, never a tooltip.
+  const pd = pick ? month.find((d) => d.day === pick) : undefined;
+  const pf = pd ? facts.get(pd.day)! : undefined;
+  const po = pd ? byDay.get(pd.day)! : undefined;
+  let panel: HTMLElement | null = null;
+  if (pd && pf && po) {
+    const dayRuns = runsByDay(knownOn(entries, at)).get(pd.day) ?? [];
+    const last = dayRuns.at(-1);
+    const found = dayFindings(pd.day, at);
+    const held = found.filter((x) => x.level === 'held');
+    const odd = found.filter((x) => x.level === 'unusual');
+    const unj = found.filter((x) => x.level === 'unjudged');
+    // What it held back: the outputs that waited behind the run that first held the day.
+    const firstHeld = dayRuns.find((e) => (e.about as unknown as RunAbout).outcome === 'held' && findingsOf(e.about as unknown as RunAbout).some((x) => x.level === 'held'));
+    const waitingOut = firstHeld ? ((firstHeld.about as unknown as RunAbout).waiting ?? []) : [];
+    const fm = firstHeld ? manifestOf(String((firstHeld.about as unknown as RunAbout).manifest)) : null;
+    const outputs = fm ? Object.keys(fm.outputs).length : 0;
+    const c = recordChecks.get(pd.day);
+    const kd = loads.list.findIndex((x) => x.day === pd.day);
+    const versions = at === null && kd >= 0 ? versionFacts(kd).length : 0;
+    const w = would.get(pd.day);
+    const events = dayTimeline(pd.day, at, subject);
+    const finding = (x: DayFinding) => h('li', { class: `mo-f lv-${x.level}` },
+      x.level === 'held' ? glyphEl('held', 13) : x.level === 'unusual' ? glyphEl('warn', 13) : glyphEl('unlearned', 13),
+      h('span', { class: 'mo-f-what' }, h('code', { class: 'mo-f-of' }, x.origin), h('span', { class: 'mo-f-kind' }, ` ${fileOf.has(x.origin.toLowerCase()) ? `step on ${fileOf.get(x.origin.toLowerCase())}` : kindOf(x.origin)}`), h('span', { class: 'mo-f-said' }, ` ${findingSaid(x)}`)));
+    const group = (title: string, xs: readonly DayFinding[]) => (xs.length ? [h('p', { class: 'mo-sub' }, title), h('ul', { class: 'mo-fs' }, ...xs.slice(0, 6).map(finding), xs.length > 6 ? h('li', { class: 'mo-f more' }, `and ${xs.length - 6} more`) : null)] : []);
+    // The score that day against the day published before it, and what moved (ADR 0024 §6).
+    const mk = markOf(pd.day);
+    const before = [...days].reverse().find((d) => d < pd.day && markOf(d)?.score !== null && markOf(d)?.score !== undefined);
+    const mkb = before ? markOf(before) : undefined;
+    // What moved is said only where the score did: a quarter of a point or more.
+    const moved = mk && mkb && mk.score !== null && mkb.score !== null && Math.abs(mk.score - mkb.score) >= 0.25;
+    const movers = moved && mk?.failing && mkb?.failing ? moversOf(mkb.failing, mk.failing, 2).filter((m) => Math.abs(m.delta) >= 5) : [];
+    const controlName = (id: string) => recorded?.controls?.[id] ?? id;
+    const scoreLine = post && po.outcome !== 'notRun' && po.outcome !== 'notArrived'
+      ? (mk && mk.score !== null
+          ? h('p', { class: 'mo-day-score' }, h('span', { class: 'mo-sub-k' }, 'Score '), h('b', {}, mk.score.toFixed(1)),
+              mkb && mkb.score !== null ? ` · ${pointsSaid(mk.score - mkb.score)} from ${named(before!)}` : '',
+              movers.length ? `. Applications failing: ${movers.map((m) => `${controlName(m.id)} ${countSaid(m.delta)}`).join(', ')}.` : '')
+          : h('p', { class: 'mo-day-score none' }, h('span', { class: 'mo-sub-k' }, 'Score '), 'none: the roll-up wasn’t published for the day.'))
+      : null;
+    panel = h('section', { class: `panel mo-sum oc-${po.outcome}`, 'aria-label': `${dayLabel(pd.day)}, the day picked`, 'data-day': pd.day },
+      // The day and what it came to are said as the pick moves (a screen reader hears two lines, not the whole panel).
+      h('div', { class: 'mo-sum-top', 'aria-live': 'polite' },
+        h('div', { class: 'mo-sum-head' }, h('h3', {}, dayLabel(pd.day)), outcomeMark(po.outcome, 16),
+          // Its versions, where it has more than one: the lead sentence under the head says everything else.
+          pf.restated || pf.corrected ? h('span', { class: 'mo-word' }, pf.restated ? `restated: version ${wentWith(kd)} of ${pf.corrected}${pf.state === 'published' ? ' published' : ', not published'}` : `corrected: version ${correctedOf(kd)?.got.v ?? pf.corrected} of ${pf.corrected} published`) : null),
+        h('p', { class: 'mo-sum-said' }, `${outcomeSaid(po.outcome, po.how)}.`, loads.list[kd]?.note ? ` ${loads.list[kd]!.note}.` : '')),
+      // The day's head in the record's words, where no finding below says it (a run that failed, a day restated).
+      pf.headline && !held.length && !odd.length ? h('p', { class: 'mo-sum-hl' }, pf.headline) : null,
+      w ? h('p', { class: `mo-sum-hl rs-would${w.changed ? ' changed' : ''}` }, `Under the rules changed since: ${w.before} → ${w.after}${w.changed ? '. It waits for the restatement.' : '. Noted: the same.'}`) : null,
+      ...group(po.outcome === 'waiting' ? 'What holds it' : 'What held it', held),
+      ...group(held.length ? 'Also unusual' : 'What was unusual', odd),
+      unj.length > 3
+        ? h('p', { class: 'mo-sub quiet' }, `${plural(unj.length, 'dataset')} weren’t judged: no earlier day like this one to compare with.`)
+        : h('div', {}, ...group('Not judged yet', unj)),
+      waitingOut.length ? h('p', { class: 'mo-reach' }, h('span', { class: 'mo-sub-k' }, po.outcome === 'waiting' ? 'What waits ' : 'What it held back '), `${waitingOut.length}${outputs ? ` of ${outputs}` : ''} outputs: ${waitingOut.slice(0, 3).join(', ')}${waitingOut.length > 3 ? ` and ${waitingOut.length - 3} more` : ''}.`) : null,
+      events.length ? h('p', { class: 'mo-sub' }, 'What happened') : null,
+      events.length ? h('ol', { class: 'mo-events' }, ...events.map((e) => h('li', { class: `mo-ev ${e.cls}` }, h('span', { class: 'mo-ev-when' }, e.at.slice(0, 10) === pd.day ? e.at.slice(11, 16) : `${dayShort(e.at.slice(0, 10))} ${e.at.slice(11, 16)}`), h('span', { class: 'mo-ev-what' }, e.text, e.why ? h('q', { class: 'mo-ev-why' }, e.why) : null)))) : null,
+      scoreLine,
+      h('div', { class: 'mo-sum-acts' },
+        po.outcome === 'waiting' && at === null && may ? h('button', { type: 'button', class: 'btn primary mo-decide', 'aria-label': `Decide what readers get for ${dayMid(pd.day)}`, onclick: () => openDecision(pd.day) }, 'Decide ›') : null,
+        h('a', { class: `btn mo-open${po.outcome === 'waiting' && at === null && may ? '' : ' primary'}`, href: dayHash(pd.day) }, pd.state === 'notRun' ? 'Run the day ›' : 'Open the day ›')),
+      h('p', { class: 'mo-prov' },
+        versions > 1 ? `${plural(versions, 'version')} of the day. ` : '',
+        last ? (dayRuns.some((e) => e.by.as === 'build') ? `Recorded by the build${c && c !== 'flow' && c !== 'inputs' ? (c.matches ? ' · run here, the same as the record ✓' : ' · run here, it differs from the record') : ''}.` : 'Run in this browser.') : '',
+        pd.at ? ` Times are UTC.` : ''));
+  }
+
+  // ---- What needed a look (ADR 0024 §1): the month's days that weren't simply normal, the ones waiting first, each in
+  // a line; the counts above filter it.
+  const looked: readonly Outcome[] = ['waiting', 'failed', 'kept', 'decided', 'unusual'];
+  const listed = monthDays.map((d) => byDay.get(d)!).filter((o) => (filter === 'all' ? looked.includes(o.outcome) : o.outcome === filter))
+    .sort((a, b) => Number(b.outcome === 'waiting') - Number(a.outcome === 'waiting') || (a.day < b.day ? 1 : -1));
+  const logPart = sum.arrived
+    ? h('section', { class: 'panel mo-log', 'aria-label': 'What needed a look' },
+        h('p', { class: 'eyebrow' }, filter === 'all' ? `What needed a look · ${plural(listed.length, 'day')}` : `${OUTCOME_WORD[filter]} · ${plural(listed.length, 'day')}`),
+        filter !== 'all' ? h('p', { class: 'mo-log-all' }, h('button', { type: 'button', class: 'linkish', 'data-fk': 'c:all', onclick: () => {
+          monthView.filter = 'all';
+          renderMonth();
+        } }, 'Show every day that needed a look')) : null,
+        listed.length
+          ? h('ol', { class: 'mo-log-list' }, ...(listed.length > LOG_ROWS + 2 && !monthView.open.has('log') ? listed.slice(0, LOG_ROWS) : listed).map((o) => {
+              const lead = leads.get(o.day);
+              const more = dayFindings(o.day, at).filter((x) => x.level !== 'unjudged').length - 1;
+              return h('li', { class: `mo-log-row oc-${o.outcome}`, 'data-day': o.day },
+                h('button', { type: 'button', class: 'mo-log-btn', 'data-fk': `l:${o.day}`, 'aria-pressed': String(o.day === pick), 'aria-label': facts.get(o.day)!.label, onclick: () => pickDay(o.day) },
+                  h('span', { class: 'mo-log-day' }, dayShort(o.day)),
+                  h('span', { class: 'mo-log-state' }, outcomeMark(o.outcome, 13), h('span', {}, dayWord(o) ?? OUTCOME_WORD[o.outcome])),
+                  lead
+                    ? h('span', { class: 'mo-log-what' }, h('code', {}, subject(lead.origin)), ` ${findingSaid(lead)}`, more > 0 ? h('span', { class: 'mo-log-more' }, ` +${more}`) : null)
+                    : h('span', { class: 'mo-log-what' }, facts.get(o.day)!.headline ?? '')),
+                h('a', { class: 'mo-log-open', href: dayHash(o.day), 'aria-label': `Open ${dayLabel(o.day)}` }, glyphEl('chev', 14)));
+            }))
+          : h('p', { class: 'mo-checked' }, filter === 'all' ? 'Nothing: every day went out with every check passing.' : 'No day of the month is so.'),
+        // A month where most days needed a look lists the first dozen (what waits, then the latest), the rest a tap away.
+        listed.length > LOG_ROWS + 2 ? h('button', { type: 'button', class: 'linkish mh-fold mo-log-fold', 'data-fold': 'log', 'data-fk': 'f:log', 'aria-expanded': String(monthView.open.has('log')), onclick: () => {
+          if (monthView.open.has('log')) monthView.open.delete('log');
+          else monthView.open.add('log');
+          renderMonth();
+        } }, monthView.open.has('log') ? `▾ Show the first ${LOG_ROWS}` : `▸ ${listed.length - LOG_ROWS} earlier days`) : null)
+    : null;
+
+  // ---- Each file and step over the month (ADR 0024 §5): a row a file (with its own checks), then a row a step, the
+  // worst first; a row with nothing to report folded into a count. A bar a day, the worst the day's runs said of it.
+  const rows = monthHealth(healthRows(viewDoc()), monthDays, entries, manifestOf, at);
+  const barW = W >= 786 ? Math.round(Math.min(620, (W - 60) * 0.44)) : Math.max(240, W - 34);
+  const bars = (r: HealthRow, ticks = false) => svgNode(dayBars({
+    days: monthDays.map((d, i) => ({ day: d, ...barOfCell(r.cells[i] ?? null, !waits.has(d)), title: `${r.label}, ${dayLabel(d)}: ${r.cells[i] ? CELL_WORD[r.cells[i]!] : 'no run'}` })),
+    w: barW, h: 16, pick, ticks, aria: `${r.label} over ${monthName(shown)}: ${healthSaid(r, dayShort)}`,
+  }));
+  const healthRow = (r: HealthRow, ticks: boolean) => h('li', { class: `mh-row${offDays(r) ? ' off' : ''}`, 'data-row': r.id },
+    h('code', { class: 'mh-name' }, r.label),
+    h('span', { class: 'mh-bars' }, bars(r, ticks)),
+    h('span', { class: 'mh-said' }, healthSaid(r, dayShort)));
+  const fold = (id: string, label: (open: boolean) => string, rs: HealthRow[]) => {
+    if (!rs.length) return [];
+    const open = monthView.open.has(id);
+    return [
+      h('button', { type: 'button', class: 'linkish mh-fold', 'data-fold': id, 'data-fk': `f:${id}`, 'aria-expanded': String(open), onclick: () => {
+        if (open) monthView.open.delete(id);
+        else monthView.open.add(id);
+        renderMonth();
+      } }, `${open ? '▾' : '▸'} ${label(open)}`),
+      open ? h('ul', { class: 'mh-rows fine' }, ...rs.map((r) => healthRow(r, false))) : null,
+    ];
+  };
+  const some = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  // A group lists its worst rows; where it has many more than that, the rest are a tap away.
+  const top = (rs: HealthRow[]) => (rs.length > GROUP_ROWS + 2 ? rs.slice(0, GROUP_ROWS) : rs);
+  const rest = (rs: HealthRow[]) => (rs.length > GROUP_ROWS + 2 ? rs.slice(GROUP_ROWS) : []);
+  // The files: those that held a day or were unusual on one, the worst first; the rest folded into a count.
+  const filesGroup = (rs: HealthRow[]) => {
+    if (!rs.length) return null;
+    const off = worstFirst(rs.filter((r) => offDays(r) > 0), waits);
+    const fine = rs.filter((r) => offDays(r) === 0);
+    const heldN = off.filter((r) => r.held.length).length;
+    const said = !off.length ? `${rs.length === 1 ? 'The file' : `All ${rs.length}`} had a month with nothing to report.`
+      : `${heldN ? `${heldN} of ${rs.length} held a day` : `None of the ${rs.length} held a day`}${off.length > heldN ? `${heldN ? ', and' : ';'} ${off.length - heldN} ${heldN ? 'more ' : ''}${off.length - heldN === 1 ? 'was' : 'were'} unusual on one` : ''}.`;
+    return h('div', { class: 'mh-group', 'data-group': 'files' },
+      h('p', { class: 'mh-head' }, h('b', {}, 'Incoming files.'), ` ${said}`),
+      off.length ? h('ul', { class: 'mh-rows' }, ...top(off).map((r, i) => healthRow(r, i === 0))) : null,
+      ...fold('files-more', () => `${some(rest(off).length, 'more file', 'more files')} with something to report`, rest(off)),
+      ...fold('files', (open) => (off.length ? `${some(fine.length, 'file', 'files')} with nothing to report` : open ? 'Hide them' : `Show ${fine.length === 1 ? 'it' : `all ${fine.length}`}`), fine));
+  };
+  // The steps: those with a day of their own (held or unusual where no file they read was), which is trouble inside the
+  // flow; those that only followed a file, folded; the rest, folded.
+  const stepsGroup = (rs: HealthRow[]) => {
+    if (!rs.length) return null;
+    const own = worstFirst(rs.filter((r) => r.own.length > 0), waits);
+    const followed = rs.filter(followsFiles);
+    const fine = rs.filter((r) => offDays(r) === 0);
+    const said = `${own.length ? `${own.length} of ${rs.length} had a day of ${own.length === 1 ? 'its' : 'their'} own to report: trouble no file ${own.length === 1 ? 'it reads' : 'they read'} accounts for.` : `None of the ${rs.length} had trouble of its own.`}${followed.length ? ` ${some(followed.length, 'step', 'steps')} held or ${followed.length === 1 ? 'was' : 'were'} unusual only where a file ${followed.length === 1 ? 'it reads' : 'they read'} was.` : ''}`;
+    return h('div', { class: 'mh-group', 'data-group': 'steps' },
+      h('p', { class: 'mh-head' }, h('b', {}, 'Steps the flow builds.'), ` ${said}`),
+      own.length ? h('ul', { class: 'mh-rows' }, ...top(own).map((r, i) => healthRow(r, i === 0))) : null,
+      ...fold('steps-more', () => `${some(rest(own).length, 'more step', 'more steps')} with a day of their own`, rest(own)),
+      ...fold('followed', () => `${some(followed.length, 'step', 'steps')} that followed a file`, worstFirst(followed, waits)),
+      ...fold('steps', () => `${some(fine.length, 'step', 'steps')} with nothing to report`, fine));
+  };
+  const fileRows = rows.filter((r) => r.kind === 'file');
+  const stepRows = rows.filter((r) => r.kind === 'step');
+  const healthPart = rows.length && sum.arrived
+    ? h('section', { class: 'panel mo-health', 'aria-label': 'Each file and step over the month', onclick: (e: Event) => {
+        const d = (e.target as Element).closest?.('[data-day]')?.getAttribute('data-day');
+        if (d && (e.target as Element).closest('svg')) pickDay(d);
+      } },
+        h('p', { class: 'eyebrow' }, `Files and steps over ${monthName(shown)}`),
+        filesGroup(fileRows),
+        stepsGroup(stepRows),
+        h('p', { class: 'mh-key' },
+          svgNode(dayBars({ days: [{ day: '2024-01-02', level: 'ok' }], w: 10, h: 16, aria: 'A low bar' })), 'fine',
+          svgNode(dayBars({ days: [{ day: '2024-01-02', level: 'warn' }], w: 10, h: 16, aria: 'A half bar' })), 'unusual',
+          svgNode(dayBars({ days: [{ day: '2024-01-02', level: 'bad' }], w: 10, h: 16, aria: 'A full bar' })), 'held the day, waiting',
+          svgNode(dayBars({ days: [{ day: '2024-01-02', level: 'bad', done: true }], w: 10, h: 16, aria: 'A hollow full bar' })), 'held the day, since decided',
+          svgNode(dayBars({ days: [{ day: '2024-01-02', level: 'unjudged' }], w: 10, h: 16, aria: 'A low hollow bar' })), 'not judged',
+          h('span', { class: 'mh-key-none' }, 'no bar: no run')))
+    : null;
+
+  // ---- The product's score (Q-186; ADR 0024 §6): the number and what it is a share of, a verdict from a rule, what it
+  // is in a sentence, the line over every month with the month on show marked, and what moved it over the month.
+  const read = scoreRead(monthPoints);
+  let scorePart: HTMLElement | null = null;
+  if (post && read) {
+    const lastMark = markOf(read.last.day);
+    const firstMark = markOf(read.first.day);
+    const movers = firstMark?.failing && lastMark?.failing && read.days > 1 ? moversOf(firstMark.failing, lastMark.failing, 4) : [];
+    const controlName = (id: string) => recorded?.controls?.[id] ?? id;
+    const gaps = monthDays.filter((d) => !['notRun', 'notArrived'].includes(byDay.get(d)!.outcome) && (!marks || markOf(d)?.score === undefined || markOf(d)?.score === null));
+    const failingNow = lastMark?.checks;
+    const failingThen = firstMark?.checks;
+    scorePart = h('section', { class: 'panel mo-trend', 'aria-label': `${post.title}: the group’s score` },
+      h('p', { class: 'eyebrow' }, `${post.title} · the group’s score on each day published`),
+      h('div', { class: 'mo-score-top' },
+        h('p', { class: 'mo-score-n' }, h('b', {}, read.last.score.toFixed(1)), h('span', { class: 'mo-score-of' }, ` of 100 on ${named(read.last.day)}`)),
+        h('p', { class: `mo-score-said v-${read.verdict}` }, readSaid(read, named), at ? ' That is as known then.' : '')),
+      failingNow ? h('p', { class: 'mo-score-checks' }, `${fmtInt(failingNow.failing)} of ${fmtInt(failingNow.evidence)} checks failing${failingThen && read.days > 1 ? ` (${countSaid(failingNow.failing - failingThen.failing)} since ${named(read.first.day)})` : ''} · coverage ${lastMark?.coverage?.toFixed(1) ?? '–'}%: ${fmtInt(failingNow.evidence)} of ${fmtInt(failingNow.applying)} checks have evidence.`) : null,
+      post.about ? h('p', { class: 'mo-score-about' }, post.about) : null,
+      points.filter((p) => p.score !== null).length >= 2
+        ? svgNode(scoreTrend({ days, points, w: W >= 1766 ? Math.max(320, Math.round((W - 24) / 3.5) - 34) : Math.min(1600, Math.max(280, W - 34)), aria: `${post.title}: the group’s score and coverage on each day published. ${readSaid(read, named)}`, gap: 'not published', ...(several ? { focus: { from: monthDays[0]!, to: monthDays.at(-1)! } } : {}) }))
+        : null,
+      movers.length ? h('div', { class: 'mo-movers' },
+        h('p', { class: 'mo-sub' }, `What moved it: applications failing each control, ${named(read.first.day)} to ${named(read.last.day)}`),
+        h('ul', { class: 'mo-mover-list' }, ...movers.map((m) => h('li', { class: `mo-mover ${m.delta > 0 ? 'up' : 'down'}` }, h('span', { class: 'mo-mover-name' }, controlName(m.id)), h('span', { class: 'mo-mover-n' }, `${fmtInt(m.from)} → ${fmtInt(m.to)}`), h('b', { class: 'mo-mover-d' }, countSaid(m.delta)))))) : null,
+      gaps.length ? h('p', { class: 'foot mo-score-gaps' }, `No score on ${gaps.slice(0, 4).map(named).join(', ')}${gaps.length > 4 ? ` and ${gaps.length - 4} more` : ''}: the roll-up wasn’t published. The line is dashed across ${gaps.length === 1 ? 'it' : 'them'}.`) : null);
+  }
+
+  // ---- What the demo shows, where it says (ADR 0023 §4): a bar that opens its scenes.
   const scenes = at === null ? scenesPanel(dataList?.scenes) : null;
-  box.replaceChildren(head, scenes ?? '', trend ?? '', h('div', { class: 'panel mo-cal-panel' }, cal, key, live ?? ''), summary ?? '', table ?? '');
+  box.classList.toggle('mo-few', months.length === 2 || months.length === 3);
+  box.replaceChildren(head, scenes ?? '', waitPart ?? '', cards ?? '', summaryPart, calPanel, panel ?? '', logPart ?? '', healthPart ?? '', scorePart ?? '');
+  if (focused) box.querySelector<HTMLElement>(`[data-fk="${focused.replace(/"/g, '')}"]`)?.focus({ preventScroll: true });
 }
 
 /** What the month says of each day it shows, by day, as known on the moment it is read as known on: for the browser
@@ -12791,9 +13161,9 @@ function renderLoads(): void {
   const gotVersion = loads.at >= 0 ? correctedOf(loads.at)?.got.v ?? null : null;
   box.replaceChildren(
     h('div', { class: 'dh-nav' },
-      h('a', { class: 'dh-back', href: '#month' }, `‹ ${loads.span}`),
+      h('a', { class: 'dh-back', href: now && monthsOf(days).length > 1 ? `#month/${now.day.slice(0, 7)}` : '#month' }, `‹ ${now && monthsOf(days).length > 1 ? monthName(now.day.slice(0, 7)) : loads.span}`),
       h('div', { class: 'dh-step' }, step(prev, 'The day before', `‹ ${prev ? dayShort(prev) : ''}`), step(next, 'The day after', `${next ? dayShort(next) : ''} ›`))),
-    now ? h('div', { class: 'dh-title' }, h('h2', {}, dayLabel(now.day)), f ? dayMark(f.state, f.decided, 16, f.corrected) : null) : '',
+    now ? h('div', { class: 'dh-title' }, h('h2', {}, dayLabel(now.day)), f ? outcomeMark(outcomeOf(f).outcome, 16) : null) : '',
     (now ? lifecycleOf(now.day) : null) ?? '',
     (now ? recordLine(now.day) : null) ?? '',
     (now ? rulesLine(now.day, prev) : null) ?? '',
@@ -15802,15 +16172,34 @@ function applyLook(): void {
   else if (l.decide) decideDay(l.day);
 }
 
-/** The month's list of what the demo shows (ADR 0023 §4): each scene numbered, what it shows and what happened, each of
- * its places to look a link; the stories kept from the month after them, as more to see. Null without scenes. */
+/** Whether the demo's scenes were left open in this browser. */
+const SCENES_KEY = 'smaltfl:scenes';
+try {
+  monthView.scenes = localStorage.getItem(SCENES_KEY) === 'open';
+} catch {
+  // No storage: closed, as on a first visit.
+}
+
+/**
+ * The month's list of what the demo shows (ADR 0023 §4), behind a bar at the head of the month (ADR 0024 §1): the bar says
+ * how many scenes there are, and opens to each scene numbered, what it shows and what happened, each of its places to
+ * look a link; the stories kept from the month after them, as more to see. Left open or closed as the visitor left it.
+ * Null without scenes.
+ */
 function scenesPanel(file: ScenesFile | undefined): HTMLElement | null {
   if (!file) return null;
   const looks = (i: number) => h('p', { class: 'sc-looks' }, ...file.scenes[i]!.looks.map((l, k) => h('a', { class: 'sc-look', href: sceneHash(i + 1, k + 1), 'data-look': `${i + 1}/${k + 1}` }, `${l.label} ›`)));
   const numbered = file.scenes.flatMap((s, i) => (s.n !== undefined ? [i] : []));
   const more = file.scenes.flatMap((s, i) => (s.n === undefined ? [i] : []));
-  return h('section', { class: 'panel mo-scenes', 'aria-label': file.title },
-    h('p', { class: 'eyebrow' }, file.title),
+  return h('details', { class: 'panel mo-scenes', 'aria-label': file.title, ...(monthView.scenes ? { open: true } : {}), ontoggle: (e: Event) => {
+    monthView.scenes = (e.currentTarget as HTMLDetailsElement).open;
+    try {
+      localStorage.setItem(SCENES_KEY, monthView.scenes ? 'open' : 'closed');
+    } catch {
+      // No storage: kept for this visit alone.
+    }
+  } },
+    h('summary', { class: 'sc-sum', 'data-fk': 'scenes' }, h('span', { class: 'eyebrow' }, file.title), h('span', { class: 'sc-sum-n' }, `${plural(numbered.length, 'scene')} to walk through, each a tap from its day`)),
     h('ol', { class: 'sc-list' }, ...numbered.map((i) => {
       const s = file.scenes[i]!;
       return h('li', { class: 'sc', 'data-scene': String(i + 1) },
@@ -15836,7 +16225,7 @@ const homeView = (): string => ((dataList?.loads.length ?? 0) > 1 ? 'month' : 'f
  * already on it; the other views by name. No hash is home; any other (a brief's link, `#brief-…`) is the day screen, as
  * it was.
  */
-function routeOf(hash: string): { view: string; day: string | null; version: number | null; look?: SceneLook } {
+function routeOf(hash: string): { view: string; day: string | null; version: number | null; look?: SceneLook; month?: string } {
   const [name = '', arg, ver] = hash.replace(/^#/, '').split('/');
   if (name === 'day') return { view: 'flow', day: arg && /^\d{4}-\d{2}-\d{2}$/.test(arg) ? arg : null, version: ver && /^v[1-9]\d*$/.test(ver) ? Number(ver.slice(1)) : null };
   // A scene's look (ADR 0023 §4, `#scene/4/2`): its day, on its version, then the place to look.
@@ -15845,6 +16234,8 @@ function routeOf(hash: string): { view: string; day: string | null; version: num
     return look ? { view: 'flow', day: look.day, version: look.version ?? null, look } : { view: homeView(), day: null, version: null };
   }
   if (name === '') return { view: homeView(), day: null, version: null };
+  // A month's own link (ADR 0024 §1, `#month/2024-03`): the month screen on that month.
+  if (name === 'month' && arg && /^\d{4}-\d{2}$/.test(arg)) return { view: 'month', day: null, version: null, month: arg };
   return { view: VIEWS.includes(name) ? name : 'flow', day: null, version: null };
 }
 
@@ -15874,8 +16265,9 @@ function openDay(day: string, version: number | null = null): void {
 }
 
 function showView(): void {
-  const { view, day, version, look } = routeOf(location.hash);
+  const { view, day, version, look, month } = routeOf(location.hash);
   if (look) pendingLook = look;
+  if (month) monthView.month = month;
   if (state.selected || state.section) select(null);
   for (const v of VIEWS) {
     $(`view-${v}`).hidden = v !== view;
@@ -15951,6 +16343,8 @@ async function start(): Promise<void> {
     resize = requestAnimationFrame(() => {
       syncHead();
       renderCanvas();
+      // The month's drawings are made to its width.
+      renderMonth();
     });
   });
   document.addEventListener('keydown', (e) => e.key === 'Escape' && (state.selected || state.section) && select(null));
@@ -16032,7 +16426,7 @@ async function start(): Promise<void> {
       if (isMonthFile(file) && file.flow === state.doc.id) {
         recorded = file;
         recordedEntries = layered(file);
-        if (location.hash === '' || location.hash === '#month') renderMonth();
+        if (routeOf(location.hash).view === 'month') renderMonth();
       }
     }
     mark('recorded month');

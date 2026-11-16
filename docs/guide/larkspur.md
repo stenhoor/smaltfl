@@ -100,9 +100,10 @@ same, for the DR exercises: see the recorded story.)
 
 ## The posture over the month
 
-The band above the month's calendar draws the group's score on each day published, as recorded. For each unit's own
-line, **Check every day here ▶** runs the month in your browser, checking each day against its record. Once Sun 31 has
-run, Results reads the whole month:
+At the foot of the month, the group's score is said and drawn, as recorded: *92.0 of 100 on Sun 31. Down 1.6 points
+from Fri 1 to Sun 31*, the checks failing, and what moved it (the access reviews, the vulnerabilities past their SLA,
+the disaster-recovery exercises). For each unit's own line, **Check every day here ▶** runs the month in your browser,
+checking each day against its record. Once Sun 31 has run, Results reads the whole month:
 
 - The group's score falls 1.6 points, from 93.6 on Fri 1 to 92.0 on Sun 31.
 - Each segment's and business unit's change sits beside its sparkline.
@@ -142,8 +143,9 @@ As the app says them when the days are run in order:
 ## What happened next: the recorded story
 
 Each paused day was decided in the record, by the security lead, or a file was sent again for it
-(`examples/larkspur/story.json`). The month marks each: ↻ corrected, with its count of versions; ⚑ published as is; ⊠
-kept back; ‖ still waiting.
+(`examples/larkspur/story.json`). The month marks each: ☑ decided, with how in a word (*Corrected*, *As is*,
+*Filled*); ☒ not published; ‖ still waiting. A day's versions are counted on its panel. (↻2 below is a day with two
+versions.)
 
 | Day | What happened next |
 |---|---|
@@ -182,4 +184,5 @@ differs, whether the rules were the same, what was decided of each, and each out
 and one in v3: the doubled TLS file's repeats. Rows are read from both versions run in your browser, so the comparison
 offers to run the one that hasn't.
 
-On the month, from tablet width, the grid's filters show only the days waiting for a decision, corrected, or held.
+On the month, a count taps to its days: *‖ 4 Paused* shows the four days still waiting, in the list and in the
+calendar.

@@ -4,6 +4,8 @@
   should see, and approved the plan below ("Looks good"). Built in the slices of §6, all five (§"As built"); amendment
   1, a calmer tour over two months, built 2026-11-16.
 - **Date:** 2026-11-15
+- **Amended by:** [ADR 0024](0024-the-month-at-a-glance.md) (proposed, 2026-11-16): the scene list of §4 sits behind a
+  bar at the head of the month, closed at first (Q-221), and the tour's two months are paged, the latest on show.
 - **Builds on:**
   - [ADR 0020](0020-the-estate-as-a-company.md): Larkspur, the demo at `/app/`.
   - [ADR 0021](0021-time.md): the month and the day, a day's versions, corrections decided (Q-62, Q-183).

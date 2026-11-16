@@ -17,10 +17,18 @@ import type { Hold } from './hold.js';
 
 export const MONTH_FORMAT = 'smaltfl-month/1';
 
-/** A day's product score, where the data list names a posture product (ADR 0021 §3): what the month's trend band draws. */
+/**
+ * A day's product score, where the data list names a posture product (ADR 0021 §3): what the month's trend band draws.
+ * Where the product's scorecards say (ADR 0024 §6), also what the score is a share of that day, and the applications
+ * failing each control: what the month says moved the score between two days.
+ */
 export interface PostureMark {
   score: number | null;
   coverage: number | null;
+  /** The control checks behind the score: those that apply, those with evidence, and those failing. */
+  checks?: { applying: number; evidence: number; failing: number };
+  /** The applications failing each control, by the control's id; a control nothing fails isn't listed. */
+  failing?: Record<string, number>;
 }
 
 /** The recorded month: the build's entries, each run's manifest by hash, the story's now, and the product's scores. */
@@ -36,6 +44,8 @@ export interface MonthFile {
   manifests: Record<string, RunManifest>;
   /** Each published day's product score, by day: a day whose roll-up wasn't published has none. */
   posture?: Record<string, PostureMark>;
+  /** Each control's name by its id, where the posture product names its controls (ADR 0024 §6): as last published. */
+  controls?: Record<string, string>;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -45,6 +55,7 @@ export function isMonthFile(v: unknown): v is MonthFile {
   if (!isRecord(v) || v.format !== MONTH_FORMAT || typeof v.flow !== 'string' || typeof v.build !== 'string' || typeof v.now !== 'string') return false;
   if (!Array.isArray(v.entries) || !isRecord(v.manifests)) return false;
   if (v.posture !== undefined && !isRecord(v.posture)) return false;
+  if (v.controls !== undefined && !(isRecord(v.controls) && Object.values(v.controls).every((n) => typeof n === 'string'))) return false;
   return v.entries.every((e) => isRecord(e) && typeof e.kind === 'string' && typeof e.at === 'string' && typeof e.seq === 'number' && isRecord(e.by) && typeof (e.by as Record<string, unknown>).as === 'string');
 }
 

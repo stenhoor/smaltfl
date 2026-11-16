@@ -150,6 +150,19 @@ describe('the build’s entries under this browser’s', () => {
     expect(isMonthFile({ ...good, entries: [{ kind: 'run' }] })).toBe(false);
     expect(isMonthFile('nope')).toBe(false);
   });
+
+  it('takes a month whose marks say what the score is a share of, and its controls’ names (ADR 0024 §6)', () => {
+    const good: MonthFile = {
+      format: MONTH_FORMAT, flow: 'larkspur', build: 'abc', now: '2024-04-01T08:00:00Z', entries, manifests: {},
+      posture: { '2024-03-01': { score: 93.4, coverage: 99.3, checks: { applying: 19155, evidence: 19009, failing: 1203 }, failing: { tls: 32, mfa: 139 } }, '2024-03-02': { score: 93.5, coverage: 99.1 } },
+      controls: { tls: 'TLS on exposed endpoints', mfa: 'MFA enforced' },
+    };
+    expect(isMonthFile(good)).toBe(true);
+    // A month recorded before the marks grew reads as it did.
+    expect(isMonthFile({ ...good, controls: undefined, posture: { '2024-03-01': { score: 93.4, coverage: 99.3 } } })).toBe(true);
+    expect(isMonthFile({ ...good, controls: { tls: 7 } })).toBe(false);
+    expect(isMonthFile({ ...good, controls: ['tls'] })).toBe(false);
+  });
 });
 
 describe('a run made here against its record', () => {

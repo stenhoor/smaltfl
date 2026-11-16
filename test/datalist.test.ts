@@ -55,6 +55,16 @@ describe('readDataList', () => {
     expect(namedFiles(list).map((f) => f.path)).toEqual(['apps.csv', 'history.tls.json', 'history.tls.json', 'history.mfa.json', 'history.posture.json', 'loads/tls_2024-03-04.csv', 'loads/tls_2024-03-05.csv', 'loads/mfa_2024-03-05.csv']);
   });
 
+  it('reads a posture product: its datasets by their published names, the dataset that names its controls and what its score is (ADR 0020 §6, ADR 0024 §6)', () => {
+    const base = { format: 2, data: null, flow: null, sources: {}, histories: {} };
+    const posture = { title: 'Control Posture v1', units: 'org_posture', org: 'dim_org', apps: 'app_scorecard', owners: 'dim_app', queue: 'remediation_queue', controls: 'dim_control', about: 'The share of control checks that pass.', other: 'left out' };
+    expect(readDataList({ ...base, posture }).posture).toEqual({ title: 'Control Posture v1', units: 'org_posture', org: 'dim_org', apps: 'app_scorecard', owners: 'dim_app', queue: 'remediation_queue', controls: 'dim_control', about: 'The share of control checks that pass.' });
+    expect(readDataList({ ...base, posture: { title: 'P', units: 'u', org: 'o', apps: 'a' } }).posture).toEqual({ title: 'P', units: 'u', org: 'o', apps: 'a' });
+    // A product that doesn't name its roll-up, its organisation and its scorecards isn't one.
+    expect(readDataList({ ...base, posture: { title: 'P', units: 'u' } }).posture).toBeUndefined();
+    expect(readDataList(base).posture).toBeUndefined();
+  });
+
   it('reads a day’s files sent again later, each a version of the day: the first files, then each delivery in its place (ADR 0021 §2)', () => {
     const l = (id: string, slot: string, c: string, v = '') => ({ slot, file: `loads/${id}_${slot}${v}.csv`, sha256: SHA(c), bytes: 1, rows: 400 });
     const list = readDataList({

@@ -1,9 +1,10 @@
 [
   {
     "name": "tour-scenes",
-    "what": "The month's list of what the demo shows (ADR 0023 §4): six scenes numbered, each with what happened and its places to look as links, and the two stories kept from the month as more to see",
+    "what": "The month's list of what the demo shows (ADR 0023 §4), opened from its bar at the head of the month (ADR 0024 §1): six scenes numbered, each with what happened and its places to look as links, and the two stories kept from the month as more to see. It stays open for the stops after it",
     "view": "month",
     "viewFirst": true,
+    "click": "#view-month .mo-scenes > summary",
     "full": true,
     "element": "#view-month .mo-scenes",
     "expect": {
@@ -13,15 +14,27 @@
   },
   {
     "name": "tour-months",
-    "what": "The tour's two months on the month screen (ADR 0023 amendment 1): named for both, a calendar a month under its name, every day of February and March",
+    "what": "The tour's two months on the month screen (ADR 0023 amendment 1, as ADR 0024 §7 lays them out): side by side as two cards, the latest on show with its calendar, the arrow after it disabled",
     "view": "month",
     "viewFirst": true,
     "full": true,
+    "element": "#view-month",
+    "expect": {
+      "text": ["February 2024", "March 2024", "27 of 29 on their own", "25 of 31 on their own"],
+      "count": { "#view-month .mo-card": 2, "#view-month .mo-card[aria-current][data-month=\"2024-03\"]": 1, "#view-month .mo-d": 31, "#view-month .mo-page.off": 1 }
+    }
+  },
+  {
+    "name": "tour-february",
+    "what": "February, a tap on its card away: its own calendar, every day of it",
+    "view": "month",
+    "viewFirst": true,
+    "click": "#view-month .mo-card[data-month=\"2024-02\"]",
+    "full": true,
     "element": "#view-month .mo-cal-panel",
     "expect": {
-      "text": ["February 2024", "March 2024"],
-      "pageText": ["February–March 2024"],
-      "count": { "#view-month .mo-month": 2, "#view-month .mo-d": 60 }
+      "pageText": ["February 2024"],
+      "count": { "#view-month .mo-card[aria-current][data-month=\"2024-02\"]": 1, "#view-month .mo-d": 29 }
     }
   },
   {
