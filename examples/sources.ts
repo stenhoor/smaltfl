@@ -29,6 +29,9 @@ export interface DataBindings {
   /** A generated example's recorded story (ADR 0021 §6, core/timeline.ts): its later deliveries, which the generator
    * writes, and its decisions, which the recorder takes at their times. */
   story?: string;
+  /** Other months of the same flow, by name (`scripts/build-app.mjs --variant`): each its generator's arguments and its
+   * story, in place of the list's own (ADR 0023 §2, Larkspur's tour). */
+  variants?: Record<string, Pick<DataBindings, 'generateArgs' | 'story'>>;
 }
 
 /** A source as the engine reads it: its file, its table, and the table's DDL. */

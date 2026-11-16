@@ -118,7 +118,14 @@ export type Trouble =
   /** From the day on, the catalogue lists a control no feed yet carries. */
   | { day: string; file: 'control_catalog'; kind: 'sbom' }
   /** A department reports into one of its own teams for a day: a leadership chain that loops. */
-  | { day: string; file: 'hr_org_units'; kind: 'loop' };
+  | { day: string; file: 'hr_org_units'; kind: 'loop' }
+  /** A planned migration (ADR 0023 §1, the tour's scene 4): from the day on, the data centres' applications send their
+   * logs through their side's cloud pipeline (DC-East's to log-east, DC-West's to log-west), but for those whose logging
+   * failed or wasn't assessed on the day, kept on the data centres' pipeline until they are fixed. */
+  | { day: string; file: 'logging_coverage'; kind: 'migration' }
+  /** An export bug (ADR 0023 §1, the tour's scene 5): `to` written for `from` in a column, on this share of the rows that
+   * have it. Nothing else in the file is wrong. */
+  | { day: string; file: EvidenceFile; kind: 'mislabel'; column: string; from: string; to: string; share: number };
 
 const P = LARKSPUR_PLANTED;
 export const LARKSPUR_TROUBLE: readonly Trouble[] = [
@@ -158,6 +165,47 @@ export const LARKSPUR_GOLD_TROUBLE: readonly Trouble[] = [
   { day: G.push, file: 'findings', kind: 'push', until: G.pushUntil, to: 0.35 },
   { day: G.handover, file: 'findings', kind: 'handover', days: 14, by: 2.5 },
   { day: G.freeze, file: 'findings', kind: 'freeze', until: G.freezeUntil },
+];
+
+/**
+ * The tour's days (ADR 0023 §1, §3): a capability a scene, calm days between them, and two of the month's layering
+ * stories kept as more to see. The demo builds its month from these (`scripts/data/larkspur.mjs --tour`); the month above
+ * stays the tests' (ADR 0020 §5).
+ */
+export const LARKSPUR_TOUR_DAYS = {
+  /** Scene 1: every file arrives and every check passes (Fri 1 tells more pentest findings than usual). */
+  normal: '2024-03-06',
+  /** Scene 3: the MFA export arrives empty, a written check holds it, and the vendor sends it again overnight. */
+  empty: '2024-03-04',
+  /** Scene 2: the scanner writes its words in capitals, a warning to react to. */
+  capitals: '2024-03-05',
+  /** More to see: a department dropped from the HR extract, its applications' owner chains lost in silver. */
+  dissolve: '2024-03-08',
+  /** Scene 4: the log pipelines' migration, held by a learned check, published as is, held again until accepted. */
+  migration: '2024-03-12',
+  /** Scene 5: the backup export's bug, held by a learned check, filled forward, then corrected. */
+  mislabel: '2024-03-18',
+  /** Scene 6: the TLS file's rows twice; only that file is sent again. */
+  double: '2024-03-21',
+  /** Scene 6: the EDR export empty at the weekend, filled back from the day after. */
+  weekend: '2024-03-23',
+  /** More to see: one certificate authority behind two controls. */
+  ca: '2024-03-25',
+  /** Scene 6: the access reviews' export empty, left for the visitor to fill from the same weekday a week before. */
+  missing: '2024-03-27',
+} as const;
+const TR = LARKSPUR_TOUR_DAYS;
+export const LARKSPUR_TOUR: readonly Trouble[] = [
+  { day: TR.empty, file: 'mfa', kind: 'empty' },
+  { day: TR.capitals, file: 'findings', kind: 'capitals' },
+  { day: TR.dissolve, file: 'hr_org_units', kind: 'dissolve' },
+  { day: TR.migration, file: 'logging_coverage', kind: 'migration' },
+  { day: TR.mislabel, file: 'backup_jobs', kind: 'mislabel', column: 'last_state', from: 'COMPLETED', to: 'PARTIAL', share: 0.35 },
+  { day: TR.double, file: 'tls', kind: 'double' },
+  { day: TR.weekend, file: 'edr_coverage', kind: 'empty' },
+  { day: TR.ca, file: 'tls', kind: 'ca', ca: 'ca-int-2' },
+  { day: TR.ca, file: 'logging_coverage', kind: 'ca', ca: 'ca-int-2' },
+  { day: TR.missing, file: 'access_reviews', kind: 'empty' },
 ];
 
 export const LARKSPUR_SILVER_TROUBLE: readonly Trouble[] = [
@@ -1253,6 +1301,12 @@ export function dayFile(w: Larkspur, file: DailyFile, d: string): Table {
       columns.splice(at, 1);
       out = out.map((r) => r.filter((_, i) => i !== at));
     }
+    if (t.kind === 'mislabel') {
+      const at = columns.indexOf(t.column);
+      if (at < 0) throw new Error(`${file} has no column ${t.column}`);
+      const key = columns.indexOf('app_id');
+      out = out.map((r) => (r[at] === t.from && uniform(w.seed, String(r[key]), file, 'mislabel', d) < t.share ? r.map((v, i) => (i === at ? t.to : v)) : r));
+    }
   }
   return { columns, rows: out };
 }
@@ -1266,7 +1320,7 @@ export function exportedAtOf(w: Larkspur, file: DailyFile, d: string): string {
 export type SentAgain = 'right' | 'half';
 /** The trouble a file sent again can take out: what was done to the file as drawn, and the department dropped without
  * its teams. What is drawn into the file itself (an ingress in monitor mode, a controller down) was so that day. */
-const SENDS_AGAIN = new Set<Trouble['kind']>(['empty', 'double', 'capitals', 'column', 'stale', 'dissolve']);
+const SENDS_AGAIN = new Set<Trouble['kind']>(['empty', 'double', 'capitals', 'column', 'stale', 'dissolve', 'mislabel']);
 
 /**
  * A day's file sent again, later (ADR 0021 §6, Q-194, Q-195): `right`, as it should have been, the day's trouble on the
@@ -1366,6 +1420,9 @@ function drawnFile(w: Larkspur, file: DailyFile, d: string, planted: readonly Tr
         }
       }
       const monitor = planted.find((t) => t.kind === 'monitor');
+      // A migration lasts from its day (ADR 0023 §1, scene 4): who moved is decided by the day it happened.
+      const migration = w.trouble.find((t) => t.kind === 'migration' && t.file === file && d >= t.day);
+      const stays = (a: AppOn) => !!migration && a.created_on <= migration.day && rawStatus(w, control, a, migration.day) !== 'pass';
       const down = planted.find((t) => t.kind === 'controller');
       const expired = planted.find((t) => t.kind === 'ca');
       const status = new Map(covered.map((a) => [a.app_id, rawStatus(w, control, a, d)]));
@@ -1392,6 +1449,7 @@ function drawnFile(w: Larkspur, file: DailyFile, d: string, planted: readonly Tr
           row[columns.indexOf('last_event')] = `${addDays(d, -1)}T00:15:00Z`;
           row[columns.indexOf('retention_days')] = a.data_class === 'pci' ? 365 : int(90, 400, uniform(w.seed, a.app_id, file, 'retention'));
         }
+        if (migration && row[columns.indexOf('pipeline')] === 'log-dc' && !stays(a)) row[columns.indexOf('pipeline')] = a.site === 'DC-WEST' ? 'log-west' : 'log-east';
         rows.push(row);
       }
     }

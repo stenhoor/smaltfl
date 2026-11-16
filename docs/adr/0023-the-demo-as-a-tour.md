@@ -189,6 +189,61 @@ ADR 0022's Q-84 (levels and fills for slots of a day) and slice 5 (Q-139, propos
 - `test/gates.test.ts`: a gated flow's lasting change that moves most of the rows holds every day of two weeks, not its
   first alone, and nothing after the day it is accepted.
 
+### Slice 4: the tour month (2026-11-16)
+
+- **The tour's days** (`LARKSPUR_TOUR_DAYS` and `LARKSPUR_TOUR` in `test/fixtures/larkspur.ts`;
+  `scripts/data/larkspur.mjs --tour`). A scene a day, calm days between, two of the month's layering stories kept as
+  more to see. The month of ADR 0020 stays the tests', its answer key unmoved.
+
+  | Day | Scene | What arrives | What was decided (`examples/larkspur/tour.json`) |
+  |---|---|---|---|
+  | Mon 4 | 3, a written check holds a file | the MFA file empty: its amount holds it | kept back; sent again overnight, published |
+  | Tue 5 | 2, a warning | the scanner's capitals: findings unusual | published, left for the visitor's reactions |
+  | Wed 6 | 1, a normal day | every file as drawn | nothing to decide |
+  | Fri 8 | more to see | a department dropped from the HR extract: silver's chain rules hold | sent again that morning, published |
+  | Tue 12 | 4, an anomaly that was real | the log pipelines' migration: a third of the logging file moves off the data centres' pipeline | published as is |
+  | Wed 13 | 4 | the new level holds again (Q-86) | the owner accepts it |
+  | Thu 14 | 4 | judged at the new level | nothing to decide |
+  | Mon 18 | 5, an anomaly that was an issue | the backup export writes a third of its completed jobs as partial | filled forward from Sun 17 |
+  | Wed 20 | 5 | Monday's backup file sent again | published, replacing the fill |
+  | Thu 21 | 6, one file replaced | the TLS file's rows twice: its key, silver's and gold's hold | that file alone sent again, published |
+  | Sat 23 | 6, a fill backward | the EDR file empty | filled back from Sun 24 |
+  | Mon 25 | more to see | a certificate authority behind TLS and logging | told and published |
+  | Wed 27 | 6, the same weekday a week before | the access reviews' file empty | left for the visitor |
+
+- **Two new kinds of trouble.** `migration`: from its day, the data centres' applications send their logs through
+  their side's cloud pipeline, but for those whose logging failed or wasn't assessed that day, so the data centres'
+  pipeline drops from two fifths of the rows to a twentieth. `mislabel`: an export bug writes one value for another on a
+  share of a column's rows, the file sent again right. The log pipeline is labelled in Larkspur's ontology, so its
+  shares (and its pairs with the status) are counted.
+- **Choices made from §3's plan, as the month was built:**
+  - Scene 1 is Wed 6, not Fri 1: Fri 1 tells more pentest findings than usual, a warning on the day meant to have none.
+  - Scene 5's bug is on the backup file, not the encryption feed: carried from Sunday, the encryption file's statuses
+    contradicted Monday's key rotation for 8 applications, which the posture's needs rule holds, as it should, so no
+    fill of it could go.
+  - Sat 23 is filled back from Sun 24, the next good day, decided Sunday morning once its file is in.
+  - Wed 27 is left for the visitor to fill from the same weekday a week before; the warning's reactions on Tue 5 too.
+  - The dropped department is the layering story kept (Fri 8, not the reorg), with the certificate authority (Mon 25).
+- **What the recorder learned:**
+  - A story's `accept` records the held file's new level as the page works it out (`levelOf`), and publishes the day.
+    Larkspur's policies leave it to the owner.
+  - A later delivery pins its day's other files again: a file sent again after another day ran was read beside that
+    day's files (the backup file sent two days later met the next day's files).
+- **An accepted level breaks its column's pairs too** (`levelOn` in `src/core/history.ts`). A level on a column's values
+  broke every value and count of the column; the pairs the column is one of were still judged against the days before,
+  so the migration's pair of status and pipeline warned the day after it was accepted.
+- **The month marks a filled day filled** (`dayPause`, `recordedHeldLoads` in `src/app/main.ts`). A day the record holds
+  by load reads its held loads' pauses as one, as a run here does: a fill's release cites its file's decision alone, so
+  the steps' loads it decided too left Sat 23 drawn as paused, waiting.
+- **Built as a variant of the data list** (`data.json` `variants.tour`; `npm run build:app -- --variant tour --out
+  dist/app-tour`), its data made by `scripts/data/make.mjs`, which the build and the answer key share. The docs deploy
+  publishes it at `/tour/`, unlinked, until slice 5 puts it at `/app/` with its scene list.
+- **The answer key** (`test/larkspur-tour.test.ts`, `npm run test:tour` and a CI job of its own): the month made at the
+  demo's own scale, as the build makes it, about twelve minutes, and each scene's day held by the check it shows,
+  decided as its story says, every other day published. Not at the tests' scale: there the exceptions register has
+  sixty rows, five approvals move it by a twentieth, and a held day isn't learned from, so it holds to the month's end;
+  the demo's register never moves so.
+
 ## Consequences
 
 - **The demo at `/app/` changes:** its month, its story and its walks (`tools/browser/stops/larkspur.json`, `month.json`,

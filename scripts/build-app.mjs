@@ -5,17 +5,21 @@
 // daily loads and the days a paused one may be filled from, and each watched source's history, ADR 0010 §9).
 //
 //   node scripts/build-app.mjs            Larkspur (examples/larkspur/, ADR 0020), the demo
+//   node scripts/build-app.mjs --variant tour [--out dist/app-tour]
+//                                         Larkspur's tour month (ADR 0023): a variant of its data list, its own
+//                                         generator arguments and story
 //   node scripts/build-app.mjs --flow examples/security-signins/flow.json [--out dist/app-signins]
 //                                         another example. The flow's data list names a generator; it writes the
 //                                         daily files (with the list's `generateArgs`) and the general builder writes
 //                                         the history. Every build ships its document as data/flow.json, and a
 //                                         folder's flow ships with its notebooks' sources and the steps derived from them
 import { build } from 'esbuild';
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { dataNames, makeData } from './data/make.mjs';
 
 const outAt = process.argv.indexOf('--out');
 const out = outAt >= 0 ? process.argv[outAt + 1] : 'dist/app';
@@ -61,6 +65,12 @@ const flowAt = process.argv.indexOf('--flow');
 // The demo's flow unless another is named (ADR 0020 §8). The taxi example and its data branch were retired on 2026-11-15
 // (Q-208): every flow built here generates its own data.
 const flowPath = flowAt >= 0 ? process.argv[flowAt + 1] : 'examples/larkspur/flow.json';
+const variantAt = process.argv.indexOf('--variant');
+const variant = variantAt >= 0 ? process.argv[variantAt + 1] : null;
+/** A variant the data list doesn't have: refused, with the ones it has. */
+const missingVariant = (name, listed) => {
+  throw new Error(`${flowPath}'s data list has no variant ${name}: it has ${Object.keys(listed.variants ?? {}).join(', ') || 'none'}`);
+};
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 // The flow reader (scripts/flow.ts), bundled for Node: a folder's flow.json comes back with its notebooks loaded and its
 // steps derived (ADR 0011); a .smaltfl.json as it is.
@@ -109,8 +119,10 @@ writeFileSync(`${out}/index.html`, `<!doctype html><html lang="en"><head><meta c
 writeFileSync(`${out}/bundles.json`, JSON.stringify(hashed, null, 2) + '\n');
 {
   // Its data list's generator writes its daily files (generated, never fetched), the general builder measures the
-  // history from the days before the loads, and the document ships beside them (ADR 0010 §9).
-  const bind = bindingsOf(flowPath);
+  // history from the days before the loads, and the document ships beside them (ADR 0010 §9). A variant of the data list
+  // (`--variant`, the tour's: ADR 0023 §2) generates its own month with its own story.
+  const listed = bindingsOf(flowPath);
+  const bind = variant ? { ...listed, ...(listed.variants?.[variant] ?? missingVariant(variant, listed)) } : listed;
   if (!bind.generate) throw new Error(`${flowPath}'s data list names no generator for its files`);
   const flowDoc = await readFlow(flowPath);
   // The generated days, histories and samples depend only on the generator, the flow, the runtime and the pins: they
@@ -126,75 +138,12 @@ writeFileSync(`${out}/bundles.json`, JSON.stringify(hashed, null, 2) + '\n');
   if (!cached) {
     rmSync(work, { recursive: true, force: true });
     mkdirSync(work, { recursive: true });
-    // The recorded story's later deliveries are written by the generator too (ADR 0021 §6).
-    execFileSync('node', [bind.generate, work, ...(bind.generateArgs ?? []), ...(bind.story ? ['--story', bind.story] : [])], { stdio: 'inherit' });
-  }
-  // One history a watch (ADR 0013 §5): a control's from its own files (base.<watch>.json, else base.json), a watched
-  // step's from a run of the flow on each day's files.
-  const watches = Object.keys(flowDoc.publish?.watch ?? {});
-  const historyName = (w) => (watches.length === 1 ? 'history.json' : `history.${w}.json`);
-  // The generator's fixed sources (an inventory), which a gate's scope rule reads beside each load (ADR 0014 §4).
-  const generated = existsSync(join(work, 'loads.json')) ? JSON.parse(readFileSync(join(work, 'loads.json'), 'utf8')) : null;
-  const fixedArgs = Object.entries((generated && !Array.isArray(generated) && generated.fixed) || {}).flatMap(([id, path]) => ['--fixed', `${id}=${path}`]);
-  // Every watch keeps a sample beside its history, for the classifier (ADR 0014 §5, ADR 0015 §6: it runs wherever a
-  // sample is kept, a gate or not).
-  const sampled = watches.length > 0;
-  const sampleName = (w) => (watches.length === 1 ? 'sample.json' : `sample.${w}.json`);
-  // Every metric's range for the first loads day, computed ahead beside each history (ADR 0019): the day's own files,
-  // as the history's loads list them.
-  const rangesName = (w) => (watches.length === 1 ? 'ranges.json' : `ranges.${w}.json`);
-  const firstLoad = generated && !Array.isArray(generated) ? generated.loads?.[0] : null;
-  const nextOf = (w, base) => {
-    if (!firstLoad?.files) return null;
-    const listed = JSON.parse(readFileSync(base, 'utf8'));
-    const shape = Array.isArray(listed) ? listed.at(-1) : null;
-    if (!shape) return null;
-    // The first day's files as the history's last day lists them: a fixed file is the same file.
-    const files = shape.files ? { files: Object.fromEntries(Object.keys(shape.files).map((id) => [id, firstLoad.files[id]?.file ?? shape.files[id]])) } : {};
-    if (shape.file !== undefined) return firstLoad.files[w] ? { slot: firstLoad.slot, file: firstLoad.files[w].file, ...files } : null;
-    return { slot: firstLoad.slot, ...files };
-  };
-  // A watch's days: its own list (base.<watch>.json); for a watched step, the steps' (base.steps.json), where the
-  // generator gives them fewer days than the files, since each is a run of the flow; else the files' (base.json).
-  const isStep = (w) => flowDoc.steps.some((s) => s.id === w && s.dataset !== undefined);
-  const baseOf = (w) => [`base.${w}.json`, ...(isStep(w) ? ['base.steps.json'] : []), 'base.json'].map((f) => join(work, f)).find((f) => existsSync(f)) ?? join(work, 'base.json');
-  if (!cached) {
-    // Two histories at a time (each runs its days on every core); the longest first, the watched steps' (a run of the
-    // flow a day) before any file's. The watched steps on the same days are measured from one run of the flow a day
-    // (history.mjs --watch a,b,c), each still its own history.
-    const groups = [];
-    for (const w of watches) {
-      const base = baseOf(w);
-      const same = isStep(w) && watches.length > 1 ? groups.find((g) => g.step && g.base === base) : undefined;
-      if (same) same.ws.push(w);
-      else groups.push({ ws: [w], base, step: isStep(w) });
-    }
-    const runs = groups.map(({ ws, base, step }) => {
-      const several = ws.length > 1;
-      const name = (of) => (several ? of('{watch}') : of(ws[0]));
-      const next = nextOf(ws[0], base);
-      const ahead = next ? ['--next', JSON.stringify(next), '--ranges', join(work, name(rangesName))] : [];
-      return { w: ws.join(', '), step, size: statSync(base).size, argv: ['scripts/data/history.mjs', '--flow', flowPath, '--watch', ws.join(','), '--files', base, ...fixedArgs, ...(sampled ? ['--sample', join(work, name(sampleName))] : []), ...ahead, join(work, name(historyName))] };
-    }).sort((a, b) => Number(b.step) - Number(a.step) || b.size - a.size);
-    await inParallel(runs, 2, ({ w, argv }) => new Promise((done, fail) => {
-      const child = spawn('node', argv, { stdio: 'inherit' });
-      child.on('close', (code) => (code === 0 ? done() : fail(new Error(`the history of ${w} failed (${code})`))));
-    }));
-    // The first loads day's types computed ahead (ADR 0019 amendment 2): one run of the flow on the day's files, every
-    // source's (a daily one's first file, a fixed one's own), as the page runs it.
-    if (firstLoad?.files && watches.length) {
-      const files = { ...Object.fromEntries(Object.entries(firstLoad.files).map(([id, f]) => [id, f.file])), ...(generated.fixed ?? {}) };
-      execFileSync('node', ['scripts/data/history.mjs', '--types', join(work, 'types.json'), '--flow', flowPath, '--next', JSON.stringify({ slot: firstLoad.slot, files })], { stdio: 'inherit' });
-    }
-    // The month recorded (ADR 0021 §6): every loads day run in order as the page runs one, each run recorded as the page
-    // records one, at the story's time; the page draws the month from it and layers it under its own record.
-    // With a story, its deliveries and decisions too, at their times.
-    if (watches.length) execFileSync('node', ['scripts/data/record.mjs', '--flow', flowPath, '--work', work, '--build', commit, ...(bind.story ? ['--story', bind.story] : []), join(work, 'month.json')], { stdio: 'inherit' });
-    // A run that ended without writing its history is a broken build, never a finished one the next build reuses.
-    const unwritten = watches.filter((w) => !existsSync(join(work, historyName(w))));
-    if (unwritten.length) throw new Error(`no history written for ${unwritten.join(', ')}: ${work} is left unfinished, and is made again`);
+    await makeData({ flowPath, flowDoc, work, generate: bind.generate, generateArgs: bind.generateArgs ?? [], story: bind.story ?? null, commit });
     writeFileSync(join(work, '.done'), `${new Date().toISOString()}\n`);
   }
+  const watches = Object.keys(flowDoc.publish?.watch ?? {});
+  const { historyName, sampleName, rangesName } = dataNames(watches);
+  const sampled = watches.length > 0;
   console.log(`${cached ? 'reused' : 'made'} the generated data and ${watches.length} histories (${key.slice(0, 12)}) in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
   mkdirSync(`${out}/data/loads`, { recursive: true });
   const entry = (name, bytes, from) => {
@@ -245,23 +194,15 @@ writeFileSync(`${out}/bundles.json`, JSON.stringify(hashed, null, 2) + '\n');
     }
     days = made.loads.length;
   }
-  // The cache keeps the three data sets used last (the site deploys three demos; Larkspur's is about 430 MB, the others
-  // tens of MB): an older one is made again if it is needed.
+  // The cache keeps the four data sets used last (the site deploys four demos, Larkspur's two months about 430 MB each,
+  // the others tens of MB): an older one is made again if it is needed.
   const root = 'node_modules/.cache/smaltfl/data';
   const kept = readdirSync(root).map((k) => ({ k, t: statSync(join(root, k)).mtimeMs })).sort((a, b) => b.t - a.t);
-  for (const { k } of kept.slice(3)) if (k !== key) rmSync(join(root, k), { recursive: true, force: true });
+  for (const { k } of kept.slice(4)) if (k !== key) rmSync(join(root, k), { recursive: true, force: true });
   const first = Object.values(sources).find((s) => s.loads)?.loads[0];
   const index = { format: 2, month: first?.slot.slice(0, 7), built: new Date().toISOString().slice(0, 19) + 'Z', data: null, flow: flowEntry, sources, histories, ...(Object.keys(samples).length ? { samples } : {}), ...(Object.keys(ranges).length ? { ranges } : {}), ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), episodes: [], ...(bind.judged ? { judged: bind.judged } : {}), ...(bind.posture ? { posture: bind.posture } : {}) };
   writeFileSync(`${out}/data/loads.json`, JSON.stringify(index, null, 2) + '\n');
   console.log(`built ${out} (${commit.slice(0, 12)}) with ${flowPath}: ${days} days of ${Object.values(sources).filter((s) => s.loads).length} daily source(s) and ${watches.length} histories, generated by ${bind.generate}`);
-}
-
-/** Runs `go` over `items`, at most `n` at a time. */
-async function inParallel(items, n, go) {
-  const queue = [...items];
-  await Promise.all(Array.from({ length: Math.min(n, queue.length) }, async () => {
-    while (queue.length) await go(queue.shift());
-  }));
 }
 
 /**
@@ -282,6 +223,6 @@ async function dataKey(flowPath, bind) {
   walk('examples');
   const h = createHash('sha256');
   for (const f of [...files].filter((f) => existsSync(f)).sort()) h.update(f).update('\0').update(readFileSync(f)).update('\0');
-  h.update(JSON.stringify({ flowPath, generate: bind.generate, args: bind.generateArgs ?? [] }));
+  h.update(JSON.stringify({ flowPath, generate: bind.generate, args: bind.generateArgs ?? [], story: bind.story ?? null }));
   return h.digest('hex');
 }

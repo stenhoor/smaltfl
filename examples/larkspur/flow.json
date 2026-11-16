@@ -1330,7 +1330,12 @@
       {
         "column": "pipeline",
         "title": "Pipeline",
-        "description": "The log pipeline its logs go through"
+        "description": "The log pipeline its logs go through",
+        "values": {
+          "log-east": "Log pipeline, east",
+          "log-west": "Log pipeline, west",
+          "log-dc": "Log pipeline, data centres"
+        }
       },
       {
         "column": "forwarder_issuer",

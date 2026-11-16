@@ -15,10 +15,11 @@ match smaltdb's `CLAUDE.md`.
 | `npm run deps:latest` | Moves every pin in `packed.json` to the latest commit of its repository's `main` and installs them (`-- --check` only says which are behind). See "The smalt repositories" | At the start of every session, before other work |
 | `npm run check` | `npm run typecheck` then `npm test` (vitest, under a minute on four cores) | Before every commit |
 | `npm run test:slow` | The month-long engine runs `npm test` leaves out (`SLOW` in `vitest.config.ts`: `test/estate-flow.test.ts`, about 90 s). CI runs it, and `npm run test:isolated` (every file in a fresh module graph), in a job beside `test` | Changes to the runtime, the gates or the estate |
+| `npm run test:tour` | The tour's answer key (`test/larkspur-tour.test.ts`, ADR 0023): Larkspur's tour month made at the demo's scale as the build makes it (`scripts/data/make.mjs`), about twelve minutes; a CI job of its own. `SMALTFL_TOUR_WORK=<folder>` checks a month made already (the build's cache) | Changes to the judge, the recorder, the generator or the tour's story |
 | `npm run build` | `dist/`: the core (`index.js`), the runtime plugin (`plugin/index.js`) and their declarations | Packaging checks |
 | `npm run docs:dev` | The site (VitePress, `docs/`, the brand kit copied unchanged into `docs/.vitepress/theme/`); `.github/workflows/docs.yml` deploys it to GitHub Pages with Larkspur at `/app/` (the demo, ADR 0020), the control estate at `/estate/` and the sign-ins at `/signins/` (each build writes `index.html` beside `page.html`) | Docs and site changes |
 | `npm run bench` | The scenario benchmarks in `bench/`, written to `bench/results/node.json` | Changes that could affect speed |
-| `npm run build:app` | The app in `dist/app` on Larkspur (`examples/larkspur/`, its notebooks expanded, shipped as `data/flow.json`, its days generated from its seed); `-- --flow examples/security-signins/flow.json --out dist/app-signins` for the sign-ins (its generator's `--demo` days from the data list's `generateArgs`). Bundles are named by content (`bundles.json`). A generated flow's days, histories and samples are kept in `node_modules/.cache/smaltfl/data/<hash of what makes them>/`: after a change to the app alone the build takes seconds, not minutes (the docs deploy caches the same folder) | Changes to `src/app` |
+| `npm run build:app` | The app in `dist/app` on Larkspur (`examples/larkspur/`, its notebooks expanded, shipped as `data/flow.json`, its days generated from its seed); `-- --variant tour --out dist/app-tour` for its tour month (ADR 0023, the data list's `variants`); `-- --flow examples/security-signins/flow.json --out dist/app-signins` for the sign-ins (its generator's `--demo` days from the data list's `generateArgs`). Bundles are named by content (`bundles.json`). A generated flow's days, histories and samples are kept in `node_modules/.cache/smaltfl/data/<hash of what makes them>/`: after a change to the app alone the build takes seconds, not minutes (the docs deploy caches the same folder) | Changes to `src/app` |
 | `node tools/browser/regress.cjs APP OUT estate notebook split@desktop,tablet-wide,wide` | The browser regression: each stop set at every size (phone, tablet, tablet-wide, desktop, wide), as many at once as there are cores, one table of what passed; `--devices` narrows the sizes. Copy the built app out of `dist/` first | Before a PR that touches `src/app`; one set and its sizes while iterating |
 
 `npm run typecheck` runs on TypeScript 7: `typescript7`, an npm alias, run as `node node_modules/typescript7/bin/tsc`.
@@ -439,7 +440,13 @@ release (smaltty ADR 0030).
   story fills Wed Mar 6 from Tue 5, and Wednesday's own export replaces the fill (`test/fill-whole.test.ts` in the
   engine). Slice 3 is built: a lasting change keeps pausing until accepted (Q-86; `quiet` in `news.ts` holds every day
   a value of the mix stands at three times its usual share or a third of it, not its first alone), and the app accepts
-  the held file's level on any day of it (`acceptFor`, `subjectFor`). ADR 0022's Q-84 and slice 5 (Q-139) come after.
+  the held file's level on any day of it (`acceptFor`, `subjectFor`). Slice 4 is built: the tour month
+  (`LARKSPUR_TOUR_DAYS`, `LARKSPUR_TOUR`, the trouble kinds `migration` and `mislabel`; `scripts/data/larkspur.mjs
+  --tour`; `examples/larkspur/tour.json`, the data list's `variants.tour`, `build:app -- --variant tour`, deployed at
+  `/tour/` until slice 5), its data made by `scripts/data/make.mjs` (the build's and the answer key's), the recorder's
+  `accept` (`levelToAccept`) and a late delivery reading its own day, an accepted level breaking its column's pairs
+  (`levelOn`), and its answer key at the demo's scale (`test/larkspur-tour.test.ts`, `npm run test:tour`). Slice 5, the
+  scene list in the app, is next. ADR 0022's Q-84 and slice 5 (Q-139) come after.
 
 ## Rules for this repository
 

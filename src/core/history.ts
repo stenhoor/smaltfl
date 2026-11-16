@@ -420,12 +420,17 @@ const HELD: Partial<Record<Metric['of'], (r: NormalRange, v: number, d: number) 
   dropped: (r, v) => v >= 2 * r.expected && v >= 0.1,
 };
 
-/** Whether a level applies to a metric: it names it, or it names the rows and the metric counts rows. */
-/** Whether a level applies to a metric: one it names; every count, for a level of the rows; and every value of a column
+/** Whether a level applies to a metric: one it names; every count, for a level of the rows; every value of a column
  * one of whose values' shares it names, share and count, since a column's shares move together (a migration from
- * password to passkey moves both, at its own pace). */
+ * password to passkey moves both, at its own pace); and every pair that column is one of, since the shares that moved
+ * move how its values go with the other column's too (ADR 0023 slice 4: the log pipelines' migration leaves the data
+ * centres' pipeline the failing applications alone, and a pair its day didn't tell, judged against the days before,
+ * told it the day after the new level was accepted). */
 const levelOn = (l: Level, m: Metric): boolean =>
-  l.metrics.includes(metricKey(m)) || (l.metrics.includes('trips') && SCALES[m.of] === 'count') || ((m.of === 'value' || m.of === 'count') && l.metrics.some((k) => k.startsWith(`value:${m.column}=`)));
+  l.metrics.includes(metricKey(m)) ||
+  (l.metrics.includes('trips') && SCALES[m.of] === 'count') ||
+  ((m.of === 'value' || m.of === 'count') && l.metrics.some((k) => k.startsWith(`value:${m.column}=`))) ||
+  (m.of === 'combo' && m.pair.split('|').some((c) => l.metrics.some((k) => k.startsWith(`value:${c}=`))));
 
 /** Each metric's normal ranges over a history, made once a metric. */
 export class HistoryRanges {
