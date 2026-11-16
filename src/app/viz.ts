@@ -1962,7 +1962,9 @@ export function scoreTrend(o: { days: readonly string[]; points: readonly ScoreP
   const last = score.pts.at(-1);
   if (last) s += `<text x="${f1(Math.min(w - 30, x(last.i) + 5))}" y="${f1(Math.max(top + 10, y(last.v) - 6))}" class="lbl-b">${last.v.toFixed(1)}</text>`;
   if (o.days.length) {
-    const day = (d: string) => `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(`${d}T00:00:00Z`).getUTCDay()]} ${Number(d.slice(8, 10))}`;
+    // Days over more than one month say their month too ("Thu Feb 1"), as their numbers alone repeat.
+    const months = o.days[0]!.slice(0, 7) !== o.days.at(-1)!.slice(0, 7);
+    const day = (d: string) => `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(`${d}T00:00:00Z`).getUTCDay()]}${months ? ` ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(d.slice(5, 7)) - 1]}` : ''} ${Number(d.slice(8, 10))}`;
     s += `<text x="${gx}" y="${h - 2}" class="lbl-m">${esc(day(o.days[0]!))}</text><text x="${w - 4}" y="${h - 2}" text-anchor="end" class="lbl-m">${esc(day(o.days.at(-1)!))}</text>`;
   }
   return `${s}</svg>`;

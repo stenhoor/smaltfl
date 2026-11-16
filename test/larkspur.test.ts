@@ -13,8 +13,8 @@
  * - a day at the demo's scale is about 2,400 applications and 25,000 rows;
  * - each bronze day ADR 0020 §5 plants is in its file as the table says, and in no other file that day;
  * - a file sent again later (ADR 0021 §6) is the file as it should have been, or a doubled one with half its repeats out;
- * - the tour's month (ADR 0023 §3) plants each scene on its day, in its file alone: the log pipelines' migration lasting
- *   from its day, the backup export's mislabel on its day.
+ * - the tour's two months (ADR 0023 §3, amendment 1) plant each scene on its day, in its file alone: the log pipelines'
+ *   migration lasting from its day, the backup export's mislabel on its day; their world is steady.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -885,7 +885,7 @@ describe('a day’s file sent again (ADR 0021 §6, Q-194, Q-195)', () => {
   });
 });
 
-describe('the tour’s month (ADR 0023 §3): a scene a day, in its file alone', () => {
+describe('the tour’s two months (ADR 0023 §3, amendment 1): a scene a day, in its file alone', () => {
   const D = LARKSPUR_TOUR_DAYS;
   const tour = larkspur({ apps: 650, trouble: LARKSPUR_TOUR, steady: true });
   /** The tour without some of its trouble: what a scene's file is compared with. */
@@ -907,10 +907,39 @@ describe('the tour’s month (ADR 0023 §3): a scene a day, in its file alone', 
     expect(dueMar15(calm)).toBeGreaterThan(0.4);
     expect(dueMar15(calmTour)).toBeLessThan(0.02);
     // February's scanner findings: on Patch Tuesday (Feb 13) the answer key's world finds most of them at once; the tour's
-    // finds them through the four weeks after it, about a day's worth each day.
+    // finds them through the weeks up to the next one, about a day's worth each day, the days before Feb 13 too.
     const found = (x: typeof calm, d: string) => appsOn(x, on).flatMap((a) => findingsOf(x, a)).filter((f) => f.source === 'scan' && f.found === d).length;
     expect(found(calm, '2024-02-13')).toBeGreaterThan(10 * found(calm, '2024-02-14'));
     expect(found(calmTour, '2024-02-13')).toBeLessThan(3 * Math.max(1, found(calmTour, '2024-02-14')));
+    const week = (x: typeof calm, from: string) => Array.from({ length: 7 }, (_, i) => found(x, addDays(from, i))).reduce((a, b) => a + b, 0);
+    expect(week(calmTour, '2024-02-06')).toBeGreaterThan(0.5 * week(calmTour, '2024-02-14'));
+  });
+
+  it('is steady (amendment 1): the extract’s statuses, owners, hosting and sensors hold through the span', () => {
+    // The days the tour's history and its two months read, a week apart.
+    const days = Array.from({ length: 35 }, (_, i) => addDays('2023-08-01', 7 * i));
+    const statuses = (x: typeof calm, d: string) => {
+      const t = dayFile(x, 'hr_people', d);
+      return { left: t.rows.filter((r) => r[col(t, 'status')] === 'left').length, active: t.rows.filter((r) => r[col(t, 'status')] === 'active').length };
+    };
+    // Posts change hands evenly: as many leave each month, so as many are listed as left; the answer key's world drifts.
+    const left = days.map((d) => statuses(calmTour, d).left);
+    expect(Math.max(...left) - Math.min(...left)).toBeLessThanOrEqual(1);
+    const active = days.map((d) => statuses(calmTour, d).active);
+    expect(Math.max(...active) - Math.min(...active)).toBeLessThanOrEqual(8);
+    // Someone acts from a vacancy's first day and through every leave: no team goes without an owner.
+    for (const d of days) expect(appsOn(calmTour, d).filter((a) => a.lifecycle !== 'retired' && !ownedOn(calmTour, a.owner_team_id, d)), d).toEqual([]);
+    expect(days.some((d) => appsOn(calm, d).some((a) => a.lifecycle !== 'retired' && !ownedOn(calm, a.owner_team_id, d)))).toBe(true);
+    // New applications are hosted as the rest are, so the cloud's share holds; the answer key's builds in the cloud.
+    const cloud = (x: typeof calm, d: string) => appsOn(x, d).filter((a) => a.hosting === 'cloud').length / appsOn(x, d).length;
+    expect(Math.abs(cloud(calmTour, '2024-03-31') - cloud(calmTour, '2023-08-01'))).toBeLessThan(0.02);
+    expect(cloud(calm, '2024-03-31') - cloud(calm, '2023-08-01')).toBeGreaterThan(0.02);
+    // An EDR sensor keeps its version: the same each day, month after month.
+    const versions = (x: typeof calm, d: string) => new Map(dayFile(x, 'edr_coverage', d).rows.map((r) => [r[0], r[4]]));
+    const [jan, feb] = [versions(calmTour, '2024-01-31'), versions(calmTour, '2024-02-01')];
+    expect([...feb].filter(([app, v]) => jan.has(app) && jan.get(app) !== v)).toEqual([]);
+    const [janA, febA] = [versions(calm, '2024-01-31'), versions(calm, '2024-02-01')];
+    expect([...febA].filter(([app, v]) => janA.has(app) && janA.get(app) !== v).length).toBeGreaterThan(0);
   });
 
   it('plants each scene in its own file, and leaves the day’s other files as they were', () => {
@@ -925,7 +954,7 @@ describe('the tour’s month (ADR 0023 §3): a scene a day, in its file alone', 
     }
   });
 
-  it('empties the MFA file on Mon 4, the EDR file on Sat 23 and the access reviews on Wed 27, each sent right with its rows', () => {
+  it('empties the MFA file on Mon Feb 26, the EDR file on Sat Mar 23 and the access reviews on Wed Mar 27, each sent right with its rows', () => {
     for (const [file, day] of [['mfa', D.empty], ['edr_coverage', D.weekend], ['access_reviews', D.missing]] as const) {
       expect(dayFile(tour, file, day).rows, file).toHaveLength(0);
       const again = sentAgain(tour, file, day);
@@ -934,7 +963,7 @@ describe('the tour’s month (ADR 0023 §3): a scene a day, in its file alone', 
     }
   });
 
-  it('moves the data centres’ healthy applications to their side’s cloud pipeline from Tue 12, for good', () => {
+  it('moves the data centres’ healthy applications to their side’s cloud pipeline from Tue Mar 5, for good', () => {
     const before = dayFile(tour, 'logging_coverage', addDays(D.migration, -1));
     const on = dayFile(tour, 'logging_coverage', D.migration);
     // About two fifths of the rows go through the data centres' pipeline the day before; only those failing or not
@@ -967,7 +996,7 @@ describe('the tour’s month (ADR 0023 §3): a scene a day, in its file alone', 
     expect(() => sentAgain(tour, 'logging_coverage', D.migration)).toThrow(/drawn as it was/);
   });
 
-  it('mislabels a third of the backup file on Mon 18, statuses untouched; the file sent again is as it should have been', () => {
+  it('mislabels a third of the backup file on Mon Mar 11, statuses untouched; the file sent again is as it should have been', () => {
     const on = dayFile(tour, 'backup_jobs', D.mislabel);
     const right = dayFile(but((t) => t.kind === 'mislabel'), 'backup_jobs', D.mislabel);
     expect(on.rows).toHaveLength(right.rows.length);
@@ -990,7 +1019,7 @@ describe('the tour’s month (ADR 0023 §3): a scene a day, in its file alone', 
     expect(dayFile(tour, 'backup_jobs', addDays(D.mislabel, 1))).toEqual(dayFile(but((t) => t.kind === 'mislabel'), 'backup_jobs', addDays(D.mislabel, 1)));
   });
 
-  it('keeps two of the month’s layering stories: a department dropped on Fri 8, and a certificate authority behind two controls on Mon 25', () => {
+  it('keeps two of the month’s layering stories: a department dropped on Fri Feb 16, and a certificate authority behind two controls on Mon Mar 18', () => {
     expect(tour.planted.dissolved).toMatchObject({ day: D.dissolve });
     expect(tour.planted.moves).toEqual([]);
     const tls = dayFile(tour, 'tls', D.ca);

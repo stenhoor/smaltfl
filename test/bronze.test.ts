@@ -79,6 +79,19 @@ describe('the estate’s waf on Tue Mar 12', () => {
     expect(none.verdict).toBe('unjudged');
     expect(verdictSaid(none)).toBe('Not judged yet: no history for this day');
   });
+
+  it('leaves what reads the history’s ranges unjudged on a day the history has nothing like (ADR 0010 §1)', async () => {
+    const { section, gate } = await setup();
+    // A holiday the history has never seen: the day's rows have no range, so the amount, the blanks and the learned
+    // shares aren't judged; the columns, the freshness and what the ontology writes still are.
+    const b = bronzeOf(section, gate, [finding({ kind: 'unlearned', severity: 'ok' })], { judged: true });
+    for (const id of ['waf/~amount', 'waf/~blanks', 'waf/~shares']) expect(b.checks.find((c) => c.id === id)?.state, id).toBe('unjudged');
+    expect(b.checks.find((c) => c.id === 'waf/~schema')?.state).toBe('ok');
+    expect(b.verdict).toBe('clean');
+    expect(b.unlearned).toBeGreaterThanOrEqual(3);
+    expect(verdictSaid(b)).toMatch(new RegExp(`^No quality issues: \\d+ checks passed, ${b.unlearned} not judged yet$`));
+    expect(bronzeOf(section, gate, [], { judged: true }).unlearned).toBe(0);
+  });
 });
 
 describe('a rule people set is a check', () => {

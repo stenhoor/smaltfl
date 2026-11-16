@@ -1853,6 +1853,13 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .mo-known select { font: inherit; padding: 6px 8px; min-height: 36px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); max-width: 100%; }
 .mo-trend svg { display: block; max-width: 100%; height: auto; }
 .mo-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+/* Days over more than one month: a calendar a month, each under its name (ADR 0023 amendment 1), one above the other,
+   side by side only where a window is wide enough for both at the tablet's cell size. */
+.mo-cals { display: grid; gap: 16px; }
+.mo-month-name { margin: 0 0 6px; font-size: 15px; font-weight: 700; }
+@media (min-width: 1800px) {
+  .mo-cals { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+}
 .mo-wd { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); text-align: center; }
 .mo-d { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; min-height: 52px; padding: 6px 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
 .mo-d[aria-pressed="true"] { outline: 2px solid var(--smalt); outline-offset: 1px; }

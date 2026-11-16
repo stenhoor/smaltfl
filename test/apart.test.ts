@@ -5,9 +5,9 @@
  * columns the held-out half loses most on when shuffled. Learned: it warns under the layer's defaults.
  */
 import { describe, expect, it } from 'vitest';
-import { apartEvidence, apartSpeaks, appendSample, aucOf, clockColumns, emptySample, keepSample, likeDays, sampleRows, tellApart } from '../src/core/apart.js';
+import { apartColumns, apartEvidence, apartSpeaks, appendSample, aucOf, clockColumns, emptySample, keepSample, likeDays, sampleRows, tellApart } from '../src/core/apart.js';
 import { LAYER_DEFAULTS } from '../src/core/gates.js';
-import { HistoryRanges } from '../src/core/history.js';
+import { columnsOfLevel, HistoryRanges } from '../src/core/history.js';
 import { LEGACY_JUDGE, newsOf } from '../src/core/news.js';
 import { plusDays } from '../src/core/calendar.js';
 import { random } from '../src/core/quality.js';
@@ -148,5 +148,25 @@ describe('telling today apart', () => {
     expect('days' in fewer ? fewer.days.every((d) => d > '2023-09-20') && fewer.days.length > 0 : false).toBe(true);
     expect(apartEvidence(emptySample({ flow: 'f', source: 's', columns: COLUMNS, kinds: [...KINDS] }), rows(200, 1), '2023-10-11', 'none')).toEqual({ why: 'no like days kept in the sample yet' });
     expect(apartEvidence(sample, rows(10, 1), '2023-10-11', 'none')).toEqual({ why: 'too few rows a side to learn from' });
+  });
+
+  it('leaves out a column a new level moved while its like days reach back before the level (ADR 0023 slice 3)', () => {
+    let sample = emptySample({ flow: 'f', source: 's', columns: COLUMNS, kinds: [...KINDS] });
+    for (let i = 1; i <= 28; i++) sample = appendSample(sample, `2023-09-${String(i).padStart(2, '0')}`, rows(60, i));
+    // The status's shares moved, and the owner accepted the new level from Oct 10: the days the classifier reads, from
+    // Sep 13, are before it, so the status says nothing of today there.
+    const level = { from: '2023-10-10', metrics: ['value:status=fail'] };
+    const moved = (since: string) => (since < level.from && level.from <= '2023-10-11' ? ['status'] : []);
+    const accepted = apartEvidence(sample, rows(200, 500, 0.5), '2023-10-11', 'none', () => true, () => false, moved);
+    if ('why' in accepted) throw new Error('it runs');
+    expect(accepted.speaks).toBe(false);
+    expect(apartColumns(sample, '2023-10-11', 'none', () => true, () => null, moved).find((c) => c.column === 'status')?.why).toBe('a new level was accepted since the days it learns from');
+    // Through the history: the level a decision accepted is read from the history's levels, a pair's columns both.
+    expect(columnsOfLevel(level)).toEqual(['status']);
+    expect(columnsOfLevel({ metrics: ['trips', 'combo:status|exposed=1', 'quantile:age@0.5', 'rule:known'] })).toEqual(['status', 'exposed', 'age']);
+    const h = new HistoryRanges(historyWith(), { levels: [level] });
+    expect(h.movedSince('2023-09-13', '2023-10-11')).toEqual(['status']);
+    expect(h.movedSince('2023-10-10', '2023-10-11')).toEqual([]);
+    expect(h.movedSince('2023-09-13', '2023-10-09')).toEqual([]);
   });
 });

@@ -6,8 +6,8 @@
 //
 //   node scripts/build-app.mjs            Larkspur (examples/larkspur/, ADR 0020), the demo
 //   node scripts/build-app.mjs --variant tour [--out dist/app-tour]
-//                                         Larkspur's tour month (ADR 0023): a variant of its data list, its own
-//                                         generator arguments and story
+//                                         Larkspur's tour, February and March (ADR 0023): a variant of its data
+//                                         list, its own generator arguments and story
 //   node scripts/build-app.mjs --flow examples/security-signins/flow.json [--out dist/app-signins]
 //                                         another example. The flow's data list names a generator; it writes the
 //                                         daily files (with the list's `generateArgs`) and the general builder writes

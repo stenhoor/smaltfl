@@ -5187,7 +5187,7 @@ async function modelsTab(card: string, id: string): Promise<HTMLElement> {
   else if (!samples.has(id)) classBody.push(h('p', { class: 'of-none' }, 'No kept sample for this file: nothing to learn from.'));
   else if (!day || !a) classBody.push(h('p', { class: 'of-none' }, day ? `No kept rows of ${dayShort(day)} in this browser: run the day to keep them.` : 'No day to judge.'));
   else {
-    const e = apartEvidence(a.sample, a.today, day, judge.pattern, (d) => h0?.learnsFrom(d) ?? true, (c) => judge.models?.(c) != null);
+    const e = apartEvidence(a.sample, a.today, day, judge.pattern, (d) => h0?.learnsFrom(d) ?? true, (c) => judge.models?.(c) != null, (since) => h0?.movedSince(since, day) ?? []);
     if ('why' in e) classBody.push(h('p', { class: 'of-none' }, `It can’t judge ${dayShort(day)}: ${e.why}.`));
     else {
       const f = e.found;
@@ -5198,7 +5198,7 @@ async function modelsTab(card: string, id: string): Promise<HTMLElement> {
         // What tells today apart only means something when today can be told apart: at chance, the ranking is noise.
         !e.speaks ? h('p', { class: 'of-none' }, 'Nothing tells today apart: the model does about as well as chance.') : null,
         readsLine(...((): [string[], { column: string; why: string }[]] => {
-          const cols = apartColumns(a.sample, day, judge.pattern, (d) => h0?.learnsFrom(d) ?? true, (c) => judge.models?.(c) ?? null);
+          const cols = apartColumns(a.sample, day, judge.pattern, (d) => h0?.learnsFrom(d) ?? true, (c) => judge.models?.(c) ?? null, (since) => h0?.movedSince(since, day) ?? []);
           return [cols.filter((x) => !x.why).map((x) => names.column(x.column)), cols.flatMap((x) => (x.why ? [{ column: x.column, why: x.why }] : []))];
         })()),
         e.speaks && f.columns.length ? h('p', { class: 'eyebrow' }, 'What tells today apart') : null,
@@ -5237,7 +5237,7 @@ async function modelsTab(card: string, id: string): Promise<HTMLElement> {
       let judged = 0;
       for (const [i, d] of days.entries()) {
         if (!box.isConnected) return;
-        const e = apartEvidence(a.sample, a.sample.rows[a.sample.days.indexOf(d)] ?? [], d, judge.pattern, (x) => h0?.learnsFrom(x) ?? true, (c) => judge.models?.(c) != null);
+        const e = apartEvidence(a.sample, a.sample.rows[a.sample.days.indexOf(d)] ?? [], d, judge.pattern, (x) => h0?.learnsFrom(x) ?? true, (c) => judge.models?.(c) != null, (since) => h0?.movedSince(since, d) ?? []);
         if (!('why' in e)) (judged++, e.speaks && flagged.push(d));
         if (i % 3 === 2) await breathe();
       }
@@ -11280,6 +11280,16 @@ const countOfLoad = (k: number): number | null => {
   return [...state.runs].reverse().find((r) => r.load === k && !r.derived)?.result.manifest.nodes.find((x) => x.origin === src)?.rows ?? null;
 };
 const dayPlus = (day: string, n: number) => new Date(dateOf(day).getTime() + n * 864e5).toISOString().slice(0, 10);
+/** A month (`YYYY-MM`) by its name: "March 2024". */
+const monthName = (ym: string): string => dateOf(`${ym}-01`).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+/** The months two days span, by name: one month's ("March 2024"), or both ends' ("February–March 2024", or "December
+ * 2023–January 2024" across a year). */
+function spanName(first: string, last: string): string {
+  const [a, b] = [first.slice(0, 7), last.slice(0, 7)];
+  if (a === b) return monthName(a);
+  const month = (ym: string) => dateOf(`${ym}-01`).toLocaleDateString('en-US', { month: 'long', timeZone: 'UTC' });
+  return a.slice(0, 4) === b.slice(0, 4) ? `${month(a)}–${monthName(b)}` : `${monthName(a)}–${monthName(b)}`;
+}
 /** A day's week, by its Monday. */
 const mondayOf = (day: string) => dayPlus(day, -((dateOf(day).getUTCDay() + 6) % 7));
 /** The loads a sheet and the strip step through, by place in the list: those of the episode on show. */
@@ -12479,6 +12489,8 @@ function renderMonth(): void {
   const box = $('view-month');
   if (!box || box.hidden) return;
   const days = daysShown();
+  // The months the days span: one, or more (ADR 0023 amendment 1: the tour's February and March).
+  const months = [...new Set(days.map((d) => d.slice(0, 7)))];
   const at = monthView.at;
   const month = monthOf(days, allEntries(), { at, judged: loadSource() });
   const facts = new Map(month.map((d) => [d.day, calendarDay(d)]));
@@ -12515,32 +12527,44 @@ function renderMonth(): void {
   const trend = post && scored.length >= 2
     ? h('div', { class: 'panel mo-trend' }, h('p', { class: 'eyebrow' }, `${post.title} · the group’s score on each day published`),
         svgNode(scoreTrend({ days, points, w: Math.min(1600, Math.max(280, (box.clientWidth || 358) - 34)), aria: `${post.title}: the group’s score and coverage on each day published`, gap: 'not published' })),
-        h('p', { class: 'foot' }, `${scored[0]!.score!.toFixed(1)} on ${dayShort(scored[0]!.day)}, ${scored.at(-1)!.score!.toFixed(1)} on ${dayShort(scored.at(-1)!.day)}${at ? ', as known then' : ''}.`))
+        h('p', { class: 'foot' }, `${scored[0]!.score!.toFixed(1)} on ${months.length > 1 ? dayLabel(scored[0]!.day) : dayShort(scored[0]!.day)}, ${scored.at(-1)!.score!.toFixed(1)} on ${months.length > 1 ? dayLabel(scored.at(-1)!.day) : dayShort(scored.at(-1)!.day)}${at ? ', as known then' : ''}.`))
     : null;
-  // The calendar: a week a row from Monday, a day a cell, a gap for a day the episode doesn't have.
-  const cells: Node[] = [];
-  if (days.length) {
-    for (let i = 0, lead = (dateOf(days[0]!).getUTCDay() + 6) % 7; i < lead; i++) cells.push(h('span', { class: 'mo-pad', 'aria-hidden': 'true' }));
-    for (let d = days[0]!; d <= days.at(-1)!; d = dayPlus(d, 1)) {
-      const md = month.find((x) => x.day === d);
-      const f = facts.get(d);
-      if (!md || !f) {
-        cells.push(h('span', { class: 'mo-pad', 'aria-hidden': 'true' }));
-        continue;
+  // The calendar: a week a row from Monday, a day a cell, a gap for a day the episode doesn't have. Days that span more
+  // than one month are drawn a calendar a month, each under its name (ADR 0023 amendment 1: the tour's February and
+  // March), so a week never runs across two months.
+  const monthCells = (span: readonly string[]): Node[] => {
+    const cells: Node[] = [];
+    if (span.length) {
+      for (let i = 0, lead = (dateOf(span[0]!).getUTCDay() + 6) % 7; i < lead; i++) cells.push(h('span', { class: 'mo-pad', 'aria-hidden': 'true' }));
+      for (let d = span[0]!; d <= span.at(-1)!; d = dayPlus(d, 1)) {
+        const md = month.find((x) => x.day === d);
+        const f = facts.get(d);
+        if (!md || !f) {
+          cells.push(h('span', { class: 'mo-pad', 'aria-hidden': 'true' }));
+          continue;
+        }
+        const w = would.get(d);
+        const label = f.label;
+        cells.push(h('button', { type: 'button', class: `mo-d st-${f.state}${f.decided && f.decided !== 'waiting' ? ` dec-${f.decided}` : ''}${f.corrected ? ' corrected' : ''}${f.restated ? ' restated' : ''}${w?.changed ? ' would-change' : ''}${d === now ? ' at' : ''}`, 'data-day': d, 'aria-pressed': String(d === pick), 'aria-label': label, title: label, onclick: () => {
+          monthView.pick = d;
+          renderMonth();
+        }, ondblclick: () => (location.hash = dayHash(d)) },
+          h('span', { class: 'mo-date' }, String(dateOf(d).getUTCDate())),
+          h('span', { class: 'mo-mark' }, dayMark(f.state, f.decided, 14, f.corrected), w?.changed ? h('span', { class: 'mo-delta', 'aria-hidden': 'true' }, 'Δ') : null),
+          f.headline ? h('span', { class: 'mo-hl' }, f.headline) : null));
       }
-      const w = would.get(d);
-      const label = f.label;
-      cells.push(h('button', { type: 'button', class: `mo-d st-${f.state}${f.decided && f.decided !== 'waiting' ? ` dec-${f.decided}` : ''}${f.corrected ? ' corrected' : ''}${f.restated ? ' restated' : ''}${w?.changed ? ' would-change' : ''}${d === now ? ' at' : ''}`, 'data-day': d, 'aria-pressed': String(d === pick), 'aria-label': label, title: label, onclick: () => {
-        monthView.pick = d;
-        renderMonth();
-      }, ondblclick: () => (location.hash = dayHash(d)) },
-        h('span', { class: 'mo-date' }, String(dateOf(d).getUTCDate())),
-        h('span', { class: 'mo-mark' }, dayMark(f.state, f.decided, 14, f.corrected), w?.changed ? h('span', { class: 'mo-delta', 'aria-hidden': 'true' }, 'Δ') : null),
-        f.headline ? h('span', { class: 'mo-hl' }, f.headline) : null));
     }
-  }
-  const cal = h('div', { class: 'mo-cal', role: 'group', 'aria-label': `${loads.episode}: each day and what became of it` },
-    ...['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((w) => h('span', { class: 'mo-wd', 'aria-hidden': 'true' }, w)), ...cells);
+    return cells;
+  };
+  const weekdays = () => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((w) => h('span', { class: 'mo-wd', 'aria-hidden': 'true' }, w));
+  const cal = months.length > 1
+    ? h('div', { class: 'mo-cals' }, ...months.map((m) => {
+        const name = monthName(m);
+        return h('section', { class: 'mo-month', 'aria-label': name, 'data-month': m },
+          h('h3', { class: 'mo-month-name' }, name),
+          h('div', { class: 'mo-cal', role: 'group', 'aria-label': `${name}: each day and what became of it` }, ...weekdays(), ...monthCells(days.filter((d) => d.startsWith(m)))));
+      }))
+    : h('div', { class: 'mo-cal', role: 'group', 'aria-label': `${loads.episode}: each day and what became of it` }, ...weekdays(), ...monthCells(days));
   // The key: each mark the calendar draws, with its word.
   const shownStates = new Set(month.map((d) => facts.get(d.day)!).map((f) => (f.restated ? 'restated' : f.corrected ? 'corrected' : f.decided && f.decided !== 'waiting' ? `dec-${f.decided}` : f.state)));
   if ([...would.values()].some((w) => w.changed)) shownStates.add('would');
@@ -12605,7 +12629,8 @@ function renderMonth(): void {
     ? h('div', { class: 'panel mo-grid' }, h('p', { class: 'eyebrow' }, 'Files and steps, day by day'), filters,
         !gridDays.length ? h('p', { class: 'mo-checked' }, 'No day of the month is so.') : null,
         h('div', { class: 'scroll mo-grid-scroll' }, h('table', { class: 'mo-gt' },
-          h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, h('span', { class: 'sr' }, 'Notebook')), ...gridDays.map((d) => h('th', { scope: 'col', class: d === pick ? 'mg-pick' : '' }, String(dateOf(d).getUTCDate()))))),
+          // Over more than one month, the first day shown of each month says its month ("Mar 1"), as the numbers start again.
+          h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, h('span', { class: 'sr' }, 'Notebook')), ...gridDays.map((d, j) => h('th', { scope: 'col', class: d === pick ? 'mg-pick' : '' }, months.length > 1 && (j === 0 || gridDays[j - 1]!.slice(0, 7) !== d.slice(0, 7)) ? `${dateOf(d).toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })} ${dateOf(d).getUTCDate()}` : String(dateOf(d).getUTCDate()))))),
           h('tbody', {}, ...flat.map((x, i) => h('tr', { class: `lv${x.level}` },
             h('th', { scope: 'row' }, x.level === 0
               ? h('button', { type: 'button', class: 'linkish mg-row', 'aria-expanded': String(monthView.open.has(x.row.id)), onclick: () => {
@@ -15863,8 +15888,9 @@ async function start(): Promise<void> {
     if (BUILT_DATA && (list.data?.commit !== BUILT_DATA.commit || list.data.manifest !== BUILT_DATA.manifest)) {
       throw new IntegrityError({ path: 'MANIFEST.json', class: 'list', expected: BUILT_DATA.manifest, actual: list.data?.manifest ?? null, commit: BUILT_DATA.commit, at: new Date().toISOString() });
     }
-    // The month, then each incident: an episode of days each. The app names the holidays itself.
-    const month = list.month ? dateOf(`${list.month}-01`).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }) : 'The loads';
+    // The month, then each incident: an episode of days each. The app names the holidays itself. Loads over more than one
+    // month are named by their span (ADR 0023 amendment 1: "February–March 2024").
+    const month = list.loads.length ? spanName(list.loads[0]!.day, list.loads.at(-1)!.day) : list.month ? monthName(list.month) : 'The loads';
     const tag = (ls: readonly Listed[], episode: string): Load[] => ls.map((l) => {
       const note = holidayOf(l.day, calendarNow()) ?? seasonOf(l.day, calendarNow());
       return { ...l, episode, ...(note ? { note } : {}) };

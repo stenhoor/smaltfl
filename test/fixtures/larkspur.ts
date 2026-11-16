@@ -49,9 +49,11 @@ export interface LarkspurOptions {
    * `incidents: false` plants none. */
   incidents?: boolean;
   trouble?: readonly Trouble[];
-  /** A steady world, the tour's (ADR 0023 amendment 1): due dates that don't cluster on fiscal dates and quarter ends,
-   * and each month's scanner findings found through the month rather than all on Patch Tuesday, so that only the planted
-   * days stand out. The answer key's month keeps its rhythms, its look-alikes among them. */
+  /** A steady world, the tour's (ADR 0023 amendment 1): due dates that don't cluster on fiscal dates and quarter ends;
+   * each month's scanner findings found through the weeks to the next Patch Tuesday rather than all on it; posts changing
+   * hands evenly through the span, each vacancy and leave with someone acting from its first day; new applications typed
+   * as the estate is; an EDR sensor's version kept, not redrawn each month: so that only the planted days stand out. The
+   * answer key's month keeps its rhythms, its look-alikes among them. */
   steady?: boolean;
 }
 
@@ -172,29 +174,31 @@ export const LARKSPUR_GOLD_TROUBLE: readonly Trouble[] = [
 ];
 
 /**
- * The tour's days (ADR 0023 §1, §3): a capability a scene, calm days between them, and two of the month's layering
- * stories kept as more to see. The demo builds its month from these (`scripts/data/larkspur.mjs --tour`); the month above
- * stays the tests' (ADR 0020 §5).
+ * The tour's days (ADR 0023 §1, §3, amendment 1): a capability a scene, calm days between them, and two of the month's
+ * layering stories kept as more to see, over February and March, a week or so between most of them. The demo builds its
+ * two months from these (`scripts/data/larkspur.mjs --tour`, its loads from `LARKSPUR_TOUR_FROM`); the month above stays
+ * the tests' (ADR 0020 §5).
  */
+export const LARKSPUR_TOUR_FROM = '2024-02-01';
 export const LARKSPUR_TOUR_DAYS = {
-  /** Scene 1: every file arrives and every check passes (Fri 1 tells more pentest findings than usual). */
-  normal: '2024-03-06',
-  /** Scene 3: the MFA export arrives empty, a written check holds it, and the vendor sends it again overnight. */
-  empty: '2024-03-04',
-  /** Scene 2: the scanner writes its words in capitals, a warning to react to. */
-  capitals: '2024-03-05',
+  /** Scene 1: every file arrives and every check passes. */
+  normal: '2024-02-07',
   /** More to see: a department dropped from the HR extract, its applications' owner chains lost in silver. */
-  dissolve: '2024-03-08',
+  dissolve: '2024-02-16',
+  /** Scene 2: the scanner writes its words in capitals, a warning to react to. */
+  capitals: '2024-02-20',
+  /** Scene 3: the MFA export arrives empty, a written check holds it, and the vendor sends it again overnight. */
+  empty: '2024-02-26',
   /** Scene 4: the log pipelines' migration, held by a learned check, published as is, held again until accepted. */
-  migration: '2024-03-12',
+  migration: '2024-03-05',
   /** Scene 5: the backup export's bug, held by a learned check, filled forward, then corrected. */
-  mislabel: '2024-03-18',
+  mislabel: '2024-03-11',
+  /** More to see: one certificate authority behind two controls. */
+  ca: '2024-03-18',
   /** Scene 6: the TLS file's rows twice; only that file is sent again. */
   double: '2024-03-21',
   /** Scene 6: the EDR export empty at the weekend, filled back from the day after. */
   weekend: '2024-03-23',
-  /** More to see: one certificate authority behind two controls. */
-  ca: '2024-03-25',
   /** Scene 6: the access reviews' export empty, left for the visitor to fill from the same weekday a week before. */
   missing: '2024-03-27',
 } as const;
@@ -415,7 +419,7 @@ export interface AppOn extends AppAttrs {
 const APP_A = ['amber', 'anchor', 'apex', 'arbor', 'atlas', 'aurora', 'beacon', 'birch', 'bridge', 'canyon', 'cascade', 'cedar', 'cinder', 'clover', 'cobalt', 'comet', 'coral', 'crest', 'delta', 'ember', 'falcon', 'fern', 'fjord', 'flint', 'garnet', 'glacier', 'granite', 'harbor', 'hazel', 'heron', 'horizon', 'iris', 'juniper', 'lantern', 'ledger', 'lumen', 'maple', 'meadow', 'mesa', 'nimbus', 'oak', 'onyx', 'orbit', 'osprey', 'pebble', 'pine', 'prism', 'quartz'];
 const APP_B = ['admin', 'api', 'archive', 'assist', 'billing', 'book', 'broker', 'cache', 'claims', 'core', 'desk', 'docs', 'engine', 'exchange', 'feed', 'flow', 'forms', 'gateway', 'grid', 'hub', 'index', 'intake', 'ledger', 'lens', 'link', 'loans', 'mail', 'market', 'match', 'notes', 'office', 'pay', 'pipe', 'portal', 'quote', 'rates', 'relay', 'report', 'rules', 'scan', 'score', 'search', 'sign', 'store', 'sync', 'track', 'vault', 'view', 'watch', 'works', 'yard', 'zone'];
 
-function drawApps(seed: number, n: number, units: readonly Unit[]): AppDraw[] {
+function drawApps(seed: number, n: number, units: readonly Unit[], steady = false): AppDraw[] {
   const teams = units.filter((u) => u.level === 'team');
   const weights = teams.map((t) => [t, Math.exp((uniform(seed, t.id, 'apps') - 0.5) * 2.5)] as const);
   const byDept = new Map<string, Unit[]>();
@@ -443,7 +447,9 @@ function drawApps(seed: number, n: number, units: readonly Unit[]): AppDraw[] {
       : ud < 0.32 ? 'pii' : ud < 0.57 ? 'confidential' : ud < 0.9 ? 'internal' : 'public';
     const datastore = u('store') < (data_class === 'public' ? 0.4 : 0.78) ? 'yes' : 'no';
     const uh = u('hosting');
-    const hosting: Hosting = isNew ? (uh < 0.75 ? 'cloud' : uh < 0.85 ? 'onprem' : 'saas') : uh < 0.5 ? 'cloud' : uh < 0.87 ? 'onprem' : 'saas';
+    // New applications are mostly built in the cloud, so the estate's mix moves through the span; a steady world's are
+    // hosted as the rest are.
+    const hosting: Hosting = isNew && !steady ? (uh < 0.75 ? 'cloud' : uh < 0.85 ? 'onprem' : 'saas') : uh < 0.5 ? 'cloud' : uh < 0.87 ? 'onprem' : 'saas';
     const site: Site = hosting === 'saas' ? 'SAAS' : hosting === 'cloud' ? (u('site') < 0.6 ? 'CLOUD-EAST' : 'CLOUD-WEST') : u('site') < 0.55 ? 'DC-EAST' : 'DC-WEST';
     let retireBy: string | null = u('retire') < 0.12 ? between(LARKSPUR_FROM, addDays(LARKSPUR_TO, 90), u('retire-at')) : null;
     if (retireBy && daysFrom(goLive, retireBy) < 60) retireBy = null;
@@ -698,7 +704,7 @@ export interface Larkspur {
   exceptions: readonly ExceptionDraw[];
   exceptionsOf: ReadonlyMap<string, readonly ExceptionDraw[]>;
   trouble: readonly Trouble[];
-  /** A steady world (`LarkspurOptions.steady`): no clustered due dates, no Patch Tuesday batches. */
+  /** A steady world (`LarkspurOptions.steady`): nothing that moves with the calendar or the span but the planted days. */
   steady: boolean;
   /** What the planted silver days chose, once: the teams a reorg moves, the department dissolved and the one that loops,
    * and the exceptions that expire unrenewed. */
@@ -718,6 +724,11 @@ export function larkspur(o: LarkspurOptions = {}): Larkspur {
   const people = new Map<string, string>();
   const tenures = new Map<string, Tenure[]>();
   const vacancies = new Map<string, Vacancy>();
+  // A steady world's posts change hands evenly through the span, in the order they would have, so that as many leave
+  // each week and the extract's statuses keep their shares.
+  const changing = units.filter((u) => u.level !== 'group' && uniform(seed, u.id, 'change') < 0.33).sort((x, y) => uniform(seed, x.id, 'change-at') - uniform(seed, y.id, 'change-at'));
+  const changeFrom = addDays(LARKSPUR_FROM, -90);
+  const evenly = new Map(changing.map((u, k) => [u.id, addDays(changeFrom, Math.floor(((k + 0.5) * daysFrom(changeFrom, LARKSPUR_TO)) / changing.length))]));
   let hired = 0;
   units.forEach((u, i) => {
     const incumbent = `P-${pad(i + 1, 4)}`;
@@ -725,25 +736,26 @@ export function larkspur(o: LarkspurOptions = {}): Larkspur {
     const since = between('2015-01-01', addDays(LARKSPUR_FROM, -30), uniform(seed, u.id, 'since'));
     const list: Tenure[] = [];
     if (u.level !== 'group' && uniform(seed, u.id, 'change') < 0.33) {
-      const at = between(addDays(LARKSPUR_FROM, -90), LARKSPUR_TO, uniform(seed, u.id, 'change-at'));
+      const at = o.steady ? evenly.get(u.id)! : between(changeFrom, LARKSPUR_TO, uniform(seed, u.id, 'change-at'));
       const gap = int(20, 60, uniform(seed, u.id, 'gap'));
       const hire = `P-${pad(2001 + hired, 4)}`;
       people.set(hire, names[600 + hired]!);
       hired++;
       list.push({ person: incumbent, unit: u.id, from: null, to: at, since, leave: null });
       list.push({ person: hire, unit: u.id, from: addDays(at, gap), to: null, since: addDays(at, gap), leave: null });
-      vacancies.set(u.id, { from: at, to: addDays(at, gap), acting: uniform(seed, u.id, 'acting') < 0.75, actingFrom: addDays(at, int(0, 4, uniform(seed, u.id, 'acting-from'))) });
+      // Someone acts from the vacancy's first day in a steady world, so no team goes without an owner.
+      vacancies.set(u.id, { from: at, to: addDays(at, gap), acting: !!o.steady || uniform(seed, u.id, 'acting') < 0.75, actingFrom: o.steady ? at : addDays(at, int(0, 4, uniform(seed, u.id, 'acting-from'))) });
     } else list.push({ person: incumbent, unit: u.id, from: null, to: null, since, leave: null });
     // A few take leave: two weeks to three months inside the span, most with someone acting.
     const last = list[list.length - 1]!;
     const start = last.from ?? addDays(LARKSPUR_FROM, -60);
     if (u.level !== 'group' && uniform(seed, last.person, 'leave') < 0.05 && daysFrom(start, LARKSPUR_TO) > 30) {
       const from = between(start, addDays(LARKSPUR_TO, -14), uniform(seed, last.person, 'leave-at'));
-      last.leave = { from, to: addDays(from, int(14, 90, uniform(seed, last.person, 'leave-for'))), acting: uniform(seed, last.person, 'leave-acting') < 0.85 };
+      last.leave = { from, to: addDays(from, int(14, 90, uniform(seed, last.person, 'leave-for'))), acting: !!o.steady || uniform(seed, last.person, 'leave-acting') < 0.85 };
     }
     tenures.set(u.id, list);
   });
-  const apps = drawApps(seed, o.apps ?? 2600, units);
+  const apps = drawApps(seed, o.apps ?? 2600, units, !!o.steady);
   // Exceptions: about three in a hundred of what applies to an application, at some time across two years, so about one
   // in a hundred is active on a day. A fifth are extended once, the extension a new version that keeps the first expiry.
   const exceptions: ExceptionDraw[] = [];
@@ -1132,13 +1144,14 @@ export function findingsOf(w: Larkspur, a: { app_id: string }): Finding[] {
     out.push({ id: `F-${a.app_id.slice(4)}-${pad(out.length + 1, 3)}`, app: a.app_id, source, plugin: `VUL-${int(10000, 99999, u('plugin'))}`, cve: `CVE-${found.slice(0, 4)}-${int(10000, 49999, u('cve'))}`, severity: sev, found, due, fixed, reopen: u('reopen') < 0.03 ? { at: reopenAt, fixed: addDays(reopenAt, int(5, 30, u('refix'))) } : null });
   };
   const mean = 0.85 * (draw.base.exposure === 'internet' ? 1.5 : 1) * (draw.retireBy ? 1.3 : 1) * (legacy ? 1.4 : 1);
-  for (const pt of PATCH_DAYS) {
-    if (pt < addDays(LARKSPUR_FROM, -200) || pt > LARKSPUR_TO) continue;
+  PATCH_DAYS.forEach((pt, p) => {
+    if (pt < addDays(LARKSPUR_FROM, -200) || pt > LARKSPUR_TO) return;
     const n = Math.floor(mean) + (uniform(seed, a.app_id, 'batch', pt) < mean - Math.floor(mean) ? 1 : 0);
-    // A steady world finds the month's batch through the four weeks after Patch Tuesday, so its due dates don't fall
-    // together a month later.
-    for (let i = 0; i < n; i++) add('scan', w.steady ? addDays(pt, int(0, 27, uniform(seed, a.app_id, 'spread', pt, i))) : pt, severity(uniform(seed, a.app_id, 'sev', pt, i)), `${pt}#${i}`);
-  }
+    // A steady world finds the month's batch through the weeks up to the next Patch Tuesday, so its due dates don't fall
+    // together a month later and no week goes without.
+    const weeks = daysFrom(pt, PATCH_DAYS[p + 1] ?? addDays(pt, 28));
+    for (let i = 0; i < n; i++) add('scan', w.steady ? addDays(pt, int(0, weeks - 1, uniform(seed, a.app_id, 'spread', pt, i))) : pt, severity(uniform(seed, a.app_id, 'sev', pt, i)), `${pt}#${i}`);
+  });
   for (let wk = dayNumber(addDays(LARKSPUR_FROM, -200)); wk <= dayNumber(LARKSPUR_TO); wk += 7) {
     if (uniform(seed, a.app_id, 'other', wk) < 0.05) add('scan', dayOf(wk + int(0, 6, uniform(seed, a.app_id, 'other-day', wk))), severity(uniform(seed, a.app_id, 'other-sev', wk)), `w${wk}`);
   }
@@ -1269,7 +1282,9 @@ function evidenceRow(w: Larkspur, file: EvidenceFile, a: AppOn, d: string, statu
     case 'edr_coverage': {
       const hosts = int(1, 40, steady('hosts'));
       const rfm = fail && (hosts === 1 || u('how') < 0.5);
-      return [a.app_id, hosts, na ? null : fail && !rfm ? int(0, hosts - 1, u('reporting')) : hosts, na ? null : rfm ? int(1, hosts, u('rfm')) : 0, `7.${int(10, 14, uniform(seed, 'sensor', d.slice(0, 7), steady('ring') < 0.7 ? 'main' : 'slow'))}.${int(0, 9, uniform(seed, a.app_id, 'build', d.slice(0, 7)))}`, status];
+      // Each ring's sensor and each host's build move on monthly; a steady world's stay where they are.
+      const month = w.steady ? 'kept' : d.slice(0, 7);
+      return [a.app_id, hosts, na ? null : fail && !rfm ? int(0, hosts - 1, u('reporting')) : hosts, na ? null : rfm ? int(1, hosts, u('rfm')) : 0, `7.${int(10, 14, uniform(seed, 'sensor', month, steady('ring') < 0.7 ? 'main' : 'slow'))}.${int(0, 9, uniform(seed, a.app_id, 'build', month))}`, status];
     }
     case 'pentest_schedule': case 'key_rotation': case 'dr_exercises': case 'access_reviews': {
       const st = slaOn(w, a, control, d);

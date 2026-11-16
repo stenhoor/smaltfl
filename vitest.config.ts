@@ -16,8 +16,8 @@ const core = (path: string): string => fileURLToPath(new URL(`./node_modules/sma
 const SLOW = ['test/estate-flow.test.ts', 'test/larkspur-flow.test.ts', 'test/models.test.ts'];
 
 /**
- * The tour's month at the demo's own scale (test/larkspur-tour.test.ts, ADR 0023 §2): its data made as the app build
- * makes it, the month recorded with its story, its answer key checked. Longer than every slow test together, so run by
+ * The tour's two months at the demo's own scale (test/larkspur-tour.test.ts, ADR 0023 §2, amendment 1): its data made as
+ * the app build makes it, the months recorded with their story, its answer key checked. Longer than every slow test together, so run by
  * `npm run test:tour` and by a CI job of its own.
  */
 const TOUR = ['test/larkspur-tour.test.ts'];

@@ -43,7 +43,7 @@ npx serve dist/app-tour         # or any static file server
 `npm run build:app` generates the example's data (months of history, a month of daily loads), measures each watched
 dataset's history on the runtime and writes a static page. Larkspur's data take about five minutes to make on four
 cores the first time; they are kept by a hash of what makes them, so a build after a change to the app alone takes
-seconds. `--variant tour` builds the tour's month, a variant of Larkspur's data list. Other examples: `--flow
+seconds. `--variant tour` builds the tour's two months, a variant of Larkspur's data list. Other examples: `--flow
 examples/control-estate/flow.json`, `--flow examples/security-signins/flow.json`, and `--flow
 examples/controls/flow.json`. Without `--flow` or `--variant` the build makes Larkspur's planted month, in `dist/app`.
 (The taxi example, on real trips, was retired on 2026-11-15.)

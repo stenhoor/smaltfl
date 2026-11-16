@@ -189,8 +189,8 @@ Each piece has its ADR, tests, and a line in CLAUDE.md's layout.
   (kept in the browser). The site (`docs/`, VitePress with smalt-brand's kit copied unchanged): home, Quick start, A walk
   through the demo, Working in the app, Writing a flow, Status, and the design records; `.github/workflows/docs.yml`
   deploys it with the estate demo at `/app/` and the sign-ins at `/signins/` (since ADR 0020's slice 7, 2026-11-13:
-  Larkspur at `/app/`, the control estate at `/estate/`; since ADR 0023's slice 5, 2026-11-16: Larkspur's tour month at
-  `/app/` and its planted month at `/larkspur/`). Waiting on the owners: Pages turned on
+  Larkspur at `/app/`, the control estate at `/estate/`; since ADR 0023's slice 5, 2026-11-16: Larkspur's tour at
+  `/app/`, two months since its amendment 1, and its planted month at `/larkspur/`). Waiting on the owners: Pages turned on
   for the repository (Source: GitHub Actions), and smalt-brand's product page, status row and `FAMILY` entry for
   smaltfl (its mark and positioning line are owner decisions).
 - **Round-3 fixes, partly done** (the last three commits, `f76107b`, `791d07b` and `e42d9ec`):
@@ -208,7 +208,7 @@ npm run test:slow                           # the estate's month, Larkspur's six
 npm run build                               # declarations; NOTE: wipes dist/, so build the app again after it
 npm run build:app                           # dist/app on Larkspur, its days generated; the bundles are named by content (app.<hash>.js), so a
                                             # browser never serves a stale build under the old name (bundles.json says which)
-npm run build:app -- --variant tour --out dist/app-tour   # the demo: the tour month and its scene list (ADR 0023)
+npm run build:app -- --variant tour --out dist/app-tour   # the demo: the tour's two months and their scene list (ADR 0023)
 node tools/browser/regress.cjs APP OUT tour  # the tour's scenes, a stop a look, at every size (APP: a copy of dist/app-tour)
 ```
 
@@ -250,12 +250,17 @@ The month screen lists the scenes. Today's month stays the tests'. The slices of
    at `/larkspur/`, and `docs/guide/demo.md` walks the tour (`docs/guide/larkspur.md` the planted month). ADR 0023 is
    done. Two points left for the maintainers, said in the slice's PR:
    - the tour's days between scenes publish, but 13 carried a learned check's note, marked unusual on the month, where
-     §1 wanted them calm. The maintainer allowed two months or more (Q-212); amendment 1 makes the tour's world steady
-     first (`LarkspurOptions.steady`: no due dates gathered on the quarter's dates, no Patch Tuesday batches), which
-     leaves five days with a note, the judges' own false alarms; spreading the scenes over February and March is next;
+     §1 wanted them calm. The maintainer allowed two months or more (Q-212). Amendment 1 is built (2026-11-16, ADR 0023
+     §"Amendment 1"): the tour's world is steady (`LarkspurOptions.steady`: no due dates gathered on the quarter's
+     dates, findings through the weeks to the next Patch Tuesday, posts changing hands evenly with someone acting from
+     the first day, new applications hosted as the rest, EDR versions kept), the scenes run over February and March, a
+     week or so apart, with a calendar a month on the month screen, and the classifier leaves out what an accepted level
+     moved. Five of the 48 calm days carry a note, the judges' own false alarms; Presidents' Day (Mon Feb 19) has no
+     day like it in the history, so its files are *not judged yet*;
    - the month marks a day from the record by every watched dataset's claim, but a day run in the browser by the
-     dataset the views follow alone (`calendarDayOf` in `src/app/main.ts`, `stateOfRun` in `src/core/month.ts`), so
-     the tour's Fri 1 shows ✓ once run where the record says its findings were unusual.
+     dataset the views follow alone (`calendarDayOf` in `src/app/main.ts`, `stateOfRun` in `src/core/month.ts`), so a
+     calm day with a file's note (the tour's Tue Feb 6, say) shows ✓ once run where the record says that file was
+     unusual.
 
 **Then the rest of [ADR 0022](adr/0022-the-answers-of-2026-11-14.md), the maintainer's answers of 2026-11-14:** Q-84 and
 slice 5 (Q-139). With ADR 0021

@@ -6,11 +6,12 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { isScenesFile, lookOf, sceneHash, scenesProblems, SCENES_FORMAT, type ScenesFile } from '../src/core/scenes.js';
-import { addDays, LARKSPUR_TOUR_DAYS } from './fixtures/larkspur.js';
+import { addDays, daysFrom, LARKSPUR_TO, LARKSPUR_TOUR_DAYS, LARKSPUR_TOUR_FROM } from './fixtures/larkspur.js';
 import { larkspurDir } from './helpers/larkspur-world.js';
 import { loadFlowDir } from './helpers/notebooks.js';
 
-const MARCH = Array.from({ length: 31 }, (_, i) => addDays('2024-03-01', i));
+/** The tour's days: February and March (ADR 0023 amendment 1). */
+const TOUR = Array.from({ length: daysFrom(LARKSPUR_TOUR_FROM, LARKSPUR_TO) + 1 }, (_, i) => addDays(LARKSPUR_TOUR_FROM, i));
 const good = (): ScenesFile => ({
   format: SCENES_FORMAT,
   title: 'What this demo shows',
@@ -61,11 +62,12 @@ describe('a demo’s scenes (ADR 0023 §4)', () => {
     expect([sceneHash(4), sceneHash(4, 2)]).toEqual(['#scene/4', '#scene/4/2']);
   });
 
-  it('holds Larkspur’s tour to its month and its flow: every day planted where it says, every card the flow’s', async () => {
+  it('holds Larkspur’s tour to its two months and its flow: every day planted where it says, every card the flow’s', async () => {
     const file = JSON.parse(readFileSync(new URL('scenes.json', larkspurDir), 'utf8')) as unknown;
     const doc = await loadFlowDir(larkspurDir);
     const cards = [...doc.sources.map((s) => s.id), ...doc.steps.map((s) => s.id)];
-    expect(scenesProblems(file, { days: MARCH, cards })).toEqual([]);
+    expect(scenesProblems(file, { days: TOUR, cards })).toEqual([]);
+    expect(TOUR).toHaveLength(60);
     const tour = file as ScenesFile;
     // Six scenes, a capability each, and two stories kept as more to see.
     expect(tour.scenes.map((s) => s.n ?? null)).toEqual([1, 2, 3, 4, 5, 6, null, null]);
