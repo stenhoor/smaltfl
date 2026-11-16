@@ -444,7 +444,9 @@ release (smaltty ADR 0030).
   (`LARKSPUR_TOUR_DAYS`, `LARKSPUR_TOUR`, the trouble kinds `migration` and `mislabel`; `scripts/data/larkspur.mjs
   --tour`; `examples/larkspur/tour.json`, the data list's `variants.tour`, `build:app -- --variant tour`), its data made by `scripts/data/make.mjs` (the build's and the answer key's), the recorder's
   `accept` (`levelToAccept`) and a late delivery reading its own day, an accepted level breaking its column's pairs
-  (`levelOn`), and its answer key at the demo's scale (`test/larkspur-tour.test.ts`, `npm run test:tour`). Slice 5 is
+  (`levelOn`), and its answer key at the demo's scale (`test/larkspur-tour.test.ts`, `npm run test:tour`); amendment 1
+  (Q-212) makes the tour's world steady (`LarkspurOptions.steady`: no due dates gathered on the quarter's dates, no
+  Patch Tuesday batches), five calm days left with a note, and spreads the scenes over two months next. Slice 5 is
   built: the scene list in the app (`src/core/scenes.ts`, `smaltfl-scenes/1`: `scenesProblems`, `lookOf`, `sceneHash`;
   `examples/larkspur/scenes.json`, the variant's `scenes`, shipped in loads.json; the month's **What this demo shows**,
   `scenesPanel`; a look's link `#scene/N/K` opening its day, version, card and tab or decision, `pendingLook`,

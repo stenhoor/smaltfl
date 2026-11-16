@@ -19,7 +19,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addDays, appliesTo, appsOn, CONTROL, CONTROL_IDS, CONTROLS, csvOf, DAILY_FILES, dayFile, dayFiles, daysFrom, EVIDENCE_FILES, exceptedOn, exportedAt, exportedAtOf, FILE_CONTROL, fixedFiles,
-  findingsOf, goldFactor, larkspur, LARKSPUR_FROM, LARKSPUR_GOLD, LARKSPUR_GOLD_TROUBLE, LARKSPUR_LOADS_FROM, LARKSPUR_PLANTED, LARKSPUR_SILVER, LARKSPUR_SILVER_TROUBLE, LARKSPUR_TOUR, LARKSPUR_TOUR_DAYS, LARKSPUR_TROUBLE, leaderOf, LEVELS, orgOn, ownedOn, patchTuesday, PLATFORMS, rawStatus, REQUIREMENTS, sentAgain, SEVERITY_DAYS, vulnOn,
+  findingsOf, goldFactor, larkspur, slaOn, LARKSPUR_FROM, LARKSPUR_GOLD, LARKSPUR_GOLD_TROUBLE, LARKSPUR_LOADS_FROM, LARKSPUR_PLANTED, LARKSPUR_SILVER, LARKSPUR_SILVER_TROUBLE, LARKSPUR_TOUR, LARKSPUR_TOUR_DAYS, LARKSPUR_TROUBLE, leaderOf, LEVELS, orgOn, ownedOn, patchTuesday, PLATFORMS, rawStatus, REQUIREMENTS, sentAgain, SEVERITY_DAYS, vulnOn,
   type AppOn, type Cell, type DailyFile, type Table, type Trouble,
 } from './fixtures/larkspur.js';
 
@@ -887,14 +887,30 @@ describe('a day’s file sent again (ADR 0021 §6, Q-194, Q-195)', () => {
 
 describe('the tour’s month (ADR 0023 §3): a scene a day, in its file alone', () => {
   const D = LARKSPUR_TOUR_DAYS;
-  const tour = larkspur({ apps: 650, trouble: LARKSPUR_TOUR });
+  const tour = larkspur({ apps: 650, trouble: LARKSPUR_TOUR, steady: true });
   /** The tour without some of its trouble: what a scene's file is compared with. */
-  const but = (out: (t: Trouble) => boolean) => larkspur({ apps: 650, trouble: LARKSPUR_TOUR.filter((t) => !out(t)) });
+  const but = (out: (t: Trouble) => boolean) => larkspur({ apps: 650, trouble: LARKSPUR_TOUR.filter((t) => !out(t)), steady: true });
+  /** The tour's world with nothing planted: steady, as the tour's is (ADR 0023 amendment 1). */
+  const calmTour = larkspur({ apps: 650, incidents: false, steady: true });
   const shareOf = (t: Table, column: string, value: string) => t.rows.filter((r) => r[col(t, column)] === value).length / t.rows.length;
   const byApp = (t: Table) => new Map(t.rows.map((r) => [String(r[col(t, 'app_id')]), r]));
 
   it('plants nothing on the normal day: every file as the estate draws it with nothing planted', () => {
-    for (const f of DAILY_FILES) expect(dayFile(tour, f, D.normal), f).toEqual(dayFile(calm, f, D.normal));
+    for (const f of DAILY_FILES) expect(dayFile(tour, f, D.normal), f).toEqual(dayFile(calmTour, f, D.normal));
+  });
+
+  it('is steady (amendment 1): no due dates gathered on the quarter’s dates, no batch of findings on Patch Tuesday', () => {
+    const on = '2024-03-01';
+    const pentests = (x: typeof calm) => appsOn(x, on).filter((a) => appliesTo('pentest', a));
+    const dueMar15 = (x: typeof calm) => pentests(x).filter((a) => slaOn(x, a, 'pentest', on).nextDue === '2024-03-15').length / pentests(x).length;
+    // The answer key's world has half its pentests fall due on Mar 15; the tour's has about a day's share of a year.
+    expect(dueMar15(calm)).toBeGreaterThan(0.4);
+    expect(dueMar15(calmTour)).toBeLessThan(0.02);
+    // February's scanner findings: on Patch Tuesday (Feb 13) the answer key's world finds most of them at once; the tour's
+    // finds them through the four weeks after it, about a day's worth each day.
+    const found = (x: typeof calm, d: string) => appsOn(x, on).flatMap((a) => findingsOf(x, a)).filter((f) => f.source === 'scan' && f.found === d).length;
+    expect(found(calm, '2024-02-13')).toBeGreaterThan(10 * found(calm, '2024-02-14'));
+    expect(found(calmTour, '2024-02-13')).toBeLessThan(3 * Math.max(1, found(calmTour, '2024-02-14')));
   });
 
   it('plants each scene in its own file, and leaves the day’s other files as they were', () => {
