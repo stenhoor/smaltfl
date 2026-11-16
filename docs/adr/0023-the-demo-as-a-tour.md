@@ -318,7 +318,7 @@ ADR 0022's Q-84 (levels and fills for slots of a day) and slice 5 (Q-139, propos
   access reviews left to the visitor. The history is the six months before February (the data list's `generateArgs`:
   `--from 2023-08-01 --steps-from 2023-12-21 --base-to 2024-01-31`); the world's span and the answer key's month don't
   move. The story (`tour.json`) and the scenes (`scenes.json`) take the new days, their words as they were. Making and
-  recording the two months takes about seventeen minutes on four cores, the CI job about as long.
+  recording the two months takes the CI job about ten minutes on four cores, and the app build about as long.
   - **More of the world made steady.** The first build of the two months noted 18 of their 48 calm days, each traced
     to something in the generator that moves with the span or the calendar, now steady in the tour's world too:
     - the four weeks of January's findings ended a week before February's Patch Tuesday, so the findings' *new* share

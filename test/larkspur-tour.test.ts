@@ -23,7 +23,7 @@
  * and sent again; one certificate authority behind two controls on Mon Mar 18, told and published. Every other day is
  * published as it arrived.
  *
- * About seventeen minutes on four cores: `npm run test:tour`, and a CI job of its own (vitest.config.ts, TOUR). With
+ * About ten minutes in CI, on four cores: `npm run test:tour`, and a CI job of its own (vitest.config.ts, TOUR). With
  * SMALTFL_TOUR_WORK naming a folder the month was made in already (the app build's cache of the tour's data), the answer
  * key is checked against it, nothing made again.
  */
