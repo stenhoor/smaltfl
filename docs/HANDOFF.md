@@ -262,8 +262,8 @@ The month screen lists the scenes. Today's month stays the tests'. The slices of
      calm day with a file's note (the tour's Tue Feb 6, say) shows ✓ once run where the record says that file was
      unusual.
 
-**Then the rest of [ADR 0022](adr/0022-the-answers-of-2026-11-14.md), the maintainer's answers of 2026-11-14:** Q-84 and
-slice 5 (Q-139). With ADR 0021
+**Then the rest of [ADR 0022](adr/0022-the-answers-of-2026-11-14.md), the maintainer's answers of 2026-11-14:** slice 5
+(Q-139); Q-84 is built (2026-11-16). With ADR 0021
 built, the maintainer went through every open question in the question prompt: most were confirmed as built, 34 closed
 as decided as built, and the answers that change what is built or add to it are ADR 0022's, built in the slices of its
 §6, one PR each:
@@ -328,8 +328,14 @@ as decided as built, and the answers that change what is built or add to it are 
    - Larkspur's DR exercises' file newly holds Sun 24 to Tue 26, waiting for the visitor; the estate holds the days it
      held.
 
-   Left in slice 4:
-   - levels and fills for slots of a day (Q-84). Keep pausing until accepted (Q-86) is built, in ADR 0023 slice 3.
+   The second part is built (2026-11-16, ADR 0022 §"As built"): levels and fills for slots of a day (Q-84).
+   - A slot's load gets Accept the new level. Its level starts at the slot and holds for every slot after it: in a
+     slot's own series, that day for the slots after it in the day, the next day for those before (`levelDay`).
+   - A quarter-hour gap is named by the whole hours that hold it, and a gap over every part of a slot is filled whole.
+   - The audit tells a slot's claim from its own series again, as the page does (`claimRanges`).
+   - No demo watches a slot, so no stop changes.
+
+   Keep pausing until accepted (Q-86) is built, in ADR 0023 slice 3. Slice 4 is done.
 5. **Proposed declarations** for a dataset with nothing declared (Q-139). Sharing as one package file (Q-35) comes later.
 
 Slice 4's Q-132 design was answered on 2026-11-15 (Q-207). Still open: Q-34 and Q-41 (smaltdb's work, with stenhoor
@@ -451,7 +457,7 @@ Parked behind the notebook surface by the maintainer's decision of 2026-11-09 (Q
      changed by Q-183: every correction waits for a decision), and a refused file as a pause (Q-109, now ADR 0022 slice 2);
    - holds measured in the engine rather than claimed by the page (ADR 0009, "left for later");
    - a durable engine, notifications, and decisions by more than one person;
-   - Accept on slots shorter than a day (Q-84, now decided: ADR 0022 slice 4).
+   - Accept on slots shorter than a day (Q-84): built in ADR 0022 slice 4, second part (2026-11-16).
 5. **Maintainers' open questions:** answered on 2026-11-14 (ADR 0022, docs/OPEN_QUESTIONS.md); still open: Q-34, Q-41,
    Q-75 and Q-133.
 

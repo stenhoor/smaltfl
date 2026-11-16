@@ -80,7 +80,8 @@ function valueOf(json: string): string | number | boolean | null {
  * The part of a held day a fill takes from another day (S2), from the flow's story: the hours the story's hours cause
  * names, by the fill step's `time`; the part that vanished; or the rest, where a part held while the rest vanished.
  * Null for any other cause, a part that surged among them: nothing is missing. A slot's hours are its own, named as
- * the day's (06:00–10:00 of the 06–12 slot is hours 6 to 9, ADR 0010 §7).
+ * the day's (06:00–10:00 of the 06–12 slot is hours 6 to 9, ADR 0010 §7); a slot under 3 hours counts quarter hours,
+ * and its gap is named by the whole hours that hold it, the hours a fill takes (ADR 0022 §4, Q-84).
  */
 export function missingOf(story: Pick<Story, 'hero' | 'hours' | 'split'> & Partial<Pick<Story, 'amount'>>, time?: string): Missing | null {
   // A day whose file came with no rows at all is missing whole: every hour of it is what another day carries in, or,
@@ -89,11 +90,13 @@ export function missingOf(story: Pick<Story, 'hero' | 'hours' | 'split'> & Parti
   if (story.hero === 'hours' && story.hours) {
     // A file with no time column names no hours.
     if (time === undefined) return null;
-    // A slot's parts are its own hours, placed in the day (ADR 0010 §7); quarter hours (a slot under 3 hours) are no
-    // hours a fill can name: nothing it can take.
+    // A slot's parts are its own hours, placed in the day (ADR 0010 §7), or its quarter hours under 3 hours: the gap is
+    // named by the whole hours that hold its first and last part (Q-84).
     const { start = 0, width = 60 } = story.hours;
-    if (width !== 60 || start % 60 !== 0) return null;
-    return { time, hours: [start / 60 + story.hours.from, start / 60 + story.hours.to] };
+    if (width !== 60 && width !== 15) return null;
+    const first = start + story.hours.from * width;
+    const last = start + (story.hours.to + 1) * width - 1;
+    return { time, hours: [Math.floor(first / 60), Math.floor(last / 60)] };
   }
   if (story.hero === 'split' && story.split) {
     const sp = story.split;
@@ -128,6 +131,15 @@ export function missingFor(story: Pick<Story, 'hero' | 'hours' | 'split'> & Part
 
 /** Whether a missing part is the whole day: a file filled whole, or every hour of it. */
 export const wholeDay = (m: Missing): boolean => 'all' in m || ('hours' in m && m.hours[0] === 0 && m.hours[1] === 23);
+
+/** Whether a missing part is the whole load (Q-84): the whole day, or every hour of a slot, as its story's parts place
+ * it in the day. Nothing of a whole load arrived to publish alone. */
+export function wholeLoad(m: Missing, story: Pick<Story, 'hours'>): boolean {
+  if (wholeDay(m)) return true;
+  const h = story.hours;
+  if (!('hours' in m) || !h || h.start === undefined || !h.width) return false;
+  return m.hours[0] <= Math.floor(h.start / 60) && m.hours[1] >= Math.floor((h.start + h.got.length * h.width - 1) / 60);
+}
 
 // ------------------------------------------------------------------ the donor
 
@@ -360,7 +372,7 @@ export interface OfferInput {
    * offered by them (S6). Without them, no Accept. */
   told?: Pick<Story, 'state' | 'hero' | 'split' | 'cause' | 'absorbed' | 'amount'>;
   holds?: readonly Pick<Hold, 'by'>[];
-  /** What the held load covers (ADR 0010 §7): a level starts on a day, so a slot of one gets no Accept. */
+  /** What the held load covers (ADR 0010 §7). A slot's load gets Accept too, its level from the slot on (Q-84). */
   every?: Every;
   /** The fixes the file allows (rules.ts `fixesOf`): the part that arrived is offered only where `part` is; the donors
    * given are the allowed ones already. */
@@ -380,13 +392,16 @@ export function offersOf(o: OfferInput): Offer[] {
     const missing = missingFor(o.story, o.claim, o.fill.time)!;
     const donor = o.donors[0];
     const fills = !o.fixes || ['forward', 'backward', 'impute'].some((f) => o.fixes!.has(f as FixKind));
-    if (fills) out.push({ option: 'fill', label: donor ? `Fill from ${dayShort(donor.day)}` : 'Fill', ...(!donor ? { off: 'No good day near' } : {}), ...(wholeDay(missing) ? { whole: true as const } : {}) });
-    // A whole day missing has no part that arrived; a file that allows no fill but the part still gets the part.
-    if ((o.fixes?.has('part') ?? true) && !wholeDay(missing)) out.push({ option: 'complete', label: partLabel(missing, o.story.split?.name), ...(o.partFails ? { note: 'fails its checks' } : {}) });
+    const whole = wholeLoad(missing, o.story);
+    if (fills) out.push({ option: 'fill', label: donor ? `Fill from ${dayShort(donor.day)}` : 'Fill', ...(!donor ? { off: 'No good day near' } : {}), ...(whole ? { whole: true as const } : {}) });
+    // A whole day or slot missing has no part that arrived; a file that allows no fill but the part still gets the
+    // part.
+    if ((o.fixes?.has('part') ?? true) && !whole) out.push({ option: 'complete', label: partLabel(missing, o.story.split?.name), ...(o.partFails ? { note: 'fails its checks' } : {}) });
   }
   if (o.readers === 'fill' || o.readers === 'complete') out.push({ option: 'dont', label: o.readers === 'fill' ? 'Withdraw the fill' : 'Withdraw the part', withdraws: true });
-  // Accept the new level (S6), for the day and the days after it, whatever day readers see (Q-51).
-  if (!o.readers && (o.every ?? 'day') === 'day' && o.told && o.holds && acceptable(o.told, o.claim, o.holds)) out.push({ option: 'accept', label: 'Accept the new level' });
+  // Accept the new level (S6), for the day and the days after it, or a slot and the slots after it (Q-84), whatever day
+  // readers see (Q-51).
+  if (!o.readers && o.told && o.holds && acceptable(o.told, o.claim, o.holds)) out.push({ option: 'accept', label: 'Accept the new level' });
   return out;
 }
 

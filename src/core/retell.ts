@@ -7,8 +7,9 @@
  * flow's story told again from them must say what the claim said. Pure: no engine, no DOM.
  */
 import type { FlowDocument } from './document.js';
-import { HistoryRanges, type HistoryFile } from './history.js';
-import { flowStory, rangesFor, isClaim2, levelsOf, skipOf, type Claim, type StoryClaim2 } from './hold.js';
+import type { HistoryFile } from './history.js';
+import { dayOfSlot } from './calendar.js';
+import { claimRanges, flowStory, isClaim2, levelsOf, skipOf, type Claim, type StoryClaim2 } from './hold.js';
 import type { LogEntry } from './log.js';
 import { appendPeriods, emptyHistory, measuresHash, samePeriod, settingsFor, tailBefore, tailRef, type Measures } from './measures.js';
 import { translate } from './plan.js';
@@ -102,7 +103,8 @@ export async function retellClaims(entries: readonly EntryLike[], runs: readonly
         }
         // The levels the claim names (C6) are learned anew from their days, as the page told it.
         // The file the claim was told of (ADR 0020 §2): its facts are the claim's, so freshness is told again as it was.
-        const story = flowStory(new HistoryRanges(file, { ...rangesFor(r.doc, c.source), recorded: new Set(c.skip), levels: c.levels }), c.slot, r.doc, c.source, undefined, undefined, c.file);
+        // A slot's claim from its own series, as the page told it (`claimRanges`, ADR 0010 §7, Q-84).
+        const story = flowStory(claimRanges(file, c.slot, c.every, { doc: r.doc, source: c.source, skip: c.skip, levels: c.levels }), dayOfSlot(c.slot), r.doc, c.source, undefined, undefined, c.file);
         const below = story.amount ? story.amount.value < story.amount.low : story.state === 'wrong' && story.hero === 'amount' && story.cause?.kind === 'volume';
         if (story.state !== c.state || story.head !== c.head || below !== c.below) problems.push(`told again, its story says ${story.state} "${story.head}", and the claim ${c.state} "${c.head}"`);
         else stories?.set(`${r.seq}|${c.source.toLowerCase()}`, story);

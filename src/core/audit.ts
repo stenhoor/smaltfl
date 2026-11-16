@@ -33,7 +33,7 @@ import type { FlowDocument } from './document.js';
 import { sha256Hex } from './hash.js';
 import { daysBetween } from './calendar.js';
 import { DONOR_WINDOW, levelStray, levelWays, repairDocument, type Repair } from './fill.js';
-import { carry, spare, loadsOf, claimBase, claimHolds, donorGood, factsFromClaims, heldOutputs, holdsOf, inputsKey, isLoad, loadKey, type Load, isClaim2, isLevel, judgeClaims, publishedDays, sameKeys, standingFor, standingForLoad, type Claim, type DecideAbout, type DerivedAbout, type HeldAbout, type Hold, type Judged, type ReleaseAbout, type RunHold } from './hold.js';
+import { carry, spare, loadsOf, claimBase, claimHolds, donorGood, factsFromClaims, heldOutputs, holdsOf, inputsKey, isLoad, loadKey, type Load, isClaim2, isLevel, judgeClaims, levelFromHere, publishedDays, sameKeys, standingFor, standingForLoad, type Claim, type DecideAbout, type DerivedAbout, type HeldAbout, type Hold, type Judged, type ReleaseAbout, type RunHold } from './hold.js';
 import { canonicalJSON } from './canonical.js';
 import { consistencyProof, entryLeaf, parseCheckpoint, rootOf, verifyCheckpoint, verifyConsistency, verifyInclusion, verifyRecord, type JSONValue, type LogEntry, type SignedCheckpoint } from './log.js';
 import { manifestHash, planHash, policiesHash, type IdentityCard, type RunManifest } from './manifest.js';
@@ -488,7 +488,7 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
     if (a.option === 'accept') {
       if (typeof e.reason !== 'string' || e.reason.trim() === '') problems.push('it accepts a new level with no reason');
       if (!isLevel(a.level)) problems.push('it accepts a new level and names none (its source, the day it starts and its metrics)');
-      else if (a.under === undefined && a.level.from !== a.day) problems.push(`its level starts ${a.level.from}, not on the day it accepts, ${a.day ?? 'a day with no date'}`);
+      else if (a.under === undefined && !levelFromHere(a.level, a)) problems.push(`its level starts ${a.level.from}, not on the day it accepts, ${a.day ?? 'a day with no date'}`);
       if (a.under !== undefined) {
         const root = entries[a.under];
         const was = root?.about as unknown as DecideAbout | undefined;

@@ -21,7 +21,7 @@ import type { DayState, PauseState } from './days.js';
 import { stepRules } from './rules.js';
 import { isGeneralWatch, sourceOf, type FlowDocument, type HoldKind, type WatchDef } from './document.js';
 import type { Repair } from './fill.js';
-import { dayOfSlot, isEvery, type Every } from './calendar.js';
+import { dayOfSlot, isEvery, plusDays, type Every } from './calendar.js';
 import { HistoryRanges, rangeSettings, slotSeries, type HistoryFile, type Level, type RangeOptions } from './history.js';
 import { appendPeriods, emptyHistory, measuresHash, samePeriod, tailBefore, tailRef, type MeasureSettings, type Measures, type ReconcileCounts, type TailRef } from './measures.js';
 import { rootOf } from './log.js';
@@ -342,6 +342,42 @@ function claimLevels(levels: readonly Level[], day: string): ClaimLevel[] {
   return levels.filter((l) => l.from < day && Number.isInteger(l.decision)).map((l) => ({ from: l.from, metrics: [...l.metrics], decision: l.decision! })).sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : a.decision - b.decision));
 }
 
+/**
+ * The ranges a load's claim is told from (ADR 0010 §7): a day's history as it is; a slot's own series, the same slot of
+ * each day named by its day, as a day's (Q-83), with the days left out of that slot and every level from the day it
+ * starts in that series (`levelDay`, Q-84). The page's claim (`loadClaim`) and the audit's telling it again share it.
+ */
+export function claimRanges(file: HistoryFile, slot: string, every: Every, o: { doc: FlowFor; source: string; skip: readonly string[]; levels: readonly Level[]; given?: GivenRanges }): HistoryRanges {
+  const slotted = every !== 'day';
+  const own = (d: string) => !slotted || d.slice(10) === slot.slice(10);
+  return new HistoryRanges(slotted ? slotSeries(file, slot) : file, { ...rangesFor(o.doc, o.source), recorded: new Set(o.skip.filter(own).map(dayOfSlot)), levels: o.levels.map((l) => ({ ...l, from: levelDay(l.from, slot) })), ...(o.given && !slotted ? { given: o.given } : {}) });
+}
+
+/**
+ * The day a level starts on in the series a load is judged from (ADR 0022 §4, Q-84). A level from a day starts on that
+ * day. A level from a slot holds from that slot on, every slot after it: each slot of the day is judged from its own
+ * series (the same slot of each day, Q-83), where it starts on that day for a slot at or after the accepted one in the
+ * day, and on the next day for a slot before it. A slot's first load at the new level is judged against its own old
+ * level, as the day after an accepted day's is (a break counts from the days after it), and the acceptance stands for
+ * it while its numbers stay at the level (`levelFor`, Q-57b).
+ */
+export function levelDay(from: string, slot: string): string {
+  if (from.length === 10 || slot.length === 10) return dayOfSlot(from);
+  return slot.slice(10) >= from.slice(10) ? dayOfSlot(from) : plusDays(dayOfSlot(from), 1);
+}
+
+/**
+ * Whether an Accept names its level where it is made (ADR 0009 amendment 1 S6, Q-84): from the day it accepts, or the
+ * slot of the load it is about. One choice about several held loads names its subject's level on each of them
+ * (`loadDecisions`), so a decision about another source's load names a level from a slot of its own day.
+ */
+export function levelFromHere(level: { source: string; from: string }, about: { day?: unknown; load?: unknown }): boolean {
+  const day = typeof about.day === 'string' ? about.day : null;
+  if (day === null) return false;
+  if (level.from === day) return true;
+  return isLoad(about.load) && about.load.source.toLowerCase() !== level.source.toLowerCase() && dayOfSlot(level.from) === dayOfSlot(day);
+}
+
 /** Whether a story's day is below its range; or, with no range, under the floor that needs none (ADR 0010 §1), which
  * `short` holds too (Q-53). */
 const belowOf = (s: Story): boolean => (s.amount ? s.amount.value < s.amount.low : s.state === 'wrong' && s.hero === 'amount' && s.cause?.kind === 'volume');
@@ -406,11 +442,7 @@ export async function loadClaim(o: LoadClaimInput): Promise<{ claim: StoryClaim2
   }
   const skip = [...new Set(o.skip)].filter((d) => d < slot).sort();
   const levels = (o.levels ?? []).filter((l) => l.from < slot);
-  // A slot is judged from its own series, as a day (ADR 0010 §7): the same slot of the day, named by its day, the days
-  // left out and the levels of that slot too.
-  const slotted = every !== 'day';
-  const own = (d: string) => !slotted || d.slice(10) === slot.slice(10);
-  const ranges = new HistoryRanges(slotted ? slotSeries(file, slot) : file, { ...rangesFor(o.doc, o.source), recorded: new Set(skip.filter(own).map(dayOfSlot)), levels: levels.filter((l) => own(l.from)).map((l) => ({ ...l, from: dayOfSlot(l.from) })), ...(o.given && !slotted ? { given: o.given } : {}) });
+  const ranges = claimRanges(file, slot, every, { doc: o.doc, source: o.source, skip, levels, ...(o.given ? { given: o.given } : {}) });
   const s = flowStory(ranges, dayOfSlot(slot), o.doc, o.source, o.upstream, o.sample && o.kept ? { sample: o.sample, today: o.kept } : undefined, o.file);
   const claim: StoryClaim2 = {
     by: 'story', v: 2, source: o.source, slot, every, state: s.state, below: belowOf(s), head: s.head, build: o.build, flow: o.flow,

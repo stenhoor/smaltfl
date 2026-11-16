@@ -578,8 +578,9 @@ so moves the vector (Q-52):
   one published is refused, as any release that would move a name back is.
 - **Fills per load.** A slot's missing hours are named as the day's (06:00–10:00 of the 06–12 slot is hours 6 to 9); a
   fill takes the same slot of another day (`from` and `to` are slot ids), its rows moved by the days between. Fills are
-  off when two loads hold the run (amendment 1 S2), and for a slot under 3 hours (Q-84). A slot gets no Accept (a level
-  starts on a day, Q-84).
+  off when two loads hold the run (amendment 1 S2). A slot under 3 hours and a slot's Accept: since ADR 0022 slice 4
+  (Q-84), a quarter-hour gap is named by the whole hours that hold it, a gap over every part of a slot is filled whole,
+  and a slot's load gets Accept, its level from the slot on, every slot after it (`levelDay`).
 - **The day line** names the loads that pause it: "Paused by edr 06–12, auth" (`pauseReasons`, a check by its source,
   "auth checks").
 - **Variant E** (test/fixtures/security.ts): endpoint events every 6 hours with their own history (`edrHistory`) and
@@ -590,8 +591,9 @@ so moves the vector (Q-52):
   runs and decided once, each run released by that decision; the 06–12 slot filled from the day before's, released and
   verified; the audit telling the carried holds and the load decisions again.
 - **Not built:** the app's lanes, one a source, and stepping load by load (the app still runs one watched source's story
-  a run, ADR 0010 phase 2); "+N sources" past three lanes; a fill or Accept for a slot under the limits above; the rows a
-  file spans outside its slot as a finding of their own (they are in no part, so the parts fall short of the rows).
+  a run, ADR 0010 phase 2); "+N sources" past three lanes; the rows a file spans outside its slot as a finding of their
+  own (they are in no part, so the parts fall short of the rows). Fills and Accept for a slot are built (ADR 0022,
+  Q-84).
 
 ### 8. Nouns, and the taxi shortcuts removed (h)
 
