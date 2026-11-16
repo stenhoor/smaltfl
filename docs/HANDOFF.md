@@ -238,8 +238,11 @@ The month screen lists the scenes. Today's month stays the tests'. The slices of
    Wednesday's own export;
 3. Q-86, keep pausing until accepted: **built** (2026-11-15, ADR 0023 §"As built"). Every day of a lasting change at
    its new level holds until someone accepts it; the app accepts the held file's level on any day of it;
-4. the tour month: the generator's preset, its story, its answer key and test;
-5. the scene list in the app, its stops at every size, and the demo guide rewritten as the tour.
+4. the tour month: **built** (2026-11-16, ADR 0023 §"As built"). A scene a day of Larkspur's March
+   (`scripts/data/larkspur.mjs --tour`, `examples/larkspur/tour.json`), built with `npm run build:app -- --variant tour`
+   and deployed at `/tour/` until slice 5; its answer key at the demo's scale (`npm run test:tour`, a CI job of its own);
+5. the scene list in the app, its stops at every size, and the demo guide rewritten as the tour: next. The tour takes
+   `/app/`'s place; the scenes' days are in `LARKSPUR_TOUR_DAYS` and the slice 4 table of ADR 0023 §"As built".
 
 **Then the rest of [ADR 0022](adr/0022-the-answers-of-2026-11-14.md), the maintainer's answers of 2026-11-14:** Q-84 and
 slice 5 (Q-139). With ADR 0021
