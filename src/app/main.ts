@@ -19,6 +19,7 @@ import { applyEdit, changesOn, inForce, resolve as resolveRules, ruleParts, rule
 import { diffSaid, ruleVersions, rulesDiff, versionKey, versionOn, type RuleVersion } from '../core/ruleversions.js';
 import { GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
 import { notebookSectionId } from '../core/notebook.js';
+import { lookOf, sceneHash, type SceneLook, type ScenesFile } from '../core/scenes.js';
 import { briefOf, briefText, type BriefIn, type BriefOption } from '../core/brief.js';
 import { compareSummary, diffKeyOf, diffOf, type RowDiff } from '../core/compare.js';
 import { createTable, emitCheckCounts, emitColumnFacts, emitCopy, emitDayHours, emitDiff, emitDistinct, emitHourValues, emitDrop, emitDropped, emitExcept, emitFailures, emitLookup, emitRead, emitRuleFailures, emitSample, emitUnmatched, sameColumns, stampShift, type EmitContext } from '../core/emit.js';
@@ -4744,8 +4745,9 @@ function checkVisual(f: Finding, id: string): Element | null {
   }
   if (f.value !== undefined && f.range && !['share', 'gone', 'missing', 'volume', 'shape', 'dropped', 'rule', 'hours'].includes(f.kind)) {
     const share = f.range.high <= 1 && f.range.low >= 0 && f.value <= 1 && f.value >= 0 && f.metric?.of !== 'trips';
-    const fmt = (v: number) => (share ? pct(v) : fmtNum(v));
-    return svgNode(bulletTrack({ value: f.value, low: f.range.low, high: f.range.high, valueLabel: `today ${fmt(f.value)}`, bandLabel: `usually ${fmt(f.range.low)}–${fmt(f.range.high)}`, sev: f.severity === 'alert' ? 'alert' : 'warn', aria: f.title }));
+    // A count of rows is said in whole rows, as its sentence says it ("a day like it has 1–2").
+    const fmt = (v: number) => (share ? pct(v) : f.look === 'rows' ? fmtInt(Math.round(v)) : fmtNum(v));
+    return svgNode(bulletTrack({ value: f.value, low: f.range.low, high: f.range.high, valueLabel: `today ${fmt(f.value)}`, bandLabel: `usually ${unitSpan(fmt(f.range.low), fmt(f.range.high))}`, sev: f.severity === 'alert' ? 'alert' : 'warn', aria: f.title }));
   }
   return null;
 }
@@ -12633,7 +12635,9 @@ function renderMonth(): void {
         : h('p', { class: 'loads-lock', title: `${deciders()} runs the days: a day that passes publishes` }, glyphEl('lock', 13), `${deciders()} runs days`),
       recorded && checked ? h('span', { class: 'mo-checked' }, ` ${checked} of ${days.length} days checked here`) : null)
     : null;
-  box.replaceChildren(head, episodes ?? '', trend ?? '', h('div', { class: 'panel mo-cal-panel' }, cal, key, live ?? ''), summary ?? '', table ?? '');
+  // What the demo shows, where it says (ADR 0023 §4): before the month it walks.
+  const scenes = at === null ? scenesPanel(dataList?.scenes) : null;
+  box.replaceChildren(head, episodes ?? '', scenes ?? '', trend ?? '', h('div', { class: 'panel mo-cal-panel' }, cal, key, live ?? ''), summary ?? '', table ?? '');
 }
 
 /** What the month says of each day it shows, by day, as known on the moment it is read as known on: for the browser
@@ -14345,6 +14349,7 @@ async function run(early?: EarlyClaims): Promise<void> {
     renderMonth();
     mark('run: drawn');
     if (pendingDay) openDay(pendingDay.day, pendingDay.version);
+    applyLook();
   }
 }
 
@@ -15652,6 +15657,61 @@ ${r ? `<p>Run ${runName(r)}, manifest <code>${r.result.hash}</code>${r.verified 
 `;
 }
 
+// ------------------------------------------------------------------ the demo's scenes (ADR 0023 §4)
+
+/** A scene's look a link asked for (`#scene/4/2`): opened once its day is on screen, in the version it names, with
+ * nothing running. */
+let pendingLook: SceneLook | null = null;
+
+/** The look a scene's link names, by the scene's place in the data list's scenes and the look's (from 1). */
+function sceneLook(scene: string | undefined, look: string | undefined): SceneLook | null {
+  const file = dataList?.scenes;
+  const n = Number(scene);
+  const k = look === undefined ? 1 : Number(look);
+  return file && Number.isInteger(n) && Number.isInteger(k) ? (lookOf(file, n, k)?.look ?? null) : null;
+}
+
+/**
+ * The place a scene's look names, once its day is the day on screen in the version it names and nothing runs: a card on
+ * its tab (its first where none is named), or the day's decision as Decide › opens it; a look naming neither is the day
+ * screen itself. Kept until then.
+ */
+function applyLook(): void {
+  const l = pendingLook;
+  if (!l || state.running) return;
+  const k = loads.list.findIndex((x) => x.day === l.day);
+  const r = k >= 0 ? runOfLoad(k) : undefined;
+  if (k < 0 || k !== loads.at || !r) return;
+  if (!loads.replaced.has(k) && versionOfRun(r) !== (l.version ?? wentWith(k))) return;
+  pendingLook = null;
+  const card = l.card && [...state.doc.sources, ...state.doc.steps].some((x) => x.id === l.card) ? l.card : null;
+  if (card) openTab(card, (l.tab ?? (tabsOf(card).includes('quality') ? 'quality' : 'news')) as Tab);
+  else if (l.decide) decideDay(l.day);
+}
+
+/** The month's list of what the demo shows (ADR 0023 §4): each scene numbered, what it shows and what happened, each of
+ * its places to look a link; the stories kept from the month after them, as more to see. Null without scenes. */
+function scenesPanel(file: ScenesFile | undefined): HTMLElement | null {
+  if (!file) return null;
+  const looks = (i: number) => h('p', { class: 'sc-looks' }, ...file.scenes[i]!.looks.map((l, k) => h('a', { class: 'sc-look', href: sceneHash(i + 1, k + 1), 'data-look': `${i + 1}/${k + 1}` }, `${l.label} ›`)));
+  const numbered = file.scenes.flatMap((s, i) => (s.n !== undefined ? [i] : []));
+  const more = file.scenes.flatMap((s, i) => (s.n === undefined ? [i] : []));
+  return h('section', { class: 'panel mo-scenes', 'aria-label': file.title },
+    h('p', { class: 'eyebrow' }, file.title),
+    h('ol', { class: 'sc-list' }, ...numbered.map((i) => {
+      const s = file.scenes[i]!;
+      return h('li', { class: 'sc', 'data-scene': String(i + 1) },
+        h('span', { class: 'sc-n', 'aria-hidden': 'true' }, String(s.n)),
+        h('div', { class: 'sc-body' }, h('p', { class: 'sc-title' }, s.title), h('p', { class: 'sc-said' }, s.said), looks(i)));
+    })),
+    more.length
+      ? h('div', { class: 'sc-more' }, h('p', { class: 'sc-more-title' }, 'More to see'), h('ul', { class: 'sc-list' }, ...more.map((i) => {
+          const s = file.scenes[i]!;
+          return h('li', { class: 'sc', 'data-scene': String(i + 1) }, h('div', { class: 'sc-body' }, h('p', { class: 'sc-title' }, s.title), h('p', { class: 'sc-said' }, s.said), looks(i)));
+        })))
+      : null);
+}
+
 // ------------------------------------------------------------------ views and start
 
 /** The home view: the month, where the flow has days to pick from (ADR 0021 §3); else the flow. */
@@ -15663,9 +15723,14 @@ const homeView = (): string => ((dataList?.loads.length ?? 0) > 1 ? 'month' : 'f
  * already on it; the other views by name. No hash is home; any other (a brief's link, `#brief-…`) is the day screen, as
  * it was.
  */
-function routeOf(hash: string): { view: string; day: string | null; version: number | null } {
+function routeOf(hash: string): { view: string; day: string | null; version: number | null; look?: SceneLook } {
   const [name = '', arg, ver] = hash.replace(/^#/, '').split('/');
   if (name === 'day') return { view: 'flow', day: arg && /^\d{4}-\d{2}-\d{2}$/.test(arg) ? arg : null, version: ver && /^v[1-9]\d*$/.test(ver) ? Number(ver.slice(1)) : null };
+  // A scene's look (ADR 0023 §4, `#scene/4/2`): its day, on its version, then the place to look.
+  if (name === 'scene') {
+    const look = sceneLook(arg, ver);
+    return look ? { view: 'flow', day: look.day, version: look.version ?? null, look } : { view: homeView(), day: null, version: null };
+  }
   if (name === '') return { view: homeView(), day: null, version: null };
   return { view: VIEWS.includes(name) ? name : 'flow', day: null, version: null };
 }
@@ -15696,7 +15761,8 @@ function openDay(day: string, version: number | null = null): void {
 }
 
 function showView(): void {
-  const { view, day, version } = routeOf(location.hash);
+  const { view, day, version, look } = routeOf(location.hash);
+  if (look) pendingLook = look;
   if (state.selected || state.section) select(null);
   for (const v of VIEWS) {
     $(`view-${v}`).hidden = v !== view;
@@ -15709,6 +15775,8 @@ function showView(): void {
     if (day) openDay(day, version);
     renderLoads();
     renderCanvas();
+    // A day already on screen in the version a scene names runs nothing: its look opens now.
+    applyLook();
   }
   if (view === 'results') void renderResults();
   if (view === 'policies') void renderPolicies();

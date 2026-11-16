@@ -1,7 +1,7 @@
 # ADR 0023: The demo as a tour of what a flow can do
 
 - **Status:** accepted, 2026-11-15. The maintainer asked for the demo to be thought through again from what a visitor
-  should see, and approved the plan below ("Looks good"). It is built in the slices of §6.
+  should see, and approved the plan below ("Looks good"). Built in the slices of §6, all five (§"As built").
 - **Date:** 2026-11-15
 - **Builds on:**
   - [ADR 0020](0020-the-estate-as-a-company.md): Larkspur, the demo at `/app/`.
@@ -243,6 +243,49 @@ ADR 0022's Q-84 (levels and fills for slots of a day) and slice 5 (Q-139, propos
   decided as its story says, every other day published. Not at the tests' scale: there the exceptions register has
   sixty rows, five approvals move it by a twentieth, and a held day isn't learned from, so it holds to the month's end;
   the demo's register never moves so.
+
+### Slice 5: the scene list in the app (2026-11-16)
+
+- **The scenes are data** (`src/core/scenes.ts`, `smaltfl-scenes/1`; `examples/larkspur/scenes.json`, named by the data
+  list's variant as `scenes` and shipped in loads.json). A scene has its number (none for the stories kept as more to
+  see, after the numbered ones), its title, what happened (`said`) and its places to look. A look is a day, the words of
+  its link, and on the day a version of it, a card and its tab, or the day's decision. `scenesProblems` says what is
+  wrong with a file, by scene and look, and, given the demo's days and the flow's cards, a day or card it doesn't have;
+  the page takes a file with problems as none, and says why in the console.
+- **The month lists them**, *What this demo shows*, above the calendar on the month as it is now (not as known on a
+  moment): each scene numbered, its title, what happened and a link a look. On a phone the list is one column, from
+  820 px two, and from 1180 px it runs the window's width in three.
+- **A look's link is `#scene/N/K`** (`sceneHash`, `lookOf`: the scene's place in the list and the look's, from 1). It
+  opens the day screen on the look's day and version, and once that day has run, the card on its tab (`openTab`; its
+  Quality tab where it has one, else its News) or the day's decision as Decide › opens it (`pendingLook`, `applyLook`).
+  A look naming neither is the day screen. A day already on screen in that version runs nothing; its look opens at once.
+- **The tour's six scenes and the two stories kept**, fourteen looks (`test/scenes.test.ts` holds each to its day of
+  `LARKSPUR_TOUR_DAYS` and each card to the flow; `tools/browser/stops/tour.json` opens each from its link, at every
+  size).
+- **The tour at `/app/`, and the planted month kept at `/larkspur/`.** The tour takes the demo's place, as §2 says. The
+  planted month isn't dropped: it is ADR 0020's answer key, the posture read over a whole month, the rules changed
+  twice and a back-dated change restating two days, which the tour doesn't show. It is deployed at `/larkspur/` with
+  its own guide (`docs/guide/larkspur.md`, the walk that was the demo's), as the control estate is at `/estate/`, and its
+  walks (`larkspur.json`, `month.json`, `decide.json`, `compare.json`, `posture.json`, `versions.json`, `whatif.json`)
+  stay its regression rather than being rewritten for the tour (the Consequences below said rewritten); the tour's own
+  are `tour.json`, a stop a look.
+- **The docs' demo page is the tour's** (`docs/guide/demo.md`): the flow, then a section a scene in the app's order, the
+  stories kept, and what the app shows on any day. The two-minute test takes its days from the scenes
+  (`tools/judges/two-minute.md`).
+- **Found while walking the scenes, and fixed:**
+  - *An accepted level leaves the forest too* (`HistoryRanges.movedBy`, `dayFeatures`' day in `src/core/combos.ts`).
+    Accepting a level broke every learned check of the metrics it moved, but the isolation forest still read them
+    against the days before the level, so Thu 14, judged at the migration's new level, was still *a little unlike the
+    days before* by the very shares accepted on Wed 13. From the level's day on, the forest leaves out the shares and
+    pairs a level moved (`test/combos.test.ts`).
+  - *A fill's receipt says its reason* (`receiptLines` in `src/core/decision.ts`), as every other decision's does:
+    Sat 23's fill read as if no reason had been given.
+  - *A band's words stay inside its drawing* (`bulletTrack` in `src/app/viz.ts`), clear of the 0 tick, where a band
+    near zero ran off the left edge (Mon 4's scope, Tue 12's pair); a count of rows says its band in whole rows, as its
+    sentence does (*usually 1*, not *usually 0.5–0.5*), and the sentence says a range whose ends round alike as one
+    number (*a day like it has 1*, not *1–1*; `ruleCount` in `src/core/news.ts`).
+  - Scene 2's reactions are worded as the card's **More** words them (*Mark as expected*, *Add a check*, *Tell the
+    source*), and Mon 25's look opens **News**, where the certificate authority leads.
 
 ## Consequences
 

@@ -23,8 +23,11 @@ detail, how to check it and what is left are in [where the work stands](../HANDO
 
 ## Demos
 
-- [Larkspur](/app/){target="_self"}: a fictional financial-services group, about 2,400 applications, its organisation
-  and shared platforms, six months of history and a planted March at every layer, bronze to gold.
+- [The tour](/app/){target="_self"}: Larkspur, a fictional financial-services group, about 2,400 applications, its
+  organisation and shared platforms, on a March made to show what a flow does, in six scenes listed on its month
+  ([ADR 0023](../adr/0023-the-demo-as-a-tour)).
+- [Larkspur's planted month](/larkspur/){target="_self"}: the same group, six months of history and a planted March at
+  every layer, bronze to gold; ADR 0020's answer key, the posture over the month and the rules changed over time.
 - [The control estate](/estate/){target="_self"}: 600 applications, twelve controls, a year of history and a planted
   March; the answer key the gates were built against, kept as a regression, and a day whose TLS file renames the
   column every control is joined on.

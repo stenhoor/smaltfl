@@ -16,7 +16,7 @@ hero:
 features:
   - title: A day that is off waits for you
     details: Each day's load is judged against the days before it. A day that is off is held, told as one cause with what it reaches, and published only when someone decides.
-    link: /guide/demo#a-held-day
+    link: /guide/demo#held
     linkText: A held day
   - title: Notebooks are the steps
     details: A flow's steps are the cells of smaltnb notebooks (.nb.ts), read top to bottom with each step's output, the rules it caught and the models beneath it.

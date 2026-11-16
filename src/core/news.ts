@@ -603,7 +603,9 @@ export function newsOf(h: HistoryRanges, day: string, names: Names, options: { c
     if (n <= 0) return;
     const j = judged(metric);
     const wrong = n >= 5 && (!j || n > 2 * j.range.high);
-    out.push({ key, kind, severity: wrong ? 'alert' : 'note', score: wrong ? Math.min(99, n) : 1, title, detail: j ? `${detail} A day like it has ${fmtInt(Math.round(j.range.low))}–${fmtInt(Math.round(j.range.high))}.` : detail, look: 'rows', metric, value: n, ...(j ? { range: j.range } : {}), rows: n, acts: ['incident', 'notify', 'expected'] });
+    // A usual count whose ends round to the same number is said as that number ("a day like it has 1"), not "1–1".
+    const [lo, hi] = j ? [Math.round(j.range.low), Math.round(j.range.high)] : [0, 0];
+    out.push({ key, kind, severity: wrong ? 'alert' : 'note', score: wrong ? Math.min(99, n) : 1, title, detail: j ? `${detail} A day like it has ${lo === hi ? fmtInt(lo) : `${fmtInt(lo)}–${fmtInt(hi)}`}.` : detail, look: 'rows', metric, value: n, ...(j ? { range: j.range } : {}), rows: n, acts: ['incident', 'notify', 'expected'] });
   };
   if (file.gate?.scope) {
     const sc = file.gate.scope;

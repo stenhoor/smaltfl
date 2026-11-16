@@ -5,6 +5,7 @@
  * Pure: the app reads it at start.
  */
 import type { Binding } from '../../examples/sources.js';
+import { isScenesFile, scenesProblems, type ScenesFile } from '../core/scenes.js';
 import type { Expected } from './fetch-checked.js';
 
 /** A day's file of a source, as the data lists it, checked against MANIFEST.json at start. */
@@ -76,12 +77,23 @@ export interface DataList {
    * roll-up, the organisation, the applications' scorecards, the applications with their owners, the remediation queue.
    * Read as a consumer reads them, the published names alone. */
   posture?: PostureProduct;
+  /** The demo's scenes (ADR 0023 §4, core/scenes.ts): what it shows, listed on the month screen; none where the list
+   * names none, or they aren't a good scenes file (said in the console, never in the way). */
+  scenes?: ScenesFile;
   loads: Listed[];
   episodes: { name: string; about?: string; loads: Listed[] }[];
   donors: Listed[];
   /** Every fixed file by key: each source's by its id, each history as `history` (the first) and `history:<id>`. */
   files: Record<string, FileEntry>;
 }
+
+/** The data list's scenes, where they are a good scenes file. */
+const scenesOf = (v: unknown): ScenesFile | undefined => {
+  if (v === undefined) return undefined;
+  if (isScenesFile(v)) return v;
+  console.warn(`smaltfl: the data list's scenes aren't shown: ${scenesProblems(v).join('; ')}`);
+  return undefined;
+};
 
 /** A posture product's datasets, by the names the flow publishes them under (the data list's `posture`). */
 export interface PostureProduct {
@@ -154,6 +166,7 @@ export function readDataList(raw: unknown): DataList {
     return {
       format: 2, ...(typeof index.month === 'string' ? { month: index.month } : {}), ...(typeof index.built === 'string' ? { built: index.built } : {}), data, flow, sources, histories, samples, ranges, ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), loadSource, daily, judged,
       ...(postureOf(index.posture) ? { posture: postureOf(index.posture)! } : {}),
+      ...(scenesOf(index.scenes) ? { scenes: scenesOf(index.scenes)! } : {}),
       loads, episodes: episodesOf(index.episodes), donors: loadSource ? sources[loadSource]!.donors ?? [] : [], files,
     };
   }

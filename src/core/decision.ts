@@ -666,7 +666,8 @@ export function receiptLines(o: { state: DayState; day: string | null; readers: 
     const took = r.option === 'fill' ? (r.filled !== null ? `${fmtInt(r.filled)} filled` : null) : r.setAside !== null ? `${fmtInt(r.setAside)} set aside` : null;
     return {
       head: `${head}${sees}`,
-      sub: [took, released, o.standing && !o.under ? `later days too, ${UNTIL}` : null, by, rec].filter(Boolean).join(' · '),
+      // A fill's reason is said as any decision's is (ADR 0023 slice 5: Sat 23's fill read as if none was given).
+      sub: [why, took, released, o.standing && !o.under ? `later days too, ${UNTIL}` : null, by, rec].filter(Boolean).join(' · '),
       change: 'Change decision', versions: true,
     };
   }

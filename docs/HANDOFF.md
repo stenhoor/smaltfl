@@ -189,7 +189,8 @@ Each piece has its ADR, tests, and a line in CLAUDE.md's layout.
   (kept in the browser). The site (`docs/`, VitePress with smalt-brand's kit copied unchanged): home, Quick start, A walk
   through the demo, Working in the app, Writing a flow, Status, and the design records; `.github/workflows/docs.yml`
   deploys it with the estate demo at `/app/` and the sign-ins at `/signins/` (since ADR 0020's slice 7, 2026-11-13:
-  Larkspur at `/app/`, the control estate at `/estate/`). Waiting on the owners: Pages turned on
+  Larkspur at `/app/`, the control estate at `/estate/`; since ADR 0023's slice 5, 2026-11-16: Larkspur's tour month at
+  `/app/` and its planted month at `/larkspur/`). Waiting on the owners: Pages turned on
   for the repository (Source: GitHub Actions), and smalt-brand's product page, status row and `FAMILY` entry for
   smaltfl (its mark and positioning line are owner decisions).
 - **Round-3 fixes, partly done** (the last three commits, `f76107b`, `791d07b` and `e42d9ec`):
@@ -207,6 +208,8 @@ npm run test:slow                           # the estate's month, Larkspur's six
 npm run build                               # declarations; NOTE: wipes dist/, so build the app again after it
 npm run build:app                           # dist/app on Larkspur, its days generated; the bundles are named by content (app.<hash>.js), so a
                                             # browser never serves a stale build under the old name (bundles.json says which)
+npm run build:app -- --variant tour --out dist/app-tour   # the demo: the tour month and its scene list (ADR 0023)
+node tools/browser/regress.cjs APP OUT tour  # the tour's scenes, a stop a look, at every size (APP: a copy of dist/app-tour)
 ```
 
 Results on 2026-11-09, at `e42d9ec` on data `0ca4dd1`:
@@ -241,8 +244,17 @@ The month screen lists the scenes. Today's month stays the tests'. The slices of
 4. the tour month: **built** (2026-11-16, ADR 0023 §"As built"). A scene a day of Larkspur's March
    (`scripts/data/larkspur.mjs --tour`, `examples/larkspur/tour.json`), built with `npm run build:app -- --variant tour`
    and deployed at `/tour/` until slice 5; its answer key at the demo's scale (`npm run test:tour`, a CI job of its own);
-5. the scene list in the app, its stops at every size, and the demo guide rewritten as the tour: next. The tour takes
-   `/app/`'s place; the scenes' days are in `LARKSPUR_TOUR_DAYS` and the slice 4 table of ADR 0023 §"As built".
+5. the scene list in the app, its stops at every size, and the demo guide rewritten as the tour: **built** (2026-11-16,
+   ADR 0023 §"As built"). The month lists *What this demo shows* from the data list's `scenes.json`, each look a link
+   (`#scene/N/K`) opening its day, version and card's tab or decision; the tour is at `/app/`, Larkspur's planted month
+   at `/larkspur/`, and `docs/guide/demo.md` walks the tour (`docs/guide/larkspur.md` the planted month). ADR 0023 is
+   done. Two points left for the maintainers, said in the slice's PR:
+   - the tour's days between scenes publish, but 13 carry a learned check's note, marked unusual on the month (the
+     estate's own rhythms: Patch Tuesday's findings falling due, pentest and DR cycles, the quarter's access reviews),
+     where §1 wanted them calm; quieting them changes the tour's month and moves its answer key;
+   - the month marks a day from the record by every watched dataset's claim, but a day run in the browser by the
+     dataset the views follow alone (`calendarDayOf` in `src/app/main.ts`, `stateOfRun` in `src/core/month.ts`), so
+     the tour's Fri 1 shows ✓ once run where the record says its findings were unusual.
 
 **Then the rest of [ADR 0022](adr/0022-the-answers-of-2026-11-14.md), the maintainer's answers of 2026-11-14:** Q-84 and
 slice 5 (Q-139). With ADR 0021

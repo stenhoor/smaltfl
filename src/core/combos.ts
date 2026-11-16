@@ -177,11 +177,14 @@ interface Feature {
   words: (k: number, usual: number) => string;
 }
 
-/** The numbers a day is seen by: every counted value's share, each pair's larger cells' log odds, the share dropped. */
-export function dayFeatures(h: HistoryRanges, o: Pick<UnlikeOptions, 'names' | 'label' | 'leaveOut'>): Feature[] {
+/** The numbers a day is seen by: every counted value's share, each pair's larger cells' log odds, the share dropped.
+ * Given the day, the numbers a level accepted by then moved are left out: the days before it were at another level
+ * (ADR 0023 slice 5: the log pipelines' new mix, accepted on Wed 13, still set Thu 14 apart from the days before). */
+export function dayFeatures(h: HistoryRanges, o: Pick<UnlikeOptions, 'names' | 'label' | 'leaveOut'>, day?: string): Feature[] {
   const file = h.file;
   const out: Feature[] = [];
-  const out_ = (c: string) => o.leaveOut?.(c) ?? false;
+  const moved = (m: Metric) => day !== undefined && h.movedBy(m, day);
+  const out_ = (c: string) => (o.leaveOut?.(c) ?? false) || moved({ of: 'value', column: c, value: '' });
   const col = (x: string) => o.names.column(x);
   const share = (k: number, n: number | undefined) => (file.rows[k]! > 0 ? (n ?? 0) / file.rows[k]! : null);
   for (const [column, vh] of Object.entries(file.values ?? {})) {
@@ -195,7 +198,8 @@ export function dayFeatures(h: HistoryRanges, o: Pick<UnlikeOptions, 'names' | '
     const [a, b] = pair.split('|') as [string, string];
     if (out_(a) || out_(b)) continue;
     const top = vh.values.map((key, i) => ({ key, i })).sort((p, q) => vh.rows[q.i]! - vh.rows[p.i]!).slice(0, CELLS_A_PAIR);
-    for (const { key, i } of top) {
+    for (const { key } of top) {
+      if (moved({ of: 'combo', pair, value: key })) continue;
       const places = comboPlaces(file, pair, key);
       const xy = cellOf(key);
       if (!places || !xy) continue;
@@ -245,7 +249,7 @@ function grownFor(h: HistoryRanges, day: string, o: Pick<UnlikeOptions, 'names' 
   const k = file.days.indexOf(day);
   if (k < 0) return { why: 'the day isn’t in the history' };
   if (!file.rows[k]) return { why: 'the day has no rows' };
-  const features = dayFeatures(h, o);
+  const features = dayFeatures(h, o, day);
   if (features.length < 2) return { why: 'too few numbers to read: no counted column' };
   const learned = file.days.map((d, j) => j).filter((j) => j < k && j >= file.warmup && file.rows[j]! > 0 && h.learnsFrom(file.days[j]!));
   if (learned.length < LEARN_DAYS) return { why: `too few days to learn from (${learned.length} of ${LEARN_DAYS})`, days: learned.length };
