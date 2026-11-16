@@ -17,13 +17,15 @@ browser. The data is synthetic, from a fixed seed, with six months of history be
 The demo is a tour of what a flow does, over a February and a March made for it: six scenes, a week or so apart, and
 calm days between them. The tour's world is steady, so only its scenes stand out; a few calm days still carry a learned
 check's note, marked unusual, as any long-running flow's judges will now and then. The month screen lists the scenes
-under **What this demo shows**, each with what happened and links to the places to look: a day, a version of it, a
-card's tab or the day's decision. This page follows the same list. Nothing that judges the days knows where a scene is
-planted.
+behind **What this demo shows**, a bar at its head: tap it, and each scene has what happened and links to the places
+to look: a day, a version of it, a card's tab or the day's decision. This page follows the same list. Nothing that
+judges the days knows where a scene is planted.
 
 The two months open complete. The build ran every day and recorded it, with what happened next: the files sent again,
-and who decided what, when and why. The month screen draws it at once, a calendar a month, each day marked with what
-became of it. Opening a day runs it again in your browser, on the version readers got, judged against the recorded
+and who decided what, when and why. The month screen draws it at once. It opens on March: the day that still waits
+for you, the month in a sentence beside February, a calendar with each day marked by what became of it, and each file
+as a row of the month's days. ‹ goes to February. Tap a day to read what happened to it, in order. Opening a day runs
+it again in your browser, on the version readers got, judged against the recorded
 days before it, and the line under the day says whether its datasets and holds are the same as the record's. The first
 day takes a few seconds while the engine starts and runs the whole flow, about a hundred steps.
 
@@ -178,8 +180,8 @@ dataset's **Checks** tab shows its gate the same way. A written check holds a da
 is one the ontology marks bad, or it moved a quarter of the file's rows (scenes 4 and 5). On a gold card, the seal says
 the run's gates passed, or its holds were decided, and is signed by the owner. A day the history has nothing like isn't
 judged by what was learned: Mon Feb 19, Presidents' Day, comes before any holiday of its kind in the history, so the
-hr_people file's Quality tab says *No quality issues: 5 checks passed, 6 not judged yet*, the record marks the day's
-files ◌ on the month's grid, and the day is published.
+hr_people file's Quality tab says *No quality issues: 5 checks passed, 6 not judged yet*, the month says of the day
+that twenty datasets weren't judged, and the day is published.
 
 ## The ontology
 

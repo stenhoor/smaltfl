@@ -5,15 +5,25 @@ screens follow its ontology and its notebooks.
 
 ## The screen
 
-- **The month** is where a flow with days opens (ADR 0021):
-  - a calendar, each day marked with what became of it: published, paused, unusual, not judged, or what a decision
-    made of it;
-  - above it, where the flow names a data product, the product's score on each day published;
-  - from tablet width, a grid of each notebook's files and steps by day, which shows which file broke on which day.
+- **The month** is where a flow with days opens (ADR 0021, laid out by ADR 0024). From the top:
+  - **what waits for a decision**, in any month, each with **Decide ›**. It isn't there when nothing waits;
+  - **the months side by side**, where there is more than one: each month's days as a row of bars, with its counts;
+  - **the month in a sentence**, beside the month before, and its counts: *‖ 1 Paused*, *☑ 5 Decided*, *⚠ 5 Unusual*,
+    *✓ 20 Normal*. A count taps to its days;
+  - **the calendar**, a day a cell with one of five marks, and **the day picked**: what held it, what it held back,
+    what happened with who decided and why, and **Open the day ›**;
+  - **what needed a look**, the month's days that weren't simply normal, a line each;
+  - **files and steps over the month**, a row each with a bar a day, the worst first;
+  - where the flow names a data product, **its score**: the number, whether it is steady, and what moved it.
 
-  **For the day** picks the month or episode, and **As known on** shows the month as it stood at the end of a past day.
-  Tap a day for its summary, and **Open the day ›** to open it. A demo's month was run and recorded by the build:
-  **Check every day here ▶** runs each day again in your browser and checks it against its record.
+  The five marks: ✓ normal; ⚠ unusual, published with something to look at; ‖ paused, waiting for a decision; ☑
+  decided, paused and then published by a decision; ☒ not published. How a decided day went out is the word beside it:
+  *As is*, *Filled*, *New level*, *Corrected*.
+
+  **For the day** names the month, with ‹ and › to the months either side; a month has its own link
+  (`#month/2024-03`). **As known on** shows the month as it stood at the end of a past day. The arrow keys move through
+  the days. A demo's month was run and recorded by the build: **Check every day here ▶** runs each day again in your
+  browser and checks it against its record.
 - **The day** is a day's own screen, with its own link (`#day/2024-03-12`):
   - back to the month, and the days either side;
   - what happened to the day: arrived, checked, held or published, decided;

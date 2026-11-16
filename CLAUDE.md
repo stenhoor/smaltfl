@@ -408,6 +408,26 @@ release (smaltty ADR 0030).
   under the checks on a bronze file's Quality tab (`proposalsPart`, `proposalCard`, `proposalsFor`; Accept… with a
   reason and the from bar, Not now kept in the browser, `notNow`; `acceptedIn`); `test/proposals.test.ts`,
   `tools/browser/stops/proposals.json`.
+- The month at a glance (ADR 0024, docs/research/ui-month-overview.md): the month screen's layout. `src/core/overview.ts`:
+  a day's outcome from what the calendar says of it (`outcomeOf`: normal, unusual, waiting, decided with `How`, kept;
+  `OUTCOME_WORD`, `HOW_WORD`, `outcomeSaid`), a month counted and said (`summaryOf`, `headlineOf`, `againstSaid`,
+  `againstWay`, `monthsOf`), what a run said of its day (`findingsOf`), the month's rows (`healthRows`: a file with the
+  steps that read it alone, a step with the files it reads; `healthOf`: a day's cell the worst over its runs, a step's
+  `own` days those no file it reads accounts for; `followsFiles`, `worstFirst`, `healthSaid`), and the score read
+  (`scoreRead`, `STEADY` half a point, `readSaid`, `moversOf`, `pointsSaid`, `countSaid`); `test/overview.test.ts`. It
+  isn't in what the data's cache is keyed by: `month.ts` is. In `renderMonth` (main.ts), in a phone's order: the head
+  (‹ › between months, `#month/2024-03`, `routeOf`'s `month`; *As known on*), the scenes behind a bar (`scenesPanel`, a
+  `details`, kept by `SCENES_KEY`), what waits in any month with **Decide ›** (`openDecision`, capped at `WAIT_ROWS`),
+  the months side by side (`.mo-card`, `barOfOutcome`), the sentence and the counts that filter (`monthView.filter`,
+  `.mo-chip`), the calendar (five marks, `outcomeMark`, viz.ts `glyph('decided')`; a word, `dayWord`, and the dataset
+  from 820 px; the arrow keys, Page Up and Page Down), the day picked (`dayFindings`, a file's finding before a
+  step's; `dayTimeline`: arrivals, files sent again with the sender's reason, decisions with who, how long after and
+  why; the score that day), what needed a look (`.mo-log`, `LOG_ROWS`), files and steps as rows of days (viz.ts
+  `dayBars`, `barOfCell`; `filesGroup`, `stepsGroup`, `GROUP_ROWS`; a day is named by its file where one of the file's
+  own steps said it, `ownFiles`), and the score (`scoreTrend`'s `focus`, the data list's `posture.about` and
+  `posture.controls`). The recorder marks each published day's checks and the applications failing each control
+  (`PostureMark.checks`, `failing`, `MonthFile.controls`). A day run here reads as its record does where another watched
+  dataset was unusual (`calendarDayOf`). `tools/browser/stops/overview.json` walks it on the tour (tour.cjs's `press`).
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -485,7 +505,11 @@ release (smaltty ADR 0030).
   ADR 0022's slice 5 (Q-139) is built after it. What the taxi example's retirement left: the weather views are removed
   and the episode chips with them, the published-list check kept (Q-217, Q-218, ADR 0022's addendum); the browser
   integrity suite is ported to Larkspur as a stop set (`tools/browser/stops/integrity.json`), with the three fixes it
-  found (ADR 0022's addendum). The retirement's list is done; what comes next is the maintainers' (docs/HANDOFF.md).
+  found (ADR 0022's addendum). The retirement's list is done. **Then:**
+  [ADR 0024](docs/adr/0024-the-month-at-a-glance.md), the month at a glance, from the maintainer's look at the tour's
+  month on 2026-11-16 and research into how such screens are best done (docs/research/ui-month-overview.md): built as
+  proposed, for the maintainers to confirm (Q-219 to Q-225); its §"Not built" is what it leaves. What comes next is the
+  maintainers' (docs/HANDOFF.md).
 
 ## Rules for this repository
 

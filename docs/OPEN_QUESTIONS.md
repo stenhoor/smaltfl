@@ -11,7 +11,8 @@ the step surface in [adr/0011-notebooks-as-the-step-surface.md](adr/0011-noteboo
 incident page, the drill and the phone canvas in [adr/0012-visual-first-in-two-minutes.md](adr/0012-visual-first-in-two-minutes.md), the
 bronze layer in [adr/0015-the-bronze-layer.md](adr/0015-the-bronze-layer.md), the mark in [adr/0016-the-mark.md](adr/0016-the-mark.md), time in [adr/0021-time.md](adr/0021-time.md), the answers of 2026-11-14 in
 [adr/0022-the-answers-of-2026-11-14.md](adr/0022-the-answers-of-2026-11-14.md), the demo as a tour in
-[adr/0023-the-demo-as-a-tour.md](adr/0023-the-demo-as-a-tour.md). The
+[adr/0023-the-demo-as-a-tour.md](adr/0023-the-demo-as-a-tour.md), the month at a glance in
+[adr/0024-the-month-at-a-glance.md](adr/0024-the-month-at-a-glance.md). The
 research behind the proposals is in [research/ecosystem-survey.md](research/ecosystem-survey.md).
 
 **Who decides:** the maintainers, together (ADR 0001 §1).
@@ -24,6 +25,25 @@ research behind the proposals is in [research/ecosystem-survey.md](research/ecos
 | Q-29 | The mark: round 3 leans into waves (M12–M18), all curved | **The Twin (M13), with a small chip,** picked and approved by stenhoor on 2026-11-11 (ADR 0016) | decided |
 | Q-41 | How do row rules pass through aggregates? | An aggregated row is visible only when every row behind it is. A dataset whose rows mix what a viewer may and may not see is closed to that viewer, and the app says why and offers the fix (group it by the rule's column): A7 shows this for `airport_times`. v1 applies rules by column name and closes a dataset without the rule's column; exact inheritance waits for bound plans | open |
 | Q-34 | Verified runs and speed: parallel execution can change a floating-point sum in its last digit | Verification is bit-exact: runs pin the engine settings that affect results (no parallel aggregation of floating-point values), and the cost is measured. Revisit if it is large. A fold that changes the order of a floating-point sum is a new result (ADR 0004); order-independent sums in smaltdb would make it free, to discuss with stenhoor | open |
+
+## The month at a glance: built as proposed, for the maintainers to confirm (ADR 0024)
+
+The maintainer, 2026-11-16, on the tour's month screen: page through the months; the panel for a day doesn't say what
+went on that day; the symbols are confusing; the score and why it moves aren't explained; the files and steps opened are
+overwhelming. *"I'd like you to do a deep dive on best UI practices for this type of stuff and come up with a solution
+so we can get a very quick high-level overview, month over month."* The research is
+[research/ui-month-overview.md](research/ui-month-overview.md). Each choice below is built as proposed
+([adr/0024-the-month-at-a-glance.md](adr/0024-the-month-at-a-glance.md)).
+
+| ID | Question | Proposal, as built | Status |
+| --- | --- | --- | --- |
+| Q-219 | The calendar drew one of ten glyphs in a day's one slot, for two different facts: what the checks made of the day, and what people then did. Which marks does the month keep? | **Five, and words:** ✓ normal (small and grey), ⚠ unusual, ‖ paused (the one filled cell), ☑ decided (paused, then published by a decision), ☒ not published. How a decided day went out is a word beside its mark (*As is*, *Filled*, *New level*, *Corrected*, *Restated*). The flag, the half box, the stepped line and the round arrow leave the calendar and stay beside their words on the decision sheet and the day screen. Each mark is taught beside its count (ADR 0024 §2, §3) | proposed, built |
+| Q-220 | The tour's two months were stacked on one screen. One month at a time, and which month first? | **One month on screen, with ‹ › and a link of its own** (`#month/2024-03`), the months side by side above it as cards. It opens on the latest month with a day known, and on that month's first day still waiting: a reader of a running flow wants now before then. Was: every month at once, from the first (ADR 0024 §7) | proposed, built |
+| Q-221 | The demo's scene list filled the first screen of the month (437 of its 1,155 words came before the first chart; two screens on a phone). Where does it go? | **Behind a bar at the head of the month, closed at first,** and left as the visitor left it. Open, it is the list as ADR 0023 §4 built it. This changes ADR 0023 §4 as built: the scenes were open (ADR 0024 §1) | proposed, built |
+| Q-222 | The grid of files and steps by day opened to 60 rows of 60 cells for one notebook. What replaces it? | **A row a file, a bar a day:** the worst first, each row with its days in words; rows with nothing to report folded into a count; a step that only held or was unusual where a file it reads was, folded too, so the steps listed are those with trouble of their own. A file's row is the source with the steps that read it alone. The grid's filters (waiting, corrected, held) go: the counts filter by outcome (ADR 0024 §5) | proposed, built |
+| Q-223 | The grid read each day's latest run, so a file that held the day and was sent again right showed nothing where it broke. What is a file's day? | **The worst its runs said that day,** drawn hollow once the day is decided: the row shows where the file broke, and the month's counts say what became of it (ADR 0024 §5) | proposed, built |
+| Q-224 | The score was a line with no words. What does the month say of it? | **The number and what it is a share of, a verdict from a rule, what it is in a sentence, and what moved it.** Steady where its first and last days are under half a point apart, as `trendSaid` has it. The recorder adds to each published day the checks that apply, those with evidence and those failing, and the applications failing each control; the data list's `posture.about` says what the score is. The axis stays 85 to 100, stated (ADR 0024 §6) | proposed, built |
+| Q-225 | A day whose followed dataset was calm while another watched file was unusual read ⚠ from the record and ✓ once it had run in the browser (ADR 0023's second point left). Which? | **As its record says:** unusual, by the other dataset, whether or not it has run here (ADR 0024 §9) | proposed, built |
 
 ## The maintainer's answers of 2026-11-14 (ADR 0022)
 

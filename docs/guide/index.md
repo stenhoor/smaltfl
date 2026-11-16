@@ -25,7 +25,8 @@ A **flow** reads daily files (the **sources**), runs them through **steps** (che
 watched dataset is compared with the days before it; a day that is off is **held**: what it would publish waits, and
 readers keep the last good day, until someone with the right to decides.
 
-The app opens on the **month**: a calendar of the days, each marked with what became of it. A day opens to its own
+The app opens on the **month**: what waits for a decision, the month in a sentence, a calendar of the days, each marked
+with what became of it, and each file as a row of the month's days. A day opens to its own
 screen: what happened to it, and the **canvas** (the flow: a card a source or a step, a box a notebook). Tap something
 on the canvas for its **sheet** (News, Data, Columns, Checks, Rules, Models, History, Integrity; a file a gate judges
 opens to Quality and Notebook). On Larkspur, **Results** opens with the data product as its consumers read it.
