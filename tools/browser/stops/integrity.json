@@ -1,0 +1,129 @@
+[
+  {
+    "name": "int-sealed",
+    "what": "Larkspur's first day (ADR 0006): every file the run read is sealed, its bytes matching the data's list as the engine hashed them; platform_links is read by no output, so it has none",
+    "expect": {
+      "status": "^Fri Mar 1",
+      "count": { "g.card.source g.seal.ok": 21, "g.seal.bad": 0 }
+    }
+  },
+  {
+    "name": "int-tab",
+    "what": "tls's Integrity tab: sealed, and from the card back to the bytes, the file the engine hashed against the source's list",
+    "card": "tls",
+    "tab": "Integrity",
+    "expect": {
+      "text": ["Sealed: this file matches the source’s list", "FROM THIS CARD BACK TO THE BYTES", "Read tls.csv", "hashed by the engine", "loads/tls_2024-03-01.csv: matches the source's list", "Re-derive from the files"]
+    }
+  },
+  {
+    "name": "int-rederive",
+    "what": "Re-derive from the files: the run's files decode to the same snapshots and recompute to the same datasets, each check ticked",
+    "card": "tls",
+    "tab": "Integrity",
+    "clicks": ["#sheet .tab-panel button:has-text(\"Re-derive from the files\")"],
+    "waitFor": "#status:has-text(\"re-derived\")",
+    "waitForMs": 180000,
+    "expect": {
+      "status": "^Run #\\d+ re-derived: its source files decode to the same snapshots",
+      "text": ["✓ file", "✓ stored"]
+    }
+  },
+  {
+    "name": "int-steps-sealed",
+    "what": "Once re-derived, the steps are sealed too: the gold product's datasets, unfolded from their notebook",
+    "unfold": ["nb-product"],
+    "expect": {
+      "count": { "g.card[data-card=\"app_scorecard\"] g.seal.ok": 1, "g.card[data-card=\"fact_control_status\"] g.seal.ok": 1, "g.seal.bad": 0 }
+    }
+  },
+  {
+    "name": "int-gold",
+    "what": "A gold card's Integrity tab: sealed, re-derived, every check of it ticked, its contract among them",
+    "card": "app_scorecard",
+    "tab": "Integrity",
+    "expect": {
+      "text": ["Sealed: re-derived from the files’ bytes", "FROM THIS CARD BACK TO THE BYTES", "✓ published", "✓ gate", "✓ contract"]
+    }
+  },
+  {
+    "name": "int-record",
+    "what": "The record: intact and signed, with the run, the flow it ran and the re-derivation; the run lists every file it read by its hash",
+    "view": "runs",
+    "expect": {
+      "textIn": {
+        "#record": ["record intact", "signed by This browser", "Ran the flow on Fri Mar 1", "The flow as it first ran here", "re-derived"],
+        "#runs-list": ["Read, by hash", "tls: tls.csv, ", "hr_org_units: hr_org_units.csv, "]
+      }
+    }
+  },
+  {
+    "name": "int-bag",
+    "what": "Export for audit: the bag downloads, and the offline audit (scripts/audit.mjs check) holds it, every claim the engine judged the run by kept in its record entry",
+    "view": "runs",
+    "viewFirst": true,
+    "download": "#record button:has-text(\"Export for audit\")",
+    "expect": { "download": "^smaltfl-audit-larkspur-\\d+\\.zip$", "audit": true }
+  },
+  {
+    "name": "int-checkpoint",
+    "what": "Download a checkpoint: the record's signed head, to keep outside the browser",
+    "view": "runs",
+    "viewFirst": true,
+    "download": "#record button:has-text(\"Download a checkpoint\")",
+    "expect": { "download": "^smaltfl-checkpoint-larkspur-\\d+\\.json$" }
+  },
+  {
+    "name": "int-day5",
+    "what": "Another day opened by its link: Tue Mar 5 runs, its twenty files pinned in place of Friday's",
+    "day": "Tue 5",
+    "expect": { "state": "done", "count": { "g.card.source g.seal.ok": 21 } }
+  },
+  {
+    "name": "int-rederive-earlier",
+    "what": "The first run re-derived with Tuesday's files pinned: every file it read is pinned again for it, whichever of the twenty daily sources it is, and Tuesday's are put back",
+    "view": "runs",
+    "viewFirst": true,
+    "clicks": ["#runs-list > li:last-child summary", "#runs-list > li:last-child button:has-text(\"Re-derive from the files\")"],
+    "waitFor": "#status:has-text(\"re-derived\")",
+    "waitForMs": 180000,
+    "expect": { "status": "^Run #\\d+ re-derived" }
+  },
+  {
+    "name": "int-tampered",
+    "what": "A tampered day: one byte of Tue Mar 12's TLS file changed on the way, so the day is refused, not run, and only tls's seal shows, broken",
+    "tamper": "loads/tls_2024-03-12.csv",
+    "day": "Tue 12",
+    "expect": {
+      "state": "refused",
+      "status": "^Tue Mar 12: loads/tls_2024-03-12\\.csv isn.t the file published",
+      "count": { "g.card[data-card=\"tls\"] g.seal.bad": 1, "g.seal.ok": 0 }
+    }
+  },
+  {
+    "name": "int-tampered-tls",
+    "what": "tls on the tampered day: the file refused with both hashes' prefixes, nothing built, Fetch it again, and Export for audit under ···",
+    "day": "Tue 12",
+    "card": "tls",
+    "tab": "Quality",
+    "clicks": ["#sheet .tab-panel .vf-more"],
+    "expect": {
+      "text": ["File refused: bytes don’t match", "listed", "≠", "got", "outputs not built", "Fetch it again"],
+      "textIn": { "#sheet .vf-menu": ["Export for audit"] }
+    }
+  },
+  {
+    "name": "int-tampered-integrity",
+    "what": "tls's Integrity tab on the tampered day: the refusal, and nothing of the day to trace back",
+    "day": "Tue 12",
+    "card": "tls",
+    "tab": "Integrity",
+    "expect": { "text": ["File refused: bytes don’t match", "Nothing of Tue Mar 12 ran"] }
+  },
+  {
+    "name": "int-after",
+    "what": "The next day runs on its own files, every one sealed again",
+    "day": "Wed 13",
+    "expect": { "state": "done", "count": { "g.card.source g.seal.ok": 21, "g.seal.bad": 0 } }
+  }
+]

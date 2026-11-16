@@ -118,5 +118,9 @@ Edits are kept across a reload and listed with **Back to the flow as shipped**.
 ## The record and verify
 
 The **Record** view lists every run made in your browser with its manifest. **Verify** checks a run at three levels, up
-to rerunning it from its inputs. Decisions go into a hash-chained record (RFC 9162). **Download the audit bag** for an
-offline check.
+to rerunning it from its inputs. Decisions go into a hash-chained record (RFC 9162). **Export for audit** downloads the
+bag for an offline check (`node scripts/audit.mjs check BAG.zip`).
+
+A file whose bytes don't match the data's list is refused, whichever source it is for. The day doesn't run, and that
+file's card shows a broken seal. Its sheet shows the hash listed beside the hash received, and offers to fetch the
+file again.
