@@ -119,9 +119,9 @@ apart, and the day publishes.
 
 ## 5. An anomaly that was an issue, filled and then corrected {#issue}
 
-**Mon 18.** The backup export writes a third of its completed jobs as partial. Open the first version, **v1**: *Last_state
-COMPLETED: 64% (usually 95–98%)*, with *Last_state PARTIAL: 33%* where 0.5–1.9% is usual. The check only warns, but a
-third of the day's rows moved, so it holds the day.
+**Mon 18.** The backup export writes a third of its completed jobs as partial. Open the first version, **v1**:
+*Last_state COMPLETED: 64% (usually 95–98%)*, with *Last_state PARTIAL: 33%* where 0.5–1.9% is usual. The check only
+warns, but a third of the day's rows moved, so it holds the day.
 
 The security lead filled the day from Sun 17: *A third of the backups can't have finished partly overnight while their
 statuses still pass: the export mislabelled them. Sunday's file carries forward, marked as Sunday's, until the backup
@@ -153,7 +153,7 @@ Two stories for silver and gold, which the scenes don't show.
 **Fri 8.** Every file arrived well formed; the day was held in silver. Open its first version, **v1**:
 
 1. Unfold **org** and open **org_chain**: a department was dissolved in the HR system and its teams weren't moved, so
-   they no longer reach the group, which a rule that stops the day says.
+   they no longer reach the group, and the chain's rules stop the day.
 2. Unfold **apps** and open **app_owners**: *95 of 2,410 rows broke owner_chain, a rule that stops the day: they were
    kept, and the step failed.* Those applications lost their owner chain, and are kept under UNASSIGNED, not dropped.
 
@@ -173,8 +173,8 @@ day's failing and unassessed results. Nothing holds the day: the platform says w
 A bronze file opens to **Quality**: a verdict, a card for each thing to look at with its picture, and every check by
 where it comes from (the ontology, the file's contract, its own history), each with its mode. A step's or a gold
 dataset's **Checks** tab shows its gate the same way. A written check holds a day. A learned one warns, unless the
-value is one the ontology marks bad, or it moved a quarter of the file's rows (scene 4). On a gold card, the seal says
-the run's gates passed, or its holds were decided, and is signed by the owner.
+value is one the ontology marks bad, or it moved a quarter of the file's rows (scenes 4 and 5). On a gold card, the
+seal says the run's gates passed, or its holds were decided, and is signed by the owner.
 
 ## The ontology
 

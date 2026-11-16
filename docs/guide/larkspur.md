@@ -53,11 +53,11 @@ published it as is, with her reason: the ingress really was in monitor mode over
 day's head shows her decision, and its story when it was taken. The fix itself is one configuration change at the
 ingress.
 
-Some days still wait for you, among them **Sat 23**, **Sun 24** and **Thu 28**. **Decide ›** opens the choices the day
-allows, each with what it publishes and whether it can be undone: publish as is, with a reason, or keep it back. One
-choice decides every file that holds the day. Each evidence feed has a fill step, so a feed's file can also be filled
-from another good day, marked: on Sun 24 the DR exercises file, held by a learned check that moved a third of its rows,
-can carry Fri 22 forward.
+Four days still wait for you: **Sat 23**, **Sun 24**, **Mon 25** and **Thu 28**. **Decide ›** opens the choices the
+day allows, each with what it publishes and whether it can be undone: publish as is, with a reason, or keep it back.
+One choice decides every file that holds the day. Each evidence feed has a fill step, so a feed's file can also be
+filled from another good day, marked: on Sun 24 the DR exercises file, held by a learned check that moved a third of
+its rows, can carry Fri 22 forward.
 
 ## The join that lost 95 applications
 
@@ -95,7 +95,8 @@ within reason.
 
 Open **platform_impact**: it names `ca-int-2`, a certificate authority whose intermediate certificate expired behind
 an ingress. TLS ends at that ingress, and log forwarding uses the same certificates, so the applications behind it fail
-both controls. Nothing holds the day: the platform says what the failures have in common.
+both controls. Neither control holds the day: the platform says what the failures have in common. (Mon 25 waits all the
+same, for the DR exercises: see the recorded story.)
 
 ## The posture over the month
 
@@ -132,7 +133,7 @@ As the app says them when the days are run in order:
 | Tue 19 | A site's backup controller is down | Paused: *backup_jobs: Status not_assessed: 23.2% (band 0%–5%)*. platform_impact names `bkp-dc-east` |
 | Wed 20 | A CMDB sync writes duplicates, a few with another owner | apps keeps the newest record and notes the conflicts (*Owner_conflict yes: 0.5%*, band 0%). Published |
 | Thu 21 | The TLS file arrives twice | Paused: *tls: 815 apps repeat a key* |
-| Sat 23 | DR exercises due Fri 22 ran late; a new cloud account tags resources with an application nobody registered | Paused: *dr_exercises: Late: 111 of 193 due*. shadow_assets warns of the new tags, which gold counts under Unregistered |
+| Sat 23 | DR exercises due Fri 22 ran late; a new cloud account tags resources with an application nobody registered | Paused: *dr_exercises: Late: 111 of 193 due*. shadow_assets warns of the new tags, which gold counts under Unregistered. The late exercises' statuses hold Sun 24, Mon 25 and Tue 26 too, as a lasting change does until someone accepts it (Q-86) |
 | Tue 26 | No TLS rows for one business unit's internet-facing applications | Paused: *tls: 39 in scope with no app* (the scope) |
 | Wed 27 on | The catalogue adds a control with no evidence feed yet | Unusual until Sat 30: more results, said as no data and not as failing. Published |
 | Thu 28 | An HR error makes a VP report to one of their own directors | Paused: *6 of 245 rows broke no_loop* (silver, org_chain) |
@@ -154,7 +155,7 @@ kept back; ‖ still waiting.
 | Mon 18 | HR sent the extract again with the teams under their new department, published. ↻2 |
 | Thu 21 | Sent again with half its repeats out, still wrong, kept back; then sent again, every certificate once, published. ↻3 |
 | Tue 26 | Kept back while the scanner team looks for the missing business unit. ⊠ |
-| Sat 23, Thu 28 | Still waiting for you. ‖ |
+| Sat 23 to Mon 25, Thu 28 | Still waiting for you: the DR exercises from Sat 23, and Thu 28's loop in the organisation. ‖ |
 | Sat 16, Sun 17 | On Mon 25 the findings' values check was set back to hold the day, back-dated to Fri 1: the scanner hadn't logged in that weekend, and the posture read far fewer findings than there were. Every day already run ran again under it; these two would now be held, and the security lead restated them as not published. The other 23 came out the same, and were noted. |
 
 The rules changed twice ([ADR 0021](../adr/0021-time) §5): on Fri 15 the WAF band was tightened to a tenth from Mon 18,
