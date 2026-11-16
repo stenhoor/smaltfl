@@ -357,8 +357,17 @@ first). Q-75 and Q-133 closed with the taxi example.
   card, a day's weather by the hour, the news's weather notes, the history's weather). The check against a published
   data list stays, unused while a demo has no data branch. The episode chips are removed. *About this flow* now gives
   the flow's own description, where it kept the taxi's on every demo;
-- **next:** the browser integrity suite (`tools/browser/integrity.cjs`, in the history) ran on the taxi app: port it to
-  Larkspur (a tampered day refused, the Integrity tab, re-derive, the record, the audit bag).
+- the browser integrity suite: done (2026-11-16, ADR 0022's addendum). It is now a stop set on Larkspur
+  (`tools/browser/stops/integrity.json`): the seals, the Integrity tab, Re-derive, the record, the audit bag held by
+  the offline audit, and a tampered day. Porting it found three things the taxi's single file had hidden, each fixed:
+  - a run's record entry dropped the claims the engine told for the watched steps, so the offline audit refused every
+    bag of Larkspur;
+  - re-deriving a run of another day pinned only one of its twenty files again;
+  - a refused file of any source but the loads' own was laid at the judged step's door: the wrong card, no broken seal,
+    and nothing said on the file's own Quality tab.
+
+  Not fixed, a flow matter: Larkspur's `app_platforms` (ADR 0020 §3) reads `platform_links`, and nothing reads it or
+  publishes it, so no run reads that file and its card has no seal.
 
 **Built: [ADR 0021](adr/0021-time.md), time** (accepted 2026-11-13, Q-181 to Q-192): two screens, a month to pick a
 day from (a calendar, a grid of files and steps by day, the posture's trend, *for the day* and *as known on*) and the

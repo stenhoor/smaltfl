@@ -4785,6 +4785,9 @@ function modelExplained(f: Finding, id: string): HTMLElement | null {
  * page's own id, a tap from its line there.
  */
 async function qualityTab(card: string, id: string, who: string): Promise<HTMLElement> {
+  // The file refused on the day on screen (ADR 0006): none of its checks read it, so the refusal is all there is to say.
+  const refused = refusedDay() && id === state.failed?.origin ? refusedPart(card) : null;
+  if (refused) return h('div', { class: 'bq' }, refused);
   const b = bronzeFor(id);
   // What today's rows say of themselves (a column blank more than its range, values gone), told from the rows, not the
   // history: notes the reader may mark as expected, under the checks' issues.
@@ -8106,25 +8109,36 @@ function checksNews(card: string, story: Story): HTMLElement[] {
     !paused && anchor ? actionsOf(anchor, card, g.held ? 'notify' : anchor.acts[0] ?? null) : null)];
 }
 
+/**
+ * A refused file (ADR 0006, drawn as ADR 0008 has it): the chain with its broken link, both hash prefixes, what wasn't
+ * built and one verb. Nothing of the day was built, so every output the viewer sees stays on the last day published. On
+ * the refused file's own card, whichever source's it is (ADR 0013 §5), and on the card that tells the day's story; null
+ * on any other, or with no file refused.
+ */
+function refusedPart(card: string): HTMLElement | null {
+  const c = state.failed?.file;
+  const origin = state.failed?.origin;
+  const id = dataOf(card);
+  if (!c || (id !== origin && historyOf(id) !== 'trips')) return null;
+  const outs = state.doc.steps.filter((st) => isOutput(st.id) && visible(st.id));
+  const f = (origin ? integrityNews(origin)[0] : undefined) ?? null;
+  return h('section', { class: 'vf-card wrong', role: 'status', ...(f ? { id: `finding-${f.key}` } : {}) },
+    h('div', { class: 'vf-headrow' }, h('h3', { class: 'vf-head' }, glyphEl('alert', 18), c.class === 'not-checked' ? 'File not fetched' : 'File refused: bytes don’t match'), h('button', { type: 'button', class: 'vf-info', 'aria-label': 'How files are checked', onclick: () => openTab(card, 'integrity') }, glyphEl('info', 16))),
+    origin && origin !== id ? h('p', { class: 'vf-sub' }, `${origin}’s file, ${c.path}`) : null,
+    svgNode(chain({ nodes: ['list', 'file', 'load', 'outputs'], broken: 0, aria: `The day's file doesn't hash to what the data's list publishes: ${c.expected ? `listed ${c.expected.slice(0, 8)}` : ''}${c.actual ? `, got ${c.actual.slice(0, 8)}` : ''}. Nothing was built from it.` })),
+    c.expected || c.actual ? h('p', { class: 'vf-hashes' }, h('span', {}, 'listed ', h('code', {}, (c.expected ?? '—').slice(0, 8))), h('span', { class: 'vf-ne' }, '≠'), h('span', {}, 'got ', h('code', {}, (c.actual ?? '—').slice(0, 8)))) : null,
+    outs.length ? h('div', { class: 'vf-reach held' }, h('span', { class: 'vf-outs', 'aria-hidden': 'true' }, ...outs.slice(0, 3).map(() => h('i', {}))), `${outs.length} outputs not built`) : null,
+    f ? actionsOf(f, card, 'refetch') : null);
+}
+
 async function newsTab(card: string, id: string, who: string): Promise<HTMLElement> {
   const box = h('div', { class: 'news-tab' });
   const kind = historyOf(id) ?? (profileOf(card) ? historyOf(profileOf(card)!.of) : null);
   // The trips and their checks tell the day's story, drawn (ADR 0008); a refused file still says so first.
   const storyDay = newsDay();
-  // A refused file (ADR 0006, drawn as ADR 0008 has it): the chain with its broken link, both hash prefixes, one verb.
-  if (state.failed?.file && (kind === 'trips' || sourceIds().has(id))) {
-    const c = state.failed.file;
-    const src = loadSource();
-    const outs = src ? downstreamOf(src).filter((x) => isOutput(x) && visible(x)) : [];
-    const f = integrityNews(src ?? dataOf(card))[0] ?? null;
-    box.append(h('section', { class: 'vf-card wrong', role: 'status', ...(f ? { id: `finding-${f.key}` } : {}) },
-      h('div', { class: 'vf-headrow' }, h('h3', { class: 'vf-head' }, glyphEl('alert', 18), c.class === 'not-checked' ? 'File not fetched' : 'File refused: bytes don’t match'), h('button', { type: 'button', class: 'vf-info', 'aria-label': 'How files are checked', onclick: () => openTab(card, 'integrity') }, glyphEl('info', 16))),
-      svgNode(chain({ nodes: ['list', 'file', 'load', 'outputs'], broken: 0, aria: `The day's file doesn't hash to what the data's list publishes: ${c.expected ? `listed ${c.expected.slice(0, 8)}` : ''}${c.actual ? `, got ${c.actual.slice(0, 8)}` : ''}. Nothing was built from it.` })),
-      c.expected || c.actual ? h('p', { class: 'vf-hashes' }, h('span', {}, 'listed ', h('code', {}, (c.expected ?? '—').slice(0, 8))), h('span', { class: 'vf-ne' }, '≠'), h('span', {}, 'got ', h('code', {}, (c.actual ?? '—').slice(0, 8)))) : null,
-      outs.length ? h('div', { class: 'vf-reach held' }, h('span', { class: 'vf-outs', 'aria-hidden': 'true' }, ...outs.slice(0, 3).map(() => h('i', {}))), `${outs.length} outputs not built`) : null,
-      f ? actionsOf(f, card, 'refetch') : null));
-    return box;
-  }
+  // A refused file says so first, and alone.
+  const refused = refusedPart(card);
+  if (refused) return (box.append(refused), box);
   // An output that waits on a held day says so first, with Decide; its staged bar sits over the panel (showsRunRows).
   const paused = outputPause(dataOf(card));
   if (paused) box.append(paused);
@@ -13139,6 +13153,9 @@ type PinOpts = { restating?: { of: string; changes: string[] }; whatIf?: { files
 let whatIfPinned = false;
 /** The day whose own files were pinned last, and how: what puts them back after a what-if. */
 let ownPinned: { k: number; opts: PinOpts } | null = null;
+/** The bytes pinned in the engine now under each file's name, by sha256: what a run reads, and what re-deriving a run of
+ * another day or version must put in place of them. */
+const pinnedNow = new Map<string, string>();
 /** The day's own files being pinned again after a what-if: any other pinning waits for it. */
 let repinning: Promise<boolean> | null = null;
 
@@ -13211,6 +13228,7 @@ async function pinLoad(engine: Engine, k: number, opts: PinOpts, quiet = false):
   // day's are: a version of it, pinned as one again.
   if (opts.whatIf) whatIfPinned = true;
   await pinFiles(engine, day);
+  for (const f of day) pinnedNow.set(f.name, f.sha256);
   for (const [id, header] of headers) if (header) pinnedHeaders.set(id, header); else pinnedHeaders.delete(id);
   if (!opts.whatIf) {
     whatIfPinned = false;
@@ -13306,7 +13324,8 @@ function refuse(k: number, e: unknown): void {
   const said = describeFile(check);
   loads.at = k;
   loads.week = mondayOf(l.day);
-  state.failed = { origin: loadSource(), message: `${said.title}. ${said.detail}`, file: check };
+  // The source whose file it was (ADR 0013 §5): with several daily sources, any of them, not only the loads' own.
+  state.failed = { origin: sourceOfPath(k, check.path) ?? loadSource(), message: `${said.title}. ${said.detail}`, file: check };
   attempts++;
   setStatus(`${dayLabel(l.day)}: ${said.title}.`, check.class !== 'not-checked', { n: attempts, state: 'refused' });
   syncShown();
@@ -14132,20 +14151,53 @@ function runFiles(r: RunRecord, before?: RunRecord): HTMLElement | null {
 const checksFor = (r: RunRecord) => checksSeen(r.verified?.checks ?? [], new Set([...r.result.manifest.nodes.map((n) => n.origin), ...Object.keys(r.result.manifest.outputs)]), runSight());
 const PINNED_PREFIX_APP = 'smaltfl:';
 
+/**
+ * The files a run read that aren't the ones pinned now under their names, each with its bytes (ADR 0006 §1): the bytes
+ * the page holds where it holds them (a day's files, a file a person put in place of one), else fetched by the hash the
+ * run recorded from wherever the data's list lists it, and checked. What re-deriving the run pins for it; a file listed
+ * nowhere is left out, and the verification's check of it fails.
+ */
+async function ownFilesOf(r: RunRecord): Promise<{ name: string; bytes: Uint8Array; sha256: string }[]> {
+  const held = (sha256: string): Uint8Array | undefined => {
+    for (const [k, b] of loads.bytes) if (loads.list[k]?.sha256 === sha256) return b;
+    for (const m of loads.others.values()) for (const [at, b] of Object.entries(m)) if (at.endsWith(`:${sha256}`)) return b;
+    for (const x of loads.replaced.values()) if (x.sha256 === sha256) return x.bytes;
+    return undefined;
+  };
+  const listed = (sha256: string): Listed | undefined => {
+    for (let k = 0; k < loads.list.length; k++) for (const v of versionsOfLoad(k)) for (const f of Object.values(v.files)) if (f.sha256 === sha256) return f;
+    return undefined;
+  };
+  const out: { name: string; bytes: Uint8Array; sha256: string }[] = [];
+  for (const n of r.result.manifest.nodes) {
+    if (!n.file) continue;
+    const name = n.file.location.replace(PINNED_PREFIX_APP, '');
+    if (pinnedNow.get(name) === n.file.sha256) continue;
+    const inHand = held(n.file.sha256);
+    const l = inHand ? undefined : listed(n.file.sha256);
+    const bytes = inHand ?? (l ? await checked(l.file, { sha256: l.sha256, bytes: l.bytes ?? -1, from: l.file }) : undefined);
+    if (bytes) out.push({ name, bytes, sha256: n.file.sha256 });
+  }
+  return out;
+}
+
 async function verify(r: RunRecord, level: VerifyLevel = 'rerun'): Promise<void> {
   if (!state.engine) return;
   setStatus(`Verifying run ${runName(r)}${level === 'rederive' ? ', decoding its files again' : ''}…`);
-  // A run re-derives from its own bytes: when another day is pinned now, the run's day is fetched, checked and pinned
-  // again for it, and the day pinned now is put back after.
-  const trips = r.result.manifest.nodes.find((n) => n.file?.location === `smaltfl:${loadFile()}`)?.file;
-  const runDay = trips ? loads.list.findIndex((l) => l.sha256 === trips.sha256) : -1;
-  const swap = level === 'rederive' && runDay >= 0 && runDay !== loads.pinned;
+  const engine = state.engine;
   try {
-    if (swap) await pinFile(state.engine, loadFile(), loads.bytes.get(runDay) ?? (await checked(loads.list[runDay]!.file, { sha256: loads.list[runDay]!.sha256, bytes: loads.list[runDay]!.bytes ?? -1 })), loads.list[runDay]!.sha256);
-    r.verified = await verifyRun(state.engine, r.result.run, { smaltdb: SMALTDB, level, manifest: r.result.hash });
-    if (swap && loads.pinned >= 0) {
-      const now = loads.list[loads.pinned]!;
-      await pinFile(state.engine, loadFile(), loads.bytes.get(loads.pinned) ?? (await checked(now.file, { sha256: now.sha256, bytes: now.bytes ?? -1 })), now.sha256);
+    // A run re-derives from its own bytes (ADR 0006 §1): every file it read that isn't the one pinned now under its name
+    // (another day's or version's, with any number of daily sources) is pinned again for it in one call, and the day's
+    // own files are put back after, whatever the verification found.
+    const swap = level === 'rederive' ? await ownFilesOf(r) : [];
+    if (swap.length) {
+      await pinFiles(engine, swap);
+      for (const f of swap) pinnedNow.set(f.name, f.sha256);
+    }
+    try {
+      r.verified = await verifyRun(engine, r.result.run, { smaltdb: SMALTDB, level, manifest: r.result.hash });
+    } finally {
+      if (swap.length && loads.pinned >= 0) await pinLoad(engine, loads.pinned, ownPinned?.k === loads.pinned ? ownPinned.opts : {}, true);
     }
     const failed = r.verified.checks.filter((c) => !c.ok).map((c) => `${c.origin}:${c.check}`);
     if (ledger) await ledger.append('verify', state.viewer, { run: r.result.run, manifest: r.result.hash, level, ok: r.verified.ok, failed, smaltdb: SMALTDB });
@@ -14303,10 +14355,10 @@ async function run(early?: EarlyClaims): Promise<void> {
     const result = await runFlow(engine, state.doc, { smaltdb: SMALTDB, parameters, data, log: recordHead(), ...(told ? { claims: told } : {}), ...(asked && Object.keys(asked.tell).length ? { tell: asked.tell } : {}), ...(Object.keys(sources).length ? { sources } : {}), ...(correction ? { correction } : {}), ...(loads.restates ? { restates: loads.restates } : {}), ...(loads.whatIf ? { whatIf: true as const } : {}) });
     const ms = performance.now() - t;
     mark('run: flow run');
-    // A held run returns, built, checked and recorded, its versions staged: only `published` names show it. A watched
-    // step's claim, told in the engine, is kept from the hold it made (ADR 0013 §4).
-    const engineTold = result.holds.flatMap((h) => (h.by === 'story' && h.claim && asked?.tell[h.origin] ? [h.claim] : []));
-    const kept = [...(told ?? []), ...engineTold];
+    // A held run returns, built, checked and recorded, its versions staged: only `published` names show it. Every watched
+    // step's claim the engine told (ADR 0013 §4), held or not, is kept with the page's: the record keeps every watched
+    // dataset's day (ADR 0021 §6), as the build's recorder does, and the audit tells each one again.
+    const kept = [...(told ?? []), ...(result.told ?? [])];
     const base = await flowHash(baseDoc());
     const rec: RunRecord = { result, ms, at: new Date(), inputs: inputsKey(inputsOf(result.manifest)), base, ...(loads.pinned >= 0 && loads.list.length > 1 ? { load: loads.pinned } : {}), ...(kept.length ? { claims: kept } : {}), ...(correct ? { made: true as const } : {}) };
     // A what-if (ADR 0021 §2, §4, Q-191): apart from the record and from the day's own runs, so nothing of it is learned,
@@ -15154,12 +15206,24 @@ function afterDecision(): void {
 
 // ------------------------------------------------------------------ integrity, card by card
 
-/** The file a source reads now: the day's load for the trips, else the one the data's list names for it. */
+/** The file a source reads now: a file refused on the day on screen, that file; the day's load for the trips; another
+ * daily source's file for the day (ADR 0013 §5); else the one the data's list names for it. */
 function fileOf(source: string): string | undefined {
   if (!bindingOf(source)) return undefined;
+  if (state.failed?.file && state.failed.origin === source) return state.failed.file.path;
   if (source === loadSource()) return loads.list[loads.at]?.file ?? integrity.files[source]?.path;
-  return integrity.files[source]?.path;
+  return loads.list[loads.at]?.files?.[source]?.file ?? integrity.files[source]?.path;
 }
+
+/** The source a day's file is of (ADR 0013 §5, ADR 0021 §2): by its path among the files of every version of the day. */
+function sourceOfPath(k: number, path: string): string | undefined {
+  for (const v of versionsOfLoad(k)) for (const [id, f] of Object.entries(v.files)) if (f.file === path) return id;
+  return undefined;
+}
+
+/** Whether the day on screen is one whose file was refused: nothing of it ran, and the run on screen, if any, is another
+ * day's. */
+const refusedDay = (): boolean => !!state.failed?.file && shownDay() !== viewedDay();
 
 /** A source's file check, as news: refused bytes first of all, a republished file worth knowing. */
 function integrityNews(id: string): Finding[] {
@@ -15201,8 +15265,12 @@ function levelOf(r: RunRecord | undefined): number {
  * failed check of the whole run breaks the seal. Nothing is sealed when the flow changed since the run, and the seal is
  * amber where the engine runs in the page (its hashes are then the page's own).
  */
-function sealOf(card: string): 'ok' | 'bad' | 'amber' | null {
+function sealOf(card: string, ofRun = false): 'ok' | 'bad' | 'amber' | null {
   const id = dataOf(card);
+  // A day whose file was refused (ADR 0006): nothing of it ran, so the refused file's card shows its broken seal and no
+  // other card a seal of its own, whichever source's file it was. `ofRun`: the seal of the run on screen, whatever day
+  // is shown, as its Integrity tab says it.
+  if (!ofRun && refusedDay()) return id === state.failed?.origin && integrityNews(id)[0]?.severity === 'alert' ? 'bad' : null;
   // No tick from another day's run: on a held or refused day, what the load reaches has no run of its own to seal.
   const src = loadSource();
   if (rowsFrom(shownDay(), viewedDay()) && src && (id === src || downstreamOf(src).includes(id))) {
@@ -15260,9 +15328,17 @@ async function integrityTab(card: string, id: string, who: string): Promise<HTML
   void who;
   const box = h('div', { class: 'integrity-tab' });
   const r = latest();
+  // The file refused on the day on screen (ADR 0006): its own card says so, and nothing of the day ran to trace back.
+  if (refusedDay() && id === state.failed?.origin) {
+    const was = r?.load !== undefined ? loads.list[r.load]?.day : undefined;
+    const now = viewedDay();
+    box.append(refusedPart(card) ?? '', h('p', { class: 'foot' }, `Nothing of ${now ? dayLabel(now) : 'the day'} ran, so nothing of it is traced back.${r ? ` The last run here, ${runName(r)}${was ? ` of ${dayLabel(was)}` : ''}, is traced on its own day.` : ''}`));
+    return box;
+  }
   if (!r) return h('p', { class: 'foot' }, 'Run the flow to see what it read and made, by hash.');
   const m = r.result.manifest;
-  const seal = sealOf(card);
+  // The seal of the run this tab traces, whatever day is on screen.
+  const seal = sealOf(card, true);
   const want = new Set([id, ...upstreamOf(id)].map((x) => x.toLowerCase()));
   // Back to the bytes as far as the viewer may see: a part closed to them left out, neither named nor counted, and a
   // count, a file's size or what a check says only where every row of it is theirs (round 3, #6).
@@ -16004,6 +16080,7 @@ async function start(): Promise<void> {
     // In one round trip each (a call that holds the engine's lock waits for the one before it to be answered): every
     // file, then every table over them, in one statement list.
     pinning.push(pinFiles(engine, dayFiles));
+    for (const f of dayFiles) pinnedNow.set(f.name, f.sha256);
     if (tablesDdl.length) pinning.push(engine.exec(tablesDdl.join(';\n')));
     if (first) {
       loads.pinned = k0;

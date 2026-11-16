@@ -54,7 +54,12 @@ release (smaltty ADR 0030).
   `src/plugin/pinned.ts` (files hashed and served in the engine), run/1 in `src/core/manifest.ts`, verify's levels in
   `src/plugin/verify.ts`, the record (`src/core/log.ts`, RFC 9162; `src/app/record.ts`, IndexedDB), the audit bag
   (`src/core/bag.ts`, `src/core/zip.ts`) and its offline check (`src/core/audit.ts`, `node scripts/audit.mjs check
-  BAG.zip`). A new hash encoding goes in an ADR first, with test vectors.
+  BAG.zip`). In the app, with any number of daily sources: a run's record entry keeps every claim the engine judged it
+  by (`RunResult.told` beside the page's own); a refused file is its own source's (`sourceOfPath`, `refusedDay`), its
+  card's seal broken and its sheet saying so first (`refusedPart`); re-deriving a run pins every file it read again
+  (`ownFilesOf`, `pinnedNow`). `tools/browser/stops/integrity.json` checks it all in the browser, on Larkspur, the
+  bag through the offline audit (tour.cjs's `tamper`, `expect.download`, `expect.audit`). A new hash encoding goes in an
+  ADR first, with test vectors.
 - A day that is off is paused, not published (ADR 0009): the document's `publish` block (format 2, plan/1);
   `src/core/hold.ts` says what holds a run (its checks, the story's claim), what waits, and what the record decided;
   `src/plugin/runtime.ts` holds instead of throwing and `src/plugin/release.ts` publishes a held run as a recorded
@@ -478,8 +483,9 @@ release (smaltty ADR 0030).
   `applyLook`; `test/scenes.test.ts`, `tools/browser/stops/tour.json`), the tour at `/app/` and the planted month at
   `/larkspur/`, `docs/guide/demo.md` the tour and `docs/guide/larkspur.md` the planted month: ADR 0023 is done.
   ADR 0022's slice 5 (Q-139) is built after it. What the taxi example's retirement left: the weather views are removed
-  and the episode chips with them, the published-list check kept (Q-217, Q-218, ADR 0022's addendum). **Next:** the
-  browser integrity suite ported to Larkspur (docs/HANDOFF.md).
+  and the episode chips with them, the published-list check kept (Q-217, Q-218, ADR 0022's addendum); the browser
+  integrity suite is ported to Larkspur as a stop set (`tools/browser/stops/integrity.json`), with the three fixes it
+  found (ADR 0022's addendum). The retirement's list is done; what comes next is the maintainers' (docs/HANDOFF.md).
 
 ## Rules for this repository
 

@@ -33,6 +33,8 @@
 //     "viewFirst": true,                  optional: show the view before the clicks, not after
 //     "select": ["#viewer", "ana"],       optional: choose a value in a select (after the card opens)
 //     "download": "sel",                  optional: tap this and save the download into outDir
+//     "tamper": "loads/tls_2024-03-12.csv", optional: from this stop on, one byte of this file is changed on its way to
+//                                         the page (a corrupted copy, someone in the middle): the page must refuse it
 //     "unfold": ["nb-posture"],           optional: notebook boxes to unfold first, so their steps are cards on the canvas
 //     "box": "nb-summary",                optional: the notebook box whose sheet to open and capture
 //     "what": "Tue Mar 12, the brief",    optional: what the stop shows, copied into metrics.json for a judge to read
@@ -53,6 +55,9 @@
 //   "words": { "sel": max }               words outside drawings in the first visible match, at most max
 //   "textIn": { "sel": ["…"] }            each string is in the first visible match's text, its drawings' included
 //   "noTextIn": { "sel": ["…"] }          none is
+//   "download": "^smaltfl-audit-.*\.zip$" with "download": the file saved has this name (a regex) and isn't empty
+//   "audit": true                         with "download": the offline audit holds the bag downloaded
+//                                         (node scripts/audit.mjs check BAG.zip, what an auditor runs on it)
 //
 // Writes <outDir>/<name>.png and <outDir>/metrics.json: per stop, the status line, the visible text of the
 // sheet (or the canvas page), its word count, its paragraphs of more than 25 words, the number of charts
@@ -60,6 +65,7 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 const { chromium } = require('playwright');
 
 const [root, out, stopsFile] = process.argv.slice(2);
@@ -72,12 +78,19 @@ const stops = JSON.parse(fs.readFileSync(stopsFile, 'utf8'));
 const page = fs.readFileSync(path.join(root, 'page.html'), 'utf8');
 const skeleton = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>[hidden]{display:none!important}body{margin:0}</style></head><body>${page}</body></html>`;
 const types = { '.js': 'text/javascript', '.txt': 'text/plain', '.csv': 'text/csv', '.json': 'application/json' };
+// The files a stop's "tamper" names: from that stop on, each is served with one byte changed.
+const tampered = new Set();
 const server = http.createServer((req, res) => {
   const url = decodeURIComponent(req.url.split('?')[0]);
   if (url === '/') return res.writeHead(200, { 'content-type': 'text/html' }).end(skeleton);
   const file = path.join(root, url);
   if (!file.startsWith(path.resolve(root)) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return res.writeHead(404).end();
-  res.writeHead(200, { 'content-type': types[path.extname(file)] || 'application/octet-stream' }).end(fs.readFileSync(file));
+  let body = fs.readFileSync(file);
+  if ([...tampered].some((t) => url.endsWith(`/${t.replace(/^\/+/, '')}`))) {
+    const i = Math.min(4000, body.length - 1);
+    body[i] = body[i] === 0x41 ? 0x42 : 0x41;
+  }
+  res.writeHead(200, { 'content-type': types[path.extname(file)] || 'application/octet-stream' }).end(body);
 });
 
 /** The sizes the app is held to: a phone, an iPad held upright and sideways, a laptop's browser window. */
@@ -156,6 +169,8 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
     if (stop.devices && !stop.devices.includes(process.env.TOUR_DEVICE || 'phone')) continue;
     const t0 = Date.now();
     try {
+      // A file changed on its way to the page from now on: the page must refuse it.
+      if (stop.tamper) tampered.add(stop.tamper);
       await open(stop.scheme === 'dark' ? 'dark' : 'light');
       if (stop.reload) {
         await p.reload();
@@ -275,11 +290,13 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
         await quiet(3000);
       }
       if (stop.waitFor) await p.waitForSelector(stop.waitFor, { state: 'visible', timeout: stop.waitForMs ?? 30000 }).catch(() => problems.push(`${stop.name}: ${stop.waitFor} never showed`));
+      let saved = null;
       if (stop.download) {
-        const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 60000 }), p.locator(stop.download).first().click()]);
+        const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 120000 }), p.locator(stop.download).first().click()]);
         const to = path.join(out, dl.suggestedFilename());
         await dl.saveAs(to);
-        console.log(`${stop.name}: saved ${to}`);
+        saved = { name: dl.suggestedFilename(), path: to, bytes: fs.statSync(to).size };
+        console.log(`${stop.name}: saved ${to} (${saved.bytes} bytes)`);
       }
       const scope = (stop.click || stop.clicks) && (await p.locator('.vf-detail').count()) ? '.vf-detail' : stop.card || stop.box ? '#sheet' : 'body';
       const m = await p.evaluate((sel) => {
@@ -389,6 +406,21 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
           const t = not ? want.slice(1) : want;
           if (label === null) fail(`no day ${d} in the month`);
           else if (not ? label.includes(t) : !label.includes(t)) fail(`loads ${d} reads "${label}", expected ${not ? 'no ' : ''}"${t}"`);
+        }
+        // What the stop downloaded: its name, not empty, and for a bag, the offline audit's verdict on it.
+        if (x.download !== undefined || x.audit) {
+          if (!saved) fail('nothing was downloaded');
+          else {
+            if (x.download !== undefined && !new RegExp(x.download).test(saved.name)) fail(`downloaded "${saved.name}", expected /${x.download}/`);
+            if (!saved.bytes) fail(`${saved.name} is empty`);
+            if (x.audit) {
+              const repo = path.join(__dirname, '..', '..');
+              const r = spawnSync(process.execPath, [path.join(repo, 'scripts', 'audit.mjs'), 'check', saved.path], { cwd: repo, encoding: 'utf8', timeout: 600000 });
+              const said = `${r.stdout ?? ''}${r.stderr ?? ''}`;
+              if (r.status !== 0 || !/The bag holds/.test(said)) fail(`the offline audit doesn't hold ${saved.name}: ${said.split('\n').filter((l) => /^FAIL|Error/.test(l)).slice(0, 3).join(' // ') || `exit ${r.status}`}`);
+              else console.log(`${stop.name}: the offline audit holds ${saved.name}`);
+            }
+          }
         }
       }
       if (stop.mask) {

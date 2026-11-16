@@ -12,7 +12,7 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
 | Command | What it does |
 |---|---|
 | `node tools/browser/regress.cjs <appDir> <outDir> <set>[@sizes] ...` | The regression in one command: each named stop set (`estate`, `notebook`, `split@desktop,tablet-wide,wide`, …) at every size, its own `tour.cjs` process, up to one a core at once, the longest first; one line a job and the problems at the end (`regress.json`). `--devices phone,desktop` narrows the sizes, `--jobs N` the parallelism. |
-| `node tools/browser/tour.cjs <appDir> <outDir> <stops.json>` | Serves the built app, drives it at phone size (390×844; it waits for the page to stop changing, never a fixed sleep; `TOUR_DEVICE=tablet` 820×1180, `tablet-wide` 1180×820, `desktop` 1440×900, `wide` 2560×1440; `TOUR_SCALE=2` for screenshots a person will look at) through the stops, fails any stop where the page or an open sheet scrolls sideways, saves `<name>.png` for each and writes `metrics.json`: the status line, the visible text, word counts, charts, words before the first chart, and every failed `expect` as a problem. The stop format and the `expect` checks are documented at the top of the file. |
+| `node tools/browser/tour.cjs <appDir> <outDir> <stops.json>` | Serves the built app, drives it at phone size (390×844; it waits for the page to stop changing, never a fixed sleep; `TOUR_DEVICE=tablet` 820×1180, `tablet-wide` 1180×820, `desktop` 1440×900, `wide` 2560×1440; `TOUR_SCALE=2` for screenshots a person will look at) through the stops, fails any stop where the page or an open sheet scrolls sideways, saves `<name>.png` for each and writes `metrics.json`: the status line, the visible text, word counts, charts, words before the first chart, and every failed `expect` as a problem. The stop format and the `expect` checks are documented at the top of the file: a stop's `tamper` changes a file on its way to the page from that stop on, and `expect.download` and `expect.audit` check what a stop downloaded (its name, and a bag's verdict from `node scripts/audit.mjs check`). |
 | `python3 -I tools/browser/cvd.py <outDir> <png>…` | Greyscale and deuteranopia versions of screenshots (Machado et al. 2009), for the colour check. |
 | `python3 -I tools/browser/slices.py <in.png> <out.png> [height] [strips] [start]` | Slices a tall screenshot into side-by-side strips you can read in one image. |
 
@@ -46,6 +46,19 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
   opened (run here and checked against its record), Mon Mar 18 by its link with its story, and the month as known at
   the end of Fri Mar 15 and back to now. A stop's `day` is found by the month's label (`window.__smaltflMonth`) and
   opened by its link (`#day/YYYY-MM-DD`).
+- `integrity.json`: integrity in the browser (ADR 0006) on Larkspur (same build as `month.json`), the taxi's suite
+  ported. It checks:
+  - the first day's files, each sealed;
+  - tls's Integrity tab back to the bytes, and Re-derive from the files;
+  - the gold steps sealed once re-derived;
+  - the record intact and signed, and each run's files by hash;
+  - the audit bag downloaded and held by the offline audit (`expect.audit`), and a checkpoint;
+  - the first run re-derived with Tue Mar 5's twenty files pinned;
+  - Tue Mar 12's TLS file changed on its way to the page (a stop's `tamper`): the day refused, only tls's seal shown and
+    broken, its Quality and Integrity tabs saying so with both hashes' prefixes;
+  - the next day sealed again.
+
+  It must report `problems: none` at every size.
 
 ## judges/
 
