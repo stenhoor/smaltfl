@@ -7,8 +7,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { pauseLines, pauseReasons } from '../src/core/decision.js';
-import { offersOf, missingOf } from '../src/core/fill.js';
-import { byLoad, carry, dayState, heldOutputs, spare, decisionForLoad, holdsOf, judgeClaims, loadKey, loadsOf, pausesOf, skipOf, standingForLoad, type DecideAbout, type HeldAbout, type Hold, type Inputs, type Load, type ReleaseAbout, type StoryClaim2 } from '../src/core/hold.js';
+import { offersOf, missingOf, wholeLoad } from '../src/core/fill.js';
+import { byLoad, carry, dayState, heldOutputs, spare, decisionForLoad, holdsOf, judgeClaims, levelDay, levelFromHere, loadKey, loadsOf, pausesOf, skipOf, standingForLoad, type DecideAbout, type HeldAbout, type Hold, type Inputs, type Load, type ReleaseAbout, type StoryClaim2 } from '../src/core/hold.js';
 import type { LogEntry } from '../src/core/log.js';
 import type { FlowDocument } from '../src/core/document.js';
 import type { RunManifest } from '../src/core/manifest.js';
@@ -194,20 +194,61 @@ describe('what a source learns from, by load (ADR 0010 §5, §7, C5, I3)', () =>
 
 describe('fills of a load (ADR 0010 §7, amendment 1 S2)', () => {
   const told = { hero: 'hours' as const, split: null, hours: { got: [3, 2, 4, 3, 900, 950], usual: [880, 900, 910, 920, 900, 950], from: 0, to: 3, fall: 99, start: 360, width: 60 } };
-  it('names a slot\'s missing hours as the day\'s, and none in quarter hours', () => {
+  it('names a slot\'s missing hours as the day\'s, and a quarter-hour gap by the whole hours that hold it (Q-84)', () => {
     expect(missingOf(told as never, 'event_time')).toEqual({ time: 'event_time', hours: [6, 9] });
-    expect(missingOf({ ...told, hours: { ...told.hours, start: 840, width: 15 } } as never, 'event_time')).toBeNull();
+    // A 2-hour slot from 14:00 counts quarter hours: 14:00–15:00 is hour 14, 14:30–15:45 hours 14 and 15.
+    expect(missingOf({ ...told, hours: { ...told.hours, start: 840, width: 15 } } as never, 'event_time')).toEqual({ time: 'event_time', hours: [14, 14] });
+    expect(missingOf({ ...told, hours: { ...told.hours, from: 2, to: 6, start: 840, width: 15 } } as never, 'event_time')).toEqual({ time: 'event_time', hours: [14, 15] });
     // A day's hours as they always were.
     expect(missingOf({ ...told, hours: { got: [], usual: [], from: 13, to: 23, fall: 77 } } as never, 'event_time')).toEqual({ time: 'event_time', hours: [13, 23] });
   });
 
-  it('offers a fill when the load holds alone, none when two loads hold the run, and no Accept for a slot', () => {
+  it('offers a fill when the load holds alone, none when two loads hold the run, and Accept for a slot too (Q-84)', () => {
     const claim = { state: 'wrong' as const, below: true };
     const base = { story: told as never, claim, fill: { time: 'event_time' }, donors: [{ day: '2024-09-03' }] };
     expect(offersOf(base).map((o) => [o.option, o.label])).toEqual([['fill', 'Fill from Tue 3'], ['complete', 'Without 06:00–10:00']]);
     expect(offersOf({ ...base, holding: 2 })).toEqual([]);
     const amount = { state: 'wrong' as const, hero: 'amount' as const, split: null, cause: { kind: 'volume' }, absorbed: [], amount: { value: 10, low: 50, high: 90, expected: 70 } };
-    expect(offersOf({ ...base, told: amount as never, holds: [{ by: 'story' }], every: '6h' }).some((o) => o.option === 'accept')).toBe(false);
+    expect(offersOf({ ...base, told: amount as never, holds: [{ by: 'story' }], every: '6h' }).some((o) => o.option === 'accept')).toBe(true);
+    expect(offersOf({ ...base, told: amount as never, holds: [{ by: 'story' }], every: '1h' }).some((o) => o.option === 'accept')).toBe(true);
+  });
+
+  it('fills a slot whose every part is short whole, with no part that arrived to publish alone (Q-84)', () => {
+    const claim = { state: 'wrong' as const, below: true };
+    // The 06–12 slot, every hour short; a 2-hour slot from 14:00, every quarter hour short.
+    const six = { ...told, hours: { ...told.hours, from: 0, to: 5 } };
+    const two = { ...told, hours: { got: new Array(8).fill(1), usual: new Array(8).fill(200), from: 0, to: 7, fall: 99, start: 840, width: 15 } };
+    for (const story of [six, two]) {
+      const missing = missingOf(story as never, 'event_time')!;
+      expect(wholeLoad(missing, story as never)).toBe(true);
+      const offers = offersOf({ story: story as never, claim, fill: { time: 'event_time' }, donors: [{ day: '2024-09-03' }] });
+      expect(offers.map((o) => [o.option, o.whole ?? false])).toEqual([['fill', true]]);
+    }
+    expect(missingOf(two as never, 'event_time')).toEqual({ time: 'event_time', hours: [14, 15] });
+    // A part of the slot is a part: the rest of it arrived.
+    expect(wholeLoad({ time: 'event_time', hours: [6, 9] }, told as never)).toBe(false);
+  });
+});
+
+describe('a level from a slot (ADR 0022 §4, Q-84)', () => {
+  it('starts on its own day in the series of a slot at or after it, and on the next day before it', () => {
+    expect(levelDay('2024-09-10T06', '2024-09-10T12')).toBe('2024-09-10');
+    expect(levelDay('2024-09-10T06', '2024-09-11T06')).toBe('2024-09-10');
+    expect(levelDay('2024-09-10T06', '2024-09-11T00')).toBe('2024-09-11');
+    expect(levelDay('2024-09-10T18', '2024-09-12T12')).toBe('2024-09-11');
+    // A level from a day starts on that day, a day's load or a slot's.
+    expect(levelDay('2024-09-10', '2024-09-12')).toBe('2024-09-10');
+    expect(levelDay('2024-09-10', '2024-09-11T00')).toBe('2024-09-10');
+  });
+
+  it('is named where it is accepted: the day, the slot of the load, or for another source\'s load in the same choice, a slot of its day', () => {
+    const level = { source: 'edr', from: '2024-09-10T06' };
+    expect(levelFromHere(level, { day: '2024-09-10T06', load: EDR('2024-09-10T06') })).toBe(true);
+    expect(levelFromHere(level, { day: '2024-09-10', load: AUTH('2024-09-10') })).toBe(true);
+    expect(levelFromHere(level, { day: '2024-09-11', load: AUTH('2024-09-11') })).toBe(false);
+    expect(levelFromHere(level, { day: '2024-09-10T12', load: EDR('2024-09-10T12') })).toBe(false);
+    expect(levelFromHere({ source: 'trips', from: '2022-11-14' }, { day: '2022-11-14' })).toBe(true);
+    expect(levelFromHere({ source: 'trips', from: '2022-11-14' }, {})).toBe(false);
   });
 });
 

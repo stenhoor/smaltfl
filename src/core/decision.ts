@@ -23,7 +23,7 @@
  *   that says what readers got of the day; and a day's versions (`versionLines`).
  */
 import { slotLabel, type Every } from './calendar.js';
-import { dayMid, dayShort, KEPT_MARK, MARK, readersSee, type DayState, type KeptMark, type RemedyMark } from './days.js';
+import { dayMid, dayShort, fromShort, KEPT_MARK, MARK, readersSee, type DayState, type KeptMark, type RemedyMark } from './days.js';
 import type { FillCounts, Missing, Offer, Version } from './fill.js';
 import type { HistoryRanges } from './history.js';
 import { counted, type Noun } from './ontology.js';
@@ -509,7 +509,7 @@ export function sheetText(o: SheetIn): SheetText {
   const accept = offers.find((x) => x.option === 'accept');
   if (accept) {
     options.push({
-      option: 'accept', label: accept.label, number: accept.off ?? '', sub: accept.off || !o.day ? null : `learns from ${dayShort(o.day)}`, warn: null, off: !!accept.off,
+      option: 'accept', label: accept.label, number: accept.off ?? '', sub: accept.off || !o.day ? null : `learns from ${fromShort(o.day)}`, warn: null, off: !!accept.off,
       aria: accept.off ? `Accept the new level: not possible, ${accept.off}` : `Accept the new level: readers get ${name} as it came, ${trips(o.rows)}, and what is usual is learned from ${o.day ? dayMid(o.day) : 'it'} on`,
     });
   }
@@ -645,19 +645,19 @@ export function receiptLines(o: { state: DayState; day: string | null; readers: 
   const rec = o.seq !== null ? `record #${o.seq}` : null;
   const released = o.released ? `${o.released} output${o.released === 1 ? '' : 's'} released` : null;
   // Once a later day has published, the day readers kept then (days.readersOf), never the later day.
-  const keep = o.past ? (o.readers ? `readers kept ${dayShort(o.readers)}` : '') : o.readers ? `readers keep ${dayShort(o.readers)}` : 'nothing published yet';
+  const keep = o.past ? (o.readers ? `readers kept ${fromShort(o.readers)}` : '') : o.readers ? `readers keep ${fromShort(o.readers)}` : 'nothing published yet';
   // What readers see once the day is published: the day, unless a later one is out, where they stay (Q-51, ADR 0022 §1).
-  const stays = o.latest && o.day && o.latest > o.day ? ` · readers stay on ${dayShort(o.latest)}` : null;
-  const sees = stays ?? (o.day && !o.past ? ` · readers now see ${dayShort(o.day)}` : '');
+  const stays = o.latest && o.day && o.latest > o.day ? ` · readers stay on ${fromShort(o.latest)}` : null;
+  const sees = stays ?? (o.day && !o.past ? ` · readers now see ${fromShort(o.day)}` : '');
   // Published as is can't be taken back (§12): said where Change decision would be, so its absence reads as meant.
-  if (o.state === 'asis') return { head: `Published as is${stays ?? (o.day ? ` · readers now see ${dayShort(o.day)}` : '')}`, sub: [why, released, by, rec].filter(Boolean).join(' · '), change: null, note: 'Can’t be recalled' };
+  if (o.state === 'asis') return { head: `Published as is${stays ?? (o.day ? ` · readers now see ${fromShort(o.day)}` : '')}`, sub: [why, released, by, rec].filter(Boolean).join(' · '), change: null, note: 'Can’t be recalled' };
   // Accept (amendment 1 S6, X6): the new level's first day, what it learns from, and its decision, never undone. A day
   // published under a standing level names the Accept it came under.
   if (o.state === 'accepted') {
     const from = o.level ?? o.day;
     return {
-      head: `${o.under ? `By ${o.under}’s new level` : `New level from ${from ? dayShort(from) : 'this day'}`}${sees}`,
-      sub: [from && !o.under ? `learns from ${dayShort(from)}` : null, why, released, o.under ? null : by, rec].filter(Boolean).join(' · '), change: null, note: 'Can’t be recalled',
+      head: `${o.under ? `By ${o.under}’s new level` : `New level from ${from ? fromShort(from) : 'this day'}`}${sees}`,
+      sub: [from && !o.under ? `learns from ${fromShort(from)}` : null, why, released, o.under ? null : by, rec].filter(Boolean).join(' · '), change: null, note: 'Can’t be recalled',
     };
   }
   if ((o.state === 'fill' || o.state === 'complete') && o.remedy) {
@@ -672,7 +672,7 @@ export function receiptLines(o: { state: DayState; day: string | null; readers: 
     };
   }
   if (o.state === 'dont' && o.withdrawn) {
-    const back = o.past ? (o.readers ? `readers kept ${dayShort(o.readers)}` : '') : o.readers ? `readers see ${dayShort(o.readers)} again` : 'nothing published';
+    const back = o.past ? (o.readers ? `readers kept ${fromShort(o.readers)}` : '') : o.readers ? `readers see ${fromShort(o.readers)} again` : 'nothing published';
     return { head: `${o.withdrawn === 'fill' ? 'Fill' : 'Part'} withdrawn${back ? ` · ${back}` : ''}`, sub: [by, rec].filter(Boolean).join(' · '), change: 'Change decision', versions: true };
   }
   if (o.state === 'dont') return { head: `Not published${keep ? ` · ${keep}` : ''}${o.standing && !o.under ? ` ${UNTIL}` : ''}`, sub: [why, by, rec].filter(Boolean).join(' · '), change: 'Change decision' };
@@ -810,7 +810,7 @@ export function dayPausedLine(o: { state: DayState; readers: string | null; past
   if (o.state === 'waiting') return { text: see ? `Paused · ${see}` : 'Paused', verb: o.may ? 'Decide' : null };
   if (o.state === 'asis') return { text: 'Published as is', verb: null };
   // The level's step mark is drawn beside it (viz glyph 'level', amendment 1 S6 as built), never ⚑, which is as is.
-  if (o.state === 'accepted') return { text: o.under ? `By ${o.under}’s new level` : `New level from ${dayShort(o.level ?? o.day ?? '')}`.replace(/ from $/, ''), verb: null };
+  if (o.state === 'accepted') return { text: o.under ? `By ${o.under}’s new level` : `New level from ${o.level ?? o.day ? fromShort((o.level ?? o.day)!) : ''}`.replace(/ from $/, ''), verb: null };
   if ((o.state === 'fill' || o.state === 'complete') && o.remedy) return { text: `${MARK[o.state]} ${remedyHead(o.remedy)}`, verb: null };
   if (o.withdrawn) return { text: `${o.withdrawn === 'fill' ? 'Fill' : 'Part'} withdrawn${see ? ` · ${keeps(see)}` : ''}`, verb: null };
   return { text: `Not published${o.standing ? ` ${UNTIL}` : ''}${see ? ` · ${keeps(see)}` : ''}`, verb: null };
@@ -827,7 +827,7 @@ export function dayPausedLine(o: { state: DayState; readers: string | null; past
 export function daySentence(o: { day: string; head: string | null; wrong: boolean; pause: { state: DayState; readers: string | null; past?: boolean; standing: boolean; may: boolean; deciders: string; remedy?: RemedySaid | null; withdrawn?: RemedyMark | null; level?: string | null; under?: string | null } | null }): string {
   const d = dayMid(o.day);
   // A day accepted as a new level, or published under one: said so, whoever reads it.
-  if (o.pause?.state === 'accepted') return `${d}: ${o.pause.under ? `published by ${o.pause.under}’s new level` : `new level from ${dayShort(o.pause.level ?? o.day)}`}`;
+  if (o.pause?.state === 'accepted') return `${d}: ${o.pause.under ? `published by ${o.pause.under}’s new level` : `new level from ${fromShort(o.pause.level ?? o.day)}`}`;
   // A day readers got by a remedy is said by it, whoever reads it: "Thu Sep 21: filled from Thu 14".
   if (o.pause?.remedy && (o.pause.state === 'fill' || o.pause.state === 'complete')) return `${d}: ${remedySaid(o.pause.remedy)}`;
   const held = !!o.pause && o.pause.state !== 'asis';

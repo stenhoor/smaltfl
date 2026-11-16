@@ -194,4 +194,38 @@ describe('a slot judged from its own series', () => {
     const day: StoryClaim2 = { ...told!.claim, every: 'day' };
     expect(judgeClaims(plan, [day], facts)[1]).toEqual({ node: 1, unjudged: "the claim is of a load of day, and the watch's loads are of 6h" });
   });
+
+  it('judges every slot after an accepted one at its new level: that day for later slots, the next day for earlier ones (Q-84)', async () => {
+    // The load of a slot as its measures would say it: the full history's period.
+    const measuresOf = (slot: string): Measures => {
+      const k = file.days.indexOf(slot);
+      return {
+        smaltflMeasures: 0, source: 'edr', slot, every: '6h', file: 'f'.repeat(64), snapshot: 'e'.repeat(64), checks: null,
+        columns: file.columns, types: file.types, kinds: file.kinds, rows: file.rows[k]!, dropped: 0, failed: [], present: file.present[k]!, p50: file.p50[k]!, quantiles: file.quantiles[k]!, sample: 2000,
+        parts: file.hours[k]!, values: Object.fromEntries(Object.entries(file.values).map(([c, vh]) => [c, vh.values.map((v, i): [string, number] => [v, vh.counts![k]![i]!]).filter(([, n]) => n > 0).sort((a, b) => (a[0] < b[0] ? -1 : 1))])), pairs: {},
+      };
+    };
+    const level = { from: '2024-09-10T06', metrics: ['trips'], decision: 9 };
+    const ref = { path: 'edr-history.json', sha256: 'a'.repeat(64), bytes: 1 };
+    const told = async (slot: string, before: string) => {
+      const plan = await translate(doc, { day: slot.slice(0, 10), slot });
+      const base = edrHistory({ to: before });
+      return (await loadClaim({ doc, source: 'edr', flow: plan.flow.hash, base, baseRef: ref, tail: [], measures: measuresOf(slot), settings: settingsFor(plan, 1, base)!, skip: [], levels: [level], build: 'dev' }))!;
+    };
+    // The slot after the accepted one, that day: its series starts the level on Sep 10; the claim names the level as
+    // accepted, from the slot.
+    const noon = await told('2024-09-10T12', '2024-09-10T06');
+    expect(noon.claim.levels).toEqual([level]);
+    expect(noon.ranges.levels).toEqual([{ ...level, from: '2024-09-10' }]);
+    // The night slot comes after it on the next day: there the level starts on Sep 11.
+    const night = await told('2024-09-11T00', '2024-09-10T18');
+    expect(night.ranges.levels).toEqual([{ ...level, from: '2024-09-11' }]);
+    // The accepted slot's own, the next day: from Sep 10, as a day's level.
+    const next = await told('2024-09-11T06', '2024-09-11T00');
+    expect(next.ranges.levels).toEqual([{ ...level, from: '2024-09-10' }]);
+    // The accepted slot itself isn't judged at its own level, as an accepted day isn't.
+    const own = await told('2024-09-10T06', '2024-09-10T00');
+    expect(own.claim.levels).toEqual([]);
+    expect(own.ranges.levels).toEqual([]);
+  }, 120_000);
 });

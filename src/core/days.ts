@@ -15,6 +15,9 @@ const at = (day: string) => new Date(`${day}T12:00:00Z`);
 
 /** "Thu 21". */
 export const dayShort = (day: string) => `${WD[at(day).getUTCDay()]} ${at(day).getUTCDate()}`;
+/** Where something starts, a day or a slot of one (ADR 0010 §7, Q-84): "Thu 21", or "Thu 21, 06:00" for the slot that
+ * starts then. */
+export const fromShort = (from: string) => (from.length > 10 ? `${dayShort(from.slice(0, 10))}, ${from.slice(11, 13)}:00` : dayShort(from));
 /** "Thu Sep 21". */
 export const dayMid = (day: string) => `${WD[at(day).getUTCDay()]} ${MON[at(day).getUTCMonth()]} ${at(day).getUTCDate()}`;
 
