@@ -206,6 +206,11 @@ describe('each common value’s band', () => {
     expect(shareRange([0.05, 0.09])).toBe('5%–9%');
   });
 
+  it('proposes none for a column the day’s rows don’t show: one closed to the viewer is said nothing of', async () => {
+    const hidden = today().filter((p) => p.name !== 'status');
+    expect(ofKind(proposalsOf(input(await doc(), { profiles: hidden })), 'bands')).toEqual([]);
+  });
+
   it('proposes none in a flow with no gate, where the values check is off, or for a column with a band', async () => {
     expect(ofKind(proposalsOf(input(await doc({ gated: false }))), 'bands')).toEqual([]);
     expect(ofKind(proposalsOf(input(await doc({ values: 'off' }))), 'bands')).toEqual([]);

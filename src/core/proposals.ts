@@ -86,7 +86,8 @@ export interface ProposalInput {
   file: string;
   /** The day the proposals rest on: the history's and the sample's days before it are read. */
   day?: string | null;
-  /** The day's columns, counted over every row (`profileColumn`): kind, rows, values present, distinct values. */
+  /** The day's columns, counted over every row (`profileColumn`): kind, rows, values present, distinct values. Only
+   * these columns are proposed anything: the ones the viewer may read. */
   profiles: readonly Pick<Profile, 'name' | 'kind' | 'facts'>[];
   /** Each small coded column's values that day, exactly, by column (`valueCandidates` names the columns). */
   values?: ReadonlyMap<string, readonly string[]>;
@@ -229,8 +230,11 @@ function bandsProposals(input: ProposalInput): BandsProposal[] {
   if (days.length < MIN_BAND_DAYS) return [];
   if (quantile(days.map((k) => h.rows[k]!).sort((a, b) => a - b), 0.5) < MIN_BAND_ROWS) return [];
   const out: BandsProposal[] = [];
+  // Only the columns the day's rows show (the viewer's, as the app reads them): the history counts every column, and a
+  // column closed to the viewer is proposed nothing, so nothing of it is said.
+  const shown = new Set(input.profiles.map((p) => lower(p.name)));
   for (const [column, vh] of Object.entries(h.values ?? {})) {
-    if (!vh.counts) continue;
+    if (!vh.counts || !shown.has(lower(column))) continue;
     const prop = propertyOf(doc.ontology, file, column);
     // A band is written on the column's property (`applyBand`): one with none isn't the ontology's to band yet.
     if (!prop) continue;
