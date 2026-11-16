@@ -102,13 +102,18 @@ export interface PostureProduct {
   apps: string;
   owners?: string;
   queue?: string;
+  /** The dataset that names each control (`control_id`, `name`): what the recorded month labels its movers by (ADR 0024 §6). */
+  controls?: string;
+  /** What the score is, in a sentence or two: said under it on the month (ADR 0024 §6). */
+  about?: string;
 }
 const postureOf = (v: unknown): PostureProduct | undefined => {
   if (typeof v !== 'object' || v === null || Array.isArray(v)) return undefined;
   const o = v as Record<string, unknown>;
   const name = (k: string) => (typeof o[k] === 'string' && o[k] ? (o[k] as string) : undefined);
   const title = name('title'), units = name('units'), org = name('org'), apps = name('apps');
-  return title && units && org && apps ? { title, units, org, apps, ...(name('owners') ? { owners: name('owners')! } : {}), ...(name('queue') ? { queue: name('queue')! } : {}) } : undefined;
+  const more = (['owners', 'queue', 'controls', 'about'] as const).flatMap((k) => (name(k) ? [[k, name(k)!] as const] : []));
+  return title && units && org && apps ? { title, units, org, apps, ...Object.fromEntries(more) } : undefined;
 };
 
 type RawLoad = { day?: string; slot?: string; file: string; sha256: string; bytes?: number; rows: number; exported_at?: string; exported?: string };

@@ -17,7 +17,9 @@
     "org": "dim_org",
     "apps": "app_scorecard",
     "owners": "dim_app",
-    "queue": "remediation_queue"
+    "queue": "remediation_queue",
+    "controls": "dim_control",
+    "about": "The share of control checks that pass, across every application. A check counts by its control’s weight and an application by how critical it is; a check with no evidence, or under an exception, is left out. Coverage is the share of checks that have evidence."
   },
   "sources": {
     "hr_org_units": {

@@ -17,7 +17,9 @@
  *   (`by.as` is `build`), at the time the day's files arrived: the latest export time the data list gives them, else
  *   six in the morning. Each manifest is kept by its hash beside the entries.
  * - **The posture**, where the data list names a posture product: the group's score and coverage on each day its roll-up
- *   was published, which the month's trend band draws.
+ *   was published, which the month's trend band draws; and, from its scorecards, the checks the score is a share of that
+ *   day and the applications failing each control (ADR 0024 §6), with the controls' names where the list says which
+ *   dataset names them: what the month says moved the score.
  * - **The story** (`--story`, ADR 0021 §6), where the data list names one: the month in time order (core/timeline.ts),
  *   each day's first run at its files' time, then each later delivery of a day's file when it arrived, run as a
  *   correction of the day's latest run (held until a decision, Q-183), and each decision when it was taken, by its
@@ -135,7 +137,7 @@ async function main(): Promise<void> {
   const out = args.at(-1);
   if (!flowPath || !work || !out || out.startsWith('--')) throw new Error('usage: node scripts/data/record.mjs --flow DOC --work DIR --build COMMIT [--bind DATA.json] [--story STORY.json] OUT.json');
   const doc: FlowDocument = await readFlow(flowPath);
-  const bind = readJSON<DataBindings & { posture?: { units?: string; org?: string } }>(arg(args, 'bind') ?? bindingsPath(flowPath));
+  const bind = readJSON<DataBindings & { posture?: { units?: string; org?: string; apps?: string; controls?: string } }>(arg(args, 'bind') ?? bindingsPath(flowPath));
   const generated = readJSON<Generated>(join(work, 'loads.json'));
   const watches = Object.keys(doc.publish?.watch ?? {});
   const one = watches.length === 1;
@@ -279,6 +281,7 @@ async function main(): Promise<void> {
     const entries: LogEntry[] = [];
     const manifests: Record<string, RunManifest> = {};
     const posture: Record<string, PostureMark> = {};
+    const controls: Record<string, string> = {};
     const origin = `build:${doc.id}`;
     const nonce = (day: string, k: number) => createHash('sha256').update(`${origin}|${day}|${k}`).digest('hex').slice(0, 32);
     const t0 = Date.now();
@@ -302,7 +305,35 @@ async function main(): Promise<void> {
         return found ? `"${String(found[0])}"` : name;
       };
       const row = db.query(`SELECT p.score, p.coverage FROM ${table(units)} p JOIN ${table(org)} o ON o.org_unit_id = p.org_unit_id WHERE o.level = 'group' AND o.parent_id IS NULL`).rows[0];
-      if (row) posture[day] = { score: row[0] === null ? null : Number(row[0]), coverage: row[1] === null ? null : Number(row[1]) };
+      if (!row) return;
+      const mark: PostureMark = { score: row[0] === null ? null : Number(row[0]), coverage: row[1] === null ? null : Number(row[1]) };
+      // What the score is a share of that day, and the applications failing each control (ADR 0024 §6), from the
+      // product's scorecards: what the month says moved the score between two days. A product whose scorecards don't
+      // count their checks has the score alone.
+      const apps = bind.posture?.apps;
+      if (apps) {
+        try {
+          const sums = db.query(`SELECT sum(applying), sum(with_evidence), sum(failing) FROM ${table(apps)}`).rows[0];
+          if (sums && sums[0] !== null) mark.checks = { applying: Number(sums[0]), evidence: Number(sums[1] ?? 0), failing: Number(sums[2] ?? 0) };
+          const failing: Record<string, number> = {};
+          for (const [list] of db.query(`SELECT failing_controls FROM ${table(apps)} WHERE failing > 0`).rows) {
+            for (const id of String(list ?? '').split(/\s+/).filter(Boolean)) failing[id] = (failing[id] ?? 0) + 1;
+          }
+          if (mark.checks) mark.failing = Object.fromEntries(Object.entries(failing).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+        } catch {
+          // Scorecards of another shape: the score and its coverage alone.
+        }
+      }
+      posture[day] = mark;
+      // The controls' names, as the product last published them, where the data list says which dataset names them.
+      const named = bind.posture?.controls;
+      if (named) {
+        try {
+          for (const [id, name] of db.query(`SELECT control_id, name FROM ${table(named)}`).rows) if (id !== null && name !== null) controls[String(id)] = String(name);
+        } catch {
+          // No such dataset in this run: the ids stand for themselves.
+        }
+      }
     };
 
     /**
@@ -724,10 +755,13 @@ async function main(): Promise<void> {
       now: `${plusDay(days.at(-1)!.slot, 1)}T08:00:00.000Z`,
       entries, manifests,
       ...(Object.keys(posture).length ? { posture } : {}),
+      ...(Object.keys(controls).length ? { controls: Object.fromEntries(Object.entries(controls).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) } : {}),
     };
     writeFileSync(out, JSON.stringify(file) + '\n');
     const size = readFileSync(out).length;
-    console.log(`${out}: ${entries.length} entries recorded, ${(size / 1e6).toFixed(2)} MB, in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
+    const marked = Object.values(posture);
+    const scored = marked.length ? `; the posture marked on ${marked.length} days, its checks counted on ${marked.filter((p) => p.checks).length}, ${Object.keys(controls).length} controls named` : '';
+    console.log(`${out}: ${entries.length} entries recorded, ${(size / 1e6).toFixed(2)} MB, in ${((Date.now() - t0) / 1000).toFixed(0)} s${scored}`);
   } finally {
     db.close();
   }
