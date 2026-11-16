@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { DEFS, aucTrack, fileTwins, forestTicks, rankBars, scoreSpark, scoreTrend, amountLine, bandSpan, notJudgedMark, bulletTrack, composition, dayStrip, decisionRow, dumbbellRows, episodeBars, episodeChip, episodeDays, episodeIcon, esc, episodeLine, gateBars, glyph, hourBars, learnStrip, lineage, niceMax, partBar, quantileStrip, reachIcon, ruleRows, splitRows, stripBar, trendPips, waterfall, wrapName } from '../src/app/viz.js';
+import { DEFS, dayBars, aucTrack, fileTwins, forestTicks, rankBars, scoreSpark, scoreTrend, amountLine, bandSpan, notJudgedMark, bulletTrack, composition, dayStrip, decisionRow, dumbbellRows, episodeBars, episodeChip, episodeDays, episodeIcon, esc, episodeLine, gateBars, glyph, hourBars, learnStrip, lineage, niceMax, partBar, quantileStrip, reachIcon, ruleRows, splitRows, stripBar, trendPips, waterfall, wrapName } from '../src/app/viz.js';
 
 const hours = Array.from({ length: 24 }, (_, h) => (h < 13 ? 5000 : 300));
 const usual = Array.from({ length: 24 }, () => 5000);
@@ -419,6 +419,9 @@ describe('the news’s charts', () => {
     // bars; three different shapes, none a colour alone.
     expect(glyph('flag')).toContain('g-wall');
     expect(glyph('closed')).toMatch(/g-box.*g-x/);
+    // Decided, on the month (ADR 0024 §3): the box of not published, ticked.
+    expect(glyph('decided')).toMatch(/g-box.*g-tick/);
+    expect(glyph('decided')).toContain('aria-hidden="true"');
     expect(new Set(['held', 'flag', 'closed'].map((g) => glyph(g as 'held').replace(/class="g g-\w+"/, '')))).toHaveProperty('size', 3);
     expect(stripBar({ v: 4633, low: 84912, high: 155515, ymax: 160000, sev: 'alert' })).toContain('sev-alert-fill');
   });
@@ -926,11 +929,84 @@ describe('a unit’s score over the month (scoreTrend, scoreSpark; ADR 0020 §6)
     expect(svg).toContain('>Sun Mar 31</text>');
   });
 
+  it('marks the month on show where the days span more than one: a wash behind its days and a rule on the axis (ADR 0024 §6)', () => {
+    const two = ['2024-02-28', '2024-02-29', '2024-03-01', '2024-03-02'];
+    const pts = two.map((day, i) => ({ day, score: 90 + i, coverage: 95 }));
+    const svg = scoreTrend({ days: two, points: pts, aria: 'x', focus: { from: '2024-03-01', to: '2024-03-02' } });
+    expect(svg.match(/class="focus"/g)).toHaveLength(1);
+    expect(svg.match(/class="focus-rule"/g)).toHaveLength(1);
+    expect(scoreTrend({ days: two, points: pts, aria: 'x' })).not.toContain('focus');
+    // A month none of the days are in marks nothing.
+    expect(scoreTrend({ days: two, points: pts, aria: 'x', focus: { from: '2024-04-01', to: '2024-04-30' } })).not.toContain('class="focus"');
+  });
+
+  it('draws a point a day only where the days have room for one: else the line with its last point', () => {
+    const many = Array.from({ length: 60 }, (_, i) => `2024-02-${String(i + 1).padStart(2, '0')}`);
+    const pts = many.map((day, i) => ({ day, score: 90 + (i % 3) * 0.1, coverage: 99 }));
+    expect(scoreTrend({ days: many, points: pts, aria: 'x', w: 320 }).match(/class="pt"/g)).toHaveLength(1);
+    expect(scoreTrend({ days: many, points: pts, aria: 'x', w: 900 }).match(/class="pt"/g)).toHaveLength(60);
+  });
+
   it('draws nothing but its frame with no day published, and a spark only with one', () => {
     expect(scoreTrend({ days, points: [], aria: 'x' }).match(/class="pt"/g)).toBeNull();
     expect(scoreSpark({ days, points: [], aria: 'x' })).toBe('');
     const spark = scoreSpark({ days, points, aria: 'Payments' });
     expect(spark.match(/class="pt"/g)).toHaveLength(1);
     expect(spark.match(/class="line gap"/g)).toHaveLength(1);
+  });
+});
+
+describe('a row of days as bars (dayBars; ADR 0024 §4, §5)', () => {
+  // Fri Mar 1 to Thu Mar 14, 2024: Mondays on the 4th and the 11th.
+  const day = (n: number) => `2024-03-${String(n).padStart(2, '0')}`;
+  const levels = ['ok', 'ok', 'none', 'warn', 'bad', 'bad', 'unjudged', 'ok', 'ok', 'ok', 'ok', 'ok', 'ok', 'ok'] as const;
+  const days = levels.map((level, i) => ({ day: day(i + 1), level, ...(i === 5 ? { done: true } : {}), title: `row, ${day(i + 1)}: ${level}` }));
+  const svg = dayBars({ days, w: 280, h: 20, pick: day(5), ticks: true, aria: 'tls over March: held 2 days' });
+  const heights = (cls: string) => [...svg.matchAll(new RegExp(`<rect class="db ${cls}"[^>]* height="([\\d.]+)"`, 'g'))].map((m) => Number(m[1]));
+
+  it('says its finding, starts at zero and carries no broken numbers', () => {
+    expect(svg).toMatch(/^<svg class="viz" [^>]*role="img" aria-label="tls over March: held 2 days"/);
+    expect(svg).toContain('data-y0="0"');
+    expect(svg).not.toMatch(/NaN|undefined|Infinity|null/);
+    expect(svg.endsWith('</svg>')).toBe(true);
+  });
+
+  it('draws a day’s height by what it came to: low for nothing to report, half for unusual, full for held', () => {
+    expect(heights('db-ok')).toEqual(Array(9).fill(3));
+    expect(heights('db-warn')).toEqual([11]);
+    expect(heights('db-bad')).toEqual([20]);
+    // A mark for a day is never under 3 px.
+    expect(Math.min(...heights('db-ok'), ...heights('db-warn'), ...heights('db-bad'))).toBeGreaterThanOrEqual(3);
+  });
+
+  it('draws a held day hollow once it is decided, and a day not judged as a low hollow bar', () => {
+    expect(svg.match(/class="db db-bad done"/g)).toHaveLength(1);
+    expect(svg.match(/class="db db-bad"/g)).toHaveLength(1);
+    expect(svg.match(/class="db db-unjudged"/g)).toHaveLength(1);
+  });
+
+  it('draws nothing for a day with no run: absence is never fine', () => {
+    expect(svg.match(/class="db /g)).toHaveLength(13);
+    expect(svg).not.toContain('db-none');
+  });
+
+  it('makes each day a column to tap, with what pointing at it says, and marks the day picked', () => {
+    expect(svg.match(/class="db-hit" data-day="/g)).toHaveLength(14);
+    expect(svg).toContain('data-day="2024-03-05"');
+    expect(svg).toContain('<title>row, 2024-03-06: bad</title>');
+    expect(svg.match(/class="db-pick"/g)).toHaveLength(1);
+  });
+
+  it('names each Monday’s date, and the first day’s where they are apart; a tick on the baseline starts each week', () => {
+    expect([...svg.matchAll(/<text class="tick[^"]*"[^>]*>(\d+)<\/text>/g)].map((m) => m[1])).toEqual(['1', '4', '11']);
+    expect(svg.match(/class="db-week"/g)).toHaveLength(2);
+    // A first day right before a Monday keeps the Monday's date alone.
+    const sun = dayBars({ days: [{ day: '2024-03-03', level: 'ok' }, { day: '2024-03-04', level: 'ok' }, { day: '2024-03-05', level: 'ok' }], w: 30, ticks: true, aria: 'x x x x x x' });
+    expect([...sun.matchAll(/<text class="tick[^"]*"[^>]*>(\d+)<\/text>/g)].map((m) => m[1])).toEqual(['4']);
+    expect(dayBars({ days, aria: 'no ticks asked for' })).not.toContain('<text');
+  });
+
+  it('escapes what it is given', () => {
+    expect(dayBars({ days: [{ day: '2024-03-01', level: 'ok', title: 'a<b>&"c"' }], aria: 'x<y> & z' })).toContain('<title>a&lt;b&gt;&amp;&quot;c&quot;</title>');
   });
 });
