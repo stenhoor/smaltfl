@@ -11,7 +11,6 @@
 //
 // stops.json: an array of stops, visited in order in one page:
 //   { "name": "sep22-trips-news",        file name for the screenshot and the metrics
-//     "episode": "September 2023",       optional: the episode chip to pick ("January 2024" for the month)
 //     "day": "Fri 22",                    optional: the day ("<Weekday> <date>"), found by what the month says of it and opened by its link
 //     "version": 1,                       optional: with "day", the day's version to open (`#day/…/v1`, ADR 0021 §4); none: the one readers got
 //     "devices": ["desktop", "wide"],     optional: the sizes the stop runs at (what it shows exists only there); any other skips it
@@ -108,7 +107,6 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
   let ctx = null;
   let p = null;
   let scheme = null;
-  let episode = null;
   const problems = [];
   // The status line's run number and state (data-run, data-state), with its words: what changed after a step.
   const status = () => p.evaluate(() => { const el = document.querySelector('#status'); return `${el?.dataset.run ?? ''}|${el?.dataset.state ?? ''}|${el?.textContent ?? ''}`; });
@@ -126,7 +124,7 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
     setTimeout(tick, 50);
   }), max).catch(() => {});
   const settled = async (before) => {
-    // A click that starts nothing (the episode already shown) settles at once: wait 4 s for a run or a fetch to start.
+    // A click that starts nothing (the day already shown) settles at once: wait 4 s for a run or a fetch to start.
     const started = await p.waitForFunction((was) => {
       const el = document.querySelector('#status');
       const text = el?.textContent ?? '';
@@ -146,7 +144,6 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
     if (ctx && scheme === wanted) return;
     if (ctx) await ctx.close();
     scheme = wanted;
-    episode = null;
     ctx = await browser.newContext({ viewport: { width: W, height: H }, isMobile: device.isMobile, hasTouch: device.hasTouch, deviceScaleFactor: Number(process.env.TOUR_SCALE || 1), colorScheme: wanted, acceptDownloads: true });
     p = await ctx.newPage();
     p.on('pageerror', (e) => problems.push(`PAGEERROR ${e.message}`));
@@ -162,7 +159,6 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
       await open(stop.scheme === 'dark' ? 'dark' : 'light');
       if (stop.reload) {
         await p.reload();
-        episode = null;
         await settled('');
       }
       // Back to the day screen (ADR 0021 §4: no hash is the month, the home of a flow with days).
@@ -174,20 +170,6 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
       // Close any open detail and sheet first.
       if (await p.locator('.vf-detail-wrap').count()) await p.locator('.vf-detail button.close').first().click().catch(() => {});
       if (await p.locator('#sheet:not([hidden]) button.close').count()) await p.locator('#sheet button.close').first().click().catch(() => {});
-      if (stop.episode && stop.episode !== episode) {
-        // The episodes are the month's chips (ADR 0021 §3).
-        await p.evaluate(() => { location.hash = '#month'; });
-        await quiet(1500);
-        const chip = p.locator('.episodes button', { hasText: stop.episode });
-        if (await chip.count()) {
-          const before = await status();
-          await chip.first().click();
-          await settled(before);
-        } else if (stop.episode !== 'January 2024') {
-          problems.push(`no episode chip "${stop.episode}"`);
-        }
-        episode = stop.episode;
-      }
       if (stop.day) {
         // The day by what the month says of it (its label starts "Fri Mar 22"), then the day screen by its link
         // (ADR 0021 §4); the day already on screen and run starts nothing.

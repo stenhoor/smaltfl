@@ -4,8 +4,7 @@
  * of news are the ones data-observability tools watch a table for: volume (a normal amount of data or not, a day all
  * but blank, data that stops part way through), the values (one usually there gone, one's share unusual, a value or a
  * combination of values never seen before), completeness (a column missing more values than it does), shape (a
- * measure's or a time's quantiles moved), what the checks drop, the file's columns changing, and the weather as
- * context.
+ * measure's or a time's quantiles moved), what the checks drop, and the file's columns changing.
  *
  * False alarms are kept down three ways: a number has to be outside its normal range (three typical misses from what a
  * day like it has, which on 2023's days holds about 96 days in a hundred), it has to matter (enough rows, and a big
@@ -32,7 +31,7 @@ export type Act = 'expected' | 'incident' | 'notify' | 'rule' | 'quarantine' | '
 
 export interface Finding {
   key: string;
-  kind: 'volume' | 'stale' | 'hours' | 'gone' | 'share' | 'band' | 'due' | 'scope' | 'needs' | 'reconcile' | 'apart' | 'new' | 'pair' | 'combo' | 'unlike' | 'missing' | 'shape' | 'dropped' | 'rule' | 'schema' | 'weather' | 'calm' | 'unlearned' | 'key' | 'unmatched' | 'placeholder' | 'empty' | 'integrity';
+  kind: 'volume' | 'stale' | 'hours' | 'gone' | 'share' | 'band' | 'due' | 'scope' | 'needs' | 'reconcile' | 'apart' | 'new' | 'pair' | 'combo' | 'unlike' | 'missing' | 'shape' | 'dropped' | 'rule' | 'schema' | 'calm' | 'unlearned' | 'key' | 'unmatched' | 'placeholder' | 'empty' | 'integrity';
   severity: Severity;
   /** How far out, in typical misses (capped): what ranks findings of a severity. */
   score: number;
@@ -117,7 +116,7 @@ export const nounFor = (names: Pick<Names, 'noun'>, n?: number): string => names
 /**
  * How a watched source is judged (ADR 0010 §4, §8), from its watch and the ontology's marks (`judgeOf`). The legacy
  * form, a watch given as a file name, keeps the rules every flow had before (fixed floors; a vendor named by its code; a
- * drop-off 15 minutes behind its pickup; the weather in Manhattan), so its verdicts don't move.
+ * drop-off 15 minutes behind its pickup), so its verdicts don't move.
  */
 export interface JudgeSettings {
   legacy: boolean;
@@ -870,23 +869,6 @@ export function newsOf(h: HistoryRanges, day: string, names: Names, options: { c
   if (file.schemas && sm > 0 && day.endsWith('-01')) {
     const changes = schemaChanges(file.schemas[sm - 1]!.columns, file.schemas[sm]!.columns);
     if (changes.length) out.push({ key: 'schema', kind: 'schema', severity: 'note', score: changes.length, title: `Columns changed: ${schemaCount(changes)}`, detail: `${sentence(listed(changes))}. The loads are cast to the month's columns.`, look: 'columns', acts: ['expected', 'notify'] });
-  }
-
-  // The weather, as context: in the place the history names (ADR 0010 §8); the legacy form's is Manhattan.
-  const w = file.weather;
-  if (w) {
-    const place = w.place ?? (judge.legacy ? 'Manhattan' : null);
-    const inPlace = place ? ` in ${place}` : '';
-    const snow = w.snow[k] ?? 0;
-    const rain = w.precip[k] ?? 0;
-    const gaps = w.boroughs.filter((_, b) => (w.hours[k]?.[b] ?? 24) < 24);
-    // Whole degrees, rounded first: never "−0".
-    const deg = (x: number) => String(Math.round(x) || 0);
-    const temps = w.tmin[k] != null && w.tmax[k] != null ? `between ${deg(w.tmin[k]!)} and ${deg(w.tmax[k]!)} °C` : 'its temperatures not on record';
-    if (snow >= 1) out.push({ key: 'weather', kind: 'weather', severity: 'note', score: snow, title: `Snow: ${snow.toFixed(1)} cm${inPlace}`, detail: `With ${rain.toFixed(1)} mm of rain and snow in all, ${temps}.`, look: 'history', acts: [] });
-    else if (rain >= 15) out.push({ key: 'weather', kind: 'weather', severity: 'note', score: rain / 10, title: `Heavy rain: ${rain.toFixed(0)} mm${inPlace}`, detail: `${sentence(temps)}.`, look: 'history', acts: [] });
-    else out.push({ key: 'weather', kind: 'weather', severity: 'ok', score: 0, title: rain >= 1 ? `Some rain: ${rain.toFixed(0)} mm${inPlace}` : `A dry day${inPlace}`, detail: `${sentence(temps)}${gaps.length ? '' : ', every district’s 24 hours on record'}.`, look: 'history', acts: [] });
-    if (gaps.length) out.push({ key: 'weather-gaps', kind: 'weather', severity: 'note', score: 1, title: `The weather has hours missing`, detail: `${listed(gaps)}: fewer than 24 hours on record.`, look: 'history', acts: ['notify'] });
   }
 
   // The classifier (ADR 0014 §5, ADR 0015 §6): today's kept rows against the like days' rows of the sample, wherever a

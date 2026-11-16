@@ -29,7 +29,7 @@ import type { HistoryRanges } from './history.js';
 import { counted, type Noun } from './ontology.js';
 import type { Hold } from './hold.js';
 import type { DecisionOption } from './policy.js';
-import { CONTEXT_TAG, gateLabels, wordsIn, type Gate, type Story } from './story.js';
+import { gateLabels, wordsIn, type Gate, type Story } from './story.js';
 
 const fmtInt = (n: number) => Math.round(n).toLocaleString('en-US');
 /** How long a standing decision stands, said one way everywhere (round 3, #19, #20): never "until a day passes", which
@@ -794,7 +794,7 @@ export function pausedGlance(s: Story, row: PauseRow, decided = false): string[]
   const l = s.labels;
   const checks = pausedChecks(s.gate, decided);
   const gate = l.gate.length ? (checks.full ? [checks.head ?? '', ...l.gate.slice(1)] : checks.line ? [checks.line] : []) : [];
-  return [s.head, s.chip ?? '', ...l.amount, ...l.hero.slice(0, l.hero.length - l.gate.length), ...gate, ...l.key, l.context ? `${CONTEXT_TAG} ${l.context}` : '', l.folded ?? '', l.more ?? '', l.notes ?? '', ...s.stories.map((f) => f.title), row.reach, row.see ?? '', ...row.names, row.verb ?? '', row.waits ?? '', row.change ?? ''].filter(Boolean);
+  return [s.head, s.chip ?? '', ...l.amount, ...l.hero.slice(0, l.hero.length - l.gate.length), ...gate, ...l.key, l.folded ?? '', l.more ?? '', l.notes ?? '', ...s.stories.map((f) => f.title), row.reach, row.see ?? '', ...row.names, row.verb ?? '', row.waits ?? '', row.change ?? ''].filter(Boolean);
 }
 
 /**

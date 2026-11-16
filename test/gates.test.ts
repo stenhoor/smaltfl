@@ -208,7 +208,7 @@ describe('the judges read the gate (Q-114)', () => {
     expect(checkOf('unlike')).toBe('forest');
     expect(checkOf('dropped')).toBe('rules');
     expect(checkOf('integrity')).toBe('schema');
-    for (const k of ['calm', 'unlearned', 'weather', 'key', 'unmatched', 'placeholder', 'empty'] as const) expect(checkOf(k)).toBeNull();
+    for (const k of ['calm', 'unlearned', 'key', 'unmatched', 'placeholder', 'empty'] as const) expect(checkOf(k)).toBeNull();
   });
 
   it('caps a learned check’s finding at unusual under warn, drops it under off, keeps a written one’s, and never softens a value marked bad', () => {

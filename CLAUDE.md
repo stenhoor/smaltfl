@@ -381,7 +381,10 @@ release (smaltty ADR 0030).
   `drawnValue`, a finding's in its own dataset), text beside a value keeps `labelFor`; the Ontology page's made datasets
   (`OntologyPage.made`, `FileSection.made` and `readBy`; the app's "Made by the flow", read-only, `readByLine`,
   `openOntologySection`), a hand-set rule saying where it is written (`originSaid`); tour.cjs's `textIn`/`noTextIn`.
-  The addendum of 2026-11-15: the taxi example retired (Q-208); Q-132's threshold (Q-207). Slice 4, first part (Q-132):
+  The addendum of 2026-11-15: the taxi example retired (Q-208); Q-132's threshold (Q-207); what it left (Q-217, Q-218):
+  the weather views removed (no `weather` finding, no story context, no history weather), the episode chips with
+  them, the published-list check kept; *About this flow* shows the flow's own `description` (`#flow-desc`).
+  Slice 4, first part (Q-132):
   in a gated flow a learned check's alert (shares, pairs, hours, shape; never the forest or the classifier) that moved at
   least the node's threshold of the day's rows holds it though the check only warns (`gated`'s `day`, `OVERWHELMS`,
   `movedOf`, `Finding.moved` a pair's rows beyond what its columns predict, `Finding.overwhelming`); the threshold is a
@@ -474,8 +477,9 @@ release (smaltty ADR 0030).
   `scenesPanel`; a look's link `#scene/N/K` opening its day, version, card and tab or decision, `pendingLook`,
   `applyLook`; `test/scenes.test.ts`, `tools/browser/stops/tour.json`), the tour at `/app/` and the planted month at
   `/larkspur/`, `docs/guide/demo.md` the tour and `docs/guide/larkspur.md` the planted month: ADR 0023 is done.
-  ADR 0022's slice 5 (Q-139) is built after it. **Next:** what the taxi example's retirement left (docs/HANDOFF.md):
-  the app's weather and hour views, and the browser integrity suite ported to Larkspur.
+  ADR 0022's slice 5 (Q-139) is built after it. What the taxi example's retirement left: the weather views are removed
+  and the episode chips with them, the published-list check kept (Q-217, Q-218, ADR 0022's addendum). **Next:** the
+  browser integrity suite ported to Larkspur (docs/HANDOFF.md).
 
 ## Rules for this repository
 

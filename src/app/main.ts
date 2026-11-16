@@ -1,8 +1,7 @@
 /**
- * The smaltfl app, first version: the example flow on real data, run in this browser. The flow draws as a canvas of
- * cards; a card opens a sheet with the step's settings (editable: change one, run again, and only what depends on it
- * is rebuilt), its expectation counts, a preview of its rows and the statement the engine runs for it. Results show
- * weather's effect on demand; runs can be verified and signed.
+ * The smaltfl app: a flow on its data, run in this browser. The flow draws as a canvas of cards; a card opens a sheet
+ * with the step's settings (editable: change one, run again, and only what depends on it is rebuilt), its expectation
+ * counts, a preview of its rows and the statement the engine runs for it. Runs can be verified and signed.
  *
  * Plain DOM and SVG, as the family's apps are. Everything a person typed or a dataset holds is set with textContent.
  */
@@ -22,7 +21,7 @@ import { notebookSectionId } from '../core/notebook.js';
 import { lookOf, sceneHash, type SceneLook, type ScenesFile } from '../core/scenes.js';
 import { briefOf, briefText, type BriefIn, type BriefOption } from '../core/brief.js';
 import { compareSummary, diffKeyOf, diffOf, type RowDiff } from '../core/compare.js';
-import { createTable, emitCheckCounts, emitColumnFacts, emitCopy, emitDayHours, emitDiff, emitDistinct, emitHourValues, emitDrop, emitDropped, emitExcept, emitFailures, emitLookup, emitRead, emitRuleFailures, emitSample, emitUnmatched, sameColumns, stampShift, type EmitContext } from '../core/emit.js';
+import { createTable, emitCheckCounts, emitColumnFacts, emitCopy, emitDiff, emitDistinct, emitHourValues, emitDrop, emitDropped, emitExcept, emitFailures, emitLookup, emitRead, emitRuleFailures, emitSample, emitUnmatched, sameColumns, type EmitContext } from '../core/emit.js';
 import { effectOf, type Effect } from '../core/effect.js';
 import { daysFrom, HistoryRanges, isHistory, metricKey, QUANTILES, timeOf, type HistoryFile, type Metric } from '../core/history.js';
 import type { Identity, ManifestNode, SignedManifest, SourceFile, SourceIngestRecord } from '../core/manifest.js';
@@ -48,8 +47,8 @@ import { button as nbButton, formatMs, makeCell, showError, showMarkdown, showRo
 import type { EditorSchema, SchemaColumn } from 'smaltkit/editor';
 import type { GridRow } from 'smaltkit/grid';
 import { derivedAbout, derivedFails, derivedKeys, derivedWhy, donorsOf, filledRows, pinDonor, repairOf, stageRepair, type Listed, type Remedies } from './fills.js';
-import { followsCause as followsFrom, ACT_VERB, CELL_KINDS, CELL_NAMES, CONTEXT_TAG, HEALTH_HEAD, STRIP_KEY, approx, axisShare, recentSpan, cardWords, changeLabel, compact, countLabel, countRange, fallSteps, gateHead, overLabel, gateLabels, gateOf, partLabel, ruleOrder, ruleUsual, shortWho, splitSentence, splitSteps, saidOf, storyOf, type Cell, type DayStep, type Gate, type HourValues, type Story, type Told, type Upstream } from '../core/story.js';
-import { scoreSpark, scoreTrend, type ScorePoint, rowFlow, differenceMeter, fileTwins, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, degrees, weatherHours, chain, composition, contextBars, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
+import { followsCause as followsFrom, ACT_VERB, CELL_KINDS, CELL_NAMES, HEALTH_HEAD, STRIP_KEY, approx, axisShare, recentSpan, cardWords, changeLabel, compact, countLabel, countRange, fallSteps, gateHead, overLabel, gateLabels, gateOf, partLabel, ruleOrder, ruleUsual, shortWho, splitSentence, splitSteps, saidOf, storyOf, type Cell, type DayStep, type Gate, type HourValues, type Story, type Told, type Upstream } from '../core/story.js';
+import { scoreSpark, scoreTrend, type ScorePoint, rowFlow, differenceMeter, fileTwins, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, chain, composition, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
 import { sha256Hex } from '../core/hash.js';
 import { LEVEL_NAME, leaderSaid, postureTree, scoreSaid, trendSaid, unitCounts, type PostureNode } from '../core/posture.js';
 import { counted, glossOf, meaningBeyond, meaningOf, nounOf as ontologyNoun, propertyOf, readAsOf, saysMore, type Edit, type Noun, type PropertyType } from '../core/ontology.js';
@@ -2510,7 +2509,7 @@ async function lookInto(insp: Inspection, i: number, read: string, columns: stri
     if (codes) documented.set(p.name, Object.keys(codes));
   }
   // A small category's values, exactly, for the ones a check could be suggested on; a documented column's whatever
-  // its kind (a weather code is a number).
+  // its kind (a code may be written as a number).
   const values = new Map<string, string[]>();
   for (const p of profiles) {
     const mine = !covered.has(p.name.toLowerCase()) && (!only || only.has(p.name.toLowerCase()));
@@ -3875,11 +3874,9 @@ const drill = {
 
 /** The data a card's sheet is about: a profile box's step, or the card's own. */
 const dataOf = (card: string) => profileOf(card)?.of ?? card;
-/** The weather input: the source its binding marks as the weather, the context the news tells (ADR 0010 §9). */
-const weatherSource = (): string | undefined => state.doc.sources.find((x) => bindingOf(x.id)?.context === 'weather')?.id;
-/** The steps whose numbers the history keeps, day by day: the trips, their checks, and the weather. */
-const historyOf = (id: string): 'trips' | 'checks' | 'weather' | null =>
-  !history ? null : id === loadSource() ? 'trips' : id === history.file.step && checksAsCounted() ? 'checks' : id === weatherSource() && history.file.weather ? 'weather' : null;
+/** The steps whose numbers the history keeps, day by day: the rows, and their checks. */
+const historyOf = (id: string): 'trips' | 'checks' | null =>
+  !history ? null : id === loadSource() ? 'trips' : id === history.file.step && checksAsCounted() ? 'checks' : null;
 
 /** The tabs a card has: the news, its rows and columns, and what its kind calls for. */
 function tabsOf(card: string): Tab[] {
@@ -3986,9 +3983,8 @@ async function renderDrill(card: string): Promise<void> {
 
 /**
  * Whether a tab shows the rows of the run on screen, all of it, rather than the history's figures for the day: those
- * carry the date bar when the run is another day's. Only what the daily load reaches changes from day to day (the
- * weather and the zones are the same rows on every run). News and Dropped place their own bar, under the day's own
- * figures.
+ * carry the date bar when the run is another day's. Only what the daily load reaches changes from day to day (a fixed
+ * file is the same rows on every run). News and Dropped place their own bar, under the day's own figures.
  */
 function showsRunRows(card: string, tab: Tab): boolean {
   const id = dataOf(card);
@@ -6090,13 +6086,13 @@ const newsDay = (): string | undefined => {
   return l && history && history.file.days.includes(l.day) ? l.day : undefined;
 };
 
-/** The news a step's sheet tells: the trips', their checks', the weather's. */
+/** The news a step's sheet tells: the rows', or their checks'. */
 function idNews(id: string): Finding[] {
   const kind = historyOf(id);
   const day = newsDay();
   if (!kind || !day) return [];
   const all = dayNews(day);
-  const mine = all.filter((f) => (kind === 'checks' ? f.kind === 'dropped' || f.kind === 'rule' : kind === 'weather' ? f.kind === 'weather' : f.kind !== 'dropped' && f.kind !== 'rule' && f.kind !== 'weather'));
+  const mine = all.filter((f) => (kind === 'checks' ? f.kind === 'dropped' || f.kind === 'rule' : f.kind !== 'dropped' && f.kind !== 'rule'));
   return mine.length ? mine : all.filter((f) => f.kind === 'calm');
 }
 
@@ -6554,9 +6550,6 @@ function causeDetail(story: Story, card: string): void {
   if (story.hero === 'amount' || story.hero === 'calm') {
     const days = stripOf({ of: 'trips' }, day, 56, story.severity);
     if (days.length) body.push(block(`${RowsWord()}, eight weeks`, svgNode(dayStrip({ days, h: 90, labels: stripLabels(days), key: STRIP_KEY, more: { same: sameDays(day) }, unit: '/day', aria: `${RowsWord()} day by day for eight weeks to ${dayLabel(day)}.` }))));
-    // The weather the card notes, under the same days, drawn and not said: context beside the trips, never a reason.
-    const wx = story.labels.context && days.length ? weatherBars(story, days.map((d) => d.day), stripLabels(days)) : null;
-    if (wx) body.push(wx);
   }
   // A population's own rows (the value and each field blank on it, all at one share) would say the split again.
   if (story.hero === 'finding' && story.cause && story.split?.via !== 'blanks') body.push(findingVisual(story.cause), oneLine(story.cause.detail));
@@ -6658,26 +6651,6 @@ function episodeSheet(story: Story): void {
     h('span', { class: 'dl-fate' }, d.fate ? said[d.fate] : ''),
     d.fate === 'waiting' && may ? h('button', { type: 'button', class: 'btn small primary', 'aria-label': `Decide what readers get for ${dayMid(d.day)}`, onclick: () => (document.querySelector('.vf-detail-wrap')?.remove(), decideDay(d.day)) }, 'Decide ›') : null))) : null;
   openDetail(`${dayShort(first)} to ${dayShort(last)}`, story.episode ? story.severity : 'ok', [svg, list]);
-}
-
-/** The snow a card notes, as bars under its strip of days (each day's column where the strip has it), the days the
- * card names said at its corner in the order their bars stand ("Sat 7.2 cm · Sun 1.5 cm"). A block of context: no band,
- * no mark, no sentence. */
-function weatherBars(story: Story, days: readonly string[], labels?: [number, string, string?][]): HTMLElement | null {
-  const w = history?.file.weather;
-  if (!w || !history) return null;
-  const of = (d: string) => { const k = history!.file.days.indexOf(d); return k < 0 ? 0 : (w.snow[k] ?? 0); };
-  const values = days.map(of);
-  if (!values.some((v) => v > 0)) return null;
-  const fmt = (v: number) => `${v.toFixed(1)} cm`;
-  const ddd = (d: string) => WEEKDAY_NAMES[dateOf(d).getUTCDay()]!.slice(0, 3);
-  // The days the card's note names: today's, and the day before's when the day's trips are the news.
-  const named = [dayPlus(story.day, -1), story.day].filter((d) => of(d) >= 1 && (d === story.day || story.hero === 'amount'));
-  const snowy = days.filter((d) => of(d) >= 1);
-  return block('Snow, for context', svgNode(contextBars({
-    values, label: fmt, kind: 'snow', gx: 12, ...(labels ? { labels } : {}), note: named.map((d) => `${ddd(d)} ${fmt(of(d))}`).join(' · '),
-    aria: `Snow in Manhattan each day of the same weeks, for context: ${snowy.slice(-4).map((d) => `${fmt(of(d))} on ${dayLabel(d)}`).join(', ') || 'under a centimetre a day'}.`,
-  })));
 }
 
 /** The episode's hours (ADR 0008): every hour from its first day to the day after its last, each over the usual hour,
@@ -7098,8 +7071,6 @@ function causeCard(story: Story, card: string): HTMLElement {
     // The changes it explains and the ones the same day: one row, its first change named (ADR 0008 §6), opening into
     // the two groups, each headed by what it is.
     story.labels.folded ? foldedRow(story, card, profileOf(card) !== undefined) : null,
-    // The weather last, as a tagged note: context, never a cause, and nothing to tap (ADR 0008 §11).
-    story.labels.context ? h('p', { class: 'vf-wx', title: 'Snow, for context: not tested as a cause' }, h('span', { class: 'vf-tag' }, CONTEXT_TAG), h('span', {}, story.labels.context)) : null,
     !paused && anchor && primary ? actionsOf(anchor, card, primary, null, false, !!story.labels.settle) : null,
     brief ? brief.share : null);
 }
@@ -8253,11 +8224,6 @@ async function newsTab(card: string, id: string, who: string): Promise<HTMLEleme
       h('h3', { class: 'v-head' }, idle ? `No effect to measure ${spanOf(id) === 'today' ? 'today' : 'here'}` : head),
       h('p', { class: 'v-line' }, idle ? `Its ${plural(effect.total, 'row')} ${effect.total === 1 ? 'is' : 'are all'} ${effect.baseline}: nothing to compare with.` : alerts || warns ? `${listed([alerts ? plural(alerts, 'alert') : '', warns ? plural(warns, 'unusual thing') : '', notes ? plural(notes, 'note') : ''].filter(Boolean))}. The first: ${top.title}.` : (calm ?? (telling.includes(top) ? null : top))?.detail ?? '')));
     if (effect?.measured) box.append(effectVisual(id, effect));
-    // The weather's day drawn by the hour, as the trips' hours are (ADR 0008 §12), under its verdict.
-    if (kind === 'weather' && day) {
-      const wx = await weatherDay(id, day, who);
-      if (wx) box.append(h('div', { class: 'part' }, svgNode(wx), h('div', { class: 'vf-key', 'aria-hidden': 'true' }, h('span', {}, h('i', { class: 'k-rain' }), 'rain'), h('span', {}, h('i', { class: 'k-snow' }), 'snow'), h('span', {}, h('i', { class: 'k-temp' }), 'temperature'))));
-    }
     if (kind === 'trips' && day) box.append(healthStrip(card, day, findings));
     for (const f of telling) box.append(findingCard(f, card));
   }
@@ -8266,42 +8232,6 @@ async function newsTab(card: string, id: string, who: string): Promise<HTMLEleme
   if (panel) box.append(h('div', { class: 'part did' }, panel.box));
   if (!top && !panel) box.append(h('p', { class: 'foot' }, 'Run the flow to see what this step does.'));
   return box;
-}
-
-/**
- * A day's weather by the hour, as the person may read it: its districts' temperature and rain averaged each hour
- * (emit.ts emitDayHours), each hour the one its stamp closes where the flow's own step reads it so (weather_hourly's
- * "-1 hour"). Null when the run has no such rows or the columns aren't open to them.
- */
-async function weatherDay(id: string, day: string, who: string): Promise<string | null> {
-  const run = latest();
-  if (!run || !state.engine) return null;
-  const insp = await inspect(run);
-  const i = insp.index.get(id);
-  const sql = i === undefined ? null : readIn(insp, i, who);
-  if (i === undefined || !sql) return null;
-  const cols = new Set(viewIn(insp, i, who).columns.map((c) => c.toLowerCase()));
-  if (!['time', 'temperature_2m', 'precipitation', 'snowfall'].every((c) => cols.has(c))) return null;
-  // The shift the flow's own step gives the stamp, if one reads this source by the hour.
-  const exprs: string[] = [];
-  for (const st of state.doc.steps) {
-    if (!st.inputs?.includes(id) || !('columns' in st) || !Array.isArray(st.columns)) continue;
-    for (const c of st.columns as unknown[]) if (c && typeof c === 'object' && 'expr' in c) exprs.push(String((c as { expr: unknown }).expr));
-  }
-  // Read in the engine's terms by the emitter, the only module that knows them (emit.ts stampShift).
-  const shift = stampShift(exprs, 'time');
-  try {
-    const r = await state.engine.query(emitDayHours(sql, 'time', day, ['temperature_2m', 'precipitation', 'snowfall'], shift));
-    if (r.rows.length < 12) return null;
-    const by = new Map(r.rows.map((x) => [Number(x[0]), x]));
-    const col = (k: number) => Array.from({ length: 24 }, (_, hr) => { const v = by.get(hr)?.[k]; return typeof v === 'number' ? v : v == null ? null : Number(v); });
-    const [temp, precip, snow] = [col(1), col(2), col(3)];
-    const t = temp.filter((x): x is number => x !== null);
-    const rain = precip.reduce<number>((a, b) => a + (b ?? 0), 0);
-    return weatherHours({ temp, precip, snow, aria: `The weather by the hour on ${dayLabel(day)}, its districts averaged: ${t.length ? `from ${degrees(Math.min(...t))} to ${degrees(Math.max(...t))}` : 'no temperatures'}, ${rain.toFixed(1)} mm of rain and snow in all.` });
-  } catch {
-    return null;
-  }
 }
 
 /** The trips' health at a glance: arrived, amount, complete, values, shape; each a tap from what tells it. */
@@ -8362,7 +8292,7 @@ function rangeFrom(r: NormalRange): string {
 /** What a finding reaches: the published datasets built from its rows, for something wrong or unusual. */
 function affects(f: Finding, card: string): HTMLElement | null {
   if (f.severity !== 'alert' && f.severity !== 'warn') return null;
-  const from = f.table ?? (f.kind === 'dropped' || f.kind === 'rule' ? history?.file.step : f.kind === 'weather' ? weatherSource() : undefined) ?? dataOf(card);
+  const from = f.table ?? (f.kind === 'dropped' || f.kind === 'rule' ? history?.file.step : undefined) ?? dataOf(card);
   const out = downstreamOf(from).filter((x) => isOutput(x) && visible(x));
   if (!out.length) return null;
   const named = out.slice(0, 3).join(', ') + (out.length > 3 ? ` and ${out.length - 3} more` : '');
@@ -8493,7 +8423,7 @@ function weeksChart(id: string, m: Metric, fmt: (v: number) => string, hr: Histo
 async function runDays(days: readonly string[]): Promise<void> {
   if (state.running || loads.playing) return;
   const back = loads.at;
-  const ks = days.map((d) => loads.list.findIndex((l) => l.day === d && l.episode === loads.list[back]?.episode)).filter((k) => k >= 0);
+  const ks = days.map((d) => loads.list.findIndex((l) => l.day === d)).filter((k) => k >= 0);
   loads.playing = true;
   renderLoads();
   for (const k of ks) {
@@ -8613,10 +8543,6 @@ async function historyTab(card: string, id: string, who: string): Promise<HTMLEl
   const day = newsDay();
   const box = h('div', { class: 'history-tab' });
   if (!history || !kind || !day) return h('p', { class: 'foot' }, 'No history for this step.');
-  if (kind === 'weather') {
-    box.append(weatherHistory(day));
-    return box;
-  }
   const choices: { key: string; label: string; m: Metric }[] = kind === 'checks'
     ? [{ key: 'dropped', label: 'Dropped', m: { of: 'dropped' } }, ...history.file.rules.map((r) => ({ key: `rule:${r.name}`, label: r.name, m: { of: 'rule', name: r.name } as Metric }))]
     : tripChoices();
@@ -8729,34 +8655,6 @@ function tripChoices(): { key: string; label: string; m: Metric }[] {
     });
   }
   return out.filter((x, i) => out.findIndex((y) => y.key === x.key) === i);
-}
-
-/** The weather of the weeks around the day: rain and snow a day, and the hours on record. */
-function weatherHistory(day: string): HTMLElement {
-  const w = history!.file.weather!;
-  // Eight weeks ending on the day: the weather of days after it isn't known on it (ADR 0008 §10).
-  const days = daysFrom(dayPlus(day, -55), day);
-  const at = days.map((d) => history!.file.days.indexOf(d));
-  const [W, H, B] = [340, 120, 16];
-  const max = Math.max(5, ...at.map((k) => (k < 0 ? 0 : (w.precip[k] ?? 0))));
-  const step = W / days.length;
-  const svg = s('svg', { viewBox: `0 0 ${W} ${H + B}`, class: 'bandchart', role: 'img', 'aria-label': 'Rain and snow a day in Manhattan, the eight weeks to the day' }) as SVGSVGElement;
-  at.forEach((k, i) => {
-    if (k < 0) return;
-    const rain = w.precip[k] ?? 0;
-    const snow = w.snow[k] ?? 0;
-    const hgt = (rain / max) * H;
-    svg.append(s('rect', { class: `wx${snow >= 1 ? ' snow' : ''}${days[i] === day ? ' focus' : ''}`, x: (i * step + 0.5).toFixed(1), y: (H - hgt).toFixed(1), width: Math.max(1, step - 1).toFixed(1), height: Math.max(rain ? 1 : 0, hgt).toFixed(1) }));
-  });
-  // The day marked under the axis, at the chart's end; its date is the key's, so no end label sits under the mark.
-  const fi = days.indexOf(day);
-  if (fi >= 0) svg.append(s('path', { class: 'wx-caret', d: `M${(fi * step + step / 2 - 4).toFixed(1)} ${H + 9}l4 -6 4 6z` }));
-  svg.append(s('text', { class: 'tick', x: 2, y: 10 }, `${max.toFixed(0)} mm`), s('text', { class: 'tick', x: 2, y: H + B - 3 }, shortDay(days[0]!)), s('line', { class: 'wx-base', x1: 0, x2: W, y1: H + 0.5, y2: H + 0.5 }));
-  const k = history!.file.days.indexOf(day);
-  const short = w.boroughs.filter((_, b) => (w.hours[k]?.[b] ?? 0) < 24);
-  return h('div', { class: 'part' }, h('p', { class: 'eyebrow' }, 'Rain and snow, day by day'), svg,
-    h('div', { class: 'vf-key', 'aria-hidden': 'true' }, h('span', {}, h('i', { class: 'k-rain' }), 'rain'), h('span', {}, h('i', { class: 'k-snow' }), 'snow'), h('span', {}, h('i', { class: 'k-caret' }), dayLabel(day).replace(/, \d{4}$/, ''))),
-    h('p', { class: 'foot' }, `${(w.precip[k] ?? 0).toFixed(1)} mm${(w.snow[k] ?? 0) >= 0.1 ? ` · ${(w.snow[k] ?? 0).toFixed(1)} cm snow` : ''} · ${w.tmin[k] != null ? String(Math.round(w.tmin[k]!) || 0) : '?'} to ${w.tmax[k] != null ? String(Math.round(w.tmax[k]!) || 0) : '?'} °C${short.length ? ` · hours missing: ${listed(short)}` : ''}`));
 }
 
 /** The days in the history with something wrong, newest first: each a tap from its load when it has one. */
@@ -11334,18 +11232,11 @@ interface Load {
   /** With several daily sources (ADR 0013 §5): each source's file for the day, by id. */
   files?: Record<string, Listed>;
   note?: string;
-  /** The episode it belongs to: the month, or an incident. */
-  episode: string;
-}
-interface Episode {
-  name: string;
-  about?: string;
 }
 const loads = {
   list: [] as Load[],
-  episodes: [] as Episode[],
-  /** The episode the strip shows and a sheet steps through. */
-  episode: '',
+  /** What the loads span, named: "March 2024", "February–March 2024". */
+  span: '',
   /** The load shown, by place in the list: the one the flow ran on last, or one whose file was refused. */
   at: -1,
   /** The load whose file is pinned in the engine as the trips source: what a run reads, whatever is shown. */
@@ -11402,7 +11293,7 @@ const checked = (path: string, expected: Expected | undefined) => fetchChecked(p
 let seenOf = (_path: string): string | undefined => undefined;
 
 /** What a step's rows cover, as its words say it: a day's load ("today") when the day's file feeds it, else the
- * whole file it reads, many days of it ("in this file"; the weather covers the loads' weeks). */
+ * whole file it reads, many days of it ("in this file"). */
 const spanOf = (id: string): string => {
   const src = loadSource();
   return loads.list.length && src && (id === src || downstreamOf(src).includes(id)) ? 'today' : 'in this file';
@@ -11463,7 +11354,7 @@ function spanName(first: string, last: string): string {
 /** A day's week, by its Monday. */
 const mondayOf = (day: string) => dayPlus(day, -((dateOf(day).getUTCDay() + 6) % 7));
 /** The loads a sheet and the strip step through, by place in the list: those of the episode on show. */
-const shownLoads = (): number[] => loads.list.flatMap((l, k) => (l.episode === loads.episode ? [k] : []));
+const shownLoads = (): number[] => loads.list.map((_, k) => k);
 const mainLoads = shownLoads;
 /** The episode's weeks, each its Monday and its loads, in order. */
 const weeksOf = (): { monday: string; days: number[] }[] => {
@@ -12671,20 +12562,14 @@ function renderMonth(): void {
   const lastKnown = [...month].reverse().find((d) => d.state !== 'notRun' && d.state !== 'notArrived')?.day;
   const pick = monthView.pick && days.includes(monthView.pick) ? monthView.pick : now && days.includes(now) ? now : (lastKnown ?? days[0] ?? null);
   const busy = state.running || !state.engine;
-  // The head: the episode on show, the other episodes as chips (the taxi's incidents), as known on.
+  // The head: the days on show, as known on.
   const known = h('select', { id: 'mo-known', onchange: (e: Event) => {
     const v = (e.target as HTMLSelectElement).value;
     monthView.at = v ? endOfDay(v) : null;
     renderMonth();
   } }, h('option', { value: '' }, 'now'), ...days.map((d) => h('option', { value: d, ...(at === endOfDay(d) ? { selected: true } : {}) }, `the end of ${dayLabel(d)}`)));
-  const episodes = loads.episodes.length > 1
-    ? h('div', { class: 'episodes', role: 'group', 'aria-label': 'Which days' }, ...loads.episodes.map((e) => {
-        const worst = episodeWorst(e.name);
-        return h('button', { type: 'button', class: 'nav-chip ep-chip', 'aria-pressed': String(e.name === loads.episode), 'aria-label': `${e.name}${worst ? `: ${worst === 'alert' ? 'something’s wrong' : 'unusual'} on some days` : ''}`, disabled: busy || loads.playing || !mayRun(), onclick: () => setEpisode(e.name) }, e.name, worst ? glyphEl(worst, 13) : '');
-      }))
-    : null;
   const head = h('div', { class: 'mo-head' },
-    h('div', { class: 'mo-for' }, h('p', { class: 'eyebrow' }, 'For the day'), h('h2', { class: 'mo-name' }, loads.episode)),
+    h('div', { class: 'mo-for' }, h('p', { class: 'eyebrow' }, 'For the day'), h('h2', { class: 'mo-name' }, loads.span)),
     h('label', { class: 'mo-known' }, h('span', { class: 'eyebrow' }, 'As known on'), known));
   // The product's score on each day published (Q-186), so a dip lines up with its day. A day a restatement took back
   // (ADR 0021 §5: restated under rules that hold it) isn't published any more, as known from the restatement.
@@ -12734,7 +12619,7 @@ function renderMonth(): void {
           h('h3', { class: 'mo-month-name' }, name),
           h('div', { class: 'mo-cal', role: 'group', 'aria-label': `${name}: each day and what became of it` }, ...weekdays(), ...monthCells(days.filter((d) => d.startsWith(m)))));
       }))
-    : h('div', { class: 'mo-cal', role: 'group', 'aria-label': `${loads.episode}: each day and what became of it` }, ...weekdays(), ...monthCells(days));
+    : h('div', { class: 'mo-cal', role: 'group', 'aria-label': `${loads.span}: each day and what became of it` }, ...weekdays(), ...monthCells(days));
   // The key: each mark the calendar draws, with its word.
   const shownStates = new Set(month.map((d) => facts.get(d.day)!).map((f) => (f.restated ? 'restated' : f.corrected ? 'corrected' : f.decided && f.decided !== 'waiting' ? `dec-${f.decided}` : f.state)));
   if ([...would.values()].some((w) => w.changed)) shownStates.add('would');
@@ -12832,7 +12717,7 @@ function renderMonth(): void {
     : null;
   // What the demo shows, where it says (ADR 0023 §4): before the month it walks.
   const scenes = at === null ? scenesPanel(dataList?.scenes) : null;
-  box.replaceChildren(head, episodes ?? '', scenes ?? '', trend ?? '', h('div', { class: 'panel mo-cal-panel' }, cal, key, live ?? ''), summary ?? '', table ?? '');
+  box.replaceChildren(head, scenes ?? '', trend ?? '', h('div', { class: 'panel mo-cal-panel' }, cal, key, live ?? ''), summary ?? '', table ?? '');
 }
 
 /** What the month says of each day it shows, by day, as known on the moment it is read as known on: for the browser
@@ -12892,7 +12777,7 @@ function renderLoads(): void {
   const gotVersion = loads.at >= 0 ? correctedOf(loads.at)?.got.v ?? null : null;
   box.replaceChildren(
     h('div', { class: 'dh-nav' },
-      h('a', { class: 'dh-back', href: '#month' }, `‹ ${loads.episode}`),
+      h('a', { class: 'dh-back', href: '#month' }, `‹ ${loads.span}`),
       h('div', { class: 'dh-step' }, step(prev, 'The day before', `‹ ${prev ? dayShort(prev) : ''}`), step(next, 'The day after', `${next ? dayShort(next) : ''} ›`))),
     now ? h('div', { class: 'dh-title' }, h('h2', {}, dayLabel(now.day)), f ? dayMark(f.state, f.decided, 16, f.corrected) : null) : '',
     (now ? lifecycleOf(now.day) : null) ?? '',
@@ -12921,39 +12806,6 @@ function renderLoads(): void {
   if (now) $('tab-flow').setAttribute('href', dayHash(now.day, loads.version.get(loads.at) ?? null));
 }
 
-/** The worst an episode's days are told, by the history's verdict (only to someone the trips are open to): its chip's
- * mark. Null for a calm stretch, or without a history to judge by. */
-function episodeWorst(name: string): 'alert' | 'warn' | null {
-  if (!history || !historyOpen()) return null;
-  const src = loadSource();
-  if (src && !visible(src)) return null;
-  // The days' verdicts are the History calendar's (calendarSeverity), worked out a few at a time while the page is idle
-  // and kept with the calendar's, the chips drawn again once every load's day is known.
-  const key = `${checksAsCounted()}|${dataLog.version}|${[...hiddenTripColumns()].sort().join(',')}`;
-  if (calendar.key !== key) (calendar.sev.clear(), (calendar.key = key), (calendar.busy = false));
-  const file = history.file;
-  const next = () => loads.list.find((l) => file.days.includes(l.day) && !calendar.sev.has(l.day))?.day;
-  if (next() && !episodeMarks.busy) {
-    episodeMarks.busy = true;
-    const step = () => {
-      if (calendar.key !== key) return void (episodeMarks.busy = false);
-      const t0 = performance.now();
-      for (let day = next(); day && performance.now() - t0 < 24; day = next()) calendar.sev.set(day, calendarSeverity(day));
-      if (next()) idle(step);
-      else (episodeMarks.busy = false), renderLoads();
-    };
-    idle(step);
-  }
-  let worst: 'alert' | 'warn' | null = null;
-  for (const l of loads.list) {
-    if (l.episode !== name) continue;
-    const sev = calendar.sev.get(l.day);
-    if (sev === 'alert') return 'alert';
-    if (sev === 'warn') worst = 'warn';
-  }
-  return worst;
-}
-const episodeMarks = { busy: false };
 
 /** What a day's chip says of its pause, after its trips and verdict. */
 const PAUSE_SAID: Record<DayState, string> = { waiting: ', paused, waiting on a decision', asis: ', published as is', dont: ', not published', fill: ', filled', complete: ', published with the part that arrived', accepted: ', published as a new level' };
@@ -13028,19 +12880,9 @@ const ofFlowOnScreen = (flow: string): boolean => flow === flowOnScreen() || flo
 async function useLoad(k: number): Promise<void> {
   const l = loads.list[k];
   if (!l) return;
-  if (l.episode !== loads.episode) loads.episode = l.episode;
   await runLoad(k);
 }
 
-/** Show another episode's days, and run its first. */
-function setEpisode(name: string): void {
-  if (name === loads.episode || state.running) return;
-  loads.episode = name;
-  loads.week = '';
-  const first = shownLoads()[0];
-  if (first !== undefined) void useLoad(first);
-  else renderLoads();
-}
 
 /**
  * A day's file replaced with a corrected one (the ontology's `replace` fix): hashed here, kept for the day in place of
@@ -13957,7 +13799,7 @@ function bandChart(ranges: NormalRanges, days: readonly string[], focus: string,
     const off = p.r ? ranges.place(p.r, p.v) !== 'within' : false;
     svg.append(s('circle', { class: ['pt', off ? 'out' : '', p.r ? '' : 'bare', p.d === focus ? 'focus' : '', p.d === focus && off && focusSev ? `v-${focusSev}` : ''].filter(Boolean).join(' '), cx: X(i).toFixed(1), cy: Y(p.v).toFixed(1), r: p.d === focus ? 4.5 : off ? 3.2 : 2.3 }));
   });
-  // The days after the one on screen lighter, as the weather's are: it is the day on screen, not the last one.
+  // The days after the one on screen lighter: it is the day on screen, not the last one.
   const after = today ? days.findIndex((d) => d > today) : -1;
   if (after >= 0) svg.append(s('rect', { class: 'wx-after', x: (X(after) - step / 2).toFixed(1), y: 0, width: (W - R - (X(after) - step / 2)).toFixed(1), height: H - B }));
   // A tap anywhere picks the nearest day up to the one on screen: a day's column is narrower than a finger.
@@ -16018,6 +15860,10 @@ async function start(): Promise<void> {
   loadArrangement();
   state.collapsed = new Set((state.doc.groups ?? []).filter((g) => g.collapsed).map((g) => g.id));
   $('flow-name').textContent = state.doc.name;
+  // What this flow is, in its own words, above what every flow's day screen does.
+  const about = $('flow-desc');
+  about.textContent = state.doc.description ?? '';
+  about.hidden = !state.doc.description;
   const picker = $<HTMLSelectElement>('viewer');
   picker.replaceChildren(...(policies()?.principals ?? [{ id: 'owner', name: 'Owner' }]).map((x) => h('option', { value: x.id }, 'role' in x && x.role ? `${x.name} (${x.role})` : x.name)));
   picker.value = state.viewer;
@@ -16058,22 +15904,19 @@ async function start(): Promise<void> {
     if (BUILT_DATA && (list.data?.commit !== BUILT_DATA.commit || list.data.manifest !== BUILT_DATA.manifest)) {
       throw new IntegrityError({ path: 'MANIFEST.json', class: 'list', expected: BUILT_DATA.manifest, actual: list.data?.manifest ?? null, commit: BUILT_DATA.commit, at: new Date().toISOString() });
     }
-    // The month, then each incident: an episode of days each. The app names the holidays itself. Loads over more than one
-    // month are named by their span (ADR 0023 amendment 1: "February–March 2024").
+    // The days, named by the month they are in, or their span over more than one (ADR 0023 amendment 1: "February–March
+    // 2024"). The app names the holidays itself.
     const month = list.loads.length ? spanName(list.loads[0]!.day, list.loads.at(-1)!.day) : list.month ? monthName(list.month) : 'The loads';
-    const tag = (ls: readonly Listed[], episode: string): Load[] => ls.map((l) => {
+    loads.list = list.loads.map((l) => {
       const note = holidayOf(l.day, calendarNow()) ?? seasonOf(l.day, calendarNow());
-      return { ...l, episode, ...(note ? { note } : {}) };
+      return { ...l, ...(note ? { note } : {}) };
     });
-    loads.list = [...tag(list.loads, month), ...list.episodes.flatMap((e) => tag(e.loads, e.name))];
-    loads.episodes = [{ name: month }, ...list.episodes.map((e) => ({ name: e.name, about: e.about }))];
-    loads.episode = month;
+    loads.span = month;
     loads.donors = list.donors.map((l) => ({ ...l }));
     // The day a link names (`#day/2024-03-12`, ADR 0021 §4) runs first; else the first day. The month tab is there only
     // where there are days to pick from.
     const asked = routeOf(location.hash).day;
     const k0 = Math.max(0, asked ? loads.list.findIndex((l) => l.day === asked) : 0);
-    if (loads.list[k0]) loads.episode = loads.list[k0]!.episode;
     $('tab-month').hidden = loads.list.length < 2;
     // Every file the first day needs, fetched at once rather than one after another: each is still checked against the
     // list's hash before it is used (`checked`), in the order the page uses them; only the waiting overlaps.

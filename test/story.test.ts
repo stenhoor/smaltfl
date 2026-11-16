@@ -7,7 +7,7 @@ import { plusDays } from '../src/core/calendar.js';
 import { HistoryRanges } from '../src/core/history.js';
 import { LEGACY_JUDGE, newsOf, type JudgeSettings, type Names } from '../src/core/news.js';
 import { LAYER_DEFAULTS } from '../src/core/gates.js';
-import { followsCause, saidOf, ACT_VERB, CELL_KINDS, CONTEXT_TAG, HEALTH_HEAD, KEPT_SHARE, axisShare, recentSpan, SETTLE_LINE, STRIP_KEY, approx, cardWords, compact, countLabel, gateLabels, glanceStrings, keptOf, partLabel, ruleOrder, ruleUsual, rowName, shortWho, splitOf, splitSentence, stepLabels, storyOf, wordsIn, type Gate, type HourValues, type Story, type StoryOptions } from '../src/core/story.js';
+import { followsCause, saidOf, ACT_VERB, CELL_KINDS, HEALTH_HEAD, KEPT_SHARE, axisShare, recentSpan, SETTLE_LINE, STRIP_KEY, approx, cardWords, compact, countLabel, gateLabels, glanceStrings, keptOf, partLabel, ruleOrder, ruleUsual, rowName, shortWho, splitOf, splitSentence, stepLabels, storyOf, wordsIn, type Gate, type HourValues, type Story, type StoryOptions } from '../src/core/story.js';
 import { historyWith, vendorNames, type Trouble } from './helpers/history.js';
 
 const DAY = '2023-10-11'; // a Wednesday
@@ -425,27 +425,7 @@ describe('the words at a glance', () => {
   });
 });
 
-describe('the context, the health row and the tiers (ADR 0008 §6)', () => {
-  it('tells snow as a note after the numbers, never in the chip a cause takes, and never as a reason', () => {
-    // A calm day with snow: a plain note of today's, and no chip.
-    const calm = story({ '2023-10-04': { snow: 6 } }, '2023-10-04');
-    expect(calm.chip).toBeNull();
-    expect(calm.labels.context).toBe('❄ 6.0 cm today');
-    // Tagged as context where it shows, the tag counted at a glance (ADR 0008 §11).
-    expect(glanceStrings(calm)).toContain(`${CONTEXT_TAG} ❄ 6.0 cm today`);
-    expect(words(calm)).toBeLessThanOrEqual(16);
-    // A day of fewer trips after a snowy one: today's and the day before's, its weekday named.
-    const before = plusDays(DAY, -1);
-    const low = story({ [DAY]: { more: 0.8, snow: 1.5 }, [before]: { snow: 7.2 } });
-    expect(low).toMatchObject({ hero: 'amount', state: 'unusual' });
-    expect(low.chip).toBeNull();
-    expect(low.labels.context).toBe('❄ 1.5 cm today · 7.2 cm Tue');
-    for (const l of glanceStrings(low)) expect(l).not.toMatch(/because|caused by|due to/);
-    // A day with something wrong tells its cause; the day after an episode, what is left of it: no weather on either.
-    expect(story({ [DAY]: { onlyVendor1: true, dropShare: 0.105, snow: 4 } }).labels.context).toBeNull();
-    expect(story({ [DAY]: { onlyVendor1: true, dropShare: 0.105 }, [plusDays(DAY, 1)]: { snow: 4 } }, plusDays(DAY, 1)).labels.context).toBeNull();
-  });
-
+describe('the health row and the tiers (ADR 0008 §6)', () => {
   it('heads the health row once, counted at a glance, the same five cells on every day', () => {
     for (const s of [story({}, '2023-10-04'), story({ [DAY]: { onlyVendor1: true, dropShare: 0.105 } }), story({ [DAY]: { vendorSurge: 2.3 } })]) {
       // A calm day's head says its cells are all normal: a blank cell can't be told from one not checked.
@@ -458,11 +438,11 @@ describe('the context, the health row and the tiers (ADR 0008 §6)', () => {
   });
 
   it('accounts for every finding in one tier, so the rows on screen add up to what was found', () => {
-    for (const trouble of [{ onlyVendor1: true, dropShare: 0.105 }, { vendorGone: true }, { vendorSurge: 2.3 }, { stopAt: 13, vendorShare: 0.5 }, { newValue: true }, { more: 0.55, snow: 2 }] as Trouble[]) {
+    for (const trouble of [{ onlyVendor1: true, dropShare: 0.105 }, { vendorGone: true }, { vendorSurge: 2.3 }, { stopAt: 13, vendorShare: 0.5 }, { newValue: true }, { more: 0.55 }] as Trouble[]) {
       const h = new HistoryRanges(historyWith({ [DAY]: trouble }));
       const found = newsOf(h, DAY, vendorNames).filter((f) => f.severity !== 'ok');
       const s = storyOf(h, DAY, found, options);
-      const tiers = [s.cause, ...s.stories, ...s.more, ...s.absorbed, ...s.follows, ...s.sameDay, ...s.notes, s.context].filter((f) => !!f);
+      const tiers = [s.cause, ...s.stories, ...s.more, ...s.absorbed, ...s.follows, ...s.sameDay, ...s.notes].filter((f) => !!f);
       // Each finding told once, in exactly one tier.
       expect(new Set(tiers.map((f) => f!.key)).size, JSON.stringify(trouble)).toBe(tiers.length);
       expect(tiers.map((f) => f!.key).sort(), JSON.stringify(trouble)).toEqual(found.map((f) => f.key).sort());

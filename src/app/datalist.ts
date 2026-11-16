@@ -81,7 +81,6 @@ export interface DataList {
    * names none, or they aren't a good scenes file (said in the console, never in the way). */
   scenes?: ScenesFile;
   loads: Listed[];
-  episodes: { name: string; about?: string; loads: Listed[] }[];
   donors: Listed[];
   /** Every fixed file by key: each source's by its id, each history as `history` (the first) and `history:<id>`. */
   files: Record<string, FileEntry>;
@@ -125,7 +124,6 @@ const deliveredOf = (l: RawLoad & { n?: unknown; arrived?: unknown; why?: unknow
 export function readDataList(raw: unknown): DataList {
   const index = isRecord(raw) ? raw : {};
   const data = (index.data ?? null) as DataList['data'];
-  const episodesOf = (src: unknown) => (Array.isArray(src) ? src : []).map((e: Record<string, unknown>) => ({ name: String(e.name), ...(typeof e.about === 'string' ? { about: e.about } : {}), loads: ((e.loads ?? []) as RawLoad[]).map(listedOf) }));
   if (index.format === 2) {
     const sources: Record<string, ListedSource> = {};
     for (const [id, s] of Object.entries((index.sources ?? {}) as Record<string, Record<string, unknown>>)) {
@@ -167,10 +165,10 @@ export function readDataList(raw: unknown): DataList {
       format: 2, ...(typeof index.month === 'string' ? { month: index.month } : {}), ...(typeof index.built === 'string' ? { built: index.built } : {}), data, flow, sources, histories, samples, ranges, ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), loadSource, daily, judged,
       ...(postureOf(index.posture) ? { posture: postureOf(index.posture)! } : {}),
       ...(scenesOf(index.scenes) ? { scenes: scenesOf(index.scenes)! } : {}),
-      loads, episodes: episodesOf(index.episodes), donors: loadSource ? sources[loadSource]!.donors ?? [] : [], files,
+      loads, donors: loadSource ? sources[loadSource]!.donors ?? [] : [], files,
     };
   }
-  return { format: 2, data, flow: null, sources: {}, histories: {}, samples: {}, ranges: {}, loadSource: null, daily: [], judged: null, loads: [], episodes: [], donors: [], files: {} };
+  return { format: 2, data, flow: null, sources: {}, histories: {}, samples: {}, ranges: {}, loadSource: null, daily: [], judged: null, loads: [], donors: [], files: {} };
 }
 
 /** Every file a list names, with the sha256 and size it gives: what must be in MANIFEST.json, as it says. */
@@ -179,7 +177,7 @@ export function namedFiles(list: DataList): { path: string; sha256: string; byte
   // branch's: it is checked against loads.json's entry when it is read, not against MANIFEST.json. So are the types
   // computed ahead (ADR 0019 amendment 2), which the build makes from it.
   const fixed = Object.entries(list.files).filter(([k]) => k !== 'flow' && k !== 'types' && k !== 'recorded').map(([, f]) => ({ path: f.from ?? f.path, sha256: f.sha256, bytes: f.bytes }));
-  const days = [...list.loads, ...list.episodes.flatMap((e) => e.loads), ...list.donors, ...Object.values(list.sources).flatMap((s) => s.deliveries ?? [])].flatMap((l) => (l.files ? Object.values(l.files) : [l])).map((l) => ({ path: l.file, sha256: l.sha256, bytes: l.bytes ?? -1 }));
+  const days = [...list.loads, ...list.donors, ...Object.values(list.sources).flatMap((s) => s.deliveries ?? [])].flatMap((l) => (l.files ? Object.values(l.files) : [l])).map((l) => ({ path: l.file, sha256: l.sha256, bytes: l.bytes ?? -1 }));
   return [...fixed, ...days];
 }
 

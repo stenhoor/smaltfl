@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { DEFS, aucTrack, fileTwins, forestTicks, rankBars, scoreSpark, scoreTrend, amountLine, bandSpan, notJudgedMark, degrees, weatherHours, bulletTrack, composition, contextBars, dayStrip, decisionRow, dumbbellRows, episodeBars, episodeChip, episodeDays, episodeIcon, esc, episodeLine, gateBars, glyph, hourBars, learnStrip, lineage, niceMax, partBar, quantileStrip, reachIcon, ruleRows, splitRows, stripBar, trendPips, waterfall, wrapName } from '../src/app/viz.js';
+import { DEFS, aucTrack, fileTwins, forestTicks, rankBars, scoreSpark, scoreTrend, amountLine, bandSpan, notJudgedMark, bulletTrack, composition, dayStrip, decisionRow, dumbbellRows, episodeBars, episodeChip, episodeDays, episodeIcon, esc, episodeLine, gateBars, glyph, hourBars, learnStrip, lineage, niceMax, partBar, quantileStrip, reachIcon, ruleRows, splitRows, stripBar, trendPips, waterfall, wrapName } from '../src/app/viz.js';
 
 const hours = Array.from({ length: 24 }, (_, h) => (h < 13 ? 5000 : 300));
 const usual = Array.from({ length: 24 }, () => 5000);
@@ -23,7 +23,6 @@ const charts: [string, string, boolean][] = [
   ['lineage', lineage({ source: 'trips', step: 'trips_valid', outputs: ['zone_hour', 'borough_hour', 'weather_effect'], aria: 'Not published' }), false],
   ['the same file', fileTwins({ today: { label: 'Loaded for Wed 6', sha256: 'a'.repeat(64), exported: 'exported Tue 5 04:55' }, before: { label: 'Loaded for Tue 5', sha256: 'a'.repeat(64) }, same: true, aria: 'The same file as Tue 5’s' }), false],
   ['dumbbell', dumbbellRows({ rows: [{ label: 'Credit card', today: 0.002, low: 0.75, high: 0.8, todayLabel: '0.2%', usualLabel: 'usually 75–80%', sev: 'alert' }, { label: 'JFK', today: 0, low: 0.037, high: 0.061, todayLabel: 'none', usualLabel: 'usually 3.7–6.1%', gone: true }], aria: 'Shares that moved' }), true],
-  ['context', contextBars({ values: [0, 0, 7.2, 1.5], note: 'Sat 7.2 cm · Sun 1.5 cm', label: (v) => `${v.toFixed(1)} cm`, kind: 'snow', aria: 'Snow in Manhattan each day, for context: 7.2 cm on Sat, 1.5 cm on Sun' }), true],
   ['learned', learnStrip({ weeks: [98_000, 101_000, 95_000, 99_000, 97_000, 100_000], weeksLabel: '6 Saturdays before', year: [92_000], yearLabel: ['last year', 'Sep 24'], today: { v: 5732, low: 81_000, high: 147_000, sev: 'alert' }, bandLabel: 'usual 81k–147k', aria: 'The six Saturdays before and the day last year: today’s range from them, 81,000 to 147,000' }), true],
   ['episode days', episodeDays({ days: [{ label: 'Thu 21', trips: 41_939, usual: 119_398, low: 89_028, short: 77_459, marks: ['alert', 'held'] }, { label: 'Fri 22', trips: 4633, usual: 114_913, low: 84_912, short: 110_280, marks: ['alert', 'held'], at: true }], total: '~187k short so far (≥130k)', aria: 'Trips each day, Thu 21 to Fri 22, against a usual day: Thu 41,939, Fri 4,633; about 187,000 short so far' }), true],
   ['quantiles', quantileStrip({ today: [0, 0.6, 1.1, 1.9, 4], usual: [{ low: 0.46, high: 0.76 }, null, { low: 1.7, high: 2.0 }, null, { low: 3.4, high: 3.9 }], moved: 0, sev: 'warn', fmt: (v) => `${v} mi`, ends: ['short', 'long'], aria: 'Distance: shorter at the bottom' }), false],
@@ -477,32 +476,6 @@ describe('the news’s charts', () => {
     expect(over).not.toContain('class="over"');
   });
 
-  it('draws snow as context in the strip’s own columns, from 0, the days the card names said clear of every bar', () => {
-    const days = Array.from({ length: 56 }, (_, i) => ({ day: `2024-01-${String((i % 28) + 1).padStart(2, '0')}`, v: 90_000, low: 80_000, high: 120_000 }));
-    const strip = dayStrip({ days, unit: '/day', aria: 'Trips' });
-    const values = days.map((_, i) => (i === 20 ? 12 : i === 54 ? 7.2 : i === 55 ? 1.5 : 0));
-    const bars = contextBars({ values, note: 'Sat 7.2 cm · Sun 1.5 cm', label: (v) => `${v.toFixed(1)} cm`, kind: 'snow', gx: 12, aria: 'Snow' });
-    // The strip's tick for the last day and the context bar for it share a centre.
-    const tick = [...strip.matchAll(/<rect class="ink" x="([\d.]+)" y="[\d.]+" width="([\d.]+)"/g)].at(-1)!;
-    const bar = [...bars.matchAll(/<path class="wx-bar snow" d="M([\d.]+) ([\d.]+)V([\d.]+)/g)];
-    expect(bar.length).toBe(3);
-    const bw = Math.min(14, (334 - 12) / 56 - 2);
-    expect(Math.abs(Number(tick[1]) + Number(tick[2]) / 2 - (Number(bar[2]![1]) + bw / 2))).toBeLessThan(0.2);
-    // The note at the top right, above every bar's top; the storm further back says its own amount over its bar.
-    const labels = [...bars.matchAll(/<text x="([\d.]+)" y="([\d.]+)" text-anchor="(\w+)" class="lbl-m">([^<]+)</g)];
-    expect(labels.map((l) => l[4])).toEqual(['Sat 7.2 cm · Sun 1.5 cm', '12.0 cm']);
-    const tops = bar.map((b) => Number(b[3]));
-    expect(Number(labels[0]![2])).toBeLessThan(Math.min(...tops));
-    expect(bars).not.toMatch(/sev-|ghost/);
-    // Its 0 at the baseline, in the gutter; with the strip's dates, the same dates under the same columns.
-    expect(bars).toMatch(/<text x="0" y="[\d.]+" class="tick" aria-hidden="true">0<\/text>/);
-    const dated = contextBars({ values, note: '', label: (v) => `${v.toFixed(1)} cm`, kind: 'snow', gx: 12, aria: 'Snow', labels: [[0, 'Nov 13', 'start'], [55, 'Jan 7', 'end']] });
-    const stripDated = dayStrip({ days, unit: '/day', aria: 'Trips', labels: [[0, 'Nov 13', 'start'], [55, 'Jan 7', 'end']] });
-    const at = (svg: string, t: string) => new RegExp(`<text x="([\\d.]+)" y="[\\d.]+" text-anchor="\\w+" class="tick" aria-hidden="true">${t}<`).exec(svg)?.[1];
-    expect(at(dated, 'Jan 7')).toBe(at(stripDated, 'Jan 7'));
-    expect(at(dated, 'Nov 13')).toBe(at(stripDated, 'Nov 13'));
-  });
-
   it('keys a strip’s darker weekday, a day with no usual and its marks, only what it draws', () => {
     const days = Array.from({ length: 14 }, (_, i) => ({ day: `2024-01-${String(i + 1).padStart(2, '0')}`, v: 90_000, low: i === 2 ? null : 80_000, high: i === 2 ? null : 120_000, ...(i === 5 ? { marks: ['alert', 'held'] as ('alert' | 'held')[] } : {}) }));
     const svg = dayStrip({ days, key: ['usual', 'actual'], aria: 'Trips', more: { same: 'Sundays', marks: { alert: 'wrong', held: 'paused', flag: 'as is' } } });
@@ -516,23 +489,6 @@ describe('the news’s charts', () => {
     expect(dayStrip({ days, key: ['usual', 'actual'], aria: 'Trips' })).not.toContain('>Sundays<');
   });
 
-  it('draws a day’s weather by the hour as the trips’ hours are drawn: rain from 0, the temperature a line, never “−0”', () => {
-    const temp = Array.from({ length: 24 }, (_, h) => -0.4 + (h > 12 ? 3 : 0));
-    const precip = Array.from({ length: 24 }, (_, h) => (h === 5 ? 1.2 : h === 6 ? 0.3 : 0));
-    const snow = Array.from({ length: 24 }, (_, h) => (h === 5 ? 0.8 : 0));
-    const svg = weatherHours({ temp, precip, snow, aria: 'Weather by the hour' });
-    // A column for each hour with rain or snow, snow in its own colour, from the 0 baseline.
-    expect([...svg.matchAll(/class="wx-bar (snow|rain)"/g)].map((m) => m[1])).toEqual(['snow', 'rain']);
-    expect(svg).toMatch(/>0<\/text>/);
-    // The temperature a line through each hour with its lowest and highest said in whole degrees: 0 °C, not "−0 °C".
-    expect(svg).toContain('class="line temp"');
-    expect(svg).toContain('>3 °C<');
-    expect(svg).toContain('>0 °C<');
-    expect(svg).not.toMatch(/[−-]0 °C/);
-    expect([degrees(-0.4), degrees(-0.6), degrees(2.5)]).toEqual(['0 °C', '−1 °C', '3 °C']);
-    // The hour axis as the trips': 0, 6, 12, 18, 24.
-    expect([...svg.matchAll(/class="tick" aria-hidden="true">(\d+)<\/text>/g)].map((m) => m[1]).slice(-5)).toEqual(['0', '6', '12', '18', '24']);
-  });
 
   it('draws an episode’s days in its chip, each against a usual day, the viewed day darker', () => {
     const svg = trendPips({ days: [{ trips: 41_939, expected: 119_400 }, { trips: 4633, expected: 115_000 }, { trips: 5732, expected: 114_000 }] });

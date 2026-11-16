@@ -90,6 +90,16 @@ recommended, for the maintainers to confirm.
 | Q-205 | A renamed column a join reads (Q-146's "more flags"): how strict is mapping it? | **Its impact shown, confirmed twice:** the hold names each join on the column, the steps and outputs built from it, and how many of today's values still find a match on the join's other side; mapping it asks for a second confirmation naming those outputs. Built as recommended (slice 2, second part: `columnUses` in `src/core/uses.ts` finds the joins, today's matches counted from the day's files, the mapping's second confirmation on the day's head; the control estate's Mon Mar 18); the maintainers to confirm | decided |
 | Q-206 | A mapping someone confirms (the file's new name read as the old one), written in the ontology as the file's own: from when? | **From the held day on**, a dated change like the other rules over time (ADR 0021 §5): the held day runs again under it and is decided as usual, and later files read the new name with no hold. Each run's rules hash names it. Built as recommended (slice 2, first part: the edit `mapColumn`, a property's `fromFile`, the plan's `readAs`; Read X as Y on the day's head restates the day under it); the maintainers to confirm | decided |
 
+## What the taxi example left: the maintainer's answers of 2026-11-16 (ADR 0022's addendum)
+
+With slice 5 merged, the two things the taxi example's retirement had kept with no demo using them (ADR 0022's addendum,
+"Kept, with no demo using them") went to the maintainer through the question prompt.
+
+| # | Question | Answer | Status |
+|---|---|---|---|
+| Q-217 | No demo reaches the app's weather views since the taxi example went: the Results weather card, a day's weather by the hour, the news's rain and snow notes from a history's weather. Remove them, or give a demo weather? | **Remove them:** the weather card and the day's weather by the hour, the news's weather notes (the finding kind `weather`, the story's context note and its tag), the history's `weather` field and a binding's `context`. The taxi unit-test fixture keeps its weather source as plain data. The hour views stay: any time column reaches them (the sign-ins'). Built 2026-11-16 (ADR 0022's addendum, "What the retirement left") | decided, built |
+| Q-218 | No demo reaches the check against a published data list either (a data branch's `MANIFEST.json` and commit, named in run manifests and the audit bag, ADR 0006), nor the month screen's episode chips (the taxi's incidents). Remove, keep, or publish a list for the demos? | **Keep the check, drop the episodes:** the list check stays as it is, unused while a demo has no data branch, covered by its unit tests; the episode chips go, with a data list's `episodes`. Built 2026-11-16 | decided, built |
+
 ## Proposed declarations: the maintainer's answers (ADR 0022 slice 5)
 
 Asked through the question prompt on 2026-11-16, before slice 5 was built: how Q-139's proposals, a coded column's

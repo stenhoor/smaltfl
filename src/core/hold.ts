@@ -942,7 +942,7 @@ export function heldOutputs(plan: Pick<FlowPlan, 'outputs' | 'publish'>, holds: 
 
 /**
  * The held outputs that wait for a decision (ADR 0009 §4): those whose staged key isn't the key the name shows now.
- * A held output whose key is already current (the zones and the weather, which reuse theirs) has nothing to wait for.
+ * A held output whose key is already current (a lookup that reuses its key) has nothing to wait for.
  */
 export function waitingOf(manifest: Pick<RunManifest, 'outputs'>, held: readonly string[], current: Readonly<Record<string, string | null | undefined>>): string[] {
   return held.filter((name) => {

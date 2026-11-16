@@ -353,10 +353,12 @@ Slice 4's Q-132 design was answered on 2026-11-15 (Q-207). Still open: Q-34 and 
 first). Q-75 and Q-133 closed with the taxi example.
 
 **Left by the taxi example's retirement (Q-208), each a small PR of its own:**
-- the app's weather and hour views, and its check against a published data list (`MANIFEST.json`, a list's `data` and
-  episodes), have no demo that reaches them: remove them or give a demo a reason to;
-- the browser integrity suite (`tools/browser/integrity.cjs`, in the history) ran on the taxi app: port it to Larkspur
-  (a tampered day refused, the Integrity tab, re-derive, the record, the audit bag).
+- the views no demo reaches: done (2026-11-16, Q-217, Q-218, ADR 0022's addendum). The weather views are removed (the
+  card, a day's weather by the hour, the news's weather notes, the history's weather). The check against a published
+  data list stays, unused while a demo has no data branch. The episode chips are removed. *About this flow* now gives
+  the flow's own description, where it kept the taxi's on every demo;
+- **next:** the browser integrity suite (`tools/browser/integrity.cjs`, in the history) ran on the taxi app: port it to
+  Larkspur (a tampered day refused, the Integrity tab, re-derive, the record, the audit bag).
 
 **Built: [ADR 0021](adr/0021-time.md), time** (accepted 2026-11-13, Q-181 to Q-192): two screens, a month to pick a
 day from (a calendar, a grid of files and steps by day, the posture's trend, *for the day* and *as known on*) and the
@@ -423,8 +425,8 @@ Parked behind the notebook surface by the maintainer's decision of 2026-11-09 (Q
 2. **The rest of the round-3 findings.** The judges ranked 37; these are left. They were found on the taxi app, retired on
    2026-11-15 (Q-208): each stands where the same screen shows on a demo (the Results weather card went with it):
    - **Cards that state numbers:**
-     - the Results weather card states false findings, and its °C line is drawn on the rain axis (#5, #24);
-     - Jan 7's snow still reads as the cause, and its filled "Mark as expected" button invites action (#8);
+     - gone with the weather views (Q-217): the Results weather card's false findings and its °C line on the rain axis
+       (#5, #24), and Jan 7's snow read as the cause (#8; its filled "Mark as expected" button still invites action);
      - the gate row invites "more bad rows than usual" and hides how close passing checks came (#11);
      - extra trips above usual are drawn in ghost grey (#13);
      - very wide bands aren't said (#25);

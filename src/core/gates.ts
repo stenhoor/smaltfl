@@ -250,7 +250,7 @@ export const hasGates = (doc: Pick<FlowDocument, 'gates'>): boolean => Object.ke
 /**
  * The check a finding belongs to, by its kind (ADR 0014 §2): the amount by `volume`, the hours, a value's share, gone
  * or new value, a blank column, the shape, the step's rules, the columns, a pair or a combination, the forest. Null
- * for what isn't a check's finding (the calm day, a day not judged, the weather, a table's own facts).
+ * for what isn't a check's finding (the calm day, a day not judged, a table's own facts).
  */
 export function checkOf(kind: Finding['kind']): CheckName | null {
   switch (kind) {

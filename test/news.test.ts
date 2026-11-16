@@ -205,11 +205,6 @@ describe('a day’s news from its history', () => {
     expect(blank.severity).toBe('alert');
   });
 
-  it('gives the weather as context: snow is worth knowing, a dry day is normal', () => {
-    const h = new HistoryRanges(historyWith({ '2023-12-12': { snow: 6 } }));
-    expect(newsOf(h, '2023-12-12', vendorNames).find((f) => f.kind === 'weather')).toMatchObject({ severity: 'note', title: 'Snow: 6.0 cm in Manhattan' });
-    expect(newsOf(h, '2023-12-13', vendorNames).find((f) => f.kind === 'weather')).toMatchObject({ severity: 'ok', title: 'A dry day in Manhattan' });
-  });
 
   it('has nothing to say of a day outside the history', () => {
     expect(newsOf(new HistoryRanges(historyWith()), '2025-01-01', vendorNames)).toEqual([]);
@@ -305,13 +300,6 @@ describe('a day’s news on any dataset (ADR 0010 §1, §4, §8)', () => {
     expect(materialFor(10, 'volume').hourRows).toBe(10);
   });
 
-  it('says the weather’s place as the history names it; the legacy form’s is Manhattan', () => {
-    const file = historyWith();
-    expect(newsOf(new HistoryRanges(file), '2023-10-04', names).find((x) => x.kind === 'weather')!.title).toBe('A dry day in Manhattan');
-    expect(newsOf(new HistoryRanges(file), '2023-10-04', names, { judge: general() }).find((x) => x.kind === 'weather')!.title).toBe('A dry day');
-    const placed = { ...file, weather: { ...file.weather!, place: 'Leeds' } };
-    expect(newsOf(new HistoryRanges(placed), '2023-10-04', names, { judge: general() }).find((x) => x.kind === 'weather')!.title).toBe('A dry day in Leeds');
-  });
 
   it('counts what it could judge on a day', () => {
     const h = new HistoryRanges(historyWith());
