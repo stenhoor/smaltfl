@@ -19,9 +19,10 @@ import { marksOn, meaningOf, nounOf, propertyOf, rowsOf, saysMore, type Noun, ty
 import { ACTION_SAID, checkStepOf, ruleOn, rulesOf, ruleSaid, type OntologyRule } from './rules.js';
 
 /**
- * How a rule came to be. Today every rule is set by hand, in the ontology or in the notebook's gate cell. The two
- * other ways are the next pieces' to fill (ADR 0015 amendment 1, Q-142): a range derived from the last days of the
- * history, fixed once set or rolling over those days, and a rule the app discovered in the data.
+ * How a rule came to be. Today every rule is set by hand, in the ontology or in the notebook's gate cell: a declaration
+ * proposed from the data (Q-139, proposals.ts) is set once the owner accepts it. The two other ways are named for what
+ * comes later (ADR 0015 amendment 1, Q-142): a range derived from the last days of the history, fixed once set or
+ * rolling over those days, and a rule the app discovered in the data.
  */
 
 /** How a rule over loose ids (a rows entry's or a gate cell's scope's `ids`, Q-176) says so. */
@@ -115,8 +116,6 @@ export interface FileSection {
    * from its day, ADR 0022 §2, Q-204): what each is called and holds. Absent where there are none, or the file's columns
    * aren't known. */
   unread?: { name: string; title: string; description?: string }[];
-  /** What the app discovered in the data, to accept: nothing writes here yet. */
-  discovered: Rule[];
   /** How many rules the file has: its own and its columns'. */
   count: number;
   /** A file's: the made datasets with a section of their own that read it, near or far, in the flow's order (Q-144).
@@ -327,7 +326,6 @@ export function ontologyPage(doc: PageDoc, columns: (file: string) => readonly s
       rules,
       columns: cards,
       ...(unread.length ? { unread } : {}),
-      discovered: [],
       count: rules.length + (cards ?? []).reduce((n, c) => n + c.rules.length, 0),
       ...(made ? { made: { layer: gateLayerOf(doc, id), published } } : {}),
     };

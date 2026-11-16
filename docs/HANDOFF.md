@@ -262,8 +262,8 @@ The month screen lists the scenes. Today's month stays the tests'. The slices of
      calm day with a file's note (the tour's Tue Feb 6, say) shows ✓ once run where the record says that file was
      unusual.
 
-**Then the rest of [ADR 0022](adr/0022-the-answers-of-2026-11-14.md), the maintainer's answers of 2026-11-14:** slice 5
-(Q-139); Q-84 is built (2026-11-16). With ADR 0021
+**Built: [ADR 0022](adr/0022-the-answers-of-2026-11-14.md), the maintainer's answers of 2026-11-14:** its last slice,
+proposed declarations (Q-139), is built (2026-11-16); sharing as one package file (Q-35) comes later. With ADR 0021
 built, the maintainer went through every open question in the question prompt: most were confirmed as built, 34 closed
 as decided as built, and the answers that change what is built or add to it are ADR 0022's, built in the slices of its
 §6, one PR each:
@@ -336,7 +336,18 @@ as decided as built, and the answers that change what is built or add to it are 
    - No demo watches a slot, so no stop changes.
 
    Keep pausing until accepted (Q-86) is built, in ADR 0023 slice 3. Slice 4 is done.
-5. **Proposed declarations** for a dataset with nothing declared (Q-139). Sharing as one package file (Q-35) comes later.
+5. **Proposed declarations** (Q-139). The design went to the maintainer in the question prompt (Q-213 to Q-216), and it
+   is built as answered (2026-11-16, ADR 0022 §"As built"):
+   - under each file on the Ontology page and on its Quality tab, *Proposed from the data*: a coded column's values,
+     each common value's band (its usual share over 28 days, five points either side) and a likely key, each saying
+     what it rests on and what accepting it does (`src/core/proposals.ts`);
+   - the owner accepts one with a reason, a dated change set like any rule edit (the next day to arrive by default), or
+     sets it aside in this browser (Not now). A key makes the file an object type's rows (a rows entry), so a day that
+     repeats one holds; a values list is counted from the next history built;
+   - a file nothing watches is offered nothing. Larkspur declares every file's key, so its files are offered values
+     and bands; the estate bands and the recovery points; the sign-ins values (`tools/browser/stops/proposals.json`).
+
+   Sharing as one package file (Q-35) comes later. ADR 0022 is done.
 
 Slice 4's Q-132 design was answered on 2026-11-15 (Q-207). Still open: Q-34 and Q-41 (smaltdb's work, with stenhoor
 first). Q-75 and Q-133 closed with the taxi example.

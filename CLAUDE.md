@@ -388,7 +388,18 @@ release (smaltty ADR 0030).
   quarter (`OVERWHELMING`) unless the ontology sets the dataset's (`ontology.overwhelming`) or the flow its own
   (`publish.overwhelming`; `overwhelmingOf`, `JudgeSettings.overwhelming`), carried by plan/4's watch only where declared
   (`WatchPlan.overwhelming`); the brief's fact and its proposal to keep the last good day (`overwhelmingSaid`, `fixOf`),
-  the bronze verdict (`bronzeOf`) and the issue card say it.
+  the bronze verdict (`bronzeOf`) and the issue card say it. Slice 5 (Q-139, the answers Q-213 to Q-216): declarations
+  proposed from a file's own data (`src/core/proposals.ts` `proposalsOf`, `valueCandidates`, `shareRange`,
+  `watchedFile`): a coded column's values (not a type's key or a link's column, not gapless whole numbers), each common
+  value's band (its share's usual range over 28 days, the middle nine in ten, five points either side; gated flows, a
+  hundred rows), a likely key (a gated file with no rows entry and no gate key; never blank, never repeated in the
+  sample); a file nothing watches is offered nothing. Accepted as the edits `declareValues`, `acceptBand` and
+  `declareKey` (`flowedit.ts`: the file its own object type or the type over it, with a rows entry; `writtenRules`
+  gives a file tied to the type over itself no scope) in one dated change set (`editRules` takes several edits). The
+  app: *Proposed from the data* on the Ontology page (the Discovered list's place; `FileSection.discovered` is gone) and
+  under the checks on a bronze file's Quality tab (`proposalsPart`, `proposalCard`, `proposalsFor`; Accept… with a
+  reason and the from bar, Not now kept in the browser, `notNow`; `acceptedIn`); `test/proposals.test.ts`,
+  `tools/browser/stops/proposals.json`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -428,7 +439,10 @@ release (smaltty ADR 0030).
   levels and fills for a slot's load (Q-84), is built: Accept offered for a slot, its level from the slot on in every
   slot's series (`levelDay`, `claimRanges` shared by `loadClaim` and the audit's `retellClaims`), a quarter-hour gap
   named by its whole hours (`missingOf`), a gap over a whole slot filled whole (`wholeLoad`), the level said by its
-  hour (`fromShort`) and audited where it is made (`levelFromHere`). The taxi example was
+  hour (`fromShort`) and audited where it is made (`levelFromHere`). Slice 5, proposed declarations (Q-139), was
+  designed in the question prompt (Q-213 to Q-216) and is built: a file's values, bands and key proposed from its data
+  on the Ontology page and its Quality tab, each accepted with a reason as a dated change set: ADR 0022 is done (Q-35,
+  sharing, comes later). The taxi example was
   retired on 2026-11-15, to focus on the generated demos (Q-208, ADR 0022's addendum). **Next:**
   [ADR 0023](docs/adr/0023-the-demo-as-a-tour.md), the demo as a tour of what a flow can do (Q-209 to Q-211): six
   scenes on a tour month of Larkspur (a normal day; a warning and the reactions to it; a hard rule's hold backfilled by
@@ -460,7 +474,8 @@ release (smaltty ADR 0030).
   `scenesPanel`; a look's link `#scene/N/K` opening its day, version, card and tab or decision, `pendingLook`,
   `applyLook`; `test/scenes.test.ts`, `tools/browser/stops/tour.json`), the tour at `/app/` and the planted month at
   `/larkspur/`, `docs/guide/demo.md` the tour and `docs/guide/larkspur.md` the planted month: ADR 0023 is done.
-  **Next:** ADR 0022's slice 5 (Q-139).
+  ADR 0022's slice 5 (Q-139) is built after it. **Next:** what the taxi example's retirement left (docs/HANDOFF.md):
+  the app's weather and hour views, and the browser integrity suite ported to Larkspur.
 
 ## Rules for this repository
 

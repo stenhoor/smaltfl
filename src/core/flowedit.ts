@@ -149,6 +149,66 @@ export function mapColumn(doc: FlowDocument, file: string, column: string, from:
   return { doc: { ...doc, ontology: { ...o, properties } }, said };
 }
 
+/**
+ * A coded column's values declared from the data (ADR 0022 §5, Q-139, Q-214): the file's own property for the column
+ * lists each code, meaning itself until someone words it (a code already worded keeps its words). The column is counted
+ * where the flow's history is built from then on (measures.ts `watchColumns`): its shares, its pairs and the forest.
+ * Made the file's own as `nameColumn` makes it. Null `said` where every code is listed already.
+ */
+export function declareValues(doc: FlowDocument, file: string, column: string, codes: readonly string[]): { doc: FlowDocument; said: string | null } {
+  const o: Ontology = doc.ontology ?? { objectTypes: [], linkTypes: [], actionTypes: [] };
+  const props = o.properties ?? [];
+  const was = propertyOf(o, file, column);
+  const values: Record<string, string> = { ...(was?.values ?? {}) };
+  const added = [...new Set(codes)].filter((c) => !Object.prototype.hasOwnProperty.call(values, c));
+  if (!added.length) return { doc, said: null };
+  for (const c of added) values[c] = c;
+  const said = `Listed ${column}’s ${added.length === 1 ? 'value' : `${added.length} values`} in ${file}: ${added.slice(0, 6).join(', ')}${added.length > 6 ? `, and ${added.length - 6} more` : ''}`;
+  const own = (p: PropertyType) => p.datasets?.length === 1 && lower(p.datasets[0]!) === lower(file);
+  let properties: PropertyType[];
+  if (was && own(was)) properties = props.map((p) => (p === was ? { ...p, values } : p));
+  else if (was) {
+    const bands = was.expect?.filter((b) => !b.datasets || b.datasets.some((d) => lower(d) === lower(file)));
+    const { expect: _expect, ...rest } = was;
+    const mine: PropertyType = { ...rest, ...(bands?.length ? { expect: bands } : {}), values, datasets: [file] };
+    const left = (p: PropertyType): PropertyType => (p.datasets ? { ...p, datasets: p.datasets.filter((d) => lower(d) !== lower(file)) } : p);
+    properties = props.flatMap((p) => (p === was ? [left(p), mine] : [p]));
+  } else properties = [...props, { column, title: column, description: '', values, datasets: [file] }];
+  return { doc: { ...doc, ontology: { ...o, properties } }, said };
+}
+
+/**
+ * A file's key declared from the data (ADR 0022 §5, Q-139, Q-214): the file its own object type, its rows the objects
+ * and the column their key, with a rows entry tying the file to it, so the file is held to one row a key (bronze holds
+ * a day whose rows repeat one, as the evidence files' rows entries do). An object type already over the file is keyed
+ * by the column where it names no key; one keyed by anything else stands, and the edit doesn't apply. Null `said` where
+ * the file has a rows entry already.
+ */
+export function declareKey(doc: FlowDocument, file: string, column: string): { doc: FlowDocument; said: string | null } {
+  const o: Ontology = doc.ontology ?? { objectTypes: [], linkTypes: [], actionTypes: [] };
+  if ((o.rows ?? []).some((r) => lower(r.dataset) === lower(file))) return { doc, said: null };
+  const types = [...o.objectTypes];
+  let type = types.find((t) => lower(t.dataset) === lower(file));
+  const had = !!type;
+  if (type && type.key.length && !(type.key.length === 1 && lower(type.key[0]!) === lower(column))) return { doc, said: null };
+  if (!type) {
+    const taken = new Set(types.map((t) => t.id));
+    let id = file;
+    for (let n = 2; taken.has(id); n++) id = `${file}_${n}`;
+    const noun = o.nouns?.[file]?.one;
+    type = { id, name: noun ? `${noun[0]!.toUpperCase()}${noun.slice(1)}` : file, dataset: file, key: [column], title: column };
+    types.push(type);
+  } else if (!type.key.length) {
+    const keyed = { ...type, key: [column] };
+    types[types.indexOf(type)] = keyed;
+    type = keyed;
+  }
+  const rows = [...(o.rows ?? []), { dataset: file, of: type.id }];
+  // A row is called by the file's noun, else the type's name where the type was there, else by its key.
+  const named = Object.entries(o.nouns ?? {}).find(([k]) => lower(k) === lower(file))?.[1].one;
+  return { doc: { ...doc, ontology: { ...o, objectTypes: types, rows } }, said: `Keyed ${file} by ${column}: one row a ${named ?? (had ? type.name.toLowerCase() : column)}` };
+}
+
 /** A band accepted for a value of a source's column (ADR 0014 §3, Accept the new band). */
 export interface AcceptedBand {
   column: string;

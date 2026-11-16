@@ -120,12 +120,12 @@
  },
  {
   "name": "mar06-ontology-control",
-  "what": "Control estate, calm Wed Mar 6: the Ontology view with a control's file (the WAF's) opened in place: what the file is (said once: the open row drops its line), this file's rules (one row an application, the applications it covers, its key), a card a column with its values in the day's load drawn at the top (a bar has one label: what its value stands for in the ontology’s words, Blocking for block, and Akamai for akamai or Exception for exception though they only repeat the value (Q-145), else the value as the file writes it), its meaning and its rules (on the Application card the file's two rules about it, so no \"No rules yet.\" under the key; then a new value, the bad value, the bands), then Discovered, empty. A column's name as the file writes it is beside its title only where the two differ (app_id beside Application, none beside Status), and \"What its values stand for\" lists only the values whose meaning says more (none for the WAF provider, whose four are named as themselves)",
+  "what": "Control estate, calm Wed Mar 6: the Ontology view with a control's file (the WAF's) opened in place: what the file is (said once: the open row drops its line), this file's rules (one row an application, the applications it covers, its key), a card a column with its values in the day's load drawn at the top (a bar has one label: what its value stands for in the ontology’s words, Blocking for block, and Akamai for akamai or Exception for exception though they only repeat the value (Q-145), else the value as the file writes it), its meaning and its rules (on the Application card the file's two rules about it, so no \"No rules yet.\" under the key; then a new value, the bad value, the bands), then what is proposed from the data (Q-139): bands for the WAF provider's four values and the mode's common one, to accept or set aside. A column's name as the file writes it is beside its title only where the two differ (app_id beside Application, none beside Status), and \"What its values stand for\" lists only the values whose meaning says more (none for the WAF provider, whose four are named as themselves)",
   "day": "Wed 6",
   "view": "ontology",
   "viewFirst": true,
   "click": ".of-item[data-file=\"waf\"] .of-row",
-  "waitFor": ".of-item.open .of-draw .colline",
+  "waitFor": ".of-item.open .pp",
   "full": true,
   "expect": {
    "text": [
@@ -140,8 +140,9 @@
     "Not checked: this file’s band on Failing is checked instead",
     "Failing between 0% and 15% of apps",
     "Not assessed between 0% and 5% of apps",
-    "DISCOVERED",
-    "Nothing has been discovered yet. Rules the app finds in the data will be listed here to accept.",
+    "PROPOSED FROM THE DATA",
+    "Bands for the 4 common values of WAF provider",
+    "Bands for the common value of WAF mode",
     "What its 2 values stand for"
    ],
    "noText": [

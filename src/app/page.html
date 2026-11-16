@@ -973,7 +973,7 @@ th .th-title { display: block; font-family: var(--font); font-size: 10.5px; font
 .made-h { font-weight: 650; font-size: 15px; }
 /* The Ontology page's files (ADR 0015 amendment 1): a row a file, its section opened in place under it. Open is said
    by the chevron's turn, the row's weight and the section itself, not by colour. A section's parts: what the file
-   is (plain), its own rules (a sunk box), a card a column (boxed), what was discovered (a dashed box: nothing yet). */
+   is (plain), its own rules (a sunk box), a card a column (boxed), what is proposed from the data (a dashed box). */
 #ontology-files, #ontology-made { display: grid; grid-template-columns: minmax(0, 1fr); }
 #ontology-files .sub, #ontology-made .sub { margin-bottom: 6px; }
 /* Under a file, the datasets the flow makes from it (Q-144): each name a tap to its own section. */
@@ -1000,6 +1000,29 @@ th .th-title { display: block; font-family: var(--font); font-size: 10.5px; font
 .of-h2 { margin: 0; font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .of-own { background: var(--sunk); border-radius: var(--radius); padding: 12px; }
 .of-disc { border: 1.5px dashed var(--edge); border-radius: var(--radius); padding: 12px; }
+/* Declarations proposed from a file's own data (Q-139): a card each, what it would write, what it rests on, and the
+   owner's Accept (a reason and the day it takes effect from) or Not now. */
+.pp-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-width: 0; }
+.bq-proposed .pp-list { padding-bottom: 12px; }
+.pp { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); min-width: 0; }
+.pp h4 { margin: 0; font-size: 15px; line-height: 1.35; overflow-wrap: anywhere; }
+.pp-kind { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--smalt); }
+.pp-col { font-family: var(--mono); font-size: 11px; letter-spacing: 0; text-transform: none; color: var(--muted); padding: 0 5px; border-radius: 4px; background: var(--sunk); overflow-wrap: anywhere; }
+.pp-values { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.pp-values code { display: inline-block; font-size: 12px; padding: 1px 6px; border-radius: 4px; background: var(--sunk); color: var(--ink); overflow-wrap: anywhere; }
+.pp-bands { border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; width: 100%; max-width: 360px; }
+.pp-bands th, .pp-bands td { position: static; background: none; white-space: normal; text-align: left; padding: 3px 10px 3px 0; border-bottom: 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.pp-bands thead th { border-top: 0; font-family: var(--mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.pp-bands tbody th { font-weight: 500; color: var(--ink); }
+.pp-rests { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
+.pp-does { margin: 0; font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
+.pp-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 6px; border-top: 1px dashed var(--line); min-width: 0; }
+.pp-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; width: 100%; min-width: 0; }
+.pp-reason { box-sizing: border-box; width: 100%; min-width: 0; min-height: 66px; border: 1px solid var(--muted); border-radius: 8px; padding: 9px 10px; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.35; }
+.pp-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.pp-later { margin: 0; font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
+.pp-aside { margin: 0; font-size: 12.5px; color: var(--muted); }
+.pp-aside .linkish { background: none; border: 0; padding: 0; min-height: 28px; color: var(--smalt); font: inherit; font-weight: 500; cursor: pointer; }
 .of-none { margin: 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
 .of-rules { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .of-rule { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; padding-left: 10px; border-left: 3px solid var(--ink-2); }
