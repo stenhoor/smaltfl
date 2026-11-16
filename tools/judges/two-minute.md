@@ -6,20 +6,24 @@ only the app's screens.
 
 ## Protocol
 
-1. **Capture.** Build the app on Larkspur (`npm run build:app`, which builds `examples/larkspur/flow.json`), then
-   capture the day screen for each test day at phone size with `tools/browser/tour.cjs` and a stop set like this:
+1. **Capture.** Build the app on Larkspur's tour month (`npm run build:app -- --variant tour --out dist/app-tour`,
+   ADR 0023), then capture the day screen for each test day at phone size with `tools/browser/tour.cjs` and a stop set
+   like this:
    ```json
-   [{ "name": "lark-mar12", "day": "Tue 12", "full": true }]
+   [{ "name": "tour-mar12", "day": "Tue 12", "full": true }]
    ```
-   The days: Tue Mar 12 (a configuration push puts an ingress's WAF in monitor mode), Mon Mar 18 (the HR extract
-   drops a department without reassigning its teams), Mon Mar 25 (a certificate authority's intermediate expires: TLS
-   and log forwarding fail together), and a calm day (Fri Mar 1). ADR 0020 §5 is their answer key. (Until 2026-11-15
-   the test ran on the retired taxi example's real days.)
+   The days are the tour's scenes: Tue Mar 5 (the scanner writes its values in capitals: a warning, published), Mon
+   Mar 4 as it arrived (`"version": 1`: the MFA export empty, held by a written check), Tue Mar 12 (a planned migration
+   moves a third of the logging file to the cloud pipelines: a learned check holds it, and it was real), Mon Mar 18 as
+   it arrived (`"version": 1`: the backup export mislabels a third of its completed jobs: a learned check holds it, and
+   it was an issue), and a calm day (Wed Mar 6). The tour's answer key (`test/larkspur-tour.test.ts`) is their facts.
+   (Until 2026-11-16 the test ran on Larkspur's planted month, and until 2026-11-15 on the retired taxi example's real
+   days.)
 2. **Judge.** Two judges, each an agent given one screenshot at a time and nothing else, told they have two minutes
    and must write what they would send leadership: what happened (one sentence), its impact, its cause as far as the
    screen shows it, and the fix they propose. One judge is an on-call data engineer; the other a newcomer who has never
    seen the app. Each also says what they could not tell from the screen.
-3. **Grade** each answer against the day's facts (ADR 0020 §5's answer key) on five points, each 0 or 1: the day and what happened are right; the number or time is right; the impact
+3. **Grade** each answer against the day's facts (the tour's answer key) on five points, each 0 or 1: the day and what happened are right; the number or time is right; the impact
    (what waits, what readers see) is right; the proposed fix is one the app offers and fits; nothing false is stated.
    A calm day scores on saying nothing is wrong and proposing nothing.
 4. **Record** the scores in docs/HANDOFF.md's table of rounds, with the build they were taken on, and open a fix list

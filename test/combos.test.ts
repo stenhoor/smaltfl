@@ -161,6 +161,18 @@ describe('the forest day judge (ADR 0013 §3)', () => {
     const short = ranges(postureHistory(40, { '2024-02-09': 'swap' }));
     expect(unlikeNews(short, '2024-02-09', opts)).toEqual([]);
   });
+
+  it('leaves out what an accepted level moved, from the level’s day on: the days before were at another level', () => {
+    // A level on TLS's values from the flipped day: TLS's shares and every pair it is one of are left out from that day,
+    // so the day is judged by encryption's shares alone, which are as usual (ADR 0023 slice 5).
+    const leveled = h.with({ levels: [{ from: SWAP, metrics: ['value:tls="fail"'] }] });
+    expect(dayFeatures(leveled, opts, SWAP).map((f) => f.columns)).toEqual([['encryption'], ['encryption']]);
+    expect(unlikeNews(leveled, SWAP, opts)).toEqual([]);
+    // The day before the level is read as before, and a level on a pair's cell alone leaves out that cell.
+    expect(dayFeatures(leveled, opts, '2024-03-19')).toHaveLength(8);
+    const cell = dayFeatures(h, opts).length - dayFeatures(h.with({ levels: [{ from: SWAP, metrics: ['combo:tls|encryption=["fail","pass"]'] }] }), opts, SWAP).length;
+    expect(cell).toBe(1);
+  });
 });
 
 describe('what the floors are', () => {

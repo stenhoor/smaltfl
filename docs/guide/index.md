@@ -2,18 +2,21 @@
 
 ## Try it
 
-**[Open the demo](/app/){target="_self"}**: Larkspur, a fictional financial-services group's March of security
-controls. About 2,400 applications, the organisation that owns them and the 46 shared platforms they run on: twenty
-files a day, through bronze, silver and a gold data product, run entirely in your browser. The first day takes a few
-seconds while the engine starts.
+**[Open the demo](/app/){target="_self"}**: a tour of what a flow does, on Larkspur, a fictional financial-services
+group's March of security controls. About 2,400 applications, the organisation that owns them and the 46 shared
+platforms they run on: twenty files a day, through bronze, silver and a gold data product, run entirely in your
+browser. The month lists six scenes: a normal day, a warning, a written check's hold, an anomaly that was real, one
+that was an issue, and fills each way. The first day takes a few seconds while the engine starts.
 
-Two more demos: **[the control estate](/estate/){target="_self"}**, 600 applications and twelve controls, the month the
-gates were built against; and **[the sign-in log](/signins/){target="_self"}**, with the two models' planted days.
+Three more demos: **[Larkspur's planted month](/larkspur/){target="_self"}**, trouble planted at every layer and the
+posture over the whole month; **[the control estate](/estate/){target="_self"}**, 600 applications and twelve
+controls, the month the gates were built against; and **[the sign-in log](/signins/){target="_self"}**, with the two
+models' planted days.
 
 Nothing is sent anywhere: the data files, the engine (smaltdb, in a Web Worker) and the record of what was decided
 all live in the page and your browser's storage.
 
-Then read [A walk through the demo](./demo): ten minutes, day by day.
+Then read [the tour](./demo): the six scenes, ten minutes.
 
 ## What you are looking at
 
@@ -33,13 +36,14 @@ opens to Quality and Notebook). On Larkspur, **Results** opens with the data pro
 git clone https://github.com/stenhoor/smaltfl && cd smaltfl
 npm ci && npm run deps          # dependencies, then the smalt builds pinned in packed.json
 npm run check                   # typecheck and tests
-npm run build:app -- --flow examples/larkspur/flow.json --out dist/app-larkspur
-npx serve dist/app-larkspur     # or any static file server
+npm run build:app -- --variant tour --out dist/app-tour
+npx serve dist/app-tour         # or any static file server
 ```
 
 `npm run build:app` generates the example's data (months of history, a month of daily loads), measures each watched
 dataset's history on the runtime and writes a static page. Larkspur's data take about five minutes to make on four
 cores the first time; they are kept by a hash of what makes them, so a build after a change to the app alone takes
-seconds. Other examples: `--flow examples/control-estate/flow.json`, `--flow examples/security-signins/flow.json`,
-and `--flow examples/controls/flow.json`. Without `--flow` the build makes Larkspur, in `dist/app`. (The taxi example,
-on real trips, was retired on 2026-11-15.)
+seconds. `--variant tour` builds the tour's month, a variant of Larkspur's data list. Other examples: `--flow
+examples/control-estate/flow.json`, `--flow examples/security-signins/flow.json`, and `--flow
+examples/controls/flow.json`. Without `--flow` or `--variant` the build makes Larkspur's planted month, in `dist/app`.
+(The taxi example, on real trips, was retired on 2026-11-15.)

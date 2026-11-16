@@ -721,7 +721,11 @@ export function bulletTrack(o: { value: number; low: number; high: number; value
   s += `<rect class="ghost" x="${f1(b0)}" y="${ty}" width="${f1(b1 - b0)}" height="${bh}" rx="3"/>`;
   s += `<circle class="dot${o.sev ? ` dot-${o.sev}` : ''}" cx="${f1(x(o.value))}" cy="${ty + bh / 2}" r="5.5"/>`;
   s += `<text x="${f1(Math.min(w - 30, Math.max(30, x(o.value))))}" y="${ty - 7}" text-anchor="middle" class="lbl-b">${esc(o.valueLabel)}</text>`;
-  s += `<text x="${f1((x(o.low) + x(o.high)) / 2)}" y="${ty + bh + 17}" text-anchor="middle" class="lbl-m">${esc(o.bandLabel)}</text>`;
+  // The band's words under the band, kept inside the drawing and clear of the 0 tick: a band at either end has them run
+  // in from that end.
+  const half = (o.bandLabel.length * 6.4) / 2;
+  const bx = Math.min(w - 4 - half, Math.max(20 + half, (x(o.low) + x(o.high)) / 2));
+  s += `<text x="${f1(bx)}" y="${ty + bh + 17}" text-anchor="middle" class="lbl-m">${esc(o.bandLabel)}</text>`;
   s += `<text x="4" y="${ty + bh + 17}" class="tick" aria-hidden="true">0</text>`;
   return `${s}</svg>`;
 }

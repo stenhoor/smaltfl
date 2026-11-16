@@ -7,7 +7,8 @@
   "variants": {
     "tour": {
       "generateArgs": ["--tour"],
-      "story": "examples/larkspur/tour.json"
+      "story": "examples/larkspur/tour.json",
+      "scenes": "examples/larkspur/scenes.json"
     }
   },
   "posture": {

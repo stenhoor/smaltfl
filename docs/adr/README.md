@@ -27,4 +27,4 @@ records start from the answers to the questions in [../OPEN_QUESTIONS.md](../OPE
 | [0020](0020-the-estate-as-a-company.md) | The estate as a company: an organisation, shared infrastructure, and a real bronze, silver and gold | accepted (the maintainer's answers to Q-169–Q-175, 2026-11-12) |
 | [0021](0021-time.md) | Time: a month to pick a day from, the day itself, and every version of it | accepted (the maintainer's answers to Q-181–Q-192, 2026-11-13); built in the slices of §9 |
 | [0022](0022-the-answers-of-2026-11-14.md) | The answers of 2026-11-14: a what-if and a restatement decided where they are, columns that change, the ontology as the one place for rules, and pausing | accepted (the maintainer's answers of 2026-11-14); slices 1 to 3 and slice 4's first part built; the addendum of 2026-11-15 retired the taxi example |
-| [0023](0023-the-demo-as-a-tour.md) | The demo as a tour of what a flow can do | accepted (the maintainer's direction, 2026-11-15); to build in the slices of §6 |
+| [0023](0023-the-demo-as-a-tour.md) | The demo as a tour of what a flow can do | accepted (the maintainer's direction, 2026-11-15); built in the slices of §6 |

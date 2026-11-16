@@ -661,6 +661,9 @@ describe('the remedies on the sheet (ADR 0009 amendment 1 S12)', () => {
     const fill = { option: 'fill' as const, donor: '2023-09-14', part: null };
     expect(receiptLines({ state: 'fill', day: '2023-09-21', readers: '2023-09-21', released: 3, who: 'Owner', at: '09:40', seq: 22, under: null, standing: false, remedy: { ...fill, filled: 83_671, setAside: 3679 } }))
       .toEqual({ head: 'Filled from Thu 14 · readers now see Thu 21', sub: '83,671 filled · 3 outputs released · Owner · 09:40 · record #22', change: 'Change decision', versions: true });
+    // Its reason first, as any decision's.
+    expect(receiptLines({ state: 'fill', day: '2023-09-21', readers: '2023-09-21', released: 3, who: 'Owner', at: '09:40', seq: 22, under: null, standing: false, reason: 'The export came through empty', remedy: { ...fill, filled: 83_671, setAside: 3679 } }).sub)
+      .toBe('Why: The export came through empty · 83,671 filled · 3 outputs released · Owner · 09:40 · record #22');
     expect(receiptLines({ state: 'fill', day: '2022-11-14', readers: '2022-11-14', released: 3, who: 'Owner', at: '09:40', seq: 22, under: null, standing: true, remedy: { option: 'fill', donor: '2022-11-07', part: null, filled: 33_000, setAside: 2 } }).sub).toContain('later days too, until a later day publishes');
     expect(receiptLines({ state: 'complete', day: '2023-09-21', readers: '2023-09-21', released: 3, who: 'Owner', at: '09:40', seq: 23, under: null, standing: false, remedy: { option: 'complete', donor: null, part: 'Before 13:00 only', filled: null, setAside: 3679 } }).head).toBe('Published before 13:00 only · readers now see Thu 21');
     expect(receiptLines({ state: 'dont', day: '2023-09-21', readers: '2023-09-20', released: 0, who: 'Owner', at: '09:50', seq: 24, under: null, standing: false, withdrawn: 'fill' }))

@@ -128,7 +128,7 @@ describe('the counts in the history, and the judge', () => {
     expect(calm.find((f) => f.kind === 'scope')).toMatchObject({ severity: 'note', title: '2 apps out of scope', check: 'scope' });
     const out = newsOf(h, creep, names, { judge });
     expect(out.find((f) => f.key === 'scope:out')).toMatchObject({ severity: 'alert', title: '40 apps out of scope', check: 'scope', rows: 40 });
-    expect(out.find((f) => f.key === 'scope:out')!.detail).toMatch(/^Rows whose key the inventory doesn’t list in scope, beside 198 keys in scope\. A day like it has \d–\d\.$/);
+    expect(out.find((f) => f.key === 'scope:out')!.detail).toMatch(/^Rows whose key the inventory doesn’t list in scope, beside 198 keys in scope\. A day like it has \d(–\d)?\.$/);
     expect(storyOf(h, creep, out, { names, judge }).head).toBe('40 apps out of scope');
     const missing = newsOf(h, plusDays(creep, 1), names, { judge });
     expect(missing.find((f) => f.key === 'scope:missing')).toMatchObject({ severity: 'alert', title: '41 in scope with no app', check: 'scope' });

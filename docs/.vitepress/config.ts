@@ -62,7 +62,8 @@ export default defineConfig({
         text: 'Guide',
         items: [
           { text: 'Quick start', link: '/guide/' },
-          { text: 'A walk through the demo', link: '/guide/demo' },
+          { text: 'The tour', link: '/guide/demo' },
+          { text: "Larkspur's planted month", link: '/guide/larkspur' },
           { text: 'The control estate', link: '/guide/estate' },
           { text: 'Working in the app', link: '/guide/app' },
           { text: 'Writing a flow', link: '/guide/flows' },

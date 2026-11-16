@@ -494,6 +494,12 @@ export class HistoryRanges {
     return this.made.get(key)!;
   }
 
+  /** Whether a level accepted from a day on or before this one moved a metric (`levelOn`): the days before the level
+   * say nothing of its usual there, so a judge of the day as a whole (the forest) leaves it out. */
+  movedBy(m: Metric, day: string): boolean {
+    return this.levels.some((l) => l.from <= day && levelOn(l, m));
+  }
+
   /** Whether a day is learned from: not one a viewer marked or the record left out. */
   learnsFrom(day: string): boolean {
     return !this.left.has(day);
