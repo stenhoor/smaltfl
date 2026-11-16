@@ -432,6 +432,17 @@ const levelOn = (l: Level, m: Metric): boolean =>
   ((m.of === 'value' || m.of === 'count') && l.metrics.some((k) => k.startsWith(`value:${m.column}=`))) ||
   (m.of === 'combo' && m.pair.split('|').some((c) => l.metrics.some((k) => k.startsWith(`value:${c}=`))));
 
+/** The columns a level's metrics name: a value's or a count's column, a quantile's, a median's, a column's blanks or
+ * lateness, both columns of a pair; none for the rows, the checks or a gate's counts. */
+export function columnsOfLevel(l: Pick<Level, 'metrics'>): string[] {
+  const out = new Set<string>();
+  for (const k of l.metrics) {
+    const m = /^(value|count|quantile|median|missing|late|combo):([^=@]+)/.exec(k);
+    if (m) for (const c of m[1] === 'combo' ? m[2]!.split('|') : [m[2]!]) out.add(c);
+  }
+  return [...out];
+}
+
 /** Each metric's normal ranges over a history, made once a metric. */
 export class HistoryRanges {
   readonly file: HistoryFile;
@@ -498,6 +509,15 @@ export class HistoryRanges {
    * say nothing of its usual there, so a judge of the day as a whole (the forest) leaves it out. */
   movedBy(m: Metric, day: string): boolean {
     return this.levels.some((l) => l.from <= day && levelOn(l, m));
+  }
+
+  /** The columns whose values a level accepted after `since`, and on or before `day`, moved (`columnsOfLevel`): rows
+   * kept from `since` on reach back before the level, where those columns say nothing of their usual, so a judge of the
+   * rows (the classifier) leaves them out until every day it reads is at the new level. */
+  movedSince(since: string, day: string): string[] {
+    const out = new Set<string>();
+    for (const l of this.levels) if (since < l.from && l.from <= day) for (const c of columnsOfLevel(l)) out.add(c);
+    return [...out];
   }
 
   /** Whether a day is learned from: not one a viewer marked or the record left out. */

@@ -894,7 +894,7 @@ export function newsOf(h: HistoryRanges, day: string, names: Names, options: { c
   // with no gate never more than unusual: a model warns, it doesn't hold. Nothing with too few rows a side.
   if (options.apart && (!judge.checks || judge.checks.classifier !== 'off')) {
     const { sample, today } = options.apart;
-    const e = apartEvidence(sample, today, day, judge.pattern, (d) => h.learnsFrom(d), modelsOut);
+    const e = apartEvidence(sample, today, day, judge.pattern, (d) => h.learnsFrom(d), modelsOut, (since) => h.movedSince(since, day));
     // Told at an AUC of 0.7 and four standard errors over chance (and over what random labels reach): `apartSpeaks`.
     const found = 'found' in e ? e.found : null;
     if (found && 'speaks' in e && e.speaks) {

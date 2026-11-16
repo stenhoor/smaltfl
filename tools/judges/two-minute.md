@@ -6,17 +6,18 @@ only the app's screens.
 
 ## Protocol
 
-1. **Capture.** Build the app on Larkspur's tour month (`npm run build:app -- --variant tour --out dist/app-tour`,
+1. **Capture.** Build the app on Larkspur's tour (`npm run build:app -- --variant tour --out dist/app-tour`,
    ADR 0023), then capture the day screen for each test day at phone size with `tools/browser/tour.cjs` and a stop set
    like this:
    ```json
-   [{ "name": "tour-mar12", "day": "Tue 12", "full": true }]
+   [{ "name": "tour-mar05", "day": "Tue 5", "full": true }]
    ```
-   The days are the tour's scenes: Tue Mar 5 (the scanner writes its values in capitals: a warning, published), Mon
-   Mar 4 as it arrived (`"version": 1`: the MFA export empty, held by a written check), Tue Mar 12 (a planned migration
-   moves a third of the logging file to the cloud pipelines: a learned check holds it, and it was real), Mon Mar 18 as
-   it arrived (`"version": 1`: the backup export mislabels a third of its completed jobs: a learned check holds it, and
-   it was an issue), and a calm day (Wed Mar 6). The tour's answer key (`test/larkspur-tour.test.ts`) is their facts.
+   The days are the tour's scenes (ADR 0023 amendment 1: over February and March): Tue Feb 20 (the scanner writes its
+   values in capitals: a warning, published), Mon Feb 26 as it arrived (`"version": 1`: the MFA export empty, held by a
+   written check), Tue Mar 5 (a planned migration moves a third of the logging file to the cloud pipelines: a learned
+   check holds it, and it was real), Mon Mar 11 as it arrived (`"version": 1`: the backup export mislabels a third of
+   its completed jobs: a learned check holds it, and it was an issue), and a calm day (Wed Feb 7). The tour's answer key
+   (`test/larkspur-tour.test.ts`) is their facts.
    (Until 2026-11-16 the test ran on Larkspur's planted month, and until 2026-11-15 on the retired taxi example's real
    days.)
 2. **Judge.** Two judges, each an agent given one screenshot at a time and nothing else, told they have two minutes

@@ -7,7 +7,7 @@
       "title": "A normal day",
       "said": "Every file arrives and every check passes. Nothing waits for anyone, and Control Posture v1 is published.",
       "looks": [
-        { "day": "2024-03-06", "label": "Wed 6" }
+        { "day": "2024-02-07", "label": "Wed Feb 7" }
       ]
     },
     {
@@ -15,26 +15,26 @@
       "title": "A warning, and what to do about it",
       "said": "The scanner starts writing its words in capitals. A learned check warns, and the day still goes out, marked. Each warning's More offers to mark it as expected, tell the source or open an incident.",
       "looks": [
-        { "day": "2024-03-05", "label": "Tue 5's findings", "card": "findings", "tab": "quality" }
+        { "day": "2024-02-20", "label": "Tue Feb 20's findings", "card": "findings", "tab": "quality" }
       ]
     },
     {
       "n": 3,
       "title": "A written check holds a file, and the file sent again fills it in",
-      "said": "The MFA export arrives empty and its amount holds the day: readers keep Sun 3. The vendor sends the file again overnight, and that version is published.",
+      "said": "The MFA export arrives empty and its amount holds the day: readers keep Sun Feb 25. The vendor sends the file again overnight, and that version is published.",
       "looks": [
-        { "day": "2024-03-04", "version": 1, "label": "Mon 4 as it arrived", "card": "mfa", "tab": "quality" },
-        { "day": "2024-03-04", "label": "The file sent again" }
+        { "day": "2024-02-26", "version": 1, "label": "Mon Feb 26 as it arrived", "card": "mfa", "tab": "quality" },
+        { "day": "2024-02-26", "label": "The file sent again" }
       ]
     },
     {
       "n": 4,
       "title": "An anomaly that was real",
-      "said": "A planned migration moves a third of the logging file to the cloud pipelines. A learned check holds the day, and it is published as is. The new level holds Wed 13 again until the owner accepts it; Thu 14 is judged at it.",
+      "said": "A planned migration moves a third of the logging file to the cloud pipelines. A learned check holds the day, and it is published as is. The new level holds Wed Mar 6 again until the owner accepts it; Thu Mar 7 is judged at it.",
       "looks": [
-        { "day": "2024-03-12", "label": "Tue 12", "card": "logging_coverage", "tab": "quality" },
-        { "day": "2024-03-13", "label": "Wed 13, accepted" },
-        { "day": "2024-03-14", "label": "Thu 14", "card": "logging_coverage", "tab": "quality" }
+        { "day": "2024-03-05", "label": "Tue Mar 5", "card": "logging_coverage", "tab": "quality" },
+        { "day": "2024-03-06", "label": "Wed Mar 6, accepted" },
+        { "day": "2024-03-07", "label": "Thu Mar 7", "card": "logging_coverage", "tab": "quality" }
       ]
     },
     {
@@ -42,32 +42,32 @@
       "title": "An anomaly that was an issue, filled and then corrected",
       "said": "The backup export writes a third of its completed jobs as partial. A learned check holds the day, and Sunday's file is carried forward, marked as Sunday's. Two days later the corrected file arrives and replaces the fill.",
       "looks": [
-        { "day": "2024-03-18", "version": 1, "label": "Mon 18 as it arrived", "card": "backup_jobs", "tab": "quality" },
-        { "day": "2024-03-18", "label": "The corrected file" }
+        { "day": "2024-03-11", "version": 1, "label": "Mon Mar 11 as it arrived", "card": "backup_jobs", "tab": "quality" },
+        { "day": "2024-03-11", "label": "The corrected file" }
       ]
     },
     {
       "n": 6,
       "title": "Fills each way, and one file replaced",
-      "said": "Thu 21: the TLS file comes with its rows twice, and only that file is sent again. Sat 23: the EDR file comes empty, and Sun 24's is carried back. Wed 27 is yours to decide: fill it from Wed 20, the same weekday a week before, an estimate.",
+      "said": "Thu Mar 21: the TLS file comes with its rows twice, and only that file is sent again. Sat Mar 23: the EDR file comes empty, and Sunday's is carried back. Wed Mar 27 is yours to decide: fill it from Wed Mar 20, the same weekday a week before, an estimate.",
       "looks": [
-        { "day": "2024-03-21", "label": "Thu 21" },
-        { "day": "2024-03-23", "label": "Sat 23, filled" },
-        { "day": "2024-03-27", "label": "Wed 27, yours to decide", "decide": true }
+        { "day": "2024-03-21", "label": "Thu Mar 21" },
+        { "day": "2024-03-23", "label": "Sat Mar 23, filled" },
+        { "day": "2024-03-27", "label": "Wed Mar 27, yours to decide", "decide": true }
       ]
     },
     {
       "title": "The join that lost its applications",
       "said": "HR drops a department without moving its teams, so their applications lose their owner chain. Silver's rules hold what reads the chain until HR sends the extract again that morning.",
       "looks": [
-        { "day": "2024-03-08", "version": 1, "label": "Fri 8 as it arrived", "card": "app_owners", "tab": "happened" }
+        { "day": "2024-02-16", "version": 1, "label": "Fri Feb 16 as it arrived", "card": "app_owners", "tab": "happened" }
       ]
     },
     {
       "title": "One cause behind two controls",
       "said": "A certificate authority's intermediate expires, and TLS and log forwarding fail for what it issued. The platforms' share of the failures names it.",
       "looks": [
-        { "day": "2024-03-25", "label": "Mon 25's platforms", "card": "platform_impact", "tab": "news" }
+        { "day": "2024-03-18", "label": "Mon Mar 18's platforms", "card": "platform_impact", "tab": "news" }
       ]
     }
   ]

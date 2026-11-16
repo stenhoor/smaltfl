@@ -1,7 +1,8 @@
 # ADR 0023: The demo as a tour of what a flow can do
 
 - **Status:** accepted, 2026-11-15. The maintainer asked for the demo to be thought through again from what a visitor
-  should see, and approved the plan below ("Looks good"). Built in the slices of §6, all five (§"As built").
+  should see, and approved the plan below ("Looks good"). Built in the slices of §6, all five (§"As built"); amendment
+  1, a calmer tour over two months, built 2026-11-16.
 - **Date:** 2026-11-15
 - **Builds on:**
   - [ADR 0020](0020-the-estate-as-a-company.md): Larkspur, the demo at `/app/`.
@@ -299,21 +300,65 @@ ADR 0022's Q-84 (levels and fills for slots of a day) and slice 5 (Q-139, propos
   together and the vulnerability SLA's failing share jumps from about 3.5% to 9% overnight. The judges compare a day with
   the days before it, so each jump and drop reads as unusual. In the answer key's month these are look-alikes, which
   ADR 0020 §5 plants on purpose; in the tour they crowded out the scenes.
-- **The tour's world is steady** (`LarkspurOptions.steady`, `scripts/data/larkspur.mjs --tour`): due dates don't gather
-  on the quarter's dates (each application keeps its own anchor), and each month's scanner findings are found through
-  the four weeks after Patch Tuesday. Measured day by day from the generator, every control's pass rate and the SLA's
-  failing share hold steady through February and March. The answer key's month keeps its rhythms.
-- **What is left is the judges' own false alarms**, five days in the month: the forest finding a day unlike any of the
-  180 before it on one of twenty files (a day in 180, on twenty files, is about three a month), a share a row or two
-  off its band, and a business unit's share of the failures for two days. They are published and marked unusual, as on
-  any long-running flow; quieting them would change the judges, not the demo, and is not done here.
-- **The answer key** (`test/larkspur-tour.test.ts`) holds the days between the scenes to at most five notes, none of
-  them something wrong. The scenes' days, holds and decisions are as before; each screen the guide quotes reads the
-  same, but Mon 25's certificate authority, now at 5.2% of the day's failing results.
-- **Two months, next.** The maintainer allowed the tour to run over two months. With the world steady, the month still
-  has a scene every two or three days (twelve days of 31); spreading the scenes over February and March, with a calm
-  week between most of them, is the next slice: the month screen shows one month at a time, so it needs a way between
-  them, the tour's dates move, and its recording and answer key run twice as long.
+- **The tour's world is steady**, the first step (`LarkspurOptions.steady`, `scripts/data/larkspur.mjs --tour`): due
+  dates don't gather on the quarter's dates (each application keeps its own anchor), and each month's scanner findings
+  are found through the weeks after Patch Tuesday. Measured day by day from the generator, every control's pass rate
+  and the SLA's failing share hold steady through February and March. The answer key's month keeps its rhythms.
+- **What was left in the one month were the judges' own false alarms**, five days: the forest finding a day unlike any
+  of the 180 before it on one of twenty files (a day in 180, on twenty files, is about three a month), a share a row or
+  two off its band, and a business unit's share of the failures for two days. They are published and marked unusual,
+  as on any long-running flow; quieting them would change the judges, not the demo, and is not done here. The answer key
+  (`test/larkspur-tour.test.ts`) held the days between the scenes to at most five notes, none of them something wrong;
+  the scenes' days, holds and decisions were as before.
+- **Two months, built** (2026-11-16), the amendment's second step. The scenes spread over February and March
+  (`LARKSPUR_TOUR_DAYS`, the loads from `LARKSPUR_TOUR_FROM`), a week or so between most of them: Wed Feb 7 the normal
+  day; Fri Feb 16 the department dropped (more to see); Tue Feb 20 the scanner's capitals; Mon Feb 26 the empty MFA
+  file; Tue Mar 5 to Thu Mar 7 the migration; Mon Mar 11 to Wed Mar 13 the backup export's mislabel; Mon Mar 18 the
+  certificate authority (more to see); Thu Mar 21 the doubled TLS file; Sat Mar 23 the empty EDR file; Wed Mar 27 the
+  access reviews left to the visitor. The history is the six months before February (the data list's `generateArgs`:
+  `--from 2023-08-01 --steps-from 2023-12-21 --base-to 2024-01-31`); the world's span and the answer key's month don't
+  move. The story (`tour.json`) and the scenes (`scenes.json`) take the new days, their words as they were. Making and
+  recording the two months takes the CI job about ten minutes on four cores, and the app build about as long.
+  - **More of the world made steady.** The first build of the two months noted 18 of their 48 calm days, each traced
+    to something in the generator that moves with the span or the calendar, now steady in the tour's world too:
+    - the four weeks of January's findings ended a week before February's Patch Tuesday, so the findings' *new* share
+      fell to a fifth of its usual for a week: a month's batch is now found through the weeks up to the next Patch
+      Tuesday;
+    - each ring's EDR sensor and each host's build were drawn again on the first of every month, so the classifier
+      told February's rows from January's for eleven days: they stay where they are;
+    - posts changed hands at random times, and more did in late February, so twice the usual people were listed as
+      left and the forest told the extract apart four times; a vacancy or a leave without anyone acting left a team
+      without an owner for days, which the posture and the failures by business unit told: posts now change hands
+      evenly through the span, in the order they would have, and someone acts from a vacancy's first day and through
+      every leave;
+    - new applications were mostly built in the cloud, so the data centres' share fell month by month and the forest
+      told the CMDB's and the logging file's pairs with hosting and pipelines: they are hosted as the rest are.
+
+    Measured from the generator a week at a time from August to March, the extract's statuses, the owners, the
+    hosting and the sensors hold (`test/larkspur.test.ts`, "is steady (amendment 1)").
+  - **The classifier and an accepted level.** Thu Mar 7, the day after the owner accepted the logging file's new
+    level, the classifier told its rows apart from the 28 days before (AUC 0.72): 26 of them were before the
+    migration. The forest already leaves out what a level moved (`movedBy`); the classifier now leaves out the columns a
+    level moved while its like days reach back before the level (`HistoryRanges.movedSince`, `columnsOfLevel`,
+    `apartEvidence`'s and `apartColumns`' `moved`), and the Models tab says why the column is left out. It changes only
+    days after an accepted level: no recorded day of the answer key's month or the other demos has one.
+  - **Presidents' Day.** Mon Feb 19 is the US calendar's holiday, and the history has none before it: every file is
+    *not judged yet*, published and marked ◌ in the grid's bronze row (ADR 0010 §1). The views follow `effective`,
+    which is judged, so the month marks the day normal. A file's Quality tab said *No quality issues: 11 checks passed*
+    that day, though nothing that reads the history's ranges had anything to go by: those checks (the amount, the
+    blanks, the shares, shapes, hours and pairs) are now *not judged* on such a day, never passed (`bronzeOf`'s
+    `unlearned`, `verdictSaid`; `tools/browser/stops/tour.json`'s `tour-presidents`): *No quality issues: 5 checks
+    passed, 6 not judged yet*. A longer history would judge the day by last year's, at twice the data; left as the
+    honest mark.
+  - **The month screen** draws a calendar a month under its name when the days span months (`.mo-cals`, side by side
+    from 1,800 px), names the span (*February–March 2024*), and says the month on the grid's first day of each
+    (*Mar 1*) and at the trend's ends (*Thu Feb 1*) (`tools/browser/stops/tour.json`'s `tour-months`).
+  - **What is left:** five of the 48 calm days carry a note, each a learned check's, marked unusual: two shares a row
+    off their band on the small DR and WAF files (Tue Feb 6, Mon Feb 12), the forest on three days (Sun Mar 10, Sun
+    Mar 17, Tue Mar 19) and the classifier on one (Tue Mar 19). A week or more of calm days lies between most scenes.
+    The answer key holds the calm days to at most six notes, none of them something wrong; the scenes' holds and
+    decisions are as before. Thu Mar 7, a scene's day, carries one note too: the migration's effect a step later,
+    `platform_impact`'s share of the day's failures through the data centres' pipeline below its usual.
 
 ## Consequences
 

@@ -50,6 +50,9 @@ export interface Bronze {
   checks: BronzeCheck[];
   passed: number;
   judged: number;
+  /** The checks the day leaves unjudged because the history has no day like it (`unlearned`, ADR 0010 §1): those that
+   * read the history's ranges. */
+  unlearned: number;
 }
 
 /** The gate's check that judges each kind of check the ontology writes. */
@@ -61,6 +64,9 @@ export const CHECK_OF_KIND: Record<RuleKind, CheckName> = {
 export const CONTRACT: readonly CheckName[] = ['schema', 'fresh', 'amount', 'blanks'];
 /** What the gate learns from the file's history. */
 export const LEARNED: readonly CheckName[] = ['shares', 'shape', 'hours', 'pairs', 'forest', 'classifier'];
+/** The contract's and learned checks that judge a day by the history's ranges for a day like it: on a day the history
+ * has nothing like (a holiday it has never seen), they aren't judged, never passed (ADR 0010 §1). */
+const RANGED: ReadonlySet<CheckName> = new Set<CheckName>(['amount', 'blanks', 'shares', 'shape', 'hours', 'pairs']);
 
 /** Each contract and learned check in plain words, as a reader asks it of their data. */
 export const PLAIN: Partial<Record<CheckName, string>> = {
@@ -141,6 +147,9 @@ export function bronzeOf(section: FileSection, gate: GateChecks | null, findings
     to?.findings.push(f);
   }
 
+  // A day with nothing like it in the history: what reads its ranges found nothing because it had nothing to go by.
+  const unlearned = findings.some((f) => f.kind === 'unlearned');
+  let notJudged = 0;
   for (const c of checks) {
     if (c.mode === 'off' || c.why) c.state = 'off';
     else if (c.kind === 'set') {
@@ -149,6 +158,7 @@ export function bronzeOf(section: FileSection, gate: GateChecks | null, findings
       c.state = n === undefined ? 'unjudged' : n === 0 ? 'ok' : c.def?.action === 'hold' ? 'alert' : 'warn';
     } else if (c.findings.some((f) => f.severity === 'alert')) c.state = 'alert';
     else if (c.findings.some((f) => f.severity === 'warn')) c.state = 'warn';
+    else if (o.judged && unlearned && c.from !== 'ontology' && RANGED.has(c.check)) (c.state = 'unjudged'), notJudged++;
     else c.state = o.judged ? 'ok' : 'unjudged';
     c.findings.sort((a, b) => RANK[a.severity === 'alert' ? 'alert' : a.severity === 'warn' ? 'warn' : 'ok'] - RANK[b.severity === 'alert' ? 'alert' : b.severity === 'warn' ? 'warn' : 'ok'] || b.score - a.score);
   }
@@ -160,14 +170,14 @@ export function bronzeOf(section: FileSection, gate: GateChecks | null, findings
   // though the check only warns (Q-132).
   const holds = wrong.some((c) => c.mode === 'hold' || c.findings.some((f) => f.overwhelming));
   const verdict = holds ? 'hold' : wrong.length || unusual.length ? 'look' : judgedList.length ? 'clean' : 'unjudged';
-  return { file, verdict, wrong, unusual, checks, passed: judgedList.filter((c) => c.state === 'ok').length, judged: judgedList.length };
+  return { file, verdict, wrong, unusual, checks, passed: judgedList.filter((c) => c.state === 'ok').length, judged: judgedList.length, unlearned: notJudged };
 }
 
 /** The verdict in a few words, for the head of the card: what a reader asks first of their data. */
 export function verdictSaid(b: Bronze): string {
   const n = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many}`;
   if (b.verdict === 'unjudged') return 'Not judged yet: no history for this day';
-  if (b.verdict === 'clean') return `No quality issues: ${n(b.passed, 'check', 'checks')} passed`;
+  if (b.verdict === 'clean') return `No quality issues: ${n(b.passed, 'check', 'checks')} passed${b.unlearned ? `, ${b.unlearned} not judged yet` : ''}`;
   const parts = [b.wrong.length ? n(b.wrong.length, 'issue', 'issues') : '', b.unusual.length ? n(b.unusual.length, 'thing to look at', 'things to look at') : ''].filter(Boolean);
   return `${parts.join(' and ')}${b.verdict === 'hold' ? ': the day is held' : ''}`;
 }

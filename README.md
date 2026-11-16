@@ -29,7 +29,7 @@ npm ci && npm run deps   # dependencies, then the smalt builds pinned in packed.
 npm run deps:latest      # move the pins to the latest of stenhoor's repositories (ADR 0017)
 npm run check            # typecheck and tests
 npm run bench            # the scenario benchmarks (bench/results/node.json)
-npm run build:app -- --variant tour --out dist/app-tour   # the demo: Larkspur's tour month (its data generated from a fixed seed)
+npm run build:app -- --variant tour --out dist/app-tour   # the demo: Larkspur's tour, two months (its data generated from a fixed seed)
 npm run build:app -- --flow examples/control-estate/flow.json --out dist/app-estate     # another example
 npm run docs:dev         # the site (VitePress), with live reload
 ```

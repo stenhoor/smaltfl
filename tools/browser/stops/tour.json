@@ -12,23 +12,36 @@
     }
   },
   {
+    "name": "tour-months",
+    "what": "The tour's two months on the month screen (ADR 0023 amendment 1): named for both, a calendar a month under its name, every day of February and March",
+    "view": "month",
+    "viewFirst": true,
+    "full": true,
+    "element": "#view-month .mo-cal-panel",
+    "expect": {
+      "text": ["February 2024", "March 2024"],
+      "pageText": ["February–March 2024"],
+      "count": { "#view-month .mo-month": 2, "#view-month .mo-d": 60 }
+    }
+  },
+  {
     "name": "tour-scene1",
-    "what": "Scene 1 from its link: Wed 6, a normal day, every file arriving and every check passing, published as the record has it",
+    "what": "Scene 1 from its link: Wed Feb 7, a normal day, every file arriving and every check passing, published as the record has it",
     "view": "month",
     "viewFirst": true,
     "clicks": [".sc-look[data-look=\"1/1\"]"],
-    "expect": { "state": "done", "status": "^Wed Mar 6: A normal Wednesday", "pageText": ["Published", "the same datasets and holds as the record"], "noPageText": ["Held:"] }
+    "expect": { "state": "done", "status": "^Wed Feb 7: A normal Wednesday", "pageText": ["Published", "the same datasets and holds as the record"], "noPageText": ["Held:"] }
   },
   {
     "name": "tour-scene2",
-    "what": "Scene 2 from its link: Tue 5's findings on its Quality tab, the scanner's capitals new values and shares a learned check warns of, the day published",
+    "what": "Scene 2 from its link: Tue Feb 20's findings on its Quality tab, the scanner's capitals new values and shares a learned check warns of, the day published",
     "view": "month",
     "viewFirst": true,
     "clicks": [".sc-look[data-look=\"2/1\"]"],
     "waitFor": "#sheet:not([hidden]) .tab-panel:not([aria-busy])",
     "full": true,
     "element": "#sheet",
-    "expect": { "state": "done", "status": "^Tue Mar 5", "textIn": { "#sheet": ["findings", "New severity values", "it only warns: the day still goes out"] }, "noTextIn": { "#sheet": ["the day is held"] } }
+    "expect": { "state": "done", "status": "^Tue Feb 20", "textIn": { "#sheet": ["findings", "New severity values", "it only warns: the day still goes out"] }, "noTextIn": { "#sheet": ["the day is held"] } }
   },
   {
     "name": "tour-scene2-more",
@@ -42,74 +55,74 @@
   },
   {
     "name": "tour-scene3-v1",
-    "what": "Scene 3 from its link: Mon 4 as it arrived, the MFA file empty and held by its amount, a written check",
+    "what": "Scene 3 from its link: Mon Feb 26 as it arrived, the MFA file empty and held by its amount, a written check",
     "view": "month",
     "viewFirst": true,
     "clicks": [".sc-look[data-look=\"3/1\"]"],
     "waitFor": "#sheet:not([hidden]) .tab-panel:not([aria-busy])",
     "full": true,
     "element": "#sheet",
-    "expect": { "state": "held", "status": "^Mon Mar 4", "textIn": { "#sheet": ["mfa", "the day is held", "Almost no apps: 0", "it stops the day going out", "A day like it has 1."] }, "noTextIn": { "#sheet": ["1–1"] } }
+    "expect": { "state": "held", "status": "^Mon Feb 26", "textIn": { "#sheet": ["mfa", "the day is held", "Almost no apps: 0", "it stops the day going out", "A day like it has 1."] }, "noTextIn": { "#sheet": ["1–1"] } }
   },
   {
     "name": "tour-scene3-v2",
-    "what": "Scene 3's second look: Mon 4 on the file sent again overnight, published, its two versions listed under its head",
+    "what": "Scene 3's second look: Mon Feb 26 on the file sent again overnight, published, its two versions listed under its head",
     "view": "month",
     "viewFirst": true,
     "clicks": [".sc-look[data-look=\"3/2\"]"],
     "full": true,
-    "expect": { "state": "done", "status": "^Mon Mar 4", "pageText": ["2 VERSIONS OF THE DAY", "kept back by Sloane Marsden", "The full export, checked against the directory", "what readers got"] }
+    "expect": { "state": "done", "status": "^Mon Feb 26", "pageText": ["2 VERSIONS OF THE DAY", "kept back by Sloane Marsden", "The full export, checked against the directory", "what readers got"] }
   },
   {
     "name": "tour-scene4-tue12",
-    "what": "Scene 4 from its link: Tue 12's logging file on its Quality tab, the migration held by a learned check that moved a third of the rows",
+    "what": "Scene 4 from its link: Tue Mar 5's logging file on its Quality tab, the migration held by a learned check that moved a third of the rows",
     "view": "month",
     "viewFirst": true,
     "clicks": [".sc-look[data-look=\"4/1\"]"],
     "waitFor": "#sheet:not([hidden]) .tab-panel:not([aria-busy])",
     "full": true,
     "element": "#sheet",
-    "expect": { "status": "^Tue Mar 12", "textIn": { "#sheet": ["logging_coverage", "Pipeline log-dc", "of the day’s rows moved; from 25%, a learned check holds the day"] } }
+    "expect": { "status": "^Tue Mar 5", "textIn": { "#sheet": ["logging_coverage", "Pipeline log-dc", "of the day’s rows moved; from 25%, a learned check holds the day"] } }
   },
   {
     "name": "tour-scene4-wed13",
-    "what": "Scene 4's second look: Wed 13, held again until the owner accepted the new level",
+    "what": "Scene 4's second look: Wed Mar 6, held again until the owner accepted the new level",
     "view": "month",
     "viewFirst": true,
     "clicks": [".sc-look[data-look=\"4/2\"]"],
     "full": true,
-    "expect": { "status": "^Wed Mar 13", "pageText": ["Held: logging_coverage", "New level from Wed 13", "The migration is done"] }
+    "expect": { "status": "^Wed Mar 6", "pageText": ["Held: logging_coverage", "New level from Wed 6", "The migration is done"] }
   },
   {
     "name": "tour-scene4-thu14",
-    "what": "Scene 4's third look: Thu 14's logging file, judged at the new level: no learned check, the forest included, sets it apart",
+    "what": "Scene 4's third look: Thu Mar 7's logging file, judged at the new level: no learned check, the forest included, sets it apart",
     "view": "month",
     "viewFirst": true,
     "clicks": [".sc-look[data-look=\"4/3\"]"],
     "waitFor": "#sheet:not([hidden]) .tab-panel:not([aria-busy])",
     "full": true,
     "element": "#sheet",
-    "expect": { "state": "done", "status": "^Thu Mar 14", "textIn": { "#sheet": ["logging_coverage"] }, "noTextIn": { "#sheet": ["Pipeline log-dc", "unlike the days before", "the day is held"] } }
+    "expect": { "state": "done", "status": "^Thu Mar 7", "textIn": { "#sheet": ["logging_coverage"] }, "noTextIn": { "#sheet": ["Pipeline log-dc", "unlike the days before", "the day is held"] } }
   },
   {
     "name": "tour-scene5-v1",
-    "what": "Scene 5 from its link: Mon 18 as it arrived, the backup file's completed jobs written as partial and held by a learned check",
+    "what": "Scene 5 from its link: Mon Mar 11 as it arrived, the backup file's completed jobs written as partial and held by a learned check",
     "view": "month",
     "viewFirst": true,
     "clicks": [".sc-look[data-look=\"5/1\"]"],
     "waitFor": "#sheet:not([hidden]) .tab-panel:not([aria-busy])",
     "full": true,
     "element": "#sheet",
-    "expect": { "status": "^Mon Mar 18", "textIn": { "#sheet": ["backup_jobs", "Last_state COMPLETED", "the day is held", "a learned check holds the day"] } }
+    "expect": { "status": "^Mon Mar 11", "textIn": { "#sheet": ["backup_jobs", "Last_state COMPLETED", "the day is held", "a learned check holds the day"] } }
   },
   {
     "name": "tour-scene5-v2",
-    "what": "Scene 5's second look: Mon 18 on the corrected file, which replaced the fill from Sun 17",
+    "what": "Scene 5's second look: Mon Mar 11 on the corrected file, which replaced the fill from Sun Mar 10",
     "view": "month",
     "viewFirst": true,
     "clicks": [".sc-look[data-look=\"5/2\"]"],
     "full": true,
-    "expect": { "state": "done", "status": "^Mon Mar 18", "pageText": ["Decided: filled from Sun 17", "filled by Sloane Marsden", "every backup as it ran", "what readers got"] }
+    "expect": { "state": "done", "status": "^Mon Mar 11", "pageText": ["Decided: filled from Sun 10", "filled by Sloane Marsden", "every backup as it ran", "what readers got"] }
   },
   {
     "name": "tour-scene6-thu21",
@@ -150,25 +163,35 @@
     "expect": { "state": "held", "pageText": ["Fill from Wed 20", "Wed 20 stands in: an estimate"], "enabled": [".vf-go"] }
   },
   {
+    "name": "tour-presidents",
+    "what": "Mon Feb 19, Presidents' Day, which the history has nothing like: a file's checks that read the history's ranges say not judged, never passed, and the day is published",
+    "day": "Mon 19",
+    "card": "hr_people",
+    "waitFor": "#sheet:not([hidden]) .tab-panel:not([aria-busy])",
+    "full": true,
+    "element": "#sheet",
+    "expect": { "state": "done", "textIn": { "#sheet": ["Presidents' Day", "not judged yet"] } }
+  },
+  {
     "name": "tour-more-fri8",
-    "what": "More to see: Fri 8 as it arrived, the dropped department's applications without their owner chain",
+    "what": "More to see: Fri Feb 16 as it arrived, the dropped department's applications without their owner chain",
     "view": "month",
     "viewFirst": true,
     "clicks": [".sc-look[data-look=\"7/1\"]"],
     "waitFor": "#sheet:not([hidden]) .tab-panel:not([aria-busy])",
     "full": true,
     "element": "#sheet",
-    "expect": { "state": "held", "status": "^Fri Mar 8", "textIn": { "#sheet": ["app_owners", "95 of 2,410 rows broke owner_chain", "UNASSIGNED"] } }
+    "expect": { "state": "held", "status": "^Fri Feb 16", "textIn": { "#sheet": ["app_owners", "95 of 2,400 rows broke owner_chain", "UNASSIGNED"] } }
   },
   {
     "name": "tour-more-mon25",
-    "what": "More to see: Mon 25's platforms on their News, the certificate authority behind two controls named",
+    "what": "More to see: Mon Mar 18's platforms on their News, the certificate authority behind two controls named",
     "view": "month",
     "viewFirst": true,
     "clicks": [".sc-look[data-look=\"8/1\"]"],
     "waitFor": "#sheet:not([hidden]) .tab-panel:not([aria-busy])",
     "full": true,
     "element": "#sheet",
-    "expect": { "state": "done", "status": "^Mon Mar 25", "textIn": { "#sheet": ["platform_impact", "ca-int-2"] } }
+    "expect": { "state": "done", "status": "^Mon Mar 18", "textIn": { "#sheet": ["platform_impact", "ca-int-2"] } }
   }
 ]

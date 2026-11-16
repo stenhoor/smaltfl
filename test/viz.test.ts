@@ -963,6 +963,13 @@ describe('a unit’s score over the month (scoreTrend, scoreSpark; ADR 0020 §6)
     expect(svg).toContain('>100</text>');
   });
 
+  it('says the month at its ends where its days span more than one, as their numbers repeat (ADR 0023 amendment 1)', () => {
+    const two = ['2024-02-01', '2024-02-29', '2024-03-01', '2024-03-31'];
+    const svg = scoreTrend({ days: two, points: [{ day: '2024-02-01', score: 90, coverage: 95 }, { day: '2024-03-31', score: 91, coverage: 95 }], aria: 'x' });
+    expect(svg).toContain('>Thu Feb 1</text>');
+    expect(svg).toContain('>Sun Mar 31</text>');
+  });
+
   it('draws nothing but its frame with no day published, and a spark only with one', () => {
     expect(scoreTrend({ days, points: [], aria: 'x' }).match(/class="pt"/g)).toBeNull();
     expect(scoreSpark({ days, points: [], aria: 'x' })).toBe('');

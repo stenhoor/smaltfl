@@ -431,11 +431,14 @@ export const apartSpeaks = (a: Apart): boolean => a.z >= 4 && a.auc >= 0.7 && a.
 /**
  * The classifier's evidence for a day (ADR 0015 §6), whether or not it speaks: today's kept rows against the like days'
  * rows of the sample (`likeDays`, leaving out the days `learnsFrom` refuses), and what it found; or why it can't run.
+ * `moved` names the columns a level accepted after a day moved (`HistoryRanges.movedSince`): while the like days reach
+ * back before the level, those columns are left out, as the forest leaves out what a level moved (ADR 0023 slice 3).
  */
-export function apartEvidence(sample: SampleFile, today: readonly (readonly unknown[])[], day: string, pattern: 'weekly' | 'none' | 'monthly', learnsFrom: (d: string) => boolean = () => true, leaveOut: (column: string) => boolean = () => false): { found: Apart; days: string[]; speaks: boolean } | { why: string } {
+export function apartEvidence(sample: SampleFile, today: readonly (readonly unknown[])[], day: string, pattern: 'weekly' | 'none' | 'monthly', learnsFrom: (d: string) => boolean = () => true, leaveOut: (column: string) => boolean = () => false, moved: (since: string) => readonly string[] = () => []): { found: Apart; days: string[]; speaks: boolean } | { why: string } {
   const days = likeDays(sample, day, pattern, (d) => !learnsFrom(d));
   if (!days.length) return { why: 'no like days kept in the sample yet' };
-  const out = new Set([...clockColumns(sample, days), ...sample.columns.flatMap((c, k) => (leaveOut(c) ? [k] : []))]);
+  const shifted = new Set(moved(days.reduce((a, b) => (b < a ? b : a))));
+  const out = new Set([...clockColumns(sample, days), ...sample.columns.flatMap((c, k) => (leaveOut(c) || shifted.has(c) ? [k] : []))]);
   const options = { days: days.length, seed: 2017, leaveOut: out };
   // Seeded, so the same rows always tell the same: the first loads day's answer may be shipped (ADR 0019 amendment 1),
   // keyed by today's rows, each like day's rows, the columns and the options.
@@ -450,12 +453,14 @@ export function apartEvidence(sample: SampleFile, today: readonly (readonly unkn
 
 /**
  * What the classifier reads of a sample's columns on a day, and why it leaves the others out (ADR 0015 §6): the
- * ontology's or the name's reason (`leaveOut`, modelcols.ts `modelLeftOut`), a count that only grows with the day, or
- * what the rows are (free text, a time, dates, too many values). In the sample's column order.
+ * ontology's or the name's reason (`leaveOut`, modelcols.ts `modelLeftOut`), a new level accepted since the first like
+ * day (`moved`, as `apartEvidence` takes it), a count that only grows with the day, or what the rows are (free text, a
+ * time, dates, too many values). In the sample's column order.
  */
-export function apartColumns(sample: SampleFile, day: string, pattern: 'weekly' | 'none' | 'monthly', learnsFrom: (d: string) => boolean = () => true, leaveOut: (column: string) => string | null = () => null): { column: string; why: string | null }[] {
+export function apartColumns(sample: SampleFile, day: string, pattern: 'weekly' | 'none' | 'monthly', learnsFrom: (d: string) => boolean = () => true, leaveOut: (column: string) => string | null = () => null, moved: (since: string) => readonly string[] = () => []): { column: string; why: string | null }[] {
   const days = likeDays(sample, day, pattern, (d) => !learnsFrom(d));
   const rows = sampleRows(sample, days);
   const clock = new Set(clockColumns(sample, days));
-  return sample.columns.map((column, c) => ({ column, why: leaveOut(column) ?? (clock.has(c) ? 'grows with the day, like a clock' : dataLeftOut(rows, c, sample.kinds[c]!, DISTINCT)) }));
+  const shifted = new Set(days.length ? moved(days.reduce((a, b) => (b < a ? b : a))) : []);
+  return sample.columns.map((column, c) => ({ column, why: leaveOut(column) ?? (shifted.has(column) ? 'a new level was accepted since the days it learns from' : clock.has(c) ? 'grows with the day, like a clock' : dataLeftOut(rows, c, sample.kinds[c]!, DISTINCT)) }));
 }

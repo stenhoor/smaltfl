@@ -6,7 +6,7 @@
   "story": "examples/larkspur/story.json",
   "variants": {
     "tour": {
-      "generateArgs": ["--tour"],
+      "generateArgs": ["--tour", "--from", "2023-08-01", "--steps-from", "2023-12-21", "--base-to", "2024-01-31"],
       "story": "examples/larkspur/tour.json",
       "scenes": "examples/larkspur/scenes.json"
     }
