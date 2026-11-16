@@ -173,8 +173,8 @@ export const LARKSPUR_GOLD_TROUBLE: readonly Trouble[] = [
  * stays the tests' (ADR 0020 §5).
  */
 export const LARKSPUR_TOUR_DAYS = {
-  /** Scene 1: every file arrives and every check passes. */
-  normal: '2024-03-01',
+  /** Scene 1: every file arrives and every check passes (Fri 1 tells more pentest findings than usual). */
+  normal: '2024-03-06',
   /** Scene 3: the MFA export arrives empty, a written check holds it, and the vendor sends it again overnight. */
   empty: '2024-03-04',
   /** Scene 2: the scanner writes its words in capitals, a warning to react to. */

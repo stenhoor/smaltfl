@@ -4,7 +4,7 @@
  * (examples/larkspur/tour.json), as `npm run build:app -- --variant tour` makes them (scripts/data/make.mjs). Its answer
  * key, a scene a day:
  *
- * 1. Fri 1, a normal day: every file arrives and every check passes.
+ * 1. Wed 6, a normal day: every file arrives and every check passes.
  * 2. Tue 5, a warning: the scanner writes its words in capitals; the day is published, the findings marked unusual.
  * 3. Mon 4, a written check holds a file: the MFA export arrives empty; kept back, then sent again overnight and published.
  * 4. Tue 12 to Thu 14, a statistical anomaly that was real: the log pipelines' migration moves a third of the logging
@@ -57,17 +57,19 @@ const runsOf = (day: string) => month.entries.filter((e) => e.kind === 'run' && 
 const holdsOf = (e: LogEntry): string[] => [...new Set(((about(e).holds ?? []) as Loose[]).map((h) => `${h.by}:${h.origin}`))].sort();
 const claimOf = (e: LogEntry, source: string): Loose | undefined => (about(e).claims as Loose[] | undefined)?.find((c) => c.source === source);
 const decisionsOf = (day: string) => month.entries.filter((e) => e.kind === 'decide' && about(e).day === day);
-const releaseOf = (d: LogEntry) => month.entries.find((e) => e.kind === 'release' && about(e).decision === d.seq);
-/** A day's decisions as `option by` (one each, though a choice is recorded once a held load, Q-193) and whether the
- * release of each was applied. */
+/** The release that cites a decision: as the one it follows, or among the loads' decisions it publishes. */
+const releaseOf = (d: LogEntry) => month.entries.find((e) => e.kind === 'release' && (about(e).decision === d.seq || ((about(e).decisions ?? []) as number[]).includes(d.seq)));
+/** A day's choices as `option by`, with the outcome of their release where one was made: a choice is recorded once a
+ * held load (Q-193), taken together, and its release cites one of them (a fill, its file's). */
 const decided = (day: string) => {
-  const out: string[] = [];
+  const out = new Map<string, string>();
   for (const d of decisionsOf(day)) {
+    const choice = `${d.at}|${about(d).option}|${d.by.as}`;
     const r = releaseOf(d);
-    const said = `${about(d).option} by ${d.by.as}${r ? `: ${about(r).outcome}` : ''}`;
-    if (!out.includes(said)) out.push(said);
+    const said = `${about(d).option} by ${d.by.as}`;
+    out.set(choice, r ? `${said}: ${about(r).outcome}` : out.get(choice) ?? said);
   }
-  return out;
+  return [...out.values()];
 };
 /** The days held on their first files. */
 const SCENES = [D.empty, D.dissolve, D.migration, addDays(D.migration, 1), D.mislabel, D.double, D.weekend, D.missing];
@@ -79,11 +81,11 @@ describe('the tour’s month, as the demo records it (ADR 0023 §3)', () => {
     expect(Object.keys(first).filter((d) => first[d])).toEqual(SCENES);
   });
 
-  it('scene 1, Fri 1: a normal day, every file arriving and every check passing', () => {
+  it('scene 1, Wed 6: a normal day, every file arriving and every check passing', () => {
     const [run, ...more] = runsOf(D.normal);
     expect(more).toEqual([]);
     expect(about(run!).outcome).toBe('ok');
-    expect(((about(run!).claims ?? []) as Loose[]).filter((c) => c.state === 'wrong')).toEqual([]);
+    expect(((about(run!).claims ?? []) as Loose[]).filter((c) => c.state === 'wrong' || c.state === 'unusual')).toEqual([]);
   });
 
   it('scene 2, Tue 5: the scanner’s capitals are a warning, and the day is published', () => {
@@ -108,25 +110,25 @@ describe('the tour’s month, as the demo records it (ADR 0023 §3)', () => {
     for (const run of [tue, wed]) {
       expect(holdsOf(run)).toEqual(['story:logging_coverage']);
       expect(claimOf(run, 'logging_coverage')).toMatchObject({ state: 'wrong' });
-      expect(claimOf(run, 'logging_coverage')!.head).toMatch(/^Pipeline /);
+      expect(claimOf(run, 'logging_coverage')!.head).toMatch(/^pipeline log-/);
     }
     expect(decided(D.migration)).toEqual(['asis by ciso: applied']);
     expect(decided(addDays(D.migration, 1))).toEqual(['accept by owner: applied']);
     const accepted = decisionsOf(addDays(D.migration, 1))[0]!;
     expect(about(accepted).level).toMatchObject({ source: 'logging_coverage', from: addDays(D.migration, 1) });
     expect(about(accepted).level.metrics).toContain('value:pipeline="log-dc"');
-    // Judged at the new level from the day after: the logging file is calm again.
+    // Judged at the new level from the day after, its pairs with it: the logging file is calm again.
     for (let d = addDays(D.migration, 2); d < D.mislabel; d = addDays(d, 1)) {
       const run = runsOf(d)[0]!;
       expect(about(run).outcome, d).toBe('ok');
-      expect(claimOf(run, 'logging_coverage')?.state, d).not.toBe('unusual');
+      expect(['wrong', 'unusual'], d).not.toContain(claimOf(run, 'logging_coverage')?.state);
     }
   });
 
   it('scene 5, Mon 18 to Wed 20: the mislabelled backup file held, filled forward, then replaced by its corrected file', () => {
     const [first, fill, again] = runsOf(D.mislabel);
     expect(holdsOf(first!)).toEqual(['story:backup_jobs']);
-    expect(claimOf(first!, 'backup_jobs')!.head).toMatch(/^Last state /);
+    expect(claimOf(first!, 'backup_jobs')!.head).toMatch(/^Last_state COMPLETED: /);
     expect(about(fill!)).toMatchObject({ outcome: 'derived', repair: { source: 'backup_jobs', missing: { all: true }, donor: { day: addDays(D.mislabel, -1), direction: 'before' } } });
     expect(about(again!).correction).toMatchObject({ sources: ['backup_jobs'] });
     expect(again!.at.slice(0, 10)).toBe(addDays(D.mislabel, 2));
