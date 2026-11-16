@@ -248,7 +248,13 @@ The month screen lists the scenes. Today's month stays the tests'. The slices of
    ADR 0023 §"As built"). The month lists *What this demo shows* from the data list's `scenes.json`, each look a link
    (`#scene/N/K`) opening its day, version and card's tab or decision; the tour is at `/app/`, Larkspur's planted month
    at `/larkspur/`, and `docs/guide/demo.md` walks the tour (`docs/guide/larkspur.md` the planted month). ADR 0023 is
-   done.
+   done. Two points left for the maintainers, said in the slice's PR:
+   - the tour's days between scenes publish, but 13 carry a learned check's note, marked unusual on the month (the
+     estate's own rhythms: Patch Tuesday's findings falling due, pentest and DR cycles, the quarter's access reviews),
+     where §1 wanted them calm; quieting them changes the tour's month and moves its answer key;
+   - the month marks a day from the record by every watched dataset's claim, but a day run in the browser by the
+     dataset the views follow alone (`calendarDayOf` in `src/app/main.ts`, `stateOfRun` in `src/core/month.ts`), so
+     the tour's Fri 1 shows ✓ once run where the record says its findings were unusual.
 
 **Then the rest of [ADR 0022](adr/0022-the-answers-of-2026-11-14.md), the maintainer's answers of 2026-11-14:** Q-84 and
 slice 5 (Q-139). With ADR 0021
