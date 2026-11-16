@@ -49,6 +49,10 @@ export interface LarkspurOptions {
    * `incidents: false` plants none. */
   incidents?: boolean;
   trouble?: readonly Trouble[];
+  /** A steady world, the tour's (ADR 0023 amendment 1): due dates that don't cluster on fiscal dates and quarter ends,
+   * and each month's scanner findings found through the month rather than all on Patch Tuesday, so that only the planted
+   * days stand out. The answer key's month keeps its rhythms, its look-alikes among them. */
+  steady?: boolean;
 }
 
 // ------------------------------------------------------------------ the planted days
@@ -694,6 +698,8 @@ export interface Larkspur {
   exceptions: readonly ExceptionDraw[];
   exceptionsOf: ReadonlyMap<string, readonly ExceptionDraw[]>;
   trouble: readonly Trouble[];
+  /** A steady world (`LarkspurOptions.steady`): no clustered due dates, no Patch Tuesday batches. */
+  steady: boolean;
   /** What the planted silver days chose, once: the teams a reorg moves, the department dissolved and the one that loops,
    * and the exceptions that expire unrenewed. */
   planted: { moves: { team: string; to: string; from: string }[]; dissolved: { unit: string; sibling: string; day: string } | null; loop: { unit: string; team: string; day: string } | null; expiring: Set<string>; push: string | null };
@@ -765,7 +771,7 @@ export function larkspur(o: LarkspurOptions = {}): Larkspur {
   const exceptionsOf = new Map<string, ExceptionDraw[]>();
   for (const e of exceptions) exceptionsOf.set(`${e.app}|${e.control}`, [...(exceptionsOf.get(`${e.app}|${e.control}`) ?? []), e]);
   const trouble = o.incidents === false ? [] : (o.trouble ?? [...LARKSPUR_TROUBLE, ...LARKSPUR_SILVER_TROUBLE, ...LARKSPUR_GOLD_TROUBLE]);
-  const w: Larkspur = { seed, units, unit, children, apps, people, tenures, vacancies, exceptions, exceptionsOf, trouble, planted: { moves: [], dissolved: null, loop: null, expiring: new Set(), push: null }, cache: { findings: new Map(), cycles: new Map(), apps: new Map() } };
+  const w: Larkspur = { seed, units, unit, children, apps, people, tenures, vacancies, exceptions, exceptionsOf, trouble, steady: !!o.steady, planted: { moves: [], dissolved: null, loop: null, expiring: new Set(), push: null }, cache: { findings: new Map(), cycles: new Map(), apps: new Map() } };
   plantOrg(w);
   return w;
 }
@@ -1049,7 +1055,8 @@ function cycles(w: Larkspur, a: { app_id: string }, control: ControlId): Cycle[]
   const seed = w.seed;
   const lateRate = Math.min(0.6, s.late * w.unit.get(drawOf(w, a.app_id).owner)!.propensity);
   let dues: string[];
-  if (s.cluster && uniform(seed, a.app_id, control, 'cluster') < s.cluster.share) dues = s.cluster.dates.slice();
+  // A steady world's due dates don't cluster: each application keeps its own anchor.
+  if (s.cluster && !w.steady && uniform(seed, a.app_id, control, 'cluster') < s.cluster.share) dues = s.cluster.dates.slice();
   else {
     dues = [];
     for (let d = addDays(LARKSPUR_FROM, -Math.floor(uniform(seed, a.app_id, control, 'anchor') * s.period)); d <= addDays(LARKSPUR_TO, s.period); d = addDays(d, s.period)) dues.push(d);
@@ -1128,7 +1135,9 @@ export function findingsOf(w: Larkspur, a: { app_id: string }): Finding[] {
   for (const pt of PATCH_DAYS) {
     if (pt < addDays(LARKSPUR_FROM, -200) || pt > LARKSPUR_TO) continue;
     const n = Math.floor(mean) + (uniform(seed, a.app_id, 'batch', pt) < mean - Math.floor(mean) ? 1 : 0);
-    for (let i = 0; i < n; i++) add('scan', pt, severity(uniform(seed, a.app_id, 'sev', pt, i)), `${pt}#${i}`);
+    // A steady world finds the month's batch through the four weeks after Patch Tuesday, so its due dates don't fall
+    // together a month later.
+    for (let i = 0; i < n; i++) add('scan', w.steady ? addDays(pt, int(0, 27, uniform(seed, a.app_id, 'spread', pt, i))) : pt, severity(uniform(seed, a.app_id, 'sev', pt, i)), `${pt}#${i}`);
   }
   for (let wk = dayNumber(addDays(LARKSPUR_FROM, -200)); wk <= dayNumber(LARKSPUR_TO); wk += 7) {
     if (uniform(seed, a.app_id, 'other', wk) < 0.05) add('scan', dayOf(wk + int(0, 6, uniform(seed, a.app_id, 'other-day', wk))), severity(uniform(seed, a.app_id, 'other-sev', wk)), `w${wk}`);

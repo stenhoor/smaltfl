@@ -249,9 +249,10 @@ The month screen lists the scenes. Today's month stays the tests'. The slices of
    (`#scene/N/K`) opening its day, version and card's tab or decision; the tour is at `/app/`, Larkspur's planted month
    at `/larkspur/`, and `docs/guide/demo.md` walks the tour (`docs/guide/larkspur.md` the planted month). ADR 0023 is
    done. Two points left for the maintainers, said in the slice's PR:
-   - the tour's days between scenes publish, but 13 carry a learned check's note, marked unusual on the month (the
-     estate's own rhythms: Patch Tuesday's findings falling due, pentest and DR cycles, the quarter's access reviews),
-     where §1 wanted them calm; quieting them changes the tour's month and moves its answer key;
+   - the tour's days between scenes publish, but 13 carried a learned check's note, marked unusual on the month, where
+     §1 wanted them calm. The maintainer allowed two months or more (Q-212); amendment 1 makes the tour's world steady
+     first (`LarkspurOptions.steady`: no due dates gathered on the quarter's dates, no Patch Tuesday batches), which
+     leaves five days with a note, the judges' own false alarms; spreading the scenes over February and March is next;
    - the month marks a day from the record by every watched dataset's claim, but a day run in the browser by the
      dataset the views follow alone (`calendarDayOf` in `src/app/main.ts`, `stateOfRun` in `src/core/month.ts`), so
      the tour's Fri 1 shows ✓ once run where the record says its findings were unusual.

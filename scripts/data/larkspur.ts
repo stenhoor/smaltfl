@@ -7,7 +7,8 @@
  *   node scripts/data/larkspur.mjs OUT_DIR [--from 2023-09-01] [--steps-from 2024-01-19] [--base-to 2024-02-29]
  *        [--to 2024-03-31] [--apps 2600] [--seed 7] [--tour] [--story examples/larkspur/story.json]
  *
- * `--tour` plants the tour's days (LARKSPUR_TOUR, ADR 0023 §3) in place of the answer key's month: the demo's.
+ * `--tour` plants the tour's days (LARKSPUR_TOUR, ADR 0023 §3) in place of the answer key's month, in a steady world
+ * (no clustered due dates, no Patch Tuesday batches: ADR 0023 amendment 1): the demo's.
  *
  * Writes OUT_DIR/fixed/<file>.csv (platforms, platform_links), OUT_DIR/days/<file>_<day>.csv and:
  * - OUT_DIR/base.json, each file's history: `[{ slot, files: { <file>: path, … } }]` from `--from`, six months, every
@@ -42,7 +43,8 @@ const baseTo = flag('base-to', '2024-02-29');
 const to = flag('to', LARKSPUR_TO);
 if (!(from <= stepsFrom && stepsFrom <= baseTo && baseTo < to)) throw new Error(`the days must run --from ${from} ≤ --steps-from ${stepsFrom} ≤ --base-to ${baseTo} < --to ${to}`);
 const started = Date.now();
-const w = larkspur({ apps: Number(flag('apps', '2600')), seed: Number(flag('seed', '7')), ...(args.includes('--tour') ? { trouble: LARKSPUR_TOUR } : {}) });
+// The tour's world is steady (ADR 0023 amendment 1): only its planted days stand out.
+const w = larkspur({ apps: Number(flag('apps', '2600')), seed: Number(flag('seed', '7')), ...(args.includes('--tour') ? { trouble: LARKSPUR_TOUR, steady: true } : {}) });
 
 mkdirSync(join(out, 'fixed'), { recursive: true });
 mkdirSync(join(out, 'days'), { recursive: true });

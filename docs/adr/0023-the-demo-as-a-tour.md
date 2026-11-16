@@ -287,6 +287,34 @@ ADR 0022's Q-84 (levels and fills for slots of a day) and slice 5 (Q-139, propos
   - Scene 2's reactions are worded as the card's **More** words them (*Mark as expected*, *Add a check*, *Tell the
     source*), and Mon 25's look opens **News**, where the certificate authority leads.
 
+## Amendment 1 (2026-11-16): a calmer tour
+
+- **The question.** Slice 5's month published every day between its scenes, but 13 of them carried a learned check's
+  note, marked unusual on the calendar, where §1 wanted calm days between the scenes. The maintainer, 2026-11-16: *"if
+  we need to extend the demo to take two or even [more] months so it's not as busy that's fine"* (Q-212).
+- **Why it was busy.** Not the scenes: the world they were planted in. Larkspur's generator gathers due dates on the
+  quarter's dates, as work does: half the pentests fall due on Mar 15, three in five DR exercises on Mar 22 and seven in
+  ten access reviews on Mar 29, so each control's pass rate drops by a tenth the day after, for the rest of the month.
+  And each month's scanner findings are found on Patch Tuesday together, so a month later the late ones fall due
+  together and the vulnerability SLA's failing share jumps from about 3.5% to 9% overnight. The judges compare a day with
+  the days before it, so each jump and drop reads as unusual. In the answer key's month these are look-alikes, which
+  ADR 0020 §5 plants on purpose; in the tour they crowded out the scenes.
+- **The tour's world is steady** (`LarkspurOptions.steady`, `scripts/data/larkspur.mjs --tour`): due dates don't gather
+  on the quarter's dates (each application keeps its own anchor), and each month's scanner findings are found through
+  the four weeks after Patch Tuesday. Measured day by day from the generator, every control's pass rate and the SLA's
+  failing share hold steady through February and March. The answer key's month keeps its rhythms.
+- **What is left is the judges' own false alarms**, five days in the month: the forest finding a day unlike any of the
+  180 before it on one of twenty files (a day in 180, on twenty files, is about three a month), a share a row or two
+  off its band, and a business unit's share of the failures for two days. They are published and marked unusual, as on
+  any long-running flow; quieting them would change the judges, not the demo, and is not done here.
+- **The answer key** (`test/larkspur-tour.test.ts`) holds the days between the scenes to at most five notes, none of
+  them something wrong. The scenes' days, holds and decisions are as before; each screen the guide quotes reads the
+  same, but Mon 25's certificate authority, now at 5.2% of the day's failing results.
+- **Two months, next.** The maintainer allowed the tour to run over two months. With the world steady, the month still
+  has a scene every two or three days (twelve days of 31); spreading the scenes over February and March, with a calm
+  week between most of them, is the next slice: the month screen shows one month at a time, so it needs a way between
+  them, the tour's dates move, and its recording and answer key run twice as long.
+
 ## Consequences
 
 - **The demo at `/app/` changes:** its month, its story and its walks (`tools/browser/stops/larkspur.json`, `month.json`,

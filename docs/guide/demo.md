@@ -14,11 +14,11 @@ as its systems export it each day:
 Twenty of these files arrive each day, about 28,000 rows; the platforms' two files are fixed. All of it runs in your
 browser. The data is synthetic, from a fixed seed, with six months of history before March 2024.
 
-The demo is a tour of what a flow does, on a March made for it: six scenes, and days between them that publish, some
-with a learned check's note, marked unusual (the estate's own rhythms: Patch Tuesday's findings falling due, the
-quarter's access reviews). The month screen lists the scenes under **What this demo shows**, each with what happened
-and links to the places to look: a day, a version of it, a card's tab or the day's decision. This page follows the
-same list. Nothing that judges the days knows where a scene is planted.
+The demo is a tour of what a flow does, on a March made for it: six scenes, and calm days between them. The tour's
+world is steady, so only its scenes stand out; a few calm days still carry a learned check's note, marked unusual, as
+any long-running flow's judges will now and then. The month screen lists the scenes under **What this demo shows**,
+each with what happened and links to the places to look: a day, a version of it, a card's tab or the day's decision.
+This page follows the same list. Nothing that judges the days knows where a scene is planted.
 
 March opens complete. The build ran every day and recorded it, with what happened next: the files sent again, and who
 decided what, when and why. The month screen draws it at once, each day marked with what became of it. Opening a day
@@ -165,7 +165,7 @@ and the security lead published it: *Every team has a department again, and ever
 
 **Mon 25.** A certificate authority's intermediate certificate expires behind an ingress. TLS ends at that ingress,
 and log forwarding uses the same certificates, so the applications behind it fail both controls. Unfold **posture**
-and open **platform_impact**: its **News** names `ca-int-2`, *Platform_id ca-int-2: 5.1% (usually 0.3–1.0%)* of the
+and open **platform_impact**: its **News** names `ca-int-2`, *Platform_id ca-int-2: 5.2% (usually 0.3–1.0%)* of the
 day's failing and unassessed results. Nothing holds the day: the platform says what the failures have in common.
 
 ## Checks

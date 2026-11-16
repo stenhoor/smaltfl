@@ -173,4 +173,15 @@ describe('the tour’s month, as the demo records it (ADR 0023 §3)', () => {
       expect(runs.map((r) => about(r).outcome), day).toEqual(['ok']);
     }
   });
+
+  it('keeps the days between the scenes calm: the steady world leaves a few notes, each a learned check’s (amendment 1)', () => {
+    // Every day a scene shows, or that follows from one (Thu 14 is judged at the new level), is the scenes'; the others
+    // are the calendar's calm days. In the answer key's world, its rhythms (due dates gathered on the quarter's dates,
+    // Patch Tuesday's findings falling due together) noted 13 of them; the steady world leaves what the judges' own
+    // false alarms make: the forest, a day unlike the 180 before it on one of twenty files, and a share by a few rows.
+    const scenes = new Set([D.empty, D.capitals, D.normal, D.dissolve, D.migration, addDays(D.migration, 1), addDays(D.migration, 2), D.mislabel, D.double, D.weekend, D.ca, D.missing]);
+    const noted = MARCH.filter((d) => !scenes.has(d)).filter((d) => runsOf(d).some((r) => ((about(r).claims ?? []) as Loose[]).some((c) => c.state === 'wrong' || c.state === 'unusual')));
+    expect(noted.length, noted.join(', ')).toBeLessThanOrEqual(5);
+    for (const d of noted) for (const r of runsOf(d)) for (const c of (about(r).claims ?? []) as Loose[]) expect(c.state, `${d} ${String(c.source)}`).not.toBe('wrong');
+  });
 });
