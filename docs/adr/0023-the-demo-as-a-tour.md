@@ -232,6 +232,9 @@ ADR 0022's Q-84 (levels and fills for slots of a day) and slice 5 (Q-139, propos
 - **An accepted level breaks its column's pairs too** (`levelOn` in `src/core/history.ts`). A level on a column's values
   broke every value and count of the column; the pairs the column is one of were still judged against the days before,
   so the migration's pair of status and pipeline warned the day after it was accepted.
+- **The month marks a filled day filled** (`dayPause`, `recordedHeldLoads` in `src/app/main.ts`). A day the record holds
+  by load reads its held loads' pauses as one, as a run here does: a fill's release cites its file's decision alone, so
+  the steps' loads it decided too left Sat 23 drawn as paused, waiting.
 - **Built as a variant of the data list** (`data.json` `variants.tour`; `npm run build:app -- --variant tour --out
   dist/app-tour`), its data made by `scripts/data/make.mjs`, which the build and the answer key share. The docs deploy
   publishes it at `/tour/`, unlinked, until slice 5 puts it at `/app/` with its scene list.

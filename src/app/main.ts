@@ -12773,7 +12773,23 @@ function pauseSaid(day: string, s: DayState): string {
 function dayPause(day: string): DayState | null {
   const r = state.runs.find((x) => dayOfRun(x) === day);
   if (r) return pauseOf(r)?.state ?? null;
-  return dayState(null, latestPause(day));
+  // A day the record holds by load (ADR 0010 §7), not run here: its held loads' pauses read as one, as a run's are
+  // (pauseOf), since one choice decides them all (Q-193) and a fill's release cites its file's decision alone (ADR 0023
+  // §5): the day is filled, not still waiting on the steps' loads.
+  const held = recordedHeldLoads(day);
+  const p = held.length ? (pauses(), dayPauseOfLoads(pauseCache.byKey, held)) : null;
+  return dayState(null, p ?? latestPause(day));
+}
+
+/** The loads a day's latest run in the record held, the version readers got's (a fill's derived run and a restated run
+ * aside): what the day's pause is read from where nothing ran it here. */
+function recordedHeldLoads(day: string): ReturnType<typeof heldLoadsOf> {
+  const runs = runsByDay(allEntries()).get(day) ?? [];
+  const own = runs.filter((e) => {
+    const a = e.about as unknown as RunAbout & { restates?: unknown };
+    return a.outcome !== 'derived' && a.outcome !== 'failed' && !a.restates;
+  }).at(-1);
+  return own ? heldLoadsOf(((own.about as unknown as { holds?: Hold[] }).holds) ?? []) : [];
 }
 
 /** The record's latest pause of a day under the flow on screen, if any: a version of the flow as kept (ADR 0021 §5). */
