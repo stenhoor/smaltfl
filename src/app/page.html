@@ -464,7 +464,6 @@ table.grid td.n { text-align: left; }
 .inc-state { grid-column: 2; font-size: 11px; font-family: var(--mono); text-transform: uppercase; color: var(--bad); } .inc-state.done { color: var(--teal); }
 .pick-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
 .pick { min-height: 36px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; padding: 4px 8px; max-width: 100%; }
-.bandchart .wx { fill: var(--smalt); opacity: 0.45; } .bandchart .wx.snow { fill: var(--teal-fill); opacity: 0.9; } .bandchart .wx.focus { stroke: var(--ink); stroke-width: 1.5; }
 .sheet-head { display: flex; align-items: flex-start; gap: 10px; }
 .sheet-head h2 { margin: 2px 0 0; font-size: 18px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .close { border: 0; background: var(--sunk); border-radius: 999px; width: 34px; height: 34px; font-size: 18px; line-height: 1; }
@@ -779,9 +778,7 @@ select.ch-mode.hold { color: var(--bad); } select.ch-mode.warn { color: var(--wa
 .hash4-short { font-family: var(--mono); font-size: 12px; border: 0; background: var(--sunk); color: var(--ink); border-radius: 6px; padding: 2px 6px; cursor: pointer; }
 .hash4-full { display: block; margin-top: 4px; }
 .c-line.muted { color: var(--muted); font-size: 12px; }
-.bandchart .wx-caret { fill: var(--ink); } .bandchart .wx-after { fill: var(--surface); opacity: 0.55; pointer-events: none; }
-.vf-key .k-rain { background: var(--smalt); opacity: 0.45; } .vf-key .k-snow { background: var(--teal-fill); }
-.vf-key .k-temp { height: 2px; background: var(--ink-2); }
+.bandchart .wx-after { fill: var(--surface); opacity: 0.55; pointer-events: none; }
 .vf-key .k-caret { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 7px solid var(--ink); border-radius: 0; }
 .vf-hashes { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 13px; color: var(--ink-2); }
 .vf-hashes code { font-family: var(--mono); color: var(--ink); background: var(--sunk); padding: 1px 6px; border-radius: 5px; }
@@ -830,6 +827,7 @@ select.ch-mode.hold { color: var(--bad); } select.ch-mode.warn { color: var(--wa
 .vf-cal-said { margin: 0; font-size: 13px; color: var(--ink-2); min-height: 20px; }
 .about-flow > summary { cursor: pointer; font-size: 13px; color: var(--ink-2); min-height: 32px; display: flex; align-items: center; gap: 6px; }
 .about-flow[open] > summary { margin-bottom: 6px; }
+.about-flow .lede + .lede { margin-top: 8px; }
 .ld-dot.steady { background: var(--teal-fill); }
 .ld-dot.moved { background: var(--warn); }
 .ld-dot.shifted { background: var(--bad); }
@@ -845,7 +843,6 @@ select.ch-mode.hold { color: var(--bad); } select.ch-mode.warn { color: var(--wa
 .bandchart { display: block; width: 100%; height: auto; touch-action: manipulation; cursor: pointer; }
 .bandchart .grid { stroke: var(--line); stroke-width: 1; }
 .bandchart .axis-brk { fill: none; stroke: var(--muted); stroke-width: 1.2; }
-.bandchart .wx-base { stroke: var(--hair); stroke-width: 1; }
 .bandchart .week { stroke: var(--line); stroke-width: 1; opacity: 0.6; }
 .bandchart .tick { font-family: var(--mono); font-size: 9px; fill: var(--muted); }
 .bandchart .band { fill: var(--smalt); opacity: 0.16; }
@@ -1289,7 +1286,6 @@ svg.viz { display: block; overflow: visible; max-width: 100%; height: auto; }
 /* An episode chip's viewed day: its trips missing, filled (round 3, #23); earlier days are .absent, days not run .notrun. */
 .viz .ep-at { fill: var(--bad); stroke: var(--bad); stroke-width: 1; }
 .viz .kept { fill: var(--teal-fill); } .viz .kept-over { fill: color-mix(in srgb, var(--teal-fill) 52%, var(--surface)); }
-.viz .wx-bar.snow { fill: var(--teal-fill); } .viz .wx-bar.rain { fill: var(--smalt); opacity: 0.55; }
 .viz .joint { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 2; }
 .viz .brk { fill: none; stroke: var(--muted); stroke-width: 1.2; }
 .viz .dumb { stroke: var(--ink); stroke-width: 1.6; }
@@ -1482,9 +1478,6 @@ svg.viz { display: block; overflow: visible; max-width: 100%; height: auto; }
 .vf-cell.explained, .vf-cell.ok, .vf-cell.note { color: var(--ink-2); }
 .vf-cell.alert, .vf-cell.warn { font-weight: 650; }
 .vf-cell:active { background: var(--sunk); }
-/* The weather the card notes: a tagged note at its end, context and nothing to tap. */
-.vf-wx { display: flex; align-items: baseline; gap: 8px; margin: 0; font-size: 13px; color: var(--muted); }
-.vf-tag { flex: none; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--edge); border-radius: 4px; padding: 0 5px; line-height: 16px; }
 /* Under an unusual head whose day's trips all came: nothing to do, said plainly. */
 .vf-settle { margin: -6px 0 0; font-size: 13.5px; color: var(--ink-2); }
 .vf-group-h { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
@@ -1570,11 +1563,6 @@ svg.viz { display: block; overflow: visible; max-width: 100%; height: auto; }
 .vf-daylist .dl-marks { display: inline-flex; gap: 2px; }
 .vf-daylist .dl-day { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
 .vf-daylist .dl-fate { color: var(--ink-2); }
-/* The episodes to pick from: each marked by its days, the one shown pressed. */
-.episodes .ep-chip { display: inline-flex; align-items: center; gap: 5px; }
-.episodes .ep-chip[aria-pressed="true"] { background: var(--smalt); border-color: var(--smalt); color: var(--surface); font-weight: 700; }
-.episodes .ep-chip[aria-pressed="true"] .g-fill { fill: var(--surface); } .episodes .ep-chip[aria-pressed="true"] .g-cut { fill: var(--smalt); }
-.episodes .ep-chip[aria-pressed="true"] .g-tri { fill: var(--surface); stroke: var(--surface); } .episodes .ep-chip[aria-pressed="true"] .g-mark { fill: var(--smalt); }
 .vf-cell.sealed .g { margin-right: 1px; }
 .paused-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 10px; color: var(--ink); font-size: 14px; }
 /* The paused day said at the top of the source's News (round 3, #12): the pause, readers' day and why that day, and
@@ -1946,7 +1934,7 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 }
 @media (min-width: 1180px) {
   #view-month:not([hidden]) { grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); align-items: start; }
-  #view-month > .mo-head, #view-month > .episodes, #view-month > .mo-trend, #view-month > .mo-grid { grid-column: 1 / -1; }
+  #view-month > .mo-head, #view-month > .mo-trend, #view-month > .mo-grid { grid-column: 1 / -1; }
 }
 
 /* The demo's scenes (ADR 0023 §4): what it shows, a numbered list, each place to look a link (a 40 px target); the
@@ -2077,7 +2065,7 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 <header class="bar">
   <div class="bar-top">
     <p class="mark" aria-label="smaltfl"><svg viewBox="0 0 64 64" aria-hidden="true"><path class="m-body" d="M10.3 26.64L10.79 26.21L11.28 25.79L11.75 25.38L12.22 25L12.67 24.63L13.11 24.29L13.53 23.98L13.94 23.7L14.34 23.44L14.71 23.22L15.07 23.03L15.4 22.88L15.71 22.75L16 22.66L16.27 22.58L16.52 22.54L16.77 22.51L17 22.5L17.23 22.51L17.48 22.54L17.73 22.58L18 22.66L18.29 22.75L18.6 22.88L18.93 23.03L19.29 23.22L19.66 23.44L20.06 23.7L20.47 23.98L20.89 24.29L21.33 24.63L21.78 25L22.25 25.38L22.72 25.79L23.21 26.21L23.7 26.64L24.21 27.08L24.72 27.52L25.25 27.97L25.78 28.42L26.33 28.86L26.89 29.29L27.47 29.72L28.06 30.12L28.66 30.52L29.29 30.88L29.93 31.23L30.6 31.54L31.29 31.82L32 32.05L32.73 32.24L33.48 32.38L34.23 32.47L35 32.5L35.77 32.47L36.52 32.38L37.27 32.24L38 32.05L38.71 31.82L39.4 31.54L40.07 31.23L40.71 30.88L41.34 30.52L41.94 30.12L42.53 29.72L43.11 29.29L43.67 28.86L44.22 28.42L44.75 27.97L45.28 27.52L45.79 27.08L46.3 26.64L41.7 21.36L41.21 21.79L40.72 22.21L40.25 22.62L39.78 23L39.33 23.37L38.89 23.71L38.47 24.02L38.06 24.3L37.66 24.56L37.29 24.78L36.93 24.97L36.6 25.12L36.29 25.25L36 25.34L35.73 25.42L35.48 25.46L35.23 25.49L35 25.5L34.77 25.49L34.52 25.46L34.27 25.42L34 25.34L33.71 25.25L33.4 25.12L33.07 24.97L32.71 24.78L32.34 24.56L31.94 24.3L31.53 24.02L31.11 23.71L30.67 23.37L30.22 23L29.75 22.62L29.28 22.21L28.79 21.79L28.3 21.36L27.79 20.92L27.28 20.48L26.75 20.03L26.22 19.58L25.67 19.14L25.11 18.71L24.53 18.28L23.94 17.88L23.34 17.48L22.71 17.12L22.07 16.77L21.4 16.46L20.71 16.18L20 15.95L19.27 15.76L18.52 15.62L17.77 15.53L17 15.5L16.23 15.53L15.48 15.62L14.73 15.76L14 15.95L13.29 16.18L12.6 16.46L11.93 16.77L11.29 17.12L10.66 17.48L10.06 17.88L9.47 18.28L8.89 18.71L8.33 19.14L7.78 19.58L7.25 20.03L6.72 20.48L6.21 20.92L5.7 21.36Z"/><path class="m-body" d="M10.3 42.64L10.79 42.21L11.28 41.79L11.75 41.38L12.22 41L12.67 40.63L13.11 40.29L13.53 39.98L13.94 39.7L14.34 39.44L14.71 39.22L15.07 39.03L15.4 38.88L15.71 38.75L16 38.66L16.27 38.58L16.52 38.54L16.77 38.51L17 38.5L17.23 38.51L17.48 38.54L17.73 38.58L18 38.66L18.29 38.75L18.6 38.88L18.93 39.03L19.29 39.22L19.66 39.44L20.06 39.7L20.47 39.98L20.89 40.29L21.33 40.63L21.78 41L22.25 41.38L22.72 41.79L23.21 42.21L23.7 42.64L24.21 43.08L24.72 43.52L25.25 43.97L25.78 44.42L26.33 44.86L26.89 45.29L27.47 45.72L28.06 46.12L28.66 46.52L29.29 46.88L29.93 47.23L30.6 47.54L31.29 47.82L32 48.05L32.73 48.24L33.48 48.38L34.23 48.47L35 48.5L35.77 48.47L36.52 48.38L37.27 48.24L38 48.05L38.71 47.82L39.4 47.54L40.07 47.23L40.71 46.88L41.34 46.52L41.94 46.12L42.53 45.72L43.11 45.29L43.67 44.86L44.22 44.42L44.75 43.97L45.28 43.52L45.79 43.08L46.3 42.64L41.7 37.36L41.21 37.79L40.72 38.21L40.25 38.62L39.78 39L39.33 39.37L38.89 39.71L38.47 40.02L38.06 40.3L37.66 40.56L37.29 40.78L36.93 40.97L36.6 41.12L36.29 41.25L36 41.34L35.73 41.42L35.48 41.46L35.23 41.49L35 41.5L34.77 41.49L34.52 41.46L34.27 41.42L34 41.34L33.71 41.25L33.4 41.12L33.07 40.97L32.71 40.78L32.34 40.56L31.94 40.3L31.53 40.02L31.11 39.71L30.67 39.37L30.22 39L29.75 38.62L29.28 38.21L28.79 37.79L28.3 37.36L27.79 36.92L27.28 36.48L26.75 36.03L26.22 35.58L25.67 35.14L25.11 34.71L24.53 34.28L23.94 33.88L23.34 33.48L22.71 33.12L22.07 32.77L21.4 32.46L20.71 32.18L20 31.95L19.27 31.76L18.52 31.62L17.77 31.53L17 31.5L16.23 31.53L15.48 31.62L14.73 31.76L14 31.95L13.29 32.18L12.6 32.46L11.93 32.77L11.29 33.12L10.66 33.48L10.06 33.88L9.47 34.28L8.89 34.71L8.33 35.14L7.78 35.58L7.25 36.03L6.72 36.48L6.21 36.92L5.7 37.36Z"/><path class="m-chip" d="M52 27h1a3 3 0 0 1 3 3v4a3 3 0 0 1 -3 3h-1a3 3 0 0 1 -3 -3v-4a3 3 0 0 1 3 -3z"/></svg><span>sm<span class="a">alt</span><span class="f">fl</span></span></p>
-    <h1 class="flow-name" id="flow-name">NYC taxis and weather</h1>
+    <h1 class="flow-name" id="flow-name">smaltfl</h1>
     <button class="run" id="run" type="button" disabled>Run</button>
   </div>
   <div class="bar-second">
@@ -2099,7 +2087,8 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 
   <section class="view" id="view-flow" aria-label="Day">
     <details class="about-flow"><summary>About this flow</summary>
-    <p class="lede" id="lede">NYC yellow-taxi trips from the TLC's records, one load a day as a feed would bring them, checked, joined to their zones and each borough's hourly weather, all run in this browser. Step through January 2024, or a real incident from the records. Each load is judged against what a day like it has, the same weekday in the six weeks before and the same day last year, a holiday or Election Day against its own day last year: a dot on a card means news. Tap any card for its story: the news first, then its rows, columns, what it dropped, odd rows and history, each with what you can do about it. A day with something wrong is paused, not published: it waits (‖), readers keeping the last day published, until the owner decides to publish it as is (⚑) or not at all (✕). A short day with a part missing can be filled from a good day near it, every filled row marked with the day it came from (◧), or published with only the part that arrived (◐). A change that is meant to stay can be accepted as the new level (a step mark): the days after it are judged from it, and those at the same level publish under it. A day the history can't judge pauses too, as every day does in the small build, which has no history.</p>
+    <p class="lede" id="flow-desc" hidden></p>
+    <p class="lede" id="lede">Each load is judged against what a day like it has: a dot on a card means news. Tap any card for its story: the news first, then its rows, columns, what it dropped, odd rows and history, each with what you can do about it. A day with something wrong is paused, not published: it waits (‖), readers keeping the last day published, until the owner decides to publish it as is (⚑) or not at all (✕). A short day with a part missing can be filled from a good day near it, every filled row marked with the day it came from (◧), or published with only the part that arrived (◐). A change that is meant to stay can be accepted as the new level (a step mark): the days after it are judged from it, and those at the same level publish under it.</p>
     <ul class="legend" aria-label="Legend">
       <li><span class="port-key in" aria-hidden="true"></span>input: data the flow reads</li>
       <li><span class="port-key out" aria-hidden="true"></span>output: a dataset it publishes</li>

@@ -25,7 +25,7 @@ describe('readDataList', () => {
     const list = readDataList({
       format: 2, month: '2024-03', data: null, flow,
       sources: { auth: { table: 'auth_file', format: 'csv', file: 'auth.csv', header: true, columns: [['event_time', 'TEXT']], loads: [{ slot: '2024-03-12', file: 'loads/auth_2024-03-12.csv', sha256: SHA('a'), bytes: 1, rows: 3 }], donors: [] } },
-      histories: { auth: history }, episodes: [],
+      histories: { auth: history },
     });
     expect(list).toMatchObject({ format: 2, loadSource: 'auth', flow, histories: { auth: history } });
     expect(list.loads).toEqual([{ day: '2024-03-12', file: 'loads/auth_2024-03-12.csv', sha256: SHA('a'), bytes: 1, rows: 3 }]);
@@ -45,7 +45,7 @@ describe('readDataList', () => {
         tls: { table: 'tls_file', format: 'csv', file: 'tls.csv', header: true, loads: [l('tls', '2024-03-04', 'a'), l('tls', '2024-03-05', 'b')], donors: [] },
         mfa: { table: 'mfa_file', format: 'csv', file: 'mfa.csv', header: true, loads: [l('mfa', '2024-03-05', 'c')], donors: [] },
       },
-      histories: { tls: hist('tls'), mfa: hist('mfa'), posture: hist('posture') }, episodes: [],
+      histories: { tls: hist('tls'), mfa: hist('mfa'), posture: hist('posture') },
     });
     expect(list).toMatchObject({ format: 2, loadSource: 'tls', daily: ['tls', 'mfa'], judged: 'posture' });
     expect(list.loads.map((x) => [x.day, x.file, Object.keys(x.files!)])).toEqual([['2024-03-04', 'loads/tls_2024-03-04.csv', ['tls']], ['2024-03-05', 'loads/tls_2024-03-05.csv', ['tls', 'mfa']]]);
@@ -67,7 +67,7 @@ describe('readDataList', () => {
         ] },
         mfa: { table: 'mfa_file', format: 'csv', file: 'mfa.csv', header: true, loads: [l('mfa', '2024-03-21', 'm')], donors: [] },
       },
-      histories: {}, episodes: [],
+      histories: {},
     });
     const ds = deliveriesOf(list, '2024-03-21');
     expect(ds.map((d) => [d.source, d.n, d.file, d.exported ?? null, d.why])).toEqual([['tls', 1, 'loads/tls_2024-03-21.v2.csv', null, 'repeats taken out'], ['tls', 2, 'loads/tls_2024-03-21.v3.csv', '2024-03-22T03:30:00Z', 'every certificate once']]);

@@ -40,7 +40,7 @@ export interface BriefIn {
   flow: string;
   /** The source's noun: `noun(1)` "trip", `noun(2)` "trips". */
   noun: (n: number) => string;
-  story: Pick<Story, 'state' | 'severity' | 'head' | 'amount' | 'split' | 'hours' | 'hoursLabels' | 'gate' | 'episode' | 'cause' | 'context'> & Partial<Pick<Story, 'stories'>> | null;
+  story: Pick<Story, 'state' | 'severity' | 'head' | 'amount' | 'split' | 'hours' | 'hoursLabels' | 'gate' | 'episode' | 'cause'> & Partial<Pick<Story, 'stories'>> | null;
   /** The day under the flow that holds: its state, the day readers see meanwhile, who decides; and `by`, what held it
    * when that isn't this story (ADR 0013 §5: another watched load's verdict, "backup: status fail with restore_tested
    * yes: 55"). Null for a flow that doesn't hold, or a day that wasn't held. */
@@ -207,7 +207,6 @@ export function causeOf(o: Pick<BriefIn, 'story' | 'file' | 'noun'>): { facts: s
     if (said) facts.push(`The file ${o.file.name} ${said}${o.file.rows !== null && o.file.rows !== undefined ? ` (${compact(o.file.rows)} rows)` : ''}`);
   }
   if (s?.cause?.because) theories.push(`Possibly follows from ${s.cause.because}`);
-  if (s?.context) theories.push(`Context, not a cause: ${s.context.title}`);
   return { facts: facts.slice(0, 5), theories };
 }
 

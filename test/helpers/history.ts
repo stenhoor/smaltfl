@@ -22,7 +22,6 @@ export interface Trouble {
   vendorGone?: boolean;
   vendorShare?: number;
   newValue?: boolean;
-  snow?: number;
   /** Vendor 1's trips arrive as usual and almost none of vendor 2's (Fri Sep 22, 2023's Flex Fare). */
   onlyVendor1?: boolean;
   /** Vendor 1's trips this many times their usual, vendor 2's as usual. */
@@ -68,14 +67,12 @@ export function historyWith(trouble: Record<string, Trouble> = {}): HistoryFile 
     values: ['2', '1', '6'], first: [0, 0, newDay ? k(newDay) : DAYS.length], last: [DAYS.length - 1, DAYS.length - 1, newDay ? k(newDay) : -1],
     days: [DAYS.length, DAYS.length, newDay ? 1 : 0], rows: [0, 0, newDay ? 500 : 0], fresh: newDay ? [[k(newDay), 500]] : [], counts,
   };
-  const snow = DAYS.map((d) => trouble[d]?.snow ?? 0);
   return {
     format: 'smaltfl-history/2', built: '2024-02-01T00:00:00Z', flow: 'f', step: 'trips_valid',
     rules: [{ name: 'fare', check: 'fare_amount >= 0', onFail: 'drop' }],
     columns: ['VendorID'], types: ['int'], kinds: ['code'], sample: 2000,
     days: DAYS, rows, dropped: rows.map((n, k) => Math.round(n * dropShares[k]!)), failed: rows.map((n, k) => [Math.round(n * dropShares[k]!)]), present: rows.map((n) => [n]), p50: rows.map(() => [2]),
     missing: [], quantiles: rows.map(() => [null]), hours, warmup: 28, values: { VendorID: vendors }, pairs: {},
-    weather: { boroughs: ['Manhattan'], hours: DAYS.map(() => [24]), precip: snow.map((x) => x * 1.2), snow, tmin: DAYS.map(() => -2), tmax: DAYS.map(() => 4) },
   };
 }
 /** The made-up history's names: the taxi's noun (ADR 0010 §8), and its vendor column said short. */

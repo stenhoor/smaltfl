@@ -138,8 +138,6 @@ export interface Story {
   sameDay: Told[];
   absorbed: Told[];
   notes: Told[];
-  /** Weather worth knowing on the day: context, never a reason. */
-  context: Told | null;
   /** The episode a day with something wrong is part of: its days so far (each day's trips against its guess, the
    * viewed day last, none after it), and the trips short over them (days.shortfall: an estimate and its bound; with no
    * hour the trips fell, each day's guess less its trips, as its amount line says it). */
@@ -160,7 +158,7 @@ export interface Story {
     folded: string | null; follows: string | null; sameDay: string | null; notes: string | null; more: string | null; primary: string | null; kinds: string[]; after: string | null;
     /** Under an unusual head whose day's total is in its range and whose verb is only marking it: whether to act. */
     settle: string | null;
-    key: string[]; context: string | null; health: string;
+    key: string[]; health: string;
   };
   findings: Told[];
 }
@@ -232,14 +230,12 @@ export const CELL_KINDS: Record<Cell, readonly Finding['kind'][]> = { file: ['in
 export const CELL_NAMES: Record<Cell, string> = { file: 'File', amount: 'Amount', hours: 'Hours', values: 'Values', shape: 'Shape' };
 /** The health row's heading: what the five cells are, said once and counted at a glance. */
 export const HEALTH_HEAD = 'Health';
-/** The tag before the weather a card notes (ADR 0008 §11): context, never a cause; counted at a glance. */
-export const CONTEXT_TAG = 'Context';
 /** Under an unusual head whose day's total is in its range, with nothing to decide: the day's trips all came. */
 export const SETTLE_LINE = 'Total in range · nothing to do';
 
 const RANK: Record<Severity, number> = { alert: 0, warn: 1, note: 2, ok: 3 };
 const VALUE_KINDS = new Set<Finding['kind']>(['gone', 'share', 'missing']);
-const NEVER_FOLD = new Set<Finding['kind']>(['new', 'pair', 'combo', 'unlike', 'apart', 'band', 'due', 'scope', 'needs', 'reconcile', 'schema', 'integrity', 'stale', 'weather', 'calm', 'unlearned']);
+const NEVER_FOLD = new Set<Finding['kind']>(['new', 'pair', 'combo', 'unlike', 'apart', 'band', 'due', 'scope', 'needs', 'reconcile', 'schema', 'integrity', 'stale', 'calm', 'unlearned']);
 /** The written rules (ADR 0014 §4, §6): a step's own whatever its sources said. */
 const WRITTEN_RULES = new Set<Finding['kind']>(['scope', 'needs', 'reconcile']);
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -858,8 +854,7 @@ export function storyOf(h: HistoryRanges, day: string, findings: readonly Findin
   const absorbed = told.filter((f) => f.tier === 'absorbed');
   const follows = told.filter((f) => f.tier === 'follows').sort((a, b) => RANK[a.was] - RANK[b.was] || b.score - a.score);
   const sameDay = told.filter((f) => f.tier === 'sameDay').sort((a, b) => RANK[a.was] - RANK[b.was] || b.score - a.score);
-  const weather = told.find((f) => f.kind === 'weather' && f.severity === 'note' && f.key === 'weather') ?? null;
-  const notes = told.filter((f) => f.tier === 'note' && f.severity !== 'ok' && f !== weather).sort(byRank);
+  const notes = told.filter((f) => f.tier === 'note' && f.severity !== 'ok').sort(byRank);
 
   // How bad the day is: its cause with what it absorbed (a split with nothing worse is unusual), a held gate, its stories.
   let causeSeverity: Severity = cause && cause.tier === 'cause' ? cause.was : 'ok';
@@ -1002,22 +997,6 @@ export function storyOf(h: HistoryRanges, day: string, findings: readonly Findin
   else if (volume?.lasting && volume.severity === 'note' && volume.value !== undefined && volume.range) head = `${volume.value > volume.range.expected ? 'Busier' : 'Quieter'} than usual for days`;
   else head = calmHead;
 
-  // The weather, as context after the day's numbers and never in the chip a cause takes (ADR 0008 §6): today's snow,
-  // and the day before's when today's trips are the news ("❄ 1.5 cm today · 7.2 cm Sat"). Not on a day with something
-  // wrong, whose cause is told, nor on the day after an episode, which says what is left of it: their weather is on
-  // the weather's own card.
-  const snowOf = (d: string) => {
-    const j = file.days.indexOf(d);
-    return j >= 0 ? (file.weather?.snow[j] ?? 0) : 0;
-  };
-  const cm = (x: number) => `${x.toFixed(1)} cm`;
-  const contextLabel = (() => {
-    if (k < 0 || severity === 'alert' || o.refused) return null;
-    const today = snowOf(day);
-    const before = hero === 'amount' ? snowOf(plusDays(day, -1)) : 0;
-    const parts = [today >= 1 ? `${cm(today)} today` : '', before >= 1 ? `${cm(before)} ${weekdayOf(plusDays(day, -1)).slice(0, 3)}` : ''].filter(Boolean);
-    return parts.length ? `❄ ${parts.join(' · ')}` : null;
-  })();
   const span = (a: string, b: string) => (a === b ? weekdayOf(a).slice(0, 3) : `${weekdayOf(a).slice(0, 3)}–${weekdayOf(b).slice(0, 3)}`);
   // Days said as runs: "Fri–Sun", "Mon, Wed".
   const spans = (ds: readonly string[]) => {
@@ -1125,7 +1104,7 @@ export function storyOf(h: HistoryRanges, day: string, findings: readonly Findin
 
   return {
     day, state, severity, head, chip: state === 'unlearned' ? whyChip : chip, hero: shownHero, amount, split: shownHero === 'calm' ? null : basis, hours: hoursF?.hours ?? null, hoursLabels, kept: shownHero === 'hours' ? kept : null, gate, coverage,
-    cause, stories, more, follows, sameDay, absorbed, notes, context: weather,
+    cause, stories, more, follows, sameDay, absorbed, notes,
     episode, recovery, health, primary,
     labels: {
       // The day's own change sits on the amount line when its count is outside its range and the head doesn't say it;
@@ -1152,7 +1131,6 @@ export function storyOf(h: HistoryRanges, day: string, findings: readonly Findin
       // Four weeks of days say too what their darker bands are: the viewed day's weekday ("Sundays").
       // The day after an episode keys its days' ! too ("wrong"); its line keys ‖ ⚑ ✕.
       key: shownHero === 'calm' ? [...STRIP_KEY, ...(state === 'recovery' ? ['wrong'] : [])] : (shownHero === 'amount' || shownHero === 'finding') && cause?.kind === 'volume' ? [...STRIP_KEY, `${weekdayOf(day)}s`] : [],
-      context: state === 'recovery' ? null : contextLabel,
       // A calm day's cells, none marked, say so: a blank cell can't be told from one not checked.
       // Some of its numbers had no range: never "all normal" (ADR 0010 §1).
       health: notJudged > 0 ? `${HEALTH_HEAD} · ${notJudged} not judged` : state === 'calm' && health.every((c) => !c.severity && !c.explained) ? `${HEALTH_HEAD} · all normal` : HEALTH_HEAD,
@@ -1299,7 +1277,7 @@ export function recentSpan(days: readonly { v: number | null; low: number | null
 
 /** Every string a story shows at a glance (head, chip, the hero's labels, rows, the verb), for its word budget. */
 export function glanceStrings(s: Story): string[] {
-  return [s.head, s.chip ?? '', s.labels.after ?? '', s.labels.settle ?? '', ...s.labels.amount, ...s.labels.hero, ...s.labels.key, s.labels.context ? `${CONTEXT_TAG} ${s.labels.context}` : '', s.labels.health, s.labels.folded ?? '', s.labels.more ?? '', s.labels.notes ?? '', s.labels.primary ?? '', ...s.stories.map((f) => f.title)].filter(Boolean);
+  return [s.head, s.chip ?? '', s.labels.after ?? '', s.labels.settle ?? '', ...s.labels.amount, ...s.labels.hero, ...s.labels.key, s.labels.health, s.labels.folded ?? '', s.labels.more ?? '', s.labels.notes ?? '', s.labels.primary ?? '', ...s.stories.map((f) => f.title)].filter(Boolean);
 }
 
 /**

@@ -15,10 +15,7 @@ const doc = { steps: [{ id: 'trips_valid', kind: 'expectations' as const, inputs
 const TROUBLE = { '2024-01-11': { stopAt: 13 }, '2024-01-17': { vendorGone: true }, '2024-01-24': { vendorShare: 0.45 } };
 
 describe('a base and its tail', () => {
-  const full = (() => {
-    const { weather: _w, ...f } = historyWith(TROUBLE);
-    return f;
-  })();
+  const full = historyWith(TROUBLE);
   const n = full.days.indexOf('2024-01-01');
   const base = headOf(full, n);
   const tail = full.days.slice(n).map((_, j) => measuresAt(full, n + j));
@@ -81,10 +78,7 @@ describe('days left out of learning', () => {
 });
 
 describe('the checks counted with other rules', () => {
-  const file = (() => {
-    const { weather: _w, ...f } = historyWith({});
-    return f;
-  })();
+  const file = historyWith({});
   const n = file.days.indexOf('2024-01-01');
   const base = headOf(file, n);
   const rules = [{ name: 'fare', check: 'fare_amount > 0', onFail: 'drop' }];

@@ -140,7 +140,7 @@ export function bronzeOf(section: FileSection, gate: GateChecks | null, findings
     }
   };
   for (const f of findings) {
-    if (f.kind === 'calm' || f.kind === 'unlearned' || f.kind === 'weather' || f.kind === 'placeholder') continue;
+    if (f.kind === 'calm' || f.kind === 'unlearned' || f.kind === 'placeholder') continue;
     const check = f.check ?? checkOf(f.kind);
     let to = home(f);
     if (!to && check) to = byId.get(`${file}/~${check}`) ?? own(check, LEARNED.includes(check) ? 'learned' : 'contract');

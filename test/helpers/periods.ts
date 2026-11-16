@@ -32,6 +32,5 @@ export function headOf(file: HistoryFile, n: number): HistoryFile {
       fresh: vh.fresh.filter(([d]) => d < n), counts: counts.map((r) => keep.map((i) => r[i] ?? 0)),
     };
   }
-  const { weather: _weather, ...rest } = file;
-  return { ...rest, days: cut(file.days), rows: cut(file.rows), dropped: cut(file.dropped), failed: cut(file.failed), present: cut(file.present), p50: cut(file.p50), quantiles: cut(file.quantiles), hours: cut(file.hours), values, pairs: {} };
+  return { ...file, days: cut(file.days), rows: cut(file.rows), dropped: cut(file.dropped), failed: cut(file.failed), present: cut(file.present), p50: cut(file.p50), quantiles: cut(file.quantiles), hours: cut(file.hours), values, pairs: {} };
 }

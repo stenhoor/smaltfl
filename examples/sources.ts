@@ -5,15 +5,13 @@
  * by the smaltfl plugin (`pinnedDdl`). The app, the history builder and the tests use the same bindings.
  */
 
-/** One source's binding: its table, the file's format and name, a CSV's header and columns; `context` for a source
- * the news tells as context (the weather). */
+/** One source's binding: its table, the file's format and name, a CSV's header and columns. */
 export interface Binding {
   table: string;
   format: 'parquet' | 'csv';
   file: string;
   header?: boolean;
   columns?: [name: string, type: string][];
-  context?: 'weather';
 }
 
 /** A flow's data list of bindings, by source id. */
@@ -73,5 +71,5 @@ export const pinnedDdl = (src: ExampleSource | Binding, readAs: readonly (readon
  * it, read through its own table made from the source's binding: `<table>_donor` over `<source>_donor.<format>`. A
  * derived document names it as the source `<source>_donor` (fill.ts donorSourceOf).
  */
-export const donorBinding = (source: string, b: Binding): Binding => ({ ...b, table: `${b.table}_donor`, file: `${source}_donor.${b.format}`, context: undefined });
+export const donorBinding = (source: string, b: Binding): Binding => ({ ...b, table: `${b.table}_donor`, file: `${source}_donor.${b.format}` });
 
