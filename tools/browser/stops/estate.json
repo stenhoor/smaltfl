@@ -214,7 +214,8 @@
     "The list of applications: 12 other files are checked against it.",
     "No checks of its own yet.",
     "All filled · every value different",
-    "DISCOVERED",
+    "PROPOSED FROM THE DATA",
+    "Nothing watches this file, so nothing it declares would be judged: nothing is proposed.",
     "What its 2 values stand for",
     "What its value stands for"
    ],
@@ -316,7 +317,7 @@
     "Nothing to draw: the file wasn’t read.",
     "No Application blank or repeated",
     "None is a bad value: a jump above its usual share is flagged as wrong",
-    "DISCOVERED"
+    "PROPOSED FROM THE DATA"
    ],
    "noText": [
     "Not run yet",
@@ -421,7 +422,7 @@
     "203 apps · 9 checks",
     "Failing between 0% and 15% of apps",
     "59.6%",
-    "DISCOVERED"
+    "PROPOSED FROM THE DATA"
    ],
    "noText": [
     "What the columns mean"
@@ -785,7 +786,7 @@
   "expect": {
    "text": [
     "Failing between 0% and 15% of apps",
-    "DISCOVERED"
+    "PROPOSED FROM THE DATA"
    ],
    "count": {
     "#ontology-files .of-sec": 1,

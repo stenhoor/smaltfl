@@ -10914,6 +10914,8 @@ function proposalsFor(id: string): Promise<Proposal[] | null> {
   const known = proposalsRead.get(key);
   if (known) return known;
   const read = (async (): Promise<Proposal[] | null> => {
+    // A file nothing watches is offered nothing (proposals.ts): its rows aren't read for it.
+    if (!watchedFile(state.doc, id)) return [];
     const nv = await nodeView(id, state.viewer);
     if (typeof nv === 'string' || !state.engine) return null;
     const q = await qualityOf(nv.insp, nv.i, state.viewer);
