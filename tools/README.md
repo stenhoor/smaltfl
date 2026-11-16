@@ -42,10 +42,23 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
   file and one release citing them, and Wed Mar 13 is kept back. After a reload, the decisions are applied again from
   the record. It must report `problems: none`.
 - `month.json`: the month and the day screens on Larkspur (ADR 0021; `npm run build:app -- --flow
-  examples/larkspur/flow.json --out dist/app-larkspur`): the recorded March with its trend band, Tue Mar 12 picked and
+  examples/larkspur/flow.json --out dist/app-larkspur`): the recorded March as ADR 0024 lays it out (what waits, the
+  month in a sentence, its counts as filters, the files and steps as rows, the score said), Tue Mar 12 picked and
   opened (run here and checked against its record), Mon Mar 18 by its link with its story, and the month as known at
   the end of Fri Mar 15 and back to now. A stop's `day` is found by the month's label (`window.__smaltflMonth`) and
   opened by its link (`#day/YYYY-MM-DD`).
+- `overview.json`: the month at a glance (ADR 0024) on the tour (`npm run build:app -- --variant tour --out
+  dist/app-tour`):
+  - the month as it opens: March on show, the day that waits above everything, the months side by side, the month
+    in a sentence beside February, its counts, the scenes behind their bar;
+  - a count tapped to its days, and back;
+  - a day told in order (Mon Mar 11: held, filled, the corrected file, each with who and why), and the day that waits;
+  - the files and steps as rows of days, the steps that followed a file opened, a bar tapped to its day;
+  - the score said, with what moved it;
+  - February by its link, a day named by its file (Fri Feb 16), Presidents' Day's files not judged in one line;
+  - the arrow keys and Page Down (a stop's `press`), the scenes opened, the dark scheme, and **Decide ›** from the month.
+
+  Run it at every size. It must report `problems: none`.
 - `integrity.json`: integrity in the browser (ADR 0006) on Larkspur (same build as `month.json`), the taxi's suite
   ported. It checks:
   - the first day's files, each sealed;

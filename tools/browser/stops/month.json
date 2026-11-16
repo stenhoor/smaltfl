@@ -1,47 +1,81 @@
 [
   {
     "name": "month-home",
-    "what": "Larkspur's month (ADR 0021 §3): for the day and as known on, the posture's trend, the calendar of the recorded March with its story (five days corrected, five decided, two restated under rules changed since, two waiting), the day picked and, from tablet width, the grid",
+    "what": "Larkspur's month (ADR 0021 §3, as ADR 0024 lays it out): for the day and as known on, the four days that wait above everything, the month in a sentence with its counts, the calendar of the recorded March with its story (five days corrected, two restated under rules changed since), the day picked, what needed a look, the files and steps, and the posture's score said",
     "view": "month",
     "viewFirst": true,
     "full": true,
     "element": "#view-month",
     "expect": {
-      "text": ["FOR THE DAY", "AS KNOWN ON", "March 2024", "CONTROL POSTURE V1 · THE GROUP’S SCORE ON EACH DAY PUBLISHED", "93.6 on Fri 1, 92.0 on Sun 31"],
+      "text": ["FOR THE DAY", "AS KNOWN ON", "March 2024", "WAITING FOR A DECISION · 4 DAYS", "15 of 31 days went out on their own, 12 with something unusual. 16 were paused for a decision: 8 published by a decision, 4 kept back and 4 still wait.", "CONTROL POSTURE V1 · THE GROUP’S SCORE ON EACH DAY PUBLISHED", "Down 1.6 points from Fri 1 to Sun 31: 93.6 to 92.0, over 24 days published."],
       "count": {
         "#view-month .mo-d": 31,
         "#view-month .mo-d.st-paused": 11,
         "#view-month .mo-d.corrected:not(.restated)": 5,
-        "#view-month .mo-d.restated": 2
+        "#view-month .mo-d.restated": 2,
+        "#view-month .mo-d.oc-waiting": 4,
+        "#view-month .mo-wait-row": 4,
+        "#view-month .mo-card": 0,
+        "#view-month .mo-page": 0
       }
     }
   },
   {
-    "name": "month-grid-corrected",
-    "what": "The grid's filters (ADR 0021 §3), from tablet width: Corrected shows the five days sent again and published, Waiting the two still the visitor's, Held the twelve paused and the two restated as held",
+    "name": "month-counts",
+    "what": "The counts filter the days (ADR 0024 §2; they took the grid's filters' place): Paused shows the four days still the visitor's, in the list and, the others dimmed, in the calendar",
     "view": "month",
     "viewFirst": true,
-    "devices": ["tablet", "tablet-wide", "desktop", "wide"],
-    "click": "#view-month .mg-filter[data-filter=\"corrected\"]",
-    "full": true,
-    "element": "#view-month .mo-grid",
+    "click": "#view-month .mo-chip[data-outcome=\"waiting\"]",
+    "element": "#view-month .mo-log",
     "expect": {
-      "text": ["Corrected (5)", "Waiting for a decision (4)", "Held (16)"],
+      "text": ["PAUSED · 4 DAYS", "Show every day that needed a look"],
       "count": {
-        "#view-month .mo-gt thead th": 6,
-        "#view-month .mg-filter[aria-pressed=\"true\"][data-filter=\"corrected\"]": 1
+        "#view-month .mo-chip[aria-pressed=\"true\"][data-outcome=\"waiting\"]": 1,
+        "#view-month .mo-log-row": 4,
+        "#view-month .mo-d.dim": 27
+      }
+    }
+  },
+  {
+    "name": "month-counts-off",
+    "what": "Every day that needed a look again: a troubled month lists its first twelve, the rest a tap away",
+    "view": "month",
+    "viewFirst": true,
+    "click": "#view-month .mo-log-all .linkish",
+    "element": "#view-month .mo-log",
+    "expect": {
+      "text": ["WHAT NEEDED A LOOK · 28 DAYS", "16 earlier days"],
+      "count": {
+        "#view-month .mo-chip[aria-pressed=\"true\"]": 0,
+        "#view-month .mo-log-row": 12,
+        "#view-month .mo-d.dim": 0
+      }
+    }
+  },
+  {
+    "name": "month-rows",
+    "what": "The files and steps as rows of days (ADR 0024 §5): the eight worst files listed, the other nine with something to report and the five clean ones folded; the steps with a day of their own, those that only followed a file folded",
+    "view": "month",
+    "viewFirst": true,
+    "full": true,
+    "element": "#view-month .mo-health",
+    "expect": {
+      "text": ["FILES AND STEPS OVER MARCH 2024", "Incoming files. 8 of 22 held a day, and 9 more were unusual on one.", "dr_exercises", "9 more files with something to report", "5 files with nothing to report", "Steps the flow builds. 7 of 28 had a day of their own to report: trouble no file they read accounts for. 3 steps held or were unusual only where a file they read was.", "3 steps that followed a file", "18 steps with nothing to report"],
+      "count": {
+        "#view-month .mh-row": 15,
+        "#view-month .mh-fold": 5
       }
     }
   },
   {
     "name": "month-pick",
-    "what": "Tue Mar 12 picked on the month: its summary under the calendar, from the recorded run and the recorded decision alone",
+    "what": "Tue Mar 12 picked on the month: told in order beside the calendar, from the recorded run and the recorded decision alone (ADR 0024 §4)",
     "view": "month",
     "viewFirst": true,
     "click": "#view-month .mo-d[data-day=\"2024-03-12\"]",
     "element": "#view-month .mo-sum",
     "expect": {
-      "text": ["Tue Mar 12", "published as is", "waf: Status fail: 22.7% (band 0%–15%)", "Recorded by the build", "Open the day ›"]
+      "text": ["Tue Mar 12", "Paused, then published as is.", "WHAT HELD IT", "waf file Status fail: 22.7% (band 0%–15%)", "WHAT HAPPENED", "20 files arrived. Held by waf", "Sloane Marsden published it as is", "Recorded by the build", "Open the day ›"]
     }
   },
   {
@@ -78,7 +112,7 @@
     "click": "#view-month .mo-d[data-day=\"2024-03-18\"]",
     "element": "#view-month .mo-sum",
     "expect": {
-      "text": ["Mon Mar 18", "corrected: version 2 of 2 published", "Corrected: hr_org_units sent again", "hr_org_units sent again Mon, Mar 18, 11:20 UTC: version 2, published", "run here, the same as the record"],
+      "text": ["Mon Mar 18", "corrected: version 2 of 2 published", "Corrected: a file sent again, and published.", "org_chain step on hr_org_units expectations failed: one_root (4 rows)", "hr_org_units sent again. A later file waits for a decision.", "Sloane Marsden published the version sent again", "run here, the same as the record"],
       "loads": {
         "Mon 18": "corrected: hr_org_units sent again"
       },
@@ -146,7 +180,7 @@
     "click": "#view-month .mo-d[data-day=\"2024-03-28\"]",
     "element": "#view-month .mo-sum",
     "expect": {
-      "text": ["Thu Mar 28", "org_chain: expectations failed", "run here, the same as the record"],
+      "text": ["Thu Mar 28", "Paused: it waits for a decision.", "org_chain step on hr_org_units expectations failed", "run here, the same as the record"],
       "loads": {
         "Thu 28": "org_chain: expectations failed"
       }

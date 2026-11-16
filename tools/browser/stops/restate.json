@@ -97,7 +97,7 @@
     "expect": {
       "status": "^Restated 1 day under the new rules; 1 day left as readers had it\\. Recorded\\.",
       "loads": { "Mon 4": "restated under rules changed since, held under them: not published", "Wed 6": "!restated", "Fri 1": "!restated" },
-      "pageText": ["restated under rules changed since, with its count of versions"]
+      "pageText": ["Restated run again under rules changed since: published, or not"]
     }
   },
   {

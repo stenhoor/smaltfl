@@ -24,6 +24,8 @@
 //     "clicks": ["sel", ...],             optional: tap each in order, settling ~900 ms (or a run) after each; an entry
 //                                         ["sel", "text"] types the text into that field instead (a form's input), or
 //                                         chooses that value where the field is a select
+//     "press": ["sel", "ArrowLeft"],      optional: after the taps, focus the first match and press each key in order
+//                                         (the month's arrow keys, ADR 0024 §7)
 //     "upload": ["sel", "file"],          optional: after the taps, choose this file (relative to the stops file) in a
 //                                         file input, and wait for the run it starts (Replace the file)
 //     "waitFor": "sel",                   optional: after the taps, wait until this shows (what a tap draws once the engine answers)
@@ -271,6 +273,19 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
           await target.click();
           await quiet(2000);
           if ((await status()).split('|')[0] !== before.split('|')[0] || /Running|Fetching/.test(await status())) await settled(before);
+        }
+      }
+      // Keys pressed with something focused (the month's calendar: the arrow keys move through its days).
+      if (stop.press) {
+        const [sel, ...keys] = stop.press;
+        const target = p.locator(sel).first();
+        if (!(await target.count())) problems.push(`${stop.name}: nothing to focus at ${sel}`);
+        else {
+          await target.focus();
+          for (const key of keys) {
+            await p.keyboard.press(key);
+            await quiet(1500);
+          }
         }
       }
       // A file chosen in a file input (Replace the file), relative to the stops file: the run it starts is waited for.

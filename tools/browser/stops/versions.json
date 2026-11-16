@@ -7,7 +7,7 @@
     "click": "#view-month .mo-d[data-day=\"2024-03-16\"]",
     "element": "#view-month .mo-sum",
     "expect": {
-      "text": ["Sat Mar 16", "restated: version 2 of 2, not published", "Run again under rules changed since: version 2, not published: held under them"]
+      "text": ["Sat Mar 16", "restated: version 2 of 2, not published", "Restated under rules changed since: not published.", "Run again under rules changed since: it would be held by findings.", "Sloane Marsden restated the day: not published, the rules changed since hold it."]
     }
   },
   {
