@@ -155,7 +155,8 @@ history, and the gate. A dataset with nothing declared still has its columns exp
 classifier. Two things it lacks are left for the next slice (Q-139): columns to count are taken only from the
 ontology's listed values, so the forest and the pairs have nothing to read; and the ontology has to be written by
 hand. The slice proposes declarations from the data (a column's values, a band from its usual range, the key), each
-accepted as a recorded change, and counts a coded column without being told.
+accepted as a recorded change, and counts a coded column without being told. Built as ADR 0022's slice 5 (Q-139,
+2026-11-16): *Proposed from the data*, under each file on the Ontology page and on its Quality tab.
 
 ## What moves on the estate
 
@@ -642,7 +643,7 @@ sense."* The choices made here are Q-148 to Q-151.
   added, the Rules tab, a switch, a reload and dark: no problems, no page error.
 - **Not built yet:** a range derived from the last days and kept fixed or rolling (Q-142); a rule across files or on
   a dataset the flow makes (Q-144 is still open); rules drawn against today's number with the last four weeks (§5);
-  the Discovered section's proposals.
+  the Discovered section's proposals (built in ADR 0022's slice 5, Q-139: *Proposed from the data*).
 
 ### Amendment 1, pieces (b) and (c): a starting file's shared ontology (2026-11-11)
 

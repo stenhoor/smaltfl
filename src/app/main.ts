@@ -52,10 +52,11 @@ import { followsCause as followsFrom, ACT_VERB, CELL_KINDS, CELL_NAMES, CONTEXT_
 import { scoreSpark, scoreTrend, type ScorePoint, rowFlow, differenceMeter, fileTwins, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, degrees, weatherHours, chain, composition, contextBars, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
 import { sha256Hex } from '../core/hash.js';
 import { LEVEL_NAME, leaderSaid, postureTree, scoreSaid, trendSaid, unitCounts, type PostureNode } from '../core/posture.js';
-import { counted, glossOf, meaningOf, nounOf as ontologyNoun, propertyOf, readAsOf, saysMore, type Edit, type Noun, type PropertyType } from '../core/ontology.js';
+import { counted, glossOf, meaningBeyond, meaningOf, nounOf as ontologyNoun, propertyOf, readAsOf, saysMore, type Edit, type Noun, type PropertyType } from '../core/ontology.js';
 import { columnChangeSaid, columnsHold, csvColumn, csvHeader, readAsIn, type ColumnMap } from '../core/columns.js';
 import { columnUses, joinImpactSaid, joinMatch, usesSaid, type ColumnUses, type JoinUse, type ParseSql } from '../core/uses.js';
 import { ontologyPage, originSaid, typesShown, type ColumnCard, type FileSection, type Rule } from '../core/ontologypage.js';
+import { MAX_CODES, proposalsOf, shareRange, valueCandidates, watchedFile, type Proposal } from '../core/proposals.js';
 import { applyBand, asShipped, keptOf as keptFlow, nameColumn, nameColumnThrough, restoreKept, setRule, type FlowEdit, type RuleInput } from '../core/flowedit.js';
 import { sharedOf } from '../core/shared.js';
 import { fixesOf, fixOfDonor, type FixKind } from '../core/rules.js';
@@ -3218,8 +3219,10 @@ const changeId = () => `c-${Date.now().toString(36)}-${(++changeSeq).toString(36
  * reason given, kept with the change set; `words` what the record says of it, when not the edit's own words; `redraw`
  * what is drawn again in place of the sheet and the Ontology page.
  */
-async function editRules(edit: RuleEdit, opts: { why?: string; words?: string; redraw?: () => void } = {}): Promise<boolean> {
+async function editRules(edit: RuleEdit | readonly RuleEdit[], opts: { why?: string; words?: string; redraw?: () => void } = {}): Promise<boolean> {
   const { why = '', words, redraw } = opts;
+  // Several edits are one change set (a proposal's bands, Q-139): recorded once, said once.
+  const edits = 'op' in edit ? [edit] : [...edit];
   if (!isOwner()) {
     setStatus('Rules are the owner’s to set: they are part of the flow.', true);
     return false;
@@ -3228,13 +3231,20 @@ async function editRules(edit: RuleEdit, opts: { why?: string; words?: string; r
     setStatus('The flow is running. Change the rule again when the run has ended.', true);
     return false;
   }
-  const r = applyEdit(state.doc, edit);
-  if (!r) return false;
+  let doc = state.doc;
+  const saids: string[] = [];
+  for (const e of edits) {
+    const r = applyEdit(doc, e);
+    if (!r) continue;
+    doc = r.doc;
+    saids.push(r.said);
+  }
+  if (!saids.length) return false;
   const from = fromDay();
   const { days } = reachedDays(from);
-  ruleChanges = [...ruleChanges, { id: changeId(), from, recorded: new Date().toISOString(), by: state.viewer, why, edits: [edit] }];
+  ruleChanges = [...ruleChanges, { id: changeId(), from, recorded: new Date().toISOString(), by: state.viewer, why, edits }];
   const moved = resolveDoc(resolvedFor.day, resolvedFor.asOf, true) && rulesSaid(state.doc) !== rulesSaid(withRuleParts(state.doc, ruleBase));
-  const said = `${words ?? r.said}, in force from ${dayLabel(from)}`;
+  const said = `${words ?? saids.join('; ')}, in force from ${dayLabel(from)}`;
   await flowEdited(said);
   setStatus(`${said}. Recorded. ${days.length ? `${plural(days.length, 'recorded day')} from ${dayLabel(from)} ${days.length === 1 ? 'is' : 'are'} run again under the new rules.` : moved ? 'The next run uses it.' : 'No recorded day moves.'}`, false);
   requestCanvas();
@@ -4823,6 +4833,11 @@ async function qualityTab(card: string, id: string, who: string): Promise<HTMLEl
       h('ul', { class: 'bq-list' }, ...mine.map((c) => checkRow(card, id, c))));
     box.append(det);
   }
+  // What the ontology doesn't say yet about this file, proposed from its data (Q-139, Q-213), to accept or set aside.
+  box.append(h('details', { class: 'bq-group bq-proposed', open: 'open' },
+    h('summary', {}, h('span', { class: 'bq-g-t' }, 'Proposed from the data'), h('span', { class: 'bq-g-n' }, 'nothing applies until accepted')),
+    h('p', { class: 'foot' }, 'What the ontology doesn’t declare about this file yet, read from its rows, its history and its kept sample.'),
+    proposalsPart(id, () => void renderSheet())));
   box.append(h('p', { class: 'foot' }, 'Checks are defined on the Ontology page and switched in the notebook’s gate cell; a change is recorded as a flow change, in force from the day it says. ',
     h('button', { type: 'button', class: 'linkish', onclick: () => openFileRules(id) }, `${id} on the Ontology page ›`)));
   if (qualityFocus) {
@@ -10755,9 +10770,9 @@ function sharedNote(file: string): HTMLElement | null {
     isOwner() ? h('button', { type: 'button', class: 'btn quiet', onclick: () => void saveFile(name, `${JSON.stringify(sharedOf(state.doc, file), null, 2)}\n`, 'application/json') }, `Download ${name} as this flow has it`) : null);
 }
 
-/** A file's section: what it is, its own rules, a card a column (drawn once the load has been looked into), and what
- * was discovered. `refused` says the load's file wasn't read (ADR 0014 §2): its cards are the columns the data list
- * declares, with their meanings and rules, which don't depend on the day, and nothing drawn. */
+/** A file's section: what it is, its own rules, a card a column (drawn once the load has been looked into), and what is
+ * proposed from its data (Q-139). `refused` says the load's file wasn't read (ADR 0014 §2): its cards are the columns
+ * the data list declares, with their meanings and rules, which don't depend on the day, and nothing drawn. */
 function fileSection(f: FileSection, refused: boolean, day: string | null): HTMLElement {
   const slots = new Map<string, { slot: HTMLElement; meaning: PropertyType | undefined; seen: string[] }>();
   // A dataset the flow makes (Q-144) is read here, not edited: its names and checks are its notebook's and the files'.
@@ -10855,8 +10870,8 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
     // A column the file added, described as the file's own, which the flow doesn't read (ADR 0022 §2, Q-204).
     f.unread?.length ? h('section', { class: 'of-part of-unread' }, h('h3', { class: 'of-h' }, `Not read by the flow · ${f.unread.length}`),
       h('ul', { class: 'of-unread-list' }, ...f.unread.map((u) => h('li', { 'data-column': u.name }, h('b', {}, u.title), saysMore(u.name, u.title) ? h('code', {}, u.name) : '', u.description ? `: ${u.description}` : '')))) : null,
-    h('section', { class: 'of-part of-disc' }, h('h3', { class: 'of-h' }, 'Discovered'),
-      f.discovered.length ? ruleList(f.discovered, '') : h('p', { class: 'of-none' }, 'Nothing has been discovered yet. Rules the app finds in the data will be listed here to accept.')));
+    // What the ontology doesn't say yet, proposed from the file's own data (Q-139, Q-213): a file's, not a made dataset's.
+    f.made ? null : h('section', { class: 'of-part of-disc' }, h('h3', { class: 'of-h' }, 'Proposed from the data'), refused ? h('p', { class: 'of-none' }, 'Nothing to propose: the file wasn’t read.') : proposalsPart(f.id, () => void renderOntology())));
   // The drawings arrive once the load has been looked into, as the Data tab's do: the words show straight away. Read
   // as the viewer reads the file's own card, so a column closed to them is not drawn (it has no card here either).
   if (slots.size)
@@ -10880,6 +10895,161 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
       }
     })().catch(() => { for (const x of slots.values()) x.slot.remove(); });
   return sec;
+}
+
+// ------------------------------------------------------------------ declarations proposed from the data (ADR 0022 §5, Q-139)
+
+/** Each file's proposals as last read: by the run on screen, the viewer, the rules on screen and the history's days. */
+const proposalsRead = new Map<string, Promise<Proposal[] | null>>();
+
+/**
+ * The declarations proposed for a source from the data on screen (Q-139, core/proposals.ts): its columns counted over
+ * every row (`qualityOf`), each small coded column's values read exactly, and the history and kept sample the day is
+ * judged with, before the day. Null where the file wasn't read or is closed to the viewer.
+ */
+function proposalsFor(id: string): Promise<Proposal[] | null> {
+  const run = latest();
+  const h0 = rangesForLoad(id)?.file ?? null;
+  const key = JSON.stringify([id, run?.result.run ?? null, run?.result.hash ?? null, state.viewer, rulesSaid(state.doc), h0?.days.length ?? 0, samples.get(id)?.days.length ?? 0]);
+  const known = proposalsRead.get(key);
+  if (known) return known;
+  const read = (async (): Promise<Proposal[] | null> => {
+    // A file nothing watches is offered nothing (proposals.ts): its rows aren't read for it.
+    if (!watchedFile(state.doc, id)) return [];
+    const nv = await nodeView(id, state.viewer);
+    if (typeof nv === 'string' || !state.engine) return null;
+    const q = await qualityOf(nv.insp, nv.i, state.viewer);
+    if (!q || !q.rows) return null;
+    const values = new Map<string, string[]>();
+    for (const c of valueCandidates(state.doc, id, q.profiles)) {
+      const got = (await state.engine.query(emitDistinct(nv.read, c, MAX_CODES + 1))).rows.map((r) => r[0]).filter((v) => v !== null && v !== undefined).map(String);
+      values.set(c, got);
+    }
+    return proposalsOf({ doc: state.doc, file: id, day: shownDay() ?? null, profiles: q.profiles, values, history: h0, skip: new Set(recordedSkips()), sample: samples.get(id) ?? null });
+  })();
+  read.catch(() => proposalsRead.delete(key));
+  proposalsRead.set(key, read);
+  // The last few reads are kept.
+  for (const old of [...proposalsRead.keys()].slice(0, Math.max(0, proposalsRead.size - 24))) proposalsRead.delete(old);
+  return read;
+}
+
+/** The proposals set aside in this browser (Not now, Q-213), by the flow: never in the flow or a hash. */
+const notNowKey = () => `smaltfl:not-now:${state.doc.id}`;
+function notNow(): Set<string> {
+  try {
+    const v = JSON.parse(localStorage.getItem(notNowKey()) ?? '[]') as unknown;
+    return new Set(Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+function setNotNow(ids: Set<string>): void {
+  try {
+    localStorage.setItem(notNowKey(), JSON.stringify([...ids]));
+  } catch {
+    // Storage closed (a private window): set aside for this visit only.
+  }
+}
+
+/** An edit's subject: what two edits of one proposal share (a file's column, by kind), to find it among change sets. */
+const editSubject = (e: RuleEdit): string | null =>
+  e.op === 'declareValues' ? `values:${e.file}:${e.column}`.toLowerCase() : e.op === 'declareKey' ? `key:${e.file}`.toLowerCase() : e.op === 'acceptBand' ? `bands:${e.source}:${e.band.column}`.toLowerCase() : null;
+
+/** The latest change set a proposal was accepted in: still proposed only on a day before it is in force. */
+function acceptedIn(p: Proposal): ChangeSet | undefined {
+  const mine = new Set(p.edits.map(editSubject));
+  return [...ruleChanges].reverse().find((c) => c.edits.some((e) => mine.has(editSubject(e))));
+}
+
+const PROPOSAL_KIND: Record<Proposal['kind'], string> = { values: 'Values', bands: 'Bands', key: 'Key' };
+
+/**
+ * A file's proposals (Q-139, Q-213), read once the load has been looked into: each with what it rests on and what
+ * accepting it does; the owner accepts one with a reason, in force from the day the bar says (a dated change set,
+ * Q-215), or sets it aside in this browser. `redraw` draws the panel again once one is accepted.
+ */
+function proposalsPart(id: string, redraw: () => void): HTMLElement {
+  const box = h('div', { class: 'pp-list', 'data-proposals': id }, h('p', { class: 'of-none' }, h('span', { class: 'mini-wait' }), ' Reading the data…'));
+  void (async () => {
+    const all = await proposalsFor(id).catch(() => null);
+    if (!box.isConnected) return;
+    if (all === null) return void box.replaceChildren(h('p', { class: 'of-none' }, 'Nothing to propose until the file is read.'));
+    const aside = notNow();
+    const shown = all.filter((p) => !aside.has(p.id));
+    // A few at a time: a file can be offered a dozen, and a phone shows four before the rest are asked for.
+    let most = 4;
+    const draw = () => box.replaceChildren(
+      ...(shown.length ? shown.slice(0, most).map((p) => proposalCard(p, redraw, () => {
+        aside.add(p.id);
+        setNotNow(aside);
+        shown.splice(shown.indexOf(p), 1);
+        draw();
+      })) : [h('p', { class: 'of-none' }, all.length ? 'Nothing else to propose.' : !watchedFile(state.doc, id) ? 'Nothing watches this file, so nothing it declares would be judged: nothing is proposed.' : 'Nothing to propose: the ontology declares what the data shows of this file.')]),
+      shown.length > most ? h('button', { type: 'button', class: 'btn small pp-more', onclick: () => {
+        most = shown.length;
+        draw();
+      } }, `Show ${plural(shown.length - most, 'more proposal')}`) : '',
+      all.length > shown.length ? h('p', { class: 'pp-aside' }, `${plural(all.length - shown.length, 'proposal')} set aside in this browser. `,
+        h('button', { type: 'button', class: 'linkish', onclick: () => {
+          for (const p of all) aside.delete(p.id);
+          setNotNow(aside);
+          shown.splice(0, shown.length, ...all);
+          draw();
+        } }, 'Show them')) : '');
+    draw();
+  })();
+  return box;
+}
+
+/** One proposal: its kind, what it is, the values or bands it would write, what it rests on, what accepting does. */
+function proposalCard(p: Proposal, redraw: () => void, setAside: () => void): HTMLElement {
+  const later = acceptedIn(p);
+  const prop = propertyOf(state.doc.ontology, p.file, p.column);
+  const word = (v: string) => meaningBeyond(prop, v) ?? v;
+  const what = p.kind === 'values' ? h('ul', { class: 'pp-values', 'aria-label': 'Its values' }, ...p.values.map((v) => h('li', {}, h('code', {}, v))))
+    : p.kind === 'bands' ? h('table', { class: 'pp-bands' }, h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, 'Value'), h('th', { scope: 'col' }, 'Usual'), h('th', { scope: 'col' }, 'Band'))),
+      h('tbody', {}, ...p.bands.map((b) => h('tr', {}, h('th', { scope: 'row' }, word(b.value)), h('td', {}, shareRange(b.usual)), h('td', {}, shareRange(b.share))))))
+    : null;
+  const acts = h('div', { class: 'pp-acts' });
+  const card = h('article', { class: 'pp', 'data-proposal': p.id },
+    h('p', { class: 'pp-kind' }, PROPOSAL_KIND[p.kind], h('span', { class: 'pp-col' }, p.column)),
+    h('h4', {}, p.title),
+    what,
+    h('ul', { class: 'pp-rests', 'aria-label': 'What it rests on' }, ...p.rests.map((r) => h('li', {}, r))),
+    h('p', { class: 'pp-does' }, p.does),
+    acts);
+  if (later) acts.append(h('p', { class: 'pp-later' }, `Accepted, in force from ${dayLabel(later.from)}${later.why ? `: “${later.why}”${/[.!?]$/.test(later.why) ? '' : '.'}` : '.'}`));
+  else if (!isOwner()) acts.append(h('p', { class: 'pp-later' }, 'The owner accepts it into the ontology, or sets it aside.'));
+  else {
+    const open = () => {
+      const reason = h('textarea', { class: 'pp-reason', rows: '2', 'aria-label': `Why accept it: ${p.title}`, placeholder: 'Why, in a sentence: the record keeps it.' }) as HTMLTextAreaElement;
+      const go = h('button', { type: 'button', class: 'btn small primary pp-go', disabled: 'disabled' }, 'Accept') as HTMLButtonElement;
+      reason.addEventListener('input', () => (go.disabled = !reason.value.trim()));
+      go.addEventListener('click', async () => {
+        if (!reason.value.trim()) return reason.focus();
+        go.disabled = true;
+        const done = await editRules(p.edits, { why: reason.value.trim(), words: `Accepted from the data: ${p.title}`, redraw });
+        if (!done) go.disabled = false;
+        // Said where it was accepted, whether or not the panel is drawn again (a change from a later day leaves the day
+        // on screen's rules as they were).
+        else if (card.isConnected) card.replaceWith(proposalCard(p, redraw, setAside));
+      });
+      acts.replaceChildren(h('div', { class: 'pp-form', role: 'group', 'aria-label': `Accept: ${p.title}` },
+        h('div', { class: 'of-field' }, h('label', {}, 'Why'), reason),
+        fromBar(),
+        h('div', { class: 'pp-buttons' }, go, h('button', { type: 'button', class: 'btn small pp-cancel', onclick: () => {
+          drawButtons();
+          acts.querySelector<HTMLElement>('.pp-accept')?.focus();
+        } }, 'Cancel'))));
+      reason.focus();
+    };
+    const drawButtons = () => acts.replaceChildren(
+      h('button', { type: 'button', class: 'btn small primary pp-accept', onclick: open }, 'Accept…'),
+      h('button', { type: 'button', class: 'btn small quiet pp-notnow', onclick: setAside }, 'Not now'));
+    drawButtons();
+  }
+  return card;
 }
 
 /**
@@ -10908,7 +11078,7 @@ async function renderFiles(stale: () => boolean): Promise<void> {
   if (ontologyFiles.doc === state.doc && ontologyFiles.from === from && $('ontology-files').querySelector('.of-list')) return;
   // Someone is typing in a card's form: the panel under it stays as it is until they save or cancel (which draws
   // it). Another viewer is another panel: theirs is drawn, and the form goes with the owner's.
-  if (ontologyFiles.doc === state.doc && ontologyFiles.who === state.viewer && $('ontology-files').querySelector('.of-form')) return;
+  if (ontologyFiles.doc === state.doc && ontologyFiles.who === state.viewer && $('ontology-files').querySelector('.of-form, .pp-form')) return;
   const rows = new Map<string, number>();
   // A file the engine couldn't read as declared (ADR 0014 §2): the run built nothing from it, and the row says so.
   const refused = new Set((run?.result.manifest.nodes ?? []).filter((n) => n.status === 'refused').map((n) => n.origin));

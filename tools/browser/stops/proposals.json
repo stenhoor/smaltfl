@@ -1,0 +1,117 @@
+[
+  {
+    "name": "proposals-ontology",
+    "what": "Larkspur's tour, Wed Feb 7 (the normal day): the Ontology page with backup_jobs open; under it, Proposed from the data (ADR 0022 §5, Q-139, Q-213): the controller column's four values, a band for the last job's common value and the recovery point's three values, each saying what it rests on and what accepting it does, with Accept… and Not now for the owner",
+    "day": "Wed 7",
+    "view": "ontology",
+    "viewFirst": true,
+    "click": ".of-item[data-file=\"backup_jobs\"] .of-row",
+    "waitFor": ".of-item.open .pp",
+    "full": true,
+    "expect": {
+      "pageText": [
+        "PROPOSED FROM THE DATA",
+        "List the 4 values of controller",
+        "bkp-cloud-east",
+        "hold no other",
+        "Each is listed as one of its codes, meaning itself until someone words it.",
+        "Bands for the common value of Last job",
+        "Each band is its usual range five points either side. A day outside one holds the day, by the values check.",
+        "Accept…",
+        "Not now"
+      ],
+      "noPageText": [
+        "Nothing has been discovered yet"
+      ],
+      "count": {
+        "#ontology-files .of-item.open .pp": 3,
+        "#ontology-files .of-item.open .pp-bands": 1,
+        "#ontology-files .of-item.open .pp-accept": 3
+      }
+    }
+  },
+  {
+    "name": "proposals-quality",
+    "what": "The same day, tls's Quality tab: under its checks, Proposed from the data: the ingress, issuer and protocol columns' values and a band for private_link, nothing applying until accepted",
+    "day": "Wed 7",
+    "card": "tls",
+    "tab": "Quality",
+    "waitFor": "#sheet .pp",
+    "full": true,
+    "expect": {
+      "text": [
+        "Proposed from the data",
+        "nothing applies until accepted",
+        "List the 6 values of ingress",
+        "List the 3 values of issuer",
+        "List the 3 values of protocol",
+        "Bands for the 2 common values of private_link"
+      ],
+      "count": {
+        "#sheet .pp": 4
+      }
+    }
+  },
+  {
+    "name": "proposals-accept-form",
+    "what": "On the Ontology page (backup_jobs left open), the owner taps Accept… on the controller's values: a reason, the day it takes effect from (the next day to arrive, Mon Apr 1, by default) and what it reaches, and Accept, which waits for the reason",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      ".pp[data-proposal=\"values:backup_jobs:controller\"] .pp-accept"
+    ],
+    "expect": {
+      "count": {
+        "#ontology-files .pp-form": 1
+      },
+      "pageText": [
+        "Why",
+        "Edits take effect from",
+        "No recorded day moves: each keeps the rules it ran under."
+      ],
+      "disabled": [
+        "#ontology-files .pp-go"
+      ]
+    }
+  },
+  {
+    "name": "proposals-accepted",
+    "what": "The reason typed and Accept tapped: the values are a change set in force from Mon Apr 1, recorded at once; the card says so with the reason, and the flow's changes list it",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      [
+        ".pp[data-proposal=\"values:backup_jobs:controller\"] .pp-reason",
+        "Every backup job is run by one of the four controllers."
+      ],
+      ".pp[data-proposal=\"values:backup_jobs:controller\"] .pp-go"
+    ],
+    "expect": {
+      "status": "^Accepted from the data: List the 4 values of controller, in force from Mon Apr 1\\. Recorded\\.",
+      "pageText": [
+        "Accepted, in force from Mon Apr 1: “Every backup job is run by one of the four controllers.”"
+      ],
+      "count": {
+        "#ontology-files .pp-form": 0
+      }
+    }
+  },
+  {
+    "name": "proposals-not-now",
+    "what": "Not now on the band for the last job: set aside in this browser, with a way to show it again",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      ".pp[data-proposal=\"bands:backup_jobs:last_state\"] .pp-notnow"
+    ],
+    "expect": {
+      "pageText": [
+        "1 proposal set aside in this browser.",
+        "Show them"
+      ],
+      "count": {
+        ".pp[data-proposal=\"bands:backup_jobs:last_state\"]": 0
+      }
+    }
+  }
+]

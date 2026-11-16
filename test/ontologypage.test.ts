@@ -32,7 +32,6 @@ describe('the control estate, file by file', () => {
     const { files } = await page();
     expect(files.map((f) => f.id)).toEqual(['apps', 'tls', 'waf', 'pentest', 'encryption', 'key_rotation', 'backup', 'dr_exercise', 'vuln_sla', 'mfa', 'access_review', 'logging', 'privileged_access']);
     for (const f of files) {
-      expect(f.discovered).toEqual([]);
       expect(f.count).toBe(f.rules.length + f.columns!.reduce((n, c) => n + c.rules.length, 0));
     }
     expect(file(files, 'tls')).toMatchObject({ summary: 'Transport encryption on internet-facing applications', noun: { one: 'app', many: 'apps' }, watched: true });

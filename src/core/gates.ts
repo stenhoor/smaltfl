@@ -165,7 +165,8 @@ export function writtenRules(doc: Partial<Pick<FlowDocument, 'gates' | 'ontology
   return {
     // Each check says how it matches ids (Q-176): the gate cell's scope, or the ontology's rows entry for both its rules.
     scope: g?.scope ? { from: 'gate', of: g.scope.of, key: g.scope.key, own: g.scope.own ?? g.scope.key, where: g.scope.where, ...loosely(g.scope.ids === 'loose') }
-      : tied ? { from: 'ontology', of: rows!.type.dataset, key: tied.key, own: tied.own, match: rows!.where, type: rows!.type.id, ...loosely(rows!.entry.ids === 'loose') }
+      // A file tied to the type over itself (its key proposed from its data, Q-139) has no list to be checked against.
+      : tied && rows!.type.dataset.toLowerCase() !== lower ? { from: 'ontology', of: rows!.type.dataset, key: tied.key, own: tied.own, match: rows!.where, type: rows!.type.id, ...loosely(rows!.entry.ids === 'loose') }
       : null,
     needs: needsFor(doc.ontology, node, g?.needs ?? []),
     // A gate cell's key is the rows as written; the ontology's one row an object compares ids as its entry says.

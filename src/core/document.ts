@@ -194,7 +194,9 @@ const CONTRACT_COLUMN_FIELDS = ['name', 'type', 'description', 'required', 'key'
  *   cell that enforces it;
  * - `nameColumn`: a column of a file named, its meaning worded and its values labelled (flowedit.ts);
  * - `acceptBand`: a band accepted for a value of a source's column (ADR 0014 §3);
- * - `setCheck`: a check of a node's gate set to a mode, written in its gate cell (ADR 0014 §1).
+ * - `setCheck`: a check of a node's gate set to a mode, written in its gate cell (ADR 0014 §1);
+ * - `declareValues` and `declareKey`: a proposal from the data accepted (ADR 0022 §5, Q-139): a coded column's values, a
+ *   file's key (flowedit.ts).
  */
 export type RuleEdit =
   | { op: 'setRule'; rule: RuleInput & { id: string } }
@@ -208,9 +210,15 @@ export type RuleEdit =
   | { op: 'useVersion'; changes: string[] }
   /** A file's column read by the name the file gives it now (ADR 0022 §2, Q-146, Q-206): its own property's `fromFile`;
    * `from` null reads it by its own name again. */
-  | { op: 'mapColumn'; file: string; column: string; from: string | null };
+  | { op: 'mapColumn'; file: string; column: string; from: string | null }
+  /** A coded column's values declared from the data (ADR 0022 §5, Q-139, Q-214): its own property's codes, each meaning
+   * itself until someone words it; the column is counted where its history is built from then on. */
+  | { op: 'declareValues'; file: string; column: string; values: string[] }
+  /** A file's key declared from the data (Q-139, Q-214): the file its own object type, keyed by the column, with a rows
+   * entry, so a day whose rows repeat a key holds. */
+  | { op: 'declareKey'; file: string; column: string };
 
-export const EDIT_OPS = ['setRule', 'removeRule', 'switchRule', 'nameColumn', 'acceptBand', 'setCheck', 'useVersion', 'mapColumn'] as const;
+export const EDIT_OPS = ['setRule', 'removeRule', 'switchRule', 'nameColumn', 'acceptBand', 'setCheck', 'useVersion', 'mapColumn', 'declareValues', 'declareKey'] as const;
 
 /**
  * A dated change set (ADR 0021 §5, Q-184): edits of the rules people set, in force from a business day, as known from
@@ -816,6 +824,15 @@ function validateChanges(doc: Record<string, unknown>, add: (path: string, messa
           need('file', text(e.file), 'the file the column is of');
           need('column', text(e.column), 'the column, as the source declares it');
           need('from', e.from === null || (text(e.from) && String(e.from).toLowerCase() !== String(e.column).toLowerCase()), 'the name the file gives the column now, not its own; null to read it by its own name again');
+          return;
+        case 'declareValues':
+          need('file', text(e.file), 'the file the column is of');
+          need('column', text(e.column), 'the column, as the file writes it');
+          need('values', Array.isArray(e.values) && e.values.length > 0 && e.values.every((v: unknown) => typeof v === 'string'), 'its codes: a list of one or more, as text');
+          return;
+        case 'declareKey':
+          need('file', text(e.file), 'the file whose key it is');
+          need('column', text(e.column), 'the column, as the file writes it');
           return;
       }
     });
