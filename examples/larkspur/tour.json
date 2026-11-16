@@ -4,7 +4,7 @@
   "deliveries": [
     { "day": "2024-03-04", "file": "mfa", "at": "2024-03-05T02:40:00Z", "why": "The MFA vendor ran Monday's export again overnight" },
     { "day": "2024-03-08", "file": "hr_org_units", "at": "2024-03-08T11:20:00Z", "why": "HR ran the extract again with the dissolved department's teams under their new department" },
-    { "day": "2024-03-18", "file": "encryption", "at": "2024-03-20T03:10:00Z", "why": "The scanner's vendor fixed its export and sent Monday's file again" },
+    { "day": "2024-03-18", "file": "backup_jobs", "at": "2024-03-20T03:10:00Z", "why": "The backup team fixed its export and sent Monday's file again" },
     { "day": "2024-03-21", "file": "tls", "at": "2024-03-21T14:10:00Z", "why": "The TLS team took the repeated rows out" }
   ],
   "decisions": [
@@ -13,8 +13,8 @@
     { "day": "2024-03-08", "delivery": 1, "at": "2024-03-08T11:45:00Z", "by": "ciso", "option": "asis", "reason": "Every team has a department again, and every owner chain is whole" },
     { "day": "2024-03-12", "at": "2024-03-12T08:30:00Z", "by": "ciso", "option": "asis", "reason": "The data centres' healthy applications moved to the cloud log pipelines overnight, as planned: the change is real" },
     { "day": "2024-03-13", "at": "2024-03-13T08:40:00Z", "by": "owner", "option": "accept", "reason": "The migration is done: the cloud pipelines carry the data centres' logs from now on" },
-    { "day": "2024-03-18", "at": "2024-03-18T08:30:00Z", "by": "ciso", "option": "fill", "fill": { "source": "encryption", "from": "2024-03-17" }, "reason": "A third of the stores can't have lost their encryption overnight while their statuses still pass: the scanner's export mislabelled them. Sunday's file carries forward, marked as Sunday's, until the vendor sends Monday's again" },
-    { "day": "2024-03-18", "delivery": 1, "at": "2024-03-20T04:30:00Z", "by": "ciso", "option": "asis", "reason": "Monday's own file, every store as it was" },
+    { "day": "2024-03-18", "at": "2024-03-18T08:30:00Z", "by": "ciso", "option": "fill", "fill": { "source": "backup_jobs", "from": "2024-03-17" }, "reason": "A third of the backups can't have finished partly overnight while their statuses still pass: the export mislabelled them. Sunday's file carries forward, marked as Sunday's, until the backup team sends Monday's again" },
+    { "day": "2024-03-18", "delivery": 1, "at": "2024-03-20T04:30:00Z", "by": "ciso", "option": "asis", "reason": "Monday's own file, every backup as it ran" },
     { "day": "2024-03-21", "delivery": 1, "at": "2024-03-21T14:30:00Z", "by": "ciso", "option": "asis", "reason": "Every certificate once" },
     { "day": "2024-03-23", "at": "2024-03-24T08:15:00Z", "by": "ciso", "option": "fill", "fill": { "source": "edr_coverage", "from": "2024-03-24" }, "reason": "The EDR console's Saturday export came through empty. Nothing is deployed at the weekend, so Sunday's file stands for Saturday too: carried back, marked as Sunday's" }
   ]

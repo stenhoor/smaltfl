@@ -194,11 +194,11 @@ writeFileSync(`${out}/bundles.json`, JSON.stringify(hashed, null, 2) + '\n');
     }
     days = made.loads.length;
   }
-  // The cache keeps the three data sets used last (the site deploys three demos; Larkspur's is about 430 MB, the others
-  // tens of MB): an older one is made again if it is needed.
+  // The cache keeps the four data sets used last (the site deploys four demos, Larkspur's two months about 430 MB each,
+  // the others tens of MB): an older one is made again if it is needed.
   const root = 'node_modules/.cache/smaltfl/data';
   const kept = readdirSync(root).map((k) => ({ k, t: statSync(join(root, k)).mtimeMs })).sort((a, b) => b.t - a.t);
-  for (const { k } of kept.slice(3)) if (k !== key) rmSync(join(root, k), { recursive: true, force: true });
+  for (const { k } of kept.slice(4)) if (k !== key) rmSync(join(root, k), { recursive: true, force: true });
   const first = Object.values(sources).find((s) => s.loads)?.loads[0];
   const index = { format: 2, month: first?.slot.slice(0, 7), built: new Date().toISOString().slice(0, 19) + 'Z', data: null, flow: flowEntry, sources, histories, ...(Object.keys(samples).length ? { samples } : {}), ...(Object.keys(ranges).length ? { ranges } : {}), ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), episodes: [], ...(bind.judged ? { judged: bind.judged } : {}), ...(bind.posture ? { posture: bind.posture } : {}) };
   writeFileSync(`${out}/data/loads.json`, JSON.stringify(index, null, 2) + '\n');

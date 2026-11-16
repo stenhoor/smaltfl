@@ -10,8 +10,10 @@
  * 4. Tue 12 to Thu 14, a statistical anomaly that was real: the log pipelines' migration moves a third of the logging
  *    file's rows, held by a learned check that moved more than a quarter of them (Q-132); published as is, held again
  *    the next day (Q-86) until the owner accepts the new level; judged at it after.
- * 5. Mon 18 to Wed 20, a statistical anomaly that was an issue: the encryption export mislabels a third of its rows,
- *    held by a learned check; filled forward from Sun 17, then the corrected file sent again two days later replaces it.
+ * 5. Mon 18 to Wed 20, a statistical anomaly that was an issue: the backup export mislabels a third of its rows, held
+ *    by a learned check; filled forward from Sun 17, then the corrected file sent again two days later replaces it.
+ *    (Not the encryption feed: carried from another day, its statuses would contradict the day's key rotation, which
+ *    the posture's needs rule holds, as it should.)
  * 6. Fills each way and one file replaced: Thu 21, the TLS file's rows twice, only that file sent again; Sat 23, the
  *    EDR export empty, filled back from Sun 24; Wed 27, the access reviews' export empty, left for the visitor.
  *
@@ -19,7 +21,9 @@
  * silver and sent again; one certificate authority behind two controls on Mon 25, told and published. Every other day
  * is published as it arrived.
  *
- * About fifteen minutes on four cores: `npm run test:tour`, and a CI job of its own (vitest.config.ts, TOUR).
+ * About fifteen minutes on four cores: `npm run test:tour`, and a CI job of its own (vitest.config.ts, TOUR). With
+ * SMALTFL_TOUR_WORK naming a folder the month was made in already (the app build's cache of the tour's data), the answer
+ * key is checked against it, nothing made again.
  */
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -32,16 +36,17 @@ import { addDays, LARKSPUR_TOUR_DAYS } from './fixtures/larkspur.js';
 
 const D = LARKSPUR_TOUR_DAYS;
 const MARCH = Array.from({ length: 31 }, (_, i) => addDays('2024-03-01', i));
+const made = process.env.SMALTFL_TOUR_WORK;
 let work = '';
 let month: MonthFile;
 
 beforeAll(() => {
-  work = mkdtempSync(join(tmpdir(), 'smaltfl-tour-'));
-  execFileSync('node', ['scripts/data/make.mjs', '--flow', 'examples/larkspur/flow.json', '--variant', 'tour', '--work', work], { maxBuffer: 1 << 30 });
+  work = made ?? mkdtempSync(join(tmpdir(), 'smaltfl-tour-'));
+  if (!made) execFileSync('node', ['scripts/data/make.mjs', '--flow', 'examples/larkspur/flow.json', '--variant', 'tour', '--work', work], { maxBuffer: 1 << 30 });
   month = JSON.parse(readFileSync(join(work, 'month.json'), 'utf8')) as MonthFile;
 }, 3_600_000);
 afterAll(() => {
-  if (work) rmSync(work, { recursive: true, force: true });
+  if (work && !made) rmSync(work, { recursive: true, force: true });
 });
 
 type Loose = Record<string, any>;
@@ -118,14 +123,14 @@ describe('the tour’s month, as the demo records it (ADR 0023 §3)', () => {
     }
   });
 
-  it('scene 5, Mon 18 to Wed 20: the mislabelled encryption file held, filled forward, then replaced by its corrected file', () => {
+  it('scene 5, Mon 18 to Wed 20: the mislabelled backup file held, filled forward, then replaced by its corrected file', () => {
     const [first, fill, again] = runsOf(D.mislabel);
-    expect(holdsOf(first!)).toEqual(['story:encryption']);
-    expect(claimOf(first!, 'encryption')!.head).toMatch(/^Encrypted yes: /);
-    expect(about(fill!)).toMatchObject({ outcome: 'derived', repair: { source: 'encryption', missing: { all: true }, donor: { day: addDays(D.mislabel, -1), direction: 'before' } } });
-    expect(about(again!).correction).toMatchObject({ sources: ['encryption'] });
+    expect(holdsOf(first!)).toEqual(['story:backup_jobs']);
+    expect(claimOf(first!, 'backup_jobs')!.head).toMatch(/^Last state /);
+    expect(about(fill!)).toMatchObject({ outcome: 'derived', repair: { source: 'backup_jobs', missing: { all: true }, donor: { day: addDays(D.mislabel, -1), direction: 'before' } } });
+    expect(about(again!).correction).toMatchObject({ sources: ['backup_jobs'] });
     expect(again!.at.slice(0, 10)).toBe(addDays(D.mislabel, 2));
-    expect(holdsOf(again!)).toEqual(['correction:encryption']);
+    expect(holdsOf(again!)).toEqual(['correction:backup_jobs']);
     expect(decided(D.mislabel)).toEqual(['fill by ciso: applied', 'asis by ciso: applied']);
   });
 

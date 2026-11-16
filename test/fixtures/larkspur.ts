@@ -183,7 +183,7 @@ export const LARKSPUR_TOUR_DAYS = {
   dissolve: '2024-03-08',
   /** Scene 4: the log pipelines' migration, held by a learned check, published as is, held again until accepted. */
   migration: '2024-03-12',
-  /** Scene 5: the encryption export's bug, held by a learned check, filled forward, then corrected. */
+  /** Scene 5: the backup export's bug, held by a learned check, filled forward, then corrected. */
   mislabel: '2024-03-18',
   /** Scene 6: the TLS file's rows twice; only that file is sent again. */
   double: '2024-03-21',
@@ -200,7 +200,7 @@ export const LARKSPUR_TOUR: readonly Trouble[] = [
   { day: TR.capitals, file: 'findings', kind: 'capitals' },
   { day: TR.dissolve, file: 'hr_org_units', kind: 'dissolve' },
   { day: TR.migration, file: 'logging_coverage', kind: 'migration' },
-  { day: TR.mislabel, file: 'encryption', kind: 'mislabel', column: 'encrypted', from: 'yes', to: 'no', share: 0.4 },
+  { day: TR.mislabel, file: 'backup_jobs', kind: 'mislabel', column: 'last_state', from: 'COMPLETED', to: 'PARTIAL', share: 0.35 },
   { day: TR.double, file: 'tls', kind: 'double' },
   { day: TR.weekend, file: 'edr_coverage', kind: 'empty' },
   { day: TR.ca, file: 'tls', kind: 'ca', ca: 'ca-int-2' },

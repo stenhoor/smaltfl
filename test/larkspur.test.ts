@@ -14,7 +14,7 @@
  * - each bronze day ADR 0020 §5 plants is in its file as the table says, and in no other file that day;
  * - a file sent again later (ADR 0021 §6) is the file as it should have been, or a doubled one with half its repeats out;
  * - the tour's month (ADR 0023 §3) plants each scene on its day, in its file alone: the log pipelines' migration lasting
- *   from its day, the encryption export's mislabel on its day.
+ *   from its day, the backup export's mislabel on its day.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -951,26 +951,27 @@ describe('the tour’s month (ADR 0023 §3): a scene a day, in its file alone', 
     expect(() => sentAgain(tour, 'logging_coverage', D.migration)).toThrow(/drawn as it was/);
   });
 
-  it('mislabels a third of the encryption file on Mon 18, statuses untouched; the file sent again is as it should have been', () => {
-    const on = dayFile(tour, 'encryption', D.mislabel);
-    const right = dayFile(but((t) => t.kind === 'mislabel'), 'encryption', D.mislabel);
+  it('mislabels a third of the backup file on Mon 18, statuses untouched; the file sent again is as it should have been', () => {
+    const on = dayFile(tour, 'backup_jobs', D.mislabel);
+    const right = dayFile(but((t) => t.kind === 'mislabel'), 'backup_jobs', D.mislabel);
     expect(on.rows).toHaveLength(right.rows.length);
-    const e = col(on, 'encrypted');
+    const e = col(on, 'last_state');
     let changed = 0;
     on.rows.forEach((r, i) => {
       const was = right.rows[i]!;
       if (r[e] !== was[e]) {
         changed++;
-        expect([was[e], r[e]]).toEqual(['yes', 'no']);
+        expect([was[e], r[e]]).toEqual(['COMPLETED', 'PARTIAL']);
       }
       expect(r.filter((_, k) => k !== e)).toEqual(was.filter((_, k) => k !== e));
     });
     expect(changed / on.rows.length).toBeGreaterThan(0.3);
     expect(changed / on.rows.length).toBeLessThan(0.4);
-    // Where it says no, the statuses still pass: the file contradicts itself, as an export bug would.
-    expect(on.rows.filter((r) => r[e] === 'no' && r[col(on, 'status')] === 'pass').length).toBe(changed);
-    expect(sentAgain(tour, 'encryption', D.mislabel)).toEqual(right);
-    expect(dayFile(tour, 'encryption', addDays(D.mislabel, 1))).toEqual(dayFile(but((t) => t.kind === 'mislabel'), 'encryption', addDays(D.mislabel, 1)));
+    // Where it now says partial, almost every status still passes: the file contradicts itself, as an export bug would.
+    const passing = on.rows.filter((r, i) => r[e] !== right.rows[i]![e] && r[col(on, 'status')] === 'pass').length;
+    expect(passing / changed).toBeGreaterThan(0.95);
+    expect(sentAgain(tour, 'backup_jobs', D.mislabel)).toEqual(right);
+    expect(dayFile(tour, 'backup_jobs', addDays(D.mislabel, 1))).toEqual(dayFile(but((t) => t.kind === 'mislabel'), 'backup_jobs', addDays(D.mislabel, 1)));
   });
 
   it('keeps two of the month’s layering stories: a department dropped on Fri 8, and a certificate authority behind two controls on Mon 25', () => {
