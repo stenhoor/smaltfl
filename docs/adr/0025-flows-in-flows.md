@@ -894,7 +894,9 @@ none; the maintainer chose which (Q-240): **one read flow's own page**.
   where the rules differ; a fill carried, made again in a new engine, then withdrawn there and here; each page's
   record exported and held by the offline audit, a carried fill's twice. A bag whose proof is taken out,
   changed, or no longer places its entry fails the audit at the decision that cites it (tried by hand on a bag from
-  those stops).
+  those stops). The whole browser regression on the five pages built from this work, at every size: the tour with
+  Evidence feeds' page 60 of 60 jobs, Larkspur's planted month 45 of 45, the control estate 20 of 20, the sign-ins
+  12 of 12.
 
 **What it leaves:**
 
