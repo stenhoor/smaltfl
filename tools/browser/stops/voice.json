@@ -1,7 +1,30 @@
 [
   {
+    "name": "voice-held",
+    "what": "Nothing playful on a paused day (ADR 0026 §12): Larkspur's tour, Wed Mar 27, held: the application scorecard's seal part says why it isn't sealed, and nothing more",
+    "day": "Wed 27",
+    "unfold": [
+      "nb-product"
+    ],
+    "card": "app_scorecard",
+    "tab": "Checks",
+    "waitFor": "#sheet .seal-part",
+    "element": "#sheet .seal-part",
+    "expect": {
+      "state": "held",
+      "noTextIn": {
+        "#sheet": [
+          "smalt."
+        ]
+      },
+      "count": {
+        "#sheet .seal-voice": 0
+      }
+    }
+  },
+  {
     "name": "voice-seal",
-    "what": "Larkspur's tour, Wed Feb 7, a normal day: the application scorecard's seal, on a run whose every gate passed with nothing held, says so once in the family's voice (ADR 0026 §12), under the plain statement of what the seal is",
+    "what": "Wed Feb 7, a normal day: the same card's seal, on a run whose every gate passed with nothing held, says so once in the family's voice, under the plain statement of what the seal is",
     "day": "Wed 7",
     "unfold": [
       "nb-product"
@@ -40,32 +63,8 @@
     }
   },
   {
-    "name": "voice-held",
-    "what": "Nothing playful on a paused day: Wed Mar 27, held, the same card's seal part says why it isn't sealed, and nothing more",
-    "day": "Wed 27",
-    "unfold": [
-      "nb-product"
-    ],
-    "card": "app_scorecard",
-    "tab": "Checks",
-    "waitFor": "#sheet .seal-part",
-    "element": "#sheet .seal-part",
-    "expect": {
-      "state": "held",
-      "noTextIn": {
-        "#sheet": [
-          "smalt."
-        ]
-      },
-      "count": {
-        "#sheet .seal-voice": 0
-      }
-    }
-  },
-  {
     "name": "voice-plain-on",
     "what": "Plain words, ticked in About this flow: the app's few plays on its name are left out from here on, and the choice is kept in this browser",
-    "day": "Wed 7",
     "clicks": [
       "details.about-flow > summary",
       "#plain-words"
@@ -85,7 +84,6 @@
   {
     "name": "voice-plain",
     "what": "The same seal in plain words: it says what it is and nothing in the family's voice",
-    "day": "Wed 7",
     "unfold": [
       "nb-product"
     ],

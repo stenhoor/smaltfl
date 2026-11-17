@@ -18383,8 +18383,9 @@ const dayHash = (day: string, version?: number | null) => `#day/${day}${version 
 let pendingDay: { day: string; version: number | null } | null = null;
 
 /** The day screen on a day (ADR 0021 §4), on the version named, else the one readers got: it runs, unless it is the
- * day on screen and that version already ran. */
-function openDay(day: string, version: number | null = null): void {
+ * day on screen and that version already ran. A day whose file was refused isn't tried again by a link that only
+ * changes the level (`level`, ADR 0026 §4): entering a flow, or leaving one, fetches nothing and records nothing. */
+function openDay(day: string, version: number | null = null, level = false): void {
   const k = loads.list.findIndex((l) => l.day === day);
   if (k < 0) return;
   const n = versionsOfLoad(k).length;
@@ -18393,6 +18394,7 @@ function openDay(day: string, version: number | null = null): void {
   else loads.version.delete(k);
   const shown = runOfLoad(k);
   if (k === loads.at && shown && (loads.replaced.has(k) || versionOfRun(shown) === (want ?? wentWith(k)))) return;
+  if (level && k === loads.at && state.failed?.file) return;
   if (state.running || !state.engine) {
     pendingDay = { day, version: want };
     return;
@@ -18419,7 +18421,7 @@ function showView(): void {
     // The level a link names (ADR 0026 §4): the flows entered, put right where the flow doesn't read them so; the top
     // without any. A scene's look, or any other link to the day screen, keeps the level its card needs.
     const moved = level ? setLevel(trailOf(state.doc, level)) : false;
-    if (day) openDay(day, version);
+    if (day) openDay(day, version, moved);
     renderLoads();
     renderCanvas();
     // The card or the button that was pressed is gone with the level it was on: the keyboard goes on from the line that

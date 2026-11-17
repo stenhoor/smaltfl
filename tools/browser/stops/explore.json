@@ -254,29 +254,6 @@
     }
   },
   {
-    "name": "explore-join-held",
-    "what": "The day a file came all but empty, where it joins: none of the 1,438 applications in scope has a row, the first of them listed, and the day's bar drops out of a month at 100%",
-    "day": "Wed 27",
-    "card": "access_reviews",
-    "tab": "Explore",
-    "click": "#sheet .xp-parts [data-part=\"joins\"]",
-    "waitFor": "#sheet .xp-join .xp-side",
-    "full": true,
-    "expect": {
-      "state": "held",
-      "text": [
-        "One row is an application, for those where data_class is confidential or pci or pii and lifecycle is active or retiring: 0 rows, one for each app_id.",
-        "access_reviews has no rows today.",
-        "0 of the 1,438 keys in scope in cmdb_apps have a row here (0%): 1,438 have none.",
-        "The 1,438 keys in scope in cmdb_apps with no row in access_reviews",
-        "and 1,430 more keys",
-        "The match, day by day 100% 0% Feb 26 Mar 27",
-        "Over 31 days, between 0% and 100% of the keys in scope had a row; on the last, 0%."
-      ],
-      "count": { "#sheet .xp-keys li": 8, "#sheet .xp-month .mb": 31 }
-    }
-  },
-  {
     "name": "explore-no-key",
     "what": "A dataset the ontology says nothing of: its key, as its gate gives it, and plainly that nothing says what a row is or what it joins to yet",
     "day": "Fri 8",
@@ -371,6 +348,29 @@
     "expect": {
       "textIn": { "#sheet .xp-lit": ["protocol is TLS1.0 · 24 of 814 rows (3%)"], "#sheet .xp-card[data-column=\"status\"]": ["Fail 24 of 40"] },
       "count": { "#sheet .xp-card.picking": 8, "#sheet .xp-bar[aria-pressed=\"true\"]": 1 }
+    }
+  },
+  {
+    "name": "explore-join-held",
+    "what": "The day a file came all but empty, where it joins: none of the 1,438 applications in scope has a row, the first of them listed, and the day's bar drops out of a month at 100%",
+    "day": "Wed 27",
+    "card": "access_reviews",
+    "tab": "Explore",
+    "click": "#sheet .xp-parts [data-part=\"joins\"]",
+    "waitFor": "#sheet .xp-join .xp-side",
+    "full": true,
+    "expect": {
+      "state": "held",
+      "text": [
+        "One row is an application, for those where data_class is confidential or pci or pii and lifecycle is active or retiring: 0 rows, one for each app_id.",
+        "access_reviews has no rows today.",
+        "0 of the 1,438 keys in scope in cmdb_apps have a row here (0%): 1,438 have none.",
+        "The 1,438 keys in scope in cmdb_apps with no row in access_reviews",
+        "and 1,430 more keys",
+        "The match, day by day 100% 0% Feb 26 Mar 27",
+        "Over 31 days, between 0% and 100% of the keys in scope had a row; on the last, 0%."
+      ],
+      "count": { "#sheet .xp-keys li": 8, "#sheet .xp-month .mb": 31 }
     }
   }
 ]

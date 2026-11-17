@@ -37,6 +37,21 @@
     }
   },
   {
+    "name": "whose-dark",
+    "what": "The sheet's head in the dark scheme, while the day still waits",
+    "day": "Wed 27",
+    "scheme": "dark",
+    "in": "",
+    "click": "#loads .vf-decide-day",
+    "waitFor": ".vf-detail .vf-whose",
+    "element": ".vf-detail",
+    "expect": {
+      "count": {
+        ".vf-detail .vf-whose": 1
+      }
+    }
+  },
+  {
     "name": "whose-inside",
     "what": "Inside the flow that holds, the button is its own: Decide",
     "day": "Wed 27",
@@ -135,21 +150,6 @@
           "At Evidence feeds,",
           "filled it from Sun Mar 24"
         ]
-      }
-    }
-  },
-  {
-    "name": "whose-dark",
-    "what": "The sheet's head in the dark scheme, in a fresh browser where the day waits again",
-    "day": "Wed 27",
-    "scheme": "dark",
-    "in": "",
-    "click": "#loads .vf-decide-day",
-    "waitFor": ".vf-detail .vf-whose",
-    "element": ".vf-detail",
-    "expect": {
-      "count": {
-        ".vf-detail .vf-whose": 1
       }
     }
   }

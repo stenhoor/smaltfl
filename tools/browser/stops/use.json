@@ -60,6 +60,24 @@
     }
   },
   {
+    "name": "use-dark",
+    "what": "The use form in the dark scheme, before the first use",
+    "day": "Wed 7",
+    "in": "",
+    "scheme": "dark",
+    "clicks": [
+      "#build-bar .build-add",
+      ".cat-kit .cat-use"
+    ],
+    "waitFor": ".vf-detail .uf-form",
+    "element": ".vf-detail",
+    "expect": {
+      "count": {
+        ".vf-detail .uf-input": 2
+      }
+    }
+  },
+  {
     "name": "use-added",
     "what": "Used on the TLS feed, as offered: the day runs again with it, its card is on the canvas, and its sheet says what it is a use of, the dataset mapped onto each input, its setting as the flow has it, the flows it reads and what it gives, named after it",
     "in": "",
@@ -379,24 +397,6 @@
         "g.card[data-card=\"flow:applications\"]": 1,
         "g.card[data-card=\"fact_control_status\"]": 1,
         "g.card[data-card=\"flow:feeds\"]": 0
-      }
-    }
-  },
-  {
-    "name": "use-dark",
-    "what": "The use form in the dark scheme, in a fresh browser",
-    "day": "Wed 7",
-    "in": "",
-    "scheme": "dark",
-    "clicks": [
-      "#build-bar .build-add",
-      ".cat-kit .cat-use"
-    ],
-    "waitFor": ".vf-detail .uf-form",
-    "element": ".vf-detail",
-    "expect": {
-      "count": {
-        ".vf-detail .uf-input": 2
       }
     }
   }

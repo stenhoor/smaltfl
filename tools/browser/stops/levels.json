@@ -137,6 +137,29 @@
     }
   },
   {
+    "name": "levels-card-from-top",
+    "what": "A card inside a read flow, opened from anywhere, is on the canvas behind its sheet: the canvas goes to the flow that has it",
+    "day": "Wed 27",
+    "in": "",
+    "card": "tls",
+    "tab": "Quality",
+    "expect": {
+      "textIn": { "#crumbs": ["Larkspur estate", "Evidence feeds"] },
+      "count": { "#crumbs .crumb-trail li": 2, "g.card[data-card=\"tls\"].selected": 1 }
+    }
+  },
+  {
+    "name": "levels-dark",
+    "what": "The same in the dark scheme: the flows' cards, the day that waits in colour",
+    "day": "Wed 27",
+    "in": "",
+    "scheme": "dark",
+    "expect": {
+      "cards": { "flow:feeds": "‖|1 of 13" },
+      "count": { "g.card.flow": 4, "g.card.flow.fo-waiting": 1 }
+    }
+  },
+  {
     "name": "levels-double-click",
     "what": "On a desktop a double-click on a flow's card enters it (ADR 0026 §4): Applications reads the other three, each a card inside it",
     "devices": ["desktop", "wide"],
@@ -194,18 +217,6 @@
     }
   },
   {
-    "name": "levels-card-from-top",
-    "what": "A card inside a read flow, opened from anywhere, is on the canvas behind its sheet: the canvas goes to the flow that has it",
-    "day": "Wed 27",
-    "in": "",
-    "card": "tls",
-    "tab": "Quality",
-    "expect": {
-      "textIn": { "#crumbs": ["Larkspur estate", "Evidence feeds"] },
-      "count": { "#crumbs .crumb-trail li": 2, "g.card[data-card=\"tls\"].selected": 1 }
-    }
-  },
-  {
     "name": "levels-decided",
     "what": "A paused day once decided (ADR 0026 §3): Mon Mar 11's first files, the backup feed filled from the day before: the flow's card says how its day went out, by the month's decided mark, in the ink",
     "day": "Mon 11",
@@ -225,17 +236,6 @@
     "expect": {
       "text": ["Published filled · backup_jobs, 1 of 13 files", "WHAT HELD IT", "backup_jobs"],
       "count": { "#sheet .fl-day.fo-decided": 1 }
-    }
-  },
-  {
-    "name": "levels-dark",
-    "what": "The same in the dark scheme: the flows' cards, the day that waits in colour",
-    "day": "Wed 27",
-    "in": "",
-    "scheme": "dark",
-    "expect": {
-      "cards": { "flow:feeds": "‖|1 of 13" },
-      "count": { "g.card.flow": 4, "g.card.flow.fo-waiting": 1 }
     }
   }
 ]

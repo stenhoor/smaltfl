@@ -92,8 +92,8 @@
 // Writes <outDir>/<name>.png (TOUR_SHOTS) and <outDir>/metrics.json: per stop, the status line, the visible text of the
 // sheet (or the canvas page), its word count, its paragraphs of more than 25 words, the number of charts
 // (svg/canvas) and the words before the first chart. Its last lines are `problems: …` and `cost: {…}`: the stops made,
-// the times the app was opened, the runs the engine made and the seconds it all took, which the regression holds each
-// set to (tools/browser/sets.json, ADR 0025).
+// the times the app was opened, the runs the engine made (those on another app of the site apart, by its name:
+// `with`) and the seconds it all took, which the regression holds each set to (tools/browser/sets.json, ADR 0025).
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -190,7 +190,7 @@ const listedDays = (dir) => {
     let days = [];
     try {
       const list = JSON.parse(fs.readFileSync(path.join(dir, 'data', 'loads.json'), 'utf8'));
-      days = [...new Set(Object.values(list.sources ?? {}).flatMap((s) => (Array.isArray(s.loads) ? s.loads.map((l) => l.day) : [])))].filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+      days = [...new Set(Object.values(list.sources ?? {}).flatMap((s) => (Array.isArray(s.loads) ? s.loads.map((l) => l.slot ?? l.day) : [])))].filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
     } catch {
       days = [];
     }
@@ -380,11 +380,11 @@ function tracker() {
   let p = null;
   let scheme = null;
   // The app of the site the page is on: '' is <appDir>'s (a stop's "page").
-  let at = '';
+  let onApp = '';
   const problems = [];
   // What the tour cost: its stops, the times the app was opened or reloaded, the runs the engine made (the status
   // line's count, a refused load included).
-  const cost = { stops: 0, loads: 0, runs: 0 };
+  const cost = { stops: 0, loads: 0, runs: 0, with: {} };
   let runsSeen = 0;
   // Requests the page's script doesn't make itself (a bundle imported when it is first needed): the page isn't at
   // rest while one is on its way.
@@ -475,8 +475,8 @@ function tracker() {
     p.on('requestfinished', over);
     p.on('requestfailed', over);
     // A new browser opens the app the stop names, else <appDir>'s.
-    at = stop.page ?? '';
-    await p.goto(hrefOf(stop, at));
+    onApp = stop.page ?? '';
+    await p.goto(hrefOf(stop, onApp));
     await started();
   };
   // Where a stop opens an app of the site: on the stop's day, where it names one. The app runs the day its link names
@@ -681,10 +681,10 @@ function tracker() {
       await open(stop);
       // Another app of the site (ADR 0026 §6): the same browser, so its records are there; the app is opened anew, on
       // the stop's day where it names one.
-      if (stop.page !== undefined && stop.page !== at) {
+      if (stop.page !== undefined && stop.page !== onApp) {
         if (stop.page && !fs.existsSync(path.join(appDir(stop.page), 'page.html'))) throw new Error(`no app "${stop.page}" beside ${root}`);
         await p.goto(hrefOf(stop, stop.page));
-        at = stop.page;
+        onApp = stop.page;
         await started();
       }
       if (stop.reload) {
@@ -892,7 +892,10 @@ function tracker() {
       // A wait that a limit ended: the page never came to rest, which is a fault in it or in the stop.
       if (HOOKED) for (const what of new Set(limits)) problems.push(`${stop.name}: the page wasn't at rest after ${what === 'the app at work' ? HARD / 1000 : SOFT / 1000} s (${what})`);
       const run = Number((await status()).split('|')[0] || 0);
-      cost.runs += Math.max(0, run - runsSeen);
+      // On another app of the site (a stop's `page`), counted apart: a run costs what its own demo's runs cost.
+      const made = Math.max(0, run - runsSeen);
+      if (onApp) cost.with[onApp] = (cost.with[onApp] ?? 0) + made;
+      else cost.runs += made;
       runsSeen = run;
       console.log(`${stop.name} (${((Date.now() - t0) / 1000).toFixed(1)} s): ${m.words} words, ${m.charts} charts, ${m.longParagraphs.length} long paragraphs, ${m.wordsBeforeFirstChart ?? '-'} words before the first chart; state ${m.state}; title "${m.title}"${limits.length ? `; ${limits.length} wait${limits.length === 1 ? '' : 's'} ended at the limit (${[...new Set(limits)].join('; ')})` : ''}`);
     } catch (e) {
@@ -905,7 +908,8 @@ function tracker() {
   }
   fs.writeFileSync(path.join(out, 'metrics.json'), JSON.stringify({ metrics, problems }, null, 1));
   console.log(`problems: ${problems.length ? problems.join(' // ') : 'none'}`);
-  console.log(`cost: ${JSON.stringify({ ...cost, seconds: Math.round((Date.now() - began) / 100) / 10 })}`);
+  const { with: elsewhere, ...own } = cost;
+  console.log(`cost: ${JSON.stringify({ ...own, ...(Object.keys(elsewhere).length ? { with: elsewhere } : {}), seconds: Math.round((Date.now() - began) / 100) / 10 })}`);
   await browser.close();
   server.close();
 })().catch((e) => {

@@ -1,5 +1,19 @@
 [
   {
+    "name": "tiers-from-card",
+    "what": "Larkspur's tour, Wed Mar 27, the day that waits: from a flow's card to its own month (ADR 0026 §5), by its sheet's link, on the month of the day on screen",
+    "day": "Wed 27",
+    "in": "",
+    "flow": "feeds",
+    "click": "#sheet .fl-month",
+    "waitFor": "#view-month .mo-crumbs",
+    "element": "#view-month .mo-crumbs",
+    "expect": {
+      "textIn": { "#view-month .mo-crumbs": ["Larkspur estate", "Evidence feeds"], "#view-month .mo-name": ["March 2024"] },
+      "count": { "#view-month .mo-crumbs .crumb-trail li": 2 }
+    }
+  },
+  {
     "name": "tiers-wait",
     "what": "What waits for a decision names the flow whose file holds (ADR 0026 §5): Evidence feeds, then the file and what it said",
     "view": "month",
@@ -180,20 +194,6 @@
       "status": "^Wed Mar 27",
       "textIn": { "#crumbs": ["Larkspur estate", "Evidence feeds", "Paused · access_reviews, 1 of 13 files"] },
       "count": { "g.card.source": 13, "g.card[data-card=\"flow:inventory\"]": 1 }
-    }
-  },
-  {
-    "name": "tiers-from-card",
-    "what": "From a flow's card to its own month (ADR 0026 §5): its sheet's link, on the month of the day on screen",
-    "day": "Wed 27",
-    "in": "",
-    "flow": "feeds",
-    "click": "#sheet .fl-month",
-    "waitFor": "#view-month .mo-crumbs",
-    "element": "#view-month .mo-crumbs",
-    "expect": {
-      "textIn": { "#view-month .mo-crumbs": ["Larkspur estate", "Evidence feeds"], "#view-month .mo-name": ["March 2024"] },
-      "count": { "#view-month .mo-crumbs .crumb-trail li": 2 }
     }
   },
   {

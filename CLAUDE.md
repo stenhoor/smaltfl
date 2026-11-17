@@ -20,7 +20,7 @@ match smaltdb's `CLAUDE.md`.
 | `npm run docs:dev` | The site (VitePress, `docs/`, the brand kit copied unchanged into `docs/.vitepress/theme/`); `.github/workflows/docs.yml` deploys it to GitHub Pages with Larkspur's tour at `/app/` (the demo, ADR 0023), Evidence feeds' own page at `/feeds/` (a flow the estate reads, on the tour's files, ADR 0026 §6), Larkspur's planted month at `/larkspur/` (ADR 0020), the control estate at `/estate/` and the sign-ins at `/signins/` (each build writes `index.html` beside `page.html`) | Docs and site changes |
 | `npm run bench` | The scenario benchmarks in `bench/`, written to `bench/results/node.json` | Changes that could affect speed |
 | `npm run build:app` | The app in `dist/app` on Larkspur (`examples/larkspur/`, its notebooks expanded, shipped as `data/flow.json`, its days generated from its seed); `-- --variant tour --out dist/app-tour` for its tour, February and March, the demo (ADR 0023, the data list's `variants`; its scenes listed on the month screen from `scenes.json`); `-- --flow examples/security-signins/flow.json --out dist/app-signins` for the sign-ins (its generator's `--demo` days from the data list's `generateArgs`); `-- --flow examples/larkspur/feeds/flow.json --out dist/app-feeds` for Evidence feeds' own page; `--page id=address[=name]` names the pages of the site that share a flow with it (ADR 0026 §6). Bundles are named by content (`bundles.json`). A generated flow's days, histories and samples are kept in `node_modules/.cache/smaltfl/data/<hash of what makes them>/`: after a change to the app alone the build takes seconds, not minutes (the docs deploy caches the same folder) | Changes to `src/app` |
-| `npm run regress` | The browser regression, in minutes ([ADR 0025](docs/adr/0025-the-browser-regression-in-minutes.md)): builds the four demos (their data cached) and runs every stop set (`tools/browser/sets.json`) once on a phone, as many at once as there are cores, checking each stop's layout at the other sizes by resizing the page; one table of what passed, about five minutes on four cores. `-- overview tour` runs those sets; `-- overview --full --shots all` replays a set at every size with its screenshots; `-- --list` says what each set costs. CI replays every set at every size, a size a job | Before a PR that touches `src/app`; the set a change touches, `--full`, while iterating |
+| `npm run regress` | The browser regression, in minutes ([ADR 0025](docs/adr/0025-the-browser-regression-in-minutes.md)): builds the five demos (their data cached) and runs every stop set (`tools/browser/sets.json`) once on a phone, as many at once as there are cores, checking each stop's layout at the other sizes by resizing the page; one table of what passed, seven and a half minutes on four cores. `-- overview tour` runs those sets; `-- overview --full --shots all` replays a set at every size with its screenshots; `-- --list` says what each set costs. CI replays every set at every size, a size a job | Before a PR that touches `src/app`; the set a change touches, `--full`, while iterating |
 
 `npm run typecheck` runs on TypeScript 7: `typescript7`, an npm alias, run as `node node_modules/typescript7/bin/tsc`.
 The declarations `npm run build` emits stay on TypeScript 6.0.3 (`typescript`, so `npx tsc` is 6.0.3) for one more
@@ -595,8 +595,11 @@ release (smaltty ADR 0030).
   regression's on failure (`TOUR_SHOTS`). `regress.cjs` replays each set once at its smallest size and takes the page
   to the others by resizing it (`TOUR_SWEEP`: the layout at each, nothing run again); `--full` replays at every size.
   `tools/browser/sets.json` is the manifest and the budget: each set's demo, sizes and the runs the engine may make
-  for it (`runs`), each demo's cost of a run, `budget.engineSeconds` over their sum; a set that makes more runs, a
-  stops file not listed, or a sum over the budget fails the regression. CI's `demos` and `browser` jobs run it.
+  for it (`runs`; on another demo of the same site its stops go to, `with`, counted apart: `carry` on the tour and
+  Evidence feeds' page), each demo's cost of a run, `budget.engineSeconds` over their sum; a set that makes more runs,
+  a stops file not listed, or a sum over the budget fails the regression. CI's `demos` and `browser` jobs run it.
+  Amended on 2026-11-17 for ADR 0026's eleven sets (its §"Amended", Q-246): 33 sets on five demos, 215 runs, 1,292 of
+  1,330 engine seconds; the tour finds a set's opening day by the list's `slot`.
 - **State of the work:** [docs/HANDOFF.md](docs/HANDOFF.md) says what is built, how to check it and what is left, in
   priority order. Read it before starting. **What comes next:** [ADR 0011](docs/adr/0011-notebooks-as-the-step-surface.md),
   notebooks (smaltnb's `.nb.ts`) as the only step surface, in slices; its §"The slices" is the order of work. Then
@@ -678,7 +681,8 @@ release (smaltty ADR 0030).
   [ADR 0025](docs/adr/0025-the-browser-regression-in-minutes.md), the browser regression in minutes, from the
   maintainer's request of 2026-11-16 (a regression of 26 minutes): `npm run regress`, minutes on four cores,
   budgeted in the engine's runs and run by CI at every size; built as proposed, for the maintainers to confirm (Q-226
-  to Q-230). Its §"Not built" says what stands between five minutes and two (Q-229). **Now:**
+  to Q-230). Its §"Not built" says what stands between five minutes and two (Q-229); its §"Amended" is ADR 0026's
+  sets brought in, seven and a half minutes with them (Q-246). **Now:**
   [ADR 0026](docs/adr/0026-flows-in-flows.md), flows in flows (2026-11-17, the maintainer's answers Q-231 to Q-239): a
   flow reads other flows, each a card on its reader's canvas with its day's mark, entered to see its own flow, rolled
   up into the month, in the slices of its §12: the core and Larkspur cut into five; the canvas in levels; the month in
@@ -715,8 +719,10 @@ release (smaltty ADR 0030).
   already on its day, so it opens none: such a stop costs a third of a second. A stop that opens a day, decides,
   reloads or runs a what-if is a run: raise its set's `runs` by what it adds, and keep the sum under
   `budget.engineSeconds`, by taking a day out elsewhere if need be. Raising the budget itself is the maintainers' to
-  agree. A new stop set is listed in `sets.json` with its demo. No stop waits a fixed time, and `waitFor` is for what
-  many runs draw.
+  agree. A new stop set is listed in `sets.json` with its demo. A set stays on a day while it has stops there and
+  doesn't come back to one it left (a day opened again is a run again); a dark stop is the same page, so it goes
+  before the stop that changes what it looks at. No stop waits a fixed time, and `waitFor` is for what many runs
+  draw.
 - Don't reformat files with Prettier. No fixed sleeps in tests. Probe tests (`test/zz-*.test.ts`) are scratch files:
   delete them, never commit them.
 

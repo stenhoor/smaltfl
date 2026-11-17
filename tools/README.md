@@ -7,9 +7,9 @@ are not part of the package, the tests or the build.
 
 They need Playwright with Chromium (`require('playwright')`), and Python 3 with Pillow for the two image scripts.
 
-**The regression is one command: `npm run regress`** (ADR 0025). It builds the four demos into
-`node_modules/.cache/smaltfl/apps/` (seconds once their data is cached) and runs every stop set on the demo it is
-written for, five minutes on four cores. `npm run regress -- overview tour` runs those sets alone, and `npm run
+**The regression is one command: `npm run regress`** (ADR 0025). It builds the five demos into
+`node_modules/.cache/smaltfl/apps/` (seconds once their data is cached), side by side as a site serves them, and runs
+every stop set on the demo it is written for, seven and a half minutes on four cores. `npm run regress -- overview tour` runs those sets alone, and `npm run
 regress -- overview --full --shots all` replays one at every size with every stop's screenshot, to look at. For the
 tour by itself, build the app (`npm run build:app`, Larkspur by default; `-- --flow … --out …` for another flow)
 somewhere outside `dist/`, because `npm run build` wipes `dist/`, and pass **absolute** paths.
@@ -21,7 +21,7 @@ somewhere outside `dist/`, because `npm run build` wipes `dist/`, and pass **abs
 | `python3 -I tools/browser/cvd.py <outDir> <png>…` | Greyscale and deuteranopia versions of screenshots (Machado et al. 2009), for the colour check. |
 | `python3 -I tools/browser/slices.py <in.png> <out.png> [height] [strips] [start]` | Slices a tall screenshot into side-by-side strips you can read in one image. |
 
-**Stop sets** (`browser/stops/`). The stops in a file run in one session, in order, and later stops depend on what earlier ones ran (which day readers keep, what was decided): run a whole file, not a few stops out of it. A set whose first stop names a day opens the app on that day.
+**Stop sets** (`browser/stops/`). The stops in a file run in one session, in order, and later stops depend on what earlier ones ran (which day readers keep, what was decided): run a whole file, not a few stops out of it. A set whose first stop names a day opens the app on that day. A set stays on a day while it has stops there, and doesn't come back to one it left: a day opened again is a run again, and the runs are what the regression is held to (`sets.json`). The other colour scheme is the same page, so a dark stop goes before the stop that changes what it looks at.
 
 **The manifest and the budget** (`browser/sets.json`, ADR 0025 §5). Every stop set is listed with the demo it runs on
 (`tour`, `larkspur`, `estate`, `signins`), the sizes it is held to where not all, and `runs`: the runs the engine may
@@ -167,32 +167,30 @@ that makes more runs than it says, a stops file the manifest doesn't list, and a
 
   Its stops follow one another: what one adds, the next has. It must report `problems: none` at every size.
 - `carry.json`: a decision carried between two pages that share a flow (ADR 0026 §6, second step), on the tour and
-  Evidence feeds' own page built side by side, each told where the other is:
-  `npm run build:app -- --variant tour --out dist/app-tour --page feeds=../feeds/` and
-  `npm run build:app -- --flow examples/larkspur/feeds/flow.json --out dist/app-feeds --page "larkspur=../tour/=Larkspur estate"`,
-  copied to `SITE/tour` and `SITE/feeds`, then `regress.cjs SITE/tour OUT carry`. It checks:
+  Evidence feeds' own page, built side by side and each told where the other is (`sets.json`: the tour's and the
+  feeds demo's `build`, and the set's `"with": { "feeds": … }`, the runs it may make on the other page):
+  `npm run regress -- carry`. A stop's `"page"` goes to the other app of the site. It checks:
   - the estate's page on the tour's Wed Mar 27: Evidence feeds' to decide, a link to that flow's own page on the
     sheet's head and on the flow's sheet;
-  - Evidence feeds' own page: its month, *About this flow* naming the flow that reads it, a file of Inventory's no step
-    here reads, its Ontology page, and the same day held by the same file;
-  - the day decided there, its receipt saying which page takes the decision, and the estate's page taking it when
-    the day runs: published as is, the receipt, the record and the month's timeline saying where it was decided, and
-    the same once the page is opened again;
-  - the estate's audit bag, with the proof of the decision it carried, held by the offline audit;
-  - the other way, in a fresh browser (the dark scheme): decided on the estate's page, carried to Evidence feeds';
-    changed there, and the change carried back; Evidence feeds' bag held by the offline audit;
-  - in a third browser: the flow edited on its own page, a day decided there under those rules, and the estate's page
-    not taking it, the sheet saying why;
-  - in a fourth: the day filled on Evidence feeds' page, the estate's page making the same fill from its own offer of
+  - Evidence feeds' own page: a file of Inventory's no step here reads, its month, *About this flow* naming the flow
+    that reads it, its Ontology page, and the same day held by the same file;
+  - the day decided there (not published), its receipt saying which page takes the decision, and the estate's page
+    taking it when the day runs: the receipt, the record and the month's timeline saying where it was decided;
+  - the other way: the decision changed on the estate's page (published as is after all), the estate's audit bag with
+    the proof of the decision it carried and its own change of it held by the offline audit, then Evidence feeds'
+    page taking the change in turn, its record citing the estate's entry and its bag held by the offline audit;
+  - in a new browser (`"fresh": true`): the flow edited on its own page, a day decided there under those rules, and
+    the estate's page not taking it, the sheet saying why;
+  - in another: the day filled on Evidence feeds' page, the estate's page making the same fill from its own offer of
     it and publishing it; its bag held by the offline audit, and again once the page is opened in a new engine; the
-    fill withdrawn there, and the estate's page taking that too.
+    fill withdrawn on Evidence feeds' page, opened from its month, and the estate's page taking that too.
 
   Its stops follow one another: what one decides, the next finds. It must report `problems: none` at every size.
 - `voice.json`: the voice (ADR 0026 §12), on the tour (same build as `overview.json`):
+  - a held day: the seal part says why it isn't sealed, and nothing playful;
   - a gold dataset's seal on a normal day: what the seal is, then *Worth its smalt.*;
   - Certificates added from the catalogue, its first day here gone out as usual: the status line says so, and the
     line once;
-  - a held day: the seal part says why it isn't sealed, and nothing playful;
   - plain words ticked in About this flow, and the same seal with the line left out.
 
   Its stops follow one another: what one adds, the next has. It must report `problems: none` at every size.

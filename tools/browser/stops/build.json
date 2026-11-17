@@ -46,6 +46,22 @@
     }
   },
   {
+    "name": "build-dark",
+    "what": "The catalogue in the dark scheme, before anything is made",
+    "day": "Wed 7",
+    "in": "",
+    "click": "#build-bar .build-add",
+    "waitFor": ".vf-detail .cat-add",
+    "scheme": "dark",
+    "element": ".vf-detail",
+    "expect": {
+      "count": {
+        ".vf-detail .cat-flow": 3,
+        ".vf-detail .cat-add": 3
+      }
+    }
+  },
+  {
     "name": "build-add",
     "what": "Ownership added: the day runs again with it, its card is on the canvas beside the flows shipped, and its sheet says it was added here, what it reads and what it gives",
     "in": "",
@@ -310,22 +326,6 @@
       "count": {
         "g.card.flow": 5,
         "g.card[data-card=\"nb-joins\"]": 0
-      }
-    }
-  },
-  {
-    "name": "build-dark",
-    "what": "The catalogue in the dark scheme, in a fresh browser where nothing was made yet",
-    "day": "Wed 7",
-    "in": "",
-    "click": "#build-bar .build-add",
-    "waitFor": ".vf-detail .cat-add",
-    "scheme": "dark",
-    "element": ".vf-detail",
-    "expect": {
-      "count": {
-        ".vf-detail .cat-flow": 3,
-        ".vf-detail .cat-add": 3
       }
     }
   }

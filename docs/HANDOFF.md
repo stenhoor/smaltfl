@@ -209,8 +209,8 @@ npm run build                               # declarations; NOTE: wipes dist/, s
 npm run build:app                           # dist/app on Larkspur, its days generated; the bundles are named by content (app.<hash>.js), so a
                                             # browser never serves a stale build under the old name (bundles.json says which)
 npm run build:app -- --variant tour --out dist/app-tour   # the demo: the tour's two months and their scene list (ADR 0023)
-npm run regress                             # the browser regression (ADR 0025): the four demos built, every stop set run, five
-                                            # minutes on four cores; `-- tour` for one set, `-- tour --full` at every size
+npm run regress                             # the browser regression (ADR 0025): the five demos built, every stop set run, seven
+                                            # and a half minutes on four cores; `-- tour` for one set, `-- tour --full` at every size
 npm run regress -- carry                    # one set: here the two pages that share a flow (ADR 0026 §6), the tour and
                                             # Evidence feeds' own page, built side by side as the site serves them
 ```
@@ -324,14 +324,25 @@ don't reach, so the audit expects an older version of those names than the engin
 tour, decide Wed Mar 27 with a fill, change the decision to *Keep*, export for audit. The fix belongs with a stop
 that audits a withdrawal. (A fill's own release failed the audit on such a day too, and that is fixed.)
 
+**Found while bringing the stop sets into the regression in minutes, and left** (ADR 0025's amendment of 2026-11-17):
+a fill can't be withdrawn in an engine that has run no other day. A page opened on a held day's own link
+(`#day/2024-03-27`) runs that day first; fill it, then change the decision to *Keep*, and the engine refuses: *nothing
+was published for access_reviews_checked before release 1: there is no version to go back to*. The decision is
+recorded and the page says the refusal; the filled version stays out in that engine. It is the plugin's
+(`src/plugin/release.ts`: a withdrawal puts back the version a name showed before), it is older than flows in flows,
+and no stop met it while every set opened on the first day. Opened from the month, where the first day runs, the same
+withdrawal goes back to that day (`carry.json`'s last stops). The fix is the engine's to make: a name with nothing
+before it shows nothing again.
+
 **For the maintainers to confirm: [ADR 0025](adr/0025-the-browser-regression-in-minutes.md), the browser regression
 in minutes** (2026-11-16, Q-226 to Q-230). The maintainer, after a regression of 26 minutes, asked for it in minutes
 and for a way to keep it there. Measured first: 22 sets, 246 stops, replayed at five sizes; a third of the time was the
 tool waiting (250 ms of stillness after every step, screenshots nobody looked at, the app opened again for the dark
 scheme), the rest the engine's 166 runs, done once a size. Built as proposed:
 
-- **`npm run regress`**: the four demos built, every set run, one table. Five minutes on four cores, where it took 26
-  to 37. One set while working is seconds to a minute.
+- **`npm run regress`**: the demos built, every set run, one table. Five minutes on four cores for the 22 sets it was
+  built on, where it took 26 to 37; seven and a half with ADR 0026's eleven (below). One set while working is seconds
+  to a minute.
 - **The tour asks the page when it is at rest** (`window.__smaltflBusy`, and a count of what the page started), and
   never waits a fixed time.
 - **Each set is replayed once**, on a phone, and its page taken to the other four sizes by resizing it, the layout
@@ -344,6 +355,14 @@ scheme), the rest the engine's 166 runs, done once a size. Built as proposed:
   day's.
 - **Found on the way** (Q-230): with the engine in the page (`?engine=page`), the second day opened is paused where
   the worker publishes it.
+- **Amended on 2026-11-17, with ADR 0026's eleven sets** (its §"Amended"; Q-246, for the maintainer to agree): 33
+  sets on five demos, 395 stops, 215 runs of the engine, **7 min 35 s** on four cores. The budget is raised from 840
+  engine seconds to 1,330 (1,292 used), which only the maintainers do; holding 840 would leave eight Larkspur runs for
+  the eleven sets. What bringing them in found: a set never did open on its first stop's day (the tour read `day`
+  where the data's list says `slot`), which it does now, a run fewer in eleven of the 22 sets; a level entered on a
+  refused day fetched the file again, fixed; a fill can't be withdrawn in an engine that has run no other day, left
+  (above). A set that goes to another demo of the site says its runs there (`"with"`), and no set leaves a day and
+  comes back to it.
 
 **For the maintainers to confirm: [ADR 0024](adr/0024-the-month-at-a-glance.md), the month at a glance** (2026-11-16,
 Q-219 to Q-225). The maintainer looked at the tour's month and asked for research into how such a screen is best done,

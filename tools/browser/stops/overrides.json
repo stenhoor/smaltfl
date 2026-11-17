@@ -64,6 +64,20 @@
     }
   },
   {
+    "name": "overrides-dark",
+    "what": "The head of the page and the handled column's card in the dark scheme, while the one handling is the flow's own as shipped",
+    "day": "Wed 7",
+    "scheme": "dark",
+    "view": "ontology",
+    "viewFirst": true,
+    "click": "#ontology-estate .oe-go[data-dataset=\"app_owners\"]",
+    "waitFor": ".of-item[data-made=\"app_owners\"].open .of-col[data-column=\"owner_team_id\"] .of-handled",
+    "full": true,
+    "expect": {
+      "count": { "#ontology-estate .oe-item": 1, ".of-item.open .of-handled": 1 }
+    }
+  },
+  {
     "name": "overrides-form",
     "what": "As the owner, a column the estate describes, edited on its file's card: tls's Issuer. The form asks why this flow handles it its own way, and says whose handling it would be and that it is noted and hashed",
     "day": "Wed 7",
@@ -120,20 +134,6 @@
         ".of-item.open .of-col[data-column=\"issuer\"]": ["Certificate authority", "Evidence feeds’ own handling.", "Larkspur estate’s ontology says: Issuer. The certificate authority that issued the endpoint's certificate."]
       },
       "count": { "#ontology-estate .oe-item": 2, ".of-item.open .of-handled": 1 }
-    }
-  },
-  {
-    "name": "overrides-dark",
-    "what": "The head of the page and the handled column's card in the dark scheme, in a fresh browser where the one handling is the flow's own as shipped",
-    "day": "Wed 7",
-    "scheme": "dark",
-    "view": "ontology",
-    "viewFirst": true,
-    "click": "#ontology-estate .oe-go[data-dataset=\"app_owners\"]",
-    "waitFor": ".of-item[data-made=\"app_owners\"].open .of-col[data-column=\"owner_team_id\"] .of-handled",
-    "full": true,
-    "expect": {
-      "count": { "#ontology-estate .oe-item": 1, ".of-item.open .of-handled": 1 }
     }
   }
 ]

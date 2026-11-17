@@ -1,5 +1,21 @@
 [
   {
+    "name": "compare-month",
+    "what": "Larkspur's month, before a day is opened: Thu Mar 21 is one of the days sent again. Opened from here, a day runs the version readers got alone, so its first files aren't run in this browser until they are asked for (compare-thu21-rows-need); a set that opened on the day's own link would have run them first",
+    "view": "month",
+    "viewFirst": true,
+    "click": "#view-month .mo-d[data-day=\"2024-03-21\"]",
+    "element": "#view-month .mo-sum",
+    "expect": {
+      "text": [
+        "Thu Mar 21"
+      ],
+      "count": {
+        "#view-month .mo-d.corrected[data-day=\"2024-03-21\"]": 1
+      }
+    }
+  },
+  {
     "name": "compare-thu21",
     "what": "Thu Mar 21, the version readers got (v3), compared with the file as it arrived (v1), from their two runs' manifests alone (ADR 0021 §4): the TLS file differs, the same rules, what was decided of each, and the outputs that changed",
     "day": "Thu 21",

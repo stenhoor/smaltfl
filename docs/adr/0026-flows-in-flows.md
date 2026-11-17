@@ -889,14 +889,15 @@ none; the maintainer chose which (Q-245): **one read flow's own page**.
   record read as its own page keeps it, read on from where it was left, never written, only the records asked for,
   and the proof exported with what the entries name.
   `tools/browser/stops/carry.json` walks it in a real browser at every size, on the two apps served from one origin
-  (tour.cjs's `page`): decided on Evidence feeds' page and carried to the estate's, and applied again when the page is
-  opened again; decided on the estate's and carried to Evidence feeds'; changed there and carried back; not carried
-  where the rules differ; a fill carried, made again in a new engine, then withdrawn there and here; each page's
-  record exported and held by the offline audit, a carried fill's twice. A bag whose proof is taken out,
-  changed, or no longer places its entry fails the audit at the decision that cites it (tried by hand on a bag from
-  those stops). The whole browser regression on the five pages built from this work, at every size: the tour with
-  Evidence feeds' page 60 of 60 jobs, Larkspur's planted month 45 of 45, the control estate 20 of 20, the sign-ins
-  12 of 12.
+  (tour.cjs's `page`): decided on Evidence feeds' page and carried to the estate's; changed on the estate's and
+  carried back to Evidence feeds', amending the one it had; not carried where the rules differ; a fill carried, made
+  again in a new engine, then withdrawn there and here; each page's record exported and held by the offline audit, a
+  carried fill's twice. A bag whose proof is taken out, changed, or no longer places its entry fails the audit at the
+  decision that cites it (tried by hand on a bag from those stops). The whole browser regression on the five pages
+  built from this work, at every size: the tour with Evidence feeds' page 60 of 60 jobs, Larkspur's planted month 45
+  of 45, the control estate 20 of 20, the sign-ins 12 of 12. (As first walked, the set also decided on the estate's
+  page first and opened the estate's page again after a plain carry; §"In the regression in minutes" says what the
+  walk is now, and why.)
 
 **What it leaves:**
 
@@ -917,6 +918,36 @@ none; the maintainer chose which (Q-245): **one read flow's own page**.
   reach. It happens inside one page too (decide a fill on the tour's Wed Mar 27, change the decision to *Keep*,
   export): the withdrawal is right on screen and in the engine, and the audit's reading of it isn't. It is the next
   thing to fix in `audit.ts` (`shownBefore`), with a stop that audits a withdrawal.
+
+### In the regression in minutes (2026-11-17)
+
+Main took [ADR 0025](0025-the-browser-regression-in-minutes.md) while this was built: one command, the engine's runs
+counted and held, a set replayed once and its page resized. This work's eleven stop sets were written for the tool
+before it, and were brought in (ADR 0025's amendment of the same day has the numbers and what the tool gained):
+
+- **Listed and counted** (`tools/browser/sets.json`): `levels`, `tiers`, `explore`, `whose`, `overrides`, `build`,
+  `use`, `voice` and `carry` on the tour, `follow` on Larkspur's planted month, `alone` on the control estate.
+  Evidence feeds' own page is a fifth demo (`feeds`), built beside the tour and each told where the other is, and
+  `carry` says the runs it may make on it (`"with": { "feeds": 8 }`), counted apart at that demo's cost of a run.
+- **No day left and come back to.** A day opened again is a run again. The sets were put in the order of their days:
+  `levels` does everything on Wed Mar 27 before it steps to the next day (5 runs where it made 7), `explore` goes to
+  the held day last (5 for 6), `voice` starts on the paused day (3 for 4), `tiers` opens on its one day, and its
+  month's stops follow (1 for 2).
+- **The dark scheme before what changes the page.** The other scheme is the same page now, so a set's dark stop no
+  longer gets a browser where nothing was made yet: in `whose`, `overrides`, `build`, `use` and `follow` it moved to
+  before the stop that decides, edits, adds or tests.
+- **`carry` in three browsers, not four.** The day is decided on Evidence feeds' page (not published) and carried to
+  the estate's; changed on the estate's page (published as is after all) and carried back. That is both directions
+  and the amendment in one browser, where the set had a browser for each direction; the first decision is one that can
+  still be changed, since a day published as is can't be recalled. The flow edited on its own page, and the fill, each
+  keep a browser of their own (`"fresh": true`). Opening the estate's page again after a plain carry went out: the
+  carried fill is opened again, the harder case. 29 stops, 7 runs on the tour and 8 on Evidence feeds' page, where it
+  was 31 stops in four browsers.
+- **`follow`'s test is the dearest stop of the regression**: fourteen of Larkspur's days run again as what-ifs, 14 of
+  the set's 17 runs. It is the one place the test of §7 is walked, and it stays as it is.
+- **What the tool's first run on these sets found in the app**, fixed here: a level entered or left on a day whose
+  file was refused fetched the file again and recorded the refusal again (`openDay`, where a link changes only the
+  level). And left: a fill can't be withdrawn in an engine that has run no other day (docs/HANDOFF.md).
 
 ## Consequences
 

@@ -89,6 +89,21 @@
     }
   },
   {
+    "name": "follow-dark",
+    "what": "What changed, in the dark scheme",
+    "day": "Mon 18",
+    "scheme": "dark",
+    "in": "",
+    "flow": "feeds",
+    "waitFor": "#sheet .fl-changed",
+    "element": "#sheet",
+    "expect": {
+      "count": {
+        "#sheet .fl-change": 2
+      }
+    }
+  },
+  {
     "name": "follow-test",
     "what": "The change tested on the days recorded: each of the last 14 days before it takes effect run again under it as a what-if, nothing published and nothing recorded; the sheet and the status line then say what it found, and the day that was on screen is on screen again",
     "in": "",
@@ -111,21 +126,6 @@
       "count": {
         "#sheet .fl-tested": 1,
         "#sheet .fl-tested-days": 0
-      }
-    }
-  },
-  {
-    "name": "follow-dark",
-    "what": "What changed, in the dark scheme",
-    "day": "Mon 18",
-    "scheme": "dark",
-    "in": "",
-    "flow": "feeds",
-    "waitFor": "#sheet .fl-changed",
-    "element": "#sheet",
-    "expect": {
-      "count": {
-        "#sheet .fl-change": 2
       }
     }
   }

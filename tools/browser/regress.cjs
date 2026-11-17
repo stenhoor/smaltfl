@@ -28,7 +28,9 @@
 // opened is a run, and so is a decision's, a what-if's, a reload's); a set that makes more fails, and so does a stops
 // file the manifest doesn't list. Each demo says what a run costs on it (`run`, seconds), and the sum over every set,
 // its runs times its demo's cost, may not pass `budget.engineSeconds`: a stop that opens another day is paid for by
-// trimming one somewhere, or by raising the budget in a change the maintainers review. Exit 1 on any problem.
+// trimming one somewhere, or by raising the budget in a change the maintainers review. A set whose stops go to another
+// demo of the same site (a stop's `page`, ADR 0026 §6) says the runs it may make there too (`with`: a demo's name and
+// its runs), counted and held to apart, at that demo's cost. Exit 1 on any problem.
 const { spawn, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -76,11 +78,17 @@ for (const s of onDisk) if (!manifest.sets[s]) wrong.push(`tools/browser/stops/$
 for (const [s, def] of Object.entries(manifest.sets)) {
   if (!onDisk.includes(s)) wrong.push(`sets.json lists "${s}", and there is no tools/browser/stops/${s}.json`);
   if (!manifest.apps[def.app]) wrong.push(`sets.json: "${s}" is on the demo "${def.app}", which it doesn't list`);
+  for (const [a, n] of Object.entries(def.with ?? {})) {
+    if (!manifest.apps[a]) wrong.push(`sets.json: "${s}" also goes to the demo "${a}" ("with"), which it doesn't list`);
+    if (!Number.isInteger(n) || n < 1) wrong.push(`sets.json: "${s}" needs the runs the engine may make on "${a}" ("with": { "${a}": runs })`);
+  }
   if (!Number.isInteger(def.runs) || def.runs < 1) wrong.push(`sets.json: "${s}" needs "runs", the runs the engine may make for it`);
   for (const d of def.sizes ?? []) if (!manifest.sizes.includes(d)) wrong.push(`sets.json: "${s}" names the size "${d}"`);
 }
-const engineSeconds = (s) => manifest.sets[s].runs * manifest.apps[manifest.sets[s].app].run;
-const spent = Object.keys(manifest.sets).reduce((t, s) => t + (manifest.apps[manifest.sets[s].app] ? engineSeconds(s) : 0), 0);
+// What a set costs: its runs on its own demo, and on any other it goes to, each at that demo's cost of a run.
+const runsOf = (def) => [[def.app, def.runs], ...Object.entries(def.with ?? {})];
+const engineSeconds = (s) => runsOf(manifest.sets[s]).reduce((t, [a, n]) => t + n * (manifest.apps[a]?.run ?? 0), 0);
+const spent = Object.keys(manifest.sets).reduce((t, s) => t + engineSeconds(s), 0);
 if (spent > manifest.budget.engineSeconds) wrong.push(`sets.json: the sets' runs come to ${Math.round(spent)} engine seconds, over the ${manifest.budget.engineSeconds} the regression is held to (budget.engineSeconds): trim a set's days, or raise the budget in a change the maintainers review`);
 if (wrong.length) {
   for (const w of wrong) console.error(`regress: ${w}`);
@@ -101,7 +109,7 @@ for (const spec of chosen) {
   if (!sizes.length) continue;
   const file = path.join(stopsDir, `${set}.json`);
   const stops = JSON.parse(fs.readFileSync(file, 'utf8')).length;
-  const job = (device, sweep) => queue.push({ set, app: def.app, file, device, sweep, stops, budget: def.runs, weight: engineSeconds(set) + stops * 0.5 * (1 + sweep.length * 0.3) });
+  const job = (device, sweep) => queue.push({ set, app: def.app, file, device, sweep, stops, budget: def.runs, with: def.with ?? {}, weight: engineSeconds(set) + stops * 0.5 * (1 + sweep.length * 0.3) });
   if (full) for (const d of sizes) job(d, []);
   else job(sizes[0], sizes.slice(1));
 }
@@ -110,13 +118,14 @@ queue.sort((a, b) => b.weight - a.weight);
 
 if (list) {
   console.log('set          demo      sizes                                  runs  engine s');
-  for (const [s, def] of Object.entries(manifest.sets)) console.log(`${s.padEnd(12)} ${def.app.padEnd(9)} ${(def.sizes ?? manifest.sizes).join(',').padEnd(38)} ${String(def.runs).padStart(4)}  ${String(Math.round(engineSeconds(s))).padStart(7)}`);
-  console.log(`\n${Object.keys(manifest.sets).length} sets, ${Object.values(manifest.sets).reduce((t, d) => t + d.runs, 0)} runs, ${Math.round(spent)} of ${manifest.budget.engineSeconds} engine seconds; the whole run is held to ${manifest.budget.seconds} s on ${manifest.budget.cores} cores`);
+  for (const [s, def] of Object.entries(manifest.sets)) console.log(`${s.padEnd(12)} ${def.app.padEnd(9)} ${(def.sizes ?? manifest.sizes).join(',').padEnd(38)} ${String(def.runs).padStart(4)}  ${String(Math.round(engineSeconds(s))).padStart(7)}${Object.entries(def.with ?? {}).map(([a, n]) => `  and ${n} on ${a}`).join('')}`);
+  console.log(`\n${Object.keys(manifest.sets).length} sets, ${Object.values(manifest.sets).reduce((t, d) => t + runsOf(d).reduce((u, [, n]) => u + n, 0), 0)} runs, ${Math.round(spent)} of ${manifest.budget.engineSeconds} engine seconds; the whole run is held to ${manifest.budget.seconds} s on ${manifest.budget.cores} cores`);
   process.exit(0);
 }
 
 // ---- The demos, built where asked: each by `npm run build:app`, into its folder.
-const apps = [...new Set(queue.map((j) => j.app))];
+// A set's own demo, and any other demo of the same site its stops go to (a set's "with": a stop's "page", ADR 0026 §6).
+const apps = [...new Set(queue.flatMap((j) => [j.app, ...Object.keys(j.with)]))];
 if (build) {
   for (const app of apps) {
     const t0 = Date.now();
@@ -169,9 +178,13 @@ const runOne = (job) => new Promise((done) => {
     }
     // The set held to the runs it may make: what keeps the regression from growing a day at a time.
     if (cost && cost.runs > job.budget) problems.push(`over its budget: the engine made ${cost.runs} runs and the set may make ${job.budget} (tools/browser/sets.json). Take a day out of the set, or raise its "runs" and keep the sum under budget.engineSeconds`);
+    // The same on each other demo its stops go to: a demo the set doesn't say it goes to may make none.
+    const elsewhere = Object.entries(cost?.with ?? {});
+    for (const [a, n] of elsewhere) if (n > (job.with[a] ?? 0)) problems.push(`over its budget on ${a}: the engine made ${n} runs there and the set may make ${job.with[a] ?? 0} (tools/browser/sets.json, its "with"). Take a day out of the set, or raise its runs there and keep the sum under budget.engineSeconds`);
     const seconds = (Date.now() - t0) / 1000;
-    results.push({ set: job.set, app: job.app, device: job.device, sweep: job.sweep, stops: job.stops, runs: cost?.runs ?? null, budget: job.budget, seconds, problems, out });
-    console.log(`${problems.length ? 'FAIL' : 'ok  '} ${job.set} @ ${job.device}${job.sweep.length ? ` + ${job.sweep.join(', ')}` : ''} (${job.stops} stops, ${cost?.runs ?? '?'} of ${job.budget} runs, ${seconds.toFixed(0)} s)${problems.length ? `: ${problems.length} problem(s)` : ''}`);
+    const runs = cost ? cost.runs + elsewhere.reduce((t, [, n]) => t + n, 0) : null;
+    results.push({ set: job.set, app: job.app, device: job.device, sweep: job.sweep, stops: job.stops, runs, budget: job.budget, ...(elsewhere.length ? { with: cost.with } : {}), seconds, problems, out });
+    console.log(`${problems.length ? 'FAIL' : 'ok  '} ${job.set} @ ${job.device}${job.sweep.length ? ` + ${job.sweep.join(', ')}` : ''} (${job.stops} stops, ${cost?.runs ?? '?'} of ${job.budget} runs${Object.keys(job.with).map((a) => `, ${cost?.with?.[a] ?? 0} of ${job.with[a]} on ${a}`).join('')}, ${seconds.toFixed(0)} s)${problems.length ? `: ${problems.length} problem(s)` : ''}`);
     done();
   });
 });
