@@ -12,7 +12,8 @@ incident page, the drill and the phone canvas in [adr/0012-visual-first-in-two-m
 bronze layer in [adr/0015-the-bronze-layer.md](adr/0015-the-bronze-layer.md), the mark in [adr/0016-the-mark.md](adr/0016-the-mark.md), time in [adr/0021-time.md](adr/0021-time.md), the answers of 2026-11-14 in
 [adr/0022-the-answers-of-2026-11-14.md](adr/0022-the-answers-of-2026-11-14.md), the demo as a tour in
 [adr/0023-the-demo-as-a-tour.md](adr/0023-the-demo-as-a-tour.md), the month at a glance in
-[adr/0024-the-month-at-a-glance.md](adr/0024-the-month-at-a-glance.md). The
+[adr/0024-the-month-at-a-glance.md](adr/0024-the-month-at-a-glance.md), the browser regression in minutes in
+[adr/0025-the-browser-regression-in-minutes.md](adr/0025-the-browser-regression-in-minutes.md). The
 research behind the proposals is in [research/ecosystem-survey.md](research/ecosystem-survey.md).
 
 **Who decides:** the maintainers, together (ADR 0001 §1).
@@ -25,6 +26,22 @@ research behind the proposals is in [research/ecosystem-survey.md](research/ecos
 | Q-29 | The mark: round 3 leans into waves (M12–M18), all curved | **The Twin (M13), with a small chip,** picked and approved by stenhoor on 2026-11-11 (ADR 0016) | decided |
 | Q-41 | How do row rules pass through aggregates? | An aggregated row is visible only when every row behind it is. A dataset whose rows mix what a viewer may and may not see is closed to that viewer, and the app says why and offers the fix (group it by the rule's column): A7 shows this for `airport_times`. v1 applies rules by column name and closes a dataset without the rule's column; exact inheritance waits for bound plans | open |
 | Q-34 | Verified runs and speed: parallel execution can change a floating-point sum in its last digit | Verification is bit-exact: runs pin the engine settings that affect results (no parallel aggregation of floating-point values), and the cost is measured. Revisit if it is large. A fold that changes the order of a floating-point sum is a new result (ADR 0004); order-independent sums in smaltdb would make it free, to discuss with stenhoor | open |
+
+## The browser regression in minutes: built as proposed, for the maintainers to confirm (ADR 0025)
+
+The maintainer, 2026-11-16, after a browser regression of 26 minutes: *"Waiting 30 minutes on a regression test is
+utterly unacceptable. This needs to be somewhere in the minute range […] come up with a plan on how to make sure that we
+always keep our test suite optimized and running quickly […] part of our build."* Measured first: a third of the time
+was the tool waiting, the rest the engine's runs, done once a size
+([adr/0025-the-browser-regression-in-minutes.md](adr/0025-the-browser-regression-in-minutes.md)).
+
+| ID | Question | Proposal, as built | Status |
+| --- | --- | --- | --- |
+| Q-226 | Every stop set was replayed at each of five sizes: the engine's 166 runs, 830 times. What does a session run before a PR? | **Each set once, on a phone, the page taken to the other sizes by resizing it** and its layout checked at each (`npm run regress`, five minutes on four cores). The replay at every size is CI's, a size a job, and a change to a screen's layout still replays the set it touches at every size (ADR 0018 §4). The resize doesn't see what the page decides when it opens: rows are the phone's cards at a tablet's width (ADR 0025 §3) | proposed, built |
+| Q-227 | The regression grew a reasonable stop at a time. What holds it? | **A budget counted in the engine's runs,** which are the cost and are the same on every machine: each set's `runs` in `tools/browser/sets.json`, each demo's cost of a run, and their sum under `budget.engineSeconds` (802 of 840). A set that makes more runs, a stops file not listed, or a sum over the budget fails. The whole run's seconds are a note outside CI (ADR 0025 §5) | proposed, built |
+| Q-228 | CI needs Playwright, which the tools take as a session has it (installed beside the project). A devDependency? | **Installed for CI's `browser` job alone** (`npm install -g playwright@1.63.0`), so `package.json` and the lockfile don't change. Add it as a devDependency if the maintainers prefer one install (ADR 0025 §6) | proposed, built |
+| Q-229 | The maintainer asked for a couple of minutes; the whole regression is five. The rest is the engine: Larkspur's 76 days, 7 to 10 s each, are 3.2 minutes on four cores by themselves. Which way under it? | **Not built: the maintainers' to choose.** Every day's claims computed ahead by the build, as the first day's are (ADR 0019): a third of a Larkspur day, for a visitor as for the regression. Or the engine itself (smaltdb is 38% of a recorded month's time, garbage collection 16%): stenhoor's, first. Or fewer Larkspur days in the sets: more than half would have to go. CI, with a job a size, is not held up by any of it (ADR 0025, Not built) | open |
+| Q-230 | With the engine in the page (`?engine=page`, what a browser without workers gets), the second day opened on Larkspur is paused, "run here on other files than the record's", where the worker publishes it as normal. A fault? | **Found while measuring, not looked into.** The worker's path is the one every stop set runs | open |
 
 ## The month at a glance: built as proposed, for the maintainers to confirm (ADR 0024)
 

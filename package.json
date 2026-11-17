@@ -57,6 +57,7 @@
     "bench": "node scripts/fetch-packed.mjs --check && SMALTFL_BENCH=1 vitest run",
     "rules:sync": "node scripts/rules-sync.mjs",
     "build:app": "node scripts/fetch-packed.mjs --check && node scripts/build-app.mjs",
+    "regress": "node scripts/fetch-packed.mjs --check && node tools/browser/regress.cjs --build",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"
