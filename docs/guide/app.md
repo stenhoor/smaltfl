@@ -124,6 +124,17 @@ decide: access_reviews holds. Larkspur estate waits on it.*), and a Decide butto
 (*Decide at Evidence feeds ›*). A flow that reads it waits and is never asked: a step of its own held only because the
 file under it is, is decided by the file's decision, and the record says so.
 
+A flow another flow reads may have **a page of its own**, on the same files: the site has one for Evidence feeds
+([/feeds/](/feeds/){target="_self"}), beside the estate's tour. The two pages share a browser and keep a record each.
+A held day decided on either page is **carried to the other**: when the day runs there, the page finds the decision in
+the other record, by the file and by the flow's hash, records it as made by whoever made it, citing the entry it
+carried, and applies it. Nobody is asked twice; a page left open in another tab takes it when it is looked at again.
+The receipt says where it was decided (*Decided on Evidence feeds’ page, and carried here*), and so do the record and
+the month; on the page that decided, the receipt says where it is carried to, a tap away. A decision changed on one page is carried in turn. One made under other rules isn't carried: a flow edited
+on one of the pages is known by another hash there, and the decision sheet says what was decided and why it isn't
+taken. Each page's audit bag carries the proof of what it carried, so the offline audit checks it without the other
+record.
+
 ## A card's sheet
 
 Tapping a card opens its sheet, the same tabs on every card, the news first:

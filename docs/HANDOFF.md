@@ -210,6 +210,11 @@ npm run build:app                           # dist/app on Larkspur, its days gen
                                             # browser never serves a stale build under the old name (bundles.json says which)
 npm run build:app -- --variant tour --out dist/app-tour   # the demo: the tour's two months and their scene list (ADR 0023)
 node tools/browser/regress.cjs APP OUT tour  # the tour's scenes, a stop a look, at every size (APP: a copy of dist/app-tour)
+# Two pages that share a flow (ADR 0025 §6): the tour and Evidence feeds' own page, side by side as the site serves them
+npm run build:app -- --variant tour --out dist/app-tour --page feeds=../feeds/
+npm run build:app -- --flow examples/larkspur/feeds/flow.json --out dist/app-feeds --page "larkspur=../tour/=Larkspur estate"
+# copy them to SITE/tour and SITE/feeds, then: a decision carried each way, changed, refused, and both bags audited
+node tools/browser/regress.cjs SITE/tour OUT carry
 ```
 
 Results on 2026-11-09, at `e42d9ec` on data `0ca4dd1`:
@@ -222,8 +227,8 @@ Results on 2026-11-09, at `e42d9ec` on data `0ca4dd1`:
 
 ## What is not done
 
-**In hand: [ADR 0025](adr/0025-flows-in-flows.md), flows in flows** (2026-11-17, the maintainer's answers Q-226 to
-Q-234). The maintainer asked for flows that are parts of other flows: build one, read it from many, stack them, change
+**Built: [ADR 0025](adr/0025-flows-in-flows.md), flows in flows** (2026-11-17, the maintainer's answers Q-226 to
+Q-240: every slice of its §12, and both steps of slice 5). The maintainer asked for flows that are parts of other flows: build one, read it from many, stack them, change
 a bronze flow once and have it reach everything built on it; a card for each flow on its reader's canvas with the day's
 pass or fail, opened to see its own flow; a way to explore what a flow gives; all of it rolled up into the month. The
 research is [research/flows-in-flows.md](research/flows-in-flows.md): what Alteryx, Palantir, Dataiku, KNIME, dbt, Dagster
@@ -252,12 +257,18 @@ in the question prompt, nine questions in three rounds. In the slices of ADR 002
    in scope, the datasets of its type, the ontology's links), with the match day by day; its rows against another
    day's by key. A flow's sheet has **Explore ›** on each dataset it gives. `src/core/explore.ts`,
    `test/explore.test.ts`, `tools/browser/stops/explore.json`.
-5. **A paused day decided once, at its flow: the first step is built.** A hold is the flow's whose file or step
+5. **A paused day decided once, at its flow: built, in two steps.** A hold is the flow's whose file or step
    holds, and so is its decision: each decision by load says its flow, a load held only because one it is built from
    holds carries that one's decision, and the sheet, the Decide buttons, the day's story, the month, the record and the
-   audit say whose it is (`src/core/deciding.ts`). The second step, a decision carried between pages of one browser
-   that share a flow, isn't built: no two pages the site deploys share a flow and its files, and which page should
-   exist for it is the maintainers' to choose (Q-240; the proposal is a read flow's own page on its reader's files).
+   audit say whose it is (`src/core/deciding.ts`). The second step (built last, once the maintainer had chosen the
+   page, Q-240): Evidence feeds, a flow the estate reads, is a page of its own on the tour's files
+   (`examples/larkspur/feeds/data.json` and `tour.json`; the site's `/feeds/`). The two pages are one origin's and keep
+   a record each in one store, so a held day decided on either is carried to the other: found after the day's run by
+   the file's load and the flow's hash, recorded there by whoever made it, citing the entry it carried with a proof of
+   it that the offline audit checks, and applied with nobody asked; a decision changed on one page is carried in turn.
+   One made under other rules (the flow edited on one page) isn't carried, and the sheet says so
+   (`src/core/carry.ts`, `test/carry.test.ts`, `test/record-others.test.ts`, `tools/browser/stops/carry.json`, on both
+   apps served from one origin).
 6. **A change followed, said and tested: built** (after slice 7). A change is the flow's whose file or step it is
    about, and is made in that flow's own document too, so its hash moves with it and with the flows it reads, and no
    other (`src/core/attribute.ts`); the build and the recorder put a story's changes where they belong. A flow's card
@@ -299,12 +310,21 @@ in the question prompt, nine questions in three rounds. In the slices of ADR 002
     of the page and the sample flows against what the wordplay never says. **Plain words**, in About this flow or
     `?plain`, leaves them out. `test/voice.test.ts`, `tools/browser/stops/voice.json`.
 
-The choices the maintainer's answers leave open are built as proposed, for the maintainers to confirm (Q-235 to
-Q-239 in docs/OPEN_QUESTIONS.md): testing a changed flow on the days recorded *informs* and holds nothing back (§7); an
-override is written in the flow that makes it, marked with its reason (§8); two flows that hold on one day are one
-choice, recorded as a decision a flow (§6); a use's datasets are named after it and it is known by its own document's
-hash (§11); a flow or a join whose own step stops its first run is taken back at once (§10). One is open, and not
-built: which page a decision is carried to or from (Q-240).
+The choices the maintainer's answers left open were built as proposed, then asked through the question prompt and
+confirmed as built on 2026-11-17 (Q-235 to Q-239 in docs/OPEN_QUESTIONS.md): testing a changed flow on the days
+recorded *informs* and holds nothing back (§7); an override is written in the flow that makes it, marked with its
+reason (§8); two flows that hold on one day are one choice, recorded as a decision a flow (§6); a use's datasets are
+named after it and it is known by its own document's hash (§11); a flow or a join whose own step stops its first run
+is taken back at once (§10). The one that was open was answered in the same rounds and built: a decision is carried
+between a read flow's own page and its reader's (Q-240). What ADR 0025 leaves is in its §"Not built" and under each
+slice: first, a flow run on its own and read by another, to which the page of slice 5's second step is the bridge.
+
+**Found while auditing fills, and left** (ADR 0025, slice 5's second step, "What it leaves"): the offline audit fails
+a bag in which a fill was withdrawn on a day whose holds kept back only some of the outputs. `shownBefore` in
+`src/core/audit.ts` reads what a name showed from the days that published whole; a held run publishes what its holds
+don't reach, so the audit expects an older version of those names than the engine, rightly, leaves. To see it: on the
+tour, decide Wed Mar 27 with a fill, change the decision to *Keep*, export for audit. The fix belongs with a stop
+that audits a withdrawal. (A fill's own release failed the audit on such a day too, and that is fixed.)
 
 **For the maintainers to confirm: [ADR 0024](adr/0024-the-month-at-a-glance.md), the month at a glance** (2026-11-16,
 Q-219 to Q-225). The maintainer looked at the tour's month and asked for research into how such a screen is best done,

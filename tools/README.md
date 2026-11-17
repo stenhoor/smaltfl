@@ -12,7 +12,7 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
 | Command | What it does |
 |---|---|
 | `node tools/browser/regress.cjs <appDir> <outDir> <set>[@sizes] ...` | The regression in one command: each named stop set (`estate`, `notebook`, `split@desktop,tablet-wide,wide`, …) at every size, its own `tour.cjs` process, up to one a core at once, the longest first; one line a job and the problems at the end (`regress.json`). `--devices phone,desktop` narrows the sizes, `--jobs N` the parallelism. |
-| `node tools/browser/tour.cjs <appDir> <outDir> <stops.json>` | Serves the built app, drives it at phone size (390×844; it waits for the page to stop changing, never a fixed sleep; `TOUR_DEVICE=tablet` 820×1180, `tablet-wide` 1180×820, `desktop` 1440×900, `wide` 2560×1440; `TOUR_SCALE=2` for screenshots a person will look at) through the stops, fails any stop where the page or an open sheet scrolls sideways, saves `<name>.png` for each and writes `metrics.json`: the status line, the visible text, word counts, charts, words before the first chart, and every failed `expect` as a problem. The stop format and the `expect` checks are documented at the top of the file: a stop's `tamper` changes a file on its way to the page from that stop on, and `expect.download` and `expect.audit` check what a stop downloaded (its name, and a bag's verdict from `node scripts/audit.mjs check`). |
+| `node tools/browser/tour.cjs <appDir> <outDir> <stops.json>` | Serves the built app, drives it at phone size (390×844; it waits for the page to stop changing, never a fixed sleep; `TOUR_DEVICE=tablet` 820×1180, `tablet-wide` 1180×820, `desktop` 1440×900, `wide` 2560×1440; `TOUR_SCALE=2` for screenshots a person will look at) through the stops, fails any stop where the page or an open sheet scrolls sideways, saves `<name>.png` for each and writes `metrics.json`: the status line, the visible text, word counts, charts, words before the first chart, and every failed `expect` as a problem. The stop format and the `expect` checks are documented at the top of the file: a stop's `tamper` changes a file on its way to the page from that stop on, and `expect.download` and `expect.audit` check what a stop downloaded (its name, and a bag's verdict from `node scripts/audit.mjs check`). A stop's `page` goes to another app of the same site, by the name of its folder beside `<appDir>`: both are served from one origin, so they share the browser's records as a site's pages do (`carry.json`). `TOUR_STACK=1` reports a page error with where it was thrown (build with `SMALTFL_PROFILE=1` to read it by name). |
 | `python3 -I tools/browser/cvd.py <outDir> <png>…` | Greyscale and deuteranopia versions of screenshots (Machado et al. 2009), for the colour check. |
 | `python3 -I tools/browser/slices.py <in.png> <out.png> [height] [strips] [start]` | Slices a tall screenshot into side-by-side strips you can read in one image. |
 
@@ -152,6 +152,28 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
   - used on a dataset of the estate's own, and inside that use the dataset itself feeding its input; the dark scheme.
 
   Its stops follow one another: what one adds, the next has. It must report `problems: none` at every size.
+- `carry.json`: a decision carried between two pages that share a flow (ADR 0025 §6, second step), on the tour and
+  Evidence feeds' own page built side by side, each told where the other is:
+  `npm run build:app -- --variant tour --out dist/app-tour --page feeds=../feeds/` and
+  `npm run build:app -- --flow examples/larkspur/feeds/flow.json --out dist/app-feeds --page "larkspur=../tour/=Larkspur estate"`,
+  copied to `SITE/tour` and `SITE/feeds`, then `regress.cjs SITE/tour OUT carry`. It checks:
+  - the estate's page on the tour's Wed Mar 27: Evidence feeds' to decide, a link to that flow's own page on the
+    sheet's head and on the flow's sheet;
+  - Evidence feeds' own page: its month, *About this flow* naming the flow that reads it, a file of Inventory's no step
+    here reads, its Ontology page, and the same day held by the same file;
+  - the day decided there, its receipt saying which page takes the decision, and the estate's page taking it when
+    the day runs: published as is, the receipt, the record and the month's timeline saying where it was decided, and
+    the same once the page is opened again;
+  - the estate's audit bag, with the proof of the decision it carried, held by the offline audit;
+  - the other way, in a fresh browser (the dark scheme): decided on the estate's page, carried to Evidence feeds';
+    changed there, and the change carried back; Evidence feeds' bag held by the offline audit;
+  - in a third browser: the flow edited on its own page, a day decided there under those rules, and the estate's page
+    not taking it, the sheet saying why;
+  - in a fourth: the day filled on Evidence feeds' page, the estate's page making the same fill from its own offer of
+    it and publishing it; its bag held by the offline audit, and again once the page is opened in a new engine; the
+    fill withdrawn there, and the estate's page taking that too.
+
+  Its stops follow one another: what one decides, the next finds. It must report `problems: none` at every size.
 - `voice.json`: the voice (ADR 0025 §12), on the tour (same build as `overview.json`):
   - a gold dataset's seal on a normal day: what the seal is, then *Worth its smalt.*;
   - Certificates added from the catalogue, its first day here gone out as usual: the status line says so, and the

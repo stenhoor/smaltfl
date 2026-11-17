@@ -8,6 +8,9 @@ platforms they run on: twenty files a day, through bronze, silver and a gold dat
 browser. The month lists six scenes: a normal day, a warning, a written check's hold, an anomaly that was real, one
 that was an issue, and fills each way. The first day takes a few seconds while the engine starts.
 
+One of its flows has a page of its own, **[Evidence feeds](/feeds/){target="_self"}**: a paused day decided there or
+on the tour is carried to the other.
+
 Three more demos: **[Larkspur's planted month](/larkspur/){target="_self"}**, trouble planted at every layer and the
 posture over the whole month; **[the control estate](/estate/){target="_self"}**, 600 applications and twelve
 controls, the month the gates were built against; and **[the sign-in log](/signins/){target="_self"}**, with the two

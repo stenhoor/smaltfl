@@ -36,6 +36,7 @@ import { DONOR_WINDOW, levelStray, levelWays, repairDocument, type Repair } from
 import { carry, spare, loadsOf, claimBase, claimHolds, donorGood, factsFromClaims, heldOutputs, holdsOf, inputsKey, isLoad, loadKey, type Load, isClaim2, isLevel, judgeClaims, levelFromHere, publishedDays, sameKeys, standingFor, standingForLoad, type Claim, type DecideAbout, type DerivedAbout, type HeldAbout, type Hold, type Judged, type ReleaseAbout, type RunHold } from './hold.js';
 import { canonicalJSON } from './canonical.js';
 import { flowProblems } from './compose.js';
+import { baseProblems, carriedProblems, originOf, type CarryAbout } from './carry.js';
 import { loadRoles } from './deciding.js';
 import { consistencyProof, entryLeaf, parseCheckpoint, rootOf, verifyCheckpoint, verifyConsistency, verifyInclusion, verifyRecord, type JSONValue, type LogEntry, type SignedCheckpoint } from './log.js';
 import { manifestHash, planHash, policiesHash, type IdentityCard, type RunManifest } from './manifest.js';
@@ -287,7 +288,11 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
         if (!run.manifest || Object.entries(a.outputs).some(([n, k]) => run.manifest!.outputs[n]?.key !== k)) problems.push(`its keys aren't the ones run ${a.run} made`);
       }
     }
-    const since = entries.slice(cited.seq + 1, e.seq).find((x) => x.kind === 'decide' && (x.amends === cited.seq || (isRecord(x.about) && isInputs(x.about.inputs) && inputsKey(x.about.inputs) === inputsKey(decision.inputs))));
+    // Still its day's decision when it is released: none amends it, and none decides the same thing again. With several
+    // watched sources a day's one choice is a decision a held load, all of one run's inputs (ADR 0010 §7, Q-193): the
+    // same thing is the same load. A load that follows the filled file is decided with it, and decides nothing again.
+    const again = (x: LogEntry): boolean => isRecord(x.about) && (isLoad(decision.load) ? isLoad(x.about.load) && loadKey(x.about.load) === loadKey(decision.load) : isInputs(x.about.inputs) && inputsKey(x.about.inputs) === inputsKey(decision.inputs));
+    const since = entries.slice(cited.seq + 1, e.seq).find((x) => x.kind === 'decide' && (x.amends === cited.seq || again(x)));
     if (since) problems.push(`its decision, #${cited.seq}, was ${since.amends === cited.seq ? 'amended' : 'decided again'} by #${since.seq} before it`);
     const asis = a.outcome === 'applied' ? publishedAsIs(e.seq, decision) : undefined;
     if (asis) problems.push(`it took back ${decision.day ?? 'its day'}, published ${asis.option === 'accept' ? 'at its new level' : 'as is'} by release #${asis.release}`);
@@ -520,6 +525,25 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
         }
       }
     }
+    // Between pages of one browser (ADR 0025 §6, second step): a decision of the record's own flow made on a page says
+    // the flow as kept when its run ran, which the record's `flow` entry before that run says too; one carried from
+    // another page cites the decision it carries in that page's record, and the proof kept beside it holds that entry,
+    // in its record under a checkpoint the same browser signed: made at the same flow, about the same load, to the same
+    // end, by the same person for the same reason.
+    const between = a as CarryAbout;
+    problems.push(...baseProblems(entries, between, held && held.entry.seq <= e.seq ? held.entry.seq : null));
+    let carriedFrom: string | null = null;
+    if (between.from !== undefined) {
+      const kept = isRecord(between.from) && typeof between.from.kept === 'string' ? blobs.get(`carried-${between.from.kept}`) : undefined;
+      let proof: unknown = null;
+      try {
+        proof = kept ? JSON.parse(text(kept.bytes)) : null;
+      } catch {
+        proof = null;
+      }
+      problems.push(...(await carriedProblems(e, proof, card ?? null)));
+      carriedFrom = isRecord(between.from) && typeof between.from.origin === 'string' ? `${originOf(between.from.origin)?.flow ?? between.from.origin}'s page, its #${String(between.from.seq)}` : 'another page';
+    }
     // Accept the new level (amendment 1 S6, C6): a reason and the level it records; under a standing level, the Accept it
     // applies, earlier and released, of the same source and metrics, starting before the day, and a day held by its story
     // alone (a check, or a source not judged, pauses the day again).
@@ -558,7 +582,7 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
     }
     allowed.set(e.seq, problems.length === 0);
     const option = a.option === 'accept' ? (a.under !== undefined ? `publish by #${a.under}'s new level` : `accept the new level from ${isLevel(a.level) ? a.level.from : 'the day'}`) : a.option === 'asis' ? 'publish as is' : a.option === 'fill' ? `fill from ${(a.repair as Repair | undefined)?.donor?.day ?? 'another day'}` : a.option === 'complete' ? 'publish the part that arrived' : e.amends !== null && remedyOf(entries[e.amends]) ? "don't publish (withdraws the fill)" : "don't publish";
-    say(problems.length === 0, `${where}: ${option}${a.scope === 'untilPass' ? ' until a later day passes' : ''} for ${a.day ?? `run ${a.run}`}, by ${e.by.as}${a.under !== undefined ? `, under #${a.under}` : ''}${isRecord(a.flow) && typeof a.flow.id === 'string' ? `, ${a.flow.id}'s to decide` : ''}${isRecord(a.carried) && Number.isInteger(a.carried.seq) ? `, with #${a.carried.seq}` : ''}${problems.length ? `: ${problems.join('; ')}` : `${rule ? ` (rule ${rule})` : ''}, on run ${a.run}'s keys${a.option === 'accept' && a.under !== undefined && !trust.history ? "; not checked against the level's metrics: --history tells its day again to check it" : ''}`}`);
+    say(problems.length === 0, `${where}: ${option}${a.scope === 'untilPass' ? ' until a later day passes' : ''} for ${a.day ?? `run ${a.run}`}, by ${e.by.as}${a.under !== undefined ? `, under #${a.under}` : ''}${isRecord(a.flow) && typeof a.flow.id === 'string' ? `, ${a.flow.id}'s to decide` : ''}${isRecord(a.carried) && Number.isInteger(a.carried.seq) ? `, with #${a.carried.seq}` : ''}${carriedFrom ? `, carried from ${carriedFrom}` : ''}${problems.length ? `: ${problems.join('; ')}` : `${rule ? ` (rule ${rule})` : ''}, on run ${a.run}'s keys${a.option === 'accept' && a.under !== undefined && !trust.history ? "; not checked against the level's metrics: --history tells its day again to check it" : ''}`}`);
   }
 
   /**

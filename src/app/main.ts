@@ -18,7 +18,8 @@ import { applyEdit, changesOn, inForce, resolve as resolveRules, ruleParts, rule
 import { diffSaid, ruleVersions, rulesDiff, versionKey, versionOn, type RuleVersion } from '../core/ruleversions.js';
 import { flowOf, givesOf, GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, usedName, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
 import { notebookSectionId } from '../core/notebook.js';
-import { holdGroups, possessive, waitingOn, whoseSaid, withRoles } from '../core/deciding.js';
+import { baseOf, carriedSaid, decidedElsewhere, givesWay, leadingHere, notCarriedSaid, originOf, pageOf, proofOf, type CarriedFrom, type CarryAbout, type Leading, type OtherRecord } from '../core/carry.js';
+import { holdGroups, loadRoles, possessive, waitingOn, whoseSaid, withRoles } from '../core/deciding.js';
 import { cardFlow, flowCard, flowDay, flowHas, flowLine, flowSaid, givenBy, levelDoc, readersOfFlow, readHere, trailOf, type FlowDay, type RunSaid } from '../core/levels.js';
 import { flowMonthOutcome, flowOff, flowRows, flowRowSaid, onlyFollowed, onlyWaited, scopeFlows, scopeNodes, tierRows, type FlowRow } from '../core/tiers.js';
 import { lookOf, sceneHash, type SceneLook, type ScenesFile } from '../core/scenes.js';
@@ -219,7 +220,9 @@ function canvasDoc(given: FlowDocument): FlowDocument {
 const levelAt = (): string | null => state.level.at(-1) ?? null;
 /** A flow by the name people read: a read flow's, or the page's own flow's for ''. */
 const flowName = (id: string): string => (id === '' ? state.doc.name : (state.doc.flows?.find((f) => f.id === id)?.name ?? id));
-const personName = (id: string) => policies()?.principals.find((x) => x.id === id)?.name ?? id;
+/** A person by name: one of the flow's people; in a flow with no policies its one owner; else someone another page of
+ * this browser names, whose decision was carried here (ADR 0025 §6). */
+const personName = (id: string) => policies()?.principals.find((x) => x.id === id)?.name ?? (!policies() && id === 'owner' ? 'Owner' : (pagePeople.get(id) ?? id));
 /** What the current viewer may read of a node, or null before the node has run. */
 const access = (id: string, who = state.viewer): ReadView | null => {
   const cols = state.columns.get(id);
@@ -3305,6 +3308,10 @@ function renderFlowSheet(id: string): void {
   const itsMonth = loads.list.length > 1 && way.length
     ? h('a', { class: 'btn fl-month', href: `#month${viewedDay() ? `/${viewedDay()!.slice(0, 7)}` : ''}/in/${way.join('/')}` }, 'Its month ›')
     : null;
+  // Its own page on the site, where it has one (ADR 0025 §6): the same flow on the same files, with a record of its
+  // own. A held day decided on either is carried to the other.
+  const pageAt = pageHref(id, viewedDay());
+  const itsPage = pageAt ? h('a', { class: 'btn fl-month fl-page', href: pageAt }, 'Its own page ›') : null;
   sheet.setAttribute('aria-label', 'Flow');
   sheet.replaceChildren(
     h('div', { class: 'sheet-head' },
@@ -3312,7 +3319,7 @@ function renderFlowSheet(id: string): void {
       h('button', { class: 'close', type: 'button', 'aria-label': 'Close', onclick: () => select(null) }, '×')),
     h('div', { class: 'sheet-body fl-sheet' },
       h('div', { class: `fl-day fo-${d.outcome}`, role: 'status' }, flowMarkEl(d, 18), h('p', {}, flowSaid(state.doc, d, flowName))),
-      h('div', { class: 'row' }, decideHere, open, itsMonth),
+      h('div', { class: 'row' }, decideHere, open, itsMonth, itsPage),
       addedHere(id) ? h('p', { class: 'fl-note fl-added' }, 'Added here from the catalogue: built from the day’s run, and part of the flow as kept in this browser. ',
         isOwner() ? h('button', { type: 'button', class: 'linkish fl-off', onclick: () => void takeOffFlow(id) }, 'Take it off') : null) : null,
       integrityPart, holds, waits, look, usePart(part, inside), flowChangedPart(id), reads, gives,
@@ -6455,7 +6462,9 @@ async function nodeView(id: string, who: string): Promise<{ insp: Inspection; i:
   if (!run) return 'Run the flow to see its rows.';
   const insp = await inspect(run);
   const i = insp.index.get(id);
-  if (i === undefined || !insp.manifest.has(i)) return 'Not run yet.';
+  // A file no step of the flow reads is read by no run of it: a flow's own page (ADR 0025 §6) has the files of the
+  // flows it reads, whether or not it reads them itself.
+  if (i === undefined || !insp.manifest.has(i)) return sourceIds().has(id) ? 'No step of this flow reads this file, so a run here doesn’t read it.' : 'Not run yet.';
   const view = viewIn(insp, i, who);
   const read = readIn(insp, i, who);
   if (!view.open || !read) return `Closed to ${personName(who)}: ${view.reason ?? 'their rules don’t open it'}.`;
@@ -8741,12 +8750,27 @@ function keptBackOf(r: RunRecord): string[] {
  * none: there is no one else it could be.
  */
 function whoseLine(r: RunRecord): HTMLElement | null {
-  if (!state.doc.flows?.length) return null;
   const held = keptBackOf(r);
-  const lines = holdGroups(state.doc, r.result.holds)
-    .map((g) => whoseSaid(state.doc, g, waitingOn(state.doc, g, held, (f) => givesOf(state.doc, f || undefined)), flowName))
-    .filter((x): x is string => !!x);
-  return lines.length ? h('p', { class: 'vf-whose' }, ...lines.flatMap((l, i): Child[] => (i ? [h('br'), l] : [l]))) : null;
+  const day = dayOfRun(r) ?? null;
+  // The page the site has for the flow that decides (ADR 0025 §6, second step): decided there, it is carried here.
+  const link = (flow: string): Child[] => {
+    const href = flow ? pageHref(flow, day) : null;
+    return href ? [' ', h('a', { class: 'vf-page', href }, `${pageOf(flowName(flow))} ›`)] : [];
+  };
+  const lines = (state.doc.flows?.length ? holdGroups(state.doc, r.result.holds) : []).flatMap((g): Child[][] => {
+    const said = whoseSaid(state.doc, g, waitingOn(state.doc, g, held, (f) => givesOf(state.doc, f || undefined)), flowName);
+    return said ? [[said, ...link(g.flow)]] : [];
+  });
+  // On the flow's own page: the flows that read it and have a page take the decision from here.
+  const readers = readerPages();
+  if (readers.length && heldLoadsOf(r.result.holds).length && (!state.doc.flows?.length || holdGroups(state.doc, r.result.holds).some((g) => g.flow === ''))) {
+    lines.push([`${listed(readers.map(pageFlowName))} ${readers.length === 1 ? 'reads' : 'read'} this flow: a decision made here is carried there.`, ...readers.flatMap((f): Child[] => [' ', h('a', { class: 'vf-page', href: pageHref(f, day)! }, `${pageOf(pageFlowName(f))} ›`)])]);
+  }
+  // What another page of this browser decided about a load held here, where it isn't carried, and why.
+  const notes = [...new Set(heldLoadsOf(r.result.holds).flatMap((l) => notCarried.get(loadKey(l)) ?? []))];
+  const whose = lines.length ? h('p', { class: 'vf-whose' }, ...lines.flatMap((l, i): Child[] => (i ? [h('br'), ...l] : l))) : null;
+  if (!notes.length) return whose;
+  return h('div', { class: 'vf-whose-box' }, whose, ...notes.map((n) => h('p', { class: 'vf-not-carried' }, n)));
 }
 
 /** Where a held run is decided, after the verb on a button, where that isn't the flow on screen (ADR 0025 §6):
@@ -9073,6 +9097,18 @@ function receiptOf(r: RunRecord, may: boolean): HTMLElement | null {
   if (v !== null && v > 1 && now.state === 'asis') l.head = l.head.replace(/^Published as is/, `Published version ${v}`);
   const box = receiptBox(l, now.state, d?.seq ?? null, null, l.change && may ? () => decisionSheet(r, day ? storyFor(day) : null) : null, day, l.versions && day ? () => versionsSheet(day) : null);
   box.classList.add('loads-receipt');
+  // Decided on another page of this browser and carried here (ADR 0025 §6): the receipt says where, since nobody
+  // decided it here.
+  const there = carriedOf(r);
+  if (there) box.querySelector('.vf-rc-sub')?.after(h('p', { class: 'vf-rc-carried' }, `Decided on ${pageOf(pageFlowName(there))}, and carried here: nobody was asked twice.`));
+  else {
+    // Decided here, at a flow another page of the site shares: that page takes the decision when the day runs there,
+    // and is a tap away.
+    const to = takenBy(r);
+    if (to.length) box.querySelector('.vf-rc-sub')?.after(h('p', { class: 'vf-rc-carried vf-rc-taken' },
+      `Carried to ${listed(to.map((f) => pageOf(pageFlowName(f))))} when the day runs there.`,
+      ...to.flatMap((f): Child[] => [' ', h('a', { class: 'vf-page', href: pageHref(f, day)! }, `${pageOf(pageFlowName(f))} ›`)])));
+  }
   // Under the loads strip, its links are the canvas's: the sheet's and the card's keep their own names.
   for (const [a, b] of [['vf-versions', 'vf-versions-c'], ['vf-change', 'vf-change-c']] as const) box.querySelector(`.${a}`)?.classList.replace(a, b);
   return box;
@@ -12325,7 +12361,9 @@ async function renderOntology(): Promise<void> {
     if (!run) return null;
     const insp = await inspect(run);
     const i = insp.index.get(file);
-    return i === undefined ? null : readIn(insp, i);
+    // A file no step of the flow reads is read by no run (a flow's own page, ADR 0025 §6, has the files of the flows
+    // it reads, whether or not it reads them): it has no rows here to show.
+    return i === undefined || insp.ctx.table(i) === undefined ? null : readIn(insp, i);
   };
   const counts = new Map<string, number | null>();
   if (latest() && engine) {
@@ -12698,7 +12736,7 @@ const manifestOf = (hash: string): RunResult['manifest'] | null => recorded?.man
 const whenMin = (at: string, day: string) => `${new Date(at).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', ...(at.slice(0, 4) !== day.slice(0, 4) ? { year: 'numeric' as const } : {}), hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'UTC' })} UTC`;
 
 /** Who did something, by the record's principal: a person's name, or the build. */
-const whoSaid = (as: string) => (as === 'build' ? 'The build' : (policies()?.principals.find((p) => p.id === as)?.name ?? as));
+const whoSaid = (as: string) => (as === 'build' ? 'The build' : personName(as));
 
 /** The day's run recorded by the build: its latest, or the latest on the same files (a version of the day, ADR 0021 §2). */
 function recordedRunOf(day: string, files?: Readonly<Record<string, string>>, restated?: string | null): RecordEntry | undefined {
@@ -14305,12 +14343,17 @@ function dayTimeline(day: string, at: string | null, subject: (origin: string) =
       const key = `${d.option}|${e.at}|${e.by.as}|${e.reason}`;
       if (key === same) continue;
       same = key;
+      // A load held only because another was is decided by that one's decision (ADR 0025 §6): the line is the one before.
+      if (d.carried !== undefined) continue;
       const donor = d.repair?.donor?.day;
       const said = d.option === 'fill' && donor ? `filled it from ${dayLabel(donor)}` : d.option === 'asis' && sentAgain ? 'published the version sent again' : DECISION_SAID[d.option];
-      const after = heldAt && e.at > heldAt ? `, ${afterLabel((Date.parse(e.at) - Date.parse(heldAt)) / 60000)} it was held` : '';
+      // A day the build held, decided here: the wait is the story's, to the morning its record ends (`storyMs`).
+      const after = heldAt && e.at > heldAt ? `, ${afterLabel((storyMs(Date.parse(e.at), heldAt) - Date.parse(heldAt)) / 60000)} it was held` : '';
       // Whose decision it was (ADR 0025 §6): the flow whose file or step held the day.
       const who = whoSaid(e.by.as);
-      out.push({ at: e.at, text: d.flow?.id ? `At ${flowName(d.flow.id)}, ${who.replace(/^The /, 'the ')} ${said}${after}.` : `${who} ${said}${after}.`, why: e.reason, cls: d.option === 'dont' ? '' : 'ok' });
+      // One made on another page of this browser and carried here (ADR 0025 §6) says the page: nobody decided it here.
+      const there = originOf((d as CarryAbout).from?.origin);
+      out.push({ at: e.at, text: there ? `On ${pageOf(pageFlowName(there.flow))}, ${who.replace(/^The /, 'the ')} ${said}. Carried here.` : d.flow?.id ? `At ${flowName(d.flow.id)}, ${who.replace(/^The /, 'the ')} ${said}${after}.` : `${who} ${said}${after}.`, why: e.reason, cls: d.option === 'dont' ? '' : 'ok' });
       continue;
     }
     same = '';
@@ -16730,6 +16773,9 @@ async function release(r: RunRecord, decision: RecordEntry, keys: Record<string,
 async function applyDecided(r: RunRecord): Promise<void> {
   if (!ledger || !r.result.waiting.length) return;
   try {
+    // A held load another page of this browser decided, at its flow, is decided here by that decision (ADR 0025 §6):
+    // recorded and applied, it leaves nothing of the day to apply again.
+    if ((await carryDecided(r)).size) return;
     const keys = await keysOf(r);
     const inputs = inputsOf(r.result.manifest);
     // Several watched sources (ADR 0010 §7, Q-193): each held load's decision is found by its load. Published again when
@@ -16835,17 +16881,26 @@ interface Remedy {
   withdraw?: boolean;
 }
 
-async function decideNow(target: RunRecord | string, option: DecisionOption, scope: 'day' | 'untilPass', reason: string | null, remedy: Remedy = {}): Promise<RecordEntry | null> {
+/** A decision carried from another page of this browser (ADR 0025 §6): who made it there, the entry each load's
+ * decision cites, by the load's key, and the loads it decides here: those it was found for and those that follow. */
+interface Carrying {
+  by: string;
+  from: ReadonlyMap<string, CarriedFrom>;
+  only: ReadonlySet<string>;
+}
+
+async function decideNow(target: RunRecord | string, option: DecisionOption, scope: 'day' | 'untilPass', reason: string | null, remedy: Remedy = {}, carrying?: Carrying): Promise<RecordEntry | null> {
   if (!ledger || !state.engine) return null;
-  const may = checkDecision(policies(), state.viewer, option);
-  if (!may.allowed) {
-    setStatus(`${may.reason.replace(/^./, (c) => c.toUpperCase())}.`, true);
+  // A decision carried from another page (ADR 0025 §6) is its maker's there, and says nothing on the status line: the
+  // run it follows says the day.
+  const who = carrying?.by ?? state.viewer;
+  const refuse = (text: string): null => {
+    if (!carrying) setStatus(text, true);
     return null;
-  }
-  if ((option === 'asis' || option === 'accept') && !reason?.trim()) {
-    setStatus(option === 'accept' ? 'Accepting a new level needs a reason.' : 'Publishing a held day as is needs a reason.', true);
-    return null;
-  }
+  };
+  const may = checkDecision(policies(), who, option);
+  if (!may.allowed) return refuse(`${may.reason.replace(/^./, (c) => c.toUpperCase())}.`);
+  if ((option === 'asis' || option === 'accept') && !reason?.trim()) return refuse(option === 'accept' ? 'Accepting a new level needs a reason.' : 'Publishing a held day as is needs a reason.');
   let r = typeof target === 'string' ? heldRunOf(target) : (target.derived?.from ?? target);
   if (!r && typeof target === 'string') {
     // The engine lost the day (a reload, or another flow ran it since): run it again, and decide on that run, if it
@@ -16866,10 +16921,7 @@ async function decideNow(target: RunRecord | string, option: DecisionOption, sco
   }
   if (!r) return null;
   // Readers have a day published as is: no decision takes it back.
-  if (pauseOf(r)?.state === 'asis' || pauseOf(r)?.state === 'accepted') {
-    setStatus(`${dayOfRun(r) ? dayMid(dayOfRun(r)!) : 'This run'} is published as is: readers have it, and no decision takes it back.`, true);
-    return null;
-  }
+  if (pauseOf(r)?.state === 'asis' || pauseOf(r)?.state === 'accepted') return refuse(`${dayOfRun(r) ? dayMid(dayOfRun(r)!) : 'This run'} is published as is: readers have it, and no decision takes it back.`);
   const day = await periodDay(r);
   const keys = await keysOf(r);
   const p = pauseByInputs(r.inputs);
@@ -16879,27 +16931,19 @@ async function decideNow(target: RunRecord | string, option: DecisionOption, sco
   // A remedy names its repair and the derived run whose versions go out (amendment 1 S9); a withdrawal is a decision not
   // to publish, amending the fill's, for this day alone (Q-61).
   const derived = option === 'fill' || option === 'complete' ? remedy.derived : undefined;
-  if ((option === 'fill' || option === 'complete') && (!derived?.derived || derived.derived.from.inputs !== r.inputs)) {
-    setStatus(`${option === 'fill' ? 'A fill' : 'The part that arrived'} is decided on its staged run: pick it on the sheet again.`, true);
-    return null;
-  }
+  if ((option === 'fill' || option === 'complete') && (!derived?.derived || derived.derived.from.inputs !== r.inputs)) return refuse(`${option === 'fill' ? 'A fill' : 'The part that arrived'} is decided on its staged run: pick it on the sheet again.`);
   const fillShown = remedy.withdraw ? releasedFillOf(r) : undefined;
   // With a later day current, a withdrawal moves no name back: the engine puts the day's own version back and readers
   // keep the later day (Q-51, ADR 0022 §1).
-  if (remedy.withdraw && !fillShown?.derived?.release) {
-    setStatus('The fill readers have wasn’t released in this engine: run its day again, then withdraw it.', true);
-    return null;
-  }
+  if (remedy.withdraw && !fillShown?.derived?.release) return refuse('The fill readers have wasn’t released in this engine: run its day again, then withdraw it.');
   const dkeys = derived ? derivedKeys(await planFor(derived), derived.result) : null;
   // Accept the new level records the level its cause moved (amendment 1 S6, C6), and covers later days by it, not by a
   // scope (Q-57b).
   const level = option === 'accept' ? acceptFor(r)?.level ?? null : null;
-  if (option === 'accept' && !level) {
-    setStatus(`${day ? dayMid(day) : 'This run'} can't be accepted as a new level: its cause isn't one.`, true);
-    return null;
-  }
+  if (option === 'accept' && !level) return refuse(`${day ? dayMid(day) : 'This run'} can't be accepted as a new level: its cause isn't one.`);
   const about: DecideAbout = {
-    day, run: r.result.run, manifest: r.result.hash, inputs: inputsOf(r.result.manifest), outputs: keys, option, scope: option === 'asis' || option === 'accept' || remedy.withdraw || !day || passed ? 'day' : scope, policies: await policiesHash(policies() ?? null), rule: may.rule ?? null,
+    // Carried from another page (ADR 0025 §6), it stands for the days it stood for there, whatever is out here.
+    day, run: r.result.run, manifest: r.result.hash, inputs: inputsOf(r.result.manifest), outputs: keys, option, scope: carrying ? scope : option === 'asis' || option === 'accept' || remedy.withdraw || !day || passed ? 'day' : scope, policies: await policiesHash(policies() ?? null), rule: may.rule ?? null,
     ...(derived && dkeys ? { repair: derived.derived!.repair, derived: { run: derived.result.run, manifest: derived.result.hash, keys: dkeys } } : {}),
     ...(level ? { level } : {}),
   };
@@ -16908,8 +16952,14 @@ async function decideNow(target: RunRecord | string, option: DecisionOption, sco
   // A fill is about the file it fills (ADR 0023 §5): its load's decision comes first and is the one its release cites;
   // the other loads holding the day (the steps built from that file) are decided by the same choice.
   const filling = derived?.derived?.repair.source.toLowerCase();
-  const held0 = heldLoadsOf(r.result.holds);
+  // Carried from another page, it decides the loads it was found for and those that follow them, and no other.
+  const held0 = heldLoadsOf(r.result.holds).filter((l) => !carrying || carrying.only.has(loadKey(l)));
+  if (carrying && !held0.length) return null;
   const held = filling ? [...held0.filter((l) => l.source.toLowerCase() === filling), ...held0.filter((l) => l.source.toLowerCase() !== filling)] : held0;
+  // What this record's own flow was when the run ran, as its `flow` entry before the run says (ADR 0021 §5): what a
+  // decision of the flow's own file or step is known by on another page of this browser (ADR 0025 §6).
+  const ran = ledger.last('run', (e) => (e.about as { manifest?: unknown } | null)?.manifest === r!.result.hash);
+  const base = ran ? baseOf(ledger.entries, ran.seq) : null;
   const cited: RecordEntry[] = [];
   // Each says whose it is (ADR 0025 §6): the flow whose file or step holds its load; the loads that lead first, then
   // those held only because one of those is, each citing the decision it carries.
@@ -16918,17 +16968,22 @@ async function decideNow(target: RunRecord | string, option: DecisionOption, sco
     const lp = pauseByInputs(`load:${loadKey(d.load!)}`);
     const remedyOf = about.repair ? { repair: about.repair, derived: about.derived } : {};
     const led = follows ? recorded.get(loadKey(follows)) : undefined;
-    const e = await ledger.append('decide', state.viewer, { ...d, ...remedyOf, ...(led ? { carried: { seq: led.seq, leaf: entryLeaf(led) } } : {}) } as unknown as JSONValue, reason?.trim() || null, lp?.decision?.seq ?? null);
+    const from = carrying?.from.get(loadKey(d.load!));
+    const told: CarryAbout = { ...d, ...remedyOf, ...(led ? { carried: { seq: led.seq, leaf: entryLeaf(led) } } : {}), ...(!d.flow && base ? { base } : {}), ...(from ? { from } : {}) };
+    const e = await ledger.append('decide', who, told as unknown as JSONValue, reason?.trim() || null, lp?.decision?.seq ?? null);
     cited.push(e);
     recorded.set(loadKey(d.load!), e);
+    // Noted for the other pages that share the flow: this record holds a decision of it (ADR 0025 §6).
+    notePage(d.flow?.id ?? state.doc.id);
   }
-  const entry = cited[0] ?? (await ledger.append('decide', state.viewer, about as unknown as JSONValue, reason?.trim() || null, p?.decision?.seq ?? null));
+  const entry = cited[0] ?? (await ledger.append('decide', who, about as unknown as JSONValue, reason?.trim() || null, p?.decision?.seq ?? null));
   let refused: string | null = null;
   if (option === 'asis' || option === 'accept') {
     const out = await release(r, entry, cited.length ? keysForLoads(keys, r.result.holds, held) : keys, option, cited);
     if (out?.outcome === 'refused') refused = out.why;
     // The band accepted is written into the ontology (ADR 0014 §3): the decision is recorded, the document edited from it.
-    else if (option === 'accept' && level?.band && loadSource()) {
+    // Never by a decision carried from another page: a change to a flow's rules isn't carried, and such an Accept isn't.
+    else if (option === 'accept' && level?.band && loadSource() && !carrying) {
       const banded = applyBand(state.doc, level.source, level.band);
       // A change set in force from the day the setting says (ADR 0021 §5), recorded at once with the decision it came from.
       if (banded && (await editRules({ op: 'acceptBand', source: level.source, band: level.band }, { why: reason?.trim() ?? '', words: `${banded.said}, by decision #${entry.seq}` }))) {
@@ -16943,6 +16998,8 @@ async function decideNow(target: RunRecord | string, option: DecisionOption, sco
     const out = await withdrawFill(fillShown, entry);
     if (out?.outcome === 'refused') refused = out.why;
   }
+  // Carried inside the run that found it: that run says the day, and draws it.
+  if (carrying) return entry;
   const now = pauseOf(r);
   if (refused) setStatus(`The decision is recorded; the engine refused to ${fillShown ? 'withdraw the fill of' : 'publish'} ${day ? dayShort(day) : 'the run'}: ${refused}.`, true, { n: attempts, state: now && !isOut(now.state) ? 'held' : 'done', mark: now?.state ?? null });
   else {
@@ -16953,6 +17010,274 @@ async function decideNow(target: RunRecord | string, option: DecisionOption, sco
   afterDecision();
   return entry;
 }
+
+// ------------------------------------------------------------------ a decision carried between pages (ADR 0025 §6)
+
+// A hold is the flow's whose file or step holds, and so is the decision, on whichever page the flow is. Two pages of
+// this browser that share a flow (a flow's own page, and the page of a flow that reads it) keep a record each in one
+// store. After a held run, a held load the other page decided at the same flow, by its hash, is decided here by that
+// decision: recorded as this record needs it, by whoever made it there, citing the other record's entry and keeping a
+// proof of it, then applied as any decision is. Nobody is asked. The latest decision stands on both pages: one made
+// here after it stays, and the other page carries it in turn.
+
+/** What another page decided about a load held here and why it isn't carried, by the load's key: said on the sheet. */
+const notCarried = new Map<string, string>();
+/** The decisions of other pages tried here in this visit, by their record and place: each is applied once. */
+const carryTried = new Set<string>();
+/** The flows of the other pages, by id, as their records keep their documents: read once a record. */
+const pageNames = new Map<string, string>();
+/** The people the other pages' flows name, by id: who a decision carried from one of them was made by. */
+const pagePeople = new Map<string, string>();
+/** The other pages' records whose document was read for its names. */
+const pagesNamed = new Set<string>();
+/** A flow by name, for a page it has: one this flow reads, one the data list names, or one whose record names it. */
+const pageFlowName = (id: string): string => (id === state.doc.id ? state.doc.name : (state.doc.flows?.find((f) => f.id === id)?.name ?? dataList?.pages?.[id]?.name ?? pageNames.get(id) ?? id));
+/** Where another page of the site that shares a flow with this one is (the data list's `pages`), at a day: null where
+ * the site has none for the flow. */
+const pageHref = (id: string, day: string | null = null): string | null => {
+  const page = dataList?.pages?.[id];
+  return page ? `${page.href}${day ? `#day/${day}` : ''}` : null;
+};
+/** The flows that read this one and have a page of their own on the site: those the data list names that this flow
+ * doesn't read. */
+const readerPages = (): string[] => Object.keys(dataList?.pages ?? {}).filter((id) => id !== state.doc.id && !state.doc.flows?.some((f) => f.id === id));
+
+// Which other records are worth reading. A site's pages keep a record each in this browser, and most share no flow
+// with this one. A page that records a decision notes, in the browser's storage, that its record holds one of that
+// flow; a page looking for a flow's decisions reads the records so noted, those of the flows it reads itself, and
+// those of the pages the site says share a flow with it. The note only says where to look: what is found is checked
+// in the record it is in. Where storage can't be read, every other record is read.
+const sharesKey = (flow: string): string => `smaltfl:decided:${flow}`;
+/** The flows whose records hold a decision of a flow, as their pages noted; null where storage can't be read. */
+function notedPages(flow: string): string[] | null {
+  try {
+    const v = JSON.parse(localStorage.getItem(sharesKey(flow)) ?? '[]') as unknown;
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return null;
+  }
+}
+/** Note that this page's record holds a decision of a flow. */
+function notePage(flow: string): void {
+  try {
+    const had = notedPages(flow) ?? [];
+    if (!had.includes(state.doc.id)) localStorage.setItem(sharesKey(flow), JSON.stringify([...had, state.doc.id]));
+  } catch {
+    // Not noted: the other pages read this record only where they read every one.
+  }
+}
+/** Which other records to read for decisions of these flows, by the flow each is of; nothing, for every one. */
+function pagesToRead(flows: readonly string[]): ((flow: string) => boolean) | undefined {
+  const wanted = new Set<string>([...(state.doc.flows ?? []).map((f) => f.id), ...Object.keys(dataList?.pages ?? {})]);
+  for (const f of flows) {
+    const noted = notedPages(f);
+    if (!noted) return undefined;
+    for (const x of noted) wanted.add(x);
+  }
+  return (flow) => wanted.has(flow);
+}
+
+/** The names another page's record gives: its flow's, and its people's, from its latest kept document, read once. */
+async function namePage(rec: FlowRecord): Promise<void> {
+  if (pagesNamed.has(rec.origin)) return;
+  pagesNamed.add(rec.origin);
+  const kept = (rec.last('flow')?.about as { doc?: unknown } | null)?.doc;
+  const doc = typeof kept === 'string' ? ((await rec.kept(kept).catch(() => null)) as { name?: unknown; policies?: { principals?: unknown } } | null) : null;
+  pageNames.set(rec.flow, typeof doc?.name === 'string' ? doc.name : rec.flow);
+  const people = Array.isArray(doc?.policies?.principals) ? (doc.policies.principals as { id?: unknown; name?: unknown }[]) : [];
+  for (const x of people) if (typeof x.id === 'string' && typeof x.name === 'string' && !pagePeople.has(x.id)) pagePeople.set(x.id, x.name);
+}
+
+/** The flow of the page a held run's decision was made on, where it was carried here from another page: by the
+ * decision of the first of its held loads that has one. Null for a day decided here, or not decided. */
+function carriedOf(shown: RunRecord): string | null {
+  const r = shown.derived?.from ?? shown;
+  const all = allEntries();
+  for (const l of heldLoadsOf(r.result.holds)) {
+    const d = decisionForLoad(all, l);
+    if (d) return originOf((d.about as CarryAbout).from?.origin)?.flow ?? null;
+  }
+  return null;
+}
+
+/**
+ * The pages of the site that take a held run's decision from this one (ADR 0025 §6): where it was made in this
+ * browser, on this page, at a flow another page shares. The flow's own page where a flow this one reads holds; the
+ * pages of the flows that read this one where its own file or step does. None for a day the build's record decided
+ * (each page has its own), one carried here, or one not decided.
+ */
+function takenBy(shown: RunRecord): string[] {
+  // A day readers have a fill of shows its derived run: the decision is the held run's.
+  const r = shown.derived?.from ?? shown;
+  const all = allEntries();
+  const d = heldLoadsOf(r.result.holds).flatMap((l) => decisionForLoad(all, l) ?? [])[0];
+  if (!d || d.seq < 0 || (d.about as CarryAbout).from || d.about.under !== undefined) return [];
+  const flows = new Set(leadingHere(state.doc, r.base, r.result.holds).map((l) => l.flow.id));
+  return [...new Set([...flows].flatMap((f) => (f === state.doc.id ? readerPages() : pageHref(f) ? [f] : [])))];
+}
+
+/** The names of the pages this record's carried decisions cite, read when it opens: what says the day is drawn again
+ * once they are known. */
+async function namePages(): Promise<void> {
+  const cited = new Set((ledger?.entries ?? []).flatMap((e) => (e.kind === 'decide' ? (originOf((e.about as CarryAbout | null)?.from?.origin)?.flow ?? []) : [])));
+  try {
+    for (const o of (await ledger?.others((flow) => cited.has(flow))) ?? []) await namePage(o);
+  } catch {
+    return;
+  }
+  renderLoads();
+  renderRecord();
+}
+
+/** A decision in words, as a note about another page's says it: "publish as is", "fill from Sun 24". */
+const optionSaid = (a: Partial<DecideAbout>): string =>
+  a.option === 'asis' ? 'publish as is' : a.option === 'accept' ? 'accept the new level' : a.option === 'fill' ? `fill from ${a.repair?.donor ? dayShort(a.repair.donor.day) : 'another day'}` : a.option === 'complete' ? 'publish the part that arrived' : 'don’t publish';
+
+/**
+ * After a held run, or when the page is looked at again: each held load whose hold leads that another page of this
+ * browser decided, at the same flow, is decided here by that decision (ADR 0025 §6, second step), with the loads that
+ * follow it. The keys of the loads it decided; none where there was nothing to carry, or it couldn't be: then the
+ * sheet says what the other page decided and why it isn't carried (`notCarried`).
+ */
+async function carryDecided(r: RunRecord): Promise<Set<string>> {
+  const done = new Set<string>();
+  if (!ledger || !state.engine || r.derived || r.result.manifest.restates || r.result.manifest.whatIf || supersededBy(r)) return done;
+  const leading = leadingHere(state.doc, r.base, r.result.holds);
+  if (!leading.length) return done;
+  let others: FlowRecord[];
+  try {
+    others = await ledger.others(pagesToRead([...new Set(leading.map((l) => l.flow.id))]));
+  } catch (e) {
+    console.warn(`smaltfl: the other pages' records couldn't be read: ${message(e)}`);
+    return done;
+  }
+  if (!others.length) return done;
+  for (const o of others) await namePage(o);
+  const records: OtherRecord[] = others.map((o) => ({ origin: o.origin, entries: o.entries, signed: o.status?.signed ?? 0, ok: o.status?.ok === true }));
+  const all = allEntries();
+  // One choice a held run there: the loads it decided, found here, are decided here together.
+  const choices = new Map<string, { rec: FlowRecord; entry: RecordEntry; about: CarryAbout; leads: Leading[] }>();
+  for (const lead of leading) {
+    const key = loadKey(lead.load);
+    const there = decidedElsewhere(records, lead.load, lead.flow);
+    if (!there || !givesWay(decisionForLoad(all, lead.load), there.entry)) {
+      notCarried.delete(key);
+      continue;
+    }
+    const rec = others.find((o) => o.origin === there.record.origin)!;
+    if (!there.carry) {
+      notCarried.set(key, notCarriedSaid(there.why, pageOf(pageFlowName(rec.flow)), pageFlowName(lead.flow.id)));
+      continue;
+    }
+    const choice = `${rec.origin}\n${there.about.manifest}\n${there.about.option}\n${there.entry.by.as}\n${there.entry.reason ?? ''}`;
+    const had = choices.get(choice);
+    if (had) had.leads.push(lead);
+    else choices.set(choice, { rec, entry: there.entry, about: there.about, leads: [lead] });
+  }
+  const roles = loadRoles(state.doc, r.result.holds);
+  for (const { rec, entry, about, leads } of choices.values()) {
+    const page = pageOf(pageFlowName(rec.flow));
+    const keys = leads.map((l) => loadKey(l.load));
+    const note = (why: string) => keys.forEach((k) => notCarried.set(k, `Decided on ${page} (${optionSaid(about)}). ${why}`));
+    // Each decision of another page is applied here once in a visit: one that couldn't be isn't tried on every run.
+    const id = `${entry.origin}#${entry.seq}`;
+    if (carryTried.has(id)) continue;
+    carryTried.add(id);
+    const who = entry.by.as;
+    const may = checkDecision(policies(), who, about.option);
+    if (!may.allowed) {
+      note(`${personName(who)} may not decide that here: ${may.reason}. Decide it here.`);
+      continue;
+    }
+    // Readers have the day as is here: no decision takes it back, another page's neither.
+    if (pauseOf(r)?.state === 'asis' || pauseOf(r)?.state === 'accepted') {
+      note('Readers have the day as is here, and no decision takes it back.');
+      continue;
+    }
+    const remedy: Remedy = {};
+    if (about.option === 'accept') {
+      // The level this page would accept is the one accepted there; one that writes a band changes the flow's rules,
+      // and a change to a flow's rules isn't carried between pages.
+      const mine = acceptFor(r)?.level ?? null;
+      const same = (x: NonNullable<DecideAbout['level']>) => canonicalJSON({ source: x.source.toLowerCase(), from: x.from, metrics: x.metrics } as unknown as Parameters<typeof canonicalJSON>[0]);
+      if (!mine || !about.level || mine.band || about.level.band || same(mine) !== same(about.level)) {
+        note(mine?.band || about.level?.band ? 'It wrote a new band into the flow’s rules there, and a change to the rules isn’t carried: accept it here.' : 'The level it accepted isn’t the one this page would accept: decide it here.');
+        continue;
+      }
+    }
+    if (about.option === 'fill' || about.option === 'complete') {
+      // The same remedy, made here: the part this page finds missing and the donor this page offers, judged from this
+      // page's own history, where they are the ones decided there (the same file from the same day, by the same rule).
+      const was = about.repair;
+      const rem = was ? remediesFor(r, subjectFor(r, was.source) ?? undefined) : null;
+      const same = !!was && !!rem && rem.source.toLowerCase() === was.source.toLowerCase() && canonicalJSON(rem.missing as unknown as Parameters<typeof canonicalJSON>[0]) === canonicalJSON(was.missing as unknown as Parameters<typeof canonicalJSON>[0]);
+      const pick = same && was.donor ? (rem.picks.find((x) => x.day === was.donor!.day && x.rule === was.donor!.rule && x.direction === was.donor!.direction && x.file.sha256 === was.donor!.file.sha256) ?? null) : null;
+      const derived = same && (about.option === 'complete' || pick) ? await stage(r, repairOf(rem, pick), true) : null;
+      if (!derived || derivedFails(derived.result)) {
+        note('Its remedy couldn’t be made here, or doesn’t pass here: decide it here.');
+        continue;
+      }
+      remedy.derived = derived;
+    }
+    // A decision not to publish made after a fill went out there withdraws the fill readers have here (Q-61).
+    if (about.option === 'dont' && releasedFillOf(r)) remedy.withdraw = true;
+    // Its place in its record is proved under a checkpoint that record's page signed: none yet, and it waits a run.
+    const checkpoint = rec.covering(entry.seq);
+    if (!checkpoint) {
+      carryTried.delete(id);
+      note('Its record has no signed checkpoint over it yet: run the day again to carry it.');
+      continue;
+    }
+    const from = new Map<string, CarriedFrom>();
+    for (const lead of leads) {
+      const key = loadKey(lead.load);
+      // Each load's own decision there, as the record keeps it: the one found for it, proved in its record.
+      const found = decidedElsewhere(records, lead.load, lead.flow);
+      if (!found?.carry) continue;
+      const kept = await ledger.keep('carried', proofOf(found.entry, rec.leaves, checkpoint));
+      from.set(key, { origin: found.entry.origin, seq: found.entry.seq, leaf: entryLeaf(found.entry), kept });
+    }
+    const led = new Set(from.keys());
+    const only = new Set([...led, ...heldLoadsOf(r.result.holds).flatMap((l) => {
+      const follows = roles.get(loadKey(l))?.follows;
+      return follows && led.has(loadKey(follows)) ? [loadKey(l)] : [];
+    })]);
+    const recorded = await decideNow(r, about.option, about.scope, entry.reason, remedy, { by: who, from, only });
+    if (!recorded) {
+      note('It couldn’t be applied here: decide it here.');
+      continue;
+    }
+    for (const k of only) {
+      done.add(k);
+      notCarried.delete(k);
+    }
+  }
+  return done;
+}
+
+/**
+ * The page looked at again (another tab may have decided a day since): the held run on screen takes a decision made
+ * on another page, as a run that has just held does, and everything that shows the day is drawn again.
+ */
+async function carryNow(): Promise<void> {
+  const r = onScreen();
+  const held = r?.derived?.from ?? r;
+  if (!ledger || !held || !held.result.holds.length || state.running || state.deciding || whatIf) return;
+  state.deciding = true;
+  try {
+    if (!(await carryDecided(held)).size) return;
+    const shown = onScreen();
+    if (shown) sayRun(shown);
+    afterDecision();
+  } catch (e) {
+    console.warn(`smaltfl: a decision made on another page couldn't be carried: ${message(e)}`);
+  } finally {
+    state.deciding = false;
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') void carryNow();
+});
 
 // ------------------------------------------------------------------ filling a paused day (ADR 0009 amendment 1)
 
@@ -17652,7 +17977,7 @@ const runSaid = (a: Record<string, unknown>) => `run ${runNameOf(typeof a.manife
 const decidedWhose = (a: Record<string, unknown>): string => {
   const flow = a.flow as { id?: unknown } | undefined;
   const carried = a.carried as { seq?: unknown } | undefined;
-  return `${typeof flow?.id === 'string' ? ` · ${possessive(flowName(flow.id))} to decide` : ''}${typeof carried?.seq === 'number' ? ` · with #${carried.seq}` : ''}`;
+  return `${typeof flow?.id === 'string' ? ` · ${possessive(flowName(flow.id))} to decide` : ''}${typeof carried?.seq === 'number' ? ` · with #${carried.seq}` : ''}${carriedSaid(a, pageFlowName)}`;
 };
 
 /** A decision's line in the record. */
@@ -18165,6 +18490,20 @@ async function start(): Promise<void> {
   const about = $('flow-desc');
   about.textContent = state.doc.description ?? '';
   about.hidden = !state.doc.description;
+  // The pages of the site that share a flow with this one (ADR 0025 §6): a held day decided on one is carried to the
+  // other, so it is decided once.
+  const shared = Object.keys(dataList?.pages ?? {}).filter((id) => id !== state.doc.id);
+  const sharedEl = $('flow-pages');
+  sharedEl.hidden = !shared.length;
+  if (shared.length) {
+    const own = shared.filter((id) => state.doc.flows?.some((f) => f.id === id));
+    const reads = shared.filter((id) => !own.includes(id));
+    const links = (ids: string[]): (string | Node)[] => ids.flatMap((id, i): (string | Node)[] => [i ? ', ' : '', h('a', { href: pageHref(id)!, 'data-page': id }, `${pageFlowName(id)} ›`)]);
+    sharedEl.replaceChildren(
+      ...(own.length ? ['With a page of its own: ', ...links(own), '. '] : []),
+      ...(reads.length ? ['Read by: ', ...links(reads), '. '] : []),
+      'A paused day is decided once, at the flow that holds: decided on either page, it is carried to the other.');
+  }
   const picker = $<HTMLSelectElement>('viewer');
   picker.replaceChildren(...(policies()?.principals ?? [{ id: 'owner', name: 'Owner' }]).map((x) => h('option', { value: x.id }, 'role' in x && x.role ? `${x.name} (${x.role})` : x.name)));
   picker.value = state.viewer;
@@ -18193,6 +18532,8 @@ async function start(): Promise<void> {
     setStatus('Opening this flow’s record, and starting the engine…');
     await loadLog();
     mark('record opened');
+    // Where this record carries a decision from another page (ADR 0025 §6), that page's names, read behind the first run.
+    if (ledger?.entries.some((e) => e.kind === 'decide' && (e.about as CarryAbout | null)?.from)) void namePages();
     // A day held in an earlier visit still waits (ADR 0009 §10): the tab says so before anything runs.
     syncTitle();
     if (opening) throw opening;

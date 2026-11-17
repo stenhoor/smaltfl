@@ -2,6 +2,7 @@
 //
 //   node tour.cjs <appDir> <outDir> <stops.json>
 //   TOUR_SCALE=2 node tour.cjs …           the same at twice the pixels, for screenshots a person will look at
+//   TOUR_STACK=1 node tour.cjs …           a page error is reported with where it was thrown
 //   TOUR_DEVICE=tablet node tour.cjs …     at another size (DEVICES below): phone (default), tablet, tablet-wide,
 //                                          desktop, wide. The app is held to all of them (CLAUDE.md, "Phone, tablet and
 //                                          desktop"; wide is a 2560 px monitor)
@@ -35,6 +36,10 @@
 //                                         file input, and wait for the run it starts (Replace the file)
 //     "waitFor": "sel",                   optional: after the taps, wait until this shows (what a tap draws once the engine answers)
 //     "waitForMs": 240000,                optional: how long waitFor waits (default 30 s): what takes many runs to draw
+//     "page": "feeds",                    optional: another app of the same site first (ADR 0025 §6: two pages of one
+//                                         browser that share a flow), by the name of its folder beside <appDir>, and
+//                                         the stops after it until one says another; "" is <appDir>'s. Both are served
+//                                         from one origin, so they share the browser's records, as a site's pages do
 //     "reload": true,                     optional: reload the page first, keeping IndexedDB, and settle
 //     "view": "runs",                     optional: show a view (#runs, #policies, ...) before capturing
 //     "viewFirst": true,                  optional: show the view before the clicks, not after
@@ -82,16 +87,27 @@ if (!root || !out || !stopsFile) {
 }
 fs.mkdirSync(out, { recursive: true });
 const stops = JSON.parse(fs.readFileSync(stopsFile, 'utf8'));
-const page = fs.readFileSync(path.join(root, 'page.html'), 'utf8');
-const skeleton = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>[hidden]{display:none!important}body{margin:0}</style></head><body>${page}</body></html>`;
+const skeletons = new Map();
+const skeletonOf = (dir) => {
+  if (!skeletons.has(dir)) skeletons.set(dir, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>[hidden]{display:none!important}body{margin:0}</style></head><body>${fs.readFileSync(path.join(dir, 'page.html'), 'utf8')}</body></html>`);
+  return skeletons.get(dir);
+};
+skeletonOf(root);
 const types = { '.js': 'text/javascript', '.txt': 'text/plain', '.csv': 'text/csv', '.json': 'application/json' };
 // The files a stop's "tamper" names: from that stop on, each is served with one byte changed.
 const tampered = new Set();
+// The site: <appDir> at `/`, and each app built beside it at `/<its folder>/` (<appDir> itself too), as a site serves
+// its pages from one origin. A stop's "page" goes to one; the links between the pages (the build's `--page`) lead there.
+const site = path.dirname(path.resolve(root));
+const appOf = (url) => {
+  const m = /^\/([^/]+)\/(.*)$/.exec(url);
+  return m && fs.existsSync(path.join(site, m[1], 'page.html')) ? { dir: path.join(site, m[1]), rest: `/${m[2]}` } : { dir: root, rest: url };
+};
 const server = http.createServer((req, res) => {
-  const url = decodeURIComponent(req.url.split('?')[0]);
-  if (url === '/') return res.writeHead(200, { 'content-type': 'text/html' }).end(skeleton);
-  const file = path.join(root, url);
-  if (!file.startsWith(path.resolve(root)) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return res.writeHead(404).end();
+  const { dir, rest: url } = appOf(decodeURIComponent(req.url.split('?')[0]));
+  if (url === '/') return res.writeHead(200, { 'content-type': 'text/html' }).end(skeletonOf(dir));
+  const file = path.join(dir, url);
+  if (!file.startsWith(path.resolve(dir)) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return res.writeHead(404).end();
   let body = fs.readFileSync(file);
   if ([...tampered].some((t) => url.endsWith(`/${t.replace(/^\/+/, '')}`))) {
     const i = Math.min(4000, body.length - 1);
@@ -127,6 +143,8 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
   let ctx = null;
   let p = null;
   let scheme = null;
+  // The app of the site the page is on: '' is <appDir>'s (a stop's "page").
+  let at = '';
   const problems = [];
   // The status line's run number and state (data-run, data-state), with its words: what changed after a step.
   const status = () => p.evaluate(() => { const el = document.querySelector('#status'); return `${el?.dataset.run ?? ''}|${el?.dataset.state ?? ''}|${el?.textContent ?? ''}`; });
@@ -166,9 +184,11 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
     scheme = wanted;
     ctx = await browser.newContext({ viewport: { width: W, height: H }, isMobile: device.isMobile, hasTouch: device.hasTouch, deviceScaleFactor: Number(process.env.TOUR_SCALE || 1), colorScheme: wanted, acceptDownloads: true });
     p = await ctx.newPage();
-    p.on('pageerror', (e) => problems.push(`PAGEERROR ${e.message}`));
+    // TOUR_STACK=1 adds where it was thrown (build the app with SMALTFL_PROFILE=1 to read it by name).
+    p.on('pageerror', (e) => problems.push(`PAGEERROR ${e.message}${process.env.TOUR_STACK ? `\n${e.stack}` : ''}`));
     p.on('console', (m) => m.type() === 'error' && problems.push(`console ${m.text()}`));
     await p.goto(url);
+    at = '';
     await settled('');
   };
   for (const stop of stops) {
@@ -179,6 +199,15 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
       // A file changed on its way to the page from now on: the page must refuse it.
       if (stop.tamper) tampered.add(stop.tamper);
       await open(stop.scheme === 'dark' ? 'dark' : 'light');
+      // Another app of the site (ADR 0025 §6): the same browser, so its records are there; this page starts anew.
+      if (stop.page !== undefined && stop.page !== at) {
+        if (stop.page && !fs.existsSync(path.join(site, stop.page, 'page.html'))) problems.push(`${stop.name}: no app "${stop.page}" beside ${root}`);
+        else {
+          await p.goto(`${url}${stop.page ? `${stop.page}/` : ''}`);
+          at = stop.page;
+          await settled('');
+        }
+      }
       if (stop.reload) {
         await p.reload();
         await settled('');

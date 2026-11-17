@@ -261,3 +261,13 @@ npm run build:app -- --flow examples/control-estate/flow.json --out dist/app-est
 
 The build reads the flow's data list (`data.json`: where each source's files are, or the generator that makes them),
 measures each watched dataset's history on the runtime, keeps a sample for the classifier, and writes a static page.
+
+A flow another flow reads can be a page of its own: give its folder a data list, and a story if its month is recorded
+(`examples/larkspur/feeds/data.json` and `tour.json` are Evidence feeds' on the tour's files). Served from the same
+site as its reader's page, the two share the browser's records, and a paused day decided on one is carried to the
+other. `--page` tells each where the other is, since that is the site's to say:
+
+```sh
+npm run build:app -- --variant tour --out site/app --page feeds=../feeds/
+npm run build:app -- --flow examples/larkspur/feeds/flow.json --out site/feeds --page "larkspur=../app/=Larkspur estate"
+```

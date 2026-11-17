@@ -181,6 +181,11 @@ was filled, is the version before.
   opens what readers get, each choice drawn: **Keep Tue 26**, recommended, as something is wrong in the rows;
   **Publish as is**, with 0 applications; or **Fill from Tue 26**. Pick the fill and choose **Wed 20** among its days,
   the same weekday a week before: *Wed 20 stands in: an estimate*, for a file whose rows follow the week.
+  - The file is Evidence feeds', so the decision is too: the sheet's head says *Evidence feeds’ to decide*, and links
+    to **[Evidence feeds’ page](/feeds/#day/2024-03-27){target="_self"}**, the same flow on the same files with a
+    record of its own. Decide the day there instead, then come back: the estate's page has taken the decision, and its
+    receipt says *Decided on Evidence feeds’ page, and carried here: nobody was asked twice*. It works the other way
+    round too.
 
 ## More to see {#more}
 
@@ -243,6 +248,9 @@ apart from the record, and **Compare** puts any two versions of a day side by si
 
 ## The other demos
 
+- **[Evidence feeds’ own page](/feeds/){target="_self"}**: one of the estate's flows as a page of its own, on the
+  tour's two months: its thirteen files and Inventory's, its own month and record. A paused day decided here or on the
+  tour is carried to the other ([how](./app#a-flow-that-reads-flows)).
 - **[Larkspur's planted month](/larkspur/){target="_self"}**: the same group with trouble planted at every layer, the
   month ADR 0020's answer key was built against: the posture over the whole month, the rules changed twice, a
   back-dated change restating two days. [Its walk](./larkspur) goes day by day.

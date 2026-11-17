@@ -2179,6 +2179,11 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .fl-note { margin: 0; font-size: 13px; color: var(--ink-2); }
 .fl-open { justify-self: start; }
 .fl-month { display: inline-flex; align-items: center; color: var(--smalt); font-weight: 600; text-decoration: none; }
+/* Another page of the site that shares a flow with this one (ADR 0025 §6): a link, said where the decision is. */
+.vf-whose a, #flow-pages a, .vf-rc-carried a { color: var(--smalt); font-weight: 600; text-decoration: none; white-space: nowrap; }
+.vf-whose a:hover, #flow-pages a:hover, .vf-rc-carried a:hover { text-decoration: underline; }
+.vf-not-carried { margin: 0 0 6px; font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
+.vf-rc-carried { margin: 0 0 0 22px; font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
 .fl-known code { font-family: var(--mono); font-size: 11.5px; }
 .dh-life { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: 12px; }
 .dh-life li { padding: 2px 8px; border-radius: 999px; background: var(--sunk); color: var(--ink-2); }
@@ -2447,6 +2452,7 @@ div.fl-row.fl-given > .fl-row-go { align-self: center; padding-right: 10px; }
   <section class="view" id="view-flow" aria-label="Day">
     <details class="about-flow"><summary>About this flow</summary>
     <p class="lede" id="flow-desc" hidden></p>
+    <p class="lede" id="flow-pages" hidden></p>
     <p class="lede" id="lede">Each load is judged against what a day like it has: a dot on a card means news. Tap any card for its story: the news first, then its rows, columns, what it dropped, odd rows and history, each with what you can do about it. A day with something wrong is paused, not published: it waits (‖), readers keeping the last day published, until the owner decides to publish it as is (⚑) or not at all (✕). A short day with a part missing can be filled from a good day near it, every filled row marked with the day it came from (◧), or published with only the part that arrived (◐). A change that is meant to stay can be accepted as the new level (a step mark): the days after it are judged from it, and those at the same level publish under it.</p>
     <ul class="legend" aria-label="Legend">
       <li><span class="port-key in" aria-hidden="true"></span>input: data the flow reads</li>

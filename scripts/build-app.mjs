@@ -11,6 +11,10 @@
 //   node scripts/build-app.mjs --variant tour [--out dist/app-tour]
 //                                         Larkspur's tour, February and March (ADR 0023): a variant of its data
 //                                         list, its own generator arguments and story
+//   node scripts/build-app.mjs --flow examples/larkspur/feeds/flow.json --out dist/app-feeds --page "larkspur=../app/=Larkspur estate"
+//                                         a flow the estate reads, as a page of its own on the tour's files (ADR 0025
+//                                         §6): `--page` names the pages that share a flow with it, by where the site
+//                                         puts them
 //   node scripts/build-app.mjs --flow examples/security-signins/flow.json [--out dist/app-signins]
 //                                         another example. The flow's data list names a generator; it writes the
 //                                         daily files (with the list's `generateArgs`) and the general builder writes
@@ -70,6 +74,14 @@ const flowAt = process.argv.indexOf('--flow');
 const flowPath = flowAt >= 0 ? process.argv[flowAt + 1] : 'examples/larkspur/flow.json';
 const variantAt = process.argv.indexOf('--variant');
 const variant = variantAt >= 0 ? process.argv[variantAt + 1] : null;
+// The pages of the site that share a flow with this one (ADR 0025 §6), any number: `--page feeds=../feeds/` for a flow
+// it reads that has a page of its own, `--page "larkspur=../app/=Larkspur estate"` for a flow that reads it, named
+// since this flow's document doesn't know it. A held day decided on one page is carried to the other, and each links
+// to the other. Where the pages are is the site's to say, not the flow's: an argument, and nothing the data is made from.
+const pages = Object.fromEntries(process.argv.flatMap((a, i) => {
+  const m = a === '--page' ? /^([^=]+)=([^=]+)(?:=(.+))?$/.exec(process.argv[i + 1] ?? '') : null;
+  return m ? [[m[1], { href: m[2], ...(m[3] ? { name: m[3] } : {}) }]] : [];
+}));
 /** A variant the data list doesn't have: refused, with the ones it has. */
 const missingVariant = (name, listed) => {
   throw new Error(`${flowPath}'s data list has no variant ${name}: it has ${Object.keys(listed.variants ?? {}).join(', ') || 'none'}`);
@@ -179,7 +191,7 @@ writeFileSync(`${out}/bundles.json`, JSON.stringify(hashed, null, 2) + '\n');
   const work = join('node_modules/.cache/smaltfl/data', key);
   const cached = existsSync(join(work, '.done'));
   const t0 = Date.now();
-  // Used now: the cache keeps the data sets used last (below), and the site's deploy uses three.
+  // Used now: the cache keeps the data sets used last (below), and the site's deploy uses five.
   if (cached) utimesSync(work, new Date(), new Date());
   if (!cached) {
     rmSync(work, { recursive: true, force: true });
@@ -243,16 +255,17 @@ writeFileSync(`${out}/bundles.json`, JSON.stringify(hashed, null, 2) + '\n');
     }
     days = made.loads.length;
   }
-  // The cache keeps the four data sets used last (the site deploys four demos, Larkspur's two months about 430 MB each,
-  // the others tens of MB): an older one is made again if it is needed.
+  // The cache keeps the five data sets used last (the site deploys five pages: Larkspur's two months about 430 MB each,
+  // Evidence feeds' own page of the tour's about 300 MB, the others tens of MB): an older one is made again if it is
+  // needed.
   const root = 'node_modules/.cache/smaltfl/data';
   const kept = readdirSync(root).map((k) => ({ k, t: statSync(join(root, k)).mtimeMs })).sort((a, b) => b.t - a.t);
-  for (const { k } of kept.slice(4)) if (k !== key) rmSync(join(root, k), { recursive: true, force: true });
+  for (const { k } of kept.slice(5)) if (k !== key) rmSync(join(root, k), { recursive: true, force: true });
   const first = Object.values(sources).find((s) => s.loads)?.loads[0];
   // The demo's scenes (ADR 0023 §4): what it shows, the month screen's list, shipped as they are written (the page checks
   // them, core/scenes.ts).
   const scenes = bind.scenes ? JSON.parse(readFileSync(bind.scenes, 'utf8')) : null;
-  const index = { format: 2, month: first?.slot.slice(0, 7), built: new Date().toISOString().slice(0, 19) + 'Z', data: null, flow: flowEntry, ...(Object.keys(flowEntries).length ? { flows: flowEntries } : {}), ...(estateEntries.length ? { estates: estateEntries } : {}), ...(catalogueEntries.length ? { catalogue: catalogueEntries } : {}), sources, histories, ...(Object.keys(samples).length ? { samples } : {}), ...(Object.keys(ranges).length ? { ranges } : {}), ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), ...(bind.judged ? { judged: bind.judged } : {}), ...(bind.posture ? { posture: bind.posture } : {}), ...(scenes ? { scenes } : {}) };
+  const index = { format: 2, month: first?.slot.slice(0, 7), built: new Date().toISOString().slice(0, 19) + 'Z', data: null, flow: flowEntry, ...(Object.keys(flowEntries).length ? { flows: flowEntries } : {}), ...(estateEntries.length ? { estates: estateEntries } : {}), ...(catalogueEntries.length ? { catalogue: catalogueEntries } : {}), sources, histories, ...(Object.keys(samples).length ? { samples } : {}), ...(Object.keys(ranges).length ? { ranges } : {}), ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), ...(bind.judged ? { judged: bind.judged } : {}), ...(bind.posture ? { posture: bind.posture } : {}), ...(scenes ? { scenes } : {}), ...(Object.keys(pages).length ? { pages } : {}) };
   writeFileSync(`${out}/data/loads.json`, JSON.stringify(index, null, 2) + '\n');
   console.log(`built ${out} (${commit.slice(0, 12)}) with ${flowPath}: ${days} days of ${Object.values(sources).filter((s) => s.loads).length} daily source(s) and ${watches.length} histories, generated by ${bind.generate}`);
 }
@@ -272,16 +285,29 @@ async function dataKey(flowPath, bind) {
   // A demo's scenes are words the page shows (ADR 0023 §4), nothing the data is made from: a change to them keeps it.
   // So does a change to its catalogue (ADR 0025 §10): the flows in its `catalogue` folder are added in the page, and
   // built there from the day's run.
+  // The flows it reads (ADR 0025), wherever their folders are: each one's document and notebooks. A read flow's own data
+  // list and story are for a page of its own (ADR 0025 §6), and nothing its reader's data is made from.
+  const doc = await readFlow(flowPath);
+  const read = new Set((doc.flows ?? []).map((f) => dirname(join(dirname(flowPath), f.path))));
+  const ofFlow = (p) => {
+    if (!existsSync(p)) return;
+    if (statSync(p).isDirectory()) {
+      if (basename(p) !== 'catalogue') for (const e of readdirSync(p)) ofFlow(join(p, e));
+    } else if (basename(p) === 'flow.json' || p.endsWith('.ts')) files.add(p);
+  };
   const walk = (p) => {
     if (!existsSync(p)) return;
     if (statSync(p).isDirectory()) {
-      if (basename(p) !== 'catalogue') for (const e of readdirSync(p)) walk(join(p, e));
+      if (read.has(p)) ofFlow(p);
+      else if (basename(p) !== 'catalogue') for (const e of readdirSync(p)) walk(join(p, e));
     } else if (!p.endsWith('scenes.json')) files.add(p);
   };
   if (flowPath.endsWith('.smaltfl.json')) files.add(flowPath).add(flowPath.replace(/\.smaltfl\.json$/, '.data.json'));
   else walk(dirname(flowPath));
-  // The flows it reads (ADR 0025), where their folders aren't inside its own.
-  for (const f of (await readFlow(flowPath)).flows ?? []) walk(dirname(join(dirname(flowPath), f.path)));
+  for (const dir of read) ofFlow(dir);
+  // What it reads from outside its own folder: the estates' ontologies it imports (ADR 0025 §8) and its story.
+  for (const e of doc.ontology?.estate ?? []) files.add(join(dirname(flowPath), e.path));
+  if (bind.story) files.add(bind.story);
   walk('examples/ontologies');
   for (const e of readdirSync('examples')) if (statSync(join('examples', e)).isFile() && !e.endsWith('.smaltfl.json') && !e.endsWith('.data.json')) files.add(join('examples', e));
   const h = createHash('sha256');

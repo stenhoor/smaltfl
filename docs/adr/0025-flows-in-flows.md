@@ -1,8 +1,9 @@
 # ADR 0025: Flows in flows
 
 - **Status:** accepted, 2026-11-17: the maintainer's answers to Q-226 to Q-234, asked through the question prompt once
-  the research was in. The choices the answers leave open are built as proposed, for the maintainers to confirm (Q-235
-  on). Built in the slices of §12.
+  the research was in. The choices the answers left open were built as proposed and confirmed by the maintainer the
+  same day, asked the same way (Q-235 to Q-239), with the one that was open answered (Q-240). Every slice of §12 is
+  built.
 - **Date:** 2026-11-17
 - **Builds on:**
   - [ADR 0004](0004-the-flow-plan.md): people say what, the machine decides how; keys hash the plan, never a name.
@@ -150,8 +151,9 @@ flow is read, hashed into each flow that imports it.
 - **The hold is the flow's** whose file or step holds, and so is the decision: recorded by load, as now (ADR 0010 §7),
   and saying which flow it is about. A flow that reads it shows *waits on* and is never asked.
 - **In two steps.** First inside one page, where there is one record: the sheet, the month and the record say whose the
-  decision is. Then between flows that share a flow in the same browser: the decision is kept under the paused flow, and
-  each reading flow's record cites the decision it carried, so no flow decides the same file twice.
+  decision is. Then between pages of one browser that share a flow (Q-240: a read flow's own page, on its reader's
+  files): the decision is kept where it was made, at the paused flow, and the other page's record cites the decision it
+  carried, so no flow decides the same file twice.
 
 ### 7. A change is followed, said and tested (Q-227)
 
@@ -471,8 +473,8 @@ never one or another. A step the engine folds into the next has no Explore tab: 
   tour's answer key holds every recorded decision to its flow (`test/larkspur-tour.test.ts`).
 
 **What it leaves:** where two flows lead on one day, the one choice decides both, each recorded as its own flow's; no
-day of the demos has two. The second step, between pages of one browser that share a flow, isn't built: it needs a
-second page that shares a flow and its files, which no page of the site does (Q-240, §"Not built").
+day of the demos has two. The second step, between pages of one browser that share a flow, was built last, once the
+maintainer had chosen the page (Q-240): its own section, below.
 
 ### Slice 6: a change followed, said and tested (2026-11-17)
 
@@ -807,6 +809,113 @@ settings, nothing else.
 - A use's inputs and settings aren't changed in place in the app: take it off and use it again.
 - What a read flow's use gives is read by the flow that lists the use, which passes it on in a step of its own.
 
+### Slice 5, second step: a decision carried between pages (2026-11-17)
+
+§6's second step, built last. It needed two pages of one browser that share a flow and its files, and the site had
+none; the maintainer chose which (Q-240): **one read flow's own page**.
+
+- **The page.** Evidence feeds, a flow the estate reads, is a page of its own on the tour's files:
+  `examples/larkspur/feeds/data.json` is its data list (the tour's generator and arguments; the seventeen files the
+  flow has, its own thirteen and Inventory's four) and `examples/larkspur/feeds/tour.json` its story, the tour's as far
+  as it is about this flow's files, each decision its owner's, Wed Mar 27 left to decide as it is in the tour.
+  `npm run build:app -- --flow examples/larkspur/feeds/flow.json --out dist/app-feeds` makes its data in about four
+  minutes: its own histories, its own recorded months. Its 920 files are the tour's, byte for byte, since one generator
+  writes both from one seed. The site deploys it at `/feeds/`, beside the tour at `/app/`.
+- **The same flow, by its hash.** The estate knows Evidence feeds by the flow hash of the document read from its own
+  folder (§2), and that document is what its own page ships: while neither page has edited it, the flow as kept on its
+  own page and the flow the estate names are one hash (`test/carry.test.ts` holds them equal).
+- **What a decision says of where it was made** (`src/core/carry.ts`, pure). A decision of a flow the page reads says
+  `flow` (the first step). A decision of the page's own flow, made in the browser, now says `base`: the flow as kept
+  when the run it decides ran (its document with its change sets, ADR 0021 §5), as the record's `flow` entry before
+  that run says. `madeAt` reads either: the flow a decision was made at, by id and hash. The build's recorder writes
+  no `base`, so a recorded month is what it was.
+- **Found.** After a held run, and when the page is looked at again (another tab may have decided since), each held
+  load whose hold leads (`leadingHere`) is looked for in the other records this browser keeps (`FlowRecord.others`:
+  one a flow, in one IndexedDB, signed by the same identity; each read and checked as its own page reads it, and never
+  written from here). `decidedElsewhere` takes the latest decision about the load made at the same flow: made there,
+  not itself carried and not applied under a standing decision, and under a checkpoint its browser signed. A site's
+  other demos keep records in the same browser, so only the records that can hold such a decision are read: those of
+  the flows the page's flow reads, those of the pages the site names, and those whose page noted, in the browser's
+  storage, that it recorded a decision of that flow. The note says where to look and nothing more: what is found is
+  checked in the record it is in.
+- **Carried.** The decision is recorded here as this record needs it: one decision a held load (ADR 0010 §7), the
+  load that leads citing the entry it carried (`from`: the other record's origin, the entry's seq and leaf, and the
+  proof kept here), the loads that follow carrying that one as inside one page. It is recorded as made by whoever made
+  it there, who must be allowed that decision here (the reader's policies apply, §"Not built"), with the same option,
+  scope and reason; then applied as any decision is. A fill is the same remedy made here: the part this page finds
+  missing and the donor this page offers (the same file of the same day, by the same rule), judged from this page's
+  own history, staged on its own run, and it must pass here. An Accept is carried where the level this page would
+  accept is the same. Nobody is asked.
+- **The latest decision stands on both pages** (`givesWay`): a decision changed on one page is carried to the other in
+  turn, amending the one it had; a decision made here after the other page's stays, and the other page carries it.
+- **Not carried, and said** at the head of the decision sheet, with what the other page decided: the flow isn't the
+  same there (it was edited on one of the pages, so it is known by another hash: *its rules differ*); the decision
+  doesn't say where it was made (made before this was built); its record hasn't signed it yet; whoever made it may not
+  decide here; an Accept that wrote a band (it changed the flow's rules there, and a change to a flow's rules isn't
+  carried); a remedy that can't be made or doesn't pass here; a day readers already have as is here.
+- **Proved, and checked offline.** Beside each carried decision the record keeps a proof (a blob, kind `carried`): the
+  entry as its own record keeps it, and its inclusion proof under a checkpoint of that record the browser signed. The
+  audit bag carries it, and `audit.ts` checks it without the other record (`carriedProblems`): the citation names
+  another flow's record of the same browser; the proof holds that entry, by its leaf, in that record at that size and
+  root, under a checkpoint the bag's card signed; and the decision it carries was made at the same flow, about the
+  same load, to the same end, by the same person for the same reason, no later than it was carried. Every decision
+  that says `base` is held to the record's own `flow` entries (`baseProblems`).
+- **Said**: the receipt, *Decided on Evidence feeds’ page, and carried here: nobody was asked twice*; the record's
+  line, *· carried from Evidence feeds’ page, its #83*; the month's timeline, *On Evidence feeds’ page, Owner
+  published it as is. Carried here.* The other page's flow and people are named from the document its record keeps.
+- **The pages link to each other.** Where the pages are is the site's to say, not the flow's: the build's
+  `--page id=address` (`--page feeds=../feeds/`; `--page "larkspur=../app/=Larkspur estate"` names a flow the document
+  doesn't know) ships them in loads.json (`pages`, `DataList.pages`). A read flow's sheet has **Its own page ›**, the
+  decision sheet's head a link to the page of the flow that decides (and, on the flow's own page, to the page that
+  takes the decision from it), the receipt of a day decided here says where it is carried to (*Carried to Larkspur
+  estate’s page when the day runs there*, a tap away), and *About this flow* says which pages share it.
+- **A reader's data is made from its read flows' documents and notebooks only** (`dataKey` in
+  `scripts/build-app.mjs`): a read flow's own data list and story are for its own page, and adding them left every
+  demo's data as it was. The cache keeps five data sets, since the site deploys five pages.
+- **What the new page found.** The Ontology page failed where a type's objects are a file no step of the flow reads
+  (Inventory's platform files, which only the estate reads): such a type now shows no count, and the file's Data tab
+  says no step here reads it. The month's timeline said a following load's decision as a second line, and measured a
+  recorded day's wait by this browser's clock: one line, in the story's time. A flow with no policies names its one
+  owner *Owner*.
+- **What auditing a fill found.** No stop had audited a bag after a fill on a day where a second load follows the
+  filled file (slice 5's first step: the posture's own load, decided with the file's). The audit took that second
+  decision for the fill's own decided again, since both are of one run's inputs, and failed the fill's release. With
+  several watched sources the same thing decided again is the same load (ADR 0010 §7), as a release that cites loads
+  already had it: fixed in `audit.ts`, and the stops now audit a fill, inside one page's record and carried.
+- **Tests**: `test/carry.test.ts` (the flow a decision was made at, what a page looks for and finds, which decision
+  gives way, the proof and each way it can fail, on Larkspur's estate and on Evidence feeds read from its own folder;
+  and the page's data list and story held to the tour's: the same generator and arguments, the estate's bindings, the
+  tour's deliveries and decisions as far as they are about its files). `test/record-others.test.ts`: another flow's
+  record read as its own page keeps it, read on from where it was left, never written, only the records asked for,
+  and the proof exported with what the entries name.
+  `tools/browser/stops/carry.json` walks it in a real browser at every size, on the two apps served from one origin
+  (tour.cjs's `page`): decided on Evidence feeds' page and carried to the estate's, and applied again when the page is
+  opened again; decided on the estate's and carried to Evidence feeds'; changed there and carried back; not carried
+  where the rules differ; a fill carried, made again in a new engine, then withdrawn there and here; each page's
+  record exported and held by the offline audit, a carried fill's twice. A bag whose proof is taken out,
+  changed, or no longer places its entry fails the audit at the decision that cites it (tried by hand on a bag from
+  those stops).
+
+**What it leaves:**
+
+- Carrying is by load: a flow that watches one dataset decides its day, not a load (ADR 0010 §7), and neither carries
+  nor is carried.
+- Only decisions made in the browser are carried. A month the build recorded is each page's own, from its own story.
+- A change to a flow's rules isn't carried between pages (§"Not built", a flow run on its own): after an edit on
+  either page the flow is known by two hashes, and a decision made after it isn't carried. The sheet says so.
+- A day closed under a standing decision (*later days too*) is closed on the other page by its own rule, once the day
+  the standing decision was made on has been carried there.
+- A file replaced by an upload is a later delivery on the page it was uploaded to: the other page doesn't have it.
+- A page that is open takes a decision made in another tab when it is looked at again, or when the day runs again.
+- An Accept and the part alone are carried by the same code as a fill, and aren't walked in a browser: the tour leaves
+  one day to decide, and its cause is neither.
+- Found on the way, older than this and left as it is: the offline audit fails a bag in which a fill was withdrawn on
+  a day whose holds kept back only some outputs (*it doesn't leave … showing the latest day left published*). The
+  audit reads what a name showed from the days that published whole, and a held run publishes what its holds don't
+  reach. It happens inside one page too (decide a fill on the tour's Wed Mar 27, change the decision to *Keep*,
+  export): the withdrawal is right on screen and in the engine, and the audit's reading of it isn't. It is the next
+  thing to fix in `audit.ts` (`shownBefore`), with a stop that audits a withdrawal.
+
 ## Consequences
 
 - **A flow's document grows.** The app ships the composed document, so a page still opens one file and needs no parser.
@@ -820,16 +929,11 @@ settings, nothing else.
 
 ## Not built, and why
 
-- **§6's second step: a decision carried between pages that share a flow** (Q-240). Inside one page a decision says
-  whose it is and is made once, at the flow that holds (slice 5). Between pages it needs two pages of one browser that
-  share a flow *and its files*, and the site deploys none: the tour and the planted month are one flow on different
-  files, under one record already, and the estate and the sign-ins read no flow. The first thing it needs is such a
-  page, which is the maintainers' to choose; the proposal is a read flow's own page on its reader's files. The records
-  share one IndexedDB and each names its flow, so the reader's record would cite the decision it carried by the other
-  record's origin, its seq and its leaf.
 - **A flow run on its own and read by another** (a join against what another flow published in its own runs, held where
   the producer holds). §1 runs a read flow inside its reader. Both are wanted in time; this is the first, since every
-  part of it has a precedent, and §6's second step is the bridge to the other.
+  part of it has a precedent. §6's second step is the bridge to the other: a read flow has a page of its own, and a
+  decision made on either page is carried to the other. What a flow's own page builds, and what it changes in its
+  rules, isn't carried yet.
 - **A consumer keyed by the content of what it reads,** so a flow rebuilt to the same output disturbs nothing
   downstream. Keys stay as ADR 0004 has them.
 - **A flow with policies of its own** inside a reading flow: the reader's apply.
@@ -848,7 +952,7 @@ Asked through the question prompt, 2026-11-17, in three rounds of three (docs/OP
 - **Q-233:** the name: a flow.
 - **Q-234:** the playful voice: success and empty screens, and the sample estate.
 
-Built as proposed, for the maintainers to confirm:
+Built as proposed, then asked the same way on 2026-11-17, in two rounds, and confirmed as built:
 
 - **Q-235:** testing a change on the days recorded informs, and holds nothing back.
 - **Q-236:** a flow's own handling of a column is written in that flow, marked with its reason.
@@ -856,6 +960,7 @@ Built as proposed, for the maintainers to confirm:
 - **Q-238:** a use's datasets are named after it, and it is known by the hash of its own document.
 - **Q-239:** a flow or a join whose own step stops its first run is taken back at once.
 
-Open:
+Answered in the same rounds, then built:
 
-- **Q-240:** which page a decision is carried to or from (§6's second step, not built).
+- **Q-240:** a decision is carried between a read flow's own page and its reader's: Evidence feeds, on the tour's
+  files (§6's second step).
