@@ -84,6 +84,17 @@ Tap a notebook's box to read it as a page: each step's code, its output under it
 news about it. **Your cells** at the bottom take SQL of your own over any dataset by name. They are kept in your
 browser and change nothing the flow computes.
 
+As the owner, build on it ([the app guide](./app#building-in-the-app)). **Add a flow ›**, above the canvas, lists
+three flows made already:
+
+- *Ownership* and *Certificates* are added as they are: a card each, built from the day's run.
+- *Control by unit* has no dataset of its own to read: it is **used** on the evidence feed you pick. Use it on the TLS
+  feed, then again on the WAF's with a floor of 99.5: two flows of the one definition, each with its own card, its
+  own datasets and its own hash in the run. Inside each, its inputs show where their rows come from.
+
+On any dataset's **How it joins**, a form writes a join as a notebook cell, and the joined dataset is there to explore.
+What you make is recorded, kept in your browser, and taken back one at a time or with *Back to the flow as shipped*.
+
 ## 1. A normal day {#normal}
 
 **Wed Feb 7.** Every file arrives and every check passes: the status line says *A normal Wednesday*, the day head
