@@ -12,7 +12,8 @@ incident page, the drill and the phone canvas in [adr/0012-visual-first-in-two-m
 bronze layer in [adr/0015-the-bronze-layer.md](adr/0015-the-bronze-layer.md), the mark in [adr/0016-the-mark.md](adr/0016-the-mark.md), time in [adr/0021-time.md](adr/0021-time.md), the answers of 2026-11-14 in
 [adr/0022-the-answers-of-2026-11-14.md](adr/0022-the-answers-of-2026-11-14.md), the demo as a tour in
 [adr/0023-the-demo-as-a-tour.md](adr/0023-the-demo-as-a-tour.md), the month at a glance in
-[adr/0024-the-month-at-a-glance.md](adr/0024-the-month-at-a-glance.md). The
+[adr/0024-the-month-at-a-glance.md](adr/0024-the-month-at-a-glance.md), flows in flows in
+[adr/0025-flows-in-flows.md](adr/0025-flows-in-flows.md). The
 research behind the proposals is in [research/ecosystem-survey.md](research/ecosystem-survey.md).
 
 **Who decides:** the maintainers, together (ADR 0001 §1).
@@ -25,6 +26,26 @@ research behind the proposals is in [research/ecosystem-survey.md](research/ecos
 | Q-29 | The mark: round 3 leans into waves (M12–M18), all curved | **The Twin (M13), with a small chip,** picked and approved by stenhoor on 2026-11-11 (ADR 0016) | decided |
 | Q-41 | How do row rules pass through aggregates? | An aggregated row is visible only when every row behind it is. A dataset whose rows mix what a viewer may and may not see is closed to that viewer, and the app says why and offers the fix (group it by the rule's column): A7 shows this for `airport_times`. v1 applies rules by column name and closes a dataset without the rule's column; exact inheritance waits for bound plans | open |
 | Q-34 | Verified runs and speed: parallel execution can change a floating-point sum in its last digit | Verification is bit-exact: runs pin the engine settings that affect results (no parallel aggregation of floating-point values), and the cost is measured. Revisit if it is large. A fold that changes the order of a floating-point sum is a new result (ADR 0004); order-independent sums in smaltdb would make it free, to discuss with stenhoor | open |
+
+## Flows in flows: the maintainer's answers of 2026-11-17 (ADR 0025)
+
+The maintainer, 2026-11-16: the demo's flow has a lot going on; break it into reusable flows that stack, each a card
+with pass or fail that opens into its own flow, its outputs usable in joins and explorable, all of it rolling up into
+the month; *"Interview me about any questions that you have, and then we'll go ahead and build this out."* The research
+is [research/flows-in-flows.md](research/flows-in-flows.md). Asked through the question prompt in three rounds of three,
+each with its recommendation first ([adr/0025-flows-in-flows.md](adr/0025-flows-in-flows.md)).
+
+| ID | Question | The maintainer's answer | Status |
+| --- | --- | --- | --- |
+| Q-226 | A flow that several flows read has a day paused by its checks. Where is that day decided: once at that flow, in each reading flow, or once and only by its owner? | **Once, at that flow** (as recommended): the decision is the paused flow's, recorded under it; every flow that reads it shows *waits on* and follows it. In two steps: inside one page first, then carried between flows that share it in the same browser (ADR 0025 §6) | decided |
+| Q-227 | When a shared flow changes, how does the change reach the flows that read it: followed and said, only safe changes followed, or only when accepted? | *"I like follow and say so but test what might fail based on previous runs."* **Followed and said, and tested on the days already recorded:** the card says the flow changed and what changed, every run names the hash of each flow it read, a flow may pin a hash, and the recorded days can be run again under the change as what-if runs to say which would have paused or come out differently. Read as: the test informs and doesn't hold the change back, for the maintainer to correct (ADR 0025 §7) | decided |
+| Q-228 | A flow reused "slightly differently": what may a flow change about a flow it reads? | **Its inputs and its settings** (as recommended): the reused flow declares open inputs and settings, each use maps its own datasets onto them, and its checks and steps stay as written; each use is named and hashed apart (ADR 0025 §11) | decided |
+| Q-229 | Flows share types (an application). Where does a shared type live, with its key, rules and labels: with the flow that owns the data, in shared ontology files, or restated in each flow? | *"I feel like ontology should own that but flows can override it will show up in hash and ontology notes unique handling of specific column in specific flow."* **The ontology owns shared types,** a document of its own that flows import; **a flow may override a column for its own datasets,** marked as an override with its reason, part of the flow's hash, and noted on the column's card on the Ontology page. This changes ADR 0015 amendment 1, where saying a shared column again was refused (ADR 0025 §8) | decided |
+| Q-230 | Beyond what a row is and a small chart a column, what does exploring an output do first? | **Tap to highlight and filter; how it joins** (the datasets that share its key, today's matches, the match rate over the month); **two days compared** by key. Not charting two columns, which is smaltbi's (ADR 0025 §9) | decided |
+| Q-231 | How far does building in the app go in this round? | **A catalogue and a join form:** *Add a flow* from the flows shipped with the build, and a form that writes the join step. The larger of the options offered (ADR 0025 §10) | decided |
+| Q-232 | How does the demo show flows in flows? | **Larkspur cut into flows** (as recommended): HR organisation, Inventory, Evidence feeds, Applications and the posture product on top; the same steps and held days, its answer key standing (ADR 0025 §12) | decided |
+| Q-233 | What is a flow used inside another flow called? | **A flow** (as recommended): no new word, and the card says FLOW (ADR 0025 §1) | decided |
+| Q-234 | Where do the playful "smalty" touches go? | **Success and empty screens, and the sample estate.** Not a sign on every card, and not the docs alone; never on a paused day, a refused file, a decision, a hash or the audit (ADR 0025 §12) | decided |
 
 ## The month at a glance: built as proposed, for the maintainers to confirm (ADR 0024)
 
