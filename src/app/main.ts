@@ -59,10 +59,10 @@ import { LEVEL_NAME, leaderSaid, postureTree, scoreSaid, trendSaid, unitCounts, 
 import { counted, glossOf, meaningBeyond, meaningOf, nounOf as ontologyNoun, propertyOf, readAsOf, saysMore, type Edit, type Noun, type PropertyType } from '../core/ontology.js';
 import { columnChangeSaid, columnsHold, csvColumn, csvHeader, readAsIn, type ColumnMap } from '../core/columns.js';
 import { columnUses, joinImpactSaid, joinMatch, usesSaid, type ColumnUses, type JoinUse, type ParseSql } from '../core/uses.js';
-import { ontologyPage, originSaid, typesShown, type ColumnCard, type FileSection, type Rule } from '../core/ontologypage.js';
+import { estateSaid, handlingSaid, ontologyPage, originSaid, typesShown, type ColumnCard, type FileSection, type Handling, type OntologyPage, type Rule } from '../core/ontologypage.js';
 import { MAX_CODES, proposalsOf, shareRange, valueCandidates, watchedFile, type Proposal } from '../core/proposals.js';
 import { applyBand, asShipped, keptOf as keptFlow, nameColumn, nameColumnThrough, restoreKept, setRule, type FlowEdit, type RuleInput } from '../core/flowedit.js';
-import { sharedOf } from '../core/shared.js';
+import { estateSays, sharedOf, type EstateOntology } from '../core/shared.js';
 import { fixesOf, fixOfDonor, type FixKind } from '../core/rules.js';
 import { ACTION_SAID, checkStepOf, RULE_ACTIONS, ruleOn, rulesOf, ruleSaid, type OntologyRule, type OntologyRuleKind, type RuleAction } from '../core/rules.js';
 import { DECIDE, DECIDE_OPTIONS, checkDecision, checkRun, covers, readView, wrapRead, type DecideOption, type DecisionOption, type Principal, type ReadView, type RowRule } from '../core/policy.js';
@@ -132,6 +132,10 @@ const NO_FLOW: FlowDocument = { smaltfl: 1, id: 'none', name: 'No flow', sources
 let shippedDoc = NO_FLOW;
 /** Each flow the shipped flow reads, as its own document (ADR 0025 §2), and whether a run of this visit has kept them. */
 let readFlowDocs: Promise<FlowDocument[]> = Promise.resolve([]);
+/** The estates' ontologies the flow imports (ADR 0025 §8), as their files give them: what the Ontology page says the
+ * estate says of a column a flow handles its own way, and how an edit knows a column the estate describes. */
+let estateDocs: Promise<EstateOntology[]> = Promise.resolve([]);
+let estates: EstateOntology[] = [];
 let readFlowsKept = false;
 /** The data list the page opened (loads.json): each source's binding and files, each watch's history. */
 let dataList: DataList | null = null;
@@ -10759,6 +10763,67 @@ const ontologyFiles = { open: null as string | null, doc: null as FlowDocument |
 /** A file's or a made dataset's section on the Ontology page opened, and brought into view. */
 const openOntologySection = (id: string) => ontologyFiles.show?.(id, true);
 
+/** A file's or a made dataset's section opened at one column's card, brought under the eye and marked. */
+function openOntologyColumn(dataset: string, column: string): void {
+  ontologyFiles.show?.(dataset, false);
+  requestAnimationFrame(() => {
+    const el = Array.from(document.querySelectorAll<HTMLElement>(`#of-sec-${CSS.escape(dataset)} .of-col`)).find((c) => c.dataset.column?.toLowerCase() === column.toLowerCase()) ?? document.getElementById(`of-sec-${dataset}`);
+    if (!el) return;
+    el.scrollIntoView({ block: 'center' });
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 2400);
+  });
+}
+
+/** A sentence closed once: a reason its author ended with a full stop isn't given a second. */
+const closed = (text: string) => `${text.trim().replace(/[.。]+$/, '')}.`;
+
+/**
+ * Where the ontology comes from, at the head of the Ontology page (ADR 0025 §8): each estate's ontology the flow
+ * imports, by its name and hash, with the flows read here that import the same one; then every column a flow handles
+ * its own way, with the flow, its datasets (each a tap to the column's card) and its reason. Nothing for a flow that
+ * imports no estate's ontology. `sections` are the files and made datasets the page lists.
+ */
+function renderEstate(page: OntologyPage, sections: ReadonlySet<string>): void {
+  const box = document.getElementById('ontology-estate');
+  if (!box) return;
+  if (!page.estate?.length) {
+    box.hidden = true;
+    box.replaceChildren();
+    return;
+  }
+  box.hidden = false;
+  const parts = state.doc.flows ?? [];
+  const from = page.estate.map((e) => {
+    const same = h('span', { class: 'oe-same' });
+    // The flows read here that import the same one: the same hash in each one's own document.
+    void readFlowDocs.then((docs) => {
+      const shipped = parts.filter((f) => dataList?.flows[f.id]);
+      const names = shipped.filter((_, k) => docs[k]?.ontology?.estate?.some((x) => x.hash === e.hash)).map((f) => f.name);
+      if (names.length) same.textContent = ` ${listed(names)} ${names.length === 1 ? 'reads' : 'read'} the same one.`;
+    }, () => undefined);
+    return h('div', { class: 'oe-from', 'data-estate': e.hash },
+      h('p', { class: 'oe-head' }, h('b', {}, `${e.name}’s ontology`), ' ', h('code', { class: 'oe-hash', title: e.hash }, e.hash.slice(0, 8)), h('span', { class: 'oe-path' }, ' · ', ...breakable(e.path))),
+      h('p', { class: 'oe-sub' }, 'What a row is, how things link and what each column means are the estate’s, in one document every flow of it imports. This flow takes what is about its datasets.', same));
+  });
+  const go = (x: Handling, d: string) => (sections.has(d) ? h('button', { type: 'button', class: 'linkish oe-go', 'data-dataset': d, 'aria-label': `${x.column} in ${d}: its card`, onclick: () => openOntologyColumn(d, x.column) }, ...breakable(d)) : h('span', {}, ...breakable(d)));
+  const item = (x: Handling) => {
+    const where: (Node | string)[] = [];
+    x.datasets.forEach((d, k) => {
+      if (k) where.push(k === x.datasets.length - 1 ? ' and ' : ', ');
+      where.push(go(x, d));
+    });
+    return h('li', { class: 'oe-item', 'data-column': x.column, 'data-flow': x.flow.id },
+      h('p', { class: 'oe-what' }, h('b', {}, x.title && saysMore(x.title, x.column) ? `${x.title} ` : ''), h('code', {}, ...breakable(x.column)), ` · ${x.flow.name}, in `, ...where),
+      h('p', { class: 'oe-why' }, closed(x.reason)));
+  };
+  box.replaceChildren(
+    ...from,
+    page.handled.length
+      ? h('div', { class: 'oe-handled' }, h('h3', { class: 'oe-h' }, `Columns a flow handles its own way · ${page.handled.length}`), h('ul', { class: 'oe-list' }, ...page.handled.map(item)))
+      : h('p', { class: 'oe-none' }, 'No flow handles a column its own way: every column means what the estate says.'));
+}
+
 /** Under a file, the datasets the flow makes that read it (Q-144): each a tap to its own section; three, and how many
  * more, until asked for all of them. */
 function readByLine(ids: readonly string[]): HTMLElement {
@@ -10920,6 +10985,12 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
   const labels = shown.map((value, k) => ({ value, input: h('input', { type: 'text', id: `${uid}-v${k}`, value: saysMore(had.get(value), value) ? had.get(value)! : '', maxlength: '60', placeholder: repeats(value) ?? 'No label', autocomplete: 'off', autocapitalize: 'sentences' }) }));
   const err = h('p', { class: 'of-err', role: 'alert', hidden: true });
   const save = h('button', { type: 'submit', class: 'btn of-save' }, 'Save');
+  // A column an estate's ontology describes (ADR 0025 §8): a change here is the flow's own handling of it, written as
+  // an override with its reason, which the page notes on every card of the column.
+  const estate = estateSays(estates, f.id, c.name);
+  const whose = flowOf(state.doc, f.id)?.name ?? state.doc.name;
+  const why = estate ? h('textarea', { id: `${uid}-why`, rows: '2', maxlength: '300' }, c.own?.reason ?? '') : null;
+  const described = (dataset: string) => !!estateSays(estates, dataset, c.name);
   // Where the column is used (ADR 0022 §2, Q-146), joins first: a change is the file's own, and goes on to the datasets
   // that pass the column on under its name, so a step's output reads as the file does.
   const scope = (through: readonly string[]) => `For ${f.id}${through.length ? `, and ${listed(through)}, which ${through.length === 1 ? 'passes' : 'pass'} it on` : ' only'}. A change is recorded, and takes effect from the next run.${anyDayWaits() ? ` ${WAITS_AGAIN}` : ''}`;
@@ -10936,6 +11007,8 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
     h('div', { class: 'of-field' }, h('label', { for: name.id }, 'Name'), name,
       h('p', { class: 'of-hint' }, 'The file writes it as ', h('code', {}, ...breakable(c.name)), '. That stays.')),
     h('div', { class: 'of-field' }, h('label', { for: mean.id }, 'What it means'), mean),
+    why && estate ? h('div', { class: 'of-field of-why' }, h('label', { for: why.id }, 'Why it’s handled its own way here'), why,
+      h('p', { class: 'of-hint' }, `${estate.estate.name}’s ontology describes this column. A change here is ${possessive(whose)} own handling of it in ${f.id}: noted on this page with its reason, and part of the flow’s hash.`)) : null,
     labels.length ? h('fieldset', { class: 'of-vals' }, h('legend', {}, labels.length === 1 ? 'A label for its value' : 'A label for each value'),
       ...labels.map((x) => h('div', { class: 'of-val' }, h('label', { for: x.input.id }, h('code', {}, ...breakable(x.value))), x.input)),
       all.length > shown.length ? h('p', { class: 'of-hint' }, `The first ${shown.length} of ${fmtInt(all.length)} values.`) : null,
@@ -10954,9 +11027,17 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
         err.hidden = false;
         return;
       }
-      const change = { title: name.value, description: mean.value, values: Object.fromEntries(labels.map((x) => [x.value, x.input.value])) };
+      const names = { title: name.value, description: mean.value, values: Object.fromEntries(labels.map((x) => [x.value, x.input.value])) };
+      const change = { ...names, ...(why ? { override: why.value } : {}) };
       const through = (await usesReady(f.id, c.name))?.carried.slice(1) ?? [];
-      const { doc, said } = nameColumnThrough(state.doc, f.id, c.name, change, through);
+      // The estate's column changed with no reason given, on a card that isn't the flow's own handling yet: asked for.
+      if (why && !c.own && !why.value.trim() && nameColumnThrough(state.doc, f.id, c.name, names, through).said) {
+        err.textContent = `Say why ${whose} handles it its own way: the reason is noted with the change.`;
+        err.hidden = false;
+        why.focus();
+        return;
+      }
+      const { doc, said } = nameColumnThrough(state.doc, f.id, c.name, change, through, described);
       if (!said) return close();
       const issues = validateDocument(doc);
       if (issues.length) {
@@ -10967,9 +11048,9 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
       save.disabled = true;
       // A name or a label is how people read the column, not a rule its data is held to (ADR 0021 §5): it takes effect at
       // once, on every day, in the rules before any change set.
-      ruleBase = ruleParts(nameColumnThrough(withRuleParts(state.doc, ruleBase), f.id, c.name, change, through).doc);
+      ruleBase = ruleParts(nameColumnThrough(withRuleParts(state.doc, ruleBase), f.id, c.name, change, through, described).doc);
       resolveDoc(resolvedFor.day, resolvedFor.asOf, true);
-      setStatus(`${said}. Recorded; the next run uses it.`, false);
+      setStatus(`${closed(said)} Recorded; the next run uses it.`, false);
       void flowEdited(said);
       requestCanvas();
       if (state.selected) void renderSheet();
@@ -11051,6 +11132,12 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
       h('div', { class: 'of-col-head' }, h('div', { class: 'of-col-names' }, h('h4', {}, c.title), c.asWritten ? h('code', {}, ...breakable(c.asWritten)) : null, p?.unit ? h('span', { class: 'unit' }, p.unit) : null), edit),
       slot,
       c.description ? h('p', { class: 'of-mean' }, c.description) : h('p', { class: 'of-none' }, 'Not described yet.'),
+      // A flow's own handling of the column (ADR 0025 §8): here, with its reason and what the estate says in its place;
+      // and in other datasets, noted on every other card of the column.
+      c.own ? h('div', { class: 'of-handled', 'data-flow': c.own.flow.id },
+        h('p', {}, h('b', {}, `${possessive(c.own.flow.name)} own handling. `), closed(c.own.reason)),
+        estateSaid(c.own) ? h('p', { class: 'of-handled-estate' }, closed(estateSaid(c.own)!)) : null) : null,
+      ...(c.elsewhere ?? []).map((x) => h('p', { class: 'of-elsewhere', 'data-flow': x.flow.id }, h('b', {}, 'Handled differently. '), closed(handlingSaid(x)))),
       codes.length ? h('details', { class: 'whole' }, h('summary', {}, codes.length === 1 ? 'What its value stands for' : `What its ${codes.length} values stand for`), h('dl', { class: 'codes' }, ...codes.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)]))) : null,
       p?.note ? h('p', { class: 'note' }, p.note) : null,
       p?.lookup && visible(p.lookup.dataset) ? h('p', { class: 'of-from' }, 'Reads as its ', h('b', {}, p.lookup.label), ' in ', h('b', {}, p.lookup.dataset)) : null,
@@ -11282,9 +11369,10 @@ function proposalCard(p: Proposal, redraw: () => void, setAside: () => void): HT
  * to them has no card. A file the run read nothing of has the columns its data list declares (`fileView`).
  */
 async function renderFiles(stale: () => boolean): Promise<void> {
-  const page = ontologyPage({ ...state.doc, sources: state.doc.sources.filter((x) => fileView(x.id)?.open !== false) }, (id) => fileView(id)?.columns, fileColumns);
+  const page = ontologyPage({ ...state.doc, sources: state.doc.sources.filter((x) => fileView(x.id)?.open !== false) }, (id) => fileView(id)?.columns, fileColumns, estates);
   // The datasets the flow makes with rules (Q-144), as the viewer may read them; a file says only those that read it.
   const made = page.made.filter((m) => fileView(m.id)?.open !== false);
+  renderEstate(page, new Set([...page.files, ...made].map((x) => x.id)));
   const shownMade = new Set(made.map((m) => m.id));
   const files = page.files.map((f) => (f.readBy ? { ...f, readBy: f.readBy.filter((id) => shownMade.has(id)) } : f));
   ontologyStates.clear();
@@ -11369,6 +11457,7 @@ async function renderOntology(): Promise<void> {
   const token = ++ontologyRender;
   const stale = () => token !== ontologyRender;
   await useLookups(state.viewer);
+  await estateDocs.catch(() => []);
   if (stale()) return;
   // The rules over time (ADR 0021 §5), then the edits made to the flow here, with the way back to the flow as shipped.
   renderRulesTime();
@@ -17203,6 +17292,9 @@ async function start(): Promise<void> {
       const data = dataList.data;
       readFlowDocs = Promise.all((doc.flows ?? []).filter((f) => listed[f.id]).map(async (f) => JSON.parse(new TextDecoder().decode(await fetchChecked(listed[f.id]!.path, listed[f.id]!, { commit: data?.commit ?? null, onCheck: noteCheck }))) as FlowDocument));
       readFlowDocs.catch(() => undefined);
+      // The estates' ontologies it imports (ADR 0025 §8), each as its file gives it, checked as every file is.
+      estateDocs = Promise.all(dataList.estates.map(async (e) => JSON.parse(new TextDecoder().decode(await fetchChecked(e.path, e, { commit: data?.commit ?? null, onCheck: noteCheck }))) as EstateOntology));
+      void estateDocs.then((all) => (estates = all), () => undefined);
     } catch (e) {
       opening = e;
     }

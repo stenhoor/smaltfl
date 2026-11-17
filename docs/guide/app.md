@@ -154,6 +154,14 @@ its meaning, its values and the rules about it. The owner can rename a column, r
 and add, change or remove a rule. A file read by several flows can share one ontology
 (`examples/ontologies/auth.json`): change it once, and every flow that reads the file has the change.
 
+Where the flows share an **estate's ontology** ([ADR 0025](../adr/0025-flows-in-flows) §8), the view says so first:
+the estate's name, the hash its ontology travels under, and the flows read here that import the same one. Under it is
+every column a flow **handles its own way**: the flow, the datasets of its own it does so in, and why, each dataset a
+tap to the column's card. That card says the meaning is the flow's own, and what the estate says in its place; every
+other card of the column notes where it is handled differently. Editing a column the estate describes asks why this
+flow handles it its own way: the change is saved as that flow's handling, with the reason, and is part of the flow's
+hash.
+
 A rule edit takes effect from a day ([ADR 0021](../adr/0021-time) §5). **Edits take effect from** offers the next day
 to arrive (the default: no day already recorded moves), the day on screen, or any day, and says what a change reaches.
 A name or a label takes effect at once, on every day.

@@ -475,6 +475,78 @@ day of the demos has two. The second step, between pages of one browser that sha
 that build flows from flows: the records already share one IndexedDB and a record's origin names its flow, so a
 reading flow's record will cite the decision it carried by that origin, its seq and its leaf.
 
+### Slice 7: the estate's ontology, and a flow's own handling of a column (2026-11-17)
+
+Built before slice 6: a flow read on its own needs its ontology before a change to it can be said to be that flow's.
+
+- **The estate's ontology is a document of its own** (`EstateOntology`, `src/core/shared.ts`):
+  `{ "smaltflOntology": 2, "name", … }` with the object types, links and actions, what each dataset's rows are
+  (`rows`), the dependencies (`needs`), the nouns, the thresholds (`overwhelming`), and what the columns mean
+  (`properties`, with their values, bands and due marks, and the `references` they cite). Version 2 tells it from one
+  starting file's shared ontology (version 1, Q-148), which stays what it was. `asEstate` reads it for its shape and
+  refuses a part it doesn't know by name. The rules people set on a file and the fixes a held day is offered stay the
+  file's own, in the flow or in the file's shared ontology.
+- **A flow imports it** in the list that already imports a file's shared ontology: `"ontology": { "import":
+  ["../ontology.json"] }`. Reading the flow (`composeFlow`) reads each path once and takes of the estate what is about
+  the datasets the flow has or reads (`takeEstate`):
+  - a type whose list is here, the links between two types here, the actions on one;
+  - a rows entry of a dataset here whose type is here; a dependency, trimmed to the datasets here; a noun; a threshold;
+  - a column's meaning: whole where it is for every dataset, else trimmed to the datasets here, its bands and its
+    lookup with it; and the references those cite.
+  - A flow with no gate has nothing to judge a written check by (ADR 0014, ADR 0015), and takes no rows entry, no
+    dependency, no band and no due mark.
+- **It travels under a hash of its own**, `estate/0` (`estateHash`): SHA-256 of `smaltfl/estate/0`, a newline, and the
+  canonical JSON of the document as read. The flow's document keeps where its estate parts came from
+  (`ontology.estate`: each estate's `name`, the `path` the flow gives it by, and its `hash`), which is part of the flow
+  hash: two flows read the same estate where the hashes agree, and a change to the estate moves every importing
+  flow's hash and no other's. Its test vector (`test/estate-ontology.test.ts`):
+  `{"name":"Shop","objectTypes":[{"dataset":"customers","id":"customer","key":["customer_id"],"name":"Customer","title":"name"}],"properties":[{"column":"customer_id","description":"Who bought","title":"Customer"}],"smaltflOntology":2}`
+  hashes to `9c2c2afee7b8c541cd75bad233790edcf73b102d9c631390c04f7095fbd0da5a`, computed outside the code from the
+  canonical JSON written by hand.
+- **A flow's own handling of a column** is a property of its own ontology marked as one: `"override": { "reason": … }`,
+  with the `datasets` of its own it is for. The estate's meaning steps aside for those datasets and stands everywhere
+  else. Being part of the flow's document, it is in its hash and in every reading flow's.
+- **Refused, each in a sentence** (`overrideProblems`): a column the estate describes said again without the mark (*an
+  accident is not an override*); an override with no reason; one that names no dataset; one of a dataset that isn't
+  the flow's own; one of a column no estate it imports describes. An estate's ontology has no override: it is what is
+  overridden. A thing the estate says and a flow says again (a type, a link, a rows entry) is refused as two flows
+  saying one thing are (`mergeOntologies`).
+- **Larkspur**: `examples/larkspur/ontology.json` is the estate's, and the five flows import it, each `flow.json`
+  keeping only what is its own. Applications handles one column its own way, `owner_team_id` in `apps` and
+  `app_owners`: the register writes a team's id in any case and repeats an application, and Applications conforms the
+  id and keeps the newest record. The composed plan has the same 92 nodes and 37 outputs, byte for byte but for the
+  flows' hashes.
+- **The Ontology page notes it** (`src/core/ontologypage.ts`: `Handling`, `handlings`, `OntologyPage.estate` and
+  `handled`, `ColumnCard.own` and `elsewhere`; the app's `renderEstate`):
+  - at its head, where the ontology comes from: the estate's name, its hash and its path, and the flows read here that
+    import the same one (the same hash in each one's own document); then every column a flow handles its own way, with
+    the flow, its datasets (each a tap to the column's card) and its reason;
+  - on the card of the column where the flow handles it: *Applications’ own handling*, the reason, and what the
+    estate's ontology says in its place;
+  - on every other card of the column: *Handled differently. Applications handles it its own way in apps and
+    app_owners: …*
+  - A dataset a flow makes whose column is handled so has its section on the page whatever its rules, so the card is
+    there to carry the note. Entries that say the same of one flow's datasets are one handling.
+- **Made in the app.** The build ships each estate's ontology as its file gives it (`data/estates/<n>.json`,
+  `loads.json`'s `estates`, `readEstates` in `scripts/flow.ts`), so the page knows what the estate says of a column in a
+  dataset (`estateSays`). A column's names form, on a column the estate describes, asks *Why it’s handled its own way
+  here* and says whose handling it would be (the flow that owns the file); saved, the file's own entry is the flow's
+  override with that reason (`ColumnChange.override`, `nameColumn`), carried to the datasets that pass the column on
+  where the estate describes it there too (`nameColumnThrough`'s `described`). A name saved with no reason is asked
+  for one. The record's line says *…, its own way: <reason>*.
+- **Tests**: `test/estate-ontology.test.ts` (the shape, the vector, what a flow takes, the refusals, hashes that move
+  only where they should, Larkspur's five flows), `test/ontologypage.test.ts` (the handlings and the cards' notes),
+  `test/flowedit.test.ts` (the mark made, reworded and carried). `tools/browser/stops/overrides.json` walks the page on
+  the tour at every size.
+
+**What it leaves:**
+
+- A band changed in the app is still a dated change set (ADR 0021 §5): it has its reason and its day and is listed with
+  the rules over time. It isn't marked as an override, which is what a flow's document says of a column from its first
+  day.
+- An override made in the app is taken back with every other edit (*Back to the flow as shipped*), not alone.
+- The estate's ontology isn't edited in the app, and an estate's ontology imports no other.
+
 ## Consequences
 
 - **A flow's document grows.** The app ships the composed document, so a page still opens one file and needs no parser.

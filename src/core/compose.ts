@@ -22,7 +22,7 @@ import { syncRuleCells } from './gatecell.js';
 import { expandNotebooks, joinPath, loadNotebooks, type ExpandOptions, type NotebookRef } from './notebook.js';
 import type { Ontology } from './ontology.js';
 import { flowHash, PlanError } from './plan.js';
-import { importOntologies } from './shared.js';
+import { asEstate, estateHash, importOntologies, isEstate, isOverride, overrideProblems, takeEstate, type EstateFrom, type EstateOntology } from './shared.js';
 
 /** How a flow's files are read: each by its path from the folder of the flow asked for. */
 export interface FlowFiles {
@@ -40,6 +40,14 @@ interface Raw {
   doc: FlowDocument;
   /** The flows it lists, by their documents' paths (from the same folder). */
   reads: string[];
+  /** The estates' ontologies it imports (ADR 0025 §8), by their paths from the same folder: taken once its steps are
+   * known, since what a flow takes is what is about its datasets. */
+  estates: RawEstate[];
+}
+
+interface RawEstate {
+  path: string;
+  estate: EstateOntology;
 }
 
 const dirOf = (path: string): string => (path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '');
@@ -73,9 +81,37 @@ export async function composeFlow(path: string, files: FlowFiles, ts: TypeScript
         const listed = read.flows;
         if (listed !== undefined && (!Array.isArray(listed) || listed.some((f) => typeof f !== 'string' || f === ''))) fail(p, 'flows is a list of the flows this one reads, each by the path of its flow.json');
         const { flows: _flows, ...own } = read;
-        const imported = await importOntologies(own as FlowDocument, (q) => files.json(joinPath(dir, q)));
+        // What it imports: an estate's ontology is set aside until its steps are known; a starting file's joins its own.
+        const seen = new Map<string, Promise<unknown>>();
+        const json = (q: string): Promise<unknown> => {
+          const at = joinPath(dir, q);
+          if (!seen.has(at)) seen.set(at, files.json(at));
+          return seen.get(at)!;
+        };
+        const estates: RawEstate[] = [];
+        const o = (own as { ontology?: { import?: unknown } }).ontology;
+        let mine = own as FlowDocument;
+        if (o && Array.isArray(o.import) && o.import.every((q) => typeof q === 'string' && q !== '')) {
+          const ofFiles: string[] = [];
+          for (const q of o.import as string[]) {
+            const value = await json(q);
+            if (isEstate(value)) {
+              const at = joinPath(dir, q);
+              if (estates.some((e) => e.path === at)) fail(p, `${q} is imported twice`);
+              estates.push({ path: at, estate: asEstate(value, at) });
+            } else ofFiles.push(q);
+          }
+          if (estates.length) {
+            const { import: _import, ...rest } = o as Record<string, unknown>;
+            const ontology = { ...rest, ...(ofFiles.length ? { import: ofFiles } : {}) };
+            // A flow that says nothing of its own but what it imports has no ontology until the estate's is taken.
+            const { ontology: _o, ...bare } = own as Record<string, unknown>;
+            mine = (Object.keys(ontology).length ? { ...bare, ontology: { objectTypes: [], linkTypes: [], actionTypes: [], ...ontology } } : bare) as unknown as FlowDocument;
+          }
+        }
+        const imported = await importOntologies(mine, json);
         const doc = (await loadNotebooks(imported as FlowDocument & { notebooks?: NotebookRef[] }, (q) => files.text(joinPath(dir, q)))) as FlowDocument;
-        return { path: p, dir, doc, reads: ((listed as string[] | undefined) ?? []).map((f) => joinPath(dir, f)) };
+        return { path: p, dir, doc, reads: ((listed as string[] | undefined) ?? []).map((f) => joinPath(dir, f)), estates };
       })();
       raws.set(p, got);
     }
@@ -98,8 +134,11 @@ export async function composeFlow(path: string, files: FlowFiles, ts: TypeScript
       got = (async () => {
         const root = await raw(p);
         const closure = (await order(p, [], [])).filter((q) => q !== p);
-        const finish = async (doc: FlowDocument) => (doc.notebooks ? syncRuleCells(await expandNotebooks(doc, ts, options)) : doc);
-        if (closure.length === 0) return finish(root.doc);
+        if (closure.length === 0) {
+          const expanded = root.doc.notebooks ? await expandNotebooks(root.doc, ts, options) : root.doc;
+          const taken = await withEstates(p, expanded, root.estates, root.doc.ontology, []);
+          return taken.notebooks ? syncRuleCells(taken) : taken;
+        }
         const parts = await Promise.all(closure.map(async (q) => ({ raw: await raw(q), hash: await flowHash(await build(q)) })));
         const merged = merge(root, parts);
         const expanded = await expandNotebooks(merged, ts, options);
@@ -110,7 +149,10 @@ export async function composeFlow(path: string, files: FlowFiles, ts: TypeScript
           const mine = new Set((from.doc.notebooks ?? []).map((n) => pathFrom(root.dir, joinPath(from.dir, n.path))));
           return { ...f, steps: expanded.steps.filter((s) => mine.has(cells[s.id]?.notebook ?? '')).map((s) => s.id) };
         });
-        const doc = syncRuleCells({ ...expanded, flows });
+        // The estates' ontologies it imports, and those the flows it reads import, each once: what is about every dataset
+        // here, with each flow's own handlings in place of what they override.
+        const estates = [...new Map([...parts.flatMap((x) => x.raw.estates), ...root.estates].map((e) => [e.path, e] as const)).values()];
+        const doc = syncRuleCells(await withEstates(p, { ...expanded, flows }, estates, root.doc.ontology, flows));
         // A flow that reads flows is checked as it is read: what it reads of each is that flow's to give.
         const issues = validateDocument(doc);
         if (issues.length > 0) throw new PlanError(`${p}: ${issues[0]!.path}: ${issues[0]!.message}`, issues);
@@ -121,6 +163,33 @@ export async function composeFlow(path: string, files: FlowFiles, ts: TypeScript
     return got;
   };
   return build(path);
+}
+
+/**
+ * A flow's document with what it takes of the estates' ontologies it imports (ADR 0025 §8): each estate's parts that
+ * are about the datasets here, before the flows' own, a flow's own handling of a column in place of what it overrides,
+ * and where each estate was read from, with its hash. `own` is the flow's own ontology as its file gives it, and
+ * `parts` the flows it reads: an override is of the flow's own datasets, checked here, where both are known. A thing
+ * an estate says and a flow says again is refused, as two flows saying one thing are.
+ */
+async function withEstates(at: string, doc: FlowDocument, estates: readonly RawEstate[], own: Ontology | undefined, parts: readonly FlowPart[]): Promise<FlowDocument> {
+  if (estates.length === 0) return doc;
+  const lower = (x: string) => x.toLowerCase();
+  const datasets = new Set([...doc.sources.map((x) => x.id), ...doc.steps.map((x) => x.id)].map(lower));
+  const theirs = new Set(parts.flatMap((f) => [...f.sources, ...f.steps]).map(lower));
+  const mine = new Set([...datasets].filter((d) => !theirs.has(d)));
+  const problems = overrideProblems(estates.map((e) => e.estate), own, mine, doc.name);
+  if (problems.length) fail(at, problems[0]!);
+  const overridden = (doc.ontology?.properties ?? []).filter(isOverride).flatMap((p) => (p.datasets ?? []).map((d) => [p.column, d] as const));
+  // A flow with no gate has nothing to judge the estate's written checks by, and takes none (ADR 0014, ADR 0015).
+  const gated = Object.keys(doc.gates ?? {}).length > 0;
+  const from: EstateFrom[] = [];
+  for (const e of estates) from.push({ name: e.estate.name, path: pathFrom(dirOf(at), e.path), hash: await estateHash(e.estate) });
+  const ontology = mergeOntologies(at, [
+    ...estates.map((e) => ({ name: `${e.estate.name}’s ontology`, ontology: takeEstate(e.estate, datasets, overridden, gated) })),
+    { name: doc.name, ontology: doc.ontology },
+  ])!;
+  return { ...doc, ontology: { ...ontology, estate: from } };
 }
 
 /** A flow's document with the flows it reads merged in: their sources, notebooks, watches, contracts and ontology

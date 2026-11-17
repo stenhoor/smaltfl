@@ -34,6 +34,28 @@
   "notebooks": [
     "apps.nb.ts"
   ],
+  "ontology": {
+    "import": [
+      "../ontology.json"
+    ],
+    "objectTypes": [],
+    "linkTypes": [],
+    "actionTypes": [],
+    "properties": [
+      {
+        "column": "owner_team_id",
+        "title": "Owning team",
+        "description": "The team accountable for the application, by its id as this flow conforms it: in capitals, with no spaces around it, from the newest of the application’s records",
+        "datasets": [
+          "apps",
+          "app_owners"
+        ],
+        "override": {
+          "reason": "The register writes a team’s id in any case and repeats an application; this flow conforms the id and keeps the newest record, so here it is the id as conformed, not as written"
+        }
+      }
+    ]
+  },
   "publish": {
     "hold": [
       "checks",

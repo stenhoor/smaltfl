@@ -98,6 +98,11 @@
   "notebooks": [
     "bronze.nb.ts"
   ],
+  "ontology": {
+    "import": [
+      "../ontology.json"
+    ]
+  },
   "publish": {
     "hold": [
       "checks",

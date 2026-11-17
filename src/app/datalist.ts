@@ -56,6 +56,9 @@ export interface DataList {
   /** Each flow that flow reads, as its own document (ADR 0025 §2), by id: what a run keeps beside its own document, so
    * verify can check that it holds each unchanged. The build's own files, as the flow document is. */
   flows: Record<string, FileEntry>;
+  /** The estates' ontologies the flow imports (ADR 0025 §8), each as its file gives it, by name and hash (`estate/0`),
+   * in the order the flow's document names them. Empty where it imports none. */
+  estates: (FileEntry & { name: string; hash: string })[];
   sources: Record<string, ListedSource>;
   /** Each watched source's history, by source id. */
   histories: Record<string, FileEntry>;
@@ -171,14 +174,16 @@ export function readDataList(raw: unknown): DataList {
     if (flow) files.flow = flow;
     const flows = (isRecord(index.flows) ? index.flows : {}) as Record<string, FileEntry>;
     for (const [id, f] of Object.entries(flows)) files[`flow:${id}`] = f;
+    const estates = (Array.isArray(index.estates) ? index.estates : []).filter((e): e is FileEntry & { name: string; hash: string } => isRecord(e) && typeof e.path === 'string' && typeof e.name === 'string' && typeof e.hash === 'string');
+    estates.forEach((e, k) => (files[`estate:${k}`] = e));
     return {
-      format: 2, ...(typeof index.month === 'string' ? { month: index.month } : {}), ...(typeof index.built === 'string' ? { built: index.built } : {}), data, flow, flows, sources, histories, samples, ranges, ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), loadSource, daily, judged,
+      format: 2, ...(typeof index.month === 'string' ? { month: index.month } : {}), ...(typeof index.built === 'string' ? { built: index.built } : {}), data, flow, flows, estates, sources, histories, samples, ranges, ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), loadSource, daily, judged,
       ...(postureOf(index.posture) ? { posture: postureOf(index.posture)! } : {}),
       ...(scenesOf(index.scenes) ? { scenes: scenesOf(index.scenes)! } : {}),
       loads, donors: loadSource ? sources[loadSource]!.donors ?? [] : [], files,
     };
   }
-  return { format: 2, data, flow: null, flows: {}, sources: {}, histories: {}, samples: {}, ranges: {}, loadSource: null, daily: [], judged: null, loads: [], donors: [], files: {} };
+  return { format: 2, data, flow: null, flows: {}, estates: [], sources: {}, histories: {}, samples: {}, ranges: {}, loadSource: null, daily: [], judged: null, loads: [], donors: [], files: {} };
 }
 
 /** Every file a list names, with the sha256 and size it gives: what must be in MANIFEST.json, as it says. */

@@ -108,6 +108,17 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
   - the dark scheme.
 
   It must report `problems: none` at every size.
+- `overrides.json`: the estate's ontology and a flow's own handling of a column (ADR 0025 §8), on the tour (same build
+  as `overview.json`):
+  - the head of the Ontology page: the estate's ontology by name, hash and path, the flows that read the same one,
+    and the one column a flow handles its own way, with its flow, datasets and reason;
+  - a handling's dataset tapped: the column's card, which says it is the flow's own handling and what the estate says;
+  - the same column in the register's file, whose card notes where it is handled differently and why;
+  - as the owner, a column the estate describes edited: the form asks why, refuses a new name with no reason, and
+    with one records the change as the flow's own handling, listed at the head and noted on the card;
+  - the dark scheme.
+
+  It must report `problems: none` at every size.
 - `integrity.json`: integrity in the browser (ADR 0006) on Larkspur (same build as `month.json`), the taxi's suite
   ported. It checks:
   - the first day's files, each sealed;

@@ -4,7 +4,7 @@
  * hash chain, refusals included, after the action rule (policy.ts) allows them.
  */
 import type { FixKind, OntologyRule } from './rules.js';
-import type { SharedFrom } from './shared.js';
+import type { EstateFrom, SharedFrom } from './shared.js';
 import type { ParamType } from './sqltext.js';
 
 export interface ObjectType {
@@ -102,6 +102,13 @@ export interface PropertyType {
    * value's own rise is then told through it, not as a bad value. Needs a gate.
    */
   due?: Due;
+  /**
+   * The flow handles this column its own way (ADR 0025 §8): another meaning, other labels, another band than the
+   * estate's ontology gives it, for the flow's own datasets (`datasets`), with why. Written in the flow, so in its hash
+   * and in every reading flow's; the Ontology page notes it on the column's card. Without it, a flow that describes a
+   * column the estate describes is refused.
+   */
+  override?: { reason: string };
 }
 
 /** An expected band on a value's share, 0 to 1, for the datasets it names (else everywhere the column appears). */
@@ -219,6 +226,9 @@ export interface Ontology {
   /** The shared ontologies the flow brought in when it was read (shared.ts): each starting file's, and where it was read
    * from. A flow on disk lists them as `import` (paths), which reading the flow resolves into this. */
   shared?: SharedFrom[];
+  /** The estates' ontologies the flow brought in when it was read (shared.ts, ADR 0025 §8): each by its name, the path
+   * it was read from and its hash. A flow on disk lists them as `import`, beside its starting files' shared ones. */
+  estate?: EstateFrom[];
   /** The fixes a held day of each file may be offered (rules.ts `FIX_KINDS`), by file: what the news, the brief and the
    * decision sheet suggest and offer. A file not listed allows every one. */
   fixes?: Record<string, FixKind[]>;

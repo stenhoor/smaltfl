@@ -26,6 +26,9 @@ export interface ColumnChange {
   description?: string;
   /** A label for a value, by the value as the file writes it. Left empty, the value has no label of its own. */
   values?: Record<string, string>;
+  /** Why the flow handles the column its own way here (ADR 0025 §8), where an estate's ontology describes it: the
+   * file's own entry is then the flow's override, marked as one with this reason. Left out, or empty, no mark is made. */
+  override?: string;
 }
 
 /** "A", "A and B", "A, B and C". */
@@ -43,13 +46,17 @@ const listed = (xs: readonly string[]) => (xs.length <= 1 ? (xs[0] ?? '') : `${x
  * value itself for a label (the list of values stays what it was, and a label that only repeats the value is shown
  * nowhere, `saysMore`), and an unlisted one as it was; an empty label for a value whose label already says no more
  * than the value ("Yes" for yes) is no change.
+ *
+ * Where an estate's ontology describes the column (ADR 0025 §8), the caller gives the flow's reason (`change.override`):
+ * the file's own entry is marked as the flow's override with it, and the record says so. A reason alone, reworded on an
+ * entry that is an override already, is a change of its own.
  */
 export function nameColumn(doc: FlowDocument, file: string, column: string, change: ColumnChange): { doc: FlowDocument; said: string | null } {
   const o: Ontology = doc.ontology ?? { objectTypes: [], linkTypes: [], actionTypes: [] };
   const props = o.properties ?? [];
   const was = propertyOf(o, file, column);
   const done: string[] = [];
-  const next: { title?: string; description?: string; values?: Record<string, string> } = {};
+  const next: { title?: string; description?: string; values?: Record<string, string>; override?: { reason: string } } = {};
   if (change.title !== undefined) {
     const title = change.title.trim() || column;
     if (title !== (was?.title ?? column)) {
@@ -76,11 +83,18 @@ export function nameColumn(doc: FlowDocument, file: string, column: string, chan
     done.push(label ? `labelled ${column}’s ${value} as ${label}` : `took the label off ${column}’s ${value}`);
   }
   if (labelled) next.values = values;
-  if (!done.length) return { doc, said: null };
-  const sentence = listed(done);
-  const said = `${sentence[0]!.toUpperCase()}${sentence.slice(1)} in ${file}`;
-
   const own = (p: PropertyType) => p.datasets?.length === 1 && lower(p.datasets[0]!) === lower(file);
+  // The flow's own handling of a column an estate describes: marked with its reason. The reason reworded on an entry
+  // that is an override already is a change by itself; a new mark comes with whatever else changed. A column nothing
+  // describes yet overrides nothing, and takes no mark.
+  const why = was ? change.override?.trim() || undefined : undefined;
+  const marked = why !== undefined && was?.override?.reason !== why;
+  if (marked && was?.override) done.push(`reworded why ${column} is handled its own way`);
+  if (!done.length) return { doc, said: null };
+  if (marked) next.override = { reason: why };
+  const sentence = listed(done);
+  const said = `${sentence[0]!.toUpperCase()}${sentence.slice(1)} in ${file}${marked ? (was?.override ? `: ${why}` : `, its own way: ${why}`) : ''}`;
+
   let properties: PropertyType[];
   if (was && own(was)) properties = props.map((p) => (p === was ? { ...p, ...next } : p));
   else if (was) {
@@ -99,16 +113,24 @@ export function nameColumn(doc: FlowDocument, file: string, column: string, chan
  * A column named in a file and carried through the datasets that pass it on under its name (ADR 0022 §2, Q-146): the
  * same change made each one's own, as `nameColumn` makes it, so a step's output reads as the file's column does. Said
  * once, with where it went: "Renamed status to Result in tls, carried to tls_checked". `through` is where the column
- * goes on (`columnUses`'s `carried` after the file); a dataset that already reads so is passed over.
+ * goes on (`columnUses`'s `carried` after the file); a dataset that already reads so is passed over. A reason for the
+ * flow's own handling (`change.override`, ADR 0025 §8) marks each dataset where an estate describes the column
+ * (`described`; every one, where it isn't given).
  */
-export function nameColumnThrough(doc: FlowDocument, file: string, column: string, change: ColumnChange, through: readonly string[]): { doc: FlowDocument; said: string | null } {
-  const first = nameColumn(doc, file, column, change);
+export function nameColumnThrough(doc: FlowDocument, file: string, column: string, change: ColumnChange, through: readonly string[], described: (dataset: string) => boolean = () => true): { doc: FlowDocument; said: string | null } {
+  // The flow's reason marks an override only in a dataset where an estate describes the column (`described`).
+  const forDataset = (dataset: string): ColumnChange => {
+    if (change.override === undefined || described(dataset)) return change;
+    const { override: _override, ...rest } = change;
+    return rest;
+  };
+  const first = nameColumn(doc, file, column, forDataset(file));
   if (!first.said) return first;
   let out = first.doc;
   const carried: string[] = [];
   for (const dataset of through) {
     if (lower(dataset) === lower(file)) continue;
-    const r = nameColumn(out, dataset, column, change);
+    const r = nameColumn(out, dataset, column, forDataset(dataset));
     if (!r.said) continue;
     out = r.doc;
     carried.push(dataset);

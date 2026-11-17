@@ -123,6 +123,40 @@ document holds each one unchanged.
 Larkspur is five flows this way: `examples/larkspur/` reads `hr/`, `inventory/`, `feeds/` and `applications/`, and
 `applications/` reads the other three.
 
+### The estate's ontology
+
+Flows that share their types and columns keep them in one document, the estate's ontology, and each imports it:
+
+```json
+{ "smaltflOntology": 2, "name": "Larkspur estate", "objectTypes": [], "linkTypes": [], "rows": [], "needs": [], "properties": [] }
+```
+
+```json
+"ontology": { "import": ["../ontology.json"] }
+```
+
+- **A flow takes what is about its datasets:** the types whose list it has or reads, the links between them, what its
+  datasets' rows are, the dependencies and the columns' meanings that name them. A flow with no gate takes none of the
+  written checks (a rows entry, a dependency, a band), since nothing would judge them.
+- **It travels under its own hash.** The flow's document keeps the estate's name, the path and its hash
+  (`ontology.estate`), which is part of the flow hash: change the estate's ontology and every flow that imports it
+  moves, and no other.
+- **A flow may handle a column of its own datasets its own way,** by saying so with its reason:
+
+  ```json
+  { "column": "owner_team_id", "title": "Owning team", "description": "The team, by its id as this flow conforms it",
+    "datasets": ["apps", "app_owners"],
+    "override": { "reason": "The register writes a team’s id in any case; this flow conforms it" } }
+  ```
+
+  The estate's meaning steps aside for those datasets and stands everywhere else. The Ontology page lists the
+  handling and notes it on each card of the column.
+- **Without the mark it is refused:** a flow that describes a column the estate describes is told to mark it as an
+  override, with its reason, or to leave it to the estate. So is an override of a dataset that isn't the flow's own,
+  and one of a column no estate describes.
+
+Larkspur's is `examples/larkspur/ontology.json`; Applications handles `owner_team_id` its own way.
+
 ## From the notebook to a run
 
 People say what, the machine decides how ([ADR 0004](../adr/0004-the-flow-plan.md)): the notebooks are translated into

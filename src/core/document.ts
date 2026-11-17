@@ -871,8 +871,8 @@ function validateChanges(doc: Record<string, unknown>, add: (path: string, messa
           need('file', text(e.file), 'the file the column is of');
           need('column', text(e.column), 'the column, as the file writes it');
           const ch = e.change;
-          if (!isRecord(ch)) return add(`${ea}.change`, 'what changed: { title?, description?, values? }');
-          for (const k of ['title', 'description'] as const) need(`change.${k}`, ch[k] === undefined || typeof ch[k] === 'string', 'text');
+          if (!isRecord(ch)) return add(`${ea}.change`, 'what changed: { title?, description?, values?, override? }');
+          for (const k of ['title', 'description', 'override'] as const) need(`change.${k}`, ch[k] === undefined || typeof ch[k] === 'string', 'text');
           need('change.values', ch.values === undefined || (isRecord(ch.values) && Object.values(ch.values).every((v) => typeof v === 'string')), 'a label for each value, by the value');
           return;
         }
@@ -1207,6 +1207,11 @@ function validateExtras(doc: Record<string, unknown>, ids: Map<string, string>, 
             }
             if (p.newValues !== undefined && p.newValues !== 'alert') add(`${at}.newValues`, 'alert: a value never seen before is something wrong');
             if (p.models !== undefined && p.models !== 'include' && p.models !== 'exclude') add(`${at}.models`, 'include or exclude: whether the two models read the column');
+            // A flow's own handling of a column the estate describes (ADR 0025 §8): for its own datasets, with why.
+            if (p.override !== undefined) {
+              if (!isRecord(p.override) || typeof p.override.reason !== 'string' || p.override.reason.trim() === '') add(`${at}.override`, '{ reason }: why this flow handles the column its own way');
+              if (!Array.isArray(p.datasets) || p.datasets.length === 0) add(`${at}.override`, 'an override is of the flow’s own datasets: datasets names them');
+            }
             if (p.name !== undefined && (typeof p.name !== 'string' || !p.name.includes('{code}'))) add(`${at}.name`, 'how a part is named, with {code} for its code: "Vendor {code}"');
             if (p.role !== undefined && p.role !== 'sender') add(`${at}.role`, 'sender: the column names who sent the rows');
             if (p.after !== undefined && (!isRecord(p.after) || typeof p.after.of !== 'string' || p.after.of === '' || typeof p.after.minutes !== 'number' || !Number.isFinite(p.after.minutes))) add(`${at}.after`, '{ of: a time column, minutes }');
@@ -1328,6 +1333,8 @@ function validateExtras(doc: Record<string, unknown>, ids: Map<string, string>, 
       // A shared ontology is brought in when the flow is read (shared.ts): a document still listing paths wasn't.
       if ((o as Record<string, unknown>).import !== undefined) add('$.ontology.import', 'shared ontologies are brought in when the flow is read (readFlow): this document lists paths it was never read with');
       if (o.shared !== undefined && (!Array.isArray(o.shared) || o.shared.some((x: unknown) => !isRecord(x) || typeof x.file !== 'string' || typeof x.path !== 'string' || !known(x.file) || !Array.isArray(x.columns) || x.columns.some((c: unknown) => typeof c !== 'string')))) add('$.ontology.shared', 'where each shared part came from: [{ file: a source, path, columns }]');
+      // Where the estates' ontologies it took came from (ADR 0025 §8): each by its name, its path and its hash.
+      if (o.estate !== undefined && (!Array.isArray(o.estate) || o.estate.some((x: unknown) => !isRecord(x) || typeof x.name !== 'string' || x.name === '' || typeof x.path !== 'string' || x.path === '' || typeof x.hash !== 'string' || !/^[0-9a-f]{64}$/.test(x.hash)))) add('$.ontology.estate', 'where each estate’s ontology came from: [{ name, path, hash }]');
       // The threshold each dataset is judged by (Q-207): a source's or a step's, a share of the day's rows.
       if (o.overwhelming !== undefined) {
         if (!isRecord(o.overwhelming)) add('$.ontology.overwhelming', 'the share of a day’s rows a learned check’s alert must move to hold the day, by dataset: { dataset: 0.25 }');

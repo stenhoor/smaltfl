@@ -8,6 +8,7 @@ import { basename, dirname, join } from 'node:path';
 import { smaltty } from 'smaltkit/typescript';
 import { composeFlow } from '../src/core/compose.js';
 import type { FlowDocument } from '../src/core/document.js';
+import { asEstate, type EstateFrom, type EstateOntology } from '../src/core/shared.js';
 
 /**
  * A flow from disk (compose.ts): the shared ontologies it imports brought in (shared.ts: each starting file's meanings
@@ -27,6 +28,16 @@ export async function readFlow(path: string): Promise<FlowDocument> {
 export async function readFlows(path: string): Promise<FlowDocument[]> {
   const doc = await readFlow(path);
   return Promise.all((doc.flows ?? []).map((f) => readFlow(join(dirname(path), f.path))));
+}
+
+/**
+ * The estates' ontologies a flow imports (ADR 0025 §8), as their files give them, in the order the flow's document names
+ * them, each with where the document says it is from. What the app's build ships beside the flow: the Ontology page says
+ * what the estate says of a column a flow handles its own way, and an edit there knows a column the estate describes.
+ */
+export async function readEstates(path: string): Promise<{ from: EstateFrom; estate: EstateOntology }[]> {
+  const doc = await readFlow(path);
+  return (doc.ontology?.estate ?? []).map((from) => ({ from, estate: asEstate(JSON.parse(readFileSync(join(dirname(path), from.path), 'utf8')), from.path) }));
 }
 
 /** The flow's data list: `<doc>.data.json` beside a `.smaltfl.json`, `data.json` in a folder. */

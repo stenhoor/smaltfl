@@ -1090,6 +1090,27 @@ th .th-title { display: block; font-family: var(--font); font-size: 10.5px; font
 .fe-back { justify-self: start; min-height: 44px; margin-top: 2px; }
 /* The rules over time (ADR 0021 §5): the rules in force on the day on screen by hash, each change set with its day, and
    when edits take effect. The control wraps under its label on a phone; the date field is 16 px, so a phone doesn't zoom. */
+/* Where the ontology comes from (ADR 0025 §8): the estate's ontology by name and hash, and the columns a flow handles
+   its own way. */
+#ontology-estate { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin: 0 0 12px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+#ontology-estate[hidden] { display: none; }
+.oe-from { display: grid; gap: 4px; min-width: 0; }
+.oe-head { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+.oe-hash { font-size: 12px; }
+.oe-path { color: var(--muted); font-size: 12.5px; }
+.oe-sub, .oe-none { margin: 0; font-size: 13.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.oe-h { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+.oe-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.oe-item { display: grid; gap: 2px; padding: 8px 10px; border-radius: 8px; background: var(--sunk); min-width: 0; }
+.oe-what, .oe-why { margin: 0; font-size: 13.5px; overflow-wrap: anywhere; }
+.oe-why { color: var(--ink-2); }
+.oe-go { background: none; border: 0; padding: 0; min-height: 28px; color: var(--smalt); font: inherit; font-weight: 600; cursor: pointer; overflow-wrap: anywhere; }
+/* On a column's card: the flow's own handling of it here, and where another flow handles it differently. */
+.of-handled { display: grid; gap: 4px; padding: 8px 10px; border-radius: 8px; background: var(--sunk); min-width: 0; }
+.of-handled p, .of-elsewhere { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+.of-handled-estate { color: var(--ink-2); }
+.of-elsewhere { padding: 8px 10px; border-radius: 8px; background: var(--sunk); color: var(--ink-2); }
+.of-elsewhere b { color: var(--ink); }
 #rules-time { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 0 0 12px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
 #rules-time[hidden] { display: none; }
 .rt-head { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
@@ -2398,6 +2419,7 @@ div.fl-row.fl-given > .fl-row-go { align-self: center; padding-right: 10px; }
 
   <section class="view" id="view-ontology" aria-label="Ontology" hidden>
     <p class="lede">Each file the flow reads, then each dataset it makes that a gate judges: what its columns hold, and the checks its data is held to. Each check’s state today is beside it, a tap from the file’s card.</p>
+    <div id="ontology-estate" role="region" aria-label="Where the ontology comes from" hidden></div>
     <div id="rules-time" role="region" aria-label="The rules over time" hidden></div>
     <div id="flow-edits" role="region" aria-label="Changes made to this flow here" hidden></div>
     <div class="panel" id="ontology-files"><h2>Files</h2><p class="foot">Run the flow to see its files.</p></div>

@@ -204,6 +204,56 @@ describe('a rename carried through the steps that pass the column on (ADR 0022 �
   });
 });
 
+describe('a column an estate’s ontology describes, handled a flow’s own way (ADR 0025 §8)', () => {
+  const larkspur = () => loadFlowDir(new URL('../examples/larkspur/', import.meta.url));
+  const own = (doc: FlowDocument, dataset: string, column: string) => propertyOf(doc.ontology, dataset, column)!;
+
+  it('marks the file’s own entry as the flow’s override with its reason, and says so in the record', async () => {
+    const doc = await larkspur();
+    const { doc: next, said } = nameColumn(doc, 'cmdb_apps', 'owner_team_id', { title: 'Team in the register', override: ' The register’s own spelling ' });
+    expect(said).toBe('Renamed owner_team_id to Team in the register in cmdb_apps, its own way: The register’s own spelling');
+    expect(validateDocument(next)).toEqual([]);
+    expect(own(next, 'cmdb_apps', 'owner_team_id')).toEqual({ column: 'owner_team_id', title: 'Team in the register', description: 'The team accountable for the application', datasets: ['cmdb_apps'], override: { reason: 'The register’s own spelling' } });
+    // The estate's entry stands for every other dataset, and the flow hash moved: the override is the document's.
+    expect(own(next, 'dim_app', 'owner_team_id').override).toBeUndefined();
+    expect(await flowHash(next)).not.toBe(await flowHash(doc));
+    // With no reason given, no mark is made (a column no estate describes is the file's own, as before).
+    expect(own(nameColumn(doc, 'cmdb_apps', 'owner_team_id', { title: 'Team' }).doc, 'cmdb_apps', 'owner_team_id').override).toBeUndefined();
+  });
+
+  it('rewords the reason on an entry that is the flow’s own already, as a change of its own', async () => {
+    const doc = await larkspur();
+    const { doc: first } = nameColumn(doc, 'cmdb_apps', 'owner_team_id', { title: 'Team in the register', override: 'The register’s own spelling' });
+    // Nothing changed, the same reason: no change.
+    expect(nameColumn(first, 'cmdb_apps', 'owner_team_id', { title: 'Team in the register', override: 'The register’s own spelling' }).said).toBeNull();
+    // An empty reason keeps the one it has.
+    const kept = nameColumn(first, 'cmdb_apps', 'owner_team_id', { description: 'Who answers for it', override: '' });
+    expect(kept.said).toBe('Reworded what owner_team_id means in cmdb_apps');
+    expect(own(kept.doc, 'cmdb_apps', 'owner_team_id').override).toEqual({ reason: 'The register’s own spelling' });
+    const reworded = nameColumn(first, 'cmdb_apps', 'owner_team_id', { override: 'The register spells teams its own way' });
+    expect(reworded.said).toBe('Reworded why owner_team_id is handled its own way in cmdb_apps: The register spells teams its own way');
+    expect(own(reworded.doc, 'cmdb_apps', 'owner_team_id').override).toEqual({ reason: 'The register spells teams its own way' });
+    // An override shared by several datasets: the one edited gets its own entry, with the mark and its new reason.
+    const split = nameColumn(doc, 'apps', 'owner_team_id', { override: 'Conformed here' });
+    expect(split.said).toBe('Reworded why owner_team_id is handled its own way in apps: Conformed here');
+    expect(own(split.doc, 'apps', 'owner_team_id')).toMatchObject({ datasets: ['apps'], override: { reason: 'Conformed here' } });
+    expect(own(split.doc, 'app_owners', 'owner_team_id')).toMatchObject({ datasets: ['app_owners'], override: { reason: expect.stringMatching(/conforms the id/) } });
+  });
+
+  it('takes no mark for a column nothing describes, and marks a carried change only where the estate describes the column', async () => {
+    const doc = await larkspur();
+    const fresh = nameColumn(doc, 'cmdb_apps', 'not_described_anywhere', { title: 'New', override: 'Because' });
+    expect(fresh.said).toBe('Renamed not_described_anywhere to New in cmdb_apps');
+    expect(own(fresh.doc, 'cmdb_apps', 'not_described_anywhere').override).toBeUndefined();
+    const { doc: next, said } = nameColumnThrough(doc, 'cmdb_apps', 'owner_team_id', { title: 'Team', override: 'Shorter' }, ['cmdb_apps_checked', 'dim_app'], (d) => d !== 'dim_app');
+    expect(said).toBe('Renamed owner_team_id to Team in cmdb_apps, its own way: Shorter, carried to cmdb_apps_checked and dim_app');
+    expect(own(next, 'cmdb_apps', 'owner_team_id').override).toEqual({ reason: 'Shorter' });
+    expect(own(next, 'cmdb_apps_checked', 'owner_team_id').override).toEqual({ reason: 'Shorter' });
+    expect(own(next, 'dim_app', 'owner_team_id')).toMatchObject({ title: 'Team', datasets: ['dim_app'] });
+    expect(own(next, 'dim_app', 'owner_team_id').override).toBeUndefined();
+  });
+});
+
 describe('an accepted band', () => {
   it('is written for the source alone, and says what it did in the ontology’s words', async () => {
     const doc = await estate();

@@ -443,8 +443,8 @@ release (smaltty ADR 0030).
   check holds the run's document to them (`flowProblems`). A fill's derived document names its donor in the flow that
   owns the file (`repairDocument`). The app's build ships each read flow (`data/flows/<id>.json`, loads.json `flows`,
   `DataList.flows`). Larkspur is five flows: `hr/`, `inventory/`, `feeds/`, `applications/` and the posture product at
-  the root, which lists the four (the same 92 plan nodes, 37 outputs where it had 19; the ontology whole at the root
-  until slice 7); `test/compose.test.ts`. Slice 2, the canvas in levels: `src/core/levels.ts` (pure, not in what the
+  the root, which lists the four (the same 92 plan nodes, 37 outputs where it had 19; the ontology the estate's own
+  document since slice 7); `test/compose.test.ts`. Slice 2, the canvas in levels: `src/core/levels.ts` (pure, not in what the
   data's cache is keyed by): `levelDoc` is the document one flow's canvas lays out, its own files, steps and sections and
   a card a flow it reads itself (`flowCard`, `cardFlow`, `readHere`; a card joined to every flow its flow lists and to
   the step a written rule judges by it; the cards one frameless section, `FLOWS_SECTION`, which `layout.ts` places and
@@ -491,6 +491,24 @@ release (smaltty ADR 0030).
   write them, the audit checks them. The app: `whoseLine` at the head of the decision sheet, `decideAt` on the Decide
   buttons, the day's story, the month's timeline and the record's line (`decidedWhose`), **Decide ›** on the sheet of
   the flow that holds; `test/deciding.test.ts`, `tools/browser/stops/whose.json`.
+  Slice 7 (built before slice 6), the estate's ontology and a flow's own handling of a column: `src/core/shared.ts`
+  `EstateOntology` (`{ "smaltflOntology": 2, "name", … }`: types, links, rows entries, dependencies, nouns, thresholds
+  and what the columns mean; `isEstate`, `asEstate`), imported by a flow in `ontology.import` beside a file's shared
+  ontology; `compose.ts` reads each once and `takeEstate` takes what is about the datasets the flow has or reads (no
+  written check for a flow with no gate), keeping where it came from in `ontology.estate` (`EstateFrom`: name, path
+  and `estateHash`, tag `estate/0`, its vector in `test/estate-ontology.test.ts`), part of the flow hash. A property
+  with `override: { reason }` and its own `datasets` is a flow's own handling: the estate's meaning steps aside for
+  them; `overrideProblems` refuses a shared column said again without the mark, an override with no reason, of no
+  dataset, of another flow's dataset, or of a column no estate describes. Larkspur's is
+  `examples/larkspur/ontology.json`, imported by all five flows; Applications handles `owner_team_id` its own way in
+  `apps` and `app_owners`. The Ontology page (`ontologypage.ts`: `Handling`, `handlings`, `handlingSaid`, `estateSaid`,
+  `OntologyPage.estate` and `handled`, `ColumnCard.own` and `elsewhere`; the app's `renderEstate`,
+  `openOntologyColumn`): where the ontology comes from, by name and hash, with the flows that read the same one; each
+  handling with its flow, datasets and reason; a note on every card of the column. The build ships each estate's
+  ontology (`readEstates` in `scripts/flow.ts`, `data/estates/<n>.json`, loads.json `estates`, `DataList.estates`); the
+  names form on a column the estate describes (`estateSays`) asks why and writes the mark (`ColumnChange.override`,
+  `nameColumn`, `nameColumnThrough`'s `described`); `test/ontologypage.test.ts`, `test/flowedit.test.ts`,
+  `tools/browser/stops/overrides.json`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -576,8 +594,8 @@ release (smaltty ADR 0030).
   flow reads other flows, each a card on its reader's canvas with its day's mark, entered to see its own flow, rolled
   up into the month, in the slices of its §12: the core and Larkspur cut into five; the canvas in levels; the month in
   tiers; exploring what a flow gives; a paused day decided once, at its flow; a change followed, said and tested on the
-  days recorded; the ontology's overrides; inputs and settings; building in the app; the voice. Slices 1 to 4 are built,
-  and slice 5's first step (its §"As built", which says what each leaves for the slices after it).
+  days recorded; the ontology's overrides; inputs and settings; building in the app; the voice. Slices 1 to 4 and 7 are
+  built, and slice 5's first step (its §"As built", which says what each leaves for the slices after it).
 
 ## Rules for this repository
 

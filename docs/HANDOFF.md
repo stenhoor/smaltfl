@@ -257,8 +257,16 @@ in the question prompt, nine questions in three rounds. In the slices of ADR 002
    holds carries that one's decision, and the sheet, the Decide buttons, the day's story, the month, the record and the
    audit say whose it is (`src/core/deciding.ts`). The second step, a decision carried between pages of one browser
    that share a flow, is left for after slice 9.
-6. A change followed, said and tested on the days recorded: next. 7. The ontology's overrides. 8. Inputs and settings.
-   9. Building in the app (a catalogue, a join form). 10. The voice.
+6. A change followed, said and tested on the days recorded: next.
+7. **The ontology's overrides: built** (before slice 6, which needs a read flow's own ontology). The estate's ontology
+   is a document of its own (`examples/larkspur/ontology.json`, `{ "smaltflOntology": 2, … }`): every flow imports it
+   and takes what is about its datasets, and it travels under its own hash (`estate/0`), which each flow's document
+   keeps. A flow handles a column of its own datasets its own way by saying so, with its reason
+   (`"override": { "reason": … }`); saying a shared column again without the mark is refused. The Ontology page says
+   where its ontology comes from, lists every column a flow handles its own way, and notes it on each card of the
+   column; the names form asks for the reason on a column the estate describes. `src/core/shared.ts`,
+   `test/estate-ontology.test.ts`, `tools/browser/stops/overrides.json`.
+8. Inputs and settings. 9. Building in the app (a catalogue, a join form). 10. The voice.
 
 Two readings of the maintainer's answers are ADR 0025's own, for the maintainer to correct: that testing a changed flow
 on the days recorded *informs* and does not hold the change back (§7), and that an override is written in the flow that

@@ -41,6 +41,11 @@
     "bronze.nb.ts",
     "org.nb.ts"
   ],
+  "ontology": {
+    "import": [
+      "../ontology.json"
+    ]
+  },
   "publish": {
     "hold": [
       "checks",
