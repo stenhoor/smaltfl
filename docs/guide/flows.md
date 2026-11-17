@@ -123,6 +123,21 @@ document holds each one unchanged.
 Larkspur is five flows this way: `examples/larkspur/` reads `hr/`, `inventory/`, `feeds/` and `applications/`, and
 `applications/` reads the other three.
 
+### A change to a flow, and a pin
+
+A flow reads the flows it lists as they are when it is read: nothing is copied, so a change to one reaches every flow
+built on it the next time it is read. A change is the flow's whose file or step it is about, and that flow's hash
+moves with it; so does the hash of every flow that reads it. A run names each flow it read by its hash, so the record
+shows which run first ran the flow as changed.
+
+Where a flow must not move under its reader, the reader names its hash:
+
+```json
+"flows": [{ "path": "hr/flow.json", "hash": "3fa9…" }, "inventory/flow.json"]
+```
+
+Reading then refuses any other `hr/flow.json`, and says both hashes, until someone moves the pin.
+
 ### The estate's ontology
 
 Flows that share their types and columns keep them in one document, the estate's ontology, and each imports it:

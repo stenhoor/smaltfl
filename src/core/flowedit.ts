@@ -343,10 +343,21 @@ export function switchRule(doc: FlowDocument, file: string, id: string, on: bool
 
 // ------------------------------------------------------------------ what the page keeps of an edited flow
 
+/** A name edit as it was made (`nameColumnThrough`): the file, the column, what changed and the datasets it was carried
+ * to. Kept so it can be made again on the own document of each flow read that has the file (ADR 0025 §7, follow.ts). */
+export interface NameOp {
+  file: string;
+  column: string;
+  change: ColumnChange;
+  through: string[];
+}
+
 /** One edit made here, as the page lists it: when, and what was done, in the words it was recorded with. */
 export interface FlowEdit {
   at: string;
   said: string;
+  /** A name edit, as made: what a rule edit's change set is to the rules, this is to the names. */
+  name?: NameOp;
 }
 
 /**
@@ -372,7 +383,7 @@ export function stepsPrint(steps: readonly StepDef[]): string {
 /** What to keep of a document edited here: `base` is the shipped document's flow hash. */
 export function keptOf(doc: FlowDocument, base: string, edits: readonly FlowEdit[]): KeptFlow {
   const { groups: _groups, layout: _layout, ...rest } = doc;
-  return { v: 2, base, doc: rest as FlowDocument, edits: edits.map((e) => ({ at: e.at, said: e.said })) };
+  return { v: 2, base, doc: rest as FlowDocument, edits: edits.map((e) => ({ at: e.at, said: e.said, ...(e.name ? { name: e.name } : {}) })) };
 }
 
 /** What became of what the page kept: nothing was kept; the edited document, to go on from; or what was kept was
@@ -382,7 +393,9 @@ export type Restored =
   | { state: 'kept'; doc: FlowDocument; edits: FlowEdit[] }
   | { state: 'dropped'; edits: FlowEdit[]; why: string };
 
-const isEdits = (v: unknown): v is FlowEdit[] => Array.isArray(v) && v.every((e) => typeof e === 'object' && e !== null && typeof (e as FlowEdit).at === 'string' && typeof (e as FlowEdit).said === 'string');
+const isNameOp = (v: unknown): v is NameOp => typeof v === 'object' && v !== null && typeof (v as NameOp).file === 'string' && typeof (v as NameOp).column === 'string' && typeof (v as NameOp).change === 'object' && (v as NameOp).change !== null
+  && Array.isArray((v as NameOp).through) && (v as NameOp).through.every((d) => typeof d === 'string');
+const isEdits = (v: unknown): v is FlowEdit[] => Array.isArray(v) && v.every((e) => typeof e === 'object' && e !== null && typeof (e as FlowEdit).at === 'string' && typeof (e as FlowEdit).said === 'string' && ((e as FlowEdit).name === undefined || isNameOp((e as FlowEdit).name)));
 
 /**
  * The edited document the page kept, restored over the shipped one, whose arrangement it takes (the browser's own is

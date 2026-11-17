@@ -40,6 +40,8 @@ interface Raw {
   doc: FlowDocument;
   /** The flows it lists, by their documents' paths (from the same folder). */
   reads: string[];
+  /** The flows it pins (ADR 0025 §7): the hash it reads each as, by the same paths. Reading refuses any other. */
+  pins: Map<string, string>;
   /** The estates' ontologies it imports (ADR 0025 §8), by their paths from the same folder: taken once its steps are
    * known, since what a flow takes is what is about its datasets. */
   estates: RawEstate[];
@@ -78,8 +80,13 @@ export async function composeFlow(path: string, files: FlowFiles, ts: TypeScript
       got = (async () => {
         const dir = dirOf(p);
         const read = (await files.json(p)) as FlowDocument & { notebooks?: NotebookRef[]; flows?: unknown };
-        const listed = read.flows;
-        if (listed !== undefined && (!Array.isArray(listed) || listed.some((f) => typeof f !== 'string' || f === ''))) fail(p, 'flows is a list of the flows this one reads, each by the path of its flow.json');
+        // The flows it lists: each by the path of its flow.json, or by that path and the hash it is read as (a pin).
+        const pinned = (f: unknown): f is { path: string; hash: string } => typeof f === 'object' && f !== null && !Array.isArray(f) && Object.keys(f).every((k) => k === 'path' || k === 'hash')
+          && typeof (f as { path?: unknown }).path === 'string' && (f as { path: string }).path !== '' && typeof (f as { hash?: unknown }).hash === 'string' && /^[0-9a-f]{64}$/.test((f as { hash: string }).hash);
+        if (read.flows !== undefined && (!Array.isArray(read.flows) || read.flows.some((f) => !(typeof f === 'string' && f !== '') && !pinned(f)))) {
+          fail(p, 'flows is a list of the flows this one reads, each by the path of its flow.json, or { path, hash } to read it only as the flow that hash names (a pin)');
+        }
+        const listed = ((read.flows as (string | { path: string; hash: string })[] | undefined) ?? []).map((f) => (typeof f === 'string' ? { path: joinPath(dir, f), hash: null } : { path: joinPath(dir, f.path), hash: f.hash }));
         const { flows: _flows, ...own } = read;
         // What it imports: an estate's ontology is set aside until its steps are known; a starting file's joins its own.
         const seen = new Map<string, Promise<unknown>>();
@@ -111,7 +118,7 @@ export async function composeFlow(path: string, files: FlowFiles, ts: TypeScript
         }
         const imported = await importOntologies(mine, json);
         const doc = (await loadNotebooks(imported as FlowDocument & { notebooks?: NotebookRef[] }, (q) => files.text(joinPath(dir, q)))) as FlowDocument;
-        return { path: p, dir, doc, reads: ((listed as string[] | undefined) ?? []).map((f) => joinPath(dir, f)), estates };
+        return { path: p, dir, doc, reads: listed.map((f) => f.path), pins: new Map(listed.filter((f) => f.hash !== null).map((f) => [f.path, f.hash!] as const)), estates };
       })();
       raws.set(p, got);
     }
@@ -140,6 +147,11 @@ export async function composeFlow(path: string, files: FlowFiles, ts: TypeScript
           return taken.notebooks ? syncRuleCells(taken) : taken;
         }
         const parts = await Promise.all(closure.map(async (q) => ({ raw: await raw(q), hash: await flowHash(await build(q)) })));
+        // A pin (ADR 0025 §7): the flow is read only as the flow the hash names. Any other is refused, both hashes said.
+        for (const x of parts) {
+          const pin = root.pins.get(x.raw.path);
+          if (pin !== undefined && pin !== x.hash) fail(p, `${root.doc.name} pins ${x.raw.doc.name} at ${pin}, and ${x.raw.path} is ${x.hash} now: move the pin to read the flow as it is, or put the flow back as it was`);
+        }
         const merged = merge(root, parts);
         const expanded = await expandNotebooks(merged, ts, options);
         // Each flow's own steps: the cells of its own notebooks.
@@ -261,6 +273,11 @@ function merge(root: Raw, parts: readonly { raw: Raw; hash: string }[]): FlowDoc
 
   const rebase = (r: Raw, n: NotebookDef): NotebookDef => ({ ...n, path: pathFrom(root.dir, joinPath(r.dir, n.path)) });
   const ontology = mergeOntologies(at, all.map((r) => ({ name: name(r), ontology: r.doc.ontology })));
+  // The flows that pin a flow (ADR 0025 §7), by id, the reading document's own flow by '': it is read only as it is.
+  const pinners = (r: Raw): { pin?: string[] } => {
+    const by = [...parts.filter((x) => x.raw.pins.has(r.path)).map((x) => x.raw.doc.id), ...(root.pins.has(r.path) ? [''] : [])];
+    return by.length ? { pin: by } : {};
+  };
   const flows = parts.map(({ raw: r, hash }): FlowPart => ({
     path: pathFrom(root.dir, r.path),
     id: r.doc.id,
@@ -271,6 +288,7 @@ function merge(root: Raw, parts: readonly { raw: Raw; hash: string }[]): FlowDoc
     steps: [],
     reads: r.reads.map((q) => parts.find((x) => x.raw.path === q)!.raw.doc.id),
     direct: root.reads.includes(r.path),
+    ...pinners(r),
   }));
   const { parameters: _p, sources: _s, notebooks: _n, ontology: _o, contracts: _c, publish: _pub, changes: _ch, flows: _f, ...rest } = root.doc;
   return {

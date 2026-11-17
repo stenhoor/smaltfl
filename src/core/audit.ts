@@ -35,6 +35,7 @@ import { daysBetween } from './calendar.js';
 import { DONOR_WINDOW, levelStray, levelWays, repairDocument, type Repair } from './fill.js';
 import { carry, spare, loadsOf, claimBase, claimHolds, donorGood, factsFromClaims, heldOutputs, holdsOf, inputsKey, isLoad, loadKey, type Load, isClaim2, isLevel, judgeClaims, levelFromHere, publishedDays, sameKeys, standingFor, standingForLoad, type Claim, type DecideAbout, type DerivedAbout, type HeldAbout, type Hold, type Judged, type ReleaseAbout, type RunHold } from './hold.js';
 import { canonicalJSON } from './canonical.js';
+import { flowProblems } from './compose.js';
 import { loadRoles } from './deciding.js';
 import { consistencyProof, entryLeaf, parseCheckpoint, rootOf, verifyCheckpoint, verifyConsistency, verifyInclusion, verifyRecord, type JSONValue, type LogEntry, type SignedCheckpoint } from './log.js';
 import { manifestHash, planHash, policiesHash, type IdentityCard, type RunManifest } from './manifest.js';
@@ -404,6 +405,25 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
     }
     const flow = flows.get(m.flow.hash);
     if (flow && (await flowHash(JSON.parse(text(flow.bytes)) as FlowDocument)) !== m.flow.hash) problems.push("its flow document doesn't hash to what the manifest says");
+    // The flows it read (ADR 0025 §2, §7): the ones its document names, each one's own document in the bag by the hash
+    // the run names it by, and held unchanged in the run's document. So the day a flow changed is on the record: the
+    // first run that names another hash for it.
+    const runDoc = flow ? (JSON.parse(text(flow.bytes)) as FlowDocument) : null;
+    if (m.flow.reads !== undefined || runDoc?.flows?.length) {
+      const named = m.flow.reads ?? [];
+      if (runDoc && canonicalJSON(named as unknown as JSONValue) !== canonicalJSON((runDoc.flows ?? []).map((f) => [f.id, f.hash]) as unknown as JSONValue)) problems.push("the flows it names aren't its document's");
+      for (const [id, hash] of named) {
+        const name = runDoc?.flows?.find((f) => f.id === id)?.name ?? id;
+        const own = flows.get(hash);
+        if (!own) {
+          problems.push(`${name}'s own document isn't in the bag, so that the run holds it unchanged can't be checked`);
+          continue;
+        }
+        const ownDoc = JSON.parse(text(own.bytes)) as FlowDocument;
+        if ((await flowHash(ownDoc)) !== hash) problems.push(`${name}'s own document doesn't hash to the hash the run names it by`);
+        else if (runDoc) for (const problem of flowProblems(runDoc, ownDoc).slice(0, 2)) problems.push(`${name}: ${problem}`);
+      }
+    }
     const read = m.nodes.filter((n) => n.file);
     // Each file it read is in the data's list in the bag, by its sha256 and size; a run that read files from another
     // list, or from none, can't be checked here, and saying it holds would say what nobody checked.

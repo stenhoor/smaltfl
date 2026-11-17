@@ -108,6 +108,15 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
   - the dark scheme.
 
   It must report `problems: none` at every size.
+- `follow.json`: a change followed, said and tested (ADR 0025 §7), on Larkspur's month (same build as `month.json`):
+  - the day a recorded change takes effect: Evidence feeds' card says CHANGED, and its sheet what changed, who
+    recorded it and why;
+  - a flow that reads it: what it follows;
+  - the change tested on the days before it: each run again as a what-if, and the sheet says what it found;
+  - a change made here: the card and the sheet say it at once, with the hash now and as shipped;
+  - the dark scheme.
+
+  It must report `problems: none` at every size.
 - `overrides.json`: the estate's ontology and a flow's own handling of a column (ADR 0025 §8), on the tour (same build
   as `overview.json`):
   - the head of the Ontology page: the estate's ontology by name, hash and path, the flows that read the same one,

@@ -346,10 +346,13 @@ export interface FlowPart {
   reads: string[];
   /** Whether the document's own flow lists it (true), or only a flow it reads does. */
   direct: boolean;
+  /** The flows that pin it (ADR 0025 §7): each reads it only as the flow its hash names, so reading refuses any other
+   * until the pin is moved. By id, the document's own flow by ''. Absent where none does. */
+  pin?: string[];
 }
 
 /** A flow part's fields: any other is refused by name. */
-const FLOW_PART_FIELDS = ['path', 'id', 'name', 'description', 'hash', 'sources', 'steps', 'reads', 'direct'];
+const FLOW_PART_FIELDS = ['path', 'id', 'name', 'description', 'hash', 'sources', 'steps', 'reads', 'direct', 'pin'];
 
 /** The flow a source or step is its own of, by id (lower case): a part's id, or '' for the document's own flow. */
 export function flowOwners(doc: Pick<FlowDocument, 'flows'>): Map<string, string> {
@@ -1069,6 +1072,7 @@ function validateFlows(doc: Record<string, unknown>, ids: Map<string, string>, a
     if (seen.has(part.id.toLowerCase()) || part.id === doc.id) add(`${at}.id`, part.id === doc.id ? `${part.id} is this flow's own id: a flow doesn't read itself` : `two flows are called ${part.id}`);
     seen.set(part.id.toLowerCase(), at);
     for (const r of part.reads) if (!parts.some((p) => p.id === r)) add(`${at}.reads`, `${part.name} reads ${r}, which isn't listed before it: a flow comes after the flows it reads, and none reads itself`);
+    if (part.pin !== undefined && (!strings(part.pin) || part.pin.length === 0)) add(`${at}.pin`, 'the flows that pin it, by id: a list of names, the document’s own flow by an empty one');
     for (const [kind, list] of [['source', part.sources], ['step', part.steps]] as const) {
       for (const id of list) {
         const where = ids.get(id.toLowerCase());

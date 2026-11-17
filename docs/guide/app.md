@@ -57,6 +57,15 @@ card** on its canvas, a second sheet behind it, with the word FLOW and the count
   It is the same run, so every card shows the day on screen, and Decide, the news and the notebook pages work as at
   the top.
 - **Each level has a link**: `#day/2024-03-27/in/feeds`. The days either side keep the level.
+- **A flow that changed says so** ([ADR 0025](../adr/0025-flows-in-flows) §7). Its card reads `FLOW · CHANGED` on the
+  day a change of its own takes effect, and once it was changed here. Its sheet has **What changed**: each change with
+  the day it takes effect from, what it did, who made it and why; the changes of the flows it reads, which it
+  *follows*; and the flows that read it and follow in turn. A change is the flow's whose file or step it is about, so
+  that flow's hash moves, and its readers' with it.
+- **Test on the days before it ›**, under a change, runs the last 14 recorded days again under it, as what-if runs:
+  nothing is published and nothing recorded. The sheet says what it found: *Under the changed Evidence feeds, 2 of the
+  last 14 days would have paused: Tue Mar 12 and Mon Mar 18; 12 come out the same.* The change stands either way.
+- A flow **pinned** by a flow that reads it says so on its sheet, and isn't changed from here until the pin is moved.
 - A card opened from anywhere else (the day's head, the news, a scene) takes the canvas to the flow that has it.
 
 On the **month**, the flows are rows of days above their files and steps. A flow's bar for a day is the worst any of

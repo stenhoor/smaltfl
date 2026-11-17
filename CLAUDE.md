@@ -509,6 +509,19 @@ release (smaltty ADR 0030).
   names form on a column the estate describes (`estateSays`) asks why and writes the mark (`ColumnChange.override`,
   `nameColumn`, `nameColumnThrough`'s `described`); `test/ontologypage.test.ts`, `test/flowedit.test.ts`,
   `tools/browser/stops/overrides.json`.
+  Slice 6 (built after slice 7), a change followed, said and tested: `src/core/attribute.ts` (in what the data's cache
+  is keyed by) makes a change at the flow it belongs to: `editTargets`, `withOwnChanges` (a read flow's own document
+  with the change sets about a file or step it has or reads), `ownWithEdits` (the name edits made again there,
+  `NameOp`, `FlowEdit.name`), `attributeChanges` (the reading document naming each flow by the hash its own document
+  has then); `readWithChanges` in `scripts/flow.ts` puts a recorded story's changes where they belong for the build
+  and the recorder. `src/core/follow.ts` (pure, outside the data's cache key) is what the page says: `changeFlows`,
+  `followersOf`, `flowChanges`, `pinProblem`, `flowDiff`/`diffLines`, `DayTest`, `testCount`, `testSaid`. A pin
+  (`compose.ts`): a `flows` entry `{ path, hash }`, any other hash refused with both said, `FlowPart.pin`. The audit
+  checks the flows each run names (`flow.reads`, each own document in the bag, `flowProblems`). The app: `followEdits`
+  after every edit (`ownDocs`, `flowsToKeep`; the record keeps each own document as a blob), `partChanged` (the card's
+  `FLOW · CHANGED`), `flowChangedPart` (the sheet's **What changed**), `testChange` (the last `TEST_DAYS` recorded days
+  before a change takes effect, each a what-if run under the day's rules with the change; `tested`),
+  `pinnedSaid`; `test/follow.test.ts`, `tools/browser/stops/follow.json`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -594,7 +607,7 @@ release (smaltty ADR 0030).
   flow reads other flows, each a card on its reader's canvas with its day's mark, entered to see its own flow, rolled
   up into the month, in the slices of its §12: the core and Larkspur cut into five; the canvas in levels; the month in
   tiers; exploring what a flow gives; a paused day decided once, at its flow; a change followed, said and tested on the
-  days recorded; the ontology's overrides; inputs and settings; building in the app; the voice. Slices 1 to 4 and 7 are
+  days recorded; the ontology's overrides; inputs and settings; building in the app; the voice. Slices 1 to 4, 6 and 7 are
   built, and slice 5's first step (its §"As built", which says what each leaves for the slices after it).
 
 ## Rules for this repository

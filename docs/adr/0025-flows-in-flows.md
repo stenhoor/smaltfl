@@ -475,6 +475,63 @@ day of the demos has two. The second step, between pages of one browser that sha
 that build flows from flows: the records already share one IndexedDB and a record's origin names its flow, so a
 reading flow's record will cite the decision it carried by that origin, its seq and its leaf.
 
+### Slice 6: a change followed, said and tested (2026-11-17)
+
+Built after slice 7. *Followed* needed nothing new: reading a flow brings in the flows it lists as they are (slice 1).
+
+- **Whose a change is** (`src/core/follow.ts`, pure). A change set is the flow's whose file or step one of its edits is
+  about (`changeFlows`, from `editTargets`); every flow that reads that flow, near or far, *follows* it
+  (`followersOf`); `flowChanges` lists what bears on a flow, its own changes and those it follows.
+- **A change is made at the flow it belongs to** (`src/core/attribute.ts`). A flow is known by the hash of its own
+  document, so a change about one of its files or steps is made there too: a dated change set joins the change sets
+  of every flow whose document has the file or step (`withOwnChanges`), a name edit is made again in each
+  (`ownWithEdits`), and the reading document names each flow by the hash its own document has then
+  (`attributeChanges`). So a flow's hash moves with a change to it or to a flow it reads, and with no other.
+  - **The build and the recorder** (`readWithChanges` in `scripts/flow.ts`): a recorded story's change sets are put
+    where they belong before the flow is shipped and before a day is run. Larkspur's two (the WAF's band, the
+    findings' values check) are Evidence feeds'; Applications and the posture product follow. Every run of March
+    names Evidence feeds and Applications by the hashes their documents have with them.
+  - **The app** (`followEdits`): after every edit, each read flow's own document is made again from the one shipped.
+    A name edit is kept as it was made (`FlowEdit.name`, a `NameOp`), so it can be made again after a reload. The
+    next run keeps the documents as they are now (`flowsToKeep`), and the record keeps each by its hash, so an audit
+    of a run from an earlier visit still has what the run named.
+- **Said.**
+  - A flow's card says `FLOW · CHANGED` on the day a change of its own takes effect under the rules on screen, and on
+    every day once it was changed here (`partChanged`).
+  - Its sheet has **What changed** (`flowChangedPart`): each change set with the day it takes effect from, what it
+    did in words (the rules' own words, ADR 0021 §5), who recorded it, when and why, and where it stands for the day
+    on screen; then the changes of the flows it reads, each saying which flow it follows; then the names edited
+    here. Under them: the flows that read it and follow, and its hash now beside the one it was shipped with.
+- **Tested on the days recorded** (`testChange`; `testCount`, `testSaid`). Under each change set, **Test on the 14
+  days before it ›** runs each of the last recorded days before the change takes effect again: on the files readers
+  got, under the rules its day had with the change added, as a what-if (ADR 0021 §4). Nothing is published, no name
+  moves, nothing is recorded. The sheet then says what it found, in the maintainer's shape: *Under the changed
+  Evidence feeds, 2 of the last 14 days would have paused: Tue Mar 12 and Mon Mar 18; 12 come out the same.* The days
+  that differ are listed, each a link, with what would hold them. The test informs: the change stands either way.
+- **Pinned** (`compose.ts`). A flow lists a flow it reads by its path, or by its path and a hash:
+  `{ "path": "hr/flow.json", "hash": "…" }`. Reading then refuses any other, saying both hashes: *Sales pins Orders
+  at …, and orders/flow.json is … now: move the pin to read the flow as it is, or put the flow back as it was.* The
+  part says who pins it (`FlowPart.pin`), the pin is part of the reader's hash, the flow's sheet says it, and an edit
+  that would move a pinned flow's hash is refused in the app (`pinProblem`): a change of the flow itself, or of a
+  flow it reads.
+- **The offline audit** (`audit.ts`, left by slice 1): for each run, the flows its manifest names are its document's;
+  each one's own document is in the bag, by the hash the run names it by; and the run's document holds it unchanged
+  (`flowProblems`). One that isn't in the bag is said as what can't be checked.
+- **What differs between two versions of a flow** (`flowDiff`, `diffLines`): its files, its steps, what it gives, the
+  flows it reads, and each difference in its checks, in words. Nothing in the app changes a read flow's steps yet;
+  slice 9's catalogue and join form are what it is for.
+- **Tests**: `test/follow.test.ts` (whose a change is, who follows, the own documents and their hashes, the pinned
+  refusal, a diff's lines, a test's sentence), `test/compose.test.ts` (the pin; the audit of the flows a run names),
+  `tools/browser/stops/follow.json` on Larkspur's month and the tour.
+
+**What it leaves:**
+
+- The test runs in the browser, a day at a time: fourteen of Larkspur's days take about a minute. What it finds is
+  kept while the page is open.
+- It tests the days before a change takes effect. A back-dated change's own days are restated (ADR 0021 §5), which
+  already says what each would come to.
+- A flow's month doesn't mark the day a change of it took effect: the day's head says what is new on the day.
+
 ### Slice 7: the estate's ontology, and a flow's own handling of a column (2026-11-17)
 
 Built before slice 6: a flow read on its own needs its ontology before a change to it can be said to be that flow's.

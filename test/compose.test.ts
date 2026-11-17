@@ -5,6 +5,10 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { FlowRecord } from '../src/app/record.js';
+import { auditBag } from '../src/core/audit.js';
+import { buildBag, type BagFile } from '../src/core/bag.js';
+import { canonicalJSON } from '../src/core/canonical.js';
 import { composeFlow, flowProblems, pathFrom, type FlowFiles } from '../src/core/compose.js';
 import { flowOf, givesOf, readsOf, validateDocument, type FlowDocument } from '../src/core/document.js';
 import { repairDocument, type Repair } from '../src/core/fill.js';
@@ -15,6 +19,7 @@ import { flowHash, translate, type FlowPlan } from '../src/core/plan.js';
 import { importOntologies } from '../src/core/shared.js';
 import { runFlow, verifyRun } from '../src/index.js';
 import { openEngine, SMALTDB } from './helpers/engine.js';
+import { installFakeIndexedDB } from './helpers/fake-idb.js';
 import { loadFlowDir, ts } from './helpers/notebooks.js';
 
 /** Files in memory, by path: a flow's document as an object, a notebook as its text. */
@@ -126,6 +131,52 @@ describe('a flow reads another flow', () => {
     const mine = await read(own);
     expect(mine.flows![0]!.hash).toBe(before.flows![0]!.hash);
     expect(await flowHash(mine)).not.toBe(await flowHash(before));
+  });
+});
+
+describe('a flow pinned by the flow that reads it (ADR 0025 §7)', () => {
+  it('is read as the flow its hash names, and the part says who pins it', async () => {
+    const hash = (await read(SALES)).flows![0]!.hash;
+    const pinned = { ...SALES, 'flow.json': { ...SALES['flow.json'], flows: [{ path: 'orders/flow.json', hash }] } };
+    const doc = await read(pinned);
+    expect(doc.flows![0]).toMatchObject({ id: 'orders', hash, pin: [''] });
+    expect(validateDocument(doc)).toEqual([]);
+    // The pin is the reader's, part of what it is: its hash isn't the unpinned reader's.
+    expect(await flowHash(doc)).not.toBe(await flowHash(await read(SALES)));
+    // Unpinned, the part says nothing of a pin.
+    expect('pin' in (await read(SALES)).flows![0]!).toBe(false);
+  });
+
+  it('refuses the flow once it is any other, saying both hashes, until the pin is moved', async () => {
+    const hash = (await read(SALES)).flows![0]!.hash;
+    const changed = { ...SALES, 'orders/flow.json': { ...ORDERS['orders/flow.json'], description: 'Orders, with a word more said of them' } };
+    const now = (await read(changed)).flows![0]!.hash;
+    expect(now).not.toBe(hash);
+    const pinned = (to: string) => ({ ...changed, 'flow.json': { ...SALES['flow.json'], flows: [{ path: 'orders/flow.json', hash: to }] } });
+    expect(await refused(pinned(hash))).toBe(`flow.json: Sales pins Orders at ${hash}, and orders/flow.json is ${now} now: move the pin to read the flow as it is, or put the flow back as it was`);
+    expect((await read(pinned(now))).flows![0]!.pin).toEqual(['']);
+  });
+
+  it('says who pins a flow read through another, and refuses a pin that isn’t a path and a hash', async () => {
+    const hash = (await read(SALES)).flows![0]!.hash;
+    // Reports reads Sales, which pins Orders: the pin is Sales', by its id.
+    const reports = {
+      ...SALES,
+      'sales/flow.json': { ...SALES['flow.json'], flows: [{ path: '../orders/flow.json', hash }] },
+      'sales/sales.nb.ts': (SALES['sales.nb.ts'] as string).replace('./orders/orders.nb.js', '../orders/orders.nb.js'),
+      'flow.json': flow('reports', 'Reports', { flows: ['sales/flow.json'], sources: [], notebooks: ['reports.nb.ts'] }),
+      'reports.nb.ts': nb("import { by_customer } from './sales/sales.nb.js';", `
+cell('top', { lang: 'sql' });
+export const top = sql\`SELECT name FROM \${by_customer} ORDER BY n DESC LIMIT 3\`;
+
+cell('published');
+publish(top);`),
+    };
+    const doc = await read(reports);
+    expect(doc.flows!.map((f) => [f.id, f.pin ?? null])).toEqual([['orders', ['sales']], ['sales', null]]);
+    for (const bad of [{ path: 'orders/flow.json' }, { path: 'orders/flow.json', hash: 'abc' }, { path: 'orders/flow.json', hash, also: 1 }, 7]) {
+      expect(await refused({ ...SALES, 'flow.json': { ...SALES['flow.json'], flows: [bad] } })).toMatch(/flows is a list of the flows this one reads, each by the path of its flow\.json, or \{ path, hash \}/);
+    }
   });
 });
 
@@ -291,6 +342,39 @@ describe('a run of a flow that reads flows (ADR 0025 §2)', () => {
     const v = await verifyRun(db, r.run, { smaltdb: SMALTDB, level: 'stored', manifest: r.hash });
     expect(v.checks.find((c) => c.check === 'flows')).toMatchObject({ ok: false, note: "Orders's own document isn't kept with the run" });
     await expect(runFlow(db, doc, { smaltdb: SMALTDB, parameters: day, flows: [doc] })).rejects.toThrow("a flow document was given (Sales) that the run's flow doesn't read");
+  });
+
+  it('is audited offline: the flows a run names are its document’s, each one’s own in the bag and held unchanged (ADR 0025 §7)', async () => {
+    installFakeIndexedDB();
+    const enc = new TextEncoder();
+    const db = engine();
+    const doc = await read(SALES);
+    const orders = await read(SALES, 'orders/flow.json');
+    const rec = await FlowRecord.open(`flows-${Math.random().toString(36).slice(2)}`);
+    const r = await runFlow(db, doc, { smaltdb: SMALTDB, parameters: day, flows: [orders], log: rec.head() });
+    const blob = await rec.keep('manifest', r.manifest);
+    const plan = await rec.keep('plan', JSON.parse(String(db.query('SELECT plan FROM _smaltfl_plans WHERE hash = ?', [r.manifest.plan]).rows[0]![0])));
+    const entry = await rec.append('run', 'owner', { run: r.run, manifest: r.hash, blob, plan, load: null, outcome: 'ok', files: [] });
+    // A bag as the app's export makes one: the record, its blobs, the engine's flow documents, a proof a dataset.
+    const bag = (tweak: (payload: BagFile[]) => BagFile[] = (x) => x) => {
+      const head = rec.head();
+      const payload: BagFile[] = [
+        { path: 'record/entries.jsonl', bytes: enc.encode(rec.entries.map((e) => canonicalJSON(e as never)).join('\n') + '\n') },
+        { path: 'record/checkpoints.jsonl', bytes: enc.encode(rec.checkpoints.map((c) => JSON.stringify(c)).join('\n') + '\n') },
+        { path: 'record/card.json', bytes: enc.encode(JSON.stringify(rec.identity.card)) },
+        ...db.query('SELECT hash, doc FROM _smaltfl_flows').rows.map(([h, d]) => ({ path: `engine/flows/${String(h)}.json`, bytes: enc.encode(String(d)) })),
+        ...Object.entries(r.manifest.outputs).map(([name, o]) => ({ path: `proofs/${name}.json`, bytes: enc.encode(JSON.stringify({ dataset: name, ...o, entry, inclusion: rec.proofOf(entry.seq) })) })),
+      ];
+      return (async () => buildBag({ name: 'smaltfl-audit-flows', payload: [...tweak(payload), ...(await rec.blobs()).map((b) => ({ path: `blobs/${b.kind}-${b.hash}.json`, bytes: enc.encode(b.json) }))], info: [['External-Identifier', `${head.origin} ${head.size} ${head.root}`]], date: '2026-11-17' }))();
+    };
+    const failed = async (files: Promise<BagFile[]>) => (await auditBag(await files)).lines.filter((l) => !l.ok).map((l) => l.what);
+    expect(await failed(bag())).toEqual([]);
+    const ordersHash = await flowHash(orders);
+    // Orders' own document left out of the bag: said, as what can't be checked.
+    expect((await failed(bag((p) => p.filter((f) => f.path !== `engine/flows/${ordersHash}.json`)))).join(' ')).toContain("Orders's own document isn't in the bag, so that the run holds it unchanged can't be checked");
+    // Another document under its name: it doesn't hash to the hash the run names it by.
+    const other = enc.encode(JSON.stringify({ ...orders, description: 'Not the Orders the run read' }));
+    expect((await failed(bag((p) => p.map((f) => (f.path === `engine/flows/${ordersHash}.json` ? { ...f, bytes: other } : f))))).join(' ')).toContain("Orders's own document doesn't hash to the hash the run names it by");
   });
 
   it('names no flows in the manifest of a flow that reads none', async () => {

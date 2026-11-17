@@ -7,7 +7,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { smaltty } from 'smaltkit/typescript';
 import { composeFlow } from '../src/core/compose.js';
-import type { FlowDocument } from '../src/core/document.js';
+import type { ChangeSet, FlowDocument } from '../src/core/document.js';
+import { attributeChanges } from '../src/core/attribute.js';
 import { asEstate, type EstateFrom, type EstateOntology } from '../src/core/shared.js';
 
 /**
@@ -28,6 +29,20 @@ export async function readFlow(path: string): Promise<FlowDocument> {
 export async function readFlows(path: string): Promise<FlowDocument[]> {
   const doc = await readFlow(path);
   return Promise.all((doc.flows ?? []).map((f) => readFlow(join(dirname(path), f.path))));
+}
+
+/**
+ * A flow with change sets made to it since it was written (a recorded story's, ADR 0021 §6), put where they belong
+ * (ADR 0025 §7): all of them in the document, each read flow's own document holding those about a file or step it has
+ * or reads, and the document naming each flow by the hash its own document has then. What the build ships and the
+ * recorder runs, so a run names the flows as they were changed. With no change set, the flow as read.
+ */
+export async function readWithChanges(path: string, changes: readonly ChangeSet[]): Promise<{ doc: FlowDocument; owns: FlowDocument[] }> {
+  const doc = await readFlow(path);
+  const owns = await readFlows(path);
+  if (!changes.length) return { doc, owns };
+  if (!owns.length) return { doc: { ...doc, changes: [...(doc.changes ?? []), ...changes] }, owns };
+  return attributeChanges(doc, owns, changes);
 }
 
 /**

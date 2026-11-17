@@ -257,7 +257,13 @@ in the question prompt, nine questions in three rounds. In the slices of ADR 002
    holds carries that one's decision, and the sheet, the Decide buttons, the day's story, the month, the record and the
    audit say whose it is (`src/core/deciding.ts`). The second step, a decision carried between pages of one browser
    that share a flow, is left for after slice 9.
-6. A change followed, said and tested on the days recorded: next.
+6. **A change followed, said and tested: built** (after slice 7). A change is the flow's whose file or step it is
+   about, and is made in that flow's own document too, so its hash moves with it and with the flows it reads, and no
+   other (`src/core/attribute.ts`); the build and the recorder put a story's changes where they belong. A flow's card
+   says `CHANGED`, and its sheet says what changed, who made it and why, and which flows follow. **Test on the days
+   before it ›** runs the last 14 recorded days again under the change as what-if runs and says how many would have
+   paused. A flow may pin the hash of a flow it reads; reading refuses any other. The offline audit checks the flows
+   each run names. `src/core/follow.ts`, `test/follow.test.ts`, `tools/browser/stops/follow.json`.
 7. **The ontology's overrides: built** (before slice 6, which needs a read flow's own ontology). The estate's ontology
    is a document of its own (`examples/larkspur/ontology.json`, `{ "smaltflOntology": 2, … }`): every flow imports it
    and takes what is about its datasets, and it travels under its own hash (`estate/0`), which each flow's document

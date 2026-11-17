@@ -75,7 +75,7 @@ import { storyProblems, timelineOf, type StoryFile, type StoryFill, type StoryRe
 import { donorBinding, pinnedDdl, type Binding, type DataBindings } from '../../examples/sources.js';
 import { readAsOf } from '../../src/core/ontology.js';
 import { csvHeader, readAsIn } from '../../src/core/columns.js';
-import { bindingsPath, readFlow } from '../flow.js';
+import { bindingsPath, readFlow, readWithChanges } from '../flow.js';
 
 declare const __SMALTDB_VERSION__: string | undefined;
 const SMALTDB = typeof __SMALTDB_VERSION__ === 'string' ? __SMALTDB_VERSION__ : (JSON.parse(readFileSync('node_modules/smaltdb/package.json', 'utf8')) as { version: string }).version;
@@ -161,8 +161,10 @@ async function main(): Promise<void> {
   const delivered = Array.isArray(generated) ? [] : (generated.deliveries ?? []);
   // The rules over time (ADR 0021 §5): the story's change sets, kept as the document keeps them, so every run is of the
   // rules in force on its day as known when it ran.
+  // In a flow that reads flows, each change set is also the flows' whose file or step it is about (ADR 0025 §7): the
+  // document names each flow by the hash its own document has with them.
   const changes: ChangeSet[] = story?.changes ?? [];
-  const flowDoc: FlowDocument = changes.length ? { ...doc, changes } : doc;
+  const flowDoc: FlowDocument = changes.length ? (await readWithChanges(flowPath, changes)).doc : doc;
   if (flowDoc !== doc) {
     const issues = validateDocument(flowDoc);
     if (issues.length) throw new Error(`${storyPath}: the flow with the story's change sets has ${issues.length} problem${issues.length === 1 ? '' : 's'}: ${issues[0]!.path}: ${issues[0]!.message}`);

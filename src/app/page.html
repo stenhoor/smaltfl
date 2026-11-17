@@ -2363,6 +2363,16 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .vf-whose { margin: 0 0 2px; font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
 .fl-decide { background: var(--smalt); border-color: var(--smalt); color: var(--surface); font-weight: 600; }
 .fl-asked { color: var(--muted); font-size: 12.5px; }
+/* What changed in a flow (ADR 0025 §7): each change, who made it and when, and what testing it on the days recorded found. */
+.fl-changes { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; min-width: 0; }
+.fl-change { display: grid; gap: 4px; padding: 8px 10px; border-radius: 8px; background: var(--sunk); min-width: 0; }
+.fl-change-what, .fl-change-who, .fl-tested, .fl-testing, .fl-test-none { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+.fl-change-who, .fl-test-none { color: var(--ink-2); font-size: 12.5px; }
+.fl-tested { font-weight: 600; }
+.fl-tested-days { margin: 0; padding-left: 18px; font-size: 13px; display: grid; gap: 2px; }
+.fl-tested-days a { color: var(--smalt); font-weight: 600; }
+.fl-test { justify-self: start; min-height: 36px; }
+.fl-change-note code { font-family: var(--mono); font-size: 11.5px; }
 /* What a flow gives, each a tap from its card and a tap from being explored: two buttons in one row. */
 div.fl-row.fl-given { padding: 0; cursor: default; align-items: stretch; }
 .fl-row-main { grid-row: 1 / 3; grid-column: 1; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; align-content: center; min-width: 0; min-height: 44px; padding: 7px 10px; border: 0; border-radius: 10px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }

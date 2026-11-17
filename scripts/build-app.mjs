@@ -76,26 +76,26 @@ const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 // steps derived (ADR 0011); a .smaltfl.json as it is.
 const reader = 'node_modules/.cache/smaltfl/flow.mjs';
 await build({ entryPoints: ['scripts/flow.ts'], bundle: true, platform: 'node', format: 'esm', target: 'node20', outfile: reader, logLevel: 'warning' });
-const { readFlow, readFlows, readEstates, bindingsPath } = await import(pathToFileURL(reader).href);
+const { readFlow, readWithChanges, readEstates, bindingsPath } = await import(pathToFileURL(reader).href);
 // A flow's bindings (ADR 0010 §9): each source's table, format and file name, which loads.json carries on.
 const bindingsOf = (doc) => JSON.parse(readFileSync(bindingsPath(doc), 'utf8'));
 /** The document the build ships, as data/flow.json, and its entry in loads.json. With a recorded story (ADR 0021 §6), its
  * changes to the rules people set ship as the document's own change sets (ADR 0021 §5): the page reads them as it reads
  * one made there, and the month's runs were recorded under them. */
+const storyChanges = (storyPath) => (storyPath ? (JSON.parse(readFileSync(storyPath, 'utf8')).changes ?? []) : []);
 const shipFlow = async (path, storyPath = null) => {
-  const read = await readFlow(path);
-  const story = storyPath ? JSON.parse(readFileSync(storyPath, 'utf8')) : null;
-  const doc = story?.changes?.length ? { ...read, changes: [...(read.changes ?? []), ...story.changes] } : read;
+  // Each change set is also the flows' whose file or step it is about (ADR 0025 §7): the document names each flow it
+  // reads by the hash that flow's own document has with them, as the recorder's runs do.
+  const { doc } = await readWithChanges(path, storyChanges(storyPath));
   const bytes = Buffer.from(JSON.stringify(doc, null, 2) + '\n');
   writeFileSync(`${out}/data/flow.json`, bytes);
   return { path: 'flow.json', from: path, sha256: sha256(bytes), bytes: bytes.length };
 };
 /** Each flow the flow reads, as its own document (ADR 0025 §2), shipped as data/flows/<id>.json and listed in loads.json:
  * a run keeps them beside its own document, so verify can check that it holds each unchanged. */
-const shipFlows = async (path) => {
+const shipFlows = async (path, storyPath = null) => {
   const out_ = {};
-  const read = await readFlow(path);
-  const own = await readFlows(path);
+  const { doc: read, owns: own } = await readWithChanges(path, storyChanges(storyPath));
   if (own.length) mkdirSync(`${out}/data/flows`, { recursive: true });
   own.forEach((doc, k) => {
     const part = read.flows[k];
@@ -177,7 +177,7 @@ writeFileSync(`${out}/bundles.json`, JSON.stringify(hashed, null, 2) + '\n');
     return { path: name, from, sha256: sha256(bytes), bytes: bytes.length };
   };
   const flowEntry = await shipFlow(flowPath, bind.story ?? null);
-  const flowEntries = await shipFlows(flowPath);
+  const flowEntries = await shipFlows(flowPath, bind.story ?? null);
   const estateEntries = await shipEstates(flowPath);
   const histories = Object.fromEntries(watches.map((w) => [w, entry(historyName(w), readFileSync(join(work, historyName(w))), `${bind.generate}, scripts/data/history.mjs`)]));
   const samples = sampled ? Object.fromEntries(watches.map((w) => [w, entry(sampleName(w), readFileSync(join(work, sampleName(w))), `${bind.generate}, scripts/data/history.mjs --sample`)])) : {};
@@ -249,10 +249,13 @@ async function dataKey(flowPath, bind) {
   const { metafile } = await build({ entryPoints: entries, bundle: true, write: false, metafile: true, platform: 'node', format: 'esm', outdir: 'node_modules/.cache/smaltfl/keys', packages: 'external', logLevel: 'silent' });
   const files = new Set([...Object.keys(metafile.inputs), bind.generate, 'scripts/data/history.mjs', 'scripts/data/record.mjs', 'packed.json', 'package-lock.json']);
   // A demo's scenes are words the page shows (ADR 0023 §4), nothing the data is made from: a change to them keeps it.
+  // So does a change to its catalogue (ADR 0025 §10): the flows in its `catalogue` folder are added in the page, and
+  // built there from the day's run.
   const walk = (p) => {
     if (!existsSync(p)) return;
-    if (statSync(p).isDirectory()) for (const e of readdirSync(p)) walk(join(p, e));
-    else if (!p.endsWith('scenes.json')) files.add(p);
+    if (statSync(p).isDirectory()) {
+      if (basename(p) !== 'catalogue') for (const e of readdirSync(p)) walk(join(p, e));
+    } else if (!p.endsWith('scenes.json')) files.add(p);
   };
   if (flowPath.endsWith('.smaltfl.json')) files.add(flowPath).add(flowPath.replace(/\.smaltfl\.json$/, '.data.json'));
   else walk(dirname(flowPath));
