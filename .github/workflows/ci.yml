@@ -103,11 +103,12 @@ jobs:
   # The browser regression (ADR 0025): every stop set in the built demos, in a real browser. `session` is the run a
   # session makes before a PR (`npm run regress`: each set once on a phone, its layout at the other sizes by resizing
   # the page); the others replay every set at one more size each, as a person at that size reaches it. A size a job, so
-  # the whole matrix takes the time of one pass.
+  # the whole matrix takes the time of one pass: seven to eight minutes a job on these machines, and a job that takes
+  # twenty is stopped as failed (the sets' runs are budgeted in tools/browser/sets.json; this is the clock's say).
   browser:
     needs: demos
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:

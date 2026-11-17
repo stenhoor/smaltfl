@@ -135,9 +135,11 @@ written. A stop that opens no day costs a third of a second, and is free to add.
 ### 6. Part of the build
 
 `.github/workflows/ci.yml`: `demos` builds the four demos once (their data cached as the docs deploy caches it), and
-`browser` runs six jobs beside each other on them: the session's run (`npm run regress`'s), and the replay at each of
-the five sizes. The whole matrix takes the time of one pass. A failure uploads each job's log, its metrics and a
-screenshot of every stop that reported a problem.
+`browser` runs five jobs beside each other on them: the session's run (`npm run regress`'s, which replays on a phone),
+and the replay at each of the other four sizes. The whole matrix takes the time of one pass: seven to eight minutes
+a job on GitHub's machines, which run the session's pass in 407 s where a session's four cores take 314. A job that
+takes twenty minutes is stopped as failed. A failure uploads each job's log, its metrics and a screenshot of every
+stop that reported a problem.
 
 ### 7. What a session does
 
@@ -173,11 +175,14 @@ and wide (977 stops, 638 runs).
 - **The Models tab computes for six seconds** on the control estate's posture (the forest's record over sixty days,
   in slices). The tour now waits for it, where it used to go on at two.
 
+**The pieces:**
+
 - `tools/browser/tour.cjs`: `tracker`, `idle`, `started`, `go` (a link, once the page has heard of it), `open` (the
   first stop's day, `fresh`, the scheme), `measure`, `expected` (read again once), `capture`, the sweep; `TOUR_SWEEP`,
   `TOUR_SHOTS`; `cost:`; a wait that ended at its limit said with its stop; its paths taken from where it is run.
 - `tools/browser/regress.cjs`: the manifest held to itself, the jobs (a set at a size with the sizes it is swept to),
-  `--full`, `--sizes`, `--build`, `--build-only`, `--shots`, `--timed`, `--list`; `regress.json`.
+  `--full`, `--sizes`, `--build`, `--build-only`, `--shots`, `--timed`, `--list`; `regress.json`. It says so at
+  once where Playwright isn't installed.
 - `tools/browser/sets.json`; `npm run regress`.
 - `src/app/engine.ts` `engineBusy`, `src/app/main.ts` `__smaltflBusy`.
 - `tools/browser/stops/rules.json`: `rules-tab-dark` is `fresh`. No other stop changed.

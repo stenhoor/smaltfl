@@ -20,7 +20,8 @@
 //   --build-only           build them and stop (CI builds them once, for every job that runs them)
 //   --shots all|fail|none  screenshots: of every stop, of the stops that failed (default), or none
 //   --jobs N               how many run at once (default: the machine's cores)
-//   --timed                fail when the whole run took longer than the manifest's budget.seconds (CI: known machines)
+//   --timed                fail when the whole run took longer than the manifest's budget.seconds (four cores of a
+//                          session's machine; CI's are slower, and its job has a time limit of its own)
 //   --list                 print the sets with what each costs, and stop
 //
 // The manifest is also the budget (ADR 0025 §5). Each set says how many runs the engine may make for it (`runs`: a day
@@ -135,6 +136,14 @@ for (const app of apps) {
   }
 }
 
+// The browser the tours drive: said once here, not once a job.
+try {
+  require.resolve('playwright');
+} catch {
+  console.error('regress: Playwright isn\'t installed where Node finds it (`require(\'playwright\')`): install it with its Chromium (npm install -g playwright && playwright install chromium, and NODE_PATH=$(npm root -g)); tools/README.md');
+  process.exit(1);
+}
+
 const started = Date.now();
 const results = [];
 let running = 0;
@@ -190,10 +199,11 @@ const runOne = (job) => new Promise((done) => {
     console.log(`\n${r.set} @ ${r.device} (${r.out}):`);
     for (const p of r.problems) console.log(`  - ${p}`);
   }
-  // The whole run against the time it is held to: said always, a failure where the machine is the one it was set on.
+  // The whole run against the time it is held to on a session's machine: said there, a failure with --timed. CI's
+  // machines are slower, and its job has a limit of its own (ci.yml).
   const whole = !args.length && !only && !full;
   let late = false;
-  if (whole && took > manifest.budget.seconds) {
+  if (whole && took > manifest.budget.seconds && (timed || !process.env.CI)) {
     late = timed;
     console.log(`\n${timed ? 'FAIL' : 'note'}: the regression took ${took.toFixed(0)} s, and it is held to ${manifest.budget.seconds} s on ${manifest.budget.cores} cores (tools/browser/sets.json, ADR 0025 §5)${os.cpus().length < manifest.budget.cores ? `; this machine has ${os.cpus().length}` : ''}`);
   }
