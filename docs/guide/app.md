@@ -71,6 +71,11 @@ its files or steps said. Open a row for those files and steps.
   there, and says so.
 - What waits for a decision names the flow whose file or step holds.
 
+A held day is **decided once, at the flow that holds**. The decision sheet says whose it is (*Evidence feeds’ to
+decide: access_reviews holds. Larkspur estate waits on it.*), and a Decide button outside that flow says where
+(*Decide at Evidence feeds ›*). A flow that reads it waits and is never asked: a step of its own held only because the
+file under it is, is decided by the file's decision, and the record says so.
+
 ## A card's sheet
 
 Tapping a card opens its sheet, the same tabs on every card, the news first:

@@ -132,7 +132,7 @@
     "click": ".dh-story summary",
     "element": "#loads",
     "expect": {
-      "text": ["Mon Mar 18", "The build ran the day (version 1): held: org_chain", "The build ran the day on hr_org_units sent again (version 2)", "Sloane Marsden decided version 2: published", "Published version 2.", "Run here: the same datasets and holds as the record"]
+      "text": ["Mon Mar 18", "The build ran the day (version 1): held: org_chain", "The build ran the day on hr_org_units sent again (version 2)", "Sloane Marsden decided version 2 at HR organisation: published", "Published version 2.", "Run here: the same datasets and holds as the record"]
     }
   },
   {

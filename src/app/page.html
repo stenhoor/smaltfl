@@ -2337,6 +2337,11 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .xp-other { min-height: 36px; max-width: 100%; }
 .xp-days-out { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-width: 0; }
 .xp-run { justify-self: start; }
+/* Whose decision a held day is (ADR 0025 §6): a line at the head of the decision sheet, and Decide on the sheet of the
+   flow that holds. */
+.vf-whose { margin: 0 0 2px; font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
+.fl-decide { background: var(--smalt); border-color: var(--smalt); color: var(--surface); font-weight: 600; }
+.fl-asked { color: var(--muted); font-size: 12.5px; }
 /* What a flow gives, each a tap from its card and a tap from being explored: two buttons in one row. */
 div.fl-row.fl-given { padding: 0; cursor: default; align-items: stretch; }
 .fl-row-main { grid-row: 1 / 3; grid-column: 1; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; align-content: center; min-width: 0; min-height: 44px; padding: 7px 10px; border: 0; border-radius: 10px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }

@@ -440,6 +440,41 @@ writes what the engine is asked. Every count is exact, over every row the viewer
 listed: the ontology's keys and links are. Slice 9's join form wants both. What is kept is every pick at once (and),
 never one or another. A step the engine folds into the next has no Explore tab: its rows aren't kept as a table.
 
+### Slice 5, first step: a decision says whose it is (2026-11-17)
+
+§6's first step, inside one page, where there is one record.
+
+- **Whose a hold is** (`src/core/deciding.ts`, pure): the flow's whose file or step holds (`flowIdOf`). `holdGroups`
+  reads a run's holds into the decisions its day needs, one a flow that *leads*: a hold leads where no file or step
+  its own is built from holds too. Any other hold *follows*, and goes with the flow that leads above it: on the
+  tour's Fri Feb 16 the check at Applications' `app_owners` fails because HR's file broke, so it is HR organisation's
+  decision, and Applications is never asked.
+- **Recorded.** A day is still one choice, recorded as one decision a held load (ADR 0010 §7, Q-193). Each now says
+  the flow whose file or step holds its load, by its id and the hash it is known by (`DecideAbout.flow`), where that
+  is a flow the document reads; a decision of the document's own flow says none, so a flow that reads none records
+  what it always did. A load held only because something it is built from holds is decided with it: its decision
+  cites the one it carries, by seq and leaf (`DecideAbout.carried`). The loads that lead are recorded first
+  (`loadRoles`, `withRoles`; the app's `decideNow`; the build's recorder, `recordDecisions`). On the tour's Sat Mar 23
+  the empty EDR file's decision is Evidence feeds'; the posture's own load, the estate's, carries it.
+- **Said**, wherever a decision is:
+  - the decision sheet's head: *Evidence feeds’ to decide: access_reviews holds. Larkspur estate waits on it.*
+    (`whoseSaid`, `waitingOn`; the app's `whoseLine`);
+  - the Decide buttons, where the flow on screen isn't the one that holds: *Decide at Evidence feeds ›* (`decideAt`);
+  - the day's story and the month's timeline: *At Evidence feeds, the CISO filled it from Sun 24*;
+  - the record: *… · Evidence feeds’ to decide*, and *· with #41* on a decision that carries another;
+  - a flow's sheet: **Decide ›** on the flow that holds; on one that only waits, that nothing is asked of it.
+- **Checked offline** (`audit.ts`): a decision that names a flow names the one whose file or step holds its load, by
+  the hash the run's document knows it by; one that says it carries another cites an earlier decision of the same
+  run, to the same end, about the load its own follows. Each line of the audit says whose the decision was.
+  `layered` (month.ts) renumbers the decision a carried one cites, as it does every other citation.
+- **Tests**: `test/deciding.test.ts`; the layering in `test/month.test.ts`; the audit in `test/several.test.ts`; the
+  tour's answer key holds every recorded decision to its flow (`test/larkspur-tour.test.ts`).
+
+**What it leaves:** where two flows lead on one day, the one choice decides both, each recorded as its own flow's; no
+day of the demos has two. The second step, between pages of one browser that share a flow, comes after the slices
+that build flows from flows: the records already share one IndexedDB and a record's origin names its flow, so a
+reading flow's record will cite the decision it carried by that origin, its seq and its leaf.
+
 ## Consequences
 
 - **A flow's document grows.** The app ships the composed document, so a page still opens one file and needs no parser.

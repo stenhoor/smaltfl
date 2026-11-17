@@ -35,6 +35,7 @@ import { daysBetween } from './calendar.js';
 import { DONOR_WINDOW, levelStray, levelWays, repairDocument, type Repair } from './fill.js';
 import { carry, spare, loadsOf, claimBase, claimHolds, donorGood, factsFromClaims, heldOutputs, holdsOf, inputsKey, isLoad, loadKey, type Load, isClaim2, isLevel, judgeClaims, levelFromHere, publishedDays, sameKeys, standingFor, standingForLoad, type Claim, type DecideAbout, type DerivedAbout, type HeldAbout, type Hold, type Judged, type ReleaseAbout, type RunHold } from './hold.js';
 import { canonicalJSON } from './canonical.js';
+import { loadRoles } from './deciding.js';
 import { consistencyProof, entryLeaf, parseCheckpoint, rootOf, verifyCheckpoint, verifyConsistency, verifyInclusion, verifyRecord, type JSONValue, type LogEntry, type SignedCheckpoint } from './log.js';
 import { manifestHash, planHash, policiesHash, type IdentityCard, type RunManifest } from './manifest.js';
 import { flowHash, planPeriod, watchesOf, type FlowPlan } from './plan.js';
@@ -482,6 +483,23 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
       rule = may.rule ?? null;
     }
     if (a.option === 'asis' && (typeof e.reason !== 'string' || e.reason.trim() === '')) problems.push('it publishes as is with no reason');
+    // In a flow that reads flows (ADR 0025 §6): the flow a decision says it is about is the one whose file or step
+    // holds its load, by the hash the run's document knows it by; a decision it says it carries is an earlier one of
+    // the same run, to the same end, about the load its own follows.
+    if (a.flow !== undefined || a.carried !== undefined) {
+      const role = doc && isLoad(a.load) && Array.isArray(heldAbout?.holds) ? loadRoles(doc, heldAbout.holds).get(loadKey(a.load)) : undefined;
+      if (!role) problems.push(`it names ${a.flow !== undefined ? 'a flow' : 'a decision it carries'}, and its load isn't one a flow's file or step holds`);
+      else {
+        if (a.flow !== undefined && canonicalJSON(a.flow) !== canonicalJSON(role.flow ?? null)) problems.push(role.flow ? `it says it is ${a.flow.id}'s (${shortHash(a.flow.hash)}), and its load is held by ${role.flow.id} (${shortHash(role.flow.hash)})` : `it says it is ${a.flow.id}'s, and its load is held by the flow's own file or step`);
+        if (a.carried !== undefined) {
+          const led = entries[a.carried.seq];
+          const was = led?.about as unknown as DecideAbout | undefined;
+          if (!role.follows) problems.push(`it carries #${a.carried.seq}, and its own hold leads: nothing it is built from holds`);
+          else if (!led || led.kind !== 'decide' || led.seq >= e.seq || entryLeaf(led) !== a.carried.leaf) problems.push(`it carries #${a.carried.seq}, which isn't a decision before it with that leaf`);
+          else if (was?.manifest !== a.manifest || was.option !== a.option || !isLoad(was.load) || loadKey(was.load) !== loadKey(role.follows)) problems.push(`it carries #${a.carried.seq}, which isn't the decision of ${role.follows.source}'s load it follows, to the same end`);
+        }
+      }
+    }
     // Accept the new level (amendment 1 S6, C6): a reason and the level it records; under a standing level, the Accept it
     // applies, earlier and released, of the same source and metrics, starting before the day, and a day held by its story
     // alone (a check, or a source not judged, pauses the day again).
@@ -520,7 +538,7 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
     }
     allowed.set(e.seq, problems.length === 0);
     const option = a.option === 'accept' ? (a.under !== undefined ? `publish by #${a.under}'s new level` : `accept the new level from ${isLevel(a.level) ? a.level.from : 'the day'}`) : a.option === 'asis' ? 'publish as is' : a.option === 'fill' ? `fill from ${(a.repair as Repair | undefined)?.donor?.day ?? 'another day'}` : a.option === 'complete' ? 'publish the part that arrived' : e.amends !== null && remedyOf(entries[e.amends]) ? "don't publish (withdraws the fill)" : "don't publish";
-    say(problems.length === 0, `${where}: ${option}${a.scope === 'untilPass' ? ' until a later day passes' : ''} for ${a.day ?? `run ${a.run}`}, by ${e.by.as}${a.under !== undefined ? `, under #${a.under}` : ''}${problems.length ? `: ${problems.join('; ')}` : `${rule ? ` (rule ${rule})` : ''}, on run ${a.run}'s keys${a.option === 'accept' && a.under !== undefined && !trust.history ? "; not checked against the level's metrics: --history tells its day again to check it" : ''}`}`);
+    say(problems.length === 0, `${where}: ${option}${a.scope === 'untilPass' ? ' until a later day passes' : ''} for ${a.day ?? `run ${a.run}`}, by ${e.by.as}${a.under !== undefined ? `, under #${a.under}` : ''}${isRecord(a.flow) && typeof a.flow.id === 'string' ? `, ${a.flow.id}'s to decide` : ''}${isRecord(a.carried) && Number.isInteger(a.carried.seq) ? `, with #${a.carried.seq}` : ''}${problems.length ? `: ${problems.join('; ')}` : `${rule ? ` (rule ${rule})` : ''}, on run ${a.run}'s keys${a.option === 'accept' && a.under !== undefined && !trust.history ? "; not checked against the level's metrics: --history tells its day again to check it" : ''}`}`);
   }
 
   /**

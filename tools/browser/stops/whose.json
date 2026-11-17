@@ -1,0 +1,156 @@
+[
+  {
+    "name": "whose-top",
+    "what": "A held day is decided at the flow that holds (ADR 0025 §6): at the top, where the estate only waits, the day's Decide button says where the decision is made",
+    "day": "Wed 27",
+    "in": "",
+    "expect": {
+      "state": "held",
+      "textIn": {
+        "#loads .vf-decide-day": [
+          "Decide at Evidence feeds ›"
+        ]
+      },
+      "count": {
+        "#loads .vf-decide-day": 1
+      }
+    }
+  },
+  {
+    "name": "whose-sheet",
+    "what": "The decision sheet says whose it is before anything else: the flow whose file holds, what of it holds, and the flow that waits on it",
+    "day": "Wed 27",
+    "in": "",
+    "click": "#loads .vf-decide-day",
+    "waitFor": ".vf-detail .vf-whose",
+    "element": ".vf-detail",
+    "expect": {
+      "textIn": {
+        ".vf-detail .vf-whose": [
+          "Evidence feeds’ to decide: access_reviews holds. Larkspur estate waits on it."
+        ]
+      },
+      "count": {
+        ".vf-detail .vf-whose": 1,
+        ".vf-detail .vf-option": 3
+      }
+    }
+  },
+  {
+    "name": "whose-inside",
+    "what": "Inside the flow that holds, the button is its own: Decide",
+    "day": "Wed 27",
+    "in": "feeds",
+    "expect": {
+      "textIn": {
+        "#loads .vf-decide-day": [
+          "Decide ›"
+        ],
+        "#crumbs": [
+          "Evidence feeds",
+          "Paused · access_reviews, 1 of 13 files"
+        ]
+      },
+      "noTextIn": {
+        "#loads .vf-decide-day": [
+          "at Evidence feeds"
+        ]
+      }
+    }
+  },
+  {
+    "name": "whose-flow-sheet",
+    "what": "The flow that holds has Decide on its sheet, beside the way into it; the sheet it opens is the same decision",
+    "day": "Wed 27",
+    "in": "",
+    "flow": "feeds",
+    "click": "#sheet .fl-decide",
+    "waitFor": ".vf-detail .vf-whose",
+    "element": ".vf-detail",
+    "expect": {
+      "textIn": {
+        ".vf-detail .vf-whose": [
+          "Evidence feeds’ to decide: access_reviews holds."
+        ]
+      },
+      "count": {
+        "#sheet .fl-decide": 1
+      }
+    }
+  },
+  {
+    "name": "whose-decided",
+    "what": "The day decided at Evidence feeds: one choice, recorded as the file's decision, Evidence feeds', and the posture's own load carrying it; the record says whose each was, and no release is refused",
+    "day": "Wed 27",
+    "in": "",
+    "clicks": [
+      "#loads .vf-decide-day",
+      ".vf-option[data-option=dont]",
+      ".vf-go"
+    ],
+    "view": "runs",
+    "element": "#record",
+    "expect": {
+      "textIn": {
+        "#record": [
+          "Evidence feeds’ to decide",
+          "· with #"
+        ]
+      },
+      "noTextIn": {
+        "#record": [
+          "refused"
+        ]
+      }
+    }
+  },
+  {
+    "name": "whose-recorded",
+    "what": "A day the story decided: the empty EDR file was Evidence feeds' to decide, and the day's story, opened, says where it was decided",
+    "day": "Sat 23",
+    "in": "",
+    "click": "#loads .dh-story summary",
+    "element": "#loads",
+    "expect": {
+      "textIn": {
+        "#loads": [
+          "decided at Evidence feeds"
+        ]
+      },
+      "count": {
+        "#loads .vf-decide-day": 0
+      }
+    }
+  },
+  {
+    "name": "whose-month",
+    "what": "The month's day picked says the same in its timeline: at Evidence feeds, who filled it and from which day",
+    "view": "month",
+    "viewFirst": true,
+    "click": "#view-month .mo-d[data-day=\"2024-03-23\"]",
+    "element": "#view-month .mo-sum",
+    "expect": {
+      "textIn": {
+        "#view-month .mo-sum": [
+          "At Evidence feeds,",
+          "filled it from Sun Mar 24"
+        ]
+      }
+    }
+  },
+  {
+    "name": "whose-dark",
+    "what": "The sheet's head in the dark scheme, in a fresh browser where the day waits again",
+    "day": "Wed 27",
+    "scheme": "dark",
+    "in": "",
+    "click": "#loads .vf-decide-day",
+    "waitFor": ".vf-detail .vf-whose",
+    "element": ".vf-detail",
+    "expect": {
+      "count": {
+        ".vf-detail .vf-whose": 1
+      }
+    }
+  }
+]

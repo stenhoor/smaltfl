@@ -32,7 +32,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { LogEntry } from '../src/core/log.js';
+import { entryLeaf, type LogEntry } from '../src/core/log.js';
 import type { MonthFile } from '../src/core/month.js';
 import { addDays, daysFrom, LARKSPUR_TO, LARKSPUR_TOUR_DAYS, LARKSPUR_TOUR_FROM } from './fixtures/larkspur.js';
 
@@ -168,6 +168,25 @@ describe('the tour’s two months, as the demo records them (ADR 0023 §3, amend
     expect(more).toEqual([]);
     expect(about(ca!).outcome).toBe('ok');
     expect(claimOf(ca!, 'platform_impact')!.head).toMatch(/ca-int-2/);
+  });
+
+  it('records whose each decision is: the flow whose file held the day, the loads held with it carrying its decision (ADR 0025 §6)', () => {
+    // A day's decisions as `load:flow`, the flow whose file or step held it (`own` the estate's), with the decision a
+    // load that only followed carries.
+    const whose = (day: string) => decisionsOf(day).map((e) => `${about(e).load?.source}:${about(e).flow?.id ?? 'own'}${about(e).carried ? ` with #${about(e).carried.seq}` : ''}`);
+    // The units' file, sent again: HR organisation's to decide, and no one else is asked.
+    expect(whose(D.dissolve)).toEqual(['hr_org_units:hr']);
+    // The MFA export, kept back and then sent again: Evidence feeds', both times.
+    expect(whose(D.empty)).toEqual(['mfa:feeds', 'mfa:feeds']);
+    // The empty EDR file is Evidence feeds'; the posture's own load, the estate's, was held only because the file was,
+    // and carries the file's decision by its entry and its leaf.
+    const weekend = decisionsOf(D.weekend);
+    expect(whose(D.weekend)).toEqual(['edr_coverage:feeds', `posture_wide:own with #${weekend[0]!.seq}`]);
+    expect(about(weekend[1]!).carried.leaf).toBe(entryLeaf(weekend[0]!));
+    expect(about(weekend[0]!).flow.hash).toMatch(/^[0-9a-f]{64}$/);
+    // Every decision of the two months names a flow the estate reads, or carries one that does: the estate's own
+    // files and steps led no held day.
+    for (const d of month.entries.filter((e) => e.kind === 'decide')) expect(about(d).flow?.id ?? (about(d).carried ? 'carried' : 'own')).not.toBe('own');
   });
 
   it('publishes every other day as it arrived', () => {

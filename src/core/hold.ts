@@ -1060,6 +1060,17 @@ export interface DecideAbout {
    * for a fill, the derived run's keys as evidence): one decision a load, applied to every run that carries it.
    */
   load?: Load;
+  /**
+   * In a flow that reads flows (ADR 0025 §6): the flow whose file or step holds, by its id and the hash it is known
+   * by, where that is a flow the document reads. A hold is that flow's, and so is the decision. None for the
+   * document's own flow, so a flow that reads none records what it always did.
+   */
+  flow?: { id: string; hash: string };
+  /**
+   * The decision it carries (ADR 0025 §6): a load held only because a file or step it is built from holds is decided
+   * by that one's decision, cited here by its entry's seq and its log/1 leaf. A reading flow is never asked.
+   */
+  carried?: { seq: number; leaf: string };
 }
 
 /** A release's record entry (`release`), citing the decision it applies. */
@@ -1153,7 +1164,9 @@ function isDecide(a: unknown): a is DecideAbout {
   return isRecord(a) && isInputs(a.inputs) && isKeys(a.outputs) && (DECIDE_OPTIONS as readonly unknown[]).includes(a.option) && (a.scope === 'day' || a.scope === 'untilPass')
     && (a.day === null || typeof a.day === 'string') && (a.under === undefined || Number.isInteger(a.under))
     && ((a.option !== 'fill' && a.option !== 'complete') || isRecord(a.repair))
-    && (a.option !== 'accept' || isLevel(a.level));
+    && (a.option !== 'accept' || isLevel(a.level))
+    && (a.flow === undefined || (isRecord(a.flow) && typeof a.flow.id === 'string' && typeof a.flow.hash === 'string'))
+    && (a.carried === undefined || (isRecord(a.carried) && Number.isInteger(a.carried.seq) && typeof a.carried.leaf === 'string'));
 }
 
 /** Whether a value is a decision's level: its source, the day it starts and the metrics it names. */

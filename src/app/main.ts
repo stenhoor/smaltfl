@@ -18,6 +18,7 @@ import { applyEdit, changesOn, inForce, resolve as resolveRules, ruleParts, rule
 import { diffSaid, ruleVersions, rulesDiff, versionKey, versionOn, type RuleVersion } from '../core/ruleversions.js';
 import { flowOf, givesOf, GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
 import { notebookSectionId } from '../core/notebook.js';
+import { holdGroups, possessive, waitingOn, whoseSaid, withRoles } from '../core/deciding.js';
 import { cardFlow, flowCard, flowDay, flowHas, flowLine, flowSaid, givenBy, levelDoc, readersOfFlow, readHere, trailOf, type FlowDay, type RunSaid } from '../core/levels.js';
 import { flowMonthOutcome, flowOff, flowRows, flowRowSaid, onlyFollowed, onlyWaited, scopeFlows, scopeNodes, tierRows, type FlowRow } from '../core/tiers.js';
 import { lookOf, sceneHash, type SceneLook, type ScenesFile } from '../core/scenes.js';
@@ -2561,7 +2562,9 @@ function renderFlowSheet(id: string): void {
   };
   const block = (title: string, ...rows: (HTMLElement | null)[]) => h('section', { class: 'fl-block' }, h('h3', {}, title), h('div', { class: 'fl-rows' }, ...rows.filter((x): x is HTMLElement => !!x)));
   const holds = d.holding.length ? block(d.outcome === 'waiting' ? 'What holds it' : 'What held it', ...d.holding.map((x) => inside(x.id, x.id, x.said))) : null;
-  const waits = d.waitsOn.length ? block(d.outcome === 'waits' ? 'It waits on' : 'It followed', ...d.waitsOn.map((f) => (f === '' ? h('p', { class: 'fl-note' }, `${state.doc.name}, the flow that reads it`) : flowRow(f)))) : null;
+  // A flow that only waits is never asked (ADR 0025 §6): the day is decided at the flow that holds.
+  const waits = d.waitsOn.length ? block(d.outcome === 'waits' ? 'It waits on' : 'It followed', ...d.waitsOn.map((f) => (f === '' ? h('p', { class: 'fl-note' }, `${state.doc.name}, the flow that reads it`) : flowRow(f))),
+    d.outcome === 'waits' ? h('p', { class: 'fl-note fl-asked' }, 'Nothing is asked of it: the day is decided where it holds.') : null) : null;
   const look = !d.holding.length && (d.unusual.length || d.unjudged.length)
     ? block(d.unusual.length ? 'Unusual today' : 'Not judged yet', ...(d.unusual.length ? d.unusual : d.unjudged).map((x) => inside(x, x, d.unusual.length ? cardLine(x).text : 'nothing to compare it with yet')))
     : null;
@@ -2596,6 +2599,12 @@ function renderFlowSheet(id: string): void {
         h('span', { class: 'fl-row-name' }, src), h('span', { class: 'fl-row-said' }, 'its file isn’t the one its list names'), h('span', { class: 'fl-row-go', 'aria-hidden': 'true' }, '›'))))
     : null;
   const open = h('button', { type: 'button', class: 'btn show fl-open', onclick: () => enterFlow(id) }, 'Open the flow ›');
+  // The hold is this flow's, and so is the decision (ADR 0025 §6): made from its sheet, by whoever may decide.
+  const own = onScreen();
+  const held = viewedDay();
+  const decideHere = d.outcome === 'waiting' && own && held && !supersededBy(own) && (['asis', 'dont'] as const).some((o) => checkDecision(policies(), state.viewer, o).allowed)
+    ? h('button', { type: 'button', class: 'btn primary fl-decide', 'aria-label': `Decide what readers get for ${dayMid(held)}`, onclick: () => decisionSheet(own, storyFor(held)) }, 'Decide ›')
+    : null;
   // Its own month (ADR 0025 §5): its calendar, its counts and its rows, where the flow has days.
   const way = readHere(state.doc, levelAt()).some((f) => f.id === id) ? [...state.level, id] : trailOf(state.doc, [id]);
   const itsMonth = loads.list.length > 1 && way.length
@@ -2608,7 +2617,7 @@ function renderFlowSheet(id: string): void {
       h('button', { class: 'close', type: 'button', 'aria-label': 'Close', onclick: () => select(null) }, '×')),
     h('div', { class: 'sheet-body fl-sheet' },
       h('div', { class: `fl-day fo-${d.outcome}`, role: 'status' }, flowMarkEl(d, 18), h('p', {}, flowSaid(state.doc, d, flowName))),
-      h('div', { class: 'row' }, open, itsMonth),
+      h('div', { class: 'row' }, decideHere, open, itsMonth),
       integrityPart, holds, waits, look, reads, gives,
       h('p', { class: 'foot fl-known' }, `${flowHas(d)[0]!.toUpperCase()}${flowHas(d).slice(1)} of its own. `, seal === 'ok' ? 'Its files are sealed: each matches the data’s list, as the engine hashed it. ' : '', readers.length ? `Read by ${readers.map(flowName).join(', ')}. ` : '', 'Known by ', h('code', { title: part.hash }, short(part.hash)), ': the same flow, with the same hash, wherever it is read.')),
   );
@@ -7853,7 +7862,7 @@ function pauseBanner(): HTMLElement | null {
   return h('div', { class: 'pause-top', role: 'status' },
     glyphEl('held', 15),
     h('span', { class: 'pt-t' }, h('b', {}, ...unbroken(l.text)), why ? h('span', { class: 'pt-why' }, why) : null),
-    l.verb ? h('button', { type: 'button', class: 'btn small primary vf-decide', 'aria-label': `Decide what readers get for ${dayMid(day)}`, onclick: () => decisionSheet(own, storyFor(day)) }, `${l.verb} ›`)
+    l.verb ? h('button', { type: 'button', class: 'btn small primary vf-decide', 'aria-label': `Decide what readers get for ${dayMid(day)}`, onclick: () => decisionSheet(own, storyFor(day)) }, `${l.verb}${decideAt(own)} ›`)
       : h('span', { class: 'pt-waits' }, `Waits on ${deciders()}`));
 }
 
@@ -7895,6 +7904,34 @@ function askPanel(r: RunRecord, el: HTMLElement): void {
       h('a', { class: 'btn small quiet', href: `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}` }, 'Email it'),
       h('button', { type: 'button', class: 'btn small quiet', onclick: () => panel.remove() }, 'Cancel')));
   el.append(panel);
+}
+
+/** The outputs a run's holds keep back: those that wait, and once decided those that waited when it was held. */
+function keptBackOf(r: RunRecord): string[] {
+  return [...new Set([...r.result.waiting, ...(pauseOf(r)?.pause?.waiting ?? [])])];
+}
+
+/**
+ * Whose decision a held run is, as a line at the head of its sheet (ADR 0025 §6): the flow whose file or step holds,
+ * what of it holds, and the flows that wait on it. A line a flow where more than one leads. Null in a flow that reads
+ * none: there is no one else it could be.
+ */
+function whoseLine(r: RunRecord): HTMLElement | null {
+  if (!state.doc.flows?.length) return null;
+  const held = keptBackOf(r);
+  const lines = holdGroups(state.doc, r.result.holds)
+    .map((g) => whoseSaid(state.doc, g, waitingOn(state.doc, g, held, (f) => givesOf(state.doc, f || undefined)), flowName))
+    .filter((x): x is string => !!x);
+  return lines.length ? h('p', { class: 'vf-whose' }, ...lines.flatMap((l, i): Child[] => (i ? [h('br'), l] : [l]))) : null;
+}
+
+/** Where a held run is decided, after the verb on a button, where that isn't the flow on screen (ADR 0025 §6):
+ * " at Evidence feeds". Nothing where the flow on screen holds, where more than one flow leads, or in a flow that reads
+ * none. */
+function decideAt(r: RunRecord | undefined): string {
+  if (!r || !state.doc.flows?.length) return '';
+  const groups = holdGroups(state.doc, r.result.holds);
+  return groups.length === 1 && groups[0]!.flow !== (levelAt() ?? '') ? ` at ${flowName(groups[0]!.flow)}` : '';
 }
 
 /**
@@ -8127,7 +8164,7 @@ function decisionSheet(shown0: RunRecord, story: Story | null): void {
       receiptBox(l, st, entry.seq, `${(derived ?? r).result.hash.slice(0, 4)} ${(derived ?? r).result.hash.slice(4, 8)}`, l.change && anyone ? () => decisionSheet(r, story) : null, day, l.versions && day ? () => versionsSheet(day) : null));
     headMark.replaceWith(glyphEl(PAUSE_MARK[st], 16));
   };
-  openDetail(t.title, 'ok', [status, recEl, ask, rowsEl, replaceRow, why, scopes, foot]);
+  openDetail(t.title, 'ok', [whoseLine(r), status, recEl, ask, rowsEl, replaceRow, why, scopes, foot]);
   document.querySelector('.vf-detail')?.classList.toggle('readonly', !anyone);
   document.querySelector('.vf-detail .vf-dhead h3')?.prepend(headMark);
   sync();
@@ -13232,7 +13269,7 @@ function storyOfDay(day: string): HTMLElement | null {
       if (key === same) continue;
       same = key;
       const v = versionOf(d?.manifest);
-      lines.push(li(e, `${who} decided${v ? ` version ${v}` : ''}: ${d?.option === 'dont' ? 'kept back' : d?.option === 'asis' && v && v > 1 ? 'published' : d?.option ? (DECIDED_WORD[d.option as DayState] ?? d.option) : 'something'}${e.reason ? ` (“${e.reason}”)` : ''}.`));
+      lines.push(li(e, `${who} decided${v ? ` version ${v}` : ''}${d?.flow?.id ? ` at ${flowName(d.flow.id)}` : ''}: ${d?.option === 'dont' ? 'kept back' : d?.option === 'asis' && v && v > 1 ? 'published' : d?.option ? (DECIDED_WORD[d.option as DayState] ?? d.option) : 'something'}${e.reason ? ` (“${e.reason}”)` : ''}.`));
       continue;
     }
     same = '';
@@ -13341,7 +13378,9 @@ function dayTimeline(day: string, at: string | null, subject: (origin: string) =
       const donor = d.repair?.donor?.day;
       const said = d.option === 'fill' && donor ? `filled it from ${dayLabel(donor)}` : d.option === 'asis' && sentAgain ? 'published the version sent again' : DECISION_SAID[d.option];
       const after = heldAt && e.at > heldAt ? `, ${afterLabel((Date.parse(e.at) - Date.parse(heldAt)) / 60000)} it was held` : '';
-      out.push({ at: e.at, text: `${whoSaid(e.by.as)} ${said}${after}.`, why: e.reason, cls: d.option === 'dont' ? '' : 'ok' });
+      // Whose decision it was (ADR 0025 §6): the flow whose file or step held the day.
+      const who = whoSaid(e.by.as);
+      out.push({ at: e.at, text: d.flow?.id ? `At ${flowName(d.flow.id)}, ${who.replace(/^The /, 'the ')} ${said}${after}.` : `${who} ${said}${after}.`, why: e.reason, cls: d.option === 'dont' ? '' : 'ok' });
       continue;
     }
     same = '';
@@ -13994,7 +14033,7 @@ function renderLoads(): void {
       own && held && held.state !== 'waiting' && !replacedBy ? receiptOf(own, may) : null,
       after ? h('p', { class: `loads-pause after${waitingDay ? ' waiting' : ''}` }, h('b', {}, afterParts(after))) : null,
       h('div', { class: 'loads-acts' },
-        pl?.verb && own && !replacedBy ? h('button', { type: 'button', class: 'btn small primary vf-decide-day', 'aria-label': `Decide what readers get for ${dayMid(now!.day)}`, onclick: () => decisionSheet(own, storyFor(now!.day)) }, `${pl.verb} ›`) : null,
+        pl?.verb && own && !replacedBy ? h('button', { type: 'button', class: 'btn small primary vf-decide-day', 'aria-label': `Decide what readers get for ${dayMid(now!.day)}`, onclick: () => decisionSheet(own, storyFor(now!.day)) }, `${pl.verb}${decideAt(own)} ›`) : null,
         waitingDay && after?.verb ? h('button', { type: 'button', class: 'btn small primary vf-decide-day', 'aria-label': `Decide what readers get for ${dayMid(waitingDay)}`, onclick: () => decideDay(waitingDay) }, `${after.verb} ›`) : null,
         lens && top && visible(src!) ? h('button', { type: 'button', class: 'btn small', onclick: () => openTab(lens, 'news') }, 'The news ›') : null)),
     (now ? storyOfDay(now.day) : null) ?? '');
@@ -15786,7 +15825,7 @@ async function applyDecided(r: RunRecord): Promise<void> {
         if (standing?.about.option !== 'dont') continue;
         const may = checkDecision(policies(), standing.by, 'dont');
         if (!may.allowed) continue;
-        const [d] = loadDecisions({ run: r.result.run, manifest: r.result.hash, inputs, loads: [l], option: 'dont', scope: 'day', policies: await policiesHash(policies() ?? null), rule: may.rule ?? null });
+        const [d] = withRoles(state.doc, r.result.holds, loadDecisions({ run: r.result.run, manifest: r.result.hash, inputs, loads: [l], option: 'dont', scope: 'day', policies: await policiesHash(policies() ?? null), rule: may.rule ?? null })).map((x) => x.about);
         await ledger.append('decide', standing.by, { ...d, under: standing.seq } as unknown as JSONValue, standing.reason);
       }
       return;
@@ -15939,10 +15978,16 @@ async function decideNow(target: RunRecord | string, option: DecisionOption, sco
   const held0 = heldLoadsOf(r.result.holds);
   const held = filling ? [...held0.filter((l) => l.source.toLowerCase() === filling), ...held0.filter((l) => l.source.toLowerCase() !== filling)] : held0;
   const cited: RecordEntry[] = [];
-  for (const d of held.length ? loadDecisions({ run: r.result.run, manifest: r.result.hash, inputs: about.inputs, loads: held, option, scope: about.scope, policies: about.policies, rule: about.rule, level }) : []) {
+  // Each says whose it is (ADR 0025 §6): the flow whose file or step holds its load; the loads that lead first, then
+  // those held only because one of those is, each citing the decision it carries.
+  const recorded = new Map<string, RecordEntry>();
+  for (const { about: d, follows } of withRoles(state.doc, r.result.holds, held.length ? loadDecisions({ run: r.result.run, manifest: r.result.hash, inputs: about.inputs, loads: held, option, scope: about.scope, policies: about.policies, rule: about.rule, level }) : [])) {
     const lp = pauseByInputs(`load:${loadKey(d.load!)}`);
     const remedyOf = about.repair ? { repair: about.repair, derived: about.derived } : {};
-    cited.push(await ledger.append('decide', state.viewer, { ...d, ...remedyOf } as unknown as JSONValue, reason?.trim() || null, lp?.decision?.seq ?? null));
+    const led = follows ? recorded.get(loadKey(follows)) : undefined;
+    const e = await ledger.append('decide', state.viewer, { ...d, ...remedyOf, ...(led ? { carried: { seq: led.seq, leaf: entryLeaf(led) } } : {}) } as unknown as JSONValue, reason?.trim() || null, lp?.decision?.seq ?? null);
+    cited.push(e);
+    recorded.set(loadKey(d.load!), e);
   }
   const entry = cited[0] ?? (await ledger.append('decide', state.viewer, about as unknown as JSONValue, reason?.trim() || null, p?.decision?.seq ?? null));
   let refused: string | null = null;
@@ -16664,6 +16709,34 @@ function heldNow(a: Record<string, unknown>): DayState | null {
 /** A run a record entry names, as the screens name runs: by the entry that recorded it ("run #13"). */
 const runSaid = (a: Record<string, unknown>) => `run ${runNameOf(typeof a.manifest === 'string' ? a.manifest : undefined, a.run)}`;
 
+/** Whose a decision is, after its line in the record (ADR 0025 §6): the flow whose file or step held its load, and,
+ * for a load held only because another was, the decision it carries. */
+const decidedWhose = (a: Record<string, unknown>): string => {
+  const flow = a.flow as { id?: unknown } | undefined;
+  const carried = a.carried as { seq?: unknown } | undefined;
+  return `${typeof flow?.id === 'string' ? ` · ${possessive(flowName(flow.id))} to decide` : ''}${typeof carried?.seq === 'number' ? ` · with #${carried.seq}` : ''}`;
+};
+
+/** A decision's line in the record. */
+function decideSaid({ about: a, reason, amends }: { about: Record<string, unknown>; reason: string | null; amends?: number | null }, _ctx: RecordContext): string {
+    const day = a.day ? dayMid(String(a.day)) : runSaid(a);
+    // A remedy (amendment 1 S12): "Thu Sep 21 filled from Thu 14", "Tue Nov 15 filled from Tue 1, by #22’s rule",
+    // "Thu Sep 21 refilled from Wed 20 · amends #22"; a withdrawal, "Thu Sep 21 fill withdrawn · amends #22".
+    const repair = a.repair as Repair | undefined;
+    const was = amends !== null && amends !== undefined ? (ledger?.entries[amends]?.about as { option?: string } | undefined)?.option : undefined;
+    // The part names the source's column and value: to someone it is closed to, only that it was the part (#6).
+    const remedy = repair ? (repair.kind === 'fill' && repair.donor ? `${was === 'fill' ? 'refilled' : 'filled'} from ${dayShort(repair.donor.day)}` : sourceOpen() ? `published ${remedyPart(repair.missing, a.day ? storyFor(String(a.day))?.split?.name : undefined).replace(/^(Before|Without|From) /, (m) => m.toLowerCase())}` : 'published with the part that arrived') : null;
+    // Accept the new level (amendment 1 S6): "Mon Nov 14: new level from Mon 14 · decision #24"; a later day under it,
+    // "Tue Nov 15 published, by #24’s new level".
+    const level = a.level as { from?: string } | undefined;
+    if (a.option === 'accept' && typeof a.under === 'number') return `${day} published, by #${a.under}’s new level`;
+    if (a.option === 'accept') return `${day}: new level from ${level?.from ? dayShort(level.from) : 'the day'}${reason ? ` (${reason})` : ''}`;
+    if (typeof a.under === 'number') return `${day} ${remedy ?? 'not published'}, by #${a.under}’s rule`;
+    if (remedy) return `${day} ${remedy}${a.scope === 'untilPass' ? ', and later days until one passes' : ''}${amends !== null && amends !== undefined ? ` · amends #${amends}` : ''}`;
+    if (a.option === 'dont' && (was === 'fill' || was === 'complete')) return `${day} ${was === 'fill' ? 'fill' : 'part'} withdrawn · amends #${amends}${reason ? ` (${reason})` : ''}`;
+    return `Decided ${day}: ${a.option === 'asis' ? 'publish as is' : `don’t publish${a.scope === 'untilPass' ? `, ${UNTIL}` : ''}`}${reason ? ` (${reason})` : ''}`;
+}
+
 const KIND_WORD: Record<string, (e: { seq: number; about: Record<string, unknown>; by: { as: string }; reason: string | null; amends?: number | null }, ctx: RecordContext) => string> = {
   // A run is named by its own entry (the line's number), as the Runs view names it.
   run: ({ seq, about: a }, ctx) => {
@@ -16694,24 +16767,7 @@ const KIND_WORD: Record<string, (e: { seq: number; about: Record<string, unknown
     return `Held ${day ?? 'the flow'}: ${plural(waiting, 'output')} waiting`;
   },
   // A day closed under a standing decision is the decision's rule at work, not a person deciding again.
-  decide: ({ about: a, reason, amends }) => {
-    const day = a.day ? dayMid(String(a.day)) : runSaid(a);
-    // A remedy (amendment 1 S12): "Thu Sep 21 filled from Thu 14", "Tue Nov 15 filled from Tue 1, by #22’s rule",
-    // "Thu Sep 21 refilled from Wed 20 · amends #22"; a withdrawal, "Thu Sep 21 fill withdrawn · amends #22".
-    const repair = a.repair as Repair | undefined;
-    const was = amends !== null && amends !== undefined ? (ledger?.entries[amends]?.about as { option?: string } | undefined)?.option : undefined;
-    // The part names the source's column and value: to someone it is closed to, only that it was the part (#6).
-    const remedy = repair ? (repair.kind === 'fill' && repair.donor ? `${was === 'fill' ? 'refilled' : 'filled'} from ${dayShort(repair.donor.day)}` : sourceOpen() ? `published ${remedyPart(repair.missing, a.day ? storyFor(String(a.day))?.split?.name : undefined).replace(/^(Before|Without|From) /, (m) => m.toLowerCase())}` : 'published with the part that arrived') : null;
-    // Accept the new level (amendment 1 S6): "Mon Nov 14: new level from Mon 14 · decision #24"; a later day under it,
-    // "Tue Nov 15 published, by #24’s new level".
-    const level = a.level as { from?: string } | undefined;
-    if (a.option === 'accept' && typeof a.under === 'number') return `${day} published, by #${a.under}’s new level`;
-    if (a.option === 'accept') return `${day}: new level from ${level?.from ? dayShort(level.from) : 'the day'}${reason ? ` (${reason})` : ''}`;
-    if (typeof a.under === 'number') return `${day} ${remedy ?? 'not published'}, by #${a.under}’s rule`;
-    if (remedy) return `${day} ${remedy}${a.scope === 'untilPass' ? ', and later days until one passes' : ''}${amends !== null && amends !== undefined ? ` · amends #${amends}` : ''}`;
-    if (a.option === 'dont' && (was === 'fill' || was === 'complete')) return `${day} ${was === 'fill' ? 'fill' : 'part'} withdrawn · amends #${amends}${reason ? ` (${reason})` : ''}`;
-    return `Decided ${day}: ${a.option === 'asis' ? 'publish as is' : `don’t publish${a.scope === 'untilPass' ? `, ${UNTIL}` : ''}`}${reason ? ` (${reason})` : ''}`;
-  },
+  decide: (e, ctx) => `${decideSaid(e, ctx)}${decidedWhose(e.about)}`,
   release: ({ seq, about: a }, ctx) => {
     if (a.outcome !== 'applied') return `A release of ${runSaid(a)} was refused: ${String(a.why ?? '')}`;
     // The outputs whose version it changed: those its run held back, as the cause card and the button counted them.

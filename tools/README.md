@@ -99,6 +99,15 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
 
   Its stops follow one another on one card: a part picked or kept stays while the page is open. It must report
   `problems: none` at every size.
+- `whose.json`: a held day decided at the flow that holds (ADR 0025 §6), on the tour (same build as `overview.json`):
+  - at the top, where the estate only waits, the day's button says where: *Decide at Evidence feeds ›*;
+  - the decision sheet's head: whose it is, what of it holds, and who waits on it;
+  - inside the flow that holds, the button is its own, and its sheet has **Decide ›** too;
+  - a day the story decided, in the day's story and the month's timeline: *At Evidence feeds, …*;
+  - the day decided, and the record's lines saying whose each decision was and which one a following load carries;
+  - the dark scheme.
+
+  It must report `problems: none` at every size.
 - `integrity.json`: integrity in the browser (ADR 0006) on Larkspur (same build as `month.json`), the taxi's suite
   ported. It checks:
   - the first day's files, each sealed;

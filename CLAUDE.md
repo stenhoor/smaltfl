@@ -482,6 +482,15 @@ release (smaltty ADR 0030).
   `xp.kept`; **Keep only**, **As a cell ›** through `xpAsCell`), **How it joins** (`xpJoins`, `xpJoin`; `matchBars` in
   viz.ts) and **Against another day** (`xpDays`, `xpRunOther`, on `rowDiffOf`, which reads any dataset a run built); a
   flow's sheet has **Explore ›** on what it gives; `test/explore.test.ts`, `tools/browser/stops/explore.json`.
+  Slice 5, first step, a decision says whose it is: `src/core/deciding.ts` (in what the data's cache is keyed by: the
+  recorder reads it): a hold is the flow's whose file or step holds (`flowIdOf`); `holdGroups` (a hold leads where
+  nothing it is built from holds too, else follows the flow that leads above it), `loadRoles` and `withRoles` (each
+  held load's decision with its flow, the leaders first), `waitingOn`, `whoseSaid`, `possessive`. A decision by load
+  says its flow where a read flow holds it (`DecideAbout.flow`) and, for a load that only follows, the decision it
+  carries (`DecideAbout.carried`, renumbered by `layered`); the app's `decideNow` and the recorder's `recordDecisions`
+  write them, the audit checks them. The app: `whoseLine` at the head of the decision sheet, `decideAt` on the Decide
+  buttons, the day's story, the month's timeline and the record's line (`decidedWhose`), **Decide ›** on the sheet of
+  the flow that holds; `test/deciding.test.ts`, `tools/browser/stops/whose.json`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -567,8 +576,8 @@ release (smaltty ADR 0030).
   flow reads other flows, each a card on its reader's canvas with its day's mark, entered to see its own flow, rolled
   up into the month, in the slices of its §12: the core and Larkspur cut into five; the canvas in levels; the month in
   tiers; exploring what a flow gives; a paused day decided once, at its flow; a change followed, said and tested on the
-  days recorded; the ontology's overrides; inputs and settings; building in the app; the voice. Slices 1 to 4 are built
-  (its §"As built", which says what each leaves for the slices after it).
+  days recorded; the ontology's overrides; inputs and settings; building in the app; the voice. Slices 1 to 4 are built,
+  and slice 5's first step (its §"As built", which says what each leaves for the slices after it).
 
 ## Rules for this repository
 

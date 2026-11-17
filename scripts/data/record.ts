@@ -59,7 +59,7 @@ import { canonicalJSON } from '../../src/core/canonical.js';
 import { periodOf, watchHistory } from '../../src/core/document.js';
 import { gateChecksOf } from '../../src/core/gates.js';
 import { isHistory, type HistoryFile } from '../../src/core/history.js';
-import { byLoad, heldLoadsOf, heldOutputs, inputsOf, keysForLoads, learnedMeasures, levelsOf, loadClaim, loadDecisions, loadsOf, skipOf, stagedKeys, tailPath, type Claim, type DecideAbout, type HistoryRef, type Hold, type Inputs, type ReleaseAbout } from '../../src/core/hold.js';
+import { byLoad, heldLoadsOf, heldOutputs, inputsOf, keysForLoads, learnedMeasures, levelsOf, loadClaim, loadDecisions, loadKey, loadsOf, skipOf, stagedKeys, tailPath, type Claim, type DecideAbout, type HistoryRef, type Hold, type Inputs, type ReleaseAbout } from '../../src/core/hold.js';
 import { donorIdOf, levelOf, missingFor, repairDocument, type Repair } from '../../src/core/fill.js';
 import type { Story } from '../../src/core/story.js';
 import { entryLeaf, type JSONValue, type LogEntry } from '../../src/core/log.js';
@@ -70,6 +70,7 @@ import { isPublish2, type FlowPlan } from '../../src/core/plan.js';
 import { policiesHash, type RunManifest } from '../../src/core/manifest.js';
 import { checkDecision } from '../../src/core/policy.js';
 import { fillStepOf, type ChangeSet } from '../../src/core/document.js';
+import { withRoles } from '../../src/core/deciding.js';
 import { storyProblems, timelineOf, type StoryFile, type StoryFill, type StoryRestatement } from '../../src/core/timeline.js';
 import { donorBinding, pinnedDdl, type Binding, type DataBindings } from '../../examples/sources.js';
 import { readAsOf } from '../../src/core/ontology.js';
@@ -456,6 +457,22 @@ async function main(): Promise<void> {
      * flow that watches several datasets, Q-193), and, to publish, released in the engine, the release recorded beside it.
      */
     /**
+     * A day's decisions recorded, one a held load, each saying whose it is (ADR 0025 §6): those whose loads lead first,
+     * then those that only follow, each citing the decision it carries. As recorded, in order.
+     */
+    const recordDecisions = (abouts: readonly DecideAbout[], holds: readonly Hold[], day: string, at: string, by: string, reason: string | null): LogEntry[] => {
+      const recorded = new Map<string, LogEntry>();
+      return withRoles(doc, holds, abouts).map(({ about, follows }) => {
+        const led = follows ? recorded.get(loadKey(follows)) : undefined;
+        const full: DecideAbout = led ? { ...about, carried: { seq: led.seq, leaf: entryLeaf(led) } } : about;
+        const e: LogEntry = { smaltflLog: 1, origin, seq: entries.length, kind: 'decide', at, by: { card: null, as: by }, about: full as unknown as JSONValue, reason, amends: null, nonce: nonce(day, entries.length) };
+        entries.push(e);
+        if (about.load) recorded.set(loadKey(about.load), e);
+        return e;
+      });
+    };
+
+    /**
      * A fill of the story (ADR 0023 §5), as the page makes one: the version's own files pinned again, the donor day's
      * file of the source pinned as its donor and judged by its own claim (told as the page tells a donor's, from the
      * history before the donor's day), the missing part the held file's story and claim say (the whole day where its
@@ -536,11 +553,7 @@ async function main(): Promise<void> {
       const abouts: DecideAbout[] = loads.length
         ? loadDecisions({ run: target.run, manifest: target.manifest, inputs: target.inputs, loads, option: 'fill', scope: 'day', policies, rule: may.rule ?? null }).map((x) => ({ ...x, repair, derived }))
         : [{ day, run: target.run, manifest: target.manifest, inputs: target.inputs, outputs: target.keys, option: 'fill', scope: 'day', policies, rule: may.rule ?? null, repair, derived }];
-      const decided = abouts.map((about) => {
-        const e: LogEntry = { smaltflLog: 1, origin, seq: entries.length, kind: 'decide', at, by: { card: null, as: by }, about: about as unknown as JSONValue, reason, amends: null, nonce: nonce(day, entries.length) };
-        entries.push(e);
-        return e;
-      });
+      const decided = recordDecisions(abouts, target.holds, day, at, by, reason);
       const leaf = entryLeaf(decided[0]!);
       const from = { run: target.run, manifest: target.manifest };
       const ofFile = loads.length ? [decided[0]!] : [];
@@ -592,11 +605,7 @@ async function main(): Promise<void> {
       const abouts: DecideAbout[] = loads.length
         ? loadDecisions({ run: target.run, manifest: target.manifest, inputs: target.inputs, loads, option, scope: 'day', policies, rule: may.rule ?? null, level })
         : [{ day, run: target.run, manifest: target.manifest, inputs: target.inputs, outputs: target.keys, option, scope: 'day', policies, rule: may.rule ?? null, ...(level ? { level } : {}) }];
-      const decided = abouts.map((about) => {
-        const e: LogEntry = { smaltflLog: 1, origin, seq: entries.length, kind: 'decide', at, by: { card: null, as: by }, about: about as unknown as JSONValue, reason, amends: null, nonce: nonce(day, entries.length) };
-        entries.push(e);
-        return e;
-      });
+      const decided = recordDecisions(abouts, target.holds, day, at, by, reason);
       console.log(`${day}: ${by} decided ${said}: ${option}${level ? ` (${level.source}'s level from ${level.from}: ${level.metrics.join(', ')})` : ''}${loads.length > 1 ? ` (${loads.length} loads)` : ''}`);
       if (option !== 'asis' && option !== 'accept') return;
       const keys = loads.length ? keysForLoads(target.keys, target.holds, loads) : target.keys;

@@ -252,8 +252,13 @@ in the question prompt, nine questions in three rounds. In the slices of ADR 002
    in scope, the datasets of its type, the ontology's links), with the match day by day; its rows against another
    day's by key. A flow's sheet has **Explore ›** on each dataset it gives. `src/core/explore.ts`,
    `test/explore.test.ts`, `tools/browser/stops/explore.json`.
-5. A paused day decided once, at its flow: next. 6. A change followed, said and tested on the days recorded. 7. The
-   ontology's overrides. 8. Inputs and settings. 9. Building in the app (a catalogue, a join form). 10. The voice.
+5. **A paused day decided once, at its flow: the first step is built.** A hold is the flow's whose file or step
+   holds, and so is its decision: each decision by load says its flow, a load held only because one it is built from
+   holds carries that one's decision, and the sheet, the Decide buttons, the day's story, the month, the record and the
+   audit say whose it is (`src/core/deciding.ts`). The second step, a decision carried between pages of one browser
+   that share a flow, is left for after slice 9.
+6. A change followed, said and tested on the days recorded: next. 7. The ontology's overrides. 8. Inputs and settings.
+   9. Building in the app (a catalogue, a join form). 10. The voice.
 
 Two readings of the maintainer's answers are ADR 0025's own, for the maintainer to correct: that testing a changed flow
 on the days recorded *informs* and does not hold the change back (§7), and that an override is written in the flow that
