@@ -138,6 +138,28 @@ Where a flow must not move under its reader, the reader names its hash:
 
 Reading then refuses any other `hr/flow.json`, and says both hashes, until someone moves the pin.
 
+### A catalogue of flows to add
+
+A flow's folder may hold a `catalogue/` folder, each folder in it a flow made already: a `flow.json` and its
+notebooks, reading what the flow's own flows give.
+
+```
+examples/larkspur/
+  flow.json
+  catalogue/
+    ownership/flow.json, ownership.nb.ts
+    certificates/flow.json, certificates.nb.ts
+```
+
+The app's build ships each one as it reads, and the app offers them under **Add a flow ›**
+([The app](./app#building-in-the-app)). A catalogue flow reads flows the flow already reads, has no file of its own
+and watches nothing: it is built in the page from the day's run, so the build makes no data for it.
+
+A catalogue's flow keeps the rules of the flows it reads. One built on a feed a held day can fill carries
+`filled_from` in everything it gives, as every dataset built from that feed does, or its run stops and names the
+dataset; Larkspur's *Certificates* does. Run a new one on a day of the flow before shipping it:
+`test/catalogue.test.ts` runs Larkspur's two on days of the estate.
+
 ### The estate's ontology
 
 Flows that share their types and columns keep them in one document, the estate's ontology, and each imports it:

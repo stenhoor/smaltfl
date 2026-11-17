@@ -522,6 +522,32 @@ release (smaltty ADR 0030).
   `FLOW · CHANGED`), `flowChangedPart` (the sheet's **What changed**), `testChange` (the last `TEST_DAYS` recorded days
   before a change takes effect, each a what-if run under the day's rules with the change; `tested`),
   `pinnedSaid`; `test/follow.test.ts`, `tools/browser/stops/follow.json`.
+  Slice 9 (built before slice 8), building in the app. The catalogue: a flow's folder may hold `catalogue/`, each
+  folder a flow made already that reads what the flow's own flows give (`examples/larkspur/catalogue/`: `ownership/`,
+  `certificates/`, no file of their own); `scripts/catalogue.ts` `readCatalogue` reads each as any flow, the build ships
+  its document (`data/catalogue/<id>.json`, loads.json `catalogue`, `DataList.catalogue`) and leaves the folder out of
+  what the data's cache is keyed by. `src/core/catalogue.ts` (pure, outside the key): `CatalogueEntry`, `entryOf`,
+  `addProblems`, `addFlow` (the flow's own steps, notebooks, gates and meanings after the document's, the flow listed
+  by its path and hash; the plan is the one reading the flow with it listed gives, node for node), `takeOffProblems`,
+  `takeOff`. The join form: `src/core/joincell.ts` (`JoinSpec`, `joinProblems`, which refuses two columns under one
+  name and a fillable feed joined without `filled_from`, `joinedColumns`, `joinSaid`, `withJoin` writes the cell
+  in `JOINS_NOTEBOOK` with its imports and publish line, `withoutJoin`, `joinsOf`) on `emit.ts` `emitJoin`; the step is
+  derived by the notebook parser in a bundle of its own (`src/app/derive.ts` → `derive.js`, loaded when someone first
+  builds; it keeps the page's sections and gives a new notebook one). The app: `renderBuildBar` (**Add a flow ›**
+  above the canvas), `openCatalogue`, `addFromCatalogue`, `takeOffFlow`, `addedHere`, `catalogueDoc`, `builtInto`,
+  `joinable`, `joinForm` (from **How it joins**), `writeJoin`, `takeOutJoin`, `loadDerive`; `followEdits` takes a
+  catalogue flow's document as a shipped one's; a flow or a join whose own step stops its first run is taken back
+  again, the record keeping both (`stoppedAt`). A catalogue's flow is held to the rules of what it reads: one built on
+  a filled feed carries `filled_from`. `test/catalogue.test.ts` (Larkspur's two run on days of the estate through the
+  engine), `test/joincell.test.ts`, `tools/browser/stops/build.json` on the tour and `alone.json` on the control
+  estate, a flow that reads no other.
+  Slice 10, the voice: `src/core/voice.ts` (pure, outside the key): `VOICE`, the three playful lines with their plain
+  words and the one place each is said (`sealed` under a gold seal on a run with nothing held, `firstPass` after a
+  catalogue flow's first day went out as usual, `emptyCatalogue`), `voice(line, plain)`, `NEVER` and `keepsToVoice`
+  (what the wordplay never says of audited data). The app: `plainWords`, `wirePlainWords` (**Plain words** in About
+  this flow, kept in the browser, or `?plain`), `.seal-voice` in `sealPart`. A new playful line goes in `VOICE`, never
+  in the page; none on a paused day, a refused file, a decision, a hash or the audit. `test/voice.test.ts`,
+  `tools/browser/stops/voice.json`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -607,8 +633,8 @@ release (smaltty ADR 0030).
   flow reads other flows, each a card on its reader's canvas with its day's mark, entered to see its own flow, rolled
   up into the month, in the slices of its §12: the core and Larkspur cut into five; the canvas in levels; the month in
   tiers; exploring what a flow gives; a paused day decided once, at its flow; a change followed, said and tested on the
-  days recorded; the ontology's overrides; inputs and settings; building in the app; the voice. Slices 1 to 4, 6 and 7 are
-  built, and slice 5's first step (its §"As built", which says what each leaves for the slices after it).
+  days recorded; the ontology's overrides; inputs and settings; building in the app; the voice. Slices 1 to 4, 6, 7, 9
+  and 10 are built, and slice 5's first step (its §"As built", which says what each leaves for the slices after it).
 
 ## Rules for this repository
 

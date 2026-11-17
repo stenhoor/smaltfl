@@ -63,8 +63,11 @@ import { estateSaid, handlingSaid, ontologyPage, originSaid, typesShown, type Co
 import { MAX_CODES, proposalsOf, shareRange, valueCandidates, watchedFile, type Proposal } from '../core/proposals.js';
 import { applyBand, asShipped, keptOf as keptFlow, nameColumn, nameColumnThrough, restoreKept, setRule, type FlowEdit, type NameOp, type RuleInput } from '../core/flowedit.js';
 import { ownWithEdits } from '../core/attribute.js';
+import { addFlow, addProblems, takeOff, takeOffProblems } from '../core/catalogue.js';
+import { JOINS_NOTEBOOK, joinProblems, joinSaid as joinWritten, joinsOf, withJoin, withoutJoin, type JoinSpec } from '../core/joincell.js';
 import { changeFlows, flowChanges, followersOf, pinProblem, testCount, testSaid, type DayTest, type TestCount } from '../core/follow.js';
 import { estateSays, sharedOf, type EstateOntology } from '../core/shared.js';
+import { voice } from '../core/voice.js';
 import { fixesOf, fixOfDonor, type FixKind } from '../core/rules.js';
 import { ACTION_SAID, checkStepOf, RULE_ACTIONS, ruleOn, rulesOf, ruleSaid, type OntologyRule, type OntologyRuleKind, type RuleAction } from '../core/rules.js';
 import { DECIDE, DECIDE_OPTIONS, checkDecision, checkRun, covers, readView, wrapRead, type DecideOption, type DecisionOption, type Principal, type ReadView, type RowRule } from '../core/policy.js';
@@ -2527,6 +2530,7 @@ function flowMarkEl(d: FlowDay, size = 14): Node | null {
  * the flow on screen made of the day. Hidden at the top.
  */
 function renderCrumbs(): void {
+  renderBuildBar();
   const nav = document.getElementById('crumbs');
   if (!nav) return;
   const at = levelAt();
@@ -2545,6 +2549,376 @@ function renderCrumbs(): void {
     h('p', { class: `crumb-day fo-${d.outcome}` }, flowMarkEl(d, 13), h('span', {}, flowSaid(state.doc, d, flowName))),
   );
   nav.hidden = false;
+}
+
+// ------------------------------------------------------------------ the voice (ADR 0025 §12)
+
+/** Plain words (ADR 0025 §12): the few lines the app says in the family's voice, said plainly or left out. Asked for in
+ * About this flow, where it is kept in this browser, or by `?plain` in the address. */
+const PLAIN_KEY = 'smaltfl:plain';
+function plainWords(): boolean {
+  try {
+    return new URLSearchParams(location.search).has('plain') || localStorage.getItem(PLAIN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+/** The switch in About this flow: as it was left, and kept when it is changed. */
+function wirePlainWords(): void {
+  const box = document.getElementById('plain-words') as HTMLInputElement | null;
+  if (!box) return;
+  box.checked = plainWords();
+  box.addEventListener('change', () => {
+    try {
+      if (box.checked) localStorage.setItem(PLAIN_KEY, '1');
+      else localStorage.removeItem(PLAIN_KEY);
+    } catch {
+      // Storage off: plain words last as long as the box is ticked on this page.
+    }
+    if (state.selected || state.section) void renderSheet();
+  });
+}
+
+// ------------------------------------------------------------------ building in the app (ADR 0025 §10)
+
+// A catalogue of flows made already, shipped with the build, and a join form. *Add a flow* puts a catalogue flow on the
+// canvas: its own steps join the document, it is built from the day's run, and what it gives can be explored and
+// joined. The join form writes a join as a cell of a notebook of the flow's own; the step is derived from the cell by
+// the notebook parser, loaded the first time someone builds here.
+
+type Derive = (doc: FlowDocument) => Promise<FlowDocument>;
+/** The notebook parser, in a bundle of its own (`derive.js`): the page's first load never carries it. */
+let deriveLoad: Promise<Derive | null> | null = null;
+function loadDerive(): Promise<Derive | null> {
+  return (deriveLoad ??= import(/* @vite-ignore */ new URL('./derive.js', import.meta.url).href)
+    .then((m: { derive: Derive }) => m.derive)
+    .catch(() => null));
+}
+
+/** The catalogue's flows, each as its own document, fetched and checked the first time it is asked for. */
+const catalogueDocs = new Map<string, Promise<FlowDocument>>();
+function catalogueDoc(id: string): Promise<FlowDocument> {
+  const e = dataList?.catalogue.find((x) => x.id === id);
+  if (!e) return Promise.reject(new Error(`${id} isn’t in this build’s catalogue`));
+  let got = catalogueDocs.get(id);
+  if (!got) {
+    got = fetchChecked(e.file, e, { commit: dataList?.data?.commit ?? null, onCheck: noteCheck }).then((bytes) => JSON.parse(new TextDecoder().decode(bytes)) as FlowDocument);
+    got.catch(() => catalogueDocs.delete(id));
+    catalogueDocs.set(id, got);
+  }
+  return got;
+}
+
+/** Whether a flow the document reads was added here from the catalogue: the flow as shipped doesn't read it. */
+const addedHere = (id: string): boolean => !!state.doc.flows?.some((f) => f.id === id) && !shippedDoc.flows?.some((f) => f.id === id);
+
+/**
+ * The flow made another document by building here: its rules and steps taken as it is now, the change recorded in
+ * words, and the day run again with it, since what a step makes is data changed.
+ */
+async function builtInto(next: FlowDocument, said: string): Promise<void> {
+  const had = new Set((state.doc.groups ?? []).map((g) => g.id));
+  takeRules(next);
+  // A notebook written or brought in since has its section folded, as every notebook's is until it is opened, and the
+  // arrangement is kept with it, so it is the same box after a reload.
+  for (const g of state.doc.groups ?? []) if (!had.has(g.id) && g.collapsed) state.collapsed.add(g.id);
+  saveArrangement();
+  state.issues = [];
+  await flowEdited(said);
+  requestCanvas();
+  syncTitle();
+  renderBuildBar();
+  if (latest() || loads.list.length) await run();
+}
+
+/** What the engine said, where the run on screen stopped at one of these steps: what building here just made, so taking
+ * it back is what mends the day. Null where the run went through, or stopped somewhere it would have stopped anyway. */
+function stoppedAt(ids: readonly string[]): string | null {
+  const f = state.failed;
+  if (!f || f.file || !f.origin) return null;
+  const at = f.origin.toLowerCase();
+  if (!ids.some((x) => x.toLowerCase() === at)) return null;
+  // The engine names the step before what it says of it: the step is named in what follows too.
+  const said = f.message.toLowerCase().startsWith(`${at}: `) ? f.message.slice(at.length + 2) : f.message;
+  return said.replace(/[.\s]+$/, '');
+}
+
+/** Add a flow from the catalogue (ADR 0025 §10): its own steps, notebooks, checks and meanings join the flow on screen,
+ * which lists it among the flows it reads by the hash it is known by. Recorded; the day runs again with it. A flow
+ * whose own step stops its first run here is taken off again, and the record keeps both: a flow that can't run on this
+ * estate's days isn't left to fail every run after. */
+async function addFromCatalogue(id: string): Promise<void> {
+  const e = dataList?.catalogue.find((x) => x.id === id);
+  if (!e || !isOwner()) return;
+  if (state.running) return void setStatus('The flow is running. Add the flow when the run has ended.', true);
+  try {
+    const own = await catalogueDoc(id);
+    const base = baseDoc();
+    const problems = addProblems(base, own);
+    const next = problems.length ? null : addFlow(base, own, e.path, e.hash);
+    const issue = next ? validateDocument(next)[0] : undefined;
+    if (!next || issue) return void setStatus(`${e.name} can’t be added: ${problems[0] ?? issue!.message}.`, true);
+    document.querySelector('.vf-detail-wrap')?.remove();
+    const said = `Added ${e.name} from the catalogue: it gives ${listed(e.gives)}`;
+    setStatus(`${said}. Recorded; the day runs again with it.`, false);
+    await builtInto(next, said);
+    const stopped = stoppedAt(next.flows?.find((f) => f.id === id)?.steps ?? []);
+    if (stopped !== null) {
+      await builtInto(takeOff(baseDoc(), id), `Took ${e.name} off again: its first run here stopped (${stopped})`);
+      return void setStatus(`${e.name} couldn’t be added: its first run here stopped. ${stopped}. It was taken off again, and the flow runs as it did.`, true);
+    }
+    if (state.failed) return;
+    openSection(flowCard(id));
+    // Its first day here, where it went out with nothing held or unusual: said once (ADR 0025 §12).
+    if (flowDayOf(id).outcome === 'normal') setStatus(`${e.name} is on the canvas: its first day here went out as usual. ${voice('firstPass', plainWords())}`.trim(), false);
+  } catch (err) {
+    setStatus(`${e.name} couldn’t be added: ${message(err)}`, true);
+  }
+}
+
+/** Take a flow added here off again: where nothing reads what it gives. */
+async function takeOffFlow(id: string): Promise<void> {
+  if (!isOwner() || !addedHere(id)) return;
+  if (state.running) return void setStatus('The flow is running. Take the flow off when the run has ended.', true);
+  const name = flowName(id);
+  const base = baseDoc();
+  const problems = takeOffProblems(base, id);
+  if (problems.length) return void setStatus(`${name} stays: ${problems[0]}.`, true);
+  document.querySelector('.vf-detail-wrap')?.remove();
+  if (state.section === flowCard(id)) select(null);
+  if (state.level.includes(id)) setLevel([]);
+  const said = `Took ${name} off: the flow no longer reads it`;
+  setStatus(`${said}. Recorded.`, false);
+  await builtInto(takeOff(base, id), said);
+}
+
+/** Write a join as a cell (ADR 0025 §10): the notebook's text changed, the steps derived from it again by the parser,
+ * the change recorded, and the day run again so the joined dataset is there to explore. A join the engine can't run is
+ * taken out again, as a flow added is. */
+async function writeJoin(spec: JoinSpec, fail: (why: string) => void): Promise<boolean> {
+  if (!isOwner()) return false;
+  if (state.running) return void fail('The flow is running. Write the join when the run has ended.'), false;
+  const base = baseDoc();
+  const problems = joinProblems(base, spec);
+  if (problems.length) return void fail(`${problems[0]}.`), false;
+  const derive = await loadDerive();
+  if (!derive) return void fail('The notebook parser couldn’t be loaded, so the cell can’t be read back: nothing was written.'), false;
+  let next: FlowDocument;
+  try {
+    next = await derive(withJoin(base, spec));
+  } catch (err) {
+    return void fail(`The cell doesn’t read as a step: ${message(err)}`), false;
+  }
+  const issue = validateDocument(next)[0];
+  if (issue) return void fail(`That can’t be written: ${issue.message}.`), false;
+  document.querySelector('.vf-detail-wrap')?.remove();
+  const said = joinWritten(spec);
+  setStatus(`${said}. Written as a cell of ${JOINS_NOTEBOOK}, and recorded; the day runs again with it.`, false);
+  await builtInto(next, said);
+  const stopped = stoppedAt([spec.name]);
+  if (stopped !== null) {
+    try {
+      await builtInto(await derive(withoutJoin(baseDoc(), spec.name)), `Took the join ${spec.name} out again: its first run stopped (${stopped})`);
+      setStatus(`The join couldn’t be run. ${stopped}. It was taken out again, and the flow runs as it did.`, true);
+    } catch (err) {
+      setStatus(`The join couldn’t be run, and couldn’t be taken out again: ${message(err)}`, true);
+    }
+    return true;
+  }
+  if (!state.failed) openTab(spec.name, 'explore');
+  return true;
+}
+
+/** Take a join the form wrote out again: where no step reads it. */
+async function takeOutJoin(name: string): Promise<void> {
+  if (!isOwner()) return;
+  if (state.running) return void setStatus('The flow is running. Take the join out when the run has ended.', true);
+  const base = baseDoc();
+  const readers = base.steps.filter((s) => s.inputs.some((i) => i.toLowerCase() === name.toLowerCase())).map((s) => s.id);
+  if (readers.length) return void setStatus(`${name} stays: ${listed(readers)} ${readers.length === 1 ? 'reads' : 'read'} it.`, true);
+  const derive = await loadDerive();
+  if (!derive) return void setStatus('The notebook parser couldn’t be loaded: nothing was changed.', true);
+  try {
+    const next = await derive(withoutJoin(base, name));
+    document.querySelector('.vf-detail-wrap')?.remove();
+    if (state.selected === name) select(null);
+    const said = `Took the join ${name} out`;
+    setStatus(`${said}. Recorded.`, false);
+    await builtInto(next, said);
+  } catch (err) {
+    setStatus(`${name} couldn’t be taken out: ${message(err)}`, true);
+  }
+}
+
+/**
+ * The catalogue (ADR 0025 §10): the flows this build ships that are made already, each with what it gives and what it
+ * is built on; for the owner, Add it, or why it can't be added here. Then what was made here: the flows added and the
+ * joins written, each with the way to take it back.
+ */
+function openCatalogue(): void {
+  const entries = dataList?.catalogue ?? [];
+  const owner = isOwner();
+  const list = h('div', { class: 'cat-list' });
+  const entry = (e: (typeof entries)[number], why: string | null | undefined) => {
+    const here = !!state.doc.flows?.some((f) => f.id === e.id);
+    const built = e.reads.map((r) => r.name);
+    return h('article', { class: `cat-flow${here ? ' on' : ''}`, 'data-flow': e.id },
+      h('h4', {}, e.name),
+      e.description ? h('p', { class: 'cat-desc' }, e.description) : null,
+      h('p', { class: 'cat-gives' }, h('b', {}, `It gives ${plural(e.gives.length, 'dataset')}: `), listed(e.gives), '.'),
+      h('p', { class: 'cat-reads' }, built.length ? `Built on ${listed(built)}.` : 'It reads no other flow.', e.files ? ` ${plural(e.files, 'file')} of its own.` : ' No file of its own: it is built from the day’s run.'),
+      here ? h('p', { class: 'cat-on' }, addedHere(e.id) ? 'Added here: its card is on the canvas.' : 'This flow reads it already.', ' ',
+          h('button', { type: 'button', class: 'linkish cat-open', onclick: () => (document.querySelector('.vf-detail-wrap')?.remove(), openSection(flowCard(e.id))) }, 'Open its card ›'))
+        : why === undefined ? h('p', { class: 'foot' }, 'Checking what it is built on…')
+          : why ? h('p', { class: 'cat-why' }, `It can’t be added here: ${why}.`)
+            : owner ? h('button', { type: 'button', class: 'btn small primary cat-add', onclick: () => void addFromCatalogue(e.id) }, 'Add it ›')
+              : h('p', { class: 'foot' }, 'Adding a flow is the owner’s: it is part of the flow.'));
+  };
+  const draw = (whys: Map<string, string | null>) => list.replaceChildren(...entries.map((e) => entry(e, whys.get(e.id))));
+  draw(new Map());
+  // Why each can or can't be added, once its document is here.
+  void Promise.all(entries.map(async (e): Promise<[string, string | null]> => {
+    try {
+      return [e.id, addProblems(baseDoc(), await catalogueDoc(e.id))[0] ?? null];
+    } catch (err) {
+      return [e.id, `its document couldn’t be read (${message(err)})`];
+    }
+  })).then((all) => draw(new Map(all)));
+  const added = (state.doc.flows ?? []).filter((f) => addedHere(f.id));
+  const joins = joinsOf(state.doc);
+  const made = added.length || joins.length
+    ? block('Made here',
+        h('ul', { class: 'cat-made' },
+          ...added.map((f) => h('li', { 'data-flow': f.id }, h('span', {}, h('b', {}, f.name), ' · a flow added from the catalogue'), owner ? h('button', { type: 'button', class: 'linkish cat-off', onclick: () => void takeOffFlow(f.id) }, 'Take it off') : null)),
+          ...joins.map((j) => h('li', { 'data-join': j }, h('span', {}, h('b', {}, j), ` · a join written in ${JOINS_NOTEBOOK}`), owner ? h('button', { type: 'button', class: 'linkish cat-off', onclick: () => void takeOutJoin(j) }, 'Take it out') : null))),
+        h('p', { class: 'foot' }, 'Each is part of the flow as kept in this browser, and recorded. Back to the flow as shipped, on the Ontology page, takes them all away.'))
+    : null;
+  openDetail('Add a flow', 'ok', [
+    h('p', { class: 'vf-one' }, 'Flows made already, shipped with this build. Adding one puts its card on the canvas: it is built from the day’s run, and what it gives can be explored and joined.'),
+    // An empty catalogue (ADR 0025 §12): the family's line with its plain words beside it; in plain words, those alone.
+    entries.length ? list : h('div', { class: 'cat-none' }, h('p', { class: 'cat-none-say' }, voice('emptyCatalogue', plainWords())), plainWords() ? null : h('p', { class: 'foot' }, voice('emptyCatalogue', true))),
+    made,
+  ]);
+}
+
+/** Above the canvas, at the top of the flow: Add a flow, for the owner of a flow written as notebooks, where the build
+ * ships a catalogue or something was made here. */
+function renderBuildBar(): void {
+  const bar = document.getElementById('build-bar');
+  if (!bar) return;
+  const made = (state.doc.flows ?? []).filter((f) => addedHere(f.id)).length + joinsOf(state.doc).length;
+  const show = levelAt() === null && !!state.doc.notebooks && ((dataList?.catalogue.length ?? 0) > 0 || made > 0);
+  bar.hidden = !show;
+  if (!show) return void bar.replaceChildren();
+  bar.replaceChildren(
+    h('button', { type: 'button', class: 'btn small build-add', onclick: openCatalogue }, 'Add a flow ›'),
+    ...(made ? [h('span', { class: 'build-made' }, `${plural(made, 'thing')} made here`)] : []));
+}
+
+/** A name for a join's dataset that the flow doesn't use yet: the two sides', shortened to fit. */
+function joinName(left: string, right: string): string {
+  const taken = new Set([...state.doc.sources, ...state.doc.steps].map((x) => x.id.toLowerCase()));
+  const clean = (x: string) => x.toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/_checked$/, '');
+  const base = `${clean(left)}_with_${clean(right)}`.slice(0, 48).replace(/_+$/, '');
+  let name = base;
+  for (let n = 2; taken.has(name); n++) name = `${base}_${n}`;
+  return name;
+}
+
+/**
+ * The join form (ADR 0025 §10): two datasets, the key on each side, which rows are kept and the columns to take. It
+ * writes the join as a notebook cell, and says so. `partner` is a dataset the ontology says joins, with its key on
+ * each side; none, and the other side is picked.
+ */
+function joinForm(left: string, partner: { dataset: string; own: string; key: string } | null): void {
+  const who = state.viewer;
+  const ids = [...state.doc.sources.map((x) => x.id), ...state.doc.steps.map((x) => x.id)];
+  // What a cell of the flow's own may read: its own steps and files, and what the flows it reads publish, or their files.
+  const theirs = new Set((state.doc.flows ?? []).flatMap((f) => f.steps).map((x) => x.toLowerCase()));
+  const readable = (id: string) => id.toLowerCase() !== left.toLowerCase() && visible(id) && !!nodeOf(id) && !notBuilt(id)
+    && (!theirs.has(id.toLowerCase()) || state.doc.steps.find((s) => s.id === id)?.dataset !== undefined);
+  const others = ids.filter(readable);
+  const uid = `jf-${Date.now().toString(36)}`;
+  const right = h('select', { id: `${uid}-right`, class: 'jf-right' }, ...others.map((d) => h('option', { value: d, ...(d.toLowerCase() === partner?.dataset.toLowerCase() ? { selected: true } : {}) }, d))) as HTMLSelectElement;
+  const leftKey = h('select', { id: `${uid}-lk`, class: 'jf-lk', 'aria-label': `The key in ${left}` }) as HTMLSelectElement;
+  const rightKey = h('select', { id: `${uid}-rk`, class: 'jf-rk', 'aria-label': 'The key in the other dataset' }) as HTMLSelectElement;
+  const leftCols = h('div', { class: 'jf-cols jf-cols-left' });
+  const rightCols = h('div', { class: 'jf-cols jf-cols-right' });
+  const name = h('input', { type: 'text', id: `${uid}-name`, class: 'jf-name', maxlength: '60', autocomplete: 'off', autocapitalize: 'none', spellcheck: 'false' }) as HTMLInputElement;
+  const about = h('input', { type: 'text', id: `${uid}-about`, class: 'jf-about', maxlength: '160', autocomplete: 'off', placeholder: 'What it is, in a sentence (optional)' }) as HTMLInputElement;
+  const how = (value: 'left' | 'inner', label: string, on: boolean) => h('label', { class: 'jf-how' }, h('input', { type: 'radio', name: `${uid}-how`, value, ...(on ? { checked: true } : {}) }), ` ${label}`);
+  const err = h('p', { class: 'of-err jf-err', role: 'alert', hidden: true });
+  const go = h('button', { type: 'submit', class: 'btn primary jf-go' }, 'Write the join') as HTMLButtonElement;
+  const options = (sel: HTMLSelectElement, cols: readonly string[], pick: string | undefined) => sel.replaceChildren(...cols.map((c) => h('option', { value: c, ...(c.toLowerCase() === pick?.toLowerCase() ? { selected: true } : {}) }, c)));
+  const boxes = (host: HTMLElement, side: string, cols: readonly string[], off: ReadonlySet<string>) => host.replaceChildren(
+    ...cols.map((c) => h('label', { class: 'jf-col' }, h('input', { type: 'checkbox', value: c, 'data-side': side, ...(off.has(c.toLowerCase()) ? {} : { checked: true }) }), ` ${c}`)));
+  const columns = new Map<string, string[]>();
+  const columnsOf = async (id: string): Promise<string[]> => {
+    if (!columns.has(id)) {
+      const nv = await nodeView(id, who);
+      columns.set(id, typeof nv === 'string' ? [] : nv.columns);
+    }
+    return columns.get(id)!;
+  };
+  let named = false;
+  name.addEventListener('input', () => (named = true));
+  // The other side's key says what the left's already does: left out, until its boxes are touched.
+  let picked = false;
+  rightCols.addEventListener('change', () => (picked = true));
+  const drawRightCols = () => boxes(rightCols, 'right', columns.get(right.value) ?? [], new Set([rightKey.value.toLowerCase()]));
+  rightKey.addEventListener('change', () => !picked && drawRightCols());
+  const rightLegend = h('legend', {}, 'Columns from the other dataset');
+  const drawRight = async () => {
+    const r = right.value;
+    rightLegend.textContent = `Columns from ${r}`;
+    const [lc, rc] = await Promise.all([columnsOf(left), columnsOf(r)]);
+    const has = (cols: readonly string[], c: string) => cols.some((x) => x.toLowerCase() === c.toLowerCase());
+    // The key: what was asked for; else a link of the ontology whose two columns the sides have, either way round
+    // (owner_team_id names an org_unit_id, whatever the two datasets are called); else a column the two share, an id
+    // first; else each side's first.
+    const known = partner && partner.dataset.toLowerCase() === r.toLowerCase() ? partner : null;
+    const links = (state.doc.ontology?.linkTypes ?? []).flatMap((l) => l.on.map(([a, b]): [string, string] => [a, b]));
+    const linked = links.find(([a, b]) => has(lc, a) && has(rc, b)) ?? links.map(([a, b]): [string, string] => [b, a]).find(([a, b]) => has(lc, a) && has(rc, b));
+    const both = lc.filter((c) => has(rc, c));
+    const shared = both.find((c) => /(^|_)id$/i.test(c)) ?? both[0];
+    options(leftKey, lc, known?.own ?? linked?.[0] ?? shared ?? lc[0]);
+    options(rightKey, rc, known?.key ?? linked?.[1] ?? shared ?? rc[0]);
+    boxes(leftCols, 'left', lc, new Set());
+    picked = false;
+    drawRightCols();
+    if (!named) name.value = joinName(left, r);
+  };
+  right.addEventListener('change', () => void drawRight());
+  const checked = (host: HTMLElement) => Array.from(host.querySelectorAll<HTMLInputElement>('input:checked')).map((x) => x.value);
+  const form = h('form', { class: 'of-form jf-form', 'aria-label': `Join ${left} with another dataset`, novalidate: true },
+    h('div', { class: 'of-field' }, h('label', { for: right.id }, `Join ${left} with`), right),
+    h('div', { class: 'of-field jf-keys' }, h('span', { class: 'jf-label' }, 'Where'), h('div', { class: 'jf-key' }, leftKey, h('span', { 'aria-hidden': 'true' }, '='), rightKey),
+      h('p', { class: 'of-hint' }, 'The column on each side whose values match. A key that repeats on the other side repeats the row.')),
+    h('fieldset', { class: 'of-vals jf-kept' }, h('legend', {}, 'Rows kept'), how('left', `Every row of ${left}, with what matches it`, true), how('inner', `Only the rows of ${left} that find a match`, false)),
+    h('fieldset', { class: 'of-vals' }, h('legend', {}, `Columns from ${left}`), leftCols),
+    h('fieldset', { class: 'of-vals' }, rightLegend, rightCols, h('p', { class: 'of-hint' }, 'A column both sides have is named after its dataset.')),
+    h('div', { class: 'of-field' }, h('label', { for: name.id }, 'Its name'), name, h('p', { class: 'of-hint' }, 'A new dataset of the flow, published so it can be explored and read.')),
+    h('div', { class: 'of-field' }, h('label', { for: about.id }, 'What it is'), about),
+    h('p', { class: 'of-hint jf-writes' }, `Written as a cell of ${JOINS_NOTEBOOK}, a notebook of this flow, and recorded: a join made here is a join written in the flow.`),
+    err,
+    h('div', { class: 'of-acts' }, go, h('button', { type: 'button', class: 'btn quiet', onclick: () => document.querySelector('.vf-detail-wrap')?.remove() }, 'Cancel')));
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const kept = (form.querySelector<HTMLInputElement>(`input[name="${uid}-how"]:checked`)?.value ?? 'left') as 'left' | 'inner';
+    const spec: JoinSpec = { name: name.value.trim(), left, right: right.value, on: [[leftKey.value, rightKey.value]], how: kept, take: { left: checked(leftCols), right: checked(rightCols) }, ...(about.value.trim() ? { description: about.value.trim() } : {}) };
+    const fail = (why: string) => {
+      err.textContent = why;
+      err.hidden = false;
+      go.disabled = false;
+    };
+    const problems = joinProblems(baseDoc(), spec, (d) => columns.get(d));
+    if (problems.length) return fail(`${problems[0]}.`);
+    go.disabled = true;
+    err.hidden = true;
+    void writeJoin(spec, fail);
+  });
+  openDetail(`Join ${left}`, 'ok', [others.length ? form : h('p', { class: 'foot' }, 'There is no other dataset here to join it with.')]);
+  if (others.length) void drawRight();
 }
 
 // ------------------------------------------------------------------ a change followed, said and tested (ADR 0025 §7)
@@ -2755,6 +3129,8 @@ function renderFlowSheet(id: string): void {
     h('div', { class: 'sheet-body fl-sheet' },
       h('div', { class: `fl-day fo-${d.outcome}`, role: 'status' }, flowMarkEl(d, 18), h('p', {}, flowSaid(state.doc, d, flowName))),
       h('div', { class: 'row' }, decideHere, open, itsMonth),
+      addedHere(id) ? h('p', { class: 'fl-note fl-added' }, 'Added here from the catalogue: built from the day’s run, and part of the flow as kept in this browser. ',
+        isOwner() ? h('button', { type: 'button', class: 'linkish fl-off', onclick: () => void takeOffFlow(id) }, 'Take it off') : null) : null,
       integrityPart, holds, waits, look, flowChangedPart(id), reads, gives,
       h('p', { class: 'foot fl-known' }, `${flowHas(d)[0]!.toUpperCase()}${flowHas(d).slice(1)} of its own. `, seal === 'ok' ? 'Its files are sealed: each matches the data’s list, as the engine hashed it. ' : '', readers.length ? `Read by ${readers.map(flowName).join(', ')}. ` : '', 'Known by ', h('code', { title: part.hash }, short(part.hash)), ': the same flow, with the same hash, wherever it is read.',
         part.pin?.length ? ` Pinned by ${listed(part.pin.map(flowName))}, which ${part.pin.length === 1 ? 'reads' : 'read'} it only as it is: a change to it is refused until the pin is moved.` : '')),
@@ -4181,19 +4557,34 @@ function loadFlow(): void {
 function followEdits(): Promise<void> {
   const next = following.then(async () => {
     const parts = state.doc.flows ?? [];
-    if (!parts.length) return;
+    if (!parts.length) {
+      ownDocs = [];
+      return;
+    }
+    // Each flow read, as it came: shipped with the flow, or added here from the catalogue (ADR 0025 §10).
     const shipped = await readFlowDocs.catch(() => [] as FlowDocument[]);
-    if (shipped.length !== parts.length) return;
+    const shippedParts = (shippedDoc.flows ?? []).filter((f) => dataList?.flows[f.id]);
+    const came = new Map(shippedParts.map((f, k) => [f.id, { doc: shipped[k], hash: f.hash }]));
+    const base: { doc: FlowDocument; hash: string }[] = [];
+    for (const part of parts) {
+      const had = came.get(part.id);
+      const listed = dataList?.catalogue.find((x) => x.id === part.id);
+      if (had?.doc) base.push({ doc: had.doc, hash: had.hash });
+      else if (listed) base.push({ doc: await catalogueDoc(part.id), hash: listed.hash });
+      else return;
+    }
     await estateDocs.catch(() => []);
     const names = flowEdits.flatMap((e) => (e.name ? [e.name] : []));
-    const made = shipped.map((own) => ownWithEdits(own, names, ruleChanges, (d, c) => !!estateSays(estates, d, c)));
+    const made = base.map((b) => ownWithEdits(b.doc, names, ruleChanges, (d, c) => !!estateSays(estates, d, c)));
     const flows: typeof parts = [];
     let moved = false;
     for (let k = 0; k < parts.length; k++) {
-      const hash = made[k] === shipped[k] ? (shippedDoc.flows?.[k]?.hash ?? parts[k]!.hash) : await flowHash(made[k]!);
+      const hash = made[k] === base[k]!.doc ? base[k]!.hash : await flowHash(made[k]!);
       if (hash !== parts[k]!.hash) moved = true;
       flows.push(hash === parts[k]!.hash ? parts[k]! : { ...parts[k]!, hash });
     }
+    // The documents a run keeps changed where a flow was added or taken off, though no hash moved.
+    if (made.length !== ownDocs.length || made.some((d, k) => d !== ownDocs[k])) readFlowsKept = false;
     ownDocs = made;
     if (!moved) return;
     state.doc = { ...state.doc, flows };
@@ -4247,7 +4638,9 @@ async function backToShipped(): Promise<void> {
   if (!isOwner()) return;
   const n = flowEdits.length;
   const steps = canonicalJSON(state.doc.steps as unknown as Parameters<typeof canonicalJSON>[0]) !== canonicalJSON(shippedDoc.steps as unknown as Parameters<typeof canonicalJSON>[0]);
-  takeRules(asShipped(state.doc, shippedDoc));
+  // A section made here (a join's notebook, an added flow's) goes with what was in it.
+  const back = asShipped(state.doc, shippedDoc);
+  takeRules(back.groups ? { ...back, groups: back.groups.filter((g) => g.steps.length > 0 || !!shippedDoc.groups?.some((x) => x.id === g.id)) } : back);
   flowEdits = [];
   flowDropped = null;
   await followEdits();
@@ -5788,6 +6181,9 @@ function sealPart(r: RunRecord): HTMLElement {
   return h('div', { class: `part seal-part ${seal?.state ?? 'none'}` },
     h('p', { class: 'eyebrow' }, `The seal · run ${runName(r)}`),
     h('p', { class: 'seal-head' }, seal?.state === 'sealed' ? glyphEl('seal', 16) : null, seal?.state === 'sealed' ? 'Sealed: every gate passed, or its holds were decided and published; the signed manifest is the seal.' : seal ? `Not sealed: ${seal.why}.` : 'No gates: nothing to seal.'),
+    // A seal on a run whose every gate passed, with nothing held and decided (ADR 0025 §12): the one place a gold
+    // dataset says so in the family's voice; nothing in plain words, since the line above says it.
+    seal?.state === 'sealed' && r.result.holds.length === 0 && voice('sealed', plainWords()) ? h('p', { class: 'seal-voice' }, voice('sealed', plainWords())) : null,
     seal?.state === 'sealed' ? h('p', { class: 'foot' }, `Signed by ${seal.signed.signer.name} (${short(seal.signed.signer.fingerprint)})${seal.at ? ` · ${seal.at.toLocaleString()}` : ''} · manifest `, hash4(r.result.hash, 'manifest hash')) : null,
     lines.length ? h('ul', { class: 'checks seal-checks' }, ...lines) : h('p', { class: 'foot' }, 'No gate counted on this run.'),
     h('p', { class: 'foot' }, 'A re-run or a later decision makes a new seal; verify counts each gate again, and the audit bag carries the manifest with them.'));
@@ -12742,8 +13138,10 @@ function xpJoins(body: HTMLElement, id: string, nv: { insp: Inspection; i: numbe
   const partners = joinPartners(state.doc, id)
     .map((p) => ({ ...p, node: ids.find((n) => n.toLowerCase() === p.dataset.toLowerCase()) }))
     .filter((p): p is JoinPartner & { node: string } => !!p.node && visible(p.node));
+  // Joining it with any dataset, written as a cell of the flow's own (ADR 0025 §10): the owner's, where a cell may read it.
+  const any = joinable(id) ? h('div', { class: 'xp-join-any' }, h('button', { type: 'button', class: 'btn small xp-join-form', onclick: () => joinForm(id, null) }, 'Join it with another dataset ›'), h('p', { class: 'foot' }, 'A form writes the join as a cell: a new dataset of the flow.')) : null;
   if (!partners.length) {
-    body.replaceChildren(h('p', { class: 'xp-none' }, 'Nothing in the ontology says what a row of it is, so it has no key to join by yet. Say what its rows are on the Ontology page, and the datasets that share its key are counted here.'));
+    body.replaceChildren(...([h('p', { class: 'xp-none' }, 'Nothing in the ontology says what a row of it is, so it has no key to join by yet. Say what its rows are on the Ontology page, and the datasets that share its key are counted here.'), any] as (HTMLElement | null)[]).filter((x): x is HTMLElement => !!x));
     return;
   }
   const loose = partners.some((p) => p.loose);
@@ -12766,7 +13164,16 @@ function xpJoins(body: HTMLElement, id: string, nv: { insp: Inspection; i: numbe
     ...leads.map((p) => xpJoin(id, read, p, who, true, p.why === 'scope' ? scope : null)),
     group(`${plural(keyed.length, leads.some((p) => p.why !== 'link') ? 'other dataset' : 'dataset')} with the same key`, keyed),
     group(`${plural(linked.length, 'dataset')} whose rows name its own`, linked),
+    any,
   ] as Child[]).filter((x): x is HTMLElement => !!x && typeof x !== 'string'));
+}
+
+/** Whether the join form is offered on a dataset: to the owner of a flow written as notebooks, on a file, a step of the
+ * flow's own, or a dataset a flow it reads publishes (what a cell of the flow's own may read). */
+function joinable(id: string): boolean {
+  if (!isOwner() || !state.doc.notebooks) return false;
+  const step = state.doc.steps.find((s) => s.id.toLowerCase() === id.toLowerCase());
+  return !step || step.dataset !== undefined || !state.doc.flows?.some((f) => f.steps.some((s) => s.toLowerCase() === id.toLowerCase()));
 }
 
 /** What a join is on, beside its dataset's name: its key, or a link's name and its two columns. */
@@ -12778,9 +13185,11 @@ function xpJoin(id: string, read: string, p: JoinPartner & { node: string }, who
   const why = joinWhy(id, { ...p, dataset: p.node });
   const out = h('div', { class: 'xp-join-out', 'aria-live': 'polite' }, h('p', { class: 'foot' }, 'Counting…'));
   const go = h('button', { type: 'button', class: 'linkish xp-go', onclick: () => (explorable(p.node) ? openTab(p.node, 'explore') : select(p.node)) }, `${explorable(p.node) ? 'Explore' : 'Open'} ${p.node} ›`);
+  // The two written as a join, on the key the ontology gives (ADR 0025 §10).
+  const make = joinable(id) && joinable(p.node) ? h('button', { type: 'button', class: 'linkish xp-go xp-join-make', onclick: () => joinForm(id, { dataset: p.node, own: p.own, key: p.key }) }, 'Join them as a new dataset ›') : null;
   const box = h('section', { class: 'xp-join', 'data-partner': p.node },
     headed ? h('div', { class: 'xp-join-head' }, h('h3', {}, p.node), h('code', { class: 'xp-on' }, xpOn(p))) : null,
-    h('p', { class: 'xp-join-why' }, why), out, go);
+    h('p', { class: 'xp-join-why' }, why), out, h('div', { class: 'xp-join-acts' }, go, make));
   const born = drill.token;
   void (async () => {
     const pv = await nodeView(p.node, who);
@@ -17509,6 +17918,7 @@ async function start(): Promise<void> {
   // Each flow it reads as the edits kept here leave its own document (ADR 0025 §7): what the first run keeps.
   void followEdits();
   loadArrangement();
+  wirePlainWords();
   state.collapsed = new Set((state.doc.groups ?? []).filter((g) => g.collapsed).map((g) => g.id));
   $('flow-name').textContent = state.doc.name;
   // What this flow is, in its own words, above what every flow's day screen does.

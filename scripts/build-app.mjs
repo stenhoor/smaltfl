@@ -1,8 +1,11 @@
 // Builds the app into dist/app: page.html (the page's content; the artifact host adds the document skeleton), index.html
 // (the same page as a document, for a static host such as GitHub Pages),
 // app.js (the page), worker.js (the engine worker), inline.js (the engine in the page, for browsers without the
-// worker), parse.js (smaltql's SQL parser, loaded when a screen asks where a column is used), and data/ (a flow's files, listed in data/loads.json, format 2: each source's binding with its file or its
-// daily loads and the days a paused one may be filled from, and each watched source's history, ADR 0010 §9).
+// worker), parse.js (smaltql's SQL parser, loaded when a screen asks where a column is used), derive.js (the notebook
+// parser, loaded when someone first builds in the app, ADR 0025 §10), and data/ (a flow's files, listed in
+// data/loads.json, format 2: each source's binding with its file or its daily loads and the days a paused one may be
+// filled from, and each watched source's history, ADR 0010 §9; the flows it reads, the estates' ontologies it imports
+// and the flows of its catalogue, each as its own document, ADR 0025).
 //
 //   node scripts/build-app.mjs            Larkspur (examples/larkspur/, ADR 0020), the demo
 //   node scripts/build-app.mjs --variant tour [--out dist/app-tour]
@@ -77,6 +80,10 @@ const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const reader = 'node_modules/.cache/smaltfl/flow.mjs';
 await build({ entryPoints: ['scripts/flow.ts'], bundle: true, platform: 'node', format: 'esm', target: 'node20', outfile: reader, logLevel: 'warning' });
 const { readFlow, readWithChanges, readEstates, bindingsPath } = await import(pathToFileURL(reader).href);
+// The catalogue's reader (scripts/catalogue.ts), bundled the same way: the flows a flow's `catalogue` folder holds.
+const catalogueReader = 'node_modules/.cache/smaltfl/catalogue.mjs';
+await build({ entryPoints: ['scripts/catalogue.ts'], bundle: true, platform: 'node', format: 'esm', target: 'node20', outfile: catalogueReader, logLevel: 'warning' });
+const { readCatalogue } = await import(pathToFileURL(catalogueReader).href);
 // A flow's bindings (ADR 0010 §9): each source's table, format and file name, which loads.json carries on.
 const bindingsOf = (doc) => JSON.parse(readFileSync(bindingsPath(doc), 'utf8'));
 /** The document the build ships, as data/flow.json, and its entry in loads.json. With a recorded story (ADR 0021 §6), its
@@ -116,12 +123,25 @@ const shipEstates = async (path) => {
     return { name: from.name, hash: from.hash, path: `estates/${k}.json`, from: join(dirname(path), from.path), sha256: sha256(bytes), bytes: bytes.length };
   });
 };
-await build({ ...common, entryPoints: { app: 'src/app/main.ts', worker: 'src/app/worker.ts', inline: 'src/app/inline.ts', parse: 'src/app/parse.ts' }, outdir: out });
+/** The flow's catalogue (ADR 0025 §10): each flow in its `catalogue` folder as its own document, shipped as
+ * data/catalogue/<id>.json and listed in loads.json with what it gives and what it is built on. The page adds one to
+ * the flow on screen, where it is built from the day's run: no data is made for it here. */
+const shipCatalogue = async (path) => {
+  const all = await readCatalogue(path);
+  if (all.length) mkdirSync(`${out}/data/catalogue`, { recursive: true });
+  return all.map(({ entry, doc }) => {
+    const bytes = Buffer.from(JSON.stringify(doc) + '\n');
+    writeFileSync(`${out}/data/catalogue/${entry.id}.json`, bytes);
+    return { ...entry, file: `catalogue/${entry.id}.json`, sha256: sha256(bytes), bytes: bytes.length };
+  });
+};
+// derive.js: the notebook parser, loaded the first time someone builds in the app (a join written as a cell).
+await build({ ...common, entryPoints: { app: 'src/app/main.ts', worker: 'src/app/worker.ts', inline: 'src/app/inline.ts', parse: 'src/app/parse.ts', derive: 'src/app/derive.ts' }, outdir: out });
 // The bundles named by their content (app.3f2a9c1d.js), so a new build is never served from a browser's cache of the
 // last one under the same name: the page's script tag and the page's references to the worker and the in-page engine
 // take the new names; so does its reference to the SQL parser, loaded when a screen asks where a column is used.
 const hashed = {};
-for (const name of ['worker', 'inline', 'parse', 'app']) {
+for (const name of ['worker', 'inline', 'parse', 'derive', 'app']) {
   let js = readFileSync(`${out}/${name}.js`, 'utf8');
   for (const [from, to] of Object.entries(hashed)) js = js.split(`./${from}.js`).join(`./${to}`);
   const to = `${name}.${sha256(Buffer.from(js)).slice(0, 8)}.js`;
@@ -179,6 +199,7 @@ writeFileSync(`${out}/bundles.json`, JSON.stringify(hashed, null, 2) + '\n');
   const flowEntry = await shipFlow(flowPath, bind.story ?? null);
   const flowEntries = await shipFlows(flowPath, bind.story ?? null);
   const estateEntries = await shipEstates(flowPath);
+  const catalogueEntries = await shipCatalogue(flowPath);
   const histories = Object.fromEntries(watches.map((w) => [w, entry(historyName(w), readFileSync(join(work, historyName(w))), `${bind.generate}, scripts/data/history.mjs`)]));
   const samples = sampled ? Object.fromEntries(watches.map((w) => [w, entry(sampleName(w), readFileSync(join(work, sampleName(w))), `${bind.generate}, scripts/data/history.mjs --sample`)])) : {};
   const ranges = Object.fromEntries(watches.filter((w) => existsSync(join(work, rangesName(w)))).map((w) => [w, entry(rangesName(w), readFileSync(join(work, rangesName(w))), 'scripts/data/history.mjs --ranges')]));
@@ -231,7 +252,7 @@ writeFileSync(`${out}/bundles.json`, JSON.stringify(hashed, null, 2) + '\n');
   // The demo's scenes (ADR 0023 §4): what it shows, the month screen's list, shipped as they are written (the page checks
   // them, core/scenes.ts).
   const scenes = bind.scenes ? JSON.parse(readFileSync(bind.scenes, 'utf8')) : null;
-  const index = { format: 2, month: first?.slot.slice(0, 7), built: new Date().toISOString().slice(0, 19) + 'Z', data: null, flow: flowEntry, ...(Object.keys(flowEntries).length ? { flows: flowEntries } : {}), ...(estateEntries.length ? { estates: estateEntries } : {}), sources, histories, ...(Object.keys(samples).length ? { samples } : {}), ...(Object.keys(ranges).length ? { ranges } : {}), ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), ...(bind.judged ? { judged: bind.judged } : {}), ...(bind.posture ? { posture: bind.posture } : {}), ...(scenes ? { scenes } : {}) };
+  const index = { format: 2, month: first?.slot.slice(0, 7), built: new Date().toISOString().slice(0, 19) + 'Z', data: null, flow: flowEntry, ...(Object.keys(flowEntries).length ? { flows: flowEntries } : {}), ...(estateEntries.length ? { estates: estateEntries } : {}), ...(catalogueEntries.length ? { catalogue: catalogueEntries } : {}), sources, histories, ...(Object.keys(samples).length ? { samples } : {}), ...(Object.keys(ranges).length ? { ranges } : {}), ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), ...(bind.judged ? { judged: bind.judged } : {}), ...(bind.posture ? { posture: bind.posture } : {}), ...(scenes ? { scenes } : {}) };
   writeFileSync(`${out}/data/loads.json`, JSON.stringify(index, null, 2) + '\n');
   console.log(`built ${out} (${commit.slice(0, 12)}) with ${flowPath}: ${days} days of ${Object.values(sources).filter((s) => s.loads).length} daily source(s) and ${watches.length} histories, generated by ${bind.generate}`);
 }

@@ -5,6 +5,7 @@
  * Pure: the app reads it at start.
  */
 import type { Binding } from '../../examples/sources.js';
+import type { CatalogueEntry } from '../core/catalogue.js';
 import { isScenesFile, scenesProblems, type ScenesFile } from '../core/scenes.js';
 import type { Expected } from './fetch-checked.js';
 
@@ -59,6 +60,10 @@ export interface DataList {
   /** The estates' ontologies the flow imports (ADR 0025 §8), each as its file gives it, by name and hash (`estate/0`),
    * in the order the flow's document names them. Empty where it imports none. */
   estates: (FileEntry & { name: string; hash: string })[];
+  /** The flow's catalogue (ADR 0025 §10): the flows this build ships that are made already, each with what it gives,
+   * what it is built on and the hash it is known by, and its own document's file (`file`, with its sha256 and size).
+   * Empty where the build ships none. */
+  catalogue: (CatalogueEntry & { file: string; sha256: string; bytes: number })[];
   sources: Record<string, ListedSource>;
   /** Each watched source's history, by source id. */
   histories: Record<string, FileEntry>;
@@ -176,14 +181,18 @@ export function readDataList(raw: unknown): DataList {
     for (const [id, f] of Object.entries(flows)) files[`flow:${id}`] = f;
     const estates = (Array.isArray(index.estates) ? index.estates : []).filter((e): e is FileEntry & { name: string; hash: string } => isRecord(e) && typeof e.path === 'string' && typeof e.name === 'string' && typeof e.hash === 'string');
     estates.forEach((e, k) => (files[`estate:${k}`] = e));
+    const catalogue = (Array.isArray(index.catalogue) ? index.catalogue : []).filter((e): e is CatalogueEntry & { file: string; sha256: string; bytes: number } =>
+      isRecord(e) && typeof e.id === 'string' && typeof e.name === 'string' && typeof e.path === 'string' && typeof e.hash === 'string' && typeof e.file === 'string' && typeof e.sha256 === 'string' && typeof e.bytes === 'number'
+      && Array.isArray(e.gives) && Array.isArray(e.reads));
+    for (const e of catalogue) files[`catalogue:${e.id}`] = { path: e.file, sha256: e.sha256, bytes: e.bytes };
     return {
-      format: 2, ...(typeof index.month === 'string' ? { month: index.month } : {}), ...(typeof index.built === 'string' ? { built: index.built } : {}), data, flow, flows, estates, sources, histories, samples, ranges, ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), loadSource, daily, judged,
+      format: 2, ...(typeof index.month === 'string' ? { month: index.month } : {}), ...(typeof index.built === 'string' ? { built: index.built } : {}), data, flow, flows, estates, catalogue, sources, histories, samples, ranges, ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), loadSource, daily, judged,
       ...(postureOf(index.posture) ? { posture: postureOf(index.posture)! } : {}),
       ...(scenesOf(index.scenes) ? { scenes: scenesOf(index.scenes)! } : {}),
       loads, donors: loadSource ? sources[loadSource]!.donors ?? [] : [], files,
     };
   }
-  return { format: 2, data, flow: null, flows: {}, estates: [], sources: {}, histories: {}, samples: {}, ranges: {}, loadSource: null, daily: [], judged: null, loads: [], donors: [], files: {} };
+  return { format: 2, data, flow: null, flows: {}, estates: [], catalogue: [], sources: {}, histories: {}, samples: {}, ranges: {}, loadSource: null, daily: [], judged: null, loads: [], donors: [], files: {} };
 }
 
 /** Every file a list names, with the sha256 and size it gives: what must be in MANIFEST.json, as it says. */

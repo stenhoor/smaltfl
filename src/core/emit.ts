@@ -701,3 +701,28 @@ export function emitKeptCell(dataset: string, picks: readonly RowPick[]): string
   };
   return `SELECT *\nFROM ${dataset}${picks.length ? `\nWHERE ${picks.map(plain).join('\n  AND ')}` : ''}`;
 }
+
+/** A join as a form gives it (ADR 0025 §10): two datasets, the key on each side, which rows are kept and the columns
+ * taken. */
+export interface JoinColumns {
+  left: string;
+  right: string;
+  /** The key: a column of the left and the column of the right whose values match, one pair or more. */
+  on: [left: string, right: string][];
+  /** Every row of the left with what matches it (`left`), or only the rows that find a match (`inner`). */
+  how: 'left' | 'inner';
+  /** The columns taken from each side, in order. A right column whose name a taken left column has is named after its
+   * dataset: `<right>_<column>`. */
+  take: { left: string[]; right: string[] };
+}
+
+/**
+ * A join as a statement a person reads and changes in a cell (ADR 0025 §10): the columns taken, a line a side, the
+ * key. `ref` writes a dataset where it is read: its name, or in a notebook's cell the name between `${` and `}`.
+ */
+export function emitJoin(j: JoinColumns, ref: (dataset: string) => string = (d) => q(d)): string {
+  const taken = new Set(j.take.left.map((c) => c.toLowerCase()));
+  const columns = [...j.take.left.map((c) => `l.${q(c)}`), ...j.take.right.map((c) => (taken.has(c.toLowerCase()) ? `r.${q(c)} AS ${q(`${j.right}_${c}`)}` : `r.${q(c)}`))];
+  const on = j.on.map(([l, r]) => `l.${q(l)} = r.${q(r)}`).join(' AND ');
+  return `SELECT ${columns.join(', ')}\nFROM ${ref(j.left)} l\n${j.how === 'left' ? 'LEFT JOIN' : 'JOIN'} ${ref(j.right)} r ON ${on}`;
+}

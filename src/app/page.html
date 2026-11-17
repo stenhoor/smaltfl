@@ -268,6 +268,9 @@ pre.code { margin: 8px 0 0; padding: 10px 12px; background: var(--sunk); border-
   /* The workspace sits beside the flow, not over it: main gives up its width while it is open. */
   body:has(#sheet:not([hidden])) main { margin-left: 0; margin-right: var(--sheet-w); }
   body:has(#sheet:not([hidden])) #split { display: flex; }
+  /* A dialog open over the workspace (a decision, the catalogue, the join form) covers the bar between the two sides:
+     the bar is drawn above the workspace, and showed through the dialog. */
+  body:has(#sheet:not([hidden]) .vf-detail-wrap) #split { display: none; }
   #split {
     position: fixed; z-index: 21; top: var(--head, 0px); bottom: 0; right: var(--sheet-w); width: 14px; transform: translateX(50%);
     flex-direction: column; align-items: center; justify-content: center; gap: 8px; cursor: col-resize; touch-action: none; outline: none;
@@ -848,6 +851,8 @@ select.ch-mode.hold { color: var(--bad); } select.ch-mode.warn { color: var(--wa
 .about-flow > summary { cursor: pointer; font-size: 13px; color: var(--ink-2); min-height: 32px; display: flex; align-items: center; gap: 6px; }
 .about-flow[open] > summary { margin-bottom: 6px; }
 .about-flow .lede + .lede { margin-top: 8px; }
+.plain-words { display: flex; align-items: center; gap: 8px; margin-top: 8px; min-height: 32px; font-size: 13px; color: var(--ink-2); }
+.seal-voice { margin: 0; font-size: 13.5px; font-weight: 600; color: var(--smalt); }
 .ld-dot.steady { background: var(--teal-fill); }
 .ld-dot.moved { background: var(--warn); }
 .ld-dot.shifted { background: var(--bad); }
@@ -2363,6 +2368,34 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .vf-whose { margin: 0 0 2px; font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
 .fl-decide { background: var(--smalt); border-color: var(--smalt); color: var(--surface); font-weight: 600; }
 .fl-asked { color: var(--muted); font-size: 12.5px; }
+/* Building in the app (ADR 0025 §10): the bar above the canvas, the catalogue's flows, the join form. */
+.build-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 8px; }
+.build-bar[hidden] { display: none; }
+.build-bar .btn { min-height: 36px; }
+.build-made { font-size: 12.5px; color: var(--muted); }
+.cat-list { display: grid; gap: 10px; min-width: 0; }
+.cat-flow { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); min-width: 0; }
+.cat-flow.on { background: var(--sunk); }
+.cat-flow h4 { margin: 0; font-size: 15px; }
+.cat-desc, .cat-gives, .cat-reads, .cat-on, .cat-why { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+.cat-desc, .cat-reads { color: var(--ink-2); }
+.cat-why { color: var(--bad); }
+.cat-add { justify-self: start; min-height: 40px; }
+.cat-none-say { margin: 0; font-size: 15px; font-weight: 600; }
+.cat-made { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.cat-made li { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; font-size: 13px; overflow-wrap: anywhere; }
+.cat-open, .cat-off, .fl-off { background: none; border: 0; padding: 0; min-height: 28px; color: var(--smalt); font: inherit; font-weight: 600; cursor: pointer; }
+.xp-join-acts { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.xp-join-any { display: grid; gap: 4px; justify-items: start; margin-top: 4px; }
+.xp-join-any .btn { min-height: 36px; }
+.jf-key { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.jf-key select { flex: 1 1 130px; min-width: 0; }
+.jf-form select, .jf-form input[type="text"] { max-width: 100%; }
+.jf-form select { box-sizing: border-box; min-height: 44px; border: 1px solid var(--muted); border-radius: 8px; padding: 6px 8px; background: var(--bg); color: var(--ink); font: inherit; font-size: 14px; }
+.jf-form input[type="checkbox"], .jf-form input[type="radio"] { width: auto; min-height: 0; padding: 0; flex: none; margin: 0; }
+.jf-label { font-size: 13px; font-weight: 600; }
+.jf-how, .jf-col { display: flex; align-items: center; gap: 6px; font-size: 13.5px; min-height: 32px; overflow-wrap: anywhere; }
+.jf-cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0 12px; max-height: 190px; overflow: auto; }
 /* What changed in a flow (ADR 0025 §7): each change, who made it and when, and what testing it on the days recorded found. */
 .fl-changes { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; min-width: 0; }
 .fl-change { display: grid; gap: 4px; padding: 8px 10px; border-radius: 8px; background: var(--sunk); min-width: 0; }
@@ -2421,9 +2454,11 @@ div.fl-row.fl-given > .fl-row-go { align-self: center; padding-right: 10px; }
       <li><svg class="seal-key" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="6"/><path d="M 4.2 7 L 6.2 9.2 L 10 4.6"/></svg>sealed: checked back to the bytes it was made from</li>
       <li><span class="flow-key" aria-hidden="true"></span>a flow this one reads: tap for its day, open it for its own flow</li>
     </ul>
+    <label class="plain-words"><input type="checkbox" id="plain-words"> Plain words: the app’s few plays on its name are left out</label>
     </details>
     <div id="loads" class="loads" hidden></div>
     <nav id="crumbs" class="crumbs" aria-label="Where you are in the flow" hidden></nav>
+    <div id="build-bar" class="build-bar" role="group" aria-label="Building in the app" hidden></div>
     <div id="canvas" tabindex="0" aria-label="The flow canvas. Arrow keys move around, plus and minus zoom."></div>
   </section>
 

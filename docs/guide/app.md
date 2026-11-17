@@ -68,6 +68,39 @@ card** on its canvas, a second sheet behind it, with the word FLOW and the count
 - A flow **pinned** by a flow that reads it says so on its sheet, and isn't changed from here until the pin is moved.
 - A card opened from anywhere else (the day's head, the news, a scene) takes the canvas to the flow that has it.
 
+#### Building in the app {#building-in-the-app}
+
+The owner can build on the flow from the page ([ADR 0025](../adr/0025-flows-in-flows) §10).
+
+- **Add a flow ›**, above the canvas, opens the catalogue: flows made already and shipped with the build, each with
+  what it gives and what it is built on. **Add it ›** puts its card on the canvas and runs the day with it. Its sheet
+  says it was added here; each dataset it gives has **Explore ›**. **Take it off** removes it, where nothing reads
+  what it gives. A flow whose own step stops its first run here is taken off again at once, and the status line says
+  what stopped it.
+- **A join form**, on a dataset's **Explore › How it joins**: *Join them as a new dataset ›* beside a dataset the
+  ontology says it joins, or *Join it with another dataset ›*. Pick the other dataset, the key on each side, which
+  rows are kept and the columns to take, and name it. The form writes the join as a cell of `joins.nb.ts`, a notebook
+  of the flow's own, and the day runs again: the new dataset has a card, and opens on its Explore tab. The cell is
+  read back by the same parser that reads a flow's folder, so a join made here is a join written in the flow.
+- Each is recorded in words, kept in this browser with every other edit, and listed under **Made here** in the
+  catalogue's sheet, with the way to take it back. *Back to the flow as shipped*, on the Ontology page, takes them all
+  away.
+- A flow that reads no other and ships no catalogue has the join form all the same. Once a join is made, **Add a
+  flow ›** is above its canvas too, and says the build ships no flow to add.
+
+#### Plain words {#plain-words}
+
+The app is plain where anything is decided, held, hashed or audited. In three places it says a line in the smalt
+family's voice ([ADR 0025](../adr/0025-flows-in-flows) §12):
+
+- *Worth its smalt.* under a gold dataset's seal, on a run whose every gate passed with nothing held;
+- *Worth its smalt.* once, on the status line, when a flow added from the catalogue went out as usual on its first
+  day here;
+- *Nothing upstream yet.* in the catalogue of a build that ships no flow to add.
+
+**Plain words**, a tick at the foot of *About this flow* (or `?plain` in the address), leaves them out: each is then
+its plain words, or nothing where the screen says them already. The choice is kept in this browser.
+
 On the **month**, the flows are rows of days above their files and steps. A flow's bar for a day is the worst any of
 its files or steps said. Open a row for those files and steps.
 

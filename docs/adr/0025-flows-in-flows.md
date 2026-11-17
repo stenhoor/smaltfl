@@ -604,6 +604,115 @@ Built before slice 6: a flow read on its own needs its ontology before a change 
 - An override made in the app is taken back with every other edit (*Back to the flow as shipped*), not alone.
 - The estate's ontology isn't edited in the app, and an estate's ontology imports no other.
 
+### Slice 9: building in the app, a catalogue and a join form (2026-11-17)
+
+Built before slice 8: adding a flow as it is comes before adding one with its inputs mapped.
+
+- **The catalogue is a folder.** A flow's folder may hold `catalogue/`, each folder in it a flow (`flow.json` and its
+  notebooks) that reads what the flow's own flows give. The build reads each as it reads any flow
+  (`scripts/catalogue.ts`, `readCatalogue`) and ships its own document (`data/catalogue/<id>.json`), listed in
+  `loads.json` (`catalogue`, `DataList.catalogue`) with what it gives, what it is built on and the hash it is known by
+  (`CatalogueEntry`, `entryOf`). No data is made for a catalogue flow, and the folder is no part of what the flow's
+  data is keyed by: a flow in the catalogue is built in the page, from the day's run.
+- **Larkspur's catalogue** (`examples/larkspur/catalogue/`): *Ownership* (who answers for what: the applications each
+  business unit owns, and the ones whose chain of owners doesn't reach the group; it reads Applications and the HR
+  organisation) and *Certificates* (the TLS certificates that expire within thirty days, and each certificate
+  authority's; it reads the Evidence feeds). Neither has a file of its own.
+  - A catalogue's flow is held to the rules of the flows it reads. Certificates reads the TLS feed, which a held day
+    can fill from another day, so both its datasets carry `filled_from` (ADR 0009 amendment 1): without it the run
+    stops, naming the dataset.
+  - Ownership's list of the applications nobody answers for is empty on a day that went out, since Applications holds
+    a day with even one. On such a day it is built from the same run and kept back with it: the list to work the day
+    from (26 applications the day a team is dissolved, in the tests' estate).
+- **Add a flow** (`src/core/catalogue.ts`, pure; the app's `openCatalogue`, `addFromCatalogue`): above the canvas, for
+  the owner. The sheet lists each flow with what it gives and what it is built on, and **Add it ›**.
+  - `addFlow` puts the flow's own steps, notebooks, gates, contracts and meanings after the document's, and lists the
+    flow last among the flows it reads, by its path and hash. What it makes is the document reading a flow that lists
+    the added one gives, for everything a run reads: the plan is the same, node for node (`test/catalogue.test.ts`).
+  - `addProblems` says why one can't be added, each in a sentence: it is read here already; it is built on a flow this
+    one doesn't read, or reads as another flow (by its hash); it has files of its own or watches a dataset, for which a
+    build would have to ship data; a name of its own is taken; another calendar, day or way of pausing; policies of
+    its own.
+  - Added, the day runs again with it. Its card is on the canvas with its day, its sheet says it was added here, what
+    it reads and what it gives, and each dataset it gives has **Explore ›** (slice 4). The run names it among the flows
+    it read, and keeps its document (`followEdits` takes a catalogue flow's document as it takes a shipped one's).
+  - **Take it off** (`takeOff`, `takeOffProblems`), where nothing reads what it gives.
+  - **A flow that can't run here is taken off again.** Where the day's run stops at one of the added flow's own steps,
+    the flow is taken off at once, the status line says what the engine said, and the record keeps both the adding and
+    the taking off (`stoppedAt`). A flow isn't left to fail every run after. A run that stops anywhere else would have
+    stopped anyway, and the flow stays.
+- **The join form** (`src/core/joincell.ts`; the app's `joinForm`, `writeJoin`): on a dataset's **How it joins**, *Join
+  them as a new dataset ›* beside each dataset the ontology says it joins, with the key the ontology gives, and *Join
+  it with another dataset ›* for any other. The form has the other dataset, the key on each side, which rows are kept
+  (every row of the left, or only those that find a match), the columns to take from each side, a name and a
+  description.
+  - **It writes a notebook cell** (`withJoin`): in `joins.nb.ts`, a notebook of the flow's own made the first time,
+    with each side imported from the notebook that defines it, the join as an SQL cell (`emitJoin` in `emit.ts`: the
+    engine's language stays in one place) and the new dataset published. A column both sides have is named after its
+    dataset. So a join made in the app is a join written on disk: download the notebook, and reading the flow's folder
+    gives the same step.
+  - **The step is derived by the notebook parser,** not built by hand: the page loads it the first time someone
+    builds (`src/app/derive.ts`, `derive.js`, 132 KB: smaltty's parser and binder, smaltnb's format and graph,
+    `expandNotebooks`), as it loads the SQL parser when a screen asks where a column is used. `derive` gives the
+    notebook a section of its own on the canvas and leaves every other section as the page arranged it.
+  - `joinProblems` says why a join can't be written: a name taken or not a name, a side that isn't a dataset here or
+    is a step another flow keeps to itself, the same dataset twice, no key, a column a side doesn't have, nothing
+    taken, two columns that would have one name (`joinedColumns`), or a side built from a feed a held day can fill
+    with `filled_from` left out, which the run would stop on. The form says each before anything is written.
+    **Take it out** (`withoutJoin`) removes the cell, and the notebook with its last one. A join the engine can't run
+    all the same is taken out again, as a flow added is.
+  - **In any flow written as notebooks.** A flow that reads no other and ships no catalogue has the join form all the
+    same (the control estate). The bar above the canvas is there once something was made here, and its sheet then says
+    that the build ships no flow to add.
+- **Recorded, and kept.** Each is a change of the flow, recorded at once in words (*Added Ownership from the
+  catalogue: it gives apps_by_unit and unowned_apps*; *Joined apps with org_units on owner_team_id = org_unit_id, as
+  apps_with_org_units: every row of apps, with …*), kept in the browser with every other edit, and listed under
+  **Made here** in the catalogue's sheet. *Back to the flow as shipped* takes them all away.
+- **Tests**: `test/catalogue.test.ts` (the entries, the plan node for node against the flow read with the added one
+  listed, a second flow, the refusals, taking one off, and an added flow run and verified in the engine; then
+  Larkspur's two on days of the estate, through the engine: what each gives counted against the day's own files, the
+  run refused where Certificates doesn't carry `filled_from`, and Ownership's list on the day Applications holds),
+  `test/joincell.test.ts` (the SQL, the notebook's text, the step the parser derives, a second join that reads the
+  first, the sections, taking one out, the refusals, and a join run in the engine).
+  `tools/browser/stops/build.json` walks it on the tour at every size, and `alone.json` on the control estate, a flow
+  that reads no other.
+- **Found by running it.** The first Certificates read the TLS feed without the fill mark, and the tests of the plan
+  didn't see it: the plan was right and the run stopped. Hence the tests on the estate's own days, and the taking off.
+  A flow taken off after a stopped run was checked by hand on a build with the mark removed (no stop set: every flow
+  the catalogue ships runs).
+
+**What it leaves:**
+
+- A catalogue flow has no file of its own and no watch: its data would have to be made and shipped by the build. One
+  with inputs to map (slice 8) is added with a form.
+- The join form writes one key pair from its selects; a second pair is written in the cell by hand. It doesn't warn
+  of a key that repeats on the other side beyond saying so: **How it joins** counts it.
+- A cell isn't edited in the page yet. The parser is there now, so it can be.
+
+### Slice 10: the voice (2026-11-17)
+
+Built with slice 9, whose screens two of its three lines are said on.
+
+- **Three lines, in one place** (`src/core/voice.ts`, pure, outside what the data is keyed by): each with the plain
+  words that say the same and the one place it is said.
+  - *Worth its smalt.* under a gold dataset's seal, on a run whose every gate passed with nothing held. A seal on a day
+    that was held and decided says what it is and no more.
+  - *Worth its smalt.* at the end of the status line, once, when a flow added from the catalogue went out as usual on
+    its first day here.
+  - *Nothing upstream yet.* in the catalogue of a build that ships no flow to add, with the plain words under it.
+- **Nothing playful where it could mislead**: not on a paused day, a refused file, a decision, a hash or the audit.
+  `NEVER` lists what the family's wordplay doesn't say of audited data (*a grain of smalt*, *a pinch of smalt*,
+  *smalted*, *smalt away*), and the tests read every string the page and the sample flows carry against it.
+- **Plain words** (`plainWords`, `wirePlainWords`): a tick in *About this flow*, kept in the browser, or `?plain` in
+  the address. Each line is then its plain words, or nothing where the screen says them already beside it. The play is
+  decoration over a serious surface, and the switch shows it.
+- **The sample estate carries two jokes**, in the notebooks of Larkspur's catalogue, where a reader meets them while
+  reading a flow and no day's verdict is near: the applications that are *somebody's*, and the browser that reminds
+  less politely.
+- **Tests**: `test/voice.test.ts` (the lines few and short, their plain words, the phrases never said, and that the
+  page says the lines through `voice()` alone). `tools/browser/stops/voice.json` on the tour (the seal on a normal day,
+  the first pass, nothing on a held day, plain words) and `alone.json`'s empty catalogue on the control estate.
+
 ## Consequences
 
 - **A flow's document grows.** The app ships the composed document, so a page still opens one file and needs no parser.

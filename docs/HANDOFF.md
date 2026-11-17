@@ -272,7 +272,24 @@ in the question prompt, nine questions in three rounds. In the slices of ADR 002
    where its ontology comes from, lists every column a flow handles its own way, and notes it on each card of the
    column; the names form asks for the reason on a column the estate describes. `src/core/shared.ts`,
    `test/estate-ontology.test.ts`, `tools/browser/stops/overrides.json`.
-8. Inputs and settings. 9. Building in the app (a catalogue, a join form). 10. The voice.
+8. Inputs and settings: next.
+9. **Building in the app: built** (before slice 8). A flow's folder may hold a `catalogue/` of flows made already,
+   which the build ships as they read (`examples/larkspur/catalogue/`: Ownership and Certificates). **Add a flow ›**
+   above the canvas lists them; adding one puts its card on the canvas, runs the day with it, and its datasets can be
+   explored. On a dataset's **How it joins**, a **join form** writes a join as a cell of `joins.nb.ts`, a notebook of
+   the flow's own; the step is derived from the cell by the notebook parser, which the page loads when someone first
+   builds (`derive.js`). Both are recorded in words, kept in the browser, and taken back one at a time or all at
+   once; one whose own step stops its first run is taken back at once, and the record keeps both. A catalogue's flow
+   is held to the rules of what it reads (Certificates carries `filled_from`, since the TLS feed can be filled), and
+   Larkspur's two are run on days of the estate through the engine. `src/core/catalogue.ts`, `src/core/joincell.ts`,
+   `test/catalogue.test.ts`, `test/joincell.test.ts`, `tools/browser/stops/build.json` on the tour, `alone.json` on
+   the control estate.
+10. **The voice: built** (with slice 9). Three playful lines, in one place with their plain words and where each is
+    said (`src/core/voice.ts`): *Worth its smalt.* under a gold seal on a run with nothing held, and once after a
+    flow added from the catalogue went out as usual on its first day; *Nothing upstream yet.* in an empty catalogue.
+    Nothing playful on a paused day, a refused file, a decision, a hash or the audit, and the tests read every string
+    of the page and the sample flows against what the wordplay never says. **Plain words**, in About this flow or
+    `?plain`, leaves them out. `test/voice.test.ts`, `tools/browser/stops/voice.json`.
 
 Two readings of the maintainer's answers are ADR 0025's own, for the maintainer to correct: that testing a changed flow
 on the days recorded *informs* and does not hold the change back (§7), and that an override is written in the flow that

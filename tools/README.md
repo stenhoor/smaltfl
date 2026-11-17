@@ -117,6 +117,36 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
   - the dark scheme.
 
   It must report `problems: none` at every size.
+- `build.json`: building in the app (ADR 0025 §10), on the tour (same build as `overview.json`):
+  - **Add a flow ›** above the canvas, and the catalogue: each flow with what it gives and what it is built on;
+  - Ownership added: the day runs again, its card is on the canvas, its sheet says it was added here, and what it
+    gives is explored;
+  - the join form, from Applications' apps: the other dataset, the key on each side, the rows kept, the columns;
+  - a join the form refuses before anything is written: the TLS feed, which a held day can fill, joined with
+    `filled_from` left out;
+  - the join written as a cell and read back by the notebook parser, the day run again, the joined dataset open on
+    its Explore tab; the record's two lines;
+  - what was made here, the join taken out again; the dark scheme.
+
+  Its stops follow one another: what one adds, the next has. It must report `problems: none` at every size.
+- `alone.json`: building in a flow that reads no other and ships no catalogue (ADR 0025 §10, §12), on the control
+  estate (same build as `estate.json`):
+  - nothing above the canvas, and the join form all the same, from app_scores' How it joins;
+  - the join written: the joined dataset on its Explore tab, its notebook a box, and the bar above the canvas there
+    now, since something was made here;
+  - the empty catalogue: *Nothing upstream yet.* with its plain words under it, and what was made here;
+  - plain words ticked in About this flow: the empty catalogue says what it is and no more;
+  - the join taken out: the notebook and the bar are gone.
+
+  Its stops follow one another: what one adds, the next has. It must report `problems: none` at every size.
+- `voice.json`: the voice (ADR 0025 §12), on the tour (same build as `overview.json`):
+  - a gold dataset's seal on a normal day: what the seal is, then *Worth its smalt.*;
+  - Certificates added from the catalogue, its first day here gone out as usual: the status line says so, and the
+    line once;
+  - a held day: the seal part says why it isn't sealed, and nothing playful;
+  - plain words ticked in About this flow, and the same seal with the line left out.
+
+  Its stops follow one another: what one adds, the next has. It must report `problems: none` at every size.
 - `overrides.json`: the estate's ontology and a flow's own handling of a column (ADR 0025 §8), on the tour (same build
   as `overview.json`):
   - the head of the Ontology page: the estate's ontology by name, hash and path, the flows that read the same one,
