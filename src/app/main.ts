@@ -16332,7 +16332,12 @@ async function donorClaim2(engine: Engine, r: RunRecord, repair: Repair): Promis
   const settings = node < 0 || !b ? null : settingsFor(plan, node, ref ? base : null, state.doc.steps);
   if (!settings || !b) return null;
   const m = await measureLoad(engine, donorBinding(repair.source, b).table, settings);
-  const told = await loadClaim({ doc: state.doc, source: repair.source, flow: plan.flow.hash, base: ref ? base : null, baseRef: ref, tail: tails.get(repair.source) ?? [], measures: m, settings, skip: recordedSkips(), levels: levelsOf(ledger?.entries ?? [], repair.source), build: BUILD_COMMIT });
+  // The donor is judged by the history before the held day, which is the tail the engine has pinned for the held run. A
+  // donor of a later day (a fill carried backward) isn't told from the days learned since, the filled day's own among
+  // them: the engine would find a longer tail than the one it holds, and refuse the donor as not judged.
+  const heldDay = dayOfRun(r);
+  const before = (tails.get(repair.source) ?? []).filter((x) => heldDay === undefined || x.slot < heldDay);
+  const told = await loadClaim({ doc: state.doc, source: repair.source, flow: plan.flow.hash, base: ref ? base : null, baseRef: ref, tail: before, measures: m, settings, skip: recordedSkips(), levels: levelsOf(ledger?.entries ?? [], repair.source), build: BUILD_COMMIT });
   return told ? ({ ...told.claim, source: donorIdOf(repair.source) } as Claim) : null;
 }
 
