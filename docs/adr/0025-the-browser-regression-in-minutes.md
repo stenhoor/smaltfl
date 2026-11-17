@@ -136,10 +136,11 @@ written. A stop that opens no day costs a third of a second, and is free to add.
 
 `.github/workflows/ci.yml`: `demos` builds the four demos once (their data cached as the docs deploy caches it), and
 `browser` runs five jobs beside each other on them: the session's run (`npm run regress`'s, which replays on a phone),
-and the replay at each of the other four sizes. The whole matrix takes the time of one pass: seven to eight minutes
-a job on GitHub's machines, which run the session's pass in 407 s where a session's four cores take 314. A job that
-takes twenty minutes is stopped as failed. A failure uploads each job's log, its metrics and a screenshot of every
-stop that reported a problem.
+and the replay at each of the other four sizes. The whole matrix takes the time of one pass: on GitHub's machines
+the regression itself took 309 to 546 s a job on its first run (the session's pass 407 s, where a session's four
+cores take 314; the widest window the longest), about ten minutes from the push to the last job. A job that takes
+twenty minutes is stopped as failed. A failure uploads each job's log, its metrics and a screenshot of every stop
+that reported a problem.
 
 ### 7. What a session does
 
