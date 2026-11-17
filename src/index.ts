@@ -86,7 +86,14 @@ export type { DecideAbout, Decided, DerivedAbout, HeldAbout, Inputs, Load, Pause
 export { DONOR_WINDOW, dayVersions, donorChoices, donorFor, donorIdOf, donorRuleOf, donorSourceOf, fillable, fillCounts, missingOf, offersOf, partLabel, partRows, repairDocument } from './core/fill.js';
 export type { Direction, DonorPick, DonorQuery, FillCounts, NoDonor, Offer, OfferInput, Repair, Version } from './core/fill.js';
 export { PLUGIN_NAME } from './core/protocol.js';
-export { expandNotebooks, loadNotebooks, NOTEBOOK_MODULE, stepsOfNotebooks } from './core/notebook.js';
+export { expandNotebooks, joinPath, loadNotebooks, NOTEBOOK_MODULE, stepsOfNotebooks } from './core/notebook.js';
+export { composeAll, composeFlow, flowProblems, pathFrom } from './core/compose.js';
+export type { FlowFiles } from './core/compose.js';
+export { filePath, flowOf, flowOwners, givesOf, readsOf, usedName, usePath, usesOf } from './core/document.js';
+export type { FlowPart, FlowRef, FlowUse, InputDef, SettingDef, UseSetting } from './core/document.js';
+// A flow used under a name: its inputs and its settings (ADR 0026 §11).
+export { flowUse, mapProblems, readsFill, USE_NAME, useDocument, useName, useNames, useOf, useOntologyProblems, useProblems } from './core/reuse.js';
+export type { UseSpec } from './core/reuse.js';
 export type { CellStep, DfCompiler, Expanded, ExpandOptions, NotebookRef } from './core/notebook.js';
 // One load's numbers, and a source's tail (ADR 0010 §6, E11, E12).
 export { appendPeriods, checksOf, emptyHistory, hourOf, measuresHash, measuresLeaf, measuresOf, measuresProblem, periodOf, periodOfMeasures, samePeriod, scanColumns, settingsFor, tailBefore, tailRef, SAMPLE } from './core/measures.js';
@@ -103,12 +110,12 @@ export type { ParamType, ParamValue } from './core/sqltext.js';
  * with `stage` and `from`, the held run it repairs, its claims the day's and each donor's (ADR 0009 amendment 1 S4):
  * held whatever else holds, until a release of its decision.
  */
-export async function runFlow(db: PluginCaller, given: FlowDocument, options: { smaltdb: string; parameters?: Readonly<Record<string, ParamValue>>; data?: RunContext['data']; log?: RunContext['log']; claims?: RunContext['claims']; tell?: RunContext['tell']; sources?: RunContext['sources']; stage?: boolean; from?: RunOptions['from']; correction?: RunOptions['correction']; restates?: RunOptions['restates']; whatIf?: RunOptions['whatIf']; typed?: boolean; asOf?: string | null }): Promise<RunResult> {
+export async function runFlow(db: PluginCaller, given: FlowDocument, options: { smaltdb: string; parameters?: Readonly<Record<string, ParamValue>>; data?: RunContext['data']; log?: RunContext['log']; claims?: RunContext['claims']; tell?: RunContext['tell']; sources?: RunContext['sources']; flows?: readonly FlowDocument[]; stage?: boolean; from?: RunOptions['from']; correction?: RunOptions['correction']; restates?: RunOptions['restates']; whatIf?: RunOptions['whatIf']; typed?: boolean; asOf?: string | null }): Promise<RunResult> {
   // The rules in force on the run's day, as known at `asOf` (ADR 0021 §5): the document the plan is made from and the
   // run keeps, so its flow hash and its rules hash are the day's.
   const doc = forDay(given, options.parameters ?? {}, options.asOf);
   const plan = await translate(doc, options.parameters ?? {});
-  const context: RunContext = { doc, data: options.data ?? null, log: options.log ?? null, ...(options.claims !== undefined ? { claims: options.claims } : {}), ...(options.tell !== undefined ? { tell: options.tell } : {}), ...(options.sources !== undefined ? { sources: options.sources } : {}) };
+  const context: RunContext = { doc, data: options.data ?? null, log: options.log ?? null, ...(options.claims !== undefined ? { claims: options.claims } : {}), ...(options.tell !== undefined ? { tell: options.tell } : {}), ...(options.sources !== undefined ? { sources: options.sources } : {}), ...(options.flows?.length ? { flows: [...options.flows] } : {}) };
   const stage = options.stage ? { stage: true, ...(options.from ? { from: options.from } : {}) } : options.from ? { from: options.from } : {};
   return (await db.callPlugin(PLUGIN_NAME, 'run', [plan, { smaltdb: options.smaltdb, context, ...stage, ...(options.correction ? { correction: options.correction } : {}), ...(options.restates ? { restates: options.restates } : {}), ...(options.whatIf ? { whatIf: options.whatIf } : {}), ...(options.typed ? { typed: true } : {}) }], { lock: true })) as RunResult;
 }

@@ -68,7 +68,7 @@ jobs:
       - run: node scripts/fetch-packed.mjs
       - run: npm run test:tour
 
-  # The four demos the browser regression runs on (tools/browser/sets.json), built once for every job below. Their
+  # The five demos the browser regression runs on (tools/browser/sets.json), built once for every job below. Their
   # generated days and histories are kept by what makes them, as the docs deploy keeps them (docs.yml): a change to the
   # app alone builds in seconds.
   demos:
@@ -103,13 +103,14 @@ jobs:
   # The browser regression (ADR 0025): every stop set in the built demos, in a real browser. `session` is the run a
   # session makes before a PR (`npm run regress`: each set once on a phone, its layout at the other sizes by resizing
   # the page); the others replay every set at one more size each, as a person at that size reaches it. A size a job, so
-  # the whole matrix takes the time of one pass: five to nine minutes of regression a job on these machines, and a job
-  # that takes twenty is stopped as failed (the sets' runs are budgeted in tools/browser/sets.json; this is the clock's
-  # say).
+  # the whole matrix takes the time of one pass: five to nine minutes of regression a job on these machines with the
+  # 22 sets of ADR 0025, ten and a half to fourteen with ADR 0026's eleven (629 to 834 s on 2026-11-17, a third apart
+  # from one machine to the next), and a job that takes thirty is stopped as failed (the sets' runs are budgeted in
+  # tools/browser/sets.json; this is the clock's say, raised from twenty with the budget, ADR 0025's amendment).
   browser:
     needs: demos
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:

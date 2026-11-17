@@ -1,0 +1,68 @@
+{
+  "smaltfl": 4,
+  "id": "hr",
+  "name": "HR organisation",
+  "description": "The organisation and its leaders as HR exports them each day: each file judged as it arrives, the units conformed, and every unit walked up to the group, so each has its levels and the leader it answers to. It gives the units, the leaders, the closure and the chain.",
+  "parameters": [
+    {
+      "name": "day",
+      "type": "text",
+      "default": null
+    }
+  ],
+  "calendar": {
+    "base": "us",
+    "zone": "UTC",
+    "days": [
+      {
+        "name": "Patch Tuesday",
+        "short": "Patch Tue",
+        "weekday": "tue",
+        "between": [
+          8,
+          14
+        ]
+      }
+    ]
+  },
+  "sources": [
+    {
+      "id": "hr_org_units",
+      "table": "hr_org_units_file",
+      "description": "The HR system's daily extract of the organisation: every unit (the group, its segments, business units, departments and teams) with its parent, its leader, and anyone acting for a vacant or absent one"
+    },
+    {
+      "id": "hr_people",
+      "table": "hr_people_file",
+      "description": "The leaders in the HR extract: each with their title, manager, unit and status (active, on leave, or left in the last thirty days)"
+    }
+  ],
+  "notebooks": [
+    "bronze.nb.ts",
+    "org.nb.ts"
+  ],
+  "ontology": {
+    "import": [
+      "../ontology.json"
+    ]
+  },
+  "publish": {
+    "hold": [
+      "checks",
+      "wrong"
+    ],
+    "period": "day",
+    "together": false,
+    "reach": "downstream",
+    "watch": {
+      "hr_org_units": {
+        "history": "history.hr_org_units.json",
+        "pattern": "none"
+      },
+      "hr_people": {
+        "history": "history.hr_people.json",
+        "pattern": "none"
+      }
+    }
+  }
+}

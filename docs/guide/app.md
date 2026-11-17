@@ -41,6 +41,100 @@ A card is a source or a step; a box is a notebook. A card's line says its day in
 news (an alert, a warning, a fill). Drag to move around, pinch to zoom, hold a card to move it. Tap a box to read the
 notebook; **Show its steps on the canvas** unfolds it.
 
+### A flow that reads flows
+
+A flow may read other flows ([Writing a flow](./flows#a-flow-that-reads-other-flows)). Each flow it reads is **one
+card** on its canvas, a second sheet behind it, with the word FLOW and the count of what it gives.
+
+- **Its line is its day**, the worst of what is inside it, by the month's marks: a tick and what the flow has; **‖**
+  and what holds it with its extent (*tls · 1 of 13 files*); how the day went out once it was decided; *Waits on
+  Evidence feeds* where nothing of its own is wrong and another flow's hold keeps its outputs back. Never a score.
+- **Tap it** for its sheet: the day in a sentence; what holds it, each a tap from the card inside; the flows it reads;
+  what it gives, each dataset with whether today's went out and who reads it; and the hash the flow is known by, the
+  same wherever it is read.
+- **Open the flow ›**, or a double-click on the card, shows the flow's own canvas: its files, its notebooks, and the
+  flows *it* reads as cards. A line at the top says where you are (*Larkspur estate / Evidence feeds*) and goes back.
+  It is the same run, so every card shows the day on screen, and Decide, the news and the notebook pages work as at
+  the top.
+- **Each level has a link**: `#day/2024-03-27/in/feeds`. The days either side keep the level.
+- **A flow that changed says so** ([ADR 0026](../adr/0026-flows-in-flows) §7). Its card reads `FLOW · CHANGED` on the
+  day a change of its own takes effect, and once it was changed here. Its sheet has **What changed**: each change with
+  the day it takes effect from, what it did, who made it and why; the changes of the flows it reads, which it
+  *follows*; and the flows that read it and follow in turn. A change is the flow's whose file or step it is about, so
+  that flow's hash moves, and its readers' with it.
+- **Test on the days before it ›**, under a change, runs the last 14 recorded days again under it, as what-if runs:
+  nothing is published and nothing recorded. The sheet says what it found: *Under the changed Evidence feeds, 2 of the
+  last 14 days would have paused: Tue Mar 12 and Mon Mar 18; 12 come out the same.* The change stands either way.
+- A flow **pinned** by a flow that reads it says so on its sheet, and isn't changed from here until the pin is moved.
+- A card opened from anywhere else (the day's head, the news, a scene) takes the canvas to the flow that has it.
+
+#### Building in the app {#building-in-the-app}
+
+The owner can build on the flow from the page ([ADR 0026](../adr/0026-flows-in-flows) §10).
+
+- **Add a flow ›**, above the canvas, opens the catalogue: flows made already and shipped with the build, each with
+  what it gives and what it is built on. **Add it ›** puts its card on the canvas and runs the day with it. Its sheet
+  says it was added here; each dataset it gives has **Explore ›**. **Take it off** removes it, where nothing reads
+  what it gives. A flow whose own step stops its first run here is taken off again at once, and the status line says
+  what stopped it.
+- **Use it ›**, on a catalogue's flow with inputs ([Flows](./flows#a-flow-used-more-than-once-inputs-and-settings)):
+  a form asks for a dataset for each input, among those the day's run built with the columns the flow needs; a value
+  for each setting, with the flow's own beside it; and a name. The use is a flow of its own: a card on the canvas, a
+  row in the month and its own hash in every run, and what it gives is named after it. **Use it again ›** makes
+  another, on other datasets or with other settings. A use's sheet says what it is a use of, what is mapped onto each
+  input and what was set here. Its steps and checks stay as the flow wrote them.
+- **A join form**, on a dataset's **Explore › How it joins**: *Join them as a new dataset ›* beside a dataset the
+  ontology says it joins, or *Join it with another dataset ›*. Pick the other dataset, the key on each side, which
+  rows are kept and the columns to take, and name it. The form writes the join as a cell of `joins.nb.ts`, a notebook
+  of the flow's own, and the day runs again: the new dataset has a card, and opens on its Explore tab. The cell is
+  read back by the same parser that reads a flow's folder, so a join made here is a join written in the flow.
+- Each is recorded in words, kept in this browser with every other edit, and listed under **Made here** in the
+  catalogue's sheet, with the way to take it back. *Back to the flow as shipped*, on the Ontology page, takes them all
+  away.
+- A flow that reads no other and ships no catalogue has the join form all the same. Once a join is made, **Add a
+  flow ›** is above its canvas too, and says the build ships no flow to add.
+
+#### Plain words {#plain-words}
+
+The app is plain where anything is decided, held, hashed or audited. In three places it says a line in the smalt
+family's voice ([ADR 0026](../adr/0026-flows-in-flows) §12):
+
+- *Worth its smalt.* under a gold dataset's seal, on a run whose every gate passed with nothing held;
+- *Worth its smalt.* once, on the status line, when a flow added from the catalogue went out as usual on its first
+  day here;
+- *Nothing upstream yet.* in the catalogue of a build that ships no flow to add.
+
+**Plain words**, a tick at the foot of *About this flow* (or `?plain` in the address), leaves them out: each is then
+its plain words, or nothing where the screen says them already. The choice is kept in this browser.
+
+On the **month**, the flows are rows of days above their files and steps. A flow's bar for a day is the worst any of
+its files or steps said. Open a row for those files and steps.
+
+- A flow that held or was unusual only where a file of a flow under it did **followed** that flow, and says whom
+  (*held on Fri 16, following HR organisation*). A flow whose outputs another flow's hold kept back **waited**: a
+  dashed outline on that day. Both are folded with the calm flows: the flows listed are those with trouble of their
+  own.
+- **Its own month ›** on a row, or **Its month ›** on a flow's card, is the month of that flow and the flows it reads
+  (`#month/2024-03/in/feeds`): its calendar, its counts and its rows. A day held outside it is none of its business
+  there, and says so.
+- What waits for a decision names the flow whose file or step holds.
+
+A held day is **decided once, at the flow that holds**. The decision sheet says whose it is (*Evidence feeds’ to
+decide: access_reviews holds. Larkspur estate waits on it.*), and a Decide button outside that flow says where
+(*Decide at Evidence feeds ›*). A flow that reads it waits and is never asked: a step of its own held only because the
+file under it is, is decided by the file's decision, and the record says so.
+
+A flow another flow reads may have **a page of its own**, on the same files: the site has one for Evidence feeds
+([/feeds/](/feeds/){target="_self"}), beside the estate's tour. The two pages share a browser and keep a record each.
+A held day decided on either page is **carried to the other**: when the day runs there, the page finds the decision in
+the other record, by the file and by the flow's hash, records it as made by whoever made it, citing the entry it
+carried, and applies it. Nobody is asked twice; a page left open in another tab takes it when it is looked at again.
+The receipt says where it was decided (*Decided on Evidence feeds’ page, and carried here*), and so do the record and
+the month; on the page that decided, the receipt says where it is carried to, a tap away. A decision changed on one page is carried in turn. One made under other rules isn't carried: a flow edited
+on one of the pages is known by another hash there, and the decision sheet says what was decided and why it isn't
+taken. Each page's audit bag carries the proof of what it carried, so the offline audit checks it without the other
+record.
+
 ## A card's sheet
 
 Tapping a card opens its sheet, the same tabs on every card, the news first:
@@ -48,6 +142,7 @@ Tapping a card opens its sheet, the same tabs on every card, the news first:
 - **News**: the day's story about the card: one cause, the picture against what is usual, what it reaches, the fix.
 - **Data**: its rows, each column's shape on top; a small output opens with its heat table at a glance.
 - **Columns**: one column a line, opening into its values and its history.
+- **Explore** (a file or a published dataset): the dataset for someone who has never seen it; see below.
 - **Checks** (a gated card): each check, written or learned, holding, warning or off; toggling one writes the gate
   cell in the notebook.
 - **Rules** (a source): the ontology's rules for the file, each switched on or off for this flow.
@@ -55,6 +150,29 @@ Tapping a card opens its sheet, the same tabs on every card, the news first:
 - **Dropped** and **Odd rows**: what a check removed, and rows unlike the rest.
 - **History**: the day's numbers against the days before.
 - **Integrity**: the file against its list, the run's hashes.
+
+### Exploring a dataset {#explore}
+
+**Explore** starts with what a row is, in a sentence from the ontology: *One row is an application, for those where
+exposure is internet or partner and lifecycle is active or retiring: 813 rows, one for each app_id.* Then three parts.
+
+- **Its columns**: a card a column, counted over every row. A category shows its values, the most common first; a
+  number its rows in bins; a date its rows over time; the rows with no value are a bar of their own. Where the
+  ontology writes a column's values, the card says how the rows sit with them.
+  - **Tap a bar** and every other column shows how many of its rows are in that part: tap *Fail* and see which
+    protocol the failing certificates use and when they expire. The part and its count stay at the foot of the
+    screen. It stays picked as you step through the days.
+  - **Keep only** makes the part the rows every count is over. **As a cell ›** writes them as SQL in a cell of your
+    own, under the notebook that makes the dataset. **Every row** goes back.
+- **How it joins**: the datasets the ontology says share its key or are linked to it. Each is counted on both sides on
+  the day's rows: how many of its rows find a match there, how many of the other's keys have a row here, and the first
+  keys that find none. Against the list its scope is counted against, only the keys in scope count, and the match is
+  drawn day by day.
+- **Against another day**: its rows by its key against another day's: rows only in one, and cells that changed. A day
+  not run in your browser yet is one tap: it is run, and the day on screen put back.
+
+A flow's sheet has **Explore ›** beside each dataset it gives. What a flow gives of a file is the file's rows, filled
+and checked, and is described as the file is.
 
 ## The notebook page
 
@@ -94,6 +212,14 @@ The **Ontology** view is laid out by file: what the file is, the rules about it 
 its meaning, its values and the rules about it. The owner can rename a column, reword its meaning, label its values,
 and add, change or remove a rule. A file read by several flows can share one ontology
 (`examples/ontologies/auth.json`): change it once, and every flow that reads the file has the change.
+
+Where the flows share an **estate's ontology** ([ADR 0026](../adr/0026-flows-in-flows) §8), the view says so first:
+the estate's name, the hash its ontology travels under, and the flows read here that import the same one. Under it is
+every column a flow **handles its own way**: the flow, the datasets of its own it does so in, and why, each dataset a
+tap to the column's card. That card says the meaning is the flow's own, and what the estate says in its place; every
+other card of the column notes where it is handled differently. Editing a column the estate describes asks why this
+flow handles it its own way: the change is saved as that flow's handling, with the reason, and is part of the flow's
+hash.
 
 A rule edit takes effect from a day ([ADR 0021](../adr/0021-time) §5). **Edits take effect from** offers the next day
 to arrive (the default: no day already recorded moves), the day on screen, or any day, and says what a change reaches.

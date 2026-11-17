@@ -143,6 +143,17 @@ describe('the build’s entries under this browser’s', () => {
     expect(file.entries[3]!.about).toMatchObject({ decision: 2 });
   });
 
+  it('renumbers the decision a carried one cites, and leaves its leaf and its flow as they are (ADR 0026 §6)', () => {
+    const file = { entries: [
+      entry(0, '2024-03-27T08:00:00Z', { day: '2024-03-27', option: 'dont', scope: 'day', flow: { id: 'feeds', hash: 'f'.repeat(64) } }, 'ciso', 'decide'),
+      entry(1, '2024-03-27T08:00:00Z', { day: '2024-03-27', option: 'dont', scope: 'day', carried: { seq: 0, leaf: 'a'.repeat(64) } }, 'ciso', 'decide'),
+    ] };
+    const l = layered(file);
+    expect(l[0]!.about).toMatchObject({ flow: { id: 'feeds', hash: 'f'.repeat(64) } });
+    expect(l[1]!.about).toMatchObject({ carried: { seq: -2, leaf: 'a'.repeat(64) } });
+    expect(file.entries[1]!.about).toMatchObject({ carried: { seq: 0 } });
+  });
+
   it('takes only a recorded month', () => {
     const good: MonthFile = { format: MONTH_FORMAT, flow: 'larkspur', build: 'abc', now: '2024-04-01T08:00:00Z', entries, manifests: {} };
     expect(isMonthFile(good)).toBe(true);

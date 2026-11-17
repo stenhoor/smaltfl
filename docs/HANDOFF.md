@@ -209,8 +209,10 @@ npm run build                               # declarations; NOTE: wipes dist/, s
 npm run build:app                           # dist/app on Larkspur, its days generated; the bundles are named by content (app.<hash>.js), so a
                                             # browser never serves a stale build under the old name (bundles.json says which)
 npm run build:app -- --variant tour --out dist/app-tour   # the demo: the tour's two months and their scene list (ADR 0023)
-npm run regress                             # the browser regression (ADR 0025): the four demos built, every stop set run, five
-                                            # minutes on four cores; `-- tour` for one set, `-- tour --full` at every size
+npm run regress                             # the browser regression (ADR 0025): the five demos built, every stop set run, seven
+                                            # and a half minutes on four cores; `-- tour` for one set, `-- tour --full` at every size
+npm run regress -- carry                    # one set: here the two pages that share a flow (ADR 0026 §6), the tour and
+                                            # Evidence feeds' own page, built side by side as the site serves them
 ```
 
 Results on 2026-11-09, at `e42d9ec` on data `0ca4dd1`:
@@ -223,14 +225,124 @@ Results on 2026-11-09, at `e42d9ec` on data `0ca4dd1`:
 
 ## What is not done
 
+**Built: [ADR 0026](adr/0026-flows-in-flows.md), flows in flows** (2026-11-17, the maintainer's answers Q-231 to
+Q-245: every slice of its §12, and both steps of slice 5). The maintainer asked for flows that are parts of other flows: build one, read it from many, stack them, change
+a bronze flow once and have it reach everything built on it; a card for each flow on its reader's canvas with the day's
+pass or fail, opened to see its own flow; a way to explore what a flow gives; all of it rolled up into the month. The
+research is [research/flows-in-flows.md](research/flows-in-flows.md): what Alteryx, Palantir, Dataiku, KNIME, dbt, Dagster
+and the design tools do, how they roll a status up, how they hash, and what none of them does. The design was settled
+in the question prompt, nine questions in three rounds. In the slices of ADR 0026 §12:
+
+1. **The core, and Larkspur cut into five: built** (ADR 0026 §"As built"). A flow lists the flows it reads
+   (`flows` in `flow.json`); reading brings them in (`src/core/compose.ts`); the plan stays flat, so every hold, every
+   check and the recorder run a composed flow as they run any other. A flow is known by its own flow hash, every run
+   names the flows it read, and verify holds the run's document to each one's own. Larkspur is HR organisation,
+   Inventory, Evidence feeds, Applications and the posture product, with the same 92 plan nodes and the same answer
+   keys (its six months and March through the engine, the tour's two months at the demo's scale).
+2. **The canvas in levels: built.** Each flow a flow reads is one card on its canvas, a second sheet behind it, saying
+   what its day came to by the month's marks and its extent (*access_rev… · 1 of 13*), never a score; a tap opens its
+   sheet (what holds it, what it reads, what it gives and who reads it); **Open the flow ›** or a double-click shows
+   its own canvas, with a line at the top that says where you are and goes back; each level has a link
+   (`#day/2024-03-27/in/feeds`). `tools/browser/stops/levels.json` walks it on the tour at every size.
+3. **The month in tiers: built.** Above the files and steps, a row a flow, its bar for a day the worst any of its files
+   or steps said; a row opens to its files and steps. A flow that held only where a flow under it broke *followed*, and
+   one whose outputs another flow's hold kept back *waited* (a dashed outline): both are folded with the calm ones.
+   What waits for a decision names the flow. A flow has a month of its own (`#month/2024-03/in/feeds`): its calendar,
+   its counts and its rows, by what it and the flows it reads came to. `tools/browser/stops/tiers.json`.
+4. **Exploring what a flow gives: built.** An **Explore** tab on every file and published dataset: what a row is, in
+   a sentence from the ontology; a card a column over every row; a bar tapped lit in every other column, kept
+   (**Keep only**) and written as one of the reader's own cells; how it joins (its scope's list counted over the keys
+   in scope, the datasets of its type, the ontology's links), with the match day by day; its rows against another
+   day's by key. A flow's sheet has **Explore ›** on each dataset it gives. `src/core/explore.ts`,
+   `test/explore.test.ts`, `tools/browser/stops/explore.json`.
+5. **A paused day decided once, at its flow: built, in two steps.** A hold is the flow's whose file or step
+   holds, and so is its decision: each decision by load says its flow, a load held only because one it is built from
+   holds carries that one's decision, and the sheet, the Decide buttons, the day's story, the month, the record and the
+   audit say whose it is (`src/core/deciding.ts`). The second step (built last, once the maintainer had chosen the
+   page, Q-245): Evidence feeds, a flow the estate reads, is a page of its own on the tour's files
+   (`examples/larkspur/feeds/data.json` and `tour.json`; the site's `/feeds/`). The two pages are one origin's and keep
+   a record each in one store, so a held day decided on either is carried to the other: found after the day's run by
+   the file's load and the flow's hash, recorded there by whoever made it, citing the entry it carried with a proof of
+   it that the offline audit checks, and applied with nobody asked; a decision changed on one page is carried in turn.
+   One made under other rules (the flow edited on one page) isn't carried, and the sheet says so
+   (`src/core/carry.ts`, `test/carry.test.ts`, `test/record-others.test.ts`, `tools/browser/stops/carry.json`, on both
+   apps served from one origin).
+6. **A change followed, said and tested: built** (after slice 7). A change is the flow's whose file or step it is
+   about, and is made in that flow's own document too, so its hash moves with it and with the flows it reads, and no
+   other (`src/core/attribute.ts`); the build and the recorder put a story's changes where they belong. A flow's card
+   says `CHANGED`, and its sheet says what changed, who made it and why, and which flows follow. **Test on the days
+   before it ›** runs the last 14 recorded days again under the change as what-if runs and says how many would have
+   paused. A flow may pin the hash of a flow it reads; reading refuses any other. The offline audit checks the flows
+   each run names. `src/core/follow.ts`, `test/follow.test.ts`, `tools/browser/stops/follow.json`.
+7. **The ontology's overrides: built** (before slice 6, which needs a read flow's own ontology). The estate's ontology
+   is a document of its own (`examples/larkspur/ontology.json`, `{ "smaltflOntology": 2, … }`): every flow imports it
+   and takes what is about its datasets, and it travels under its own hash (`estate/0`), which each flow's document
+   keeps. A flow handles a column of its own datasets its own way by saying so, with its reason
+   (`"override": { "reason": … }`); saying a shared column again without the mark is refused. The Ontology page says
+   where its ontology comes from, lists every column a flow handles its own way, and notes it on each card of the
+   column; the names form asks for the reason on a column the estate describes. `src/core/shared.ts`,
+   `test/estate-ontology.test.ts`, `tools/browser/stops/overrides.json`.
+8. **Inputs and settings: built** (last). A flow declares open `inputs`, each with the columns it needs, and
+   `settings`, each with a default; a flow uses it under a name, `{ path, as, inputs, settings }`, mapping one of its
+   own datasets onto each input. The used flow's notebooks are read under that name: its steps named after the use,
+   each input a step that reads the needed columns of the mapped dataset, each setting the use's value. Each use is a
+   flow of the document, named and hashed apart, and a change to the flow moves every use. In the app the catalogue's
+   **Use it ›** asks for the datasets, the settings and a name; Larkspur's catalogue has *Control by unit*. A use
+   changes its inputs and settings, nothing else: its checks and steps stay as written. `src/core/reuse.ts`,
+   `test/reuse.test.ts`, `tools/browser/stops/use.json`.
+9. **Building in the app: built** (before slice 8). A flow's folder may hold a `catalogue/` of flows made already,
+   which the build ships as they read (`examples/larkspur/catalogue/`: Ownership and Certificates). **Add a flow ›**
+   above the canvas lists them; adding one puts its card on the canvas, runs the day with it, and its datasets can be
+   explored. On a dataset's **How it joins**, a **join form** writes a join as a cell of `joins.nb.ts`, a notebook of
+   the flow's own; the step is derived from the cell by the notebook parser, which the page loads when someone first
+   builds (`derive.js`). Both are recorded in words, kept in the browser, and taken back one at a time or all at
+   once; one whose own step stops its first run is taken back at once, and the record keeps both. A catalogue's flow
+   is held to the rules of what it reads (Certificates carries `filled_from`, since the TLS feed can be filled), and
+   Larkspur's two are run on days of the estate through the engine. `src/core/catalogue.ts`, `src/core/joincell.ts`,
+   `test/catalogue.test.ts`, `test/joincell.test.ts`, `tools/browser/stops/build.json` on the tour, `alone.json` on
+   the control estate.
+10. **The voice: built** (with slice 9). Three playful lines, in one place with their plain words and where each is
+    said (`src/core/voice.ts`): *Worth its smalt.* under a gold seal on a run with nothing held, and once after a
+    flow added from the catalogue went out as usual on its first day; *Nothing upstream yet.* in an empty catalogue.
+    Nothing playful on a paused day, a refused file, a decision, a hash or the audit, and the tests read every string
+    of the page and the sample flows against what the wordplay never says. **Plain words**, in About this flow or
+    `?plain`, leaves them out. `test/voice.test.ts`, `tools/browser/stops/voice.json`.
+
+The choices the maintainer's answers left open were built as proposed, then asked through the question prompt and
+confirmed as built on 2026-11-17 (Q-240 to Q-244 in docs/OPEN_QUESTIONS.md): testing a changed flow on the days
+recorded *informs* and holds nothing back (§7); an override is written in the flow that makes it, marked with its
+reason (§8); two flows that hold on one day are one choice, recorded as a decision a flow (§6); a use's datasets are
+named after it and it is known by its own document's hash (§11); a flow or a join whose own step stops its first run
+is taken back at once (§10). The one that was open was answered in the same rounds and built: a decision is carried
+between a read flow's own page and its reader's (Q-245). What ADR 0026 leaves is in its §"Not built" and under each
+slice: first, a flow run on its own and read by another, to which the page of slice 5's second step is the bridge.
+
+**Found while auditing fills, and left** (ADR 0026, slice 5's second step, "What it leaves"): the offline audit fails
+a bag in which a fill was withdrawn on a day whose holds kept back only some of the outputs. `shownBefore` in
+`src/core/audit.ts` reads what a name showed from the days that published whole; a held run publishes what its holds
+don't reach, so the audit expects an older version of those names than the engine, rightly, leaves. To see it: on the
+tour, decide Wed Mar 27 with a fill, change the decision to *Keep*, export for audit. The fix belongs with a stop
+that audits a withdrawal. (A fill's own release failed the audit on such a day too, and that is fixed.)
+
+**Found while bringing the stop sets into the regression in minutes, and left** (ADR 0025's amendment of 2026-11-17):
+a fill can't be withdrawn in an engine that has run no other day. A page opened on a held day's own link
+(`#day/2024-03-27`) runs that day first; fill it, then change the decision to *Keep*, and the engine refuses: *nothing
+was published for access_reviews_checked before release 1: there is no version to go back to*. The decision is
+recorded and the page says the refusal; the filled version stays out in that engine. It is the plugin's
+(`src/plugin/release.ts`: a withdrawal puts back the version a name showed before), it is older than flows in flows,
+and no stop met it while every set opened on the first day. Opened from the month, where the first day runs, the same
+withdrawal goes back to that day (`carry.json`'s last stops). The fix is the engine's to make: a name with nothing
+before it shows nothing again.
+
 **For the maintainers to confirm: [ADR 0025](adr/0025-the-browser-regression-in-minutes.md), the browser regression
 in minutes** (2026-11-16, Q-226 to Q-230). The maintainer, after a regression of 26 minutes, asked for it in minutes
 and for a way to keep it there. Measured first: 22 sets, 246 stops, replayed at five sizes; a third of the time was the
 tool waiting (250 ms of stillness after every step, screenshots nobody looked at, the app opened again for the dark
 scheme), the rest the engine's 166 runs, done once a size. Built as proposed:
 
-- **`npm run regress`**: the four demos built, every set run, one table. Five minutes on four cores, where it took 26
-  to 37. One set while working is seconds to a minute.
+- **`npm run regress`**: the demos built, every set run, one table. Five minutes on four cores for the 22 sets it was
+  built on, where it took 26 to 37; seven and a half with ADR 0026's eleven (below). One set while working is seconds
+  to a minute.
 - **The tour asks the page when it is at rest** (`window.__smaltflBusy`, and a count of what the page started), and
   never waits a fixed time.
 - **Each set is replayed once**, on a phone, and its page taken to the other four sizes by resizing it, the layout
@@ -243,6 +355,14 @@ scheme), the rest the engine's 166 runs, done once a size. Built as proposed:
   day's.
 - **Found on the way** (Q-230): with the engine in the page (`?engine=page`), the second day opened is paused where
   the worker publishes it.
+- **Amended on 2026-11-17, with ADR 0026's eleven sets** (its §"Amended"; Q-246, which the maintainer decided): 33
+  sets on five demos, 395 stops, 215 runs of the engine, **7 min 35 s** on four cores. The budget is raised from 840
+  engine seconds to 1,330 (1,292 used), which only the maintainers do, and the maintainer agreed it; holding 840 would
+  have left eight Larkspur runs for the eleven sets. What bringing them in found: a set never did open on its first stop's day (the tour read `day`
+  where the data's list says `slot`), which it does now, a run fewer in eleven of the 22 sets; a level entered on a
+  refused day fetched the file again, fixed; a fill can't be withdrawn in an engine that has run no other day, left
+  (above). A set that goes to another demo of the site says its runs there (`"with"`), and no set leaves a day and
+  comes back to it.
 
 **For the maintainers to confirm: [ADR 0024](adr/0024-the-month-at-a-glance.md), the month at a glance** (2026-11-16,
 Q-219 to Q-225). The maintainer looked at the tour's month and asked for research into how such a screen is best done,

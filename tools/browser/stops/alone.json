@@ -1,0 +1,142 @@
+[
+  {
+    "name": "alone-form",
+    "what": "The control estate, a flow that reads no other and ships no catalogue (ADR 0026 §10): nothing above the canvas, and the join form all the same, from a dataset's How it joins. The key offered is the one the two share, and each side's columns are named for their dataset",
+    "day": "Wed 6",
+    "unfold": [
+      "nb-scores"
+    ],
+    "card": "app_scores",
+    "tab": "Explore",
+    "clicks": [
+      "#sheet .vf-pick-chip[data-part=\"joins\"]",
+      "#sheet .xp-join-form"
+    ],
+    "waitFor": ".vf-detail .jf-cols-right input[value=\"hosting\"]",
+    "element": ".vf-detail",
+    "expect": {
+      "textIn": {
+        ".vf-detail": [
+          "Join app_scores with",
+          "Columns from app_scores",
+          "Columns from apps",
+          "A column both sides have is named after its dataset.",
+          "Written as a cell of joins.nb.ts, a notebook of this flow, and recorded: a join made here is a join written in the flow."
+        ]
+      },
+      "count": {
+        "#build-bar .build-add": 0,
+        ".vf-detail .jf-go": 1,
+        ".vf-detail .jf-cols-right input[value=\"app_id\"]:checked": 0,
+        ".vf-detail .jf-cols-right input[value=\"hosting\"]:checked": 1
+      }
+    }
+  },
+  {
+    "name": "alone-written",
+    "what": "The join written: the day runs again, the joined dataset is open on its Explore tab, its notebook is a box on the canvas, and the bar above the canvas is there now, since something was made here",
+    "unfold": [
+      "nb-scores"
+    ],
+    "card": "app_scores",
+    "tab": "Explore",
+    "clicks": [
+      "#sheet .vf-pick-chip[data-part=\"joins\"]",
+      "#sheet .xp-join-form",
+      ".jf-go"
+    ],
+    "waitFor": "#sheet .xp-tab .xp-card",
+    "waitForMs": 120000,
+    "element": "#sheet",
+    "expect": {
+      "state": "done",
+      "textIn": {
+        "#sheet": [
+          "app_scores_with_apps"
+        ],
+        "#build-bar": [
+          "Add a flow ›",
+          "1 thing made here"
+        ]
+      },
+      "count": {
+        "g.card[data-card=\"nb-joins\"]": 1
+      }
+    }
+  },
+  {
+    "name": "alone-empty",
+    "what": "An empty catalogue (ADR 0026 §12): the build ships no flow to add, said once in the family's voice with the plain words under it; what was made here is listed with the way to take it back",
+    "click": "#build-bar .build-add",
+    "waitFor": ".vf-detail .cat-none",
+    "element": ".vf-detail",
+    "expect": {
+      "textIn": {
+        ".vf-detail": [
+          "Nothing upstream yet.",
+          "This build ships no flow to add.",
+          "Made here",
+          "app_scores_with_apps · a join written in joins.nb.ts",
+          "Take it out"
+        ]
+      },
+      "count": {
+        ".vf-detail .cat-flow": 0,
+        ".vf-detail .cat-made li": 1
+      }
+    }
+  },
+  {
+    "name": "alone-plain-on",
+    "what": "Plain words, ticked in About this flow",
+    "clicks": [
+      "details.about-flow > summary",
+      "#plain-words"
+    ],
+    "element": "details.about-flow",
+    "expect": {
+      "count": {
+        "#plain-words:checked": 1
+      }
+    }
+  },
+  {
+    "name": "alone-plain",
+    "what": "The empty catalogue in plain words: what it is, and nothing in the family's voice",
+    "click": "#build-bar .build-add",
+    "waitFor": ".vf-detail .cat-none",
+    "element": ".vf-detail",
+    "expect": {
+      "textIn": {
+        ".vf-detail": [
+          "This build ships no flow to add."
+        ]
+      },
+      "noTextIn": {
+        ".vf-detail": [
+          "Nothing upstream yet."
+        ]
+      },
+      "count": {
+        ".vf-detail .cat-none p": 1
+      }
+    }
+  },
+  {
+    "name": "alone-taken-out",
+    "what": "The join taken out: its notebook is gone from the canvas, and so is the bar, since nothing made here is left",
+    "clicks": [
+      "#build-bar .build-add",
+      ".cat-made li[data-join=\"app_scores_with_apps\"] .cat-off"
+    ],
+    "waitFor": "body:has(#run:not([disabled])):has(#build-bar[hidden]) #loads",
+    "waitForMs": 120000,
+    "expect": {
+      "state": "done",
+      "count": {
+        "g.card[data-card=\"nb-joins\"]": 0,
+        "#build-bar .build-add": 0
+      }
+    }
+  }
+]

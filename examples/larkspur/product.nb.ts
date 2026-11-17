@@ -5,9 +5,10 @@
 // teams themselves and publish.
 import { cell, md, param, sql } from 'smaltnb';
 import { check, gate, publish } from 'smaltfl/notebook';
-import { control_catalog_checked, control_requirements_checked, exceptions_checked, findings_checked } from './bronze.nb.js';
-import { leaders, org_chain, org_closure } from './org.nb.js';
-import { app_owners, apps, shadow_assets } from './apps.nb.js';
+import { control_catalog_checked, control_requirements_checked, exceptions_checked } from './bronze.nb.js';
+import { findings_checked } from './feeds/bronze.nb.js';
+import { leaders, org_chain, org_closure } from './hr/org.nb.js';
+import { app_owners, apps, shadow_assets } from './applications/apps.nb.js';
 import { effective, expected, remediation } from './posture.nb.js';
 
 cell('params');

@@ -1,0 +1,132 @@
+[
+  {
+    "name": "follow-before",
+    "what": "The Friday before, Mar 15: the band isn't in force yet, the card says what the flow gives, and the sheet says the change comes later",
+    "day": "Fri 15",
+    "in": "",
+    "flow": "feeds",
+    "waitFor": "#sheet .fl-changed",
+    "element": "#sheet .fl-changed",
+    "expect": {
+      "textIn": {
+        "#sheet .fl-changed": [
+          "From Mon Mar 18",
+          "not in force yet on"
+        ]
+      },
+      "noTextIn": {
+        "g.card[data-card=\"flow:feeds\"]": [
+          "CHANGED"
+        ]
+      }
+    }
+  },
+  {
+    "name": "follow-card",
+    "what": "Larkspur's month, Mon Mar 18, the day the WAF's band takes effect (ADR 0026 §7): the change is Evidence feeds', whose file it is about, and its card says CHANGED; Applications, which only follows it, says what it gives",
+    "day": "Mon 18",
+    "in": "",
+    "expect": {
+      "textIn": {
+        "g.card[data-card=\"flow:feeds\"]": [
+          "CHANGED"
+        ]
+      },
+      "noTextIn": {
+        "g.card[data-card=\"flow:applications\"]": [
+          "CHANGED"
+        ],
+        "g.card[data-card=\"flow:hr\"]": [
+          "CHANGED"
+        ]
+      }
+    }
+  },
+  {
+    "name": "follow-sheet",
+    "what": "Its sheet says what changed: each change with the day it takes effect from, what it did, who recorded it and why, and where it stands for the day on screen; then the flows that read it and follow",
+    "day": "Mon 18",
+    "in": "",
+    "flow": "feeds",
+    "waitFor": "#sheet .fl-changed",
+    "element": "#sheet .fl-changed",
+    "expect": {
+      "textIn": {
+        "#sheet .fl-changed": [
+          "What changed",
+          "From Mon Mar 18",
+          "After Tuesday's monitor mode, the security lead wants a WAF failing more than a tenth of its applications held, from Monday",
+          "in force on the day on screen",
+          "From Fri Mar 1",
+          "Applications and Larkspur estate read it, and follow: nothing is copied."
+        ]
+      },
+      "count": {
+        "#sheet .fl-change": 2,
+        "#sheet .fl-test": 1
+      }
+    }
+  },
+  {
+    "name": "follow-follows",
+    "what": "A flow that reads it: Applications' sheet says what it follows, and whose each change is",
+    "day": "Mon 18",
+    "in": "",
+    "flow": "applications",
+    "waitFor": "#sheet .fl-changed",
+    "element": "#sheet .fl-changed",
+    "expect": {
+      "textIn": {
+        "#sheet .fl-changed": [
+          "What it follows",
+          "it follows Evidence feeds",
+          "A flow reads the flows it lists as they are: nothing is copied."
+        ]
+      },
+      "count": {
+        "#sheet .fl-change.fl-follows": 2
+      }
+    }
+  },
+  {
+    "name": "follow-dark",
+    "what": "What changed, in the dark scheme",
+    "day": "Mon 18",
+    "scheme": "dark",
+    "in": "",
+    "flow": "feeds",
+    "waitFor": "#sheet .fl-changed",
+    "element": "#sheet",
+    "expect": {
+      "count": {
+        "#sheet .fl-change": 2
+      }
+    }
+  },
+  {
+    "name": "follow-test",
+    "what": "The change tested on the days recorded: each of the last 14 days before it takes effect run again under it as a what-if, nothing published and nothing recorded; the sheet and the status line then say what it found, and the day that was on screen is on screen again",
+    "in": "",
+    "flow": "feeds",
+    "click": "#sheet .fl-change[data-change=\"waf-band-tenth\"] .fl-test",
+    "waitFor": "#sheet .fl-change[data-change=\"waf-band-tenth\"] .fl-tested",
+    "waitForMs": 600000,
+    "element": "#sheet .fl-changed",
+    "expect": {
+      "status": "^Under the changed Evidence feeds, all of the last 14 days come out the same\\.$",
+      "textIn": {
+        "#sheet .fl-change[data-change=\"waf-band-tenth\"]": [
+          "Under the changed Evidence feeds, all of the last 14 days come out the same.",
+          "Test again ›"
+        ],
+        "#loads": [
+          "Mon Mar 18"
+        ]
+      },
+      "count": {
+        "#sheet .fl-tested": 1,
+        "#sheet .fl-tested-days": 0
+      }
+    }
+  }
+]

@@ -7,9 +7,9 @@ are not part of the package, the tests or the build.
 
 They need Playwright with Chromium (`require('playwright')`), and Python 3 with Pillow for the two image scripts.
 
-**The regression is one command: `npm run regress`** (ADR 0025). It builds the four demos into
-`node_modules/.cache/smaltfl/apps/` (seconds once their data is cached) and runs every stop set on the demo it is
-written for, five minutes on four cores. `npm run regress -- overview tour` runs those sets alone, and `npm run
+**The regression is one command: `npm run regress`** (ADR 0025). It builds the five demos into
+`node_modules/.cache/smaltfl/apps/` (seconds once their data is cached), side by side as a site serves them, and runs
+every stop set on the demo it is written for, seven and a half minutes on four cores. `npm run regress -- overview tour` runs those sets alone, and `npm run
 regress -- overview --full --shots all` replays one at every size with every stop's screenshot, to look at. For the
 tour by itself, build the app (`npm run build:app`, Larkspur by default; `-- --flow … --out …` for another flow)
 somewhere outside `dist/`, because `npm run build` wipes `dist/`, and pass **absolute** paths.
@@ -17,11 +17,11 @@ somewhere outside `dist/`, because `npm run build` wipes `dist/`, and pass **abs
 | Command | What it does |
 |---|---|
 | `node tools/browser/regress.cjs [set[@sizes] ...]` | The regression (`npm run regress` is this with `--build`): each set the manifest lists (`sets.json`), or those named, its own `tour.cjs` process, up to one a core at once, the longest first; one line a job (its stops, its runs against its budget, its seconds) and the problems at the end (`regress.json`). By default a set is replayed **once**, at its smallest size, and its page is resized to its other sizes after each stop, the layout checked at each; `--full` replays it at every size. `--sizes phone,desktop` narrows the sizes, `--jobs N` the parallelism, `--shots all\|fail\|none` the screenshots (default: the stops that failed), `--apps DIR` and `--out DIR` where the demos are and the results go, `--list` prints each set's cost, `--timed` fails a whole run over the manifest's seconds. |
-| `node tools/browser/tour.cjs <appDir> <outDir> <stops.json>` | Serves the built app and drives it through the stops at phone size (390×844; `TOUR_DEVICE=tablet` 820×1180, `tablet-wide` 1180×820, `desktop` 1440×900, `wide` 2560×1440; `TOUR_SCALE=2` for screenshots a person will look at). It never waits a fixed time: it asks the page when it is at rest (`window.__smaltflBusy`, and a count of what the page started and hasn't finished). It fails any stop where the page or an open sheet scrolls sideways, at its own size and at each size in `TOUR_SWEEP=tablet,desktop` (the same page resized), saves `<name>.png` for each stop (`TOUR_SHOTS=fail` for the failed ones alone, `none`) and writes `metrics.json`: the status line, the visible text, word counts, charts, words before the first chart, and every failed `expect` as a problem. Its last lines are `problems: …` and `cost: {…}` (stops, the times the app was opened, the engine's runs, seconds). The stop format and the `expect` checks are documented at the top of the file: a stop's `tamper` changes a file on its way to the page from that stop on, `fresh` opens a new browser with nothing kept, and `expect.download` and `expect.audit` check what a stop downloaded (its name, and a bag's verdict from `node scripts/audit.mjs check`). |
+| `node tools/browser/tour.cjs <appDir> <outDir> <stops.json>` | Serves the built app and drives it through the stops at phone size (390×844; `TOUR_DEVICE=tablet` 820×1180, `tablet-wide` 1180×820, `desktop` 1440×900, `wide` 2560×1440; `TOUR_SCALE=2` for screenshots a person will look at). It never waits a fixed time: it asks the page when it is at rest (`window.__smaltflBusy`, and a count of what the page started and hasn't finished). It fails any stop where the page or an open sheet scrolls sideways, at its own size and at each size in `TOUR_SWEEP=tablet,desktop` (the same page resized), saves `<name>.png` for each stop (`TOUR_SHOTS=fail` for the failed ones alone, `none`) and writes `metrics.json`: the status line, the visible text, word counts, charts, words before the first chart, and every failed `expect` as a problem. Its last lines are `problems: …` and `cost: {…}` (stops, the times the app was opened, the engine's runs, seconds). The stop format and the `expect` checks are documented at the top of the file: a stop's `tamper` changes a file on its way to the page from that stop on, `fresh` opens a new browser with nothing kept, and `expect.download` and `expect.audit` check what a stop downloaded (its name, and a bag's verdict from `node scripts/audit.mjs check`). A stop's `page` goes to another app of the same site, by the name of its folder beside `<appDir>`: both are served from one origin, so they share the browser's records as a site's pages do (`carry.json`). `TOUR_STACK=1` reports a page error with where it was thrown (build with `SMALTFL_PROFILE=1` to read it by name). |
 | `python3 -I tools/browser/cvd.py <outDir> <png>…` | Greyscale and deuteranopia versions of screenshots (Machado et al. 2009), for the colour check. |
 | `python3 -I tools/browser/slices.py <in.png> <out.png> [height] [strips] [start]` | Slices a tall screenshot into side-by-side strips you can read in one image. |
 
-**Stop sets** (`browser/stops/`). The stops in a file run in one session, in order, and later stops depend on what earlier ones ran (which day readers keep, what was decided): run a whole file, not a few stops out of it. A set whose first stop names a day opens the app on that day.
+**Stop sets** (`browser/stops/`). The stops in a file run in one session, in order, and later stops depend on what earlier ones ran (which day readers keep, what was decided): run a whole file, not a few stops out of it. A set whose first stop names a day opens the app on that day. A set stays on a day while it has stops there, and doesn't come back to one it left: a day opened again is a run again, and the runs are what the regression is held to (`sets.json`). The other colour scheme is the same page, so a dark stop goes before the stop that changes what it looks at.
 
 **The manifest and the budget** (`browser/sets.json`, ADR 0025 §5). Every stop set is listed with the demo it runs on
 (`tour`, `larkspur`, `estate`, `signins`), the sizes it is held to where not all, and `runs`: the runs the engine may
@@ -73,6 +73,138 @@ that makes more runs than it says, a stops file the manifest doesn't list, and a
   - the arrow keys and Page Down (a stop's `press`), the scenes opened, the dark scheme, and **Decide ›** from the month.
 
   Run it at every size. It must report `problems: none`.
+- `levels.json`: flows in flows on the canvas (ADR 0026 §3, §4), on the tour (same build as `overview.json`):
+  - the top of Larkspur on a normal day: four flows, a card each, with what the posture product has of its own;
+  - the day that waits: Evidence feeds paused, its extent counted, the others normal;
+  - its sheet: the day in a sentence, what holds it, what it reads, what it gives and who reads it;
+  - the holding file a tap away, inside the flow, with the line at the top saying where you are;
+  - going back up; entering by a double-click (a stop's `dblclick`, at `desktop` and `wide`) and by the sheet's button;
+  - a flow read by two flows, entered through the other (Applications, then Evidence feeds);
+  - the next day and a reload, both staying inside the flow on screen;
+  - a card inside a read flow opened from the top (the tour goes to the level that draws it: no stop names it);
+  - a day decided (Mon Mar 11's first files, filled), and the dark scheme.
+
+  A stop's `in` names the flows to enter first (`"feeds"`, `"applications/feeds"`; `""` is the top) and `flow` the flow
+  whose card to open. It must report `problems: none` at every size.
+- `tiers.json`: the month in tiers (ADR 0026 §5), on the tour (same build as `overview.json`):
+  - what waits for a decision naming the flow whose file holds;
+  - March's flows as rows of days, the days the top flow only waited on Evidence feeds as outlines;
+  - February, where Applications held only where HR's file did: the flows that followed or waited, folded, each
+    saying whom;
+  - a flow's own month by its link (`#month/2024-03/in/feeds`): its counts, its calendar, the day that waits with what
+    it gives alone, no scenes and no score;
+  - a day held outside a flow (Inventory, Mon Feb 26), normal there, saying the day as a whole was held by another flow;
+  - a flow that reads none (HR organisation), with no tier above its files and steps;
+  - the ways in and out: a row's *Its own month ›*, a flow read by a flow, the line at the top going back up, a day
+    opened inside the flow, a card's *Its month ›*, the day screen's way back;
+  - the dark scheme.
+
+  A stop that stays on the month names its link each time (`"view": "month/2024-03/in/feeds", "viewFirst": true`): the
+  tour goes back to the day screen between stops. It must report `problems: none` at every size.
+- `explore.json`: exploring a dataset (ADR 0026 §9), on the tour (same build as `overview.json`):
+  - a file's columns: what a row is, a card a column over every row, how the rows sit with the values written;
+  - a bar tapped, lit in every other column; the same part on the next day; **Keep only**, a part picked within what is
+    kept by the keyboard (a stop's `press`), the rows kept as one of the reader's cells, and **Every row**;
+  - a published table's numbers in bins, the last bin its largest value;
+  - how it joins: its scope's list over the keys in scope with the match day by day, another dataset counted when
+    opened, the inventory's links, a link the other way, the day a file came empty, a dataset nothing describes;
+  - against another day: the nearest day run in the browser, then a day run by a tap and the day on screen put back;
+  - from a flow's sheet to what it gives, and the dark scheme.
+
+  Its stops follow one another on one card: a part picked or kept stays while the page is open. It must report
+  `problems: none` at every size.
+- `whose.json`: a held day decided at the flow that holds (ADR 0026 §6), on the tour (same build as `overview.json`):
+  - at the top, where the estate only waits, the day's button says where: *Decide at Evidence feeds ›*;
+  - the decision sheet's head: whose it is, what of it holds, and who waits on it;
+  - inside the flow that holds, the button is its own, and its sheet has **Decide ›** too;
+  - a day the story decided, in the day's story and the month's timeline: *At Evidence feeds, …*;
+  - the day decided, and the record's lines saying whose each decision was and which one a following load carries;
+  - the dark scheme.
+
+  It must report `problems: none` at every size.
+- `follow.json`: a change followed, said and tested (ADR 0026 §7), on Larkspur's month (same build as `month.json`):
+  - the day a recorded change takes effect: Evidence feeds' card says CHANGED, and its sheet what changed, who
+    recorded it and why;
+  - a flow that reads it: what it follows;
+  - the change tested on the days before it: each run again as a what-if, and the sheet says what it found;
+  - a change made here: the card and the sheet say it at once, with the hash now and as shipped;
+  - the dark scheme.
+
+  It must report `problems: none` at every size.
+- `build.json`: building in the app (ADR 0026 §10), on the tour (same build as `overview.json`):
+  - **Add a flow ›** above the canvas, and the catalogue: each flow with what it gives and what it is built on;
+  - Ownership added: the day runs again, its card is on the canvas, its sheet says it was added here, and what it
+    gives is explored;
+  - the join form, from Applications' apps: the other dataset, the key on each side, the rows kept, the columns;
+  - a join the form refuses before anything is written: the TLS feed, which a held day can fill, joined with
+    `filled_from` left out;
+  - the join written as a cell and read back by the notebook parser, the day run again, the joined dataset open on
+    its Explore tab; the record's two lines;
+  - what was made here, the join taken out again; the dark scheme.
+
+  Its stops follow one another: what one adds, the next has. It must report `problems: none` at every size.
+- `alone.json`: building in a flow that reads no other and ships no catalogue (ADR 0026 §10, §12), on the control
+  estate (same build as `estate.json`):
+  - nothing above the canvas, and the join form all the same, from app_scores' How it joins;
+  - the join written: the joined dataset on its Explore tab, its notebook a box, and the bar above the canvas there
+    now, since something was made here;
+  - the empty catalogue: *Nothing upstream yet.* with its plain words under it, and what was made here;
+  - plain words ticked in About this flow: the empty catalogue says what it is and no more;
+  - the join taken out: the notebook and the bar are gone.
+
+  Its stops follow one another: what one adds, the next has. It must report `problems: none` at every size.
+- `use.json`: a flow with open inputs used under a name (ADR 0026 §11), on the tour (same build as `overview.json`):
+  - the catalogue's flow with inputs: what each use gives, what it reads of its inputs, what each use sets;
+  - the form: a dataset for each input, a value for its setting, a name, and what a use is;
+  - used on the TLS feed: its card, and its sheet with what is mapped, its setting as the flow has it, the flows it
+    reads and what it gives;
+  - used again on the WAF feed with a floor of its own and a name: the setting told from the flow's own, the flow
+    used twice;
+  - what a use gives explored; a use entered; its notebook read as a page, an input's cell with its rows;
+  - what a use gives joined to another dataset; the record's lines; the uses and the join kept across a reload; the
+    catalogue saying where the flow is used; one taken off;
+  - used on a dataset of the estate's own, and inside that use the dataset itself feeding its input; the dark scheme.
+
+  Its stops follow one another: what one adds, the next has. It must report `problems: none` at every size.
+- `carry.json`: a decision carried between two pages that share a flow (ADR 0026 §6, second step), on the tour and
+  Evidence feeds' own page, built side by side and each told where the other is (`sets.json`: the tour's and the
+  feeds demo's `build`, and the set's `"with": { "feeds": … }`, the runs it may make on the other page):
+  `npm run regress -- carry`. A stop's `"page"` goes to the other app of the site. It checks:
+  - the estate's page on the tour's Wed Mar 27: Evidence feeds' to decide, a link to that flow's own page on the
+    sheet's head and on the flow's sheet;
+  - Evidence feeds' own page: a file of Inventory's no step here reads, its month, *About this flow* naming the flow
+    that reads it, its Ontology page, and the same day held by the same file;
+  - the day decided there (not published), its receipt saying which page takes the decision, and the estate's page
+    taking it when the day runs: the receipt, the record and the month's timeline saying where it was decided;
+  - the other way: the decision changed on the estate's page (published as is after all), the estate's audit bag with
+    the proof of the decision it carried and its own change of it held by the offline audit, then Evidence feeds'
+    page taking the change in turn, its record citing the estate's entry and its bag held by the offline audit;
+  - in a new browser (`"fresh": true`): the flow edited on its own page, a day decided there under those rules, and
+    the estate's page not taking it, the sheet saying why;
+  - in another: the day filled on Evidence feeds' page, the estate's page making the same fill from its own offer of
+    it and publishing it; its bag held by the offline audit, and again once the page is opened in a new engine; the
+    fill withdrawn on Evidence feeds' page, opened from its month, and the estate's page taking that too.
+
+  Its stops follow one another: what one decides, the next finds. It must report `problems: none` at every size.
+- `voice.json`: the voice (ADR 0026 §12), on the tour (same build as `overview.json`):
+  - a held day: the seal part says why it isn't sealed, and nothing playful;
+  - a gold dataset's seal on a normal day: what the seal is, then *Worth its smalt.*;
+  - Certificates added from the catalogue, its first day here gone out as usual: the status line says so, and the
+    line once;
+  - plain words ticked in About this flow, and the same seal with the line left out.
+
+  Its stops follow one another: what one adds, the next has. It must report `problems: none` at every size.
+- `overrides.json`: the estate's ontology and a flow's own handling of a column (ADR 0026 §8), on the tour (same build
+  as `overview.json`):
+  - the head of the Ontology page: the estate's ontology by name, hash and path, the flows that read the same one,
+    and the one column a flow handles its own way, with its flow, datasets and reason;
+  - a handling's dataset tapped: the column's card, which says it is the flow's own handling and what the estate says;
+  - the same column in the register's file, whose card notes where it is handled differently and why;
+  - as the owner, a column the estate describes edited: the form asks why, refuses a new name with no reason, and
+    with one records the change as the flow's own handling, listed at the head and noted on the card;
+  - the dark scheme.
+
+  It must report `problems: none` at every size.
 - `integrity.json`: integrity in the browser (ADR 0006) on Larkspur (same build as `month.json`), the taxi's suite
   ported. It checks:
   - the first day's files, each sealed;

@@ -1,7 +1,8 @@
 /**
- * Just enough of IndexedDB for the record (src/app/record.ts) in Node: object stores with key paths, put and getAll
- * with a key range, and a transaction that completes on a later task, as a browser's does. Values are kept as given
- * (a browser would clone them). Install it, open the record, and uninstall it after.
+ * Just enough of IndexedDB for the record (src/app/record.ts) in Node: object stores with key paths, put, get, getAll
+ * with a key range and a cursor over the keys in order, and a transaction that completes on a later task, as a
+ * browser's does. Values are kept as given (a browser would clone them). Install it, open the record, and uninstall it
+ * after.
  */
 type Key = string | number | (string | number)[];
 const compare = (a: Key, b: Key): number => {
@@ -39,6 +40,29 @@ export function installFakeIndexedDB(): () => void {
                   s.rows.set(JSON.stringify(keyOf(s.keyPath, value)), value);
                   later(() => (tx.oncomplete as () => void)?.());
                 });
+              },
+              get(key: Key) {
+                const r: Record<string, unknown> = {};
+                later(() => {
+                  r.result = s.rows.get(JSON.stringify(key));
+                  (r.onsuccess as () => void)?.();
+                });
+                return r;
+              },
+              // The keys in order, one a step: `continue(key)` goes on to the first key at or after it.
+              openKeyCursor() {
+                const r: Record<string, unknown> = {};
+                const keys = [...s.rows.values()].map((v) => keyOf(s.keyPath, v as Record<string, unknown>)).sort(compare);
+                let at = 0;
+                const step = () => later(() => {
+                  const here = at;
+                  r.result = here < keys.length
+                    ? { key: keys[here], continue(to?: Key) { const next = to === undefined ? here + 1 : keys.findIndex((k, i) => i > here && compare(k, to) >= 0); at = next < 0 ? keys.length : next; step(); } }
+                    : null;
+                  (r.onsuccess as () => void)?.();
+                });
+                step();
+                return r;
               },
               getAll(range?: { lower: Key; upper: Key }) {
                 const r: Record<string, unknown> = {};

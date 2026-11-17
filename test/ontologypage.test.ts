@@ -10,8 +10,10 @@ import { describe, expect, it } from 'vitest';
 import type { DataBindings } from '../examples/sources.js';
 import type { FlowDocument } from '../src/core/document.js';
 import type { GateDef } from '../src/core/gates.js';
-import { ontologyPage, originSaid, typesShown, type FileSection, type Rule } from '../src/core/ontologypage.js';
+import { estateSaid, handlings, handlingSaid, ontologyPage, originSaid, typesShown, type FileSection, type Rule } from '../src/core/ontologypage.js';
 import type { Ontology } from '../src/core/ontology.js';
+import { nameColumnThrough } from '../src/core/flowedit.js';
+import { asEstate } from '../src/core/shared.js';
 import { EXAMPLE_DATA, exampleDoc } from './helpers/example.js';
 import { loadFlowDir, signinsDir } from './helpers/notebooks.js';
 
@@ -196,6 +198,81 @@ describe('the datasets the flow makes', () => {
   it('has no made section in a flow with no gate', async () => {
     expect(ontologyPage(exampleDoc()).made).toEqual([]);
     expect(ontologyPage(await loadFlowDir(signinsDir)).made).toEqual([]);
+  });
+});
+
+describe('a column a flow handles its own way (ADR 0026 §8)', () => {
+  const dir = new URL('../examples/larkspur/', import.meta.url);
+  const estate = () => asEstate(JSON.parse(readFileSync(new URL('ontology.json', dir), 'utf8')), 'ontology.json');
+  const columns = (id: string) => ({ apps: ['app_id', 'owner_team_id'], app_owners: ['app_id', 'owner_team_id'], cmdb_apps: ['app_id', 'owner_team_id'], dim_app: ['app_id', 'owner_team_id'] })[id];
+  const REASON = 'The register writes a team’s id in any case and repeats an application; this flow conforms the id and keeps the newest record, so here it is the id as conformed, not as written';
+
+  it('says where the ontology comes from, and lists the handling: the flow, its datasets, its reason and what the estate says', async () => {
+    const doc = await loadFlowDir(dir);
+    const page = ontologyPage(doc, columns, columns, [estate()]);
+    expect(page.estate).toEqual(doc.ontology!.estate);
+    expect(page.estate!.map((e) => [e.name, e.path])).toEqual([['Larkspur estate', 'ontology.json']]);
+    expect(page.handled).toEqual([{
+      column: 'owner_team_id',
+      flow: { id: 'applications', name: 'Applications' },
+      datasets: ['apps', 'app_owners'],
+      reason: REASON,
+      title: 'Owning team',
+      description: 'The team accountable for the application, by its id as this flow conforms it: in capitals, with no spaces around it, from the newest of the application’s records',
+      estate: { name: 'Larkspur estate', title: 'Owning team', description: 'The team accountable for the application' },
+    }]);
+    expect(handlingSaid(page.handled[0]!)).toBe(`Applications handles it its own way in apps and app_owners: ${REASON}`);
+    expect(estateSaid(page.handled[0]!)).toBe('Larkspur estate’s ontology says: Owning team. The team accountable for the application');
+  });
+
+  it('notes it on the column’s cards: its own where the flow handles it, and where it is handled differently on every other', async () => {
+    const page = ontologyPage(await loadFlowDir(dir), columns, columns, [estate()]);
+    const [handling] = page.handled;
+    // Where Applications handles it: the card says what the flow says, and that it is the flow's own.
+    for (const id of ['apps', 'app_owners']) {
+      const card = column(file(page.made, id), 'owner_team_id');
+      expect(card.own, id).toBe(handling);
+      expect(card.elsewhere, id).toBeUndefined();
+      expect(card.description, id).toMatch(/as this flow conforms it/);
+    }
+    // Everywhere else it is as the estate says, and the card notes where it is handled differently and why.
+    for (const card of [column(file(page.files, 'cmdb_apps'), 'owner_team_id'), column(file(page.made, 'dim_app'), 'owner_team_id')]) {
+      expect(card.own).toBeUndefined();
+      expect(card.elsewhere).toEqual([handling]);
+      expect(card.description).toBe('The team accountable for the application');
+    }
+    // A column no flow handles its own way has neither.
+    const other = column(file(page.files, 'cmdb_apps'), 'app_id');
+    expect([other.own, other.elsewhere]).toEqual([undefined, undefined]);
+  });
+
+  it('reads what the estate says from the document where the estates aren’t given: its entry for every dataset', async () => {
+    const doc = await loadFlowDir(dir);
+    expect(handlings(doc)[0]!.estate).toEqual({ name: 'Larkspur estate', title: 'Owning team', description: 'The team accountable for the application' });
+    // What the estate says for the overridden datasets alone isn't in the document: the estate's own file says it.
+    const narrow = { ...estate(), properties: estate().properties!.map((p) => (p.column === 'owner_team_id' ? { ...p, datasets: ['apps', 'app_owners', 'cmdb_apps'] } : p)) };
+    const o = doc.ontology!;
+    const without = { ...doc, ontology: { ...o, properties: o.properties!.filter((p) => p.column !== 'owner_team_id' || p.override) } };
+    expect(handlings(without)[0]!.estate).toBeUndefined();
+    expect(estateSaid(handlings(without)[0]!)).toBeNull();
+    expect(handlings(without, [narrow])[0]!.estate).toEqual({ name: 'Larkspur estate', title: 'Owning team', description: 'The team accountable for the application' });
+  });
+
+  it('says a change carried through a flow’s datasets as one handling, and another flow’s as its own', async () => {
+    const doc = await loadFlowDir(dir);
+    // Inventory's register and its checked rows, then Applications' conformed rows: one edit, an entry a dataset.
+    const { doc: next } = nameColumnThrough(doc, 'cmdb_apps', 'tier', { title: 'Criticality tier', override: 'The register’s tiers' }, ['cmdb_apps_checked', 'apps']);
+    const tier = handlings(next).filter((x) => x.column === 'tier');
+    expect(tier.map((x) => [x.flow.name, x.datasets])).toEqual([['Applications', ['apps']], ['Inventory', ['cmdb_apps', 'cmdb_apps_checked']]]);
+    expect(tier.every((x) => x.reason === 'The register’s tiers' && x.title === 'Criticality tier')).toBe(true);
+  });
+
+  it('names the document’s own flow where the handling is its own, and says nothing in a flow that imports no estate', async () => {
+    const own = await loadFlowDir(new URL('applications/', dir));
+    expect(handlings(own).map((x) => x.flow)).toEqual([{ id: '', name: 'Applications' }]);
+    const page = ontologyPage(await loadFlowDir(estateDir), columnsIn(estateDir));
+    expect(page.estate).toBeUndefined();
+    expect(page.handled).toEqual([]);
   });
 });
 

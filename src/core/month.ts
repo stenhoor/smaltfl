@@ -60,7 +60,8 @@ export function isMonthFile(v: unknown): v is MonthFile {
 }
 
 /** The fields of a decision or a release that cite another entry by its seq: the decision a release applies (and, by
- * load, every one), the standing decision either applies, the release a withdrawal takes back. */
+ * load, every one), the standing decision either applies, the release a withdrawal takes back; and, in a decision of a
+ * load that only follows another (ADR 0026 §6), the decision it carries (`carried.seq`). */
 const CITES = ['decision', 'under', 'withdraws'] as const;
 
 /**
@@ -77,6 +78,7 @@ export function layered(file: Pick<MonthFile, 'entries'>): LogEntry[] {
       const a: Record<string, unknown> = { ...about };
       for (const k of CITES) if (k in a) a[k] = shift(a[k]);
       if (Array.isArray(a.decisions)) a.decisions = a.decisions.map(shift);
+      if (isRecord(a.carried)) a.carried = { ...a.carried, seq: shift(a.carried.seq) };
       about = a as unknown as JSONValue;
     }
     return { ...e, seq: i - n, amends: e.amends === null ? null : e.amends - n, about };

@@ -1,0 +1,110 @@
+[
+  {
+    "name": "voice-held",
+    "what": "Nothing playful on a paused day (ADR 0026 §12): Larkspur's tour, Wed Mar 27, held: the application scorecard's seal part says why it isn't sealed, and nothing more",
+    "day": "Wed 27",
+    "unfold": [
+      "nb-product"
+    ],
+    "card": "app_scorecard",
+    "tab": "Checks",
+    "waitFor": "#sheet .seal-part",
+    "element": "#sheet .seal-part",
+    "expect": {
+      "state": "held",
+      "noTextIn": {
+        "#sheet": [
+          "smalt."
+        ]
+      },
+      "count": {
+        "#sheet .seal-voice": 0
+      }
+    }
+  },
+  {
+    "name": "voice-seal",
+    "what": "Wed Feb 7, a normal day: the same card's seal, on a run whose every gate passed with nothing held, says so once in the family's voice, under the plain statement of what the seal is",
+    "day": "Wed 7",
+    "unfold": [
+      "nb-product"
+    ],
+    "card": "app_scorecard",
+    "tab": "Checks",
+    "waitFor": "#sheet .seal-part",
+    "element": "#sheet .seal-part",
+    "expect": {
+      "textIn": {
+        "#sheet .seal-part": [
+          "Sealed: every gate passed, or its holds were decided and published; the signed manifest is the seal.",
+          "Worth its smalt."
+        ]
+      },
+      "count": {
+        "#sheet .seal-voice": 1
+      }
+    }
+  },
+  {
+    "name": "voice-first-pass",
+    "what": "A flow added from the catalogue whose first day here went out as usual: the status line says so, and once, that it is worth its smalt",
+    "in": "",
+    "clicks": [
+      "#build-bar .build-add",
+      ".cat-flow[data-flow=\"certificates\"] .cat-add"
+    ],
+    "waitFor": "#sheet .fl-added",
+    "waitForMs": 120000,
+    "expect": {
+      "status": "^Certificates is on the canvas: its first day here went out as usual\\. Worth its smalt\\.$",
+      "count": {
+        "g.card[data-card=\"flow:certificates\"]": 1
+      }
+    }
+  },
+  {
+    "name": "voice-plain-on",
+    "what": "Plain words, ticked in About this flow: the app's few plays on its name are left out from here on, and the choice is kept in this browser",
+    "clicks": [
+      "details.about-flow > summary",
+      "#plain-words"
+    ],
+    "element": "details.about-flow",
+    "expect": {
+      "textIn": {
+        "details.about-flow": [
+          "Plain words: the app’s few plays on its name are left out"
+        ]
+      },
+      "count": {
+        "#plain-words:checked": 1
+      }
+    }
+  },
+  {
+    "name": "voice-plain",
+    "what": "The same seal in plain words: it says what it is and nothing in the family's voice",
+    "unfold": [
+      "nb-product"
+    ],
+    "card": "app_scorecard",
+    "tab": "Checks",
+    "waitFor": "#sheet .seal-part",
+    "element": "#sheet .seal-part",
+    "expect": {
+      "textIn": {
+        "#sheet .seal-part": [
+          "Sealed: every gate passed, or its holds were decided and published; the signed manifest is the seal."
+        ]
+      },
+      "noTextIn": {
+        "#sheet": [
+          "Worth its smalt"
+        ]
+      },
+      "count": {
+        "#sheet .seal-voice": 0
+      }
+    }
+  }
+]

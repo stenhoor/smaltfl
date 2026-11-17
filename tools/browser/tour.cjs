@@ -10,6 +10,8 @@
 //   TOUR_SHOTS=fail node tour.cjs …        screenshots only of the stops that reported a problem ("none": never;
 //                                          "all", the default: every stop, for a person or a judge to look at)
 //   TOUR_SCALE=2 node tour.cjs …           the same at twice the pixels, for screenshots a person will look at
+//   TOUR_STACK=1 node tour.cjs …           a page error is reported with where it was thrown (build the app with
+//                                          SMALTFL_PROFILE=1 to read it by name)
 //
 // At every stop, whatever the device, the layout is checked and each failure is a problem: the page scrolls sideways,
 // or an open sheet does.
@@ -29,6 +31,15 @@
 //     "devices": ["desktop", "wide"],     optional: the sizes the stop runs at (what it shows exists only there); any other skips it,
 //                                         unless one of them is swept (TOUR_SWEEP): then the stop runs at that size, in the same page
 //     "fresh": true,                      optional: a new browser first, with nothing kept (no record, no edits), the app opened again
+//     "page": "feeds",                    optional: another app of the same site first (ADR 0026 §6: two pages of one
+//                                         browser that share a flow), by the name of its folder beside <appDir>, and
+//                                         the stops after it until one says another; "" is <appDir>'s. Both are served
+//                                         from one origin, so they share the browser's records, as a site's pages do.
+//                                         The app is opened there (on the stop's day, where it names one): a run
+//     "in": "feeds",                      optional: the flows entered first (ADR 0026 §4), by id from the top ("feeds",
+//                                         "applications/feeds"); "" is the top. A card inside a flow the page's flow
+//                                         reads is reached without it: the tour goes to the level that draws it
+//     "flow": "feeds",                    optional: the flow whose card to open (its sheet is what is captured)
 //     "card": "trips_profile",           optional: the card whose drill-down to open (none: the canvas)
 //     "tab": "News",                      optional: the drill-down tab
 //     "full": true,                       optional: capture the whole sheet, not just the first screen
@@ -36,6 +47,7 @@
 //     "scheme": "dark",                   optional: "light" (default) or "dark", switched in the same page (nothing reloads)
 //     "mask": "letters",                  optional: mask the text in the screenshot ("letters": keep digits; "all")
 //     "click": "#sheet .vf-hero",         optional: tap this first (a detail sheet opens), then capture
+//     "dblclick": "g.card.flow",          optional: double-click this first (a mouse's: give the stop "devices")
 //     "clicks": ["sel", ...],             optional: tap each in order, waiting after each for what it started (a run
 //                                         included); an entry ["sel", "text"] types the text into that field instead (a
 //                                         form's input), or chooses that value where the field is a select
@@ -44,7 +56,9 @@
 //     "upload": ["sel", "file"],          optional: after the taps, choose this file (relative to the stops file) in a
 //                                         file input, and wait for the run it starts (Replace the file)
 //     "waitFor": "sel",                   optional: after the taps, wait until this shows (what a tap draws once the engine answers)
-//     "waitForMs": 240000,                optional: how long waitFor waits (default 30 s): what takes many runs to draw
+//     "waitForMs": 240000,                optional: how long waitFor waits (default 30 s): what takes many runs to draw.
+//                                         The page may be at work that long in the stop, where it is more than the
+//                                         three minutes any stop is given (a test of fourteen days on a slow machine)
 //     "reload": true,                     optional: reload the page first, keeping IndexedDB, and wait for its run
 //     "view": "runs",                     optional: show a view (#runs, #policies, ...) before capturing
 //     "viewFirst": true,                  optional: show the view before the clicks, not after
@@ -80,8 +94,8 @@
 // Writes <outDir>/<name>.png (TOUR_SHOTS) and <outDir>/metrics.json: per stop, the status line, the visible text of the
 // sheet (or the canvas page), its word count, its paragraphs of more than 25 words, the number of charts
 // (svg/canvas) and the words before the first chart. Its last lines are `problems: …` and `cost: {…}`: the stops made,
-// the times the app was opened, the runs the engine made and the seconds it all took, which the regression holds each
-// set to (tools/browser/sets.json, ADR 0025).
+// the times the app was opened, the runs the engine made (those on another app of the site apart, by its name:
+// `with`) and the seconds it all took, which the regression holds each set to (tools/browser/sets.json, ADR 0025).
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -97,16 +111,28 @@ if (given.length < 3) {
 const [root, out, stopsFile] = given.map((g) => path.resolve(g));
 fs.mkdirSync(out, { recursive: true });
 const stops = JSON.parse(fs.readFileSync(stopsFile, 'utf8'));
-const page = fs.readFileSync(path.join(root, 'page.html'), 'utf8');
-const skeleton = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>[hidden]{display:none!important}body{margin:0}</style></head><body>${page}</body></html>`;
+const skeletons = new Map();
+const skeletonOf = (dir) => {
+  if (!skeletons.has(dir)) skeletons.set(dir, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>[hidden]{display:none!important}body{margin:0}</style></head><body>${fs.readFileSync(path.join(dir, 'page.html'), 'utf8')}</body></html>`);
+  return skeletons.get(dir);
+};
+skeletonOf(root);
 const types = { '.js': 'text/javascript', '.txt': 'text/plain', '.csv': 'text/csv', '.json': 'application/json' };
 // The files a stop's "tamper" names: from that stop on, each is served with one byte changed.
 const tampered = new Set();
+// The site: <appDir> at `/`, and each app built beside it at `/<its folder>/` (<appDir> itself too), as a site serves
+// its pages from one origin. A stop's "page" goes to one; the links between the pages (the build's `--page`) lead there.
+const site = path.dirname(root);
+const appDir = (name) => (name ? path.join(site, name) : root);
+const appOf = (url) => {
+  const m = /^\/([^/]+)\/(.*)$/.exec(url);
+  return m && fs.existsSync(path.join(site, m[1], 'page.html')) ? { dir: path.join(site, m[1]), rest: `/${m[2]}` } : { dir: root, rest: url };
+};
 const server = http.createServer((req, res) => {
-  const url = decodeURIComponent(req.url.split('?')[0]);
-  if (url === '/') return res.writeHead(200, { 'content-type': 'text/html' }).end(skeleton);
-  const file = path.join(root, url);
-  if (!file.startsWith(path.resolve(root)) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return res.writeHead(404).end();
+  const { dir, rest: url } = appOf(decodeURIComponent(req.url.split('?')[0]));
+  if (url === '/') return res.writeHead(200, { 'content-type': 'text/html' }).end(skeletonOf(dir));
+  const file = path.join(dir, url);
+  if (!file.startsWith(dir) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return res.writeHead(404).end();
   let body = fs.readFileSync(file);
   if ([...tampered].some((t) => url.endsWith(`/${t.replace(/^\/+/, '')}`))) {
     const i = Math.min(4000, body.length - 1);
@@ -150,8 +176,9 @@ if (!['all', 'fail', 'none'].includes(SHOTS)) {
 const HOOKED = fs.readdirSync(root).some((f) => /^app\..*\.js$/.test(f) && fs.readFileSync(path.join(root, f), 'utf8').includes('__smaltflBusy'));
 // How long a wait lasts at most: in all (a run, the engine), and once the app says it isn't at work while the page
 // still is (what it started and hasn't finished: a tab that goes on computing). A page that isn't at rest by then is a
-// problem the stop reports: nothing on it should work that long with nothing asked of it. A build that doesn't say
-// when it is at work is given what every build was before, and no problem is made of it.
+// problem the stop reports: nothing on it should work that long with nothing asked of it. A stop that asks for more
+// says so ("waitForMs": what takes many runs to draw), and is given that long. A build that doesn't say when it is at
+// work is given what every build was before, and no problem is made of it.
 const HARD = 180000;
 const SOFT = HOOKED ? 30000 : 4000;
 // How long the app has to show its first run: it takes a few seconds, and one that hasn't by then never will.
@@ -160,17 +187,23 @@ const START = 90000;
 const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sat: 'Sat', Sun: 'Sun' };
 // The days the app's data has, from its list: a stop's day ("Tue 12") is the first of them on that weekday and date,
 // which is the day the month's label names. Known before the app opens, so the app can be opened on it.
-const listedDays = (() => {
-  try {
-    const list = JSON.parse(fs.readFileSync(path.join(root, 'data', 'loads.json'), 'utf8'));
-    return [...new Set(Object.values(list.sources ?? {}).flatMap((s) => (Array.isArray(s.loads) ? s.loads.map((l) => l.day) : [])))].filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
-  } catch {
-    return [];
+const listed = new Map();
+const listedDays = (dir) => {
+  if (!listed.has(dir)) {
+    let days = [];
+    try {
+      const list = JSON.parse(fs.readFileSync(path.join(dir, 'data', 'loads.json'), 'utf8'));
+      days = [...new Set(Object.values(list.sources ?? {}).flatMap((s) => (Array.isArray(s.loads) ? s.loads.map((l) => l.slot ?? l.day) : [])))].filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+    } catch {
+      days = [];
+    }
+    listed.set(dir, days);
   }
-})();
-const isoOf = (label) => {
+  return listed.get(dir);
+};
+const isoOf = (label, dir = root) => {
   const [wd, date] = String(label).split(/\s+/);
-  return listedDays.find((d) => {
+  return listedDays(dir).find((d) => {
     const t = new Date(`${d}T00:00:00Z`);
     return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][t.getUTCDay()] === (WEEKDAY[wd] ?? wd) && String(t.getUTCDate()) === date;
   }) ?? null;
@@ -349,10 +382,12 @@ function tracker() {
   let ctx = null;
   let p = null;
   let scheme = null;
+  // The app of the site the page is on: '' is <appDir>'s (a stop's "page").
+  let onApp = '';
   const problems = [];
   // What the tour cost: its stops, the times the app was opened or reloaded, the runs the engine made (the status
   // line's count, a refused load included).
-  const cost = { stops: 0, loads: 0, runs: 0 };
+  const cost = { stops: 0, loads: 0, runs: 0, with: {} };
   let runsSeen = 0;
   // Requests the page's script doesn't make itself (a bundle imported when it is first needed): the page isn't at
   // rest while one is on its way.
@@ -362,9 +397,11 @@ function tracker() {
   let limits = [];
   // The status line's run number and state (data-run, data-state), with its words: what changed after a step.
   const status = () => p.evaluate(() => { const el = document.querySelector('#status'); return `${el?.dataset.run ?? ''}|${el?.dataset.state ?? ''}|${el?.textContent ?? ''}`; });
+  // How long the page may be at work in the stop under way: HARD, or as long as the stop says its own wait may take.
+  let hardNow = HARD;
   // The page at rest (the tracker above), and nothing it imports still on its way. It stands where fixed sleeps stood:
   // a stop waits as long as the page is at work, and no longer.
-  const idle = async (soft = SOFT, hard = HARD, still = 0) => {
+  const idle = async (soft = SOFT, hard = hardNow, still = 0) => {
     for (let round = 0; round < 4; round++) {
       const r = await p.evaluate(([s, h, q]) => window.__tour.idle(s, h, q), [soft, hard, still]).catch(() => null);
       // A wait a limit ended, not the page coming to rest: said with the stop, since it is time spent on nothing.
@@ -436,17 +473,22 @@ function tracker() {
     ctx = await browser.newContext({ viewport: { width: W, height: H }, isMobile: device.isMobile, hasTouch: device.hasTouch, deviceScaleFactor: Number(process.env.TOUR_SCALE || 1), colorScheme: wanted, acceptDownloads: true });
     await ctx.addInitScript(tracker);
     p = await ctx.newPage();
-    p.on('pageerror', (e) => problems.push(`PAGEERROR ${e.message}`));
+    p.on('pageerror', (e) => problems.push(`PAGEERROR ${e.message}${process.env.TOUR_STACK ? `\n${e.stack}` : ''}`));
     p.on('console', (m) => m.type() === 'error' && problems.push(`console ${m.text()}`));
     p.on('request', (r) => { if (!['fetch', 'xhr', 'document'].includes(r.resourceType())) coming.add(r); });
     const over = (r) => { if (coming.delete(r) && !coming.size && drained) drained(); };
     p.on('requestfinished', over);
     p.on('requestfailed', over);
-    // On the first stop's day, where it names one: the app runs the day its link names first (ADR 0021 §4), so the
-    // first day isn't run only to be left.
-    const iso = HOOKED && stop.day && !stop.reload ? isoOf(stop.day) : null;
-    await p.goto(`${url}${iso ? `#day/${iso}${stop.version ? `/v${stop.version}` : ''}` : ''}`);
+    // A new browser opens the app the stop names, else <appDir>'s.
+    onApp = stop.page ?? '';
+    await p.goto(hrefOf(stop, onApp));
     await started();
+  };
+  // Where a stop opens an app of the site: on the stop's day, where it names one. The app runs the day its link names
+  // first (ADR 0021 §4), so the first day isn't run only to be left.
+  const hrefOf = (stop, app) => {
+    const iso = HOOKED && stop.day && !stop.reload ? isoOf(stop.day, appDir(app)) : null;
+    return `${url}${app ? `${app}/` : ''}${iso ? `#day/${iso}${stop.version ? `/v${stop.version}` : ''}` : ''}`;
   };
   // The layout at the size the window is: the page doesn't scroll sideways, nor an open sheet.
   const sideways = () => p.evaluate(() => {
@@ -463,7 +505,7 @@ function tracker() {
   };
   // What a stop shows: its scope's text and counts, and the status line.
   const measure = async (stop) => {
-    const scope = (stop.click || stop.clicks) && (await p.locator('.vf-detail').count()) ? '.vf-detail' : stop.card || stop.box ? '#sheet' : 'body';
+    const scope = (stop.click || stop.clicks) && (await p.locator('.vf-detail').count()) ? '.vf-detail' : stop.card || stop.box || stop.flow ? '#sheet' : 'body';
     const m = await p.evaluate((sel) => {
       const el = document.querySelector(sel);
       const text = (el?.innerText ?? '').replace(/\s+/g, ' ').trim();
@@ -638,10 +680,19 @@ function tracker() {
     const had = problems.length;
     cost.stops++;
     limits = [];
+    hardNow = Math.max(HARD, stop.waitForMs ?? 0);
     try {
       // A file changed on its way to the page from now on: the page must refuse it.
       if (stop.tamper) tampered.add(stop.tamper);
       await open(stop);
+      // Another app of the site (ADR 0026 §6): the same browser, so its records are there; the app is opened anew, on
+      // the stop's day where it names one.
+      if (stop.page !== undefined && stop.page !== onApp) {
+        if (stop.page && !fs.existsSync(path.join(appDir(stop.page), 'page.html'))) throw new Error(`no app "${stop.page}" beside ${root}`);
+        await p.goto(hrefOf(stop, stop.page));
+        onApp = stop.page;
+        await started();
+      }
       if (stop.reload) {
         await p.reload();
         await started();
@@ -676,8 +727,24 @@ function tracker() {
           else await idle();
         }
       }
+      // A flow that reads flows is drawn in levels (ADR 0026 §4): a card inside a flow it reads is on that flow's own
+      // canvas, so the tour goes there first, by the link the page gives for it. A stop's `in` names the flows to enter
+      // itself ("feeds", or "applications/feeds"); "" is the top.
+      const toLevelOf = async (card) => {
+        const want = await p.evaluate((c) => (window.__smaltflLevelOf ? window.__smaltflLevelOf(c) : null), card);
+        if (!want) return;
+        await go(want);
+        await p.waitForSelector(`g.card[data-card="${card}"]`, { timeout: 20000 }).catch(() => {});
+        await idle();
+      };
+      if (stop.in !== undefined) {
+        const base = await p.evaluate(() => location.hash.replace(/\/in\/.*$/, ''));
+        await go(`${/^#(day|flow)\b/.test(base) ? base : '#flow'}${stop.in ? `/in/${stop.in}` : ''}`);
+        await idle();
+      }
       // A notebook is a box on the canvas (ADR 0011 §6): its steps are cards only once it is unfolded.
       for (const box of stop.unfold ?? []) {
+        await toLevelOf(box);
         const el = p.locator(`g.card[data-card="${box}"]`);
         if (!(await el.count())) continue;
         await el.first().focus();
@@ -689,9 +756,18 @@ function tracker() {
         await p.waitForSelector('#sheet', { state: 'hidden', timeout: 20000 }).catch(() => {});
       }
       if (stop.box) {
+        await toLevelOf(stop.box);
         await p.locator(`g.card[data-card="${stop.box}"]`).first().focus();
         await p.keyboard.press('Enter');
         await p.waitForSelector('#sheet:not([hidden]) .nbc-list', { timeout: 20000 });
+      }
+      // A flow the level reads (ADR 0026 §3): its card opens its sheet.
+      if (stop.flow) {
+        await toLevelOf(`flow:${stop.flow}`);
+        await p.locator(`g.card[data-card="flow:${stop.flow}"]`).first().focus();
+        await p.keyboard.press('Enter');
+        await p.waitForSelector('#sheet:not([hidden]) .fl-sheet', { timeout: 20000 });
+        await idle();
       }
       // A select on screen now (the viewer) is set now; one in a view not shown yet (the month's as known on) once its
       // view is (viewFirst).
@@ -703,6 +779,7 @@ function tracker() {
         } else selectLater = true;
       }
       if (stop.card) {
+        await toLevelOf(stop.card);
         await p.locator(`g.card[data-card="${stop.card}"]`).focus();
         await p.keyboard.press('Enter');
         await p.waitForSelector('#sheet:not([hidden]) .tab-panel:not([aria-busy])', { timeout: 60000 });
@@ -731,6 +808,15 @@ function tracker() {
           await target.click();
           await idle();
         } else problems.push(`${stop.name}: nothing to click at ${stop.click}`);
+      }
+      // A double-click (a flow's card enters the flow, ADR 0026 §4): a mouse's, so at the sizes with one.
+      if (stop.dblclick) {
+        const target = p.locator(stop.dblclick).first();
+        if (await target.count()) {
+          // Sent to the element itself: a card is drawn in the canvas's own coordinates, which the page doesn't scroll to.
+          await target.dispatchEvent('dblclick');
+          await idle();
+        } else problems.push(`${stop.name}: nothing to double-click at ${stop.dblclick}`);
       }
       for (const step of stop.clicks ?? []) {
         const [sel, typed] = Array.isArray(step) ? step : [step];
@@ -794,7 +880,7 @@ function tracker() {
       // Read a moment too early? Once more, after the page has been still as long as every stop used to wait: only
       // what stays wrong is a problem.
       if (fails.length) {
-        await idle(SOFT, HARD, 250);
+        await idle(SOFT, hardNow, 250);
         ({ m, scope } = await measure(stop));
         fails = await expected(stop, m, scope, saved, kept);
       }
@@ -810,9 +896,12 @@ function tracker() {
       if (others.length || at !== NATIVE) await sizeTo(NATIVE);
       metrics.push(m);
       // A wait that a limit ended: the page never came to rest, which is a fault in it or in the stop.
-      if (HOOKED) for (const what of new Set(limits)) problems.push(`${stop.name}: the page wasn't at rest after ${what === 'the app at work' ? HARD / 1000 : SOFT / 1000} s (${what})`);
+      if (HOOKED) for (const what of new Set(limits)) problems.push(`${stop.name}: the page wasn't at rest after ${what === 'the app at work' ? hardNow / 1000 : SOFT / 1000} s (${what})`);
       const run = Number((await status()).split('|')[0] || 0);
-      cost.runs += Math.max(0, run - runsSeen);
+      // On another app of the site (a stop's `page`), counted apart: a run costs what its own demo's runs cost.
+      const made = Math.max(0, run - runsSeen);
+      if (onApp) cost.with[onApp] = (cost.with[onApp] ?? 0) + made;
+      else cost.runs += made;
       runsSeen = run;
       console.log(`${stop.name} (${((Date.now() - t0) / 1000).toFixed(1)} s): ${m.words} words, ${m.charts} charts, ${m.longParagraphs.length} long paragraphs, ${m.wordsBeforeFirstChart ?? '-'} words before the first chart; state ${m.state}; title "${m.title}"${limits.length ? `; ${limits.length} wait${limits.length === 1 ? '' : 's'} ended at the limit (${[...new Set(limits)].join('; ')})` : ''}`);
     } catch (e) {
@@ -825,7 +914,8 @@ function tracker() {
   }
   fs.writeFileSync(path.join(out, 'metrics.json'), JSON.stringify({ metrics, problems }, null, 1));
   console.log(`problems: ${problems.length ? problems.join(' // ') : 'none'}`);
-  console.log(`cost: ${JSON.stringify({ ...cost, seconds: Math.round((Date.now() - began) / 100) / 10 })}`);
+  const { with: elsewhere, ...own } = cost;
+  console.log(`cost: ${JSON.stringify({ ...own, ...(Object.keys(elsewhere).length ? { with: elsewhere } : {}), seconds: Math.round((Date.now() - began) / 100) / 10 })}`);
   await browser.close();
   server.close();
 })().catch((e) => {

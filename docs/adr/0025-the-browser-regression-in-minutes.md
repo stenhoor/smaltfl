@@ -1,7 +1,8 @@
 # ADR 0025: The browser regression in minutes
 
 - **Status:** proposed, 2026-11-16, and built as proposed for the maintainers to confirm (Q-226 to Q-230). The
-  maintainer asked for the regression to be fast again and to stay fast as stops are added.
+  maintainer asked for the regression to be fast again and to stay fast as stops are added. Amended on 2026-11-17,
+  when [ADR 0026](0026-flows-in-flows.md)'s eleven stop sets were brought in (§"Amended", Q-246).
 - **Date:** 2026-11-16
 - **Builds on:**
   - [ADR 0018](0018-phone-tablet-and-desktop.md): the five sizes, and the check a change to the app owes.
@@ -189,6 +190,61 @@ and wide (977 stops, 638 runs).
 - `tools/browser/stops/rules.json`: `rules-tab-dark` is `fresh`. No other stop changed.
 - `.github/workflows/ci.yml`: `demos`, `browser`.
 
+## Amended (2026-11-17): flows in flows' sets, and what bringing them in found
+
+[ADR 0026](0026-flows-in-flows.md) was built on one branch while this was built on another, with eleven stop sets of
+its own, written for the tool as it was before. They were brought in on 2026-11-17, at the maintainer's request that
+the regression run as quickly with them. What changed here:
+
+- **A set does open on its first stop's day now (§2).** It didn't: the tour looked for each load's `day` in the data's
+  list, which calls it `slot`, so no day was ever found, and every set ran the first day and left it. With the day
+  found, eleven of the 22 sets make one run fewer (`decide`, `proposals`, six of the estate's and three of the
+  sign-ins'): 149 runs and 764 engine seconds, where the same sets were budgeted 160 and 802. Two things came with it:
+  - a day opened by its own link runs its first files first and then the version readers got (ADR 0021 §2). `compare`
+    needs Thu Mar 21's first files not run yet, so it has a first stop on the month and opens the day from there, as
+    it always had in effect;
+  - a fill can't be withdrawn in an engine that has run no other day (docs/HANDOFF.md, found and left): `carry`
+    withdraws its fill on a page opened from the month.
+- **A set that goes to another demo of the same site** (ADR 0026 §6: two pages that share a flow; a stop's `"page"`)
+  says the runs it may make there: `"with": { "feeds": 8 }`. The tour counts each demo's runs apart (`cost.with`), and
+  the regression holds each to its number, adds each at its own demo's cost of a run, and builds the demos side by
+  side, as a site serves them. Evidence feeds' own page is a fifth demo (`feeds`, 3 s a run).
+- **A day isn't left and come back to.** A day opened again is a run again, so ADR 0026's sets were put in the order
+  of their days, and their dark stops before the stop that changes the page (its §"In the regression in minutes"):
+  five runs fewer in `levels`, `explore`, `voice` and `tiers` than as first written, and one browser fewer in `carry`.
+- **Found in the app by the first run here:** a level entered or left on a day whose file was refused fetched the file
+  again and recorded the refusal again. Fixed (`openDay`, where a link changes only the level); `integrity`, which
+  enters a flow on its tampered day, makes its four runs again.
+
+**The numbers**, on the same four cores, every set passing:
+
+| | Main, 2026-11-16 | With ADR 0026's sets |
+|---|---|---|
+| Sets, stops | 22, 246 | 33, 395 |
+| Demos | 4 | 5 |
+| Runs the sets may make | 160 | 215: 149 in the 22, 66 in the eleven |
+| Engine seconds | 802 of 840 | 1,292 of 1,330 |
+| `npm run regress`, the demos built | 5 min 18 s | **7 min 35 s** (455 s; 466 with the builds) |
+| A changed set replayed at every size | | the twelve sets changed here: 60 of 60 jobs, 16 min |
+
+The eleven sets are 528 engine seconds. The dearest: `follow` 153 (its test of a changed flow runs fourteen Larkspur
+days again as what-ifs, 126 by itself, the one place that test is walked), `carry` 87, `use` 72, `build` 54.
+
+**The budget is raised for them, and the maintainer agreed it on 2026-11-17 (Q-246, asked through the question
+prompt):** `budget.engineSeconds` 1,330, the same room as before (four more Larkspur days), and `budget.seconds` 510.
+Raising it is the maintainers' (§5). The other ways were put beside it and not taken: the test of a changed flow run
+on a week of days, not a fortnight (63 engine seconds back, and a change to what the app does); or 840 held by taking
+sets and days out (the 22 sets alone are 764, so 76 engine seconds are free under it, eight Larkspur runs for eleven
+sets).
+
+**In CI** the `browser` jobs replay every set at a size: five to nine minutes of regression a job with the 22 sets,
+ten and a half to fourteen with all 33 (629 to 834 s on the first run, a third apart from one of GitHub's machines to
+the next; the session's pass 649 s). A job is stopped at thirty minutes, where it was twenty: about twice the
+slowest job, as twenty was for the 22 sets. That first run found one more thing in the tool: **the page may be at
+work for three minutes in a stop, and `follow`'s test of a changed flow takes longer than that on CI's machines** at
+the four larger sizes. A stop that says how long its own wait may take (`"waitForMs"`, which that stop always said) is
+now given that long to work; a stop that says nothing is held to three minutes, as before.
+
 ## The questions, for the maintainers
 
 - **Q-226.** The run before a PR replays each set once and resizes for the other sizes; the replay at every size is
@@ -200,6 +256,9 @@ and wide (977 stops, 638 runs).
   themselves. Which way under it (below)?
 - **Q-230.** With the engine in the page (`?engine=page`, what a browser without workers gets), the second day opened
   is paused where the worker publishes it. Found while measuring; not looked into.
+- **Q-246.** ADR 0026's eleven sets take the regression from 802 engine seconds to 1,292, and from five minutes to
+  seven and a half. The budget raised to 1,330 (and 510 s for the whole run), or sets and days taken out to hold 840?
+  Decided by the maintainer, 2026-11-17: raised (§"Amended").
 
 ## Not built
 

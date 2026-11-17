@@ -16,6 +16,7 @@
  * record; a team's shared record waits for a server.
  */
 import { canonicalJSON } from '../core/canonical.js';
+import { originOf } from '../core/carry.js';
 import { sha256Hex } from '../core/hash.js';
 import { createIdentity, type Identity, type IdentityCard } from '../core/manifest.js';
 import {
@@ -59,11 +60,15 @@ export class FlowRecord {
   private readonly checked = new Map<string, { origin: string; size: number; root: string; signer: IdentityCard } | null>();
   /** Blobs kept for this visit only, where there is no IndexedDB. */
   private readonly memoryBlobs = new Map<string, { hash: string; kind: string; json: string }>();
+  /** The other records of this browser read so far (`others`), by origin. */
+  private readonly siblings = new Map<string, FlowRecord>();
   private constructor(
     readonly flow: string,
     readonly origin: string,
     readonly identity: Identity,
     private readonly store: RecordStore | null,
+    /** Another flow's record, read from this one's page (`others`): never appended to or signed from here. */
+    readonly foreign = false,
   ) {}
 
   /**
@@ -136,6 +141,7 @@ export class FlowRecord {
   private appending: Promise<unknown> = Promise.resolve();
 
   private async appendNow(kind: string, as: string, about: JSONValue, reason: string | null, amends: number | null): Promise<LogEntry> {
+    if (this.foreign) throw new Error(`${this.origin} is another page's record: it is read here, never written`);
     const entry = entryOf(this.origin, this.entries.length, { kind, by: { card: this.identity.card.fingerprint, as }, about, reason, amends });
     const leaf = entryLeaf(entry);
     if (this.store) await this.store.put('entries', { origin: this.origin, seq: entry.seq, entry, leaf });
@@ -154,19 +160,83 @@ export class FlowRecord {
     return hash;
   }
 
-  /** The documents, plans and manifests this record's entries name (by blob, doc or plan), and only those. */
+  /** The documents, plans and manifests this record's entries name (by blob, doc or plan), and the proof of each
+   * decision carried from another page (ADR 0026 §6), and only those. */
   async blobs(): Promise<{ hash: string; kind: string; json: string }[]> {
     const named = new Set<string>();
     for (const e of this.entries) {
       const a = e.about as Record<string, unknown> | null;
       for (const k of ['blob', 'doc', 'plan']) if (a && typeof a[k] === 'string') named.add(a[k] as string);
+      const kept = (a?.from as { kept?: unknown } | null | undefined)?.kept;
+      if (typeof kept === 'string') named.add(kept);
     }
     const all = this.store ? ((await this.store.getAll('blobs')) as { hash: string; kind: string; json: string }[]) : [...this.memoryBlobs.values()];
     return all.filter((b) => named.has(b.hash));
   }
 
+  /** Something kept by its hash (`keep`), read back: a flow's document as a `flow` entry names it. Null where it isn't
+   * kept here. */
+  async kept(hash: string): Promise<unknown> {
+    const row = this.store ? ((await this.store.get('blobs', hash).catch(() => undefined)) as { json?: string } | undefined) : this.memoryBlobs.get(hash);
+    try {
+      return row?.json ? JSON.parse(row.json) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * The other records this browser keeps (ADR 0026 §6), one a flow, signed by the same identity: each read and checked
+   * as its own page reads it, and never written from here. Asked again, each is read from where it was left, so a
+   * decision made on another page since is found. `wanted` says which flows' records to read (a site's other pages
+   * keep records here too, and one that shares no flow with this page is none of its business); every one where it
+   * says nothing. None where the record is kept for this visit only.
+   */
+  async others(wanted?: (flow: string) => boolean): Promise<FlowRecord[]> {
+    if (!this.store || this.foreign) return [];
+    const signer = this.identity.card.fingerprint.slice(0, 16);
+    const out: FlowRecord[] = [];
+    for (const origin of await this.store.origins('entries')) {
+      const of = originOf(origin);
+      if (origin === this.origin || !of || of.signer !== signer || (wanted && !wanted(of.flow))) continue;
+      let rec = this.siblings.get(origin);
+      if (!rec) this.siblings.set(origin, (rec = new FlowRecord(of.flow, origin, this.identity, this.store, true)));
+      await rec.readOn();
+      out.push(rec);
+    }
+    return out;
+  }
+
+  /** Another page's record read on from where it was left: its new entries and checkpoints, then checked. */
+  private async readOn(): Promise<void> {
+    if (!this.store) return;
+    const rows = (await this.store.getAll('entries', IDBKeyRange.bound([this.origin, this.entries.length], [this.origin, Number.MAX_SAFE_INTEGER]))) as { entry: LogEntry; leaf: string }[];
+    rows.sort((a, b) => a.entry.seq - b.entry.seq);
+    // Only what continues it: a gap is an entry its own page is still writing, read the next time.
+    for (const r of rows) {
+      if (r.entry.seq !== this.entries.length) break;
+      this.entries.push(r.entry);
+      this.leaves.push(r.leaf);
+    }
+    const known = new Set(this.checkpoints.map((c) => c.checkpoint));
+    const fresh = ((await this.store.getAll('checkpoints', IDBKeyRange.bound([this.origin, 0], [this.origin, Number.MAX_SAFE_INTEGER]))) as { envelope: SignedCheckpoint }[]).map((r) => r.envelope).filter((c) => !known.has(c.checkpoint));
+    // Its own page keeps one checkpoint a size: the latest read for a size stands.
+    for (const c of fresh) this.checkpoints = [...this.checkpoints.filter((x) => parseCheckpoint(x.checkpoint).size !== parseCheckpoint(c.checkpoint).size), c];
+    // Checked when something was read: what was checked before stands.
+    if (rows.length || fresh.length || !this.status) await this.check();
+  }
+
+  /** The latest checkpoint whose signature checks that covers an entry: what a proof of it is given under. */
+  covering(seq: number): SignedCheckpoint | undefined {
+    return [...this.checkpoints]
+      .filter((c) => this.checked.get(checkpointId(c)) && parseCheckpoint(c.checkpoint).size > seq && parseCheckpoint(c.checkpoint).size <= this.entries.length)
+      .sort((a, b) => parseCheckpoint(a.checkpoint).size - parseCheckpoint(b.checkpoint).size)
+      .at(-1);
+  }
+
   /** Sign the current head as a checkpoint, and keep it. */
   async sign(): Promise<SignedCheckpoint> {
+    if (this.foreign) throw new Error(`${this.origin} is another page's record: it is read here, never signed`);
     const h = this.head();
     const envelope = await signCheckpoint(this.identity, h.origin, h.size, h.root);
     if (this.store) await this.store.put('checkpoints', { origin: h.origin, size: h.size, envelope }).catch(() => undefined);
@@ -181,7 +251,7 @@ export class FlowRecord {
     let signer: IdentityCard | null = null;
     for (const env of this.checkpoints) {
       // By everything the signature covers and the key that made it, so a body swapped under an old signature is checked.
-      const id = `${env.checkpoint}\u0000${env.signature}\u0000${canonicalJSON(env.signer as unknown as Parameters<typeof canonicalJSON>[0])}`;
+      const id = checkpointId(env);
       if (!this.checked.has(id)) {
         const c = await verifyCheckpoint(env, this.identity.card);
         this.checked.set(id, c.ok && c.origin === this.origin ? { origin: c.origin, size: c.size, root: c.root, signer: c.signer } : null);
@@ -227,6 +297,9 @@ export class FlowRecord {
     return undefined;
   }
 }
+
+/** A signed checkpoint by everything its signature covers and the key that made it. */
+const checkpointId = (env: SignedCheckpoint): string => `${env.checkpoint}\u0000${env.signature}\u0000${canonicalJSON(env.signer as unknown as Parameters<typeof canonicalJSON>[0])}`;
 
 /** How long IndexedDB may take to open, in ms: some browsers have been known to leave an open request unanswered. */
 const OPEN_WAIT = 5000;
@@ -318,6 +391,15 @@ export class RecordStore {
   getAll(store: string, range?: IDBKeyRange): Promise<unknown[]> {
     return this.use((db) => getAll(db, store, range));
   }
+
+  get(store: string, key: IDBValidKey): Promise<unknown> {
+    return this.use((db) => get(db, store, key));
+  }
+
+  /** The origins a store keyed by `[origin, n]` holds rows of, each once. */
+  origins(store: string): Promise<string[]> {
+    return this.use((db) => origins(db, store));
+  }
 }
 
 /** Whether an error is IndexedDB saying the connection is closed or closing (an InvalidStateError from transaction()). */
@@ -342,6 +424,32 @@ function getAll(db: IDBDatabase, store: string, range?: IDBKeyRange): Promise<un
   return new Promise((resolve, reject) => {
     const req = db.transaction(store, 'readonly').objectStore(store).getAll(range);
     req.onsuccess = () => resolve(req.result as unknown[]);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function get(db: IDBDatabase, store: string, key: IDBValidKey): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(store, 'readonly').objectStore(store).get(key);
+    req.onsuccess = () => resolve(req.result as unknown);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/** The origins of a store keyed by `[origin, n]`, by its keys alone: from each origin's first key the cursor goes on to
+ * the first key past every `n` of it, so no row is read and none but an origin's first is visited. */
+function origins(db: IDBDatabase, store: string): Promise<string[]> {
+  return new Promise((resolve, reject) => {
+    const out: string[] = [];
+    const req = db.transaction(store, 'readonly').objectStore(store).openKeyCursor();
+    req.onsuccess = () => {
+      const cursor = req.result;
+      const key = cursor?.key as unknown;
+      if (!cursor) return resolve(out);
+      if (!Array.isArray(key) || typeof key[0] !== 'string') return cursor.continue();
+      out.push(key[0]);
+      cursor.continue([key[0], Number.POSITIVE_INFINITY]);
+    };
     req.onerror = () => reject(req.error);
   });
 }

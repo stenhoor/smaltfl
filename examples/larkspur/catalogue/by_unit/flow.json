@@ -1,0 +1,135 @@
+{
+  "smaltfl": 4,
+  "id": "by_unit",
+  "name": "Control by unit",
+  "description": "One control’s evidence told by business unit: how many of each unit’s applications pass and fail it, the units under a floor, and the failing applications with the unit that answers for each. It has no file of its own: it reads the evidence feed and the owners mapped onto it, so it is used once for each control worth a closer look.",
+  "parameters": [
+    {
+      "name": "day",
+      "type": "text",
+      "default": null
+    }
+  ],
+  "calendar": {
+    "base": "us",
+    "zone": "UTC",
+    "days": [
+      {
+        "name": "Patch Tuesday",
+        "short": "Patch Tue",
+        "weekday": "tue",
+        "between": [
+          8,
+          14
+        ]
+      }
+    ]
+  },
+  "inputs": [
+    {
+      "id": "feed",
+      "description": "An evidence feed: an application a row, with the control’s status and the day a filled row came from",
+      "columns": [
+        "app_id",
+        "status",
+        "filled_from"
+      ]
+    },
+    {
+      "id": "owners",
+      "description": "Each application with the business unit that answers for it",
+      "columns": [
+        "app_id",
+        "name",
+        "business_unit_id",
+        "lifecycle"
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "name": "floor",
+      "type": "real",
+      "default": 90,
+      "description": "The share of a unit’s applications that must pass, in percent: a unit under it is behind"
+    }
+  ],
+  "sources": [],
+  "notebooks": [
+    "by_unit.nb.ts"
+  ],
+  "ontology": {
+    "import": [
+      "../../ontology.json"
+    ],
+    "objectTypes": [],
+    "linkTypes": [],
+    "actionTypes": [],
+    "properties": [
+      {
+        "column": "applications",
+        "title": "Applications",
+        "description": "How many of the unit’s applications the control was judged on: those that pass and those that fail",
+        "datasets": [
+          "units"
+        ]
+      },
+      {
+        "column": "passing",
+        "title": "Passing",
+        "description": "How many of them pass the control",
+        "datasets": [
+          "units"
+        ]
+      },
+      {
+        "column": "failing",
+        "title": "Failing",
+        "description": "How many of them fail it",
+        "datasets": [
+          "units"
+        ]
+      },
+      {
+        "column": "pass_share",
+        "title": "Pass share",
+        "description": "The share of them that pass",
+        "unit": "%",
+        "datasets": [
+          "units"
+        ]
+      },
+      {
+        "column": "behind",
+        "title": "Behind",
+        "description": "Whether the unit’s pass share is under the floor this use sets",
+        "values": {
+          "yes": "Behind",
+          "no": "At or over the floor"
+        },
+        "datasets": [
+          "units"
+        ]
+      }
+    ],
+    "nouns": {
+      "units": {
+        "one": "business unit",
+        "many": "business units"
+      },
+      "failing": {
+        "one": "application",
+        "many": "applications"
+      }
+    }
+  },
+  "publish": {
+    "hold": [
+      "checks",
+      "wrong"
+    ],
+    "period": "day",
+    "together": false,
+    "reach": "downstream"
+  }
+}

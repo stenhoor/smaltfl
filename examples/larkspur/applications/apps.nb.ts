@@ -4,8 +4,9 @@
 // platforms, walked through what each depends on; and the cloud's tags nobody registered.
 import { cell, md, sql } from 'smaltnb';
 import { check, gate, publish } from 'smaltfl/notebook';
-import { backup_jobs_checked, cloud_assets_checked, cmdb_apps_checked, encryption_checked, findings_checked, logging_coverage_checked, mfa_checked, platform_links, privileged_vault_checked, tls_checked } from './bronze.nb.js';
-import { org_chain } from './org.nb.js';
+import { cloud_assets_checked, cmdb_apps_checked, platform_links } from '../inventory/bronze.nb.js';
+import { backup_jobs_checked, encryption_checked, findings_checked, logging_coverage_checked, mfa_checked, privileged_vault_checked, tls_checked } from '../feeds/bronze.nb.js';
+import { org_chain } from '../hr/org.nb.js';
 
 cell('about_clean', { lang: 'md' });
 md`The CMDB's records, one an application: ids upper-cased and trimmed, so a record written again as \`app-0001 \` is APP-0001's; where an application has several records, the newest kept, and the records it had and whether they named different owners said beside it`;

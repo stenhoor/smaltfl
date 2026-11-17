@@ -5,6 +5,7 @@
  * Pure: the app reads it at start.
  */
 import type { Binding } from '../../examples/sources.js';
+import type { CatalogueEntry } from '../core/catalogue.js';
 import { isScenesFile, scenesProblems, type ScenesFile } from '../core/scenes.js';
 import type { Expected } from './fetch-checked.js';
 
@@ -53,6 +54,16 @@ export interface DataList {
   data: { commit: string; manifest: string; bytes?: number } | null;
   /** The flow document the data is for, when it isn't the built-in example. */
   flow: FileEntry | null;
+  /** Each flow that flow reads, as its own document (ADR 0026 §2), by id: what a run keeps beside its own document, so
+   * verify can check that it holds each unchanged. The build's own files, as the flow document is. */
+  flows: Record<string, FileEntry>;
+  /** The estates' ontologies the flow imports (ADR 0026 §8), each as its file gives it, by name and hash (`estate/0`),
+   * in the order the flow's document names them. Empty where it imports none. */
+  estates: (FileEntry & { name: string; hash: string })[];
+  /** The flow's catalogue (ADR 0026 §10): the flows this build ships that are made already, each with what it gives,
+   * what it is built on and the hash it is known by, and its own document's file (`file`, with its sha256 and size).
+   * Empty where the build ships none. */
+  catalogue: (CatalogueEntry & { file: string; sha256: string; bytes: number })[];
   sources: Record<string, ListedSource>;
   /** Each watched source's history, by source id. */
   histories: Record<string, FileEntry>;
@@ -80,11 +91,23 @@ export interface DataList {
   /** The demo's scenes (ADR 0023 §4, core/scenes.ts): what it shows, listed on the month screen; none where the list
    * names none, or they aren't a good scenes file (said in the console, never in the way). */
   scenes?: ScenesFile;
+  /** The pages of this site that share a flow with this one (ADR 0026 §6), by the flow's id, each with its address
+   * from this page: a flow this one reads that has a page of its own, or a flow that reads this one (named, since this
+   * page's document doesn't know it). A held day decided on one is carried to the other, and each links to the other.
+   * Where the pages are is the site's to say (the build's `--page`), not the flow's. */
+  pages?: Record<string, { href: string; name?: string }>;
   loads: Listed[];
   donors: Listed[];
   /** Every fixed file by key: each source's by its id, each history as `history` (the first) and `history:<id>`. */
   files: Record<string, FileEntry>;
 }
+
+/** The data list's pages, where each is an address, with a name or none. */
+const pagesOf = (v: unknown): Record<string, { href: string; name?: string }> | undefined => {
+  if (!isRecord(v)) return undefined;
+  const out = Object.fromEntries(Object.entries(v).flatMap(([id, x]) => (isRecord(x) && typeof x.href === 'string' && x.href ? [[id, { href: x.href, ...(typeof x.name === 'string' && x.name ? { name: x.name } : {}) }] as const] : [])));
+  return Object.keys(out).length ? out : undefined;
+};
 
 /** The data list's scenes, where they are a good scenes file. */
 const scenesOf = (v: unknown): ScenesFile | undefined => {
@@ -166,14 +189,23 @@ export function readDataList(raw: unknown): DataList {
     if (recorded) files.recorded = recorded;
     const flow = isRecord(index.flow) ? (index.flow as unknown as FileEntry) : null;
     if (flow) files.flow = flow;
+    const flows = (isRecord(index.flows) ? index.flows : {}) as Record<string, FileEntry>;
+    for (const [id, f] of Object.entries(flows)) files[`flow:${id}`] = f;
+    const estates = (Array.isArray(index.estates) ? index.estates : []).filter((e): e is FileEntry & { name: string; hash: string } => isRecord(e) && typeof e.path === 'string' && typeof e.name === 'string' && typeof e.hash === 'string');
+    estates.forEach((e, k) => (files[`estate:${k}`] = e));
+    const catalogue = (Array.isArray(index.catalogue) ? index.catalogue : []).filter((e): e is CatalogueEntry & { file: string; sha256: string; bytes: number } =>
+      isRecord(e) && typeof e.id === 'string' && typeof e.name === 'string' && typeof e.path === 'string' && typeof e.hash === 'string' && typeof e.file === 'string' && typeof e.sha256 === 'string' && typeof e.bytes === 'number'
+      && Array.isArray(e.gives) && Array.isArray(e.reads));
+    for (const e of catalogue) files[`catalogue:${e.id}`] = { path: e.file, sha256: e.sha256, bytes: e.bytes };
     return {
-      format: 2, ...(typeof index.month === 'string' ? { month: index.month } : {}), ...(typeof index.built === 'string' ? { built: index.built } : {}), data, flow, sources, histories, samples, ranges, ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), loadSource, daily, judged,
+      format: 2, ...(typeof index.month === 'string' ? { month: index.month } : {}), ...(typeof index.built === 'string' ? { built: index.built } : {}), data, flow, flows, estates, catalogue, sources, histories, samples, ranges, ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), loadSource, daily, judged,
       ...(postureOf(index.posture) ? { posture: postureOf(index.posture)! } : {}),
       ...(scenesOf(index.scenes) ? { scenes: scenesOf(index.scenes)! } : {}),
+      ...(pagesOf(index.pages) ? { pages: pagesOf(index.pages)! } : {}),
       loads, donors: loadSource ? sources[loadSource]!.donors ?? [] : [], files,
     };
   }
-  return { format: 2, data, flow: null, sources: {}, histories: {}, samples: {}, ranges: {}, loadSource: null, daily: [], judged: null, loads: [], donors: [], files: {} };
+  return { format: 2, data, flow: null, flows: {}, estates: [], catalogue: [], sources: {}, histories: {}, samples: {}, ranges: {}, loadSource: null, daily: [], judged: null, loads: [], donors: [], files: {} };
 }
 
 /** Every file a list names, with the sha256 and size it gives: what must be in MANIFEST.json, as it says. */
@@ -181,7 +213,7 @@ export function namedFiles(list: DataList): { path: string; sha256: string; byte
   // The flow document is the build's own file (ADR 0011: a folder's flow.json, its notebooks expanded), never the data
   // branch's: it is checked against loads.json's entry when it is read, not against MANIFEST.json. So are the types
   // computed ahead (ADR 0019 amendment 2), which the build makes from it.
-  const fixed = Object.entries(list.files).filter(([k]) => k !== 'flow' && k !== 'types' && k !== 'recorded').map(([, f]) => ({ path: f.from ?? f.path, sha256: f.sha256, bytes: f.bytes }));
+  const fixed = Object.entries(list.files).filter(([k]) => k !== 'flow' && !k.startsWith('flow:') && k !== 'types' && k !== 'recorded').map(([, f]) => ({ path: f.from ?? f.path, sha256: f.sha256, bytes: f.bytes }));
   const days = [...list.loads, ...list.donors, ...Object.values(list.sources).flatMap((s) => s.deliveries ?? [])].flatMap((l) => (l.files ? Object.values(l.files) : [l])).map((l) => ({ path: l.file, sha256: l.sha256, bytes: l.bytes ?? -1 }));
   return [...fixed, ...days];
 }

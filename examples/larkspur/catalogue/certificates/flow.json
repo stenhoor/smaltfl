@@ -1,0 +1,97 @@
+{
+  "smaltfl": 4,
+  "id": "certificates",
+  "name": "Certificates",
+  "description": "The TLS certificates about to run out: each one that expires within thirty days of the day, and each certificate authority with how many it issued, how many expire soon and how many still offer TLS 1.0. It reads the evidence feeds, and has no file of its own.",
+  "parameters": [
+    {
+      "name": "day",
+      "type": "text",
+      "default": null
+    }
+  ],
+  "calendar": {
+    "base": "us",
+    "zone": "UTC",
+    "days": [
+      {
+        "name": "Patch Tuesday",
+        "short": "Patch Tue",
+        "weekday": "tue",
+        "between": [
+          8,
+          14
+        ]
+      }
+    ]
+  },
+  "flows": [
+    "../../feeds/flow.json"
+  ],
+  "sources": [],
+  "notebooks": [
+    "certificates.nb.ts"
+  ],
+  "ontology": {
+    "import": [
+      "../../ontology.json"
+    ],
+    "objectTypes": [],
+    "linkTypes": [],
+    "actionTypes": [],
+    "properties": [
+      {
+        "column": "days_left",
+        "title": "Days left",
+        "description": "The days from the day to the certificate’s last day",
+        "unit": "days",
+        "datasets": [
+          "certs_expiring"
+        ]
+      },
+      {
+        "column": "certificates",
+        "title": "Certificates",
+        "description": "How many certificates the authority issued",
+        "datasets": [
+          "certs_by_issuer"
+        ]
+      },
+      {
+        "column": "expiring_soon",
+        "title": "Expiring soon",
+        "description": "How many of them expire within thirty days of the day",
+        "datasets": [
+          "certs_by_issuer"
+        ]
+      },
+      {
+        "column": "old_protocol",
+        "title": "On TLS 1.0",
+        "description": "How many of them still offer TLS 1.0",
+        "datasets": [
+          "certs_by_issuer"
+        ]
+      }
+    ],
+    "nouns": {
+      "certs_expiring": {
+        "one": "certificate",
+        "many": "certificates"
+      },
+      "certs_by_issuer": {
+        "one": "certificate authority",
+        "many": "certificate authorities"
+      }
+    }
+  },
+  "publish": {
+    "hold": [
+      "checks",
+      "wrong"
+    ],
+    "period": "day",
+    "together": false,
+    "reach": "downstream"
+  }
+}

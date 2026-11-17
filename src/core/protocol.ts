@@ -50,6 +50,12 @@ export interface RunOptions {
 
 export interface RunContext {
   doc?: unknown;
+  /**
+   * Each flow the document reads, as its own document (ADR 0026 §2): the one read from its own folder, whose flow hash
+   * the run's document names it by. Kept with the run by that hash, so verify can check that the run's document holds
+   * the flow unchanged. A document that hashes to none of the flows the run's document reads is refused.
+   */
+  flows?: unknown[];
   data?: { commit: string; manifest: string } | null;
   log?: { origin: string; size: number; root: string } | null;
   /**
@@ -214,9 +220,10 @@ export interface VerifyCheck {
    * of its held run, read the donor's file the repair names, and read the held run's snapshot (amendment 1 S11);
    * gate: a gold gate's reconciliation counted again over the recomputed dataset gives the counts the run recorded
    * (ADR 0014 §6); contract: a contracted dataset checked again against its contract gives what the run recorded
-   * (Q-171).
+   * (Q-171); flows: each flow the run names is the document's, its own document kept with the run hashes to the hash
+   * it is named by, and the run's document holds it unchanged (ADR 0026 §2).
    */
-  check: 'stored' | 'rerun' | 'expectations' | 'coherent' | 'key' | 'published' | 'previous' | 'accounting' | 'flow' | 'file' | 'held' | 'repair' | 'gate' | 'contract';
+  check: 'stored' | 'rerun' | 'expectations' | 'coherent' | 'key' | 'published' | 'previous' | 'accounting' | 'flow' | 'flows' | 'file' | 'held' | 'repair' | 'gate' | 'contract';
   ok: boolean;
   expected?: string;
   actual?: string | null;

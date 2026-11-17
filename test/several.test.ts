@@ -293,6 +293,13 @@ describe('two watched sources, each with its own cadence (I16, Q-55)', () => {
       const late = await rec.append('decide', 'owner', { ...about, day: '2024-09-10T18', option: 'dont', scope: 'day', under: standing.seq, load: { ...calm, slot: '2024-09-10T18' } } as unknown as JSONValue, null);
       const ended = (await auditBag(await bagOf(db, rec))).lines.filter((l) => !l.ok).map((l) => l.what);
       expect(ended).toContainEqual(`decision #${late.seq}: don't publish for 2024-09-10T18, by owner, under #${standing.seq}: the load it is about isn't one that held the run; it applies decision #${standing.seq}, which doesn't stand for edr's 2024-09-10T18 load`);
+      // Whose a decision is (ADR 0026 §6) is checked where it is said: in a flow that reads none, a decision that
+      // names a flow isn't that flow's, and one that says it carries another must follow a load that leads.
+      const named = await rec.append('decide', 'owner', { ...about, flow: { id: 'feeds', hash: 'f'.repeat(64) } } as unknown as JSONValue, 'Unknown results were a test client');
+      const carrying = await rec.append('decide', 'owner', { ...about, carried: { seq: decided.seq, leaf } } as unknown as JSONValue, 'Unknown results were a test client');
+      const whose = (await auditBag(await bagOf(db, rec))).lines.filter((l) => !l.ok).map((l) => l.what);
+      expect(whose).toContainEqual(`decision #${named.seq}: publish as is for 2024-09-10, by owner, feeds's to decide: it says it is feeds's, and its load is held by the flow's own file or step`);
+      expect(whose).toContainEqual(`decision #${carrying.seq}: publish as is for 2024-09-10, by owner, with #${decided.seq}: it carries #${decided.seq}, and its own hold leads: nothing it is built from holds`);
     } finally {
       db.close();
     }

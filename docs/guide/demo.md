@@ -31,18 +31,41 @@ day takes a few seconds while the engine starts and runs the whole flow, about a
 
 ## The flow {#the-flow}
 
-The canvas shows six notebooks, bronze to gold:
+Larkspur is five flows, four of them read by the fifth ([ADR 0026](../adr/0026-flows-in-flows.md)). The canvas shows
+the top one, the posture product, with each flow it reads as **one card**, a second sheet behind it:
 
-- **bronze**: every daily file as it arrived, each with a gate. The gate checks the file's columns, its amount, its
-  key and the applications it should cover. It also checks values against the bands the ontology writes, and that
-  the file is a fresh export, not yesterday's file again. Each evidence feed has a fill step, so a day missing one can
-  be filled from another day, every row marked with the day it came from (`filled_from`).
-- **org**: the organisation, conformed. Each unit has its chain up to the group, and the leader it answers to: its
-  own, someone acting, or the one above. Its rules: no loop, one root.
-- **apps**: the applications, conformed: ids cleaned, the newest record kept.
+- **Inventory**: the applications' register and the cloud assets, each file with its gate.
+- **HR organisation**: the units and the people, conformed. Each unit has its chain up to the group, and the leader it
+  answers to: its own, someone acting, or the one above. Its rules: no loop, one root.
+- **Evidence feeds**: the findings ledger and the twelve evidence feeds, a control each, as their tools export them.
+  Each file has a gate, which checks its columns, its amount, its key and the applications it should cover against the
+  Inventory's list; values against the bands the ontology writes; and that the file is a fresh export, not
+  yesterday's again. Each feed has a fill step, so a day missing one can be filled from another day, every row marked
+  with the day it came from (`filled_from`).
+- **Applications**: the applications, conformed, from the other three: ids cleaned, the newest record kept.
   - Each application has an owner chain through its team. One whose chain doesn't resolve is kept under
     **Unassigned**.
   - Cloud resources tagged with an application nobody registered are listed apart.
+
+A flow's card says what its day came to, by the month's marks: a tick and what it has on a normal day; **‖** and the
+file that holds it, with how many of its files that is (*access_rev… · 1 of 13*), on a day it is paused; how the day
+went out once someone decided. A flow with nothing wrong of its own whose outputs wait behind another flow's hold says
+*Waits on* that flow. Never a score, never an average.
+
+Tap a card for the flow's sheet: its day in a sentence, what holds it (a tap from the file inside), the flows it reads,
+and what it gives, each dataset with whether today's went out and who reads it. **Open the flow ›** (or a double-click
+on the card) shows the flow's own canvas, with a line at the top that says where you are and goes back. Inside, it is
+the same run: every card shows the day on screen. Each level has a link of its own (`#day/2024-03-27/in/feeds`).
+
+Each dataset a flow gives has **Explore ›** on the sheet, and every file and published table has an **Explore** tab
+([the app guide](./app#explore)). Try the TLS file on Thu Mar 7: tap *Fail* under Status, and the 40 failing
+certificates are every one of the 22 still on TLS 1.0. **How it joins** counts it against the inventory's applications
+in scope, with the match day by day; **Against another day** lists the rows that came, went and changed.
+
+Beside the four cards are the posture product's own three files (the control catalogue, what each control requires,
+the exceptions) and its notebooks:
+
+- **bronze**: its own three files, each with a gate.
 - **evidence**: every evidence feed as one long table, and the vulnerability SLA, told from the findings ledger.
 - **posture**: what applies to each application and the evidence for it.
   - Each pair of an application and a control gets an effective status with its reason: pass, fail, compensated,
@@ -60,6 +83,17 @@ The canvas shows six notebooks, bronze to gold:
 Tap a notebook's box to read it as a page: each step's code, its output under it, what a rule caught and the day's
 news about it. **Your cells** at the bottom take SQL of your own over any dataset by name. They are kept in your
 browser and change nothing the flow computes.
+
+As the owner, build on it ([the app guide](./app#building-in-the-app)). **Add a flow ›**, above the canvas, lists
+three flows made already:
+
+- *Ownership* and *Certificates* are added as they are: a card each, built from the day's run.
+- *Control by unit* has no dataset of its own to read: it is **used** on the evidence feed you pick. Use it on the TLS
+  feed, then again on the WAF's with a floor of 99.5: two flows of the one definition, each with its own card, its
+  own datasets and its own hash in the run. Inside each, its inputs show where their rows come from.
+
+On any dataset's **How it joins**, a form writes a join as a notebook cell, and the joined dataset is there to explore.
+What you make is recorded, kept in your browser, and taken back one at a time or with *Back to the flow as shipped*.
 
 ## 1. A normal day {#normal}
 
@@ -147,6 +181,11 @@ was filled, is the version before.
   opens what readers get, each choice drawn: **Keep Tue 26**, recommended, as something is wrong in the rows;
   **Publish as is**, with 0 applications; or **Fill from Tue 26**. Pick the fill and choose **Wed 20** among its days,
   the same weekday a week before: *Wed 20 stands in: an estimate*, for a file whose rows follow the week.
+  - The file is Evidence feeds', so the decision is too: the sheet's head says *Evidence feeds’ to decide*, and links
+    to **[Evidence feeds’ page](/feeds/#day/2024-03-27){target="_self"}**, the same flow on the same files with a
+    record of its own. Decide the day there instead, then come back: the estate's page has taken the decision, and its
+    receipt says *Decided on Evidence feeds’ page, and carried here: nobody was asked twice*. It works the other way
+    round too.
 
 ## More to see {#more}
 
@@ -209,6 +248,9 @@ apart from the record, and **Compare** puts any two versions of a day side by si
 
 ## The other demos
 
+- **[Evidence feeds’ own page](/feeds/){target="_self"}**: one of the estate's flows as a page of its own, on the
+  tour's two months: its thirteen files and Inventory's, its own month and record. A paused day decided here or on the
+  tour is carried to the other ([how](./app#a-flow-that-reads-flows)).
 - **[Larkspur's planted month](/larkspur/){target="_self"}**: the same group with trouble planted at every layer, the
   month ADR 0020's answer key was built against: the posture over the whole month, the rules changed twice, a
   back-dated change restating two days. [Its walk](./larkspur) goes day by day.

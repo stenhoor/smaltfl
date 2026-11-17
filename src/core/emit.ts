@@ -567,3 +567,172 @@ export function emitCopy(table: string, columns: readonly string[], sql: string)
 export function emitDrop(table: string): string {
   return `DROP TABLE ${q(table)}`;
 }
+
+// ------------------------------------------------------------------ exploring a dataset (ADR 0026 §9)
+
+/**
+ * A part of a dataset, picked on one of its columns as a reader taps it: the rows with one value (`null`: the rows with
+ * none); a number's rows from `from` up to, not including, `to` (either end open with `null`); or a time's rows whose
+ * stamp starts with `prefix` (a day "2024-03-12", a month "2024-03", an hour "2024-03-12 14").
+ */
+export type RowPick =
+  | { column: string; value: string | number | null }
+  | { column: string; from: number | null; to: number | null }
+  | { column: string; prefix: string };
+
+const num = (v: number): string => {
+  if (!Number.isFinite(v)) throw new Error(`not a number the engine can compare: ${String(v)}`);
+  return String(v);
+};
+
+/** A pick as a condition over a relation's columns: true for the rows it picks, never unknown. */
+export function emitPick(pick: RowPick, alias?: string): string {
+  const c = `${alias ? `${alias}.` : ''}${q(pick.column)}`;
+  if ('prefix' in pick) return `(${c} IS NOT NULL AND substr(CAST(${c} AS TEXT), 1, ${pick.prefix.length}) = ${lit(pick.prefix)})`;
+  if ('value' in pick) return pick.value === null ? `(${c} IS NULL)` : `(${c} IS NOT NULL AND ${c} = ${typeof pick.value === 'number' ? num(pick.value) : lit(pick.value)})`;
+  const ends = [pick.from === null ? '' : `${c} >= ${num(pick.from)}`, pick.to === null ? '' : `${c} < ${num(pick.to)}`].filter(Boolean);
+  return `(${[`${c} IS NOT NULL`, ...ends].join(' AND ')})`;
+}
+
+/** A relation's rows where every pick holds: what *Keep only* keeps. With no pick, the relation as it is. */
+export function emitKept(sql: string, picks: readonly RowPick[]): string {
+  return picks.length ? `SELECT * FROM (\n${sql}\n) WHERE ${picks.map((p) => emitPick(p)).join(' AND ')}` : sql;
+}
+
+/** The rows a pick lights, as a column to sum: 1 for a row it picks, else 0; with no pick, 0. */
+const litOf = (pick: RowPick | null | undefined): string => (pick ? `CASE WHEN ${emitPick(pick)} THEN 1 ELSE 0 END` : '0');
+
+/** A relation's rows, and those among them a pick lights: one row of two counts. */
+export function emitLit(sql: string, pick: RowPick | null): string {
+  return `SELECT count(*), coalesce(sum(${litOf(pick)}), 0) FROM (\n${sql}\n)`;
+}
+
+/**
+ * One column's values counted over every row of a relation: each value, its rows, and the rows among them a pick
+ * lights. The rows with no value come first, as a NULL, where there are any, so they are counted whatever the limit;
+ * then the values, the most common first (ties by the value), up to `limit` of them: the caller knows the rest from
+ * the relation's rows.
+ */
+export function emitValueCounts(sql: string, column: string, limit: number, pick?: RowPick | null): string {
+  const x = q(column);
+  return `SELECT ${x} AS "value", count(*) AS "rows", coalesce(sum(${litOf(pick)}), 0) AS "lit" FROM (\n${sql}\n) GROUP BY 1 ORDER BY CASE WHEN ${x} IS NULL THEN 0 ELSE 1 END, 2 DESC, 1 LIMIT ${Math.max(1, Math.floor(limit)) + 1}`;
+}
+
+/**
+ * A number column's rows counted in `bins` equal bins of `width` from `lo`, over every row with a value: the bin (0 to
+ * `bins` − 1; −1 for a value under `lo`, `bins` for one at or over the last bin's end), its rows, and the rows among
+ * them a pick lights. Bins with no row are left out.
+ */
+export function emitBinCounts(sql: string, column: string, lo: number, width: number, bins: number, pick?: RowPick | null): string {
+  const n = Math.max(1, Math.floor(bins));
+  if (!(width > 0)) throw new Error('a bin has a width above nothing');
+  const x = q(column);
+  const bin = `CASE WHEN ${x} < ${num(lo)} THEN -1 WHEN ${x} >= ${num(lo + width * n)} THEN ${n} ELSE CAST((${x} - ${num(lo)}) / ${num(width)} AS INTEGER) END`;
+  return `SELECT ${bin} AS "bin", count(*) AS "rows", coalesce(sum(${litOf(pick)}), 0) AS "lit" FROM (\n${sql}\n) WHERE ${x} IS NOT NULL GROUP BY 1 ORDER BY 1`;
+}
+
+/**
+ * A time column's rows counted by the first `chars` characters of its stamp, in order (10: a day, 7: a month, 13: an
+ * hour of a day): the stamp's start, its rows, and the rows among them a pick lights.
+ */
+export function emitStampCounts(sql: string, column: string, chars: number, pick?: RowPick | null): string {
+  const x = q(column);
+  return `SELECT substr(CAST(${x} AS TEXT), 1, ${Math.max(1, Math.floor(chars))}) AS "stamp", count(*) AS "rows", coalesce(sum(${litOf(pick)}), 0) AS "lit" FROM (\n${sql}\n) WHERE ${x} IS NOT NULL GROUP BY 1 ORDER BY 1`;
+}
+
+/**
+ * How a column's rows sit with the values written for it (the ontology's, a contract's): the rows whose value, as text,
+ * is one of them, the rows with another value, and the rows with none. One row of three counts.
+ */
+export function emitFit(sql: string, column: string, values: readonly string[]): string {
+  const x = q(column);
+  const among = values.length ? `CAST(${x} AS TEXT) IN (${values.map(lit).join(', ')})` : '1 = 0';
+  return `SELECT coalesce(sum(CASE WHEN ${x} IS NOT NULL AND ${among} THEN 1 ELSE 0 END), 0), coalesce(sum(CASE WHEN ${x} IS NOT NULL AND NOT (${among}) THEN 1 ELSE 0 END), 0), coalesce(sum(CASE WHEN ${x} IS NULL THEN 1 ELSE 0 END), 0) FROM (\n${sql}\n)`;
+}
+
+/**
+ * How two relations join on a key, counted on each side, in one row: `a`'s rows, its rows with no key, its rows whose
+ * key `b` has, its distinct keys and those of them `b` has; then the same five for `b` against `a`. Keys compare as
+ * text, so an id read as a number on one side still finds itself; `loose`, whatever their case and the spaces around
+ * them (Q-176). A blank key matches nothing.
+ */
+export function emitJoinMatch(a: string, ka: string, b: string, kb: string, loose = false): string {
+  const key = (column: string) => (loose ? loosened(`CAST(${q(column)} AS TEXT)`) : `CAST(${q(column)} AS TEXT)`);
+  const keys = (sql: string, column: string) => `SELECT DISTINCT ${key(column)} AS k FROM (\n${sql}\n) WHERE ${q(column)} IS NOT NULL`;
+  const side = (sql: string, column: string, other: string, otherColumn: string) => [
+    `(SELECT count(*) FROM (\n${sql}\n))`,
+    `(SELECT count(*) FROM (\n${sql}\n) WHERE ${q(column)} IS NULL)`,
+    `(SELECT count(*) FROM (\n${sql}\n) WHERE ${q(column)} IS NOT NULL AND ${key(column)} IN (${keys(other, otherColumn)}))`,
+    `(SELECT count(*) FROM (${keys(sql, column)}))`,
+    `(SELECT count(*) FROM (${keys(sql, column)}) m WHERE m.k IN (${keys(other, otherColumn)}))`,
+  ];
+  return `SELECT ${[...side(a, ka, b, kb), ...side(b, kb, a, ka)].join(', ')}`;
+}
+
+/**
+ * The keys of `a` that `b` doesn't have, those on the most rows first (ties by the key): each key as `a` writes it and
+ * its rows. Up to `limit`. Compared as `emitJoinMatch` compares them.
+ */
+export function emitUnmatchedKeys(a: string, ka: string, b: string, kb: string, limit: number, loose = false): string {
+  const key = (column: string) => (loose ? loosened(`CAST(${q(column)} AS TEXT)`) : `CAST(${q(column)} AS TEXT)`);
+  return `SELECT min(${q(ka)}) AS "key", count(*) AS "rows" FROM (\n${a}\n) WHERE ${q(ka)} IS NOT NULL AND ${key(ka)} NOT IN (SELECT ${key(kb)} FROM (\n${b}\n) WHERE ${q(kb)} IS NOT NULL) GROUP BY ${key(ka)} ORDER BY 2 DESC, 1 LIMIT ${Math.max(1, Math.floor(limit))}`;
+}
+
+/**
+ * A relation's rows where a condition holds: one given as data (the ontology's `where`, which `emitMatch` writes) or as
+ * written (a gate cell's scope). What a dataset's scope keeps of the dataset it is counted against.
+ */
+export function emitWhere(sql: string, condition: string | readonly (readonly [column: string, values: readonly string[]])[]): string {
+  return `SELECT * FROM (\n${sql}\n) WHERE ${typeof condition === 'string' ? `(${condition})` : emitMatch(condition)}`;
+}
+
+/**
+ * The rows kept of a dataset, as a statement a reader reads and changes in a cell of their own: the dataset by its
+ * name, a condition a line, each written as a person would (a WHERE keeps no row its condition is unknown for, so
+ * the guard `emitPick` carries isn't needed: the rows are the same). With no pick, every row.
+ */
+export function emitKeptCell(dataset: string, picks: readonly RowPick[]): string {
+  const plain = (pick: RowPick): string => {
+    const c = q(pick.column);
+    if ('prefix' in pick) return `substr(CAST(${c} AS TEXT), 1, ${pick.prefix.length}) = ${lit(pick.prefix)}`;
+    if ('value' in pick) return pick.value === null ? `${c} IS NULL` : `${c} = ${typeof pick.value === 'number' ? num(pick.value) : lit(pick.value)}`;
+    const ends = [pick.from === null ? '' : `${c} >= ${num(pick.from)}`, pick.to === null ? '' : `${c} < ${num(pick.to)}`].filter(Boolean);
+    return ends.length ? ends.join(' AND ') : `${c} IS NOT NULL`;
+  };
+  return `SELECT *\nFROM ${dataset}${picks.length ? `\nWHERE ${picks.map(plain).join('\n  AND ')}` : ''}`;
+}
+
+/**
+ * What a use of a flow reads of the dataset mapped onto one of its inputs (ADR 0026 §11): the columns the flow needs,
+ * by name, and no other. So a flow reads of an input what it declares, a column the dataset lacks stops the run at
+ * this step by name, and the flow's own steps never learn which dataset they were given. `ref` writes the dataset
+ * where it is read, as a notebook's cell names one.
+ */
+export function emitPort(columns: readonly string[], dataset: string, ref: (dataset: string) => string = (d) => q(d)): string {
+  return `SELECT ${columns.map((c) => q(c)).join(', ')}\nFROM ${ref(dataset)}`;
+}
+
+/** A join as a form gives it (ADR 0026 §10): two datasets, the key on each side, which rows are kept and the columns
+ * taken. */
+export interface JoinColumns {
+  left: string;
+  right: string;
+  /** The key: a column of the left and the column of the right whose values match, one pair or more. */
+  on: [left: string, right: string][];
+  /** Every row of the left with what matches it (`left`), or only the rows that find a match (`inner`). */
+  how: 'left' | 'inner';
+  /** The columns taken from each side, in order. A right column whose name a taken left column has is named after its
+   * dataset: `<right>_<column>`. */
+  take: { left: string[]; right: string[] };
+}
+
+/**
+ * A join as a statement a person reads and changes in a cell (ADR 0026 §10): the columns taken, a line a side, the
+ * key. `ref` writes a dataset where it is read: its name, or in a notebook's cell the name between `${` and `}`.
+ */
+export function emitJoin(j: JoinColumns, ref: (dataset: string) => string = (d) => q(d)): string {
+  const taken = new Set(j.take.left.map((c) => c.toLowerCase()));
+  const columns = [...j.take.left.map((c) => `l.${q(c)}`), ...j.take.right.map((c) => (taken.has(c.toLowerCase()) ? `r.${q(c)} AS ${q(`${j.right}_${c}`)}` : `r.${q(c)}`))];
+  const on = j.on.map(([l, r]) => `l.${q(l)} = r.${q(r)}`).join(' AND ');
+  return `SELECT ${columns.join(', ')}\nFROM ${ref(j.left)} l\n${j.how === 'left' ? 'LEFT JOIN' : 'JOIN'} ${ref(j.right)} r ON ${on}`;
+}

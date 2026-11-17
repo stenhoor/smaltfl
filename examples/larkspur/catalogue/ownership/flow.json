@@ -1,0 +1,97 @@
+{
+  "smaltfl": 4,
+  "id": "ownership",
+  "name": "Ownership",
+  "description": "Who answers for what: the applications each business unit owns, how many of them face the internet, and the ones whose chain of owners doesn’t reach the group. It reads the applications and the organisation, and has no file of its own.",
+  "parameters": [
+    {
+      "name": "day",
+      "type": "text",
+      "default": null
+    }
+  ],
+  "calendar": {
+    "base": "us",
+    "zone": "UTC",
+    "days": [
+      {
+        "name": "Patch Tuesday",
+        "short": "Patch Tue",
+        "weekday": "tue",
+        "between": [
+          8,
+          14
+        ]
+      }
+    ]
+  },
+  "flows": [
+    "../../applications/flow.json",
+    "../../hr/flow.json"
+  ],
+  "sources": [],
+  "notebooks": [
+    "ownership.nb.ts"
+  ],
+  "ontology": {
+    "import": [
+      "../../ontology.json"
+    ],
+    "objectTypes": [],
+    "linkTypes": [],
+    "actionTypes": [],
+    "properties": [
+      {
+        "column": "business_unit",
+        "title": "Business unit",
+        "description": "The business unit’s name, as HR writes it; Unassigned for the applications whose chain doesn’t reach the group",
+        "datasets": [
+          "apps_by_unit"
+        ]
+      },
+      {
+        "column": "applications",
+        "title": "Applications",
+        "description": "How many applications the unit owns that aren’t retired",
+        "datasets": [
+          "apps_by_unit"
+        ]
+      },
+      {
+        "column": "internet_facing",
+        "title": "Internet-facing",
+        "description": "How many of them face the internet",
+        "datasets": [
+          "apps_by_unit"
+        ]
+      },
+      {
+        "column": "tier_one",
+        "title": "Tier 1",
+        "description": "How many of them are tier 1, the ones the business stops without",
+        "datasets": [
+          "apps_by_unit"
+        ]
+      }
+    ],
+    "nouns": {
+      "apps_by_unit": {
+        "one": "business unit",
+        "many": "business units"
+      },
+      "unowned_apps": {
+        "one": "application",
+        "many": "applications"
+      }
+    }
+  },
+  "publish": {
+    "hold": [
+      "checks",
+      "wrong"
+    ],
+    "period": "day",
+    "together": false,
+    "reach": "downstream"
+  }
+}

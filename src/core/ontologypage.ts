@@ -13,10 +13,11 @@
  * title exists. A condition its author wrote for the engine in a gate cell is quoted as written. A file's rule that
  * is about a column (its key, the objects it covers) is listed on that column's card as well, counted once.
  */
-import { sourceOf, type FlowDocument } from './document.js';
+import { flowOf, sourceOf, type FlowDocument } from './document.js';
 import { gateChecksOf, gateLayerOf, writtenRules, type CheckName, type Layer } from './gates.js';
 import { marksOn, meaningOf, nounOf, propertyOf, rowsOf, saysMore, type Noun, type ObjectType, type Ontology, type PropertyType } from './ontology.js';
 import { ACTION_SAID, checkStepOf, ruleOn, rulesOf, ruleSaid, type OntologyRule } from './rules.js';
+import { estateSays, type EstateFrom, type EstateOntology } from './shared.js';
 
 /**
  * How a rule came to be. Today every rule is set by hand, in the ontology or in the notebook's gate cell: a declaration
@@ -69,6 +70,24 @@ export interface Rule {
   def?: OntologyRule;
 }
 
+/**
+ * A flow's own handling of a column an estate's ontology describes (ADR 0026 §8), as the page notes it: the flow, the
+ * datasets of its own it handles the column so in, and why, in the flow's words.
+ */
+export interface Handling {
+  column: string;
+  /** The flow whose handling it is: a flow the document reads by its id and name, the document's own by '' and its name. */
+  flow: { id: string; name: string };
+  datasets: string[];
+  reason: string;
+  /** What the flow calls the column there and says it holds. */
+  title?: string;
+  description?: string;
+  /** What the estate says of the column, which the flow's handling stands in place of: the estate's name, and the
+   * column's title and meaning there. Absent where what the estate says isn't known here. */
+  estate?: { name: string | null; title?: string; description?: string };
+}
+
 /** A column of a file: what it is called, what it means, and its rules. */
 export interface ColumnCard {
   /** The column as the file writes it. */
@@ -93,6 +112,12 @@ export interface ColumnCard {
    * there with the column's own, so the key says under its column that it has to be there, and counted once, as the
    * file's. */
   fileRules: { rule: Rule; said: string }[];
+  /** Set where what this card says of the column is a flow's own handling of it (ADR 0026 §8): the entry in force for
+   * this dataset is the flow's override of what the estate says. */
+  own?: Handling;
+  /** Where the column is handled differently (ADR 0026 §8): the flows' own handlings of it in other datasets, which
+   * every other card of the column notes. Absent where there are none. */
+  elsewhere?: Handling[];
 }
 
 /** A file the flow reads, or a dataset it makes (`made`, Q-144), laid out the same way. */
@@ -133,9 +158,15 @@ export interface OntologyPage {
   /** The object types with a link or an action, or that no file's rows are tied to. A type that only says what
    * files' rows are isn't drawn as a box: that is the files' own rules now. */
   types: ObjectType[];
+  /** The estates' ontologies the flow imports (ADR 0026 §8), each by its name, the path the flow gives it by and its
+   * hash, the same in every flow that imports it. Absent where the flow imports none. */
+  estate?: EstateFrom[];
+  /** Every column a flow handles its own way, in the ontology's order: what the page lists at its head, and notes on
+   * each card of the column. Empty where no flow does. */
+  handled: Handling[];
 }
 
-type PageDoc = Pick<FlowDocument, 'sources'> & Partial<Pick<FlowDocument, 'steps' | 'ontology' | 'gates' | 'publish'>>;
+type PageDoc = Pick<FlowDocument, 'sources'> & Partial<Pick<FlowDocument, 'steps' | 'ontology' | 'gates' | 'publish' | 'flows' | 'name'>>;
 
 const lower = (x: string) => x.toLowerCase();
 /** "A", "A or B", "A, B or C". */
@@ -167,10 +198,13 @@ export function typesShown(ontology: Ontology | undefined): ObjectType[] {
  * gives the ones the viewer may read, so a hidden column has no card and its rules aren't listed); a file it returns
  * nothing for has no cards yet. `every` gives all the columns a file has, where that is more than the cards (a rule
  * on one column may stand aside for a mark on another the viewer can't read); the cards' columns without it.
+ * `estates` are the estates' ontologies the flow imports, as read (ADR 0026 §8): with them a handling says what the
+ * estate says of its column there; without them, what the document still holds of it for other datasets.
  */
-export function ontologyPage(doc: PageDoc, columns: (file: string) => readonly string[] | undefined = () => undefined, every: (file: string) => readonly string[] | undefined = columns): OntologyPage {
+export function ontologyPage(doc: PageDoc, columns: (file: string) => readonly string[] | undefined = () => undefined, every: (file: string) => readonly string[] | undefined = columns, estates: readonly EstateOntology[] = []): OntologyPage {
   const o = doc.ontology;
   const steps = doc.steps ?? [];
+  const handled = handlings(doc, estates);
   const title = (dataset: string, column: string) => propertyOf(o, dataset, column)?.title ?? column;
   const word = (dataset: string, column: string, value: string) => meaningOf(propertyOf(o, dataset, column), value) ?? value;
   /** A condition in words, its columns read in `dataset`: "Internet-facing is Yes and Criticality is Critical or High". */
@@ -298,7 +332,12 @@ export function ontologyPage(doc: PageDoc, columns: (file: string) => readonly s
           const fileRules = rules.filter((r) => r.columns?.some((c) => lower(c) === lower(name))).map((rule) => ({ rule, said: onCard.get(rule) ?? rule.said }));
           const called = p?.title ?? name;
           const values = Object.entries(p?.values ?? {});
-          return { name, title: called, ...(saysMore(name, called) ? { asWritten: name } : {}), ...(p?.description ? { description: p.description } : {}), values, standFor: values.filter(([code, meaning]) => saysMore(meaning, code)), ...(p ? { property: p } : {}), rules: own, fileRules };
+          // A flow's own handling of the column (ADR 0026 §8): this card's, where its entry is the override; and the
+          // ones in other datasets, which every other card of the column notes.
+          const about = handled.filter((x) => lower(x.column) === lower(name));
+          const mineIs = p?.override ? about.find((x) => x.datasets.some((d) => lower(d) === lower(id))) : undefined;
+          const elsewhere = about.filter((x) => x !== mineIs);
+          return { name, title: called, ...(saysMore(name, called) ? { asWritten: name } : {}), ...(p?.description ? { description: p.description } : {}), values, standFor: values.filter(([code, meaning]) => saysMore(meaning, code)), ...(p ? { property: p } : {}), rules: own, fileRules, ...(mineIs ? { own: mineIs } : {}), ...(elsewhere.length ? { elsewhere } : {}) };
         })
       : null;
 
@@ -332,12 +371,64 @@ export function ontologyPage(doc: PageDoc, columns: (file: string) => readonly s
   };
   const files = doc.sources.map((src) => section(src.id, src.description, false));
   // The datasets the flow makes that a gate judges (watched, published, or with a gate cell of their own) and that have
-  // rules (Q-144): an intermediate step nothing judges has none to list.
-  const made = steps.filter((st) => gateChecksOf(doc, st.id) !== null).map((st) => section(st.id, st.description ?? st.dataset?.description, true)).filter((m) => m.count > 0);
+  // rules (Q-144): an intermediate step nothing judges has none to list. One whose column a flow handles its own way
+  // (ADR 0026 §8) is listed whatever its rules: its card is where the handling is noted.
+  const ownWay = new Set(handled.flatMap((x) => x.datasets.map(lower)));
+  const made = steps.filter((st) => gateChecksOf(doc, st.id) !== null).map((st) => section(st.id, st.description ?? st.dataset?.description, true)).filter((m) => m.count > 0 || ownWay.has(lower(m.id)));
   // Each file names the made datasets that read it, near or far.
   for (const f of files) {
     const by = made.filter((m) => readsOf(m.id).has(lower(f.id))).map((m) => m.id);
     if (by.length) f.readBy = by;
   }
-  return { files, made, types: typesShown(o) };
+  return { files, made, types: typesShown(o), ...(o?.estate?.length ? { estate: o.estate } : {}), handled };
+}
+
+/**
+ * The columns the flows handle their own way (ADR 0026 §8), in the ontology's order: each override entry with the flow
+ * its datasets are of, its reason, and what the estate says of the column, read from the estates' ontologies where they
+ * are given, else from what the document holds of the column for other datasets (the estate's entry, where it is for
+ * every dataset). Entries that say the same of one flow's datasets are one handling.
+ */
+export function handlings(doc: PageDoc, estates: readonly EstateOntology[] = []): Handling[] {
+  const o = doc.ontology;
+  const only = o?.estate?.length === 1 ? o.estate[0]!.name : null;
+  const out: Handling[] = [];
+  for (const p of (o?.properties ?? []).filter((x) => x.override !== undefined && x.datasets?.length)) {
+    const part = flowOf(doc, p.datasets![0]!);
+    const said = estateSays(estates, p.datasets![0]!, p.column);
+    const named = (o?.properties ?? []).filter((x) => x.override === undefined && lower(x.column) === lower(p.column));
+    const kept = named.find((x) => x.datasets === undefined) ?? named[0];
+    const from = said ? { name: said.estate.name as string | null, property: said.property } : kept ? { name: only, property: kept } : undefined;
+    const x: Handling = {
+      column: p.column,
+      flow: { id: part?.id ?? '', name: part?.name ?? doc.name ?? 'This flow' },
+      datasets: [...p.datasets!],
+      reason: p.override!.reason,
+      ...(p.title ? { title: p.title } : {}),
+      ...(p.description ? { description: p.description } : {}),
+      ...(from ? { estate: { name: from.name, ...(from.property.title ? { title: from.property.title } : {}), ...(from.property.description ? { description: from.property.description } : {}) } } : {}),
+    };
+    // One flow's handling of a column, said the same of several of its datasets (a change carried through the steps
+    // that pass the column on writes an entry a dataset), is one handling, of all of them.
+    const same = out.find((y) => lower(y.column) === lower(x.column) && y.flow.id === x.flow.id && y.reason === x.reason && y.title === x.title && y.description === x.description);
+    if (same) same.datasets.push(...x.datasets.filter((d) => !same.datasets.some((e) => lower(e) === lower(d))));
+    else out.push(x);
+  }
+  // Each one's datasets in the document's order: its files, then its steps.
+  const order = [...doc.sources, ...(doc.steps ?? [])].map((d) => lower(d.id));
+  const at = (d: string) => (order.indexOf(lower(d)) + 1 || order.length + 1);
+  for (const x of out) x.datasets.sort((a, b) => at(a) - at(b));
+  return out;
+}
+
+/** A handling in a sentence, for a card of the column in another dataset: "Applications handles it its own way in apps
+ * and app_owners: the register writes a team's id in any case…". */
+export const handlingSaid = (x: Handling): string => `${x.flow.name} handles it its own way in ${either(x.datasets, 'and')}: ${x.reason}`;
+
+/** What the estate says of a handled column, for the card whose meaning is the flow's own: "Larkspur estate’s ontology
+ * says: Owning team. The team accountable for the application". Null where it isn't known here. */
+export function estateSaid(x: Handling): string | null {
+  if (!x.estate) return null;
+  const what = [x.estate.title, x.estate.description].filter((t): t is string => !!t).join('. ');
+  return what ? `${x.estate.name ? `${x.estate.name}’s` : 'The estate’s'} ontology says: ${what}` : null;
 }

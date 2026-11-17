@@ -1,0 +1,139 @@
+[
+  {
+    "name": "overrides-head",
+    "what": "Larkspur's tour, Wed Feb 7: the Ontology page says first where its ontology comes from (ADR 0026 §8): Larkspur estate's ontology by its hash and the path the flow gives it by, the flows read here that import the same one, and the one column a flow handles its own way, with the flow, its datasets and its reason",
+    "day": "Wed 7",
+    "view": "ontology",
+    "viewFirst": true,
+    "waitFor": "#ontology-estate .oe-same:not(:empty)",
+    "element": "#ontology-estate",
+    "expect": {
+      "textIn": {
+        "#ontology-estate": [
+          "Larkspur estate’s ontology",
+          "ontology.json",
+          "What a row is, how things link and what each column means are the estate’s, in one document every flow of it imports. This flow takes what is about its datasets.",
+          "HR organisation, Inventory, Evidence feeds and Applications read the same one.",
+          "Columns a flow handles its own way · 1",
+          "Applications, in apps and app_owners",
+          "this flow conforms the id and keeps the newest record, so here it is the id as conformed, not as written."
+        ]
+      },
+      "count": { "#ontology-estate .oe-from": 1, "#ontology-estate .oe-item": 1, "#ontology-estate .oe-go": 2 }
+    }
+  },
+  {
+    "name": "overrides-own",
+    "what": "The handling's first dataset tapped: apps, which Applications makes, opens at the column's card. The card says the meaning is Applications' own handling, why, and what the estate's ontology says in its place",
+    "day": "Wed 7",
+    "view": "ontology",
+    "viewFirst": true,
+    "click": "#ontology-estate .oe-go[data-dataset=\"apps\"]",
+    "waitFor": ".of-item[data-made=\"apps\"].open .of-col[data-column=\"owner_team_id\"] .of-handled",
+    "element": ".of-item[data-made=\"apps\"].open .of-col[data-column=\"owner_team_id\"]",
+    "expect": {
+      "textIn": {
+        ".of-item[data-made=\"apps\"].open .of-col[data-column=\"owner_team_id\"]": [
+          "by its id as this flow conforms it",
+          "Applications’ own handling.",
+          "so here it is the id as conformed, not as written.",
+          "Larkspur estate’s ontology says: Owning team. The team accountable for the application."
+        ]
+      },
+      "count": { ".of-item.open .of-handled": 1, ".of-item.open .of-elsewhere": 0 }
+    }
+  },
+  {
+    "name": "overrides-elsewhere",
+    "what": "The register's own file, cmdb_apps, where the column means what the estate says: its card notes where it is handled differently, by which flow and why",
+    "day": "Wed 7",
+    "view": "ontology",
+    "viewFirst": true,
+    "click": ".of-item[data-file=\"cmdb_apps\"] .of-row",
+    "waitFor": ".of-item[data-file=\"cmdb_apps\"].open .of-col[data-column=\"owner_team_id\"] .of-elsewhere",
+    "element": ".of-item[data-file=\"cmdb_apps\"].open .of-col[data-column=\"owner_team_id\"]",
+    "expect": {
+      "textIn": {
+        ".of-item[data-file=\"cmdb_apps\"].open .of-col[data-column=\"owner_team_id\"]": [
+          "The team accountable for the application",
+          "Handled differently.",
+          "Applications handles it its own way in apps and app_owners: The register writes a team’s id in any case"
+        ]
+      },
+      "count": { ".of-item.open .of-elsewhere": 1, ".of-item.open .of-handled": 0 }
+    }
+  },
+  {
+    "name": "overrides-dark",
+    "what": "The head of the page and the handled column's card in the dark scheme, while the one handling is the flow's own as shipped",
+    "day": "Wed 7",
+    "scheme": "dark",
+    "view": "ontology",
+    "viewFirst": true,
+    "click": "#ontology-estate .oe-go[data-dataset=\"app_owners\"]",
+    "waitFor": ".of-item[data-made=\"app_owners\"].open .of-col[data-column=\"owner_team_id\"] .of-handled",
+    "full": true,
+    "expect": {
+      "count": { "#ontology-estate .oe-item": 1, ".of-item.open .of-handled": 1 }
+    }
+  },
+  {
+    "name": "overrides-form",
+    "what": "As the owner, a column the estate describes, edited on its file's card: tls's Issuer. The form asks why this flow handles it its own way, and says whose handling it would be and that it is noted and hashed",
+    "day": "Wed 7",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      ".of-item[data-file=\"tls\"] .of-row",
+      ".of-item.open .of-col[data-column=\"issuer\"] .of-edit"
+    ],
+    "waitFor": ".of-item.open .of-form .of-where[data-known]",
+    "element": ".of-item.open .of-col[data-column=\"issuer\"]",
+    "expect": {
+      "textIn": {
+        ".of-item.open .of-form": [
+          "Why it’s handled its own way here",
+          "Larkspur estate’s ontology describes this column. A change here is Evidence feeds’ own handling of it in tls: noted on this page with its reason, and part of the flow’s hash.",
+          "For tls, and tls_filled and tls_checked, which pass it on."
+        ]
+      },
+      "count": { ".of-form .of-why textarea": 1 }
+    }
+  },
+  {
+    "name": "overrides-asks",
+    "what": "In the form left open, a new name saved with no reason: nothing is written, and the form asks for the reason",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      [".of-form input[id$=\"-name\"]", "Certificate authority"],
+      ".of-form .of-save"
+    ],
+    "waitFor": ".of-form .of-err:not([hidden])",
+    "element": ".of-item.open .of-col[data-column=\"issuer\"]",
+    "expect": {
+      "textIn": { ".of-form .of-err": ["Say why Evidence feeds handles it its own way: the reason is noted with the change."] },
+      "count": { "#ontology-estate .oe-item": 1, ".of-form": 1 }
+    }
+  },
+  {
+    "name": "overrides-made",
+    "what": "With its reason, saved: recorded as Evidence feeds' own handling of the column in tls and the steps that pass it on, listed at the head of the page beside the first, and noted on the card with what the estate says",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      [".of-form textarea[id$=\"-why\"]", "The feed names the authority, not the certificate’s issuer field"],
+      ".of-form .of-save"
+    ],
+    "waitFor": ".of-item.open .of-col[data-column=\"issuer\"] .of-handled",
+    "full": true,
+    "expect": {
+      "status": "^Renamed issuer to Certificate authority in tls, its own way: The feed names the authority, not the certificate’s issuer field, carried to tls_filled and tls_checked\\. Recorded; the next run uses it\\.$",
+      "textIn": {
+        "#ontology-estate": ["Columns a flow handles its own way · 2", "Evidence feeds, in tls, tls_filled and tls_checked", "The feed names the authority, not the certificate’s issuer field."],
+        ".of-item.open .of-col[data-column=\"issuer\"]": ["Certificate authority", "Evidence feeds’ own handling.", "Larkspur estate’s ontology says: Issuer. The certificate authority that issued the endpoint's certificate."]
+      },
+      "count": { "#ontology-estate .oe-item": 2, ".of-item.open .of-handled": 1 }
+    }
+  }
+]

@@ -209,5 +209,29 @@
         "#sheet .rl-switch": 3
       }
     }
+  },
+  {
+    "name": "rules-explore-fit",
+    "what": "The sign-in file explored (ADR 0026 §9): a time by the hour; how the rows sit with the values the ontology writes for Result, and the 15 that hold another, tapped, lit in every other column",
+    "day": "Wed 13",
+    "card": "auth",
+    "tab": "Explore",
+    "click": "#sheet .xp-card[data-column=\"result\"] .xp-bar[data-bar=\"v3\"]",
+    "full": true,
+    "expect": {
+      "text": [
+        "6,917 rows. Nothing in the ontology says what a row is yet.",
+        "Wed 13, 00:00",
+        "6,902 fit the 3 values written · 15 hold another (under 1%).",
+        "Signed in 0 of 6,569 Failed 0 of 301 Locked out 0 of 32 unknown 15 of 15",
+        "result is unknown · 15 of 6,917 rows (under 1%)"
+      ],
+      "count": {
+        "#sheet .xp-card": 7,
+        "#sheet .xp-hist": 2,
+        "#sheet .xp-fitbar .other": 1,
+        "#sheet .xp-bar[aria-pressed=\"true\"]": 1
+      }
+    }
   }
 ]

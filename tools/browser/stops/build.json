@@ -1,0 +1,332 @@
+[
+  {
+    "name": "build-bar",
+    "what": "Larkspur's tour, Wed Feb 7, as the owner: above the canvas, Add a flow (ADR 0026 §10), since the build ships a catalogue",
+    "day": "Wed 7",
+    "in": "",
+    "expect": {
+      "textIn": {
+        "#build-bar": [
+          "Add a flow ›"
+        ]
+      },
+      "count": {
+        "#build-bar .build-add": 1,
+        "#build-bar .build-made": 0,
+        "g.card.flow": 4
+      }
+    }
+  },
+  {
+    "name": "build-catalogue",
+    "what": "The catalogue: the flows this build ships that are made already, each with what it gives and what it is built on, and Add it where the flow on screen reads what it is built on; a flow with open inputs has Use it (use.json)",
+    "day": "Wed 7",
+    "in": "",
+    "click": "#build-bar .build-add",
+    "waitFor": ".vf-detail .cat-add",
+    "element": ".vf-detail",
+    "expect": {
+      "textIn": {
+        ".vf-detail": [
+          "Flows made already, shipped with this build. Adding one puts its card on the canvas: it is built from the day’s run, and what it gives can be explored and joined.",
+          "Certificates",
+          "It gives 2 datasets: certs_expiring and certs_by_issuer.",
+          "Built on Inventory and Evidence feeds.",
+          "Ownership",
+          "It gives 2 datasets: apps_by_unit and unowned_apps.",
+          "Built on Inventory, HR organisation, Evidence feeds and Applications.",
+          "No file of its own: it is built from the day’s run."
+        ]
+      },
+      "count": {
+        ".vf-detail .cat-flow": 3,
+        ".vf-detail .cat-add": 3,
+        ".vf-detail .cat-made": 0
+      }
+    }
+  },
+  {
+    "name": "build-dark",
+    "what": "The catalogue in the dark scheme, before anything is made",
+    "day": "Wed 7",
+    "in": "",
+    "click": "#build-bar .build-add",
+    "waitFor": ".vf-detail .cat-add",
+    "scheme": "dark",
+    "element": ".vf-detail",
+    "expect": {
+      "count": {
+        ".vf-detail .cat-flow": 3,
+        ".vf-detail .cat-add": 3
+      }
+    }
+  },
+  {
+    "name": "build-add",
+    "what": "Ownership added: the day runs again with it, its card is on the canvas beside the flows shipped, and its sheet says it was added here, what it reads and what it gives",
+    "in": "",
+    "clicks": [
+      "#build-bar .build-add",
+      ".cat-flow[data-flow=\"ownership\"] .cat-add"
+    ],
+    "waitFor": "#sheet .fl-added",
+    "waitForMs": 120000,
+    "element": "#sheet",
+    "expect": {
+      "state": "done",
+      "textIn": {
+        "#sheet": [
+          "Ownership",
+          "Added here from the catalogue: built from the day’s run, and part of the flow as kept in this browser.",
+          "Take it off",
+          "apps_by_unit",
+          "unowned_apps"
+        ],
+        "#build-bar": [
+          "1 thing made here"
+        ]
+      },
+      "count": {
+        "g.card.flow": 5,
+        "g.card[data-card=\"flow:ownership\"]": 1,
+        "#sheet .fl-explore": 2
+      }
+    }
+  },
+  {
+    "name": "build-explore",
+    "what": "What the added flow gives, explored as any dataset is: the applications by business unit, a card a column",
+    "in": "",
+    "flow": "ownership",
+    "click": "#sheet .fl-given[data-inside=\"apps_by_unit\"] .fl-explore",
+    "waitFor": "#sheet .xp-tab .xp-card",
+    "element": "#sheet",
+    "expect": {
+      "textIn": {
+        "#sheet": [
+          "apps_by_unit",
+          "Business unit",
+          "Internet-facing"
+        ]
+      },
+      "count": {
+        "#sheet .xp-card": 5
+      }
+    }
+  },
+  {
+    "name": "build-inside",
+    "what": "The added flow entered, as any flow read is: its own notebook as a box, and the flows it reads as cards",
+    "in": "ownership",
+    "expect": {
+      "textIn": {
+        "#crumbs": [
+          "Larkspur estate",
+          "Ownership"
+        ]
+      },
+      "count": {
+        "g.card[data-card=\"flow:hr\"]": 1,
+        "g.card[data-card=\"flow:applications\"]": 1,
+        "g.card[data-card=\"nb-catalogue_ownership_ownership\"]": 1
+      }
+    }
+  },
+  {
+    "name": "build-join-form",
+    "what": "The join form, from what a flow gives: apps, explored from Applications' sheet, its How it joins, and Join it with another dataset. The form has the two datasets, the key on each side, the rows kept and the columns to take, and says it writes a cell of the flow's own; the key is the one the ontology's link gives: the owning team's id names an organisational unit",
+    "in": "",
+    "flow": "applications",
+    "clicks": [
+      "#sheet .fl-given[data-inside=\"apps\"] .fl-explore",
+      "#sheet .vf-pick-chip[data-part=\"joins\"]",
+      "#sheet .xp-join-form",
+      [
+        ".jf-right",
+        "org_units"
+      ],
+      [
+        ".jf-about",
+        "Each application with its owning unit"
+      ]
+    ],
+    "waitFor": ".vf-detail .jf-cols-right input[value=\"org_unit_id\"]",
+    "element": ".vf-detail",
+    "expect": {
+      "textIn": {
+        ".vf-detail": [
+          "Join apps with",
+          "The column on each side whose values match. A key that repeats on the other side repeats the row.",
+          "Every row of apps, with what matches it",
+          "Only the rows of apps that find a match",
+          "Columns from apps",
+          "Columns from org_units",
+          "A new dataset of the flow, published so it can be explored and read.",
+          "Written as a cell of joins.nb.ts, a notebook of this flow, and recorded: a join made here is a join written in the flow."
+        ]
+      },
+      "count": {
+        ".vf-detail .jf-form": 1,
+        ".vf-detail .jf-go": 1,
+        ".vf-detail .jf-cols-right input": 7,
+        ".vf-detail .jf-cols-right input:checked": 6
+      }
+    }
+  },
+  {
+    "name": "build-join-refused",
+    "what": "The form refuses what the run would stop on, before anything is written: apps joined with the TLS feed, which a held day can fill from another day, with filled_from left out. Everything built from such a feed says which rows came from another day (ADR 0009 amendment 1)",
+    "in": "",
+    "flow": "applications",
+    "clicks": [
+      "#sheet .fl-given[data-inside=\"apps\"] .fl-explore",
+      "#sheet .vf-pick-chip[data-part=\"joins\"]",
+      "#sheet .xp-join-form",
+      [
+        ".jf-right",
+        "tls_checked"
+      ],
+      ".jf-cols-right input[value=\"filled_from\"]",
+      ".jf-go"
+    ],
+    "waitFor": ".vf-detail .jf-err:not([hidden])",
+    "element": ".vf-detail",
+    "expect": {
+      "textIn": {
+        ".vf-detail .jf-err": [
+          "tls_checked is built from a feed a held day can fill from another day: take filled_from, so the rows that came from another day say so."
+        ],
+        ".vf-detail": [
+          "Columns from tls_checked"
+        ]
+      },
+      "count": {
+        ".vf-detail .jf-cols-right input[value=\"filled_from\"]:checked": 0,
+        "g.card[data-card=\"nb-joins\"]": 0
+      }
+    }
+  },
+  {
+    "name": "build-join-written",
+    "what": "The join written: the form opened again, the other dataset picked, the key the ontology's link gives left as it is, the cell written in joins.nb.ts and read back by the notebook parser, the day run again, and the joined dataset open on its Explore tab; its notebook is a box on the canvas, as every notebook is",
+    "in": "",
+    "flow": "applications",
+    "clicks": [
+      "#sheet .fl-given[data-inside=\"apps\"] .fl-explore",
+      "#sheet .vf-pick-chip[data-part=\"joins\"]",
+      "#sheet .xp-join-form",
+      [
+        ".jf-right",
+        "org_units"
+      ],
+      [
+        ".jf-about",
+        "Each application with its owning unit"
+      ],
+      ".jf-go"
+    ],
+    "waitFor": "#sheet .xp-tab .xp-card",
+    "waitForMs": 120000,
+    "element": "#sheet",
+    "expect": {
+      "state": "done",
+      "textIn": {
+        "#sheet": [
+          "apps_with_org_units"
+        ],
+        "#build-bar": [
+          "2 things made here"
+        ]
+      },
+      "count": {
+        "g.card[data-card=\"nb-joins\"]": 1
+      }
+    }
+  },
+  {
+    "name": "build-record",
+    "what": "The record says both: the flow added from the catalogue, and the join in words",
+    "view": "runs",
+    "element": "#record",
+    "expect": {
+      "textIn": {
+        "#record": [
+          "Added Ownership from the catalogue: it gives apps_by_unit and unowned_apps",
+          "Joined apps with org_units on owner_team_id = org_unit_id, as apps_with_org_units: every row of apps"
+        ]
+      },
+      "noTextIn": {
+        "#record": [
+          "refused",
+          "failed"
+        ]
+      }
+    }
+  },
+  {
+    "name": "build-kept",
+    "what": "The page opened again: what was made here is kept in this browser with every other edit. The flow added and the joins' notebook are on the canvas, and the day runs with them",
+    "reload": true,
+    "day": "Wed 7",
+    "in": "",
+    "expect": {
+      "state": "done",
+      "textIn": {
+        "#build-bar": [
+          "2 things made here"
+        ]
+      },
+      "count": {
+        "g.card[data-card=\"flow:ownership\"]": 1,
+        "g.card[data-card=\"nb-joins\"]": 1
+      }
+    }
+  },
+  {
+    "name": "build-made",
+    "what": "The catalogue again: Ownership is on the canvas, and what was made here is listed with the way to take each back",
+    "in": "",
+    "click": "#build-bar .build-add",
+    "waitFor": ".vf-detail .cat-made",
+    "element": ".vf-detail",
+    "expect": {
+      "textIn": {
+        ".vf-detail": [
+          "Added here: its card is on the canvas.",
+          "Made here",
+          "Ownership · a flow added from the catalogue",
+          "apps_with_org_units · a join written in joins.nb.ts",
+          "Take it off",
+          "Take it out"
+        ]
+      },
+      "count": {
+        ".vf-detail .cat-add": 2,
+        ".vf-detail .cat-made li": 2,
+        "g.card[data-card=\"nb-joins\"]": 1
+      }
+    }
+  },
+  {
+    "name": "build-taken-out",
+    "what": "The join taken out, then the flow taken off: the notebook and the card are gone, and the flow reads the four it shipped with",
+    "in": "",
+    "clicks": [
+      "#build-bar .build-add",
+      ".cat-made li[data-join=\"apps_with_org_units\"] .cat-off"
+    ],
+    "waitFor": "body:has(#run:not([disabled])) #build-bar .build-made",
+    "waitForMs": 120000,
+    "expect": {
+      "textIn": {
+        "#build-bar": [
+          "1 thing made here"
+        ]
+      },
+      "count": {
+        "g.card.flow": 5,
+        "g.card[data-card=\"nb-joins\"]": 0
+      }
+    }
+  }
+]

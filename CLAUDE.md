@@ -17,10 +17,10 @@ match smaltdb's `CLAUDE.md`.
 | `npm run test:slow` | The month-long engine runs `npm test` leaves out (`SLOW` in `vitest.config.ts`: `test/estate-flow.test.ts`, about 90 s). CI runs it, and `npm run test:isolated` (every file in a fresh module graph), in a job beside `test` | Changes to the runtime, the gates or the estate |
 | `npm run test:tour` | The tour's answer key (`test/larkspur-tour.test.ts`, ADR 0023): Larkspur's tour, February and March, made at the demo's scale as the build makes it (`scripts/data/make.mjs`), about ten minutes in CI; a CI job of its own. `SMALTFL_TOUR_WORK=<folder>` checks a month made already (the build's cache) | Changes to the judge, the recorder, the generator or the tour's story |
 | `npm run build` | `dist/`: the core (`index.js`), the runtime plugin (`plugin/index.js`) and their declarations | Packaging checks |
-| `npm run docs:dev` | The site (VitePress, `docs/`, the brand kit copied unchanged into `docs/.vitepress/theme/`); `.github/workflows/docs.yml` deploys it to GitHub Pages with Larkspur's tour at `/app/` (the demo, ADR 0023), Larkspur's planted month at `/larkspur/` (ADR 0020), the control estate at `/estate/` and the sign-ins at `/signins/` (each build writes `index.html` beside `page.html`) | Docs and site changes |
+| `npm run docs:dev` | The site (VitePress, `docs/`, the brand kit copied unchanged into `docs/.vitepress/theme/`); `.github/workflows/docs.yml` deploys it to GitHub Pages with Larkspur's tour at `/app/` (the demo, ADR 0023), Evidence feeds' own page at `/feeds/` (a flow the estate reads, on the tour's files, ADR 0026 §6), Larkspur's planted month at `/larkspur/` (ADR 0020), the control estate at `/estate/` and the sign-ins at `/signins/` (each build writes `index.html` beside `page.html`) | Docs and site changes |
 | `npm run bench` | The scenario benchmarks in `bench/`, written to `bench/results/node.json` | Changes that could affect speed |
-| `npm run build:app` | The app in `dist/app` on Larkspur (`examples/larkspur/`, its notebooks expanded, shipped as `data/flow.json`, its days generated from its seed); `-- --variant tour --out dist/app-tour` for its tour, February and March, the demo (ADR 0023, the data list's `variants`; its scenes listed on the month screen from `scenes.json`); `-- --flow examples/security-signins/flow.json --out dist/app-signins` for the sign-ins (its generator's `--demo` days from the data list's `generateArgs`). Bundles are named by content (`bundles.json`). A generated flow's days, histories and samples are kept in `node_modules/.cache/smaltfl/data/<hash of what makes them>/`: after a change to the app alone the build takes seconds, not minutes (the docs deploy caches the same folder) | Changes to `src/app` |
-| `npm run regress` | The browser regression, in minutes ([ADR 0025](docs/adr/0025-the-browser-regression-in-minutes.md)): builds the four demos (their data cached) and runs every stop set (`tools/browser/sets.json`) once on a phone, as many at once as there are cores, checking each stop's layout at the other sizes by resizing the page; one table of what passed, about five minutes on four cores. `-- overview tour` runs those sets; `-- overview --full --shots all` replays a set at every size with its screenshots; `-- --list` says what each set costs. CI replays every set at every size, a size a job | Before a PR that touches `src/app`; the set a change touches, `--full`, while iterating |
+| `npm run build:app` | The app in `dist/app` on Larkspur (`examples/larkspur/`, its notebooks expanded, shipped as `data/flow.json`, its days generated from its seed); `-- --variant tour --out dist/app-tour` for its tour, February and March, the demo (ADR 0023, the data list's `variants`; its scenes listed on the month screen from `scenes.json`); `-- --flow examples/security-signins/flow.json --out dist/app-signins` for the sign-ins (its generator's `--demo` days from the data list's `generateArgs`); `-- --flow examples/larkspur/feeds/flow.json --out dist/app-feeds` for Evidence feeds' own page; `--page id=address[=name]` names the pages of the site that share a flow with it (ADR 0026 §6). Bundles are named by content (`bundles.json`). A generated flow's days, histories and samples are kept in `node_modules/.cache/smaltfl/data/<hash of what makes them>/`: after a change to the app alone the build takes seconds, not minutes (the docs deploy caches the same folder) | Changes to `src/app` |
+| `npm run regress` | The browser regression, in minutes ([ADR 0025](docs/adr/0025-the-browser-regression-in-minutes.md)): builds the five demos (their data cached) and runs every stop set (`tools/browser/sets.json`) once on a phone, as many at once as there are cores, checking each stop's layout at the other sizes by resizing the page; one table of what passed, seven and a half minutes on four cores. `-- overview tour` runs those sets; `-- overview --full --shots all` replays a set at every size with its screenshots; `-- --list` says what each set costs. CI replays every set at every size, a size a job | Before a PR that touches `src/app`; the set a change touches, `--full`, while iterating |
 
 `npm run typecheck` runs on TypeScript 7: `typescript7`, an npm alias, run as `node node_modules/typescript7/bin/tsc`.
 The declarations `npm run build` emits stay on TypeScript 6.0.3 (`typescript`, so `npx tsc` is 6.0.3) for one more
@@ -235,7 +235,8 @@ release (smaltty ADR 0030).
   time, its applications, 46 platforms, a 14-control catalogue mapped to the frameworks, and twenty daily feeds and two
   fixed ones, with the bronze days of its answer key planted (`LARKSPUR_TROUBLE`); `test/larkspur.test.ts` holds the data
   to ADR 0020 §1 and §5; `node scripts/data/larkspur.mjs OUT_DIR` writes it, each file's export time in `loads.json`,
-  never in its rows. `examples/larkspur/` is the flow (slice 2: `bronze.nb.ts`, a gate on every daily file; the ontology's
+  never in its rows. `examples/larkspur/` is the flow (slice 2: `bronze.nb.ts`, a gate on every daily file, since ADR 0026 a
+  `bronze.nb.ts` in each of its flows' folders; the ontology's
   types, links, rows entries and bands; Patch Tuesday in the calendar); `test/larkspur-flow.test.ts` (slow,
   `test/helpers/larkspur-world.ts`) runs six months and March through the engine against the answer key. The `fresh`
   check (Q-172): a file exported before the day it covers is the last load's again (`FileFacts`, the `stale` finding in
@@ -243,8 +244,8 @@ release (smaltty ADR 0030).
   `retell.ts`), from the data list's `exported_at` and `before` (`fileFacts` in the app; `fileTwins` in `viz.ts`); in
   a gated flow a volume change under a twentieth or its rows' floor isn't told, a new value or pair is unusual only on
   the floor's rows, and a written band is read on a value's first day too. Slice 3, silver: the silver days planted too
-  (`LARKSPUR_SILVER`), and four notebooks: `org.nb.ts` (the walk up the chain, its rules `no_loop` and `one_root`),
-  `apps.nb.ts` (ids conformed, the newest record kept, owner chains with Unassigned, shadow tags), `evidence.nb.ts` (every
+  (`LARKSPUR_SILVER`), and four notebooks: `hr/org.nb.ts` (the walk up the chain, its rules `no_loop` and `one_root`),
+  `applications/apps.nb.ts` (ids conformed, the newest record kept, owner chains with Unassigned, shadow tags), `evidence.nb.ts` (every
   feed as one long table; the vulnerability SLA told from the ledger) and `posture.nb.ts` (what applies, coverage, the
   effective status with its reason, remediation, `platform_impact`, `posture_wide` with the key-rotation needs rule).
   Watched in the engine: `apps`, `effective`, `posture_wide`, `platform_impact`, `shadow_assets` (the world builds their
@@ -428,6 +429,160 @@ release (smaltty ADR 0030).
   `posture.controls`). The recorder marks each published day's checks and the applications failing each control
   (`PostureMark.checks`, `failing`, `MonthFile.controls`). A day run here reads as its record does where another watched
   dataset was unusual (`calendarDayOf`). `tools/browser/stops/overview.json` walks it on the tour (tour.cjs's `press`).
+- Flows in flows (ADR 0026, docs/research/flows-in-flows.md): a flow reads other flows. Slice 1, the core: a flow lists
+  the flows it reads by their paths (`flows` in its `flow.json`) and reading brings them in, by reference in the files
+  and by value in the document and the flat plan (`src/core/compose.ts` `composeFlow`, `FlowFiles`, `merge`,
+  `mergeOntologies`; `scripts/flow.ts` `readFlow`, and `readFlows` each read flow's own document; `loadFlowDir` in the
+  tests). The document read has a `FlowPart` a flow (`document.ts` `flows`: its `path`, `id`, its own `hash`, the
+  `sources` and `steps` that are its own, the flows it `reads`, `direct`; `flowOwners`, `flowOf`, `givesOf`, `readsOf`),
+  hashed with it. An id is one thing across a flow and the flows it reads; a step reads what a listed flow publishes, or
+  its sources, and nothing else of another flow (`validateFlows`); one calendar, one set of parameters and publish
+  settings, each flow its own watches, gates and contracts; no circle. A notebook imports across folders (`joinPath`,
+  `pathFrom`). A flow is known by `flowHash` of the document read from its own folder; a run names the flows read
+  (`manifest.flow.reads`) and keeps each one's own document (`runFlow`'s `flows`, `_smaltfl_flows`), and verify's `flows`
+  check holds the run's document to them (`flowProblems`). A fill's derived document names its donor in the flow that
+  owns the file (`repairDocument`). The app's build ships each read flow (`data/flows/<id>.json`, loads.json `flows`,
+  `DataList.flows`). Larkspur is five flows: `hr/`, `inventory/`, `feeds/`, `applications/` and the posture product at
+  the root, which lists the four (the same 92 plan nodes, 37 outputs where it had 19; the ontology the estate's own
+  document since slice 7); `test/compose.test.ts`. Slice 2, the canvas in levels: `src/core/levels.ts` (pure, not in what the
+  data's cache is keyed by): `levelDoc` is the document one flow's canvas lays out, its own files, steps and sections and
+  a card a flow it reads itself (`flowCard`, `cardFlow`, `readHere`; a card joined to every flow its flow lists and to
+  the step a written rule judges by it; the cards one frameless section, `FLOWS_SECTION`, which `layout.ts` places and
+  doesn't draw); `trailOf` the flows entered as a link names them; `flowDay` a flow's day from a run (`RunSaid`: its
+  holds and claims as the record keeps them, the outputs kept back, what became of the day), the worst of what is
+  inside it by precedence (failed, paused, kept, decided and how, waits on another flow, unusual, not judged, normal),
+  `flowSaid` its sentence and `flowLine` its card's line fitted to the card; `givenBy`, `readersOfFlow`. The app:
+  `state.level`, `canvasDoc` through `levelDoc`, the card in `renderCanvas` (`FLOW_MARK`, `flowDayOf`, `runSaidNow`),
+  the sheet (`renderFlowSheet`), entering (`enterFlow`, `setLevel`, a double-click), the line at the top
+  (`renderCrumbs`), links (`routeOf`'s `level`, `levelHash`: `#day/2024-03-27/in/feeds`), a card opened from anywhere
+  taking the canvas to its level (`select`, `showLevelOf`); `window.__smaltflLevelOf` for tour.cjs, which goes to the
+  level that draws a card (a stop's `in`, `flow`, `dblclick`); `test/levels.test.ts`, `tools/browser/stops/levels.json`.
+  Slice 3, the month in tiers: `src/core/tiers.ts` (pure, outside the data's cache key): `tierRows` puts each of the
+  month's rows in its flow (a file with its own flow's steps; another flow's step that reads the file alone is that
+  flow's, and follows the file), `flowRows` is a row a flow (its cells the worst of its own files and steps; `own` its
+  rows' own days, `followedOn` the flows whose files account for the rest; `waited`/`waitedOn` the days a hold of
+  another flow kept back what it gives), `flowOff`, `onlyFollowed`, `onlyWaited`, `flowRowSaid`; a flow's own month is
+  its scope's (`scopeFlows`, `scopeNodes`: the flow and every flow it reads; `flowMonthOutcome`: a day held in scope is
+  the day's own outcome, a day held outside it is the flow's own files' and steps'). In `renderMonth`: the flows' tier
+  (`flowsGroup`, `flowRow`: a row opens to its files and steps, `rowIn`; the followers and waiters folded,
+  `flows-aside`), `dayBars`' `waited` level, the flow named where a day waits and in a day's findings, and a flow's own
+  month (`monthView.flow`, `routeOf`'s `month` with `level`: `#month/2024-03/in/feeds`; `foundOn`, `inSuffix`, the line
+  that says whose month it is, no scenes and no score); a flow's card links to *Its month ›* and the day screen inside
+  a flow goes back to that flow's month; `test/tiers.test.ts`, `tools/browser/stops/tiers.json`.
+  Slice 4, exploring what a flow gives: `src/core/explore.ts` (pure, outside the data's cache key): what a row is
+  (`rowSaid`; `rowsKeptFrom`: a rows entry, the type a dataset is the list of, a gate's key, and a dataset that only checks,
+  filters or fills another's rows said as that one), what to ask of a column (`askOf`: values, bins on round edges, a
+  time by the hour, day, month or year) and its card from what the engine counted (`cardOf`, `ExploreCard`, `Bar`;
+  `cardSaid`, `fitSaid`, `pickSaid`, `litSaid`), the datasets it joins (`joinPartners`: its scope's list, the datasets
+  of its type, the ontology's links each way; `leads`, `joinWhy`, `joinRead`, `joinSaid`) and its match over the days a
+  history keeps (`matchDays`, `matchSaid`). emit.ts writes the queries (`RowPick`, `emitPick`, `emitKept`, `emitLit`,
+  `emitValueCounts`, `emitBinCounts`, `emitStampCounts`, `emitFit`, `emitJoinMatch`, `emitUnmatchedKeys`, `emitWhere`,
+  `emitKeptCell`). The app: the **Explore** tab on a file or a published dataset (`explorable`, `exploreTab`): a card a
+  column redrawn in place (`xpColumns`, `xpCard`), a bar tapped lit in every other column and kept (`xp.pick`,
+  `xp.kept`; **Keep only**, **As a cell ›** through `xpAsCell`), **How it joins** (`xpJoins`, `xpJoin`; `matchBars` in
+  viz.ts) and **Against another day** (`xpDays`, `xpRunOther`, on `rowDiffOf`, which reads any dataset a run built); a
+  flow's sheet has **Explore ›** on what it gives; `test/explore.test.ts`, `tools/browser/stops/explore.json`.
+  Slice 5, first step, a decision says whose it is: `src/core/deciding.ts` (in what the data's cache is keyed by: the
+  recorder reads it): a hold is the flow's whose file or step holds (`flowIdOf`); `holdGroups` (a hold leads where
+  nothing it is built from holds too, else follows the flow that leads above it), `loadRoles` and `withRoles` (each
+  held load's decision with its flow, the leaders first), `waitingOn`, `whoseSaid`, `possessive`. A decision by load
+  says its flow where a read flow holds it (`DecideAbout.flow`) and, for a load that only follows, the decision it
+  carries (`DecideAbout.carried`, renumbered by `layered`); the app's `decideNow` and the recorder's `recordDecisions`
+  write them, the audit checks them. The app: `whoseLine` at the head of the decision sheet, `decideAt` on the Decide
+  buttons, the day's story, the month's timeline and the record's line (`decidedWhose`), **Decide ›** on the sheet of
+  the flow that holds; `test/deciding.test.ts`, `tools/browser/stops/whose.json`.
+  Slice 7 (built before slice 6), the estate's ontology and a flow's own handling of a column: `src/core/shared.ts`
+  `EstateOntology` (`{ "smaltflOntology": 2, "name", … }`: types, links, rows entries, dependencies, nouns, thresholds
+  and what the columns mean; `isEstate`, `asEstate`), imported by a flow in `ontology.import` beside a file's shared
+  ontology; `compose.ts` reads each once and `takeEstate` takes what is about the datasets the flow has or reads (no
+  written check for a flow with no gate), keeping where it came from in `ontology.estate` (`EstateFrom`: name, path
+  and `estateHash`, tag `estate/0`, its vector in `test/estate-ontology.test.ts`), part of the flow hash. A property
+  with `override: { reason }` and its own `datasets` is a flow's own handling: the estate's meaning steps aside for
+  them; `overrideProblems` refuses a shared column said again without the mark, an override with no reason, of no
+  dataset, of another flow's dataset, or of a column no estate describes. Larkspur's is
+  `examples/larkspur/ontology.json`, imported by all five flows; Applications handles `owner_team_id` its own way in
+  `apps` and `app_owners`. The Ontology page (`ontologypage.ts`: `Handling`, `handlings`, `handlingSaid`, `estateSaid`,
+  `OntologyPage.estate` and `handled`, `ColumnCard.own` and `elsewhere`; the app's `renderEstate`,
+  `openOntologyColumn`): where the ontology comes from, by name and hash, with the flows that read the same one; each
+  handling with its flow, datasets and reason; a note on every card of the column. The build ships each estate's
+  ontology (`readEstates` in `scripts/flow.ts`, `data/estates/<n>.json`, loads.json `estates`, `DataList.estates`); the
+  names form on a column the estate describes (`estateSays`) asks why and writes the mark (`ColumnChange.override`,
+  `nameColumn`, `nameColumnThrough`'s `described`); `test/ontologypage.test.ts`, `test/flowedit.test.ts`,
+  `tools/browser/stops/overrides.json`.
+  Slice 6 (built after slice 7), a change followed, said and tested: `src/core/attribute.ts` (in what the data's cache
+  is keyed by) makes a change at the flow it belongs to: `editTargets`, `withOwnChanges` (a read flow's own document
+  with the change sets about a file or step it has or reads), `ownWithEdits` (the name edits made again there,
+  `NameOp`, `FlowEdit.name`), `attributeChanges` (the reading document naming each flow by the hash its own document
+  has then); `readWithChanges` in `scripts/flow.ts` puts a recorded story's changes where they belong for the build
+  and the recorder. `src/core/follow.ts` (pure, outside the data's cache key) is what the page says: `changeFlows`,
+  `followersOf`, `flowChanges`, `pinProblem`, `flowDiff`/`diffLines`, `DayTest`, `testCount`, `testSaid`. A pin
+  (`compose.ts`): a `flows` entry `{ path, hash }`, any other hash refused with both said, `FlowPart.pin`. The audit
+  checks the flows each run names (`flow.reads`, each own document in the bag, `flowProblems`). The app: `followEdits`
+  after every edit (`ownDocs`, `flowsToKeep`; the record keeps each own document as a blob), `partChanged` (the card's
+  `FLOW · CHANGED`), `flowChangedPart` (the sheet's **What changed**), `testChange` (the last `TEST_DAYS` recorded days
+  before a change takes effect, each a what-if run under the day's rules with the change; `tested`),
+  `pinnedSaid`; `test/follow.test.ts`, `tools/browser/stops/follow.json`.
+  Slice 9 (built before slice 8), building in the app. The catalogue: a flow's folder may hold `catalogue/`, each
+  folder a flow made already that reads what the flow's own flows give (`examples/larkspur/catalogue/`: `ownership/`,
+  `certificates/`, no file of their own); `scripts/catalogue.ts` `readCatalogue` reads each as any flow, the build ships
+  its document (`data/catalogue/<id>.json`, loads.json `catalogue`, `DataList.catalogue`) and leaves the folder out of
+  what the data's cache is keyed by. `src/core/catalogue.ts` (pure, outside the key): `CatalogueEntry`, `entryOf`,
+  `addProblems`, `addFlow` (the flow's own steps, notebooks, gates and meanings after the document's, the flow listed
+  by its path and hash; the plan is the one reading the flow with it listed gives, node for node), `takeOffProblems`,
+  `takeOff`. The join form: `src/core/joincell.ts` (`JoinSpec`, `joinProblems`, which refuses two columns under one
+  name and a fillable feed joined without `filled_from`, `joinedColumns`, `joinSaid`, `withJoin` writes the cell
+  in `JOINS_NOTEBOOK` with its imports and publish line, `withoutJoin`, `joinsOf`) on `emit.ts` `emitJoin`; the step is
+  derived by the notebook parser in a bundle of its own (`src/app/derive.ts` → `derive.js`, loaded when someone first
+  builds; it keeps the page's sections and gives a new notebook one). The app: `renderBuildBar` (**Add a flow ›**
+  above the canvas), `openCatalogue`, `addFromCatalogue`, `takeOffFlow`, `addedHere`, `catalogueDoc`, `builtInto`,
+  `joinable`, `joinForm` (from **How it joins**), `writeJoin`, `takeOutJoin`, `loadDerive`; `followEdits` takes a
+  catalogue flow's document as a shipped one's; a flow or a join whose own step stops its first run is taken back
+  again, the record keeping both (`stoppedAt`). A catalogue's flow is held to the rules of what it reads: one built on
+  a filled feed carries `filled_from`. `test/catalogue.test.ts` (Larkspur's two run on days of the estate through the
+  engine), `test/joincell.test.ts`, `tools/browser/stops/build.json` on the tour and `alone.json` on the control
+  estate, a flow that reads no other.
+  Slice 10, the voice: `src/core/voice.ts` (pure, outside the key): `VOICE`, the three playful lines with their plain
+  words and the one place each is said (`sealed` under a gold seal on a run with nothing held, `firstPass` after a
+  catalogue flow's first day went out as usual, `emptyCatalogue`), `voice(line, plain)`, `NEVER` and `keepsToVoice`
+  (what the wordplay never says of audited data). The app: `plainWords`, `wirePlainWords` (**Plain words** in About
+  this flow, kept in the browser, or `?plain`), `.seal-voice` in `sealPart`. A new playful line goes in `VOICE`, never
+  in the page; none on a paused day, a refused file, a decision, a hash or the audit. `test/voice.test.ts`,
+  `tools/browser/stops/voice.json`.
+  Slice 8 (built last), inputs and settings: a flow declares open `inputs` (each an id and the columns it needs) and
+  `settings` (name, type, default) in its `flow.json` (`InputDef`, `SettingDef` in document.ts); its notebooks bind an
+  input with `input('id')` (`src/notebook.ts`) and read a setting as `${params.name}`. A use is a `flows` entry
+  `{ path, as, name, inputs, settings, hash }`. `src/core/reuse.ts` (in the key): `UseSpec`, `useProblems`,
+  `useOntologyProblems`, `useNames`, `renameOntology`, `flowUse`, `useDocument`, `useOf` (a use's own document: the
+  flow read under the use's name), `mapProblems` (a mapped dataset that isn't there, lacks a column or is built from a
+  fillable feed without `filled_from` taken), `readsFill`. `notebook.ts` reads a notebook for a use (`NotebookDef.use`,
+  its path ending `#<use>`; `usePath`, `filePath`, `usedName`, `usesOf` in document.ts): steps named `<use>_<cell>`,
+  an input a step over the mapped dataset's needed columns (`emitPort` in emit.ts), a setting a literal; a flow imports
+  what a use gives as `{ big as paid_big }`. `compose.ts`: `composeAll` (the document with each read flow's own
+  document), a use a `FlowPart` with `use` (`FlowUse`: `of`, `inputs`, `settings`), its hash its own document's, its
+  `reads` the flows that give what is mapped; `validateFlows` lets a use read a dataset of the flow that lists it;
+  `translate` refuses a flow with open inputs and a use's own document. The app: the catalogue's **Use it ›**
+  (`useForm`, `mappableFor`, `useNameFor`, `addOwn`), `usedDocs`/`useDoc` (a use's own document, read again by
+  `derive.js`'s `use`), `usePart` on the sheet, an input's cell on the notebook page, a kept use taken off at start
+  where the build ships another flow under its name (`loadFlow`), rule edits on a use refused (`pinProblem` in
+  follow.ts). Larkspur's catalogue has *Control by unit* (`catalogue/by_unit/`). `test/reuse.test.ts`,
+  `test/catalogue.test.ts`, `tools/browser/stops/use.json`.
+  Slice 5, second step (built last of all, Q-245), a decision carried between pages that share a flow: Evidence feeds
+  is a page of its own on the tour's files (`examples/larkspur/feeds/data.json`, its data list, and `tour.json`, its
+  story: the tour's as far as it is about its files; a reader's data key takes a read flow's `flow.json` and `*.ts`
+  only, `dataKey`), deployed at `/feeds/`; the build's `--page` ships where the pages that share a flow are (loads.json
+  `pages`, `DataList.pages`; the app's `pageHref`, `readerPages`, **Its own page ›** on a flow's sheet, `#flow-pages`
+  in About this flow, the link in `whoseLine`). `src/core/carry.ts` (pure, outside the key): `CarryAbout` (a page's
+  decide entry: `base`, the record's own flow as kept when its run ran, `baseOf`; `from`, the entry it was carried
+  from, `CarriedFrom`), `originOf`, `madeAt`, `leadingHere`, `decidedElsewhere` (`OtherRecord`, `Elsewhere`,
+  `NotCarried`), `givesWay`, `proofOf` and `CarriedProof` (a blob of kind `carried`), `carriedProblems` and
+  `baseProblems` (the audit's), `pageOf`, `carriedSaid`, `notCarriedSaid`. `src/app/record.ts`: `FlowRecord.others()`
+  (the browser's other records, one a flow, same identity, read and never written: `foreign`, `readOn`, `covering`,
+  `kept`; `RecordStore.origins`). The app: `carryDecided` (from `applyDecided` after a held run; `carryNow` when the
+  page is looked at again), `decideNow`'s `Carrying` (who made it there, `from` by load, the loads it decides),
+  `notePage` and `pagesToRead` (which other records are worth reading: a note in the browser's storage, the flows
+  read, the site's pages), `notCarried` said in `whoseLine`, `carriedOf` and `takenBy` on the receipt, `namePage`, `pagePeople`.
+  `test/carry.test.ts`, `test/record-others.test.ts` (on `test/helpers/fake-idb.ts`);
+  `tools/browser/stops/carry.json` on the two apps served from one origin (tour.cjs's `page`).
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -440,8 +595,12 @@ release (smaltty ADR 0030).
   regression's on failure (`TOUR_SHOTS`). `regress.cjs` replays each set once at its smallest size and takes the page
   to the others by resizing it (`TOUR_SWEEP`: the layout at each, nothing run again); `--full` replays at every size.
   `tools/browser/sets.json` is the manifest and the budget: each set's demo, sizes and the runs the engine may make
-  for it (`runs`), each demo's cost of a run, `budget.engineSeconds` over their sum; a set that makes more runs, a
-  stops file not listed, or a sum over the budget fails the regression. CI's `demos` and `browser` jobs run it.
+  for it (`runs`; on another demo of the same site its stops go to, `with`, counted apart: `carry` on the tour and
+  Evidence feeds' page), each demo's cost of a run, `budget.engineSeconds` over their sum; a set that makes more runs,
+  a stops file not listed, or a sum over the budget fails the regression. CI's `demos` and `browser` jobs run it.
+  Amended on 2026-11-17 for ADR 0026's eleven sets (its §"Amended"; the budget raised with the maintainer's
+  agreement, Q-246): 33 sets on five demos, 215 runs, 1,292 of 1,330 engine seconds; the tour finds a set's opening
+  day by the list's `slot`.
 - **State of the work:** [docs/HANDOFF.md](docs/HANDOFF.md) says what is built, how to check it and what is left, in
   priority order. Read it before starting. **What comes next:** [ADR 0011](docs/adr/0011-notebooks-as-the-step-surface.md),
   notebooks (smaltnb's `.nb.ts`) as the only step surface, in slices; its §"The slices" is the order of work. Then
@@ -521,10 +680,18 @@ release (smaltty ADR 0030).
   month on 2026-11-16 and research into how such screens are best done (docs/research/ui-month-overview.md): built as
   proposed, for the maintainers to confirm (Q-219 to Q-225); its §"Not built" is what it leaves. **And:**
   [ADR 0025](docs/adr/0025-the-browser-regression-in-minutes.md), the browser regression in minutes, from the
-  maintainer's request of 2026-11-16 (a regression of 26 minutes): `npm run regress`, five minutes on four cores,
+  maintainer's request of 2026-11-16 (a regression of 26 minutes): `npm run regress`, minutes on four cores,
   budgeted in the engine's runs and run by CI at every size; built as proposed, for the maintainers to confirm (Q-226
-  to Q-230). Its §"Not built" says what stands between five minutes and two (Q-229). What comes next is the
-  maintainers' (docs/HANDOFF.md).
+  to Q-230). Its §"Not built" says what stands between five minutes and two (Q-229); its §"Amended" is ADR 0026's
+  sets brought in, seven and a half minutes with them (Q-246). **Now:**
+  [ADR 0026](docs/adr/0026-flows-in-flows.md), flows in flows (2026-11-17, the maintainer's answers Q-231 to Q-239): a
+  flow reads other flows, each a card on its reader's canvas with its day's mark, entered to see its own flow, rolled
+  up into the month, in the slices of its §12: the core and Larkspur cut into five; the canvas in levels; the month in
+  tiers; exploring what a flow gives; a paused day decided once, at its flow; a change followed, said and tested on the
+  days recorded; the ontology's overrides; inputs and settings; building in the app; the voice. All ten are built,
+  slice 5 in two steps (its §"As built", which says what each leaves): the second, a decision carried between a read
+  flow's own page and its reader's, once the maintainer had chosen the page (Q-245), with Q-240 to Q-244 confirmed as
+  built: ADR 0026 is done. What it leaves first is a flow run on its own and read by another (its §"Not built").
 
 ## Rules for this repository
 
@@ -553,8 +720,10 @@ release (smaltty ADR 0030).
   already on its day, so it opens none: such a stop costs a third of a second. A stop that opens a day, decides,
   reloads or runs a what-if is a run: raise its set's `runs` by what it adds, and keep the sum under
   `budget.engineSeconds`, by taking a day out elsewhere if need be. Raising the budget itself is the maintainers' to
-  agree. A new stop set is listed in `sets.json` with its demo. No stop waits a fixed time, and `waitFor` is for what
-  many runs draw.
+  agree. A new stop set is listed in `sets.json` with its demo. A set stays on a day while it has stops there and
+  doesn't come back to one it left (a day opened again is a run again); a dark stop is the same page, so it goes
+  before the stop that changes what it looks at. No stop waits a fixed time, and `waitFor` is for what many runs
+  draw.
 - Don't reformat files with Prettier. No fixed sleeps in tests. Probe tests (`test/zz-*.test.ts`) are scratch files:
   delete them, never commit them.
 

@@ -22,16 +22,24 @@
  *   dataset (an output name); a step nothing publishes is an intermediate, exported or not: `export` is for other
  *   notebooks to import, `publish` for readers;
  * - `action()` cells never run in a flow run (§2) and are left out;
- * - a notebook imports another listed notebook's exports (`import { x } from './checks.nb.js'`).
+ * - a notebook imports another listed notebook's exports (`import { x } from './checks.nb.js'`);
+ * - `const feed = input('feed')` binds a name to one of the flow's open inputs (ADR 0026 §11), and `${params.floor}`
+ *   reads a setting where the document declares `floor` as one: written into the statement as its value.
+ *
+ * A notebook read for a use of a flow (ADR 0026 §11, `NotebookDef.use`) is the same text read under the use's name:
+ * each step is named after the use (`tls_health_summary`), each input is a step that reads the columns the flow needs
+ * of the dataset the use maps onto it, and each setting is the use's value. Two uses of one flow are two sets of steps.
  *
  * The cell's name is the step's id, so the names a flow publishes are the names the notebook exports. The derived
  * steps are kept on the document (`expandNotebooks`), and `validateDocument` and `translate` take it from there.
  */
 import { buildGraph } from 'smaltnb/graph';
 import { importSpecifiers, moduleOf, parseNotebook, type Cell, type Notebook, type TypeScriptKit } from 'smaltnb/format';
-import { GROUP_COLORS, type CellRef, type ExpectationRule, type FlowDocument, type GroupDef, type Issue, type NotebookDef, type NotebookOutline, type OutlineCell, type StepDef } from './document.js';
+import { filePath, GROUP_COLORS, usedName, usePath, usesOf, type CellRef, type ExpectationRule, type FlowDocument, type FlowUse, type GroupDef, type InputDef, type Issue, type NotebookDef, type NotebookOutline, type OutlineCell, type StepDef } from './document.js';
+import { emitPort } from './emit.js';
 import { gateProblems, layerOf, type GateDef } from './gates.js';
 import { PlanError } from './plan.js';
+import { literal } from './sqltext.js';
 
 /** The module a flow's notebook imports its markers from. */
 export const NOTEBOOK_MODULE = 'smaltfl/notebook';
@@ -105,11 +113,13 @@ export async function expandNotebooks(doc: FlowDocument, ts: TypeScriptKit, opti
 /** A notebook's section on the canvas, named apart from any source or step (`weather.nb.ts` beside the source
  * `weather`): `nb-weather`. */
 export function notebookSectionId(path: string): string {
-  return `nb-${path.replace(/\.nb\.ts$|\.ts$/, '').replace(/[^A-Za-z0-9_]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase()}`;
+  return `nb-${path.replace(/(\.nb)?\.ts(?=#|$)/, '').replace(/[^A-Za-z0-9_]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase()}`;
 }
 
 /** A notebook's section name: its file's stem, as words (`clean.nb.ts` → "Clean", `by_hour.nb.ts` → "By hour"). */
-export function notebookName(path: string): string {
+export function notebookName(given: string): string {
+  // A notebook read for a use of a flow (ADR 0026 §11) is named as its file is.
+  const path = filePath(given);
   const stem = path.slice(path.lastIndexOf('/') + 1).replace(/\.nb\.ts$/, '').replace(/\.ts$/, '');
   const words = stem.replace(/[-_]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim();
   return words ? words[0]!.toUpperCase() + words.slice(1) : stem;
@@ -136,15 +146,36 @@ interface Parsed {
   statements: number[];
   names: Map<string, Ref>;
   order: string[];
+  /** The use of a flow the notebook is read for (ADR 0026 §11), by name, with what it maps and sets; null as it is. */
+  use: { name: string; use: FlowUse } | null;
+}
+
+/** What a notebook's cells are read against: the document's files and open inputs, and its settings' values. */
+interface Reading {
+  sources: Map<string, string>;
+  /** The open inputs a notebook read as it is may bind: the document's. */
+  open: Map<string, InputDef>;
 }
 
 /** The steps a document's notebooks say, with the cells they came from, and every problem found. */
-export async function stepsOfNotebooks(doc: Pick<FlowDocument, 'notebooks' | 'sources' | 'parameters'> & Partial<Pick<FlowDocument, 'publish'>>, ts: TypeScriptKit, options: ExpandOptions = {}): Promise<Expanded> {
+export async function stepsOfNotebooks(doc: Pick<FlowDocument, 'notebooks' | 'sources' | 'parameters'> & Partial<Pick<FlowDocument, 'publish' | 'flows' | 'use' | 'id' | 'inputs' | 'settings'>>, ts: TypeScriptKit, options: ExpandOptions = {}): Promise<Expanded> {
   const issues: Issue[] = [];
   const add = (path: string, message: string) => issues.push({ path, message });
   const notebooks = doc.notebooks ?? [];
   const sources = new Map((doc.sources ?? []).map((s) => [s.id.toLowerCase(), s.id]));
   const byPath = new Map<string, Parsed>();
+  // Uses of flows (ADR 0026 §11): the uses the document holds, the open inputs of a flow read as it is, and each
+  // setting's value where a notebook reads one: a use's own, or the flow's default.
+  const uses = usesOf({ flows: doc.flows, use: doc.use, id: doc.id ?? '' });
+  const reading: Reading = { sources, open: new Map((doc.inputs ?? []).map((x) => [x.id.toLowerCase(), x])) };
+  const defaults = new Map((doc.settings ?? []).map((x) => [x.name, literal(x.default, x.type)]));
+  const settingOf = (parsed: Parsed) => (name: string): string | undefined => {
+    if (!parsed.use) return defaults.get(name);
+    const set = parsed.use.use.settings[name];
+    return set ? literal(set.value, set.type) : undefined;
+  };
+  /** The id a notebook's own cell has as a step: its name, after the use's where the notebook is read for one. */
+  const idIn = (parsed: Parsed, name: string): string => (parsed.use ? usedName(parsed.use.name, name) : name);
 
   // 1. Parse: each notebook's cells and graph (smaltnb's), its tree, and what its setup imports.
   notebooks.forEach((def, i) => {
@@ -159,7 +190,12 @@ export async function stepsOfNotebooks(doc: Pick<FlowDocument, 'notebooks' | 'so
       add(at, `${def.path}: ${(e as Error).message}`);
       return;
     }
-    const parsed: Parsed = { def, at, nb, tree, statements: tree.children(tree.root), names: new Map(), order: graph.order };
+    const used = def.use === undefined ? undefined : uses.get(def.use.toLowerCase());
+    if (def.use !== undefined && !used) {
+      add(at, `${def.path} is read for the use ${def.use}, which the document doesn't hold`);
+      return;
+    }
+    const parsed: Parsed = { def, at, nb, tree, statements: tree.children(tree.root), names: new Map(), order: graph.order, use: used ? { name: def.use!, use: used } : null };
     byPath.set(def.path, parsed);
     for (const st of parsed.statements) {
       if (tree.kind[st] !== ts.K.ImportDeclaration) continue;
@@ -180,14 +216,16 @@ export async function stepsOfNotebooks(doc: Pick<FlowDocument, 'notebooks' | 'so
     classified.set(parsed, kinds);
     for (const cell of parsed.nb.cells) {
       if (cell.kind !== 'cell' || cell.lang === 'md') continue;
-      const c = classify(parsed, cell, ts, sources, add);
+      const c = classify(parsed, cell, ts, reading, add);
       if (!c) continue;
       kinds.set(cell.id, c);
       if (c.kind === 'source') parsed.names.set(cell.id, { kind: 'source', id: c.id });
+      // An open input is read as a file is; in a use, it is the step that reads the dataset mapped onto it.
+      else if (c.kind === 'input') parsed.names.set(cell.id, parsed.use ? { kind: 'step', id: idIn(parsed, c.id) } : { kind: 'source', id: c.id });
       else if (c.kind === 'params') parsed.names.set(cell.id, { kind: 'params' });
       // A gate's name stands for the node it judges (the node passes through it), once that is resolved (step 4).
       else if (c.kind === 'gate') parsed.names.set(cell.id, { kind: 'import', path: parsed.def.path, name: c.input });
-      else parsed.names.set(cell.id, { kind: 'step', id: cell.id });
+      else parsed.names.set(cell.id, { kind: 'step', id: idIn(parsed, cell.id) });
     }
   }
 
@@ -205,7 +243,21 @@ export async function stepsOfNotebooks(doc: Pick<FlowDocument, 'notebooks' | 'so
       parsed.names.set(name, out);
       return out;
     }
-    const other = byPath.get(ref.path);
+    // A notebook read for a use imports the same flow's notebooks as they are read for that use.
+    let other = (parsed.use ? byPath.get(usePath(ref.path, parsed.use.name)) : undefined) ?? byPath.get(ref.path);
+    if (!other) {
+      // A notebook read here only for uses of its flow (ADR 0026 §11): what a use gives is imported under the name it
+      // has here, the use's before the cell's (`import { big as paid_big }`), which says which use.
+      const forUses = [...byPath.values()].filter((x) => x.use && filePath(x.def.path) === ref.path);
+      other = forUses.find((x) => usedName(x.use!.name, ref.name) === name);
+      if (!other && forUses.length) {
+        const key = `${parsed.def.path}→${ref.path}#${name}`;
+        if (!unlisted.has(key)) add(parsed.at, `${parsed.def.path} imports ${ref.name} from ${ref.path}, which is read here for ${forUses.length === 1 ? 'the use' : 'the uses'} ${forUses.map((x) => x.use!.name).join(', ')}: import it under the name it has here, as { ${ref.name} as ${usedName(forUses[0]!.use!.name, ref.name)} }`);
+        unlisted.add(key);
+        parsed.names.set(name, broken);
+        return broken;
+      }
+    }
     if (!other) {
       const key = `${parsed.def.path}→${ref.path}`;
       if (!unlisted.has(key)) add(parsed.at, `${parsed.def.path} imports ${ref.name} from ${ref.path}, which the document doesn't list`);
@@ -268,7 +320,8 @@ export async function stepsOfNotebooks(doc: Pick<FlowDocument, 'notebooks' | 'so
         continue;
       }
       const c = kinds.get(cell.id);
-      const base = { id: cell.id, ...(description ? { description } : {}) };
+      const base = { id: idIn(parsed, cell.id), ...(description ? { description } : {}) };
+      const said = description;
       description = undefined;
       if (c?.kind === 'publish') {
         for (const p of c.names) published.push({ parsed, where, ...p });
@@ -283,6 +336,23 @@ export async function stepsOfNotebooks(doc: Pick<FlowDocument, 'notebooks' | 'so
         list.push({ ...at(cell), kind: 'params' });
         continue;
       }
+      if (c?.kind === 'input') {
+        if (!parsed.use) {
+          list.push({ ...at(cell), kind: 'input', input: c.id });
+          continue;
+        }
+        // In a use (ADR 0026 §11): the step that reads the columns the flow needs of the dataset mapped onto the input.
+        const mapped = parsed.use.use.inputs[c.id]!;
+        const port: StepDef = {
+          kind: 'sql', inputs: [mapped.to], sql: emitPort(mapped.columns, mapped.to, (d) => d), id: idIn(parsed, c.id),
+          description: said ?? `The input ${c.id} of ${parsed.use.use.of.name}: here ${mapped.to}, with the columns the flow needs of it`,
+        };
+        steps.push(port);
+        cells.push({ step: port, notebook: parsed.def.path, cell: cell.id, lang: cell.lang, span: cell.span });
+        into(port.id);
+        list.push({ ...at(cell), kind: 'input', input: c.id, step: port.id });
+        continue;
+      }
       if (c?.kind === 'gate') {
         gatesFound.push({ parsed, where, cell, input: c.input, options: c.options });
         list.push({ ...at(cell), kind: 'gate', gate: c.input });
@@ -294,7 +364,7 @@ export async function stepsOfNotebooks(doc: Pick<FlowDocument, 'notebooks' | 'so
       }
       let step: StepDef | null = null;
       if (c.kind === 'sql') {
-        const r = sqlOf(c.text, (n) => resolve(parsed, n), (m) => add(where, m));
+        const r = sqlOf(c.text, (n) => resolve(parsed, n), (m) => add(where, m), settingOf(parsed));
         if (r) step = { kind: 'sql', inputs: r.inputs, sql: r.sql, ...base };
       } else if (c.kind === 'check' || c.kind === 'fill') {
         const input = idOf(parsed, c.input);
@@ -312,7 +382,7 @@ export async function stepsOfNotebooks(doc: Pick<FlowDocument, 'notebooks' | 'so
             if (id) inputs[n] = id;
           }
           try {
-            const sql = await options.df({ notebook: parsed.def.path, name: cell.id, code: parsed.def.source.slice(cell.span.start, cell.span.end), inputs });
+            const sql = await options.df({ notebook: filePath(parsed.def.path), name: cell.id, code: parsed.def.source.slice(cell.span.start, cell.span.end), inputs });
             step = { kind: 'sql', inputs: [...new Set(Object.values(inputs))], sql, ...base };
           } catch (e) {
             add(where, `the df cell doesn't compile: ${(e as Error).message}`);
@@ -420,6 +490,7 @@ export async function stepsOfNotebooks(doc: Pick<FlowDocument, 'notebooks' | 'so
 type Classified =
   | { kind: 'publish'; names: { name: string; options: Record<string, unknown> }[] }
   | { kind: 'source'; id: string }
+  | { kind: 'input'; id: string }
   | { kind: 'params' }
   | { kind: 'sql'; text: string }
   | { kind: 'check'; input: string; rules: ExpectationRule[]; maxDropped?: number; ontology?: Record<string, 'on' | 'off'> }
@@ -428,8 +499,9 @@ type Classified =
   | { kind: 'df' };
 
 /** What a cell is, from its own code; null (with an issue) when it isn't anything a flow runs. */
-function classify(parsed: Parsed, cell: Cell, ts: TypeScriptKit, sources: Map<string, string>, add: (path: string, message: string) => void): Classified | null {
+function classify(parsed: Parsed, cell: Cell, ts: TypeScriptKit, reading: Reading, add: (path: string, message: string) => void): Classified | null {
   const { tree } = parsed;
+  const { sources } = reading;
   const where = `${parsed.at}#${cell.id}`;
   if (cell.sql?.kind === 'query') return { kind: 'sql', text: cell.sql.text };
   const body = cell.body ? parsed.statements.filter((st) => tree.start[st]! >= cell.body!.start && tree.end[st]! <= cell.body!.end) : [];
@@ -452,6 +524,17 @@ function classify(parsed: Parsed, cell: Cell, ts: TypeScriptKit, sources: Map<st
       return null;
     }
     return { kind: 'source', id: sources.get(id.toLowerCase())! };
+  }
+  if (marker === 'input') {
+    // An open input of the flow (ADR 0026 §11): one the document declares, or, in a use, one the use maps.
+    const id = decl!.args[0] !== undefined ? literalValue(tree, ts, decl!.args[0]) : undefined;
+    const declared = parsed.use ? Object.keys(parsed.use.use.inputs) : [...reading.open.values()].map((x) => x.id);
+    const found = typeof id === 'string' ? declared.find((x) => x.toLowerCase() === id.toLowerCase()) : undefined;
+    if (found === undefined) {
+      add(where, `input() names an open input of the flow${typeof id === 'string' ? `, and ${id} isn't one` : ''}${declared.length ? ` (inputs: ${declared.join(', ')})` : ': the document declares none (inputs)'}`);
+      return null;
+    }
+    return { kind: 'input', id: found };
   }
   if (marker === 'gate') {
     const [first, second] = decl!.args;
@@ -497,20 +580,21 @@ function classify(parsed: Parsed, cell: Cell, ts: TypeScriptKit, sources: Map<st
     add(where, `${cell.id} is a cypher cell: a flow runs sql and df cells and its own (source(), check(), fill(), gate(), publish(), param()), not cypher`);
     return null;
   }
-  add(where, `not a step a flow runs: a sql cell (const ${cell.id} = sql\`…\`), a df cell, source(), check(), fill(), gate(), publish() or param()`);
+  add(where, `not a step a flow runs: a sql cell (const ${cell.id} = sql\`…\`), a df cell, source(), input(), check(), fill(), gate(), publish() or param()`);
   return null;
 }
 
 const PLACEHOLDER = /\$\{\s*([A-Za-z_$][\w$]*)(?:\s*\.\s*([A-Za-z_$][\w$]*))?\s*\}/g;
 
-/** A sql cell's statement with each `${x}` replaced by the id it reads, and `${params.x}` by `:x`. */
-function sqlOf(text: string, resolve: (name: string) => Ref | undefined, problem: (message: string) => void): { sql: string; inputs: string[] } | null {
+/** A sql cell's statement with each `${x}` replaced by the id it reads, and `${params.x}` by `:x`, or by the value
+ * of the setting `x` where the flow has one (ADR 0026 §11). */
+function sqlOf(text: string, resolve: (name: string) => Ref | undefined, problem: (message: string) => void, setting: (name: string) => string | undefined = () => undefined): { sql: string; inputs: string[] } | null {
   const inputs: string[] = [];
   let bad: string | null = null;
   const sql = text.replace(PLACEHOLDER, (whole, name: string, prop: string | undefined) => {
     const ref = resolve(name);
     if (ref?.kind === 'params') {
-      if (prop) return `:${prop}`;
+      if (prop) return setting(prop) ?? `:${prop}`;
       bad ??= `${whole}: a parameter is read as \${params.name}`;
       return whole;
     }
@@ -632,14 +716,20 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-/** `./counts.nb.js` from `checks.nb.ts`: the listed notebook's path, with the compiled extension mapped back. */
+/** `./counts.nb.js` from `checks.nb.ts`: the listed notebook's path, with the compiled extension mapped back. A path
+ * may climb out of the document's folder (`../inventory/bronze.nb.ts`, a notebook of a flow this one reads, ADR 0026). */
 function resolvePath(from: string, module: string): string {
   const dir = from.includes('/') ? from.slice(0, from.lastIndexOf('/') + 1) : '';
+  return joinPath(dir, module).replace(/\.js$/, '.ts');
+}
+
+/** A path under a folder, with `.` and `..` worked out; one that climbs above where it started keeps its `..`. */
+export function joinPath(dir: string, path: string): string {
   const out: string[] = [];
-  for (const p of `${dir}${module}`.split('/')) {
+  for (const p of `${dir}/${path}`.split('/')) {
     if (p === '.' || p === '') continue;
-    if (p === '..') out.pop();
+    if (p === '..' && out.length > 0 && out[out.length - 1] !== '..') out.pop();
     else out.push(p);
   }
-  return out.join('/').replace(/\.js$/, '.ts');
+  return out.join('/');
 }

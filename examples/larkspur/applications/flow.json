@@ -1,0 +1,89 @@
+{
+  "smaltfl": 4,
+  "id": "applications",
+  "name": "Applications",
+  "description": "The applications conformed: ids made one, the newest record kept, each with its owner’s chain up the organisation, and the cloud resources no application claims. It reads the inventory, the organisation and the evidence feeds.",
+  "parameters": [
+    {
+      "name": "day",
+      "type": "text",
+      "default": null
+    }
+  ],
+  "calendar": {
+    "base": "us",
+    "zone": "UTC",
+    "days": [
+      {
+        "name": "Patch Tuesday",
+        "short": "Patch Tue",
+        "weekday": "tue",
+        "between": [
+          8,
+          14
+        ]
+      }
+    ]
+  },
+  "flows": [
+    "../inventory/flow.json",
+    "../hr/flow.json",
+    "../feeds/flow.json"
+  ],
+  "sources": [],
+  "notebooks": [
+    "apps.nb.ts"
+  ],
+  "ontology": {
+    "import": [
+      "../ontology.json"
+    ],
+    "objectTypes": [],
+    "linkTypes": [],
+    "actionTypes": [],
+    "properties": [
+      {
+        "column": "owner_team_id",
+        "title": "Owning team",
+        "description": "The team accountable for the application, by its id as this flow conforms it: in capitals, with no spaces around it, from the newest of the application’s records",
+        "datasets": [
+          "apps",
+          "app_owners"
+        ],
+        "override": {
+          "reason": "The register writes a team’s id in any case and repeats an application; this flow conforms the id and keeps the newest record, so here it is the id as conformed, not as written"
+        }
+      }
+    ]
+  },
+  "publish": {
+    "hold": [
+      "checks",
+      "wrong"
+    ],
+    "period": "day",
+    "together": false,
+    "reach": "downstream",
+    "watch": {
+      "apps": {
+        "history": "history.apps.json",
+        "pattern": "none",
+        "calendar": false
+      },
+      "app_owners": {
+        "history": "history.app_owners.json",
+        "pattern": "none",
+        "calendar": false,
+        "count": [
+          "business_unit_id"
+        ]
+      },
+      "shadow_assets": {
+        "history": "history.shadow_assets.json",
+        "pattern": "none",
+        "calendar": false,
+        "count": []
+      }
+    }
+  }
+}

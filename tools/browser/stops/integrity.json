@@ -1,11 +1,23 @@
 [
   {
     "name": "int-sealed",
-    "what": "Larkspur's first day (ADR 0006): every file the run read is sealed, its bytes matching the data's list as the engine hashed them; platform_links is read by no output, so it has none",
+    "what": "Larkspur's first day (ADR 0006): every file the run read is sealed, its bytes matching the data's list as the engine hashed them. At the top, the posture product's own three files, and each flow it reads by its files' seals read as one (ADR 0026 §3; Applications has no file of its own, so no seal)",
     "expect": {
       "status": "^Fri Mar 1",
-      "count": { "g.card.source g.seal.ok": 21, "g.seal.bad": 0 }
+      "count": { "g.card.source g.seal.ok": 3, "g.card.flow g.seal.ok": 3, "g.seal.bad": 0 }
     }
+  },
+  {
+    "name": "int-sealed-feeds",
+    "what": "Inside Evidence feeds: its thirteen files, each sealed",
+    "in": "feeds",
+    "expect": { "count": { "g.card.source g.seal.ok": 13, "g.seal.bad": 0 } }
+  },
+  {
+    "name": "int-sealed-inventory",
+    "what": "Inside Inventory: three of its four files sealed; platform_links is read by no output, so it has none",
+    "in": "inventory",
+    "expect": { "count": { "g.card.source": 4, "g.card.source g.seal.ok": 3, "g.seal.bad": 0 } }
   },
   {
     "name": "int-tab",
@@ -77,7 +89,7 @@
     "name": "int-day5",
     "what": "Another day opened by its link: Tue Mar 5 runs, its twenty files pinned in place of Friday's",
     "day": "Tue 5",
-    "expect": { "state": "done", "count": { "g.card.source g.seal.ok": 21 } }
+    "expect": { "state": "done", "count": { "g.card.source g.seal.ok": 3, "g.card.flow g.seal.ok": 3 } }
   },
   {
     "name": "int-rederive-earlier",
@@ -91,14 +103,32 @@
   },
   {
     "name": "int-tampered",
-    "what": "A tampered day: one byte of Tue Mar 12's TLS file changed on the way, so the day is refused, not run, and only tls's seal shows, broken",
+    "what": "A tampered day: one byte of Tue Mar 12's TLS file changed on the way, so the day is refused, not run. At the top the flow that has the file says whose was refused, its seal broken, and no other seal shows",
     "tamper": "loads/tls_2024-03-12.csv",
     "day": "Tue 12",
     "expect": {
       "state": "refused",
       "status": "^Tue Mar 12: loads/tls_2024-03-12\\.csv isn.t the file published",
-      "count": { "g.card[data-card=\"tls\"] g.seal.bad": 1, "g.seal.ok": 0 }
+      "cards": { "flow:feeds": "tls: file refused" },
+      "count": { "g.card[data-card=\"flow:feeds\"] g.seal.bad": 1, "g.card.flow.fo-failed": 1, "g.seal.ok": 0 }
     }
+  },
+  {
+    "name": "int-tampered-flow",
+    "what": "The flow's sheet on the tampered day: not run, whose file was refused, and the broken file a tap from its Integrity tab",
+    "day": "Tue 12",
+    "flow": "feeds",
+    "expect": {
+      "text": ["Not run · tls’s file was refused: it isn’t the file its list names", "INTEGRITY: BROKEN", "tls its file isn’t the one its list names"],
+      "count": { "#sheet .fl-day.fo-failed": 1 }
+    }
+  },
+  {
+    "name": "int-tampered-inside",
+    "what": "Inside Evidence feeds on the tampered day: only tls's seal shows, broken",
+    "day": "Tue 12",
+    "in": "feeds",
+    "expect": { "count": { "g.card[data-card=\"tls\"] g.seal.bad": 1, "g.seal.ok": 0 } }
   },
   {
     "name": "int-tampered-tls",
@@ -124,6 +154,6 @@
     "name": "int-after",
     "what": "The next day runs on its own files, every one sealed again",
     "day": "Wed 13",
-    "expect": { "state": "done", "count": { "g.card.source g.seal.ok": 21, "g.seal.bad": 0 } }
+    "expect": { "state": "done", "count": { "g.card.source g.seal.ok": 3, "g.card.flow g.seal.ok": 3, "g.seal.bad": 0 } }
   }
 ]

@@ -4,9 +4,10 @@
 // row an application with a column a control, which the pairs, the forest and the classifier read.
 import { cell, md, param, sql } from 'smaltnb';
 import { gate, publish } from 'smaltfl/notebook';
-import { control_catalog_checked, exceptions_checked, platforms } from './bronze.nb.js';
-import { apps } from './apps.nb.js';
-import { leaders, org_units } from './org.nb.js';
+import { control_catalog_checked, exceptions_checked } from './bronze.nb.js';
+import { platforms } from './inventory/bronze.nb.js';
+import { apps } from './applications/apps.nb.js';
+import { leaders, org_units } from './hr/org.nb.js';
 import { results } from './evidence.nb.js';
 
 cell('params');

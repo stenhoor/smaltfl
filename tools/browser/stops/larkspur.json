@@ -148,7 +148,7 @@
     "tab": "What happened",
     "full": true,
     "unfold": [
-      "nb-org"
+      "nb-hr_org"
     ],
     "expect": {
       "text": [
@@ -168,7 +168,7 @@
     "tab": "What happened",
     "full": true,
     "unfold": [
-      "nb-apps"
+      "nb-applications_apps"
     ],
     "expect": {
       "text": [
@@ -279,7 +279,7 @@
         "Set in the ontology"
       ],
       "count": {
-        "#ontology-made .of-row": 13,
+        "#ontology-made .of-row": 21,
         "#ontology-made .of-sec": 1,
         "#ontology-made .of-own .of-rule": 3,
         "#ontology-made .of-edit": 0

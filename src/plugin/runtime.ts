@@ -89,12 +89,21 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
   let doc: string | null = null;
   let steps: FlowDocument['steps'] | undefined;
   let flow: RunManifest['flow'] = plan.flow;
+  const readFlows: [hash: string, doc: string][] = [];
   if (context.doc !== undefined) {
     const d = context.doc as FlowDocument;
     steps = d.steps;
     if ((await flowHash(d)) !== plan.flow.hash) throw new RunError("the flow document doesn't hash to the plan's flow hash: it isn't the document the plan was made from");
     doc = canonicalJSON(withoutDisplay(d) as Parameters<typeof canonicalJSON>[0]);
-    flow = { ...plan.flow, policies: await policiesHash(d.policies), ontology: await ontologyHash(d.ontology), rules: await rulesHash(d) };
+    flow = { ...plan.flow, policies: await policiesHash(d.policies), ontology: await ontologyHash(d.ontology), rules: await rulesHash(d), ...(d.flows?.length ? { reads: d.flows.map((f): [string, string] => [f.id, f.hash]) } : {}) };
+    // Each flow it reads, as its own document (ADR 0026 §2): kept by the hash the run's document names it by.
+    for (const given of context.flows ?? []) {
+      const hash = await flowHash(given as FlowDocument);
+      if (!d.flows?.some((f) => f.hash === hash)) throw new RunError(`a flow document was given (${String((given as FlowDocument).name)}) that the run's flow doesn't read: none of the flows it names has its hash`);
+      readFlows.push([hash, canonicalJSON(withoutDisplay(given as FlowDocument) as Parameters<typeof canonicalJSON>[0])]);
+    }
+  } else if (context.flows?.length) {
+    throw new RunError("flow documents were given without the run's own: the flows a flow reads are named by its document");
   }
   const started = new Date().toISOString();
   for (const o of plan.outputs) {
@@ -428,6 +437,7 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
   const run = inTransaction(db, () => {
     db.run('INSERT INTO _smaltfl_plans(hash, plan) VALUES (?, ?) ON CONFLICT(hash) DO NOTHING', [typed, canonicalJSON(plan)]);
     if (doc !== null) db.run('INSERT INTO _smaltfl_flows(hash, doc) VALUES (?, ?) ON CONFLICT(hash) DO NOTHING', [plan.flow.hash, doc]);
+    for (const [h, d] of readFlows) db.run('INSERT INTO _smaltfl_flows(hash, doc) VALUES (?, ?) ON CONFLICT(hash) DO NOTHING', [h, d]);
     const r = db.run('INSERT INTO _smaltfl_runs(flow, hash, manifest, started, finished) VALUES (?, ?, ?, ?, ?)', [plan.flow.id, hash, canonicalJSON(manifest), started, new Date().toISOString()]);
     const id = Number(r.lastInsertRowid);
     for (const o of plan.outputs) {

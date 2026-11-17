@@ -2,8 +2,8 @@
 // with the raw status in one vocabulary, the due date where the control has one, and the platforms the row names; and
 // the vulnerability SLA, told from the findings ledger by severity, not taken from a scanner's own verdict.
 import { cell, md, param, sql } from 'smaltnb';
-import { access_reviews_checked, backup_jobs_checked, dr_exercises_checked, edr_coverage_checked, encryption_checked, findings_checked, key_rotation_checked, logging_coverage_checked, mfa_checked, pentest_schedule_checked, privileged_vault_checked, tls_checked, waf_checked } from './bronze.nb.js';
-import { apps } from './apps.nb.js';
+import { access_reviews_checked, backup_jobs_checked, dr_exercises_checked, edr_coverage_checked, encryption_checked, findings_checked, key_rotation_checked, logging_coverage_checked, mfa_checked, pentest_schedule_checked, privileged_vault_checked, tls_checked, waf_checked } from './feeds/bronze.nb.js';
+import { apps } from './applications/apps.nb.js';
 
 cell('params');
 export const params = param({ day: param.text('') });

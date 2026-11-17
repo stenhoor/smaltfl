@@ -1937,8 +1937,9 @@ export function scoreSpark(o: { days: readonly string[]; points: readonly ScoreP
 export interface BarDay {
   day: string;
   /** none: no run, or nothing built; ok: nothing to report; unjudged: nothing to compare it with; warn: unusual; bad:
-   * held, paused or refused. */
-  level: 'none' | 'ok' | 'unjudged' | 'warn' | 'bad';
+   * held, paused or refused; waited: a flow with nothing wrong of its own, kept back by another flow's hold (ADR 0026
+   * §5). */
+  level: 'none' | 'ok' | 'unjudged' | 'warn' | 'bad' | 'waited';
   /** A bad day someone has decided since, or whose file was sent again: drawn hollow, as closed. */
   done?: boolean;
   /** What pointing at the day says. */
@@ -1948,8 +1949,9 @@ export interface BarDay {
 /**
  * A row of days as bars (ADR 0024 §4, §5): a bar a day, its height what the day came to. A day with nothing to report is
  * a low tick; an unusual one half height; a held one full height, solid while it waits and hollow once decided; a day
- * not judged a low hollow tick; a day with no run nothing at all (the missing-data convention: absence is never drawn
- * as fine). The height says it, so the row reads in grey. A week starts on a taller hair of the baseline, and `ticks`
+ * not judged a low hollow tick; a day a flow only waited on another a dashed outline at half height, since its rows
+ * weren't out and nothing of its own was wrong; a day with no run nothing at all (the missing-data convention: absence
+ * is never drawn as fine). The height says it, so the row reads in grey. A week starts on a taller hair of the baseline, and `ticks`
  * names each Monday's date under it. Each day is a column to point at or tap (`data-day`, its `title`).
  */
 export function dayBars(o: { days: readonly BarDay[]; w?: number; h?: number; pick?: string | null; ticks?: boolean; aria: string }): string {
@@ -1961,7 +1963,7 @@ export function dayBars(o: { days: readonly BarDay[]; w?: number; h?: number; pi
   const bw = Math.max(1.5, cw - gap);
   const base = bh + 1;
   const H = base + 1 + (o.ticks ? 12 : 0);
-  const height: Record<BarDay['level'], number> = { none: 0, ok: 3, unjudged: 3, warn: Math.max(6, Math.round(bh * 0.55)), bad: bh };
+  const height: Record<BarDay['level'], number> = { none: 0, ok: 3, unjudged: 3, warn: Math.max(6, Math.round(bh * 0.55)), waited: Math.max(6, Math.round(bh * 0.55)), bad: bh };
   const isMonday = (day: string) => new Date(`${day}T12:00:00Z`).getUTCDay() === 1;
   const at = o.days.findIndex((d, i) => i > 0 && isMonday(d.day));
   const firstMonday = at < 0 ? Infinity : at;
@@ -1974,7 +1976,7 @@ export function dayBars(o: { days: readonly BarDay[]; w?: number; h?: number; pi
     if (monday && i > 0) s += `<line class="db-week" x1="${f1(i * cw)}" x2="${f1(i * cw)}" y1="${f1(base - 2)}" y2="${f1(base + 3)}"/>`;
     const hgt = height[d.level];
     if (hgt > 0) {
-      const hollow = d.level === 'unjudged' || (d.level === 'bad' && d.done);
+      const hollow = d.level === 'unjudged' || d.level === 'waited' || (d.level === 'bad' && d.done);
       // A hollow bar's stroke sits inside its box, so it is as tall and as wide as a solid one.
       const inset = hollow ? 0.75 : 0;
       s += `<rect class="db db-${d.level}${d.level === 'bad' && d.done ? ' done' : ''}" x="${f1(x + inset)}" y="${f1(base - hgt + inset)}" width="${f1(Math.max(1, bw - 2 * inset))}" height="${f1(Math.max(1, hgt - 2 * inset))}" rx="${bw >= 5 ? 1.5 : 0.5}"/>`;
@@ -1983,5 +1985,46 @@ export function dayBars(o: { days: readonly BarDay[]; w?: number; h?: number; pi
     // Each Monday's date, and the first day's where the first Monday is far enough from it for both to be read.
     if (o.ticks && (monday || (i === 0 && firstMonday * cw >= 16))) s += `<text class="tick${d.day === o.pick ? ' at' : ''}" x="${f1(i * cw + cw / 2)}" y="${f1(H - 1)}" text-anchor="middle">${Number(d.day.slice(8, 10))}</text>`;
   });
+  return `${s}</svg>`;
+}
+
+/** A day of a join's match over the days kept (`matchBars`): the share of the keys in scope that had a row, 0 to 1,
+ * null on a day that counted none. */
+export interface MatchBar {
+  day: string;
+  covered: number | null;
+  /** What pointing at the day says. */
+  title?: string;
+}
+
+/**
+ * A dataset's match with its inventory over the days a history keeps (ADR 0026 §9): a bar a day, its height the share
+ * of the keys in scope that had a row. The axis runs from the lowest day, rounded down to five points and never above
+ * 95%, to 100%, both ends printed, so a point lost shows; a day at the axis's foot still has a 3 px bar, and a day that
+ * counted no scope has none (the missing-data convention). The last day is drawn in ink, the days before it lighter.
+ */
+export function matchBars(o: { days: readonly MatchBar[]; w?: number; h?: number; aria: string }): string {
+  const w = o.w ?? 334;
+  const bh = o.h ?? 36;
+  const known = o.days.map((d) => d.covered).filter((v): v is number => v !== null);
+  const lo = known.length ? Math.min(0.95, Math.floor((Math.min(...known) * 100) / 5) * 5 / 100) : 0;
+  const gx = 34;
+  const n = Math.max(1, o.days.length);
+  const cw = (w - gx) / n;
+  const gap = cw >= 7 ? 2 : cw >= 4 ? 1 : 0.5;
+  const top = 6;
+  const base = top + bh;
+  const H = base + 14;
+  const last = o.days.reduce((at, d, i) => (d.covered !== null ? i : at), -1);
+  const day = (d: string) => `${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(d.slice(5, 7)) - 1]} ${Number(d.slice(8, 10))}`;
+  let s = open(w, H, o.aria);
+  s += `<line class="base" x1="${gx}" x2="${w}" y1="${f1(base + 0.5)}" y2="${f1(base + 0.5)}"/><line class="hair" x1="${gx}" x2="${w}" y1="${f1(top)}" y2="${f1(top)}"/>`;
+  s += `<text x="0" y="${f1(top + 4)}" class="lbl-m">100%</text><text x="0" y="${f1(base + 1)}" class="lbl-m">${Math.round(lo * 100)}%</text>`;
+  o.days.forEach((d, i) => {
+    if (d.covered === null) return;
+    const hgt = Math.max(3, ((d.covered - lo) / Math.max(0.0001, 1 - lo)) * bh);
+    s += `<rect class="mb${i === last ? ' mb-last' : ''}" x="${f1(gx + i * cw + gap / 2)}" y="${f1(base - hgt)}" width="${f1(Math.max(1.5, cw - gap))}" height="${f1(hgt)}" rx="${cw >= 7 ? 1.5 : 0.5}">${d.title ? `<title>${esc(d.title)}</title>` : ''}</rect>`;
+  });
+  if (o.days.length) s += `<text x="${gx}" y="${H - 1}" class="lbl-m">${esc(day(o.days[0]!.day))}</text><text x="${w}" y="${H - 1}" text-anchor="end" class="lbl-m">${esc(day(o.days.at(-1)!.day))}</text>`;
   return `${s}</svg>`;
 }
