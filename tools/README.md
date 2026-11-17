@@ -87,6 +87,18 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
 
   A stop that stays on the month names its link each time (`"view": "month/2024-03/in/feeds", "viewFirst": true`): the
   tour goes back to the day screen between stops. It must report `problems: none` at every size.
+- `explore.json`: exploring a dataset (ADR 0025 §9), on the tour (same build as `overview.json`):
+  - a file's columns: what a row is, a card a column over every row, how the rows sit with the values written;
+  - a bar tapped, lit in every other column; the same part on the next day; **Keep only**, a part picked within what is
+    kept by the keyboard (a stop's `press`), the rows kept as one of the reader's cells, and **Every row**;
+  - a published table's numbers in bins, the last bin its largest value;
+  - how it joins: its scope's list over the keys in scope with the match day by day, another dataset counted when
+    opened, the inventory's links, a link the other way, the day a file came empty, a dataset nothing describes;
+  - against another day: the nearest day run in the browser, then a day run by a tap and the day on screen put back;
+  - from a flow's sheet to what it gives, and the dark scheme.
+
+  Its stops follow one another on one card: a part picked or kept stays while the page is open. It must report
+  `problems: none` at every size.
 - `integrity.json`: integrity in the browser (ADR 0006) on Larkspur (same build as `month.json`), the taxi's suite
   ported. It checks:
   - the first day's files, each sealed;

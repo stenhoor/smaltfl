@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { DEFS, dayBars, aucTrack, fileTwins, forestTicks, rankBars, scoreSpark, scoreTrend, amountLine, bandSpan, notJudgedMark, bulletTrack, composition, dayStrip, decisionRow, dumbbellRows, episodeBars, episodeChip, episodeDays, episodeIcon, esc, episodeLine, gateBars, glyph, hourBars, learnStrip, lineage, niceMax, partBar, quantileStrip, reachIcon, ruleRows, splitRows, stripBar, trendPips, waterfall, wrapName } from '../src/app/viz.js';
+import { DEFS, dayBars, matchBars, aucTrack, fileTwins, forestTicks, rankBars, scoreSpark, scoreTrend, amountLine, bandSpan, notJudgedMark, bulletTrack, composition, dayStrip, decisionRow, dumbbellRows, episodeBars, episodeChip, episodeDays, episodeIcon, esc, episodeLine, gateBars, glyph, hourBars, learnStrip, lineage, niceMax, partBar, quantileStrip, reachIcon, ruleRows, splitRows, stripBar, trendPips, waterfall, wrapName } from '../src/app/viz.js';
 
 const hours = Array.from({ length: 24 }, (_, h) => (h < 13 ? 5000 : 300));
 const usual = Array.from({ length: 24 }, () => 5000);
@@ -1018,5 +1018,40 @@ describe('a row of days as bars (dayBars; ADR 0024 §4, §5)', () => {
 
   it('escapes what it is given', () => {
     expect(dayBars({ days: [{ day: '2024-03-01', level: 'ok', title: 'a<b>&"c"' }], aria: 'x<y> & z' })).toContain('<title>a&lt;b&gt;&amp;&quot;c&quot;</title>');
+  });
+});
+
+describe('a join’s match over the days kept (matchBars; ADR 0025 §9)', () => {
+  const day = (n: number) => `2024-03-${String(n).padStart(2, '0')}`;
+  const covered = [1, 1, 0.96, null, 0.99, 1];
+  const svg = matchBars({ days: covered.map((c, i) => ({ day: day(i + 1), covered: c, ...(c !== null ? { title: `${day(i + 1)}: ${Math.round(c * 100)}%` } : {}) })), w: 240, h: 40, aria: 'Over 5 days, between 96% and 100% of the keys in scope had a row; on the last, 100%.' });
+  const heights = [...svg.matchAll(/<rect class="mb[^"]*"[^>]* height="([\d.]+)"/g)].map((m) => Number(m[1]));
+
+  it('says its finding and carries no broken numbers', () => {
+    expect(svg).toMatch(/^<svg class="viz" [^>]*role="img" aria-label="Over 5 days, between 96% and 100% of the keys in scope had a row; on the last, 100%\."/);
+    expect(svg).not.toMatch(/NaN|undefined|Infinity|null/);
+    expect(svg.endsWith('</svg>')).toBe(true);
+  });
+
+  it('draws a bar a day by the share that matched, on an axis from the lowest day rounded down to 100%, both ends printed', () => {
+    // 96% rounds down to an axis from 95%: a full day is the whole height, 96% a fifth of it, 99% four fifths.
+    expect(heights).toEqual([40, 40, 8, 32, 40]);
+    expect([...svg.matchAll(/<text[^>]*class="lbl-m">([^<]+)<\/text>/g)].map((m) => m[1])).toEqual(['100%', '95%', 'Mar 1', 'Mar 6']);
+  });
+
+  it('draws no bar for a day that counted no scope, and never one under 3 px', () => {
+    expect(heights).toHaveLength(5);
+    const low = matchBars({ days: [{ day: day(1), covered: 0.4 }, { day: day(2), covered: 0.9 }], aria: 'two days apart' });
+    const hs = [...low.matchAll(/<rect class="mb[^"]*"[^>]* height="([\d.]+)"/g)].map((m) => Number(m[1]));
+    expect(Math.min(...hs)).toBeGreaterThanOrEqual(3);
+    expect(low).toContain('>40%</text>');
+  });
+
+  it('marks the last day counted, says each day when pointed at, and escapes what it is given', () => {
+    expect(svg.match(/class="mb mb-last"/g)).toHaveLength(1);
+    expect(svg).toContain('<title>2024-03-03: 96%</title>');
+    expect(matchBars({ days: [{ day: day(1), covered: 1, title: 'a<b>' }], aria: 'x<y>' })).toContain('<title>a&lt;b&gt;</title>');
+    // With no day at all, an empty axis and no broken numbers.
+    expect(matchBars({ days: [], aria: 'nothing kept' })).not.toMatch(/NaN|undefined/);
   });
 });

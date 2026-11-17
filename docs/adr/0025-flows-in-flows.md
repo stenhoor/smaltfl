@@ -381,6 +381,65 @@ on each output comes with slice 4; until then a dataset's row opens its card.
 - **Tests**: `test/tiers.test.ts`; `dayBars`' waited bar in `test/viz.test.ts`. `tools/browser/stops/tiers.json` walks
   it on the tour; `overview.json` and `month.json` read the rows in their tiers.
 
+### Slice 4: exploring what a flow gives (2026-11-17)
+
+An **Explore** tab on every file and every published dataset (`explorable`, `exploreTab` in main.ts), in three parts.
+`src/core/explore.ts` is the pure half: what to ask of each column, what the counts make, and the words. `emit.ts`
+writes what the engine is asked. Every count is exact, over every row the viewer may read.
+
+- **What a row is** (`rowSaid`, `rowsKeptFrom`): a sentence from the ontology. *One row is an application, for those where
+  exposure is internet or partner and lifecycle is active or retiring: 813 rows, one for each app_id.* From its rows
+  entry; from the type it is the list of (the inventory: *One row is an application*); else its key, where a gate
+  gives it one, and plainly that nothing says what a row is yet. What a flow gives of a file is the file's rows,
+  filled and checked: a dataset made by steps that only check, filter or fill another's rows is said as that one is,
+  and says so (*As in mfa, whose rows it keeps.*).
+- **A card a column** (`askOf`, `cardOf`; `xpColumns`, `xpCard`): how full it is, then a chart that fits what it holds.
+  - A category, a code or text that repeats: its values, the most common first, a bar its share of the rows; past
+    eight, the rest as a count. A value of nothing but spaces is named *(blank)*.
+  - A number: equal bins on round edges, from the sample's 1st to its 99th percentile so one stray value doesn't
+    flatten the rest; the rows under and over as rows of their own. A largest value on a round edge has the last bin
+    to itself, and the axis ends on it (a score's bars end at 100).
+  - A time: by the hour within two days (a column of dates, never), by the day within two months, by the month within
+    five years, else by the year; every stamp between the first and the last is drawn, so a gap is seen as one.
+  - The rows with no value are a bar of their own. A column whose every row has its own value names rows and has no
+    chart; an empty one says so.
+  - Where the ontology writes a column's values, the rows that fit them, hold another, and are empty (`emitFit`,
+    `fitSaid`). §9 said *the shares that fit the type*: a column of the engine holds nothing that doesn't fit its
+    type, so the values written are what there is to fit.
+- **Tap to highlight, then keep** (`RowPick`; `emitPick`, `emitLit`, `emitKept`): a bar tapped is a part of the dataset.
+  Every other bar shows how many of its rows are in it, its own rows pale behind them, and the part with its count
+  stays at the foot of the screen (*status is Fail · 40 of 813 rows (5%)*). The cards are redrawn in place, so the
+  page and the bar under the finger stay put. A part picked is kept while the page is open and across days: a
+  question asked of each day stepped to. **Keep only** makes it the rows every count is over, said at the top with a
+  way back, each column's axis as it was. **As a cell ›** writes the rows kept as SQL in one of the reader's own
+  cells (`emitKeptCell`, `xpAsCell`), under the notebook that makes the dataset, and runs it.
+- **By the keyboard**: a number's or a time's bars are one stop in the tab order; the arrow keys, Home and End move
+  along them and Enter picks.
+- **How it joins** (`joinPartners`, `xpJoins`, `xpJoin`): the datasets the ontology says it joins.
+  - The list its scope is counted against (`why: 'scope'`), counted over the keys the scope keeps of it
+    (`emitWhere`), as its gate counts them (ADR 0014 §4): *All 814 rows of tls find their application among those in
+    scope in cmdb_apps. All 814 keys in scope in cmdb_apps have a row here.* A file of the internet-facing applications
+    isn't short of the ones that aren't.
+  - Every dataset whose rows are objects of the same type, the type's list first.
+  - What the ontology's links tie a type's list to, each way (`why: 'link'`): *Owned by: owner_team_id names an
+    organisational unit in hr_org_units.* A link of a type to itself is no join to another dataset.
+  - Each is two sentences and two bars, one a side (`emitJoinMatch`, `joinRead`, `joinSaid`), with the first keys
+    that find no match (`emitUnmatchedKeys`). What a dataset's rows are looked up in is counted at once (`leads`);
+    the others when opened.
+  - **The match over the month**, against its scope's list (`matchDays`, `matchSaid`; `matchBars` in viz.ts): each
+    run already counts the scope, so the history has the rate with no new measure. Up to the day on screen: a day
+    after it isn't known on it.
+- **Against another day** (`xpDays`, on ADR 0021 §4's `rowDiffOf`, which now reads any dataset a run built): its rows
+  by its key, the earlier day first. Rows are read from both days' runs in the browser; a day not run there yet is one
+  tap, which runs it and puts the day on screen back (`xpRunOther`).
+- **From a flow's sheet**: each dataset it gives has **Explore ›** beside the way to its card.
+- **Tests**: `test/explore.test.ts` asks the in-process engine every query and reads the answers; `matchBars` in
+  `test/viz.test.ts`. `tools/browser/stops/explore.json` walks it on the tour at every size.
+
+**What slice 4 leaves:** the joins a flow's own steps make, which `src/core/uses.ts` reads from their SQL, aren't
+listed: the ontology's keys and links are. Slice 9's join form wants both. What is kept is every pick at once (and),
+never one or another. A step the engine folds into the next has no Explore tab: its rows aren't kept as a table.
+
 ## Consequences
 
 - **A flow's document grows.** The app ships the composed document, so a page still opens one file and needs no parser.

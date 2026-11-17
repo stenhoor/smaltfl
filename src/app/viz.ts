@@ -1987,3 +1987,44 @@ export function dayBars(o: { days: readonly BarDay[]; w?: number; h?: number; pi
   });
   return `${s}</svg>`;
 }
+
+/** A day of a join's match over the days kept (`matchBars`): the share of the keys in scope that had a row, 0 to 1,
+ * null on a day that counted none. */
+export interface MatchBar {
+  day: string;
+  covered: number | null;
+  /** What pointing at the day says. */
+  title?: string;
+}
+
+/**
+ * A dataset's match with its inventory over the days a history keeps (ADR 0025 §9): a bar a day, its height the share
+ * of the keys in scope that had a row. The axis runs from the lowest day, rounded down to five points and never above
+ * 95%, to 100%, both ends printed, so a point lost shows; a day at the axis's foot still has a 3 px bar, and a day that
+ * counted no scope has none (the missing-data convention). The last day is drawn in ink, the days before it lighter.
+ */
+export function matchBars(o: { days: readonly MatchBar[]; w?: number; h?: number; aria: string }): string {
+  const w = o.w ?? 334;
+  const bh = o.h ?? 36;
+  const known = o.days.map((d) => d.covered).filter((v): v is number => v !== null);
+  const lo = known.length ? Math.min(0.95, Math.floor((Math.min(...known) * 100) / 5) * 5 / 100) : 0;
+  const gx = 34;
+  const n = Math.max(1, o.days.length);
+  const cw = (w - gx) / n;
+  const gap = cw >= 7 ? 2 : cw >= 4 ? 1 : 0.5;
+  const top = 6;
+  const base = top + bh;
+  const H = base + 14;
+  const last = o.days.reduce((at, d, i) => (d.covered !== null ? i : at), -1);
+  const day = (d: string) => `${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(d.slice(5, 7)) - 1]} ${Number(d.slice(8, 10))}`;
+  let s = open(w, H, o.aria);
+  s += `<line class="base" x1="${gx}" x2="${w}" y1="${f1(base + 0.5)}" y2="${f1(base + 0.5)}"/><line class="hair" x1="${gx}" x2="${w}" y1="${f1(top)}" y2="${f1(top)}"/>`;
+  s += `<text x="0" y="${f1(top + 4)}" class="lbl-m">100%</text><text x="0" y="${f1(base + 1)}" class="lbl-m">${Math.round(lo * 100)}%</text>`;
+  o.days.forEach((d, i) => {
+    if (d.covered === null) return;
+    const hgt = Math.max(3, ((d.covered - lo) / Math.max(0.0001, 1 - lo)) * bh);
+    s += `<rect class="mb${i === last ? ' mb-last' : ''}" x="${f1(gx + i * cw + gap / 2)}" y="${f1(base - hgt)}" width="${f1(Math.max(1.5, cw - gap))}" height="${f1(hgt)}" rx="${cw >= 7 ? 1.5 : 0.5}">${d.title ? `<title>${esc(d.title)}</title>` : ''}</rect>`;
+  });
+  if (o.days.length) s += `<text x="${gx}" y="${H - 1}" class="lbl-m">${esc(day(o.days[0]!.day))}</text><text x="${w}" y="${H - 1}" text-anchor="end" class="lbl-m">${esc(day(o.days.at(-1)!.day))}</text>`;
+  return `${s}</svg>`;
+}

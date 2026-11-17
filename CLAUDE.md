@@ -469,6 +469,19 @@ release (smaltty ADR 0030).
   month (`monthView.flow`, `routeOf`'s `month` with `level`: `#month/2024-03/in/feeds`; `foundOn`, `inSuffix`, the line
   that says whose month it is, no scenes and no score); a flow's card links to *Its month ›* and the day screen inside
   a flow goes back to that flow's month; `test/tiers.test.ts`, `tools/browser/stops/tiers.json`.
+  Slice 4, exploring what a flow gives: `src/core/explore.ts` (pure, outside the data's cache key): what a row is
+  (`rowSaid`; `rowsKeptFrom`: a rows entry, the type a dataset is the list of, a gate's key, and a dataset that only checks,
+  filters or fills another's rows said as that one), what to ask of a column (`askOf`: values, bins on round edges, a
+  time by the hour, day, month or year) and its card from what the engine counted (`cardOf`, `ExploreCard`, `Bar`;
+  `cardSaid`, `fitSaid`, `pickSaid`, `litSaid`), the datasets it joins (`joinPartners`: its scope's list, the datasets
+  of its type, the ontology's links each way; `leads`, `joinWhy`, `joinRead`, `joinSaid`) and its match over the days a
+  history keeps (`matchDays`, `matchSaid`). emit.ts writes the queries (`RowPick`, `emitPick`, `emitKept`, `emitLit`,
+  `emitValueCounts`, `emitBinCounts`, `emitStampCounts`, `emitFit`, `emitJoinMatch`, `emitUnmatchedKeys`, `emitWhere`,
+  `emitKeptCell`). The app: the **Explore** tab on a file or a published dataset (`explorable`, `exploreTab`): a card a
+  column redrawn in place (`xpColumns`, `xpCard`), a bar tapped lit in every other column and kept (`xp.pick`,
+  `xp.kept`; **Keep only**, **As a cell ›** through `xpAsCell`), **How it joins** (`xpJoins`, `xpJoin`; `matchBars` in
+  viz.ts) and **Against another day** (`xpDays`, `xpRunOther`, on `rowDiffOf`, which reads any dataset a run built); a
+  flow's sheet has **Explore ›** on what it gives; `test/explore.test.ts`, `tools/browser/stops/explore.json`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -554,7 +567,7 @@ release (smaltty ADR 0030).
   flow reads other flows, each a card on its reader's canvas with its day's mark, entered to see its own flow, rolled
   up into the month, in the slices of its §12: the core and Larkspur cut into five; the canvas in levels; the month in
   tiers; exploring what a flow gives; a paused day decided once, at its flow; a change followed, said and tested on the
-  days recorded; the ontology's overrides; inputs and settings; building in the app; the voice. Slices 1 to 3 are built
+  days recorded; the ontology's overrides; inputs and settings; building in the app; the voice. Slices 1 to 4 are built
   (its §"As built", which says what each leaves for the slices after it).
 
 ## Rules for this repository

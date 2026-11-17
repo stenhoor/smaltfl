@@ -57,6 +57,11 @@ and what it gives, each dataset with whether today's went out and who reads it. 
 on the card) shows the flow's own canvas, with a line at the top that says where you are and goes back. Inside, it is
 the same run: every card shows the day on screen. Each level has a link of its own (`#day/2024-03-27/in/feeds`).
 
+Each dataset a flow gives has **Explore ›** on the sheet, and every file and published table has an **Explore** tab
+([the app guide](./app#explore)). Try the TLS file on Thu Mar 7: tap *Fail* under Status, and the 40 failing
+certificates are every one of the 22 still on TLS 1.0. **How it joins** counts it against the inventory's applications
+in scope, with the match day by day; **Against another day** lists the rows that came, went and changed.
+
 Beside the four cards are the posture product's own three files (the control catalogue, what each control requires,
 the exceptions) and its notebooks:
 

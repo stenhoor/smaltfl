@@ -2249,6 +2249,100 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .dh-whatif-ask { margin: 0; font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
 .wi-open { border: 0; background: none; padding: 0; min-height: 28px; color: var(--smalt); font: inherit; font-weight: 600; cursor: pointer; }
 .wi-file, .wi-rules { min-height: 44px; max-width: 100%; min-width: 0; border: 1px solid var(--muted); border-radius: 8px; padding: 6px 8px; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; }
+/* Explore (ADR 0025 §9): what a row is, a card a column counted over every row, a part picked and lit in every other
+   column, how it joins, and its rows against another day's. A phone's column of cards; where the sheet has room for
+   two or three they run down one column and then the next, each as tall as it needs, with no gaps under a short one. */
+.xp-tab { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-width: 0; }
+.xp-row { margin: 0; font-size: 15px; font-weight: 600; text-wrap: pretty; overflow-wrap: anywhere; }
+.xp-parts { margin-bottom: 0; }
+.xp-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-width: 0; }
+.xp-over { margin: 0; }
+.xp-none { margin: 0; font-size: 13.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.xp-kept { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; min-width: 0; }
+.xp-kept-said { margin: 0; font-size: 13.5px; line-height: 2; overflow-wrap: anywhere; }
+.xp-chip { display: inline-flex; align-items: center; gap: 0; padding: 0 0 0 10px; border-radius: 999px; background: var(--smalt-wash); color: var(--smalt); font-weight: 600; font-size: 12.5px; line-height: 1.3; }
+.xp-chip button { border: 0; background: none; color: inherit; font: inherit; font-size: 16px; line-height: 1; min-width: 30px; min-height: 30px; border-radius: 999px; cursor: pointer; }
+.xp-kept-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.xp-grid { columns: 250px; column-gap: 10px; min-width: 0; }
+.xp-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: 7px; align-content: start; min-width: 0; margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); break-inside: avoid; }
+.xp-grid > .xp-card:last-child { margin-bottom: 0; }
+.xp-card.wait .skeleton { height: 66px; }
+.xp-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 8px; min-width: 0; }
+.xp-head h3 { margin: 0; font-size: 14.5px; overflow-wrap: anywhere; min-width: 0; }
+.xp-code { font-family: var(--mono); font-size: 11.5px; color: var(--muted); overflow-wrap: anywhere; }
+.xp-head .tag { margin-left: auto; white-space: nowrap; }
+.xp-said, .xp-why { margin: 0; font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.xp-fit { display: grid; gap: 3px; }
+.xp-fitbar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; gap: 1px; }
+.xp-fitbar i { display: block; min-width: 3px; flex-basis: 0; }
+.xp-fitbar .fits { background: var(--teal-fill); }
+.xp-fitbar .other { background: var(--warn); }
+.xp-fitbar .none { background: var(--surface); box-shadow: inset 0 0 0 1px var(--muted); }
+.xp-fit-said { margin: 0; font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
+.xp-bars { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; min-width: 0; }
+.xp-bar { display: grid; grid-template-columns: minmax(0, 38%) minmax(0, 1fr) auto; align-items: center; gap: 8px; width: 100%; min-height: 34px; padding: 2px 6px; border: 1px solid transparent; border-radius: 7px; background: none; color: var(--ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.xp-bar:hover { background: var(--row-alt); }
+.xp-bar[aria-pressed="true"] { border-color: var(--smalt); background: var(--smalt-wash); }
+.xp-v { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xp-bar.none .xp-v { color: var(--ink-2); font-style: italic; }
+.xp-track { position: relative; height: 10px; border-radius: 5px; background: var(--sunk); overflow: hidden; }
+.xp-track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; }
+.xp-track .all, .xp-bin .all { background: var(--smalt); }
+.xp-bar.none .xp-track .all { background: var(--muted); }
+/* With a part picked, a bar's own rows go pale and the rows of it in the part stay in ink: lightness says it, and the
+   count beside it ("96 of 480"). */
+.xp-card.picking .xp-track .all, .xp-card.picking .xp-bin .all { background: color-mix(in srgb, var(--smalt) 26%, var(--sunk)); }
+.xp-track .lit, .xp-bin .lit { background: var(--smalt); }
+.xp-n { font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.xp-n b { color: var(--ink); }
+.xp-hist { display: flex; align-items: stretch; gap: 1px; height: 66px; min-width: 0; border-bottom: 1px solid var(--muted); }
+.xp-bin { position: relative; flex: 1 1 0; min-width: 0; padding: 0; border: 0; border-radius: 2px 2px 0 0; background: none; cursor: pointer; }
+.xp-bin:hover { background: var(--row-alt); }
+.xp-bin i { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 2px 2px 0 0; }
+.xp-bin[aria-pressed="true"] { background: var(--smalt-wash); box-shadow: inset 0 0 0 1.5px var(--smalt); }
+.xp-bin:focus-visible, .xp-bar:focus-visible { outline: 2px solid var(--smalt); outline-offset: 1px; }
+.xp-axis { display: flex; justify-content: space-between; gap: 8px; font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+.xp-rest { margin: 0; }
+.xp-lit { position: sticky; bottom: max(8px, env(safe-area-inset-bottom, 0px)); z-index: 2; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; padding: 8px 10px; border: 1.5px solid var(--smalt); border-radius: 10px; background: var(--surface); box-shadow: 0 4px 16px rgb(0 0 0 / 0.16); }
+.xp-lit[hidden] { display: none; }
+.xp-lit p { margin: 0; font-size: 13.5px; min-width: 0; overflow-wrap: anywhere; }
+.xp-lit-acts { display: flex; gap: 6px; }
+.xp-join { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.xp-more > .xp-join { border: 0; padding: 0; }
+.xp-join-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 8px; min-width: 0; }
+.xp-join-head h3 { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
+.xp-on { font-family: var(--mono); font-size: 11.5px; color: var(--muted); overflow-wrap: anywhere; }
+.xp-join-why { margin: 0; font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.xp-join-out { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-width: 0; }
+.xp-side { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+.xp-side p { margin: 0; font-size: 13.5px; overflow-wrap: anywhere; }
+.xp-match { height: 10px; border-radius: 5px; background: var(--sunk); overflow: hidden; box-shadow: inset 0 0 0 1px var(--muted); }
+.xp-match i { display: block; height: 100%; background: var(--smalt); }
+.xp-keys { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; min-width: 0; }
+.xp-keys-h { margin: 0; font-size: 11.5px; font-weight: 600; color: var(--ink-2); overflow-wrap: anywhere; }
+.xp-keys ul { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 0; padding: 0; list-style: none; }
+.xp-keys li { padding: 1px 7px; border-radius: 6px; background: var(--sunk); font-size: 12px; overflow-wrap: anywhere; }
+.xp-keys li code { font-family: var(--mono); font-size: 11.5px; }
+.xp-keys li span { color: var(--ink-2); }
+.xp-month { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; min-width: 0; }
+.xp-month-said { margin: 0; font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.viz .mb { fill: var(--muted); } .viz .mb-last { fill: var(--smalt); }
+.xp-go { justify-self: start; min-height: 32px; padding: 0; border: 0; background: none; color: var(--smalt); font: inherit; font-size: 13px; font-weight: 600; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+.xp-others { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; min-width: 0; }
+.xp-others h3 { margin: 4px 0 0; font-family: var(--mono); font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.xp-more { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 0 12px; min-width: 0; }
+.xp-more summary { display: flex; flex-wrap: wrap; align-items: baseline; align-content: center; gap: 3px 8px; min-height: 44px; padding: 8px 0; box-sizing: border-box; cursor: pointer; font-size: 14px; overflow-wrap: anywhere; }
+.xp-more[open] { padding-bottom: 12px; }
+.xp-days-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 14px; min-width: 0; }
+.xp-other { min-height: 36px; max-width: 100%; }
+.xp-days-out { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-width: 0; }
+.xp-run { justify-self: start; }
+/* What a flow gives, each a tap from its card and a tap from being explored: two buttons in one row. */
+div.fl-row.fl-given { padding: 0; cursor: default; align-items: stretch; }
+.fl-row-main { grid-row: 1 / 3; grid-column: 1; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; align-content: center; min-width: 0; min-height: 44px; padding: 7px 10px; border: 0; border-radius: 10px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.fl-row-main > * { grid-area: auto; }
+.fl-explore { grid-area: go; align-self: center; margin-right: 8px; white-space: nowrap; }
+div.fl-row.fl-given > .fl-row-go { align-self: center; padding-right: 10px; }
 </style>
 <style id="smaltkit-ui">/* smaltkit's ui.css (node_modules/smaltkit/dist/ui.css), put here by scripts/build-app.mjs */</style>
 

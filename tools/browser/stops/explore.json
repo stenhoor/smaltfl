@@ -1,0 +1,376 @@
+[
+  {
+    "name": "explore-columns",
+    "what": "Exploring a file for the first time (ADR 0025 §9): what a row is, in a sentence from the ontology; then a card a column, counted over every row and saying so. A column that names rows has no chart; a category its values, the most common first, the rows with none a bar of their own; a date its rows by the month; where the ontology writes a column's values, how the rows sit with them",
+    "day": "Thu 7",
+    "card": "tls",
+    "tab": "Explore",
+    "full": true,
+    "expect": {
+      "state": "done",
+      "status": "^Thu Mar 7",
+      "text": [
+        "One row is an application, for those where exposure is internet or partner and lifecycle is active or retiring: 813 rows, one for each app_id.",
+        "Its 8 columns",
+        "How it joins",
+        "Against another day",
+        "Counted over every row: all 813. Tap a bar to see its rows in every other column.",
+        "It names rows rather than describing them, so it has no shape to chart.",
+        "127 of 813 empty (16%) · 6 values",
+        "14 of 813 empty (2%) · 191 values Feb 2024 Sep 2024",
+        "Every row fits the 3 values written.",
+        "Pass 759 Fail 40 Not assessed 14"
+      ],
+      "count": {
+        "#sheet .xp-card": 8,
+        "#sheet .xp-card.wait": 0,
+        "#sheet .xp-card.picking": 0,
+        "#sheet .xp-hist": 1,
+        "#sheet .xp-fitbar": 2,
+        "#sheet .xp-bar": 20,
+        "#sheet .xp-lit": 0,
+        "#drill-tab-explore[aria-selected=\"true\"]": 1
+      }
+    }
+  },
+  {
+    "name": "explore-pick",
+    "what": "A bar tapped lights its rows in every other column (ADR 0025 §9): the 40 failing certificates are every one of the 22 on TLS 1.0, and expire first. Each bar says how many of its rows are in the part picked; the part and its count stay in view at the foot, with Keep only",
+    "day": "Thu 7",
+    "card": "tls",
+    "tab": "Explore",
+    "click": "#sheet .xp-card[data-column=\"status\"] .xp-bar[data-bar=\"v1\"]",
+    "full": true,
+    "expect": {
+      "textIn": {
+        "#sheet .xp-lit": ["status is Fail · 40 of 813 rows (5%)", "Keep only", "Clear"],
+        "#sheet .xp-card[data-column=\"protocol\"]": ["TLS1.3 10 of 439", "TLS1.2 8 of 338", "TLS1.0 22 of 22", "empty 0 of 14"],
+        "#sheet .xp-card[data-column=\"status\"]": ["Pass 0 of 759", "Fail 40 of 40"]
+      },
+      "count": {
+        "#sheet .xp-card.picking": 8,
+        "#sheet .xp-bar[aria-pressed=\"true\"]": 1,
+        "#sheet .xp-card[data-column=\"status\"] .xp-bar[aria-pressed=\"true\"]": 1,
+        "#sheet .xp-lit": 1
+      }
+    }
+  },
+  {
+    "name": "explore-pick-next-day",
+    "what": "A part picked is a question asked of each day stepped to: Friday's file, the same part lit",
+    "day": "Fri 8",
+    "card": "tls",
+    "tab": "Explore",
+    "expect": {
+      "status": "^Fri Mar 8",
+      "text": ["814 rows, one for each app_id", "TLS1.0 24 of 24", "status is Fail · 40 of 814 rows (5%)"],
+      "count": { "#sheet .xp-card.picking": 8, "#sheet .xp-bar[aria-pressed=\"true\"]": 1 }
+    }
+  },
+  {
+    "name": "explore-keep",
+    "what": "Keep only (ADR 0025 §9): the part picked becomes the rows every count is over, said at the top with a way back; each card is counted again over the 40, on the axes it had",
+    "day": "Fri 8",
+    "card": "tls",
+    "tab": "Explore",
+    "click": "#sheet .xp-keep",
+    "full": true,
+    "expect": {
+      "textIn": {
+        "#sheet .xp-kept": ["Only the rows where", "status is Fail", "40 of 814 rows (5%).", "As a cell ›", "Every row"],
+        "#sheet .xp-card[data-column=\"ingress\"]": ["7 of 40 empty (18%) · 6 values"],
+        "#sheet .xp-card[data-column=\"protocol\"]": ["every row has one · 3 values", "TLS1.0 24 TLS1.3 13 TLS1.2 3"],
+        "#sheet .xp-card[data-column=\"status\"]": ["every row has one · one value", "Fail 40"]
+      },
+      "count": { "#sheet .xp-chip": 1, "#sheet .xp-lit": 0, "#sheet .xp-card.picking": 0 }
+    }
+  },
+  {
+    "name": "explore-keep-pick",
+    "what": "A part picked within the rows kept, by the keyboard: a date's bars are one stop in the tab order, the arrow keys move along them and Enter picks. Of the 40 failing, the 6 that expire in March",
+    "day": "Fri 8",
+    "card": "tls",
+    "tab": "Explore",
+    "press": ["#sheet .xp-card[data-column=\"not_after\"] .xp-bin[tabindex=\"0\"]", "ArrowRight", "Enter"],
+    "full": true,
+    "expect": {
+      "textIn": { "#sheet .xp-lit": ["not_after in Mar 2024 · 6 of 40 rows (15%)"], "#sheet .xp-kept": ["status is Fail", "40 of 814 rows (5%)."] },
+      "count": { "#sheet .xp-bin[aria-pressed=\"true\"]": 1, "#sheet .xp-card[data-column=\"not_after\"] .xp-bin[tabindex=\"0\"]": 1 }
+    }
+  },
+  {
+    "name": "explore-cell",
+    "what": "The rows kept become one of the reader's own cells (ADR 0025 §9): SQL to read and change, under the notebook that reads the file, run at once; kept in the browser, never in the flow",
+    "day": "Fri 8",
+    "card": "tls",
+    "tab": "Explore",
+    "clicks": ["#sheet .xp-clear", "#sheet .xp-cell"],
+    "waitFor": "#sheet .nb-explore .flash",
+    "element": "#sheet .nb-explore",
+    "expect": {
+      "textIn": { "#sheet .nb-explore": ["Your cells", "SELECT * FROM tls WHERE \"status\" = 'fail'", "40 rows · 8 columns"] },
+      "count": { "#drill-tab-notebook[aria-selected=\"true\"]": 1, "#sheet .nb-explore .flash": 1 }
+    }
+  },
+  {
+    "name": "explore-every-row",
+    "what": "Every row: what was kept is let go, and each card is counted over the whole file again",
+    "day": "Fri 8",
+    "card": "tls",
+    "tab": "Explore",
+    "click": "#sheet .xp-all",
+    "expect": {
+      "text": ["Counted over every row: all 814. Tap a bar to see its rows in every other column.", "Pass 764 Fail 40 Not assessed 10"],
+      "count": { "#sheet .xp-chip": 0, "#sheet .xp-card.picking": 0 }
+    }
+  },
+  {
+    "name": "explore-number",
+    "what": "A published table explored (ADR 0025 §9): a number's rows in bins on round edges, the stray low ones a row beneath; a score's bars end on its largest value, in a bin of its own. End and Enter pick it: the applications scoring 100 are the A grades",
+    "day": "Fri 8",
+    "unfold": ["nb-product"],
+    "card": "app_scorecard",
+    "tab": "Explore",
+    "press": ["#sheet .xp-card[data-column=\"score\"] .xp-bin[tabindex=\"0\"]", "End", "Enter"],
+    "full": true,
+    "expect": {
+      "text": ["One row is an application: 2,376 rows, one for each app_id.", "Its 14 columns"],
+      "textIn": {
+        "#sheet .xp-lit": ["score is 100 or over · 1,522 of 2,376 rows (64%)"],
+        "#sheet .xp-card[data-column=\"score\"]": ["every row has one · 113 values", "55 100", "under 55 0 of 23"],
+        "#sheet .xp-card[data-column=\"grade\"]": ["A 1,522 of 1,712", "B 0 of 378"],
+        "#sheet .xp-card[data-column=\"failing_controls\"]": ["(blank) 1,522 of 1,527"]
+      },
+      "count": { "#sheet .xp-card": 14, "#sheet .xp-bin[aria-pressed=\"true\"]": 1, "#sheet .xp-card[data-column=\"score\"] .xp-bin:last-child[aria-pressed=\"true\"]": 1 }
+    }
+  },
+  {
+    "name": "explore-cell-output",
+    "what": "The same for a published table: the part picked kept, then written as a cell under the notebook that makes it, on the notebook's page",
+    "day": "Fri 8",
+    "unfold": ["nb-product"],
+    "card": "app_scorecard",
+    "tab": "Explore",
+    "clicks": ["#sheet .xp-keep", "#sheet .xp-cell"],
+    "waitFor": "#sheet .nb-explore .flash",
+    "element": "#sheet .nb-explore",
+    "expect": {
+      "textIn": { "#sheet .nb-explore": ["Your cells", "SELECT * FROM app_scorecard WHERE \"score\" >= 100", "1,522 rows · 14 columns"] },
+      "count": { "#sheet .nb-explore .flash": 1, "#sheet .tabs": 0 }
+    }
+  },
+  {
+    "name": "explore-joins",
+    "what": "How it joins (ADR 0025 §9): the inventory its scope is counted against, counted on both sides over the applications in scope, as its gate counts them; the match day by day up to the day on screen, which each run measured; the other datasets of applications a tap from being counted",
+    "day": "Fri 8",
+    "card": "tls",
+    "tab": "Explore",
+    "click": "#sheet .xp-parts [data-part=\"joins\"]",
+    "waitFor": "#sheet .xp-join .xp-side",
+    "full": true,
+    "expect": {
+      "text": [
+        "Counted on today’s rows, on both sides; ids match whatever their case and the spaces around them.",
+        "cmdb_apps on app_id",
+        "What tls should cover is counted against it: each application in scope should have a row here.",
+        "All 814 rows of tls find their application among those in scope in cmdb_apps.",
+        "All 814 keys in scope in cmdb_apps have a row here.",
+        "The match, day by day 100% 95% Feb 7 Mar 8",
+        "Over 31 days, 100% of the keys in scope had a row every day; on the last, 100%.",
+        "Explore cmdb_apps ›",
+        "12 OTHER DATASETS WITH THE SAME KEY"
+      ],
+      "count": { "#sheet .xp-join": 1, "#sheet .xp-more": 12, "#sheet .xp-month svg.viz": 1, "#sheet .xp-month .mb-last": 1, "#sheet .xp-keys": 0 }
+    }
+  },
+  {
+    "name": "explore-join-other",
+    "what": "Another dataset with the same key, counted when opened: every TLS row's application has an MFA row, and most of MFA's have none here, the first of them listed",
+    "day": "Fri 8",
+    "card": "tls",
+    "tab": "Explore",
+    "click": "#sheet .xp-more[data-partner=\"mfa\"] summary",
+    "waitFor": "#sheet .xp-more[data-partner=\"mfa\"] .xp-side",
+    "element": "#sheet .xp-more[data-partner=\"mfa\"]",
+    "expect": {
+      "textIn": {
+        "#sheet .xp-more[data-partner=\"mfa\"]": [
+          "Each row of both is an application.",
+          "All 814 rows of tls find their application in mfa.",
+          "814 of the 2,322 keys in mfa have a row here (35%): 1,508 have none.",
+          "The 1,508 keys of mfa with no row in tls",
+          "and 1,500 more keys",
+          "Explore mfa ›"
+        ]
+      },
+      "count": { "#sheet .xp-more[open]": 1, "#sheet .xp-more[data-partner=\"mfa\"] .xp-keys li": 8 }
+    }
+  },
+  {
+    "name": "explore-join-links",
+    "what": "The inventory's own joins (ADR 0025 §9): what a link of the ontology's names is counted at once, each application's unit and its platform; then the thirteen datasets whose rows are its applications",
+    "day": "Fri 8",
+    "card": "cmdb_apps",
+    "tab": "Explore",
+    "click": "#sheet .xp-parts [data-part=\"joins\"]",
+    "waitFor": "#sheet .xp-join[data-partner=\"platforms\"] .xp-side",
+    "full": true,
+    "expect": {
+      "text": [
+        "One row is an application: 2,410 rows, one for each app_id.",
+        "hr_org_units Owned by · owner_team_id = org_unit_id",
+        "Owned by: owner_team_id names an organisational unit in hr_org_units.",
+        "All 2,410 rows of cmdb_apps find their organisational unit in hr_org_units.",
+        "176 of the 245 keys in hr_org_units have a row here (72%): 69 have none.",
+        "platforms Runs on · platform_id",
+        "Runs on: platform_id names a platform in platforms.",
+        "2,068 of 2,410 rows find their platform in platforms (86%): 342 don't, 342 of them with no platform at all.",
+        "13 DATASETS WITH THE SAME KEY"
+      ],
+      "count": { "#sheet .xp-join": 2, "#sheet .xp-more": 13, "#sheet .xp-month": 0 }
+    }
+  },
+  {
+    "name": "explore-join-into",
+    "what": "A link the other way: the units' own leader is counted at once, and the inventory, whose rows name a unit, when opened, by the rows that name one",
+    "day": "Fri 8",
+    "card": "hr_org_units",
+    "tab": "Explore",
+    "clicks": ["#sheet .xp-parts [data-part=\"joins\"]", "#sheet .xp-more[data-partner=\"cmdb_apps\"] summary"],
+    "waitFor": "#sheet .xp-more[data-partner=\"cmdb_apps\"] .xp-side",
+    "full": true,
+    "expect": {
+      "text": [
+        "One row is an organisational unit: 245 rows, one for each org_unit_id.",
+        "Led by: leader_id names a person in hr_people.",
+        "239 of 245 rows find their person in hr_people (98%): 6 don't, 6 of them with no person at all.",
+        "1 DATASET WITH THE SAME KEY",
+        "1 DATASET WHOSE ROWS NAME ITS OWN",
+        "Owned by, from cmdb_apps: its owner_team_id names a row here.",
+        "176 of 245 rows are named by a row of cmdb_apps (72%): 69 aren't.",
+        "All 2,410 rows of cmdb_apps name a row here."
+      ],
+      "count": { "#sheet .xp-join": 2, "#sheet .xp-more": 2 }
+    }
+  },
+  {
+    "name": "explore-join-held",
+    "what": "The day a file came all but empty, where it joins: none of the 1,438 applications in scope has a row, the first of them listed, and the day's bar drops out of a month at 100%",
+    "day": "Wed 27",
+    "card": "access_reviews",
+    "tab": "Explore",
+    "click": "#sheet .xp-parts [data-part=\"joins\"]",
+    "waitFor": "#sheet .xp-join .xp-side",
+    "full": true,
+    "expect": {
+      "state": "held",
+      "text": [
+        "One row is an application, for those where data_class is confidential or pci or pii and lifecycle is active or retiring: 0 rows, one for each app_id.",
+        "access_reviews has no rows today.",
+        "0 of the 1,438 keys in scope in cmdb_apps have a row here (0%): 1,438 have none.",
+        "The 1,438 keys in scope in cmdb_apps with no row in access_reviews",
+        "and 1,430 more keys",
+        "The match, day by day 100% 0% Feb 26 Mar 27",
+        "Over 31 days, between 0% and 100% of the keys in scope had a row; on the last, 0%."
+      ],
+      "count": { "#sheet .xp-keys li": 8, "#sheet .xp-month .mb": 31 }
+    }
+  },
+  {
+    "name": "explore-no-key",
+    "what": "A dataset the ontology says nothing of: its key, as its gate gives it, and plainly that nothing says what a row is or what it joins to yet",
+    "day": "Fri 8",
+    "card": "control_requirements",
+    "tab": "Explore",
+    "click": "#sheet .xp-parts [data-part=\"joins\"]",
+    "expect": {
+      "text": [
+        "57 rows, one for each control_id and framework and requirement. Nothing in the ontology says what a row is yet.",
+        "Nothing in the ontology says what a row of it is, so it has no key to join by yet. Say what its rows are on the Ontology page, and the datasets that share its key are counted here."
+      ],
+      "count": { "#sheet .xp-join": 0, "#sheet .xp-more": 0 }
+    }
+  },
+  {
+    "name": "explore-days",
+    "what": "Against another day (ADR 0025 §9, on ADR 0021's compare): Friday's file against the nearest day before it run in this browser, by its key; rows only in one day, and the cells that changed",
+    "day": "Fri 8",
+    "card": "tls",
+    "tab": "Explore",
+    "click": "#sheet .xp-parts [data-part=\"days\"]",
+    "waitFor": "#sheet .xp-days-out .dc-rowdiff",
+    "full": true,
+    "expect": {
+      "textIn": {
+        "#sheet .xp-days-head": ["Fri Mar 8 against"],
+        "#sheet .xp-days-out": ["By app_id: 1 row only in Fri Mar 8; 808 rows with cells changed.", "Changed most: not_after on 807 rows, protocol on 420 rows, status on 39 rows.", "Thu Mar 7", "Only in Fri Mar 8"]
+      },
+      "count": { "#sheet .xp-days-head[data-day=\"2024-03-08\"]": 1, "#sheet .xp-other": 1, "#sheet .xp-run": 0 }
+    }
+  },
+  {
+    "name": "explore-days-run",
+    "what": "A day not run in this browser yet is a tap away: it is run here, the day on screen put back, and the two compared, the earlier first",
+    "day": "Fri 8",
+    "card": "tls",
+    "tab": "Explore",
+    "clicks": ["#sheet .xp-parts [data-part=\"days\"]", ["#sheet .xp-other", "2024-03-12"], "#sheet .xp-run"],
+    "waitFor": "body:has(#run:not([disabled])) #sheet .xp-days-head[data-day=\"2024-03-08\"] ~ .xp-days-out .dc-rowdiff",
+    "waitForMs": 240000,
+    "full": true,
+    "expect": {
+      "state": "done",
+      "status": "^Fri Mar 8",
+      "textIn": {
+        "#sheet .xp-days-head": ["Fri Mar 8 against"],
+        "#sheet .xp-days-out": ["By app_id: 1 row only in Fri Mar 8; 1 row only in Tue Mar 12; 809 rows with cells changed."]
+      },
+      "count": { "#sheet .xp-run": 0, "#drill-tab-explore[aria-selected=\"true\"]": 1 }
+    }
+  },
+  {
+    "name": "explore-from-flow",
+    "what": "From a flow's sheet to what it gives (ADR 0025 §9): each dataset a tap from being explored. What Evidence feeds gives of the MFA file is the file's rows, filled and checked, and says so; the canvas goes to the flow that draws it",
+    "day": "Fri 8",
+    "in": "",
+    "flow": "feeds",
+    "click": "#sheet .fl-row[data-inside=\"mfa_checked\"] .fl-explore",
+    "waitFor": "#sheet .xp-card:not(.wait)",
+    "full": true,
+    "expect": {
+      "text": [
+        "One row is an application, for those where lifecycle is active or retiring: 2,322 rows, one for each app_id. As in mfa, whose rows it keeps.",
+        "Its 6 columns",
+        "Every row with a value fits the 2 values written."
+      ],
+      "textIn": { "#crumbs": ["Larkspur estate", "Evidence feeds"] },
+      "count": { "#drill-tab-explore[aria-selected=\"true\"]": 1, "#crumbs .crumb-trail li": 2 }
+    }
+  },
+  {
+    "name": "explore-flow-gives",
+    "what": "A flow's sheet: what it gives, each with its card a tap away and Explore beside it",
+    "day": "Fri 8",
+    "in": "",
+    "flow": "feeds",
+    "full": true,
+    "expect": {
+      "text": ["IT GIVES 13 DATASETS", "Explore ›"],
+      "count": { "#sheet .fl-row.fl-given": 13, "#sheet .fl-row.fl-given .fl-explore": 13, "#sheet .fl-row.fl-given .fl-row-main": 13 }
+    }
+  },
+  {
+    "name": "explore-dark",
+    "what": "The cards in the dark scheme, a part picked: a bar's own rows pale, the rows of it in the part in ink",
+    "day": "Fri 8",
+    "scheme": "dark",
+    "card": "tls",
+    "tab": "Explore",
+    "clicks": ["#sheet .xp-parts [data-part=\"columns\"]", "#sheet .xp-card[data-column=\"protocol\"] .xp-bar[data-bar=\"v2\"]"],
+    "full": true,
+    "expect": {
+      "textIn": { "#sheet .xp-lit": ["protocol is TLS1.0 · 24 of 814 rows (3%)"], "#sheet .xp-card[data-column=\"status\"]": ["Fail 24 of 40"] },
+      "count": { "#sheet .xp-card.picking": 8, "#sheet .xp-bar[aria-pressed=\"true\"]": 1 }
+    }
+  }
+]

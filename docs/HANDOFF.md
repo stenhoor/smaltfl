@@ -246,9 +246,14 @@ in the question prompt, nine questions in three rounds. In the slices of ADR 002
    one whose outputs another flow's hold kept back *waited* (a dashed outline): both are folded with the calm ones.
    What waits for a decision names the flow. A flow has a month of its own (`#month/2024-03/in/feeds`): its calendar,
    its counts and its rows, by what it and the flows it reads came to. `tools/browser/stops/tiers.json`.
-4. Exploring what a flow gives: next. 5. A paused day decided once, at its flow. 6. A change followed,
-   said and tested on the days recorded. 7. The ontology's overrides. 8. Inputs and settings. 9. Building in the app (a
-   catalogue, a join form). 10. The voice.
+4. **Exploring what a flow gives: built.** An **Explore** tab on every file and published dataset: what a row is, in
+   a sentence from the ontology; a card a column over every row; a bar tapped lit in every other column, kept
+   (**Keep only**) and written as one of the reader's own cells; how it joins (its scope's list counted over the keys
+   in scope, the datasets of its type, the ontology's links), with the match day by day; its rows against another
+   day's by key. A flow's sheet has **Explore ›** on each dataset it gives. `src/core/explore.ts`,
+   `test/explore.test.ts`, `tools/browser/stops/explore.json`.
+5. A paused day decided once, at its flow: next. 6. A change followed, said and tested on the days recorded. 7. The
+   ontology's overrides. 8. Inputs and settings. 9. Building in the app (a catalogue, a join form). 10. The voice.
 
 Two readings of the maintainer's answers are ADR 0025's own, for the maintainer to correct: that testing a changed flow
 on the days recorded *informs* and does not hold the change back (§7), and that an override is written in the flow that

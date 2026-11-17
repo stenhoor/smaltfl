@@ -78,6 +78,7 @@ Tapping a card opens its sheet, the same tabs on every card, the news first:
 - **News**: the day's story about the card: one cause, the picture against what is usual, what it reaches, the fix.
 - **Data**: its rows, each column's shape on top; a small output opens with its heat table at a glance.
 - **Columns**: one column a line, opening into its values and its history.
+- **Explore** (a file or a published dataset): the dataset for someone who has never seen it; see below.
 - **Checks** (a gated card): each check, written or learned, holding, warning or off; toggling one writes the gate
   cell in the notebook.
 - **Rules** (a source): the ontology's rules for the file, each switched on or off for this flow.
@@ -85,6 +86,29 @@ Tapping a card opens its sheet, the same tabs on every card, the news first:
 - **Dropped** and **Odd rows**: what a check removed, and rows unlike the rest.
 - **History**: the day's numbers against the days before.
 - **Integrity**: the file against its list, the run's hashes.
+
+### Exploring a dataset {#explore}
+
+**Explore** starts with what a row is, in a sentence from the ontology: *One row is an application, for those where
+exposure is internet or partner and lifecycle is active or retiring: 813 rows, one for each app_id.* Then three parts.
+
+- **Its columns**: a card a column, counted over every row. A category shows its values, the most common first; a
+  number its rows in bins; a date its rows over time; the rows with no value are a bar of their own. Where the
+  ontology writes a column's values, the card says how the rows sit with them.
+  - **Tap a bar** and every other column shows how many of its rows are in that part: tap *Fail* and see which
+    protocol the failing certificates use and when they expire. The part and its count stay at the foot of the
+    screen. It stays picked as you step through the days.
+  - **Keep only** makes the part the rows every count is over. **As a cell ›** writes them as SQL in a cell of your
+    own, under the notebook that makes the dataset. **Every row** goes back.
+- **How it joins**: the datasets the ontology says share its key or are linked to it. Each is counted on both sides on
+  the day's rows: how many of its rows find a match there, how many of the other's keys have a row here, and the first
+  keys that find none. Against the list its scope is counted against, only the keys in scope count, and the match is
+  drawn day by day.
+- **Against another day**: its rows by its key against another day's: rows only in one, and cells that changed. A day
+  not run in your browser yet is one tap: it is run, and the day on screen put back.
+
+A flow's sheet has **Explore ›** beside each dataset it gives. What a flow gives of a file is the file's rows, filled
+and checked, and is described as the file is.
 
 ## The notebook page
 

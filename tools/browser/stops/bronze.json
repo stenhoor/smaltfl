@@ -21,7 +21,7 @@
         "#sheet .bq-verdict.hold": 1,
         "#sheet .bq-issue.alert": 3,
         "#sheet .bq-issue.warn": 1,
-        "#sheet .drill-head [role=\"tab\"]": 7
+        "#sheet .drill-head [role=\"tab\"]": 8
       },
       "noText": [
         "Nothing out of the ordinary"
@@ -97,6 +97,53 @@
     "expect": {
       "count": {
         "#sheet:not([hidden]) .bq-verdict.hold": 1
+      }
+    }
+  },
+  {
+    "name": "bronze-explore",
+    "what": "The held file explored (ADR 0025 §9): what a row is, a card a column; Failing tapped under Status, and the 121 failing are every WAF that is off or only monitoring, none that blocks",
+    "day": "Tue 12",
+    "card": "waf",
+    "tab": "Explore",
+    "click": "#sheet .xp-card[data-column=\"status\"] .xp-bar[data-bar=\"v0\"]",
+    "full": true,
+    "expect": {
+      "state": "held",
+      "text": [
+        "One row is an application, for those where internet_facing is yes: 203 rows, one for each app_id.",
+        "Blocking 0 of 82 Off 68 of 68 Monitor only 53 of 53",
+        "Every row fits the 4 values written.",
+        "status is Failing · 121 of 203 rows (60%)"
+      ],
+      "count": {
+        "#sheet .xp-card": 5,
+        "#sheet .xp-card.picking": 5,
+        "#sheet .xp-bar[aria-pressed=\"true\"]": 1
+      }
+    }
+  },
+  {
+    "name": "bronze-explore-joins",
+    "what": "How the held file joins: counted against the inventory's applications in scope, with the match day by day, and the eleven other controls' files a tap from being counted",
+    "day": "Tue 12",
+    "card": "waf",
+    "tab": "Explore",
+    "click": "#sheet .xp-parts [data-part=\"joins\"]",
+    "waitFor": "#sheet .xp-join .xp-side",
+    "full": true,
+    "expect": {
+      "text": [
+        "What waf should cover is counted against it: each application in scope should have a row here.",
+        "All 203 rows of waf find their application among those in scope in apps.",
+        "All 203 keys in scope in apps have a row here.",
+        "Over 31 days, 100% of the keys in scope had a row every day; on the last, 100%.",
+        "11 OTHER DATASETS WITH THE SAME KEY"
+      ],
+      "count": {
+        "#sheet .xp-join": 1,
+        "#sheet .xp-more": 11,
+        "#sheet .xp-month svg.viz": 1
       }
     }
   }

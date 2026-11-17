@@ -23,7 +23,8 @@ import { flowMonthOutcome, flowOff, flowRows, flowRowSaid, onlyFollowed, onlyWai
 import { lookOf, sceneHash, type SceneLook, type ScenesFile } from '../core/scenes.js';
 import { briefOf, briefText, type BriefIn, type BriefOption } from '../core/brief.js';
 import { compareSummary, diffKeyOf, diffOf, type RowDiff } from '../core/compare.js';
-import { createTable, emitCheckCounts, emitColumnFacts, emitCopy, emitDiff, emitDistinct, emitHourValues, emitDrop, emitDropped, emitExcept, emitFailures, emitLookup, emitRead, emitRuleFailures, emitSample, emitUnmatched, sameColumns, type EmitContext } from '../core/emit.js';
+import { createTable, emitBinCounts, emitCheckCounts, emitColumnFacts, emitCopy, emitDiff, emitDistinct, emitFit, emitHourValues, emitDrop, emitDropped, emitExcept, emitFailures, emitJoinMatch, emitKept, emitKeptCell, emitLit, emitLookup, emitRead, emitRuleFailures, emitSample, emitStampCounts, emitUnmatched, emitUnmatchedKeys, emitValueCounts, emitWhere, sameColumns, type EmitContext, type RowPick } from '../core/emit.js';
+import { askOf, cardOf, cardSaid, fitSaid, joinPartners, joinRead, joinSaid, litSaid, matchDays, joinWhy, matchSaid, pickSaid, rowSaid, rowsKeptFrom, samePick, type Bar, type ExploreCard, type JoinPartner } from '../core/explore.js';
 import { effectOf, type Effect } from '../core/effect.js';
 import { daysFrom, HistoryRanges, isHistory, metricKey, QUANTILES, timeOf, type HistoryFile, type Metric } from '../core/history.js';
 import type { Identity, ManifestNode, SignedManifest, SourceFile, SourceIngestRecord } from '../core/manifest.js';
@@ -51,7 +52,7 @@ import type { EditorSchema, SchemaColumn } from 'smaltkit/editor';
 import type { GridRow } from 'smaltkit/grid';
 import { derivedAbout, derivedFails, derivedKeys, derivedWhy, donorsOf, filledRows, pinDonor, repairOf, stageRepair, type Listed, type Remedies } from './fills.js';
 import { followsCause as followsFrom, ACT_VERB, CELL_KINDS, CELL_NAMES, HEALTH_HEAD, STRIP_KEY, approx, axisShare, recentSpan, cardWords, changeLabel, compact, countLabel, countRange, fallSteps, gateHead, overLabel, gateLabels, gateOf, partLabel, ruleOrder, ruleUsual, shortWho, splitSentence, splitSteps, saidOf, storyOf, type Cell, type DayStep, type Gate, type HourValues, type Story, type Told, type Upstream } from '../core/story.js';
-import { dayBars, scoreSpark, scoreTrend, type BarDay, type ScorePoint, rowFlow, differenceMeter, fileTwins, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, chain, composition, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
+import { dayBars, matchBars, scoreSpark, scoreTrend, type BarDay, type ScorePoint, rowFlow, differenceMeter, fileTwins, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, chain, composition, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
 import { sha256Hex } from '../core/hash.js';
 import { LEVEL_NAME, leaderSaid, postureTree, scoreSaid, trendSaid, unitCounts, type PostureNode } from '../core/posture.js';
 import { counted, glossOf, meaningBeyond, meaningOf, nounOf as ontologyNoun, propertyOf, readAsOf, saysMore, type Edit, type Noun, type PropertyType } from '../core/ontology.js';
@@ -2579,10 +2580,12 @@ function renderFlowSheet(id: string): void {
   const gives = given.length
     ? block(`It gives ${plural(given.length, 'dataset')}`, ...given.map((g) => {
         const out = givenSaid(g.id);
-        return h('button', { type: 'button', class: `fl-row fl-given${out.mark === 'waiting' ? ' fo-waiting' : ''}`, 'data-inside': g.id, onclick: () => openInside(g.id) },
-          h('span', { class: 'fl-row-name' }, g.id),
-          h('span', { class: 'fl-row-said' }, out.mark ? glyphEl(PAUSE_MARK[out.mark], 13) : null, h('span', {}, `${out.text} · ${g.readers.length ? `read by ${g.readers.map(flowName).join(', ')}` : 'no flow here reads it'}`)),
-          h('span', { class: 'fl-row-go', 'aria-hidden': 'true' }, '›'));
+        // Its card, and its Explore tab a tap away (ADR 0025 §9): two buttons in one row.
+        return h('div', { class: `fl-row fl-given${out.mark === 'waiting' ? ' fo-waiting' : ''}`, 'data-inside': g.id },
+          h('button', { type: 'button', class: 'fl-row-main', 'aria-label': `${g.id}: open its card`, onclick: () => openInside(g.id) },
+            h('span', { class: 'fl-row-name' }, g.id),
+            h('span', { class: 'fl-row-said' }, out.mark ? glyphEl(PAUSE_MARK[out.mark], 13) : null, h('span', {}, `${out.text} · ${g.readers.length ? `read by ${g.readers.map(flowName).join(', ')}` : 'no flow here reads it'}`))),
+          explorable(g.id) && nodeOf(g.id) && !notBuilt(g.id) ? h('button', { type: 'button', class: 'btn small fl-explore', 'aria-label': `Explore ${g.id}`, onclick: () => openTab(g.id, 'explore') }, 'Explore ›') : h('span', { class: 'fl-row-go', 'aria-hidden': 'true' }, '›'));
       }))
     : h('section', { class: 'fl-block' }, h('h3', {}, 'It gives nothing'), h('p', { class: 'fl-note' }, 'No step of it is published, so no flow can read it yet.'));
   // Its files' seals (ADR 0006): a broken one is a tap from its file's Integrity tab; all sealed is said once.
@@ -4127,8 +4130,8 @@ function renderFlowEdits(): void {
 // runs). Above the tabs: what it reads and what reads it, a tap away, and the day's load, to step through without
 // closing it. A card keeps its tab and its place in each tab.
 
-type Tab = 'happened' | 'quality' | 'notebook' | 'news' | 'data' | 'columns' | 'dropped' | 'odd' | 'history' | 'checks' | 'contract' | 'rules' | 'models' | 'integrity' | 'about';
-const TAB_LABEL: Record<Tab, string> = { happened: 'What happened', quality: 'Quality', notebook: 'Notebook', news: 'News', data: 'Data', columns: 'Columns', dropped: 'Dropped', odd: 'Odd rows', history: 'History', checks: 'Checks', contract: 'Contract', rules: 'Rules', models: 'Models', integrity: 'Integrity', about: 'About' };
+type Tab = 'happened' | 'quality' | 'notebook' | 'news' | 'data' | 'columns' | 'explore' | 'dropped' | 'odd' | 'history' | 'checks' | 'contract' | 'rules' | 'models' | 'integrity' | 'about';
+const TAB_LABEL: Record<Tab, string> = { happened: 'What happened', quality: 'Quality', notebook: 'Notebook', news: 'News', data: 'Data', columns: 'Columns', explore: 'Explore', dropped: 'Dropped', odd: 'Odd rows', history: 'History', checks: 'Checks', contract: 'Contract', rules: 'Rules', models: 'Models', integrity: 'Integrity', about: 'About' };
 const drill = {
   tab: new Map<string, Tab>(),
   scroll: new Map<string, number>(),
@@ -4153,7 +4156,7 @@ function tabsOf(card: string): Tab[] {
   // A bronze file (Q-160): its quality first, one list of checks from the ontology down, and the notebook that reads and
   // checks it; no News, Checks or Rules beside them.
   if (isBronze(card)) {
-    const bronze: Tab[] = ['quality', 'notebook', 'data', 'columns'];
+    const bronze: Tab[] = ['quality', 'notebook', 'data', 'columns', 'explore'];
     if (historyOf(id)) bronze.push('history');
     if (Object.keys(state.doc.publish?.watch ?? {}).some((w) => w.toLowerCase() === id.toLowerCase())) bronze.push('models');
     bronze.push('integrity', 'about');
@@ -4161,6 +4164,8 @@ function tabsOf(card: string): Tab[] {
   }
   // A step after the files (the silver layer, ADR 0015 amendment 4): what it did to the data first.
   const out: Tab[] = st && !profileOf(card) && !state.doc.sources.some((x) => x.id === id) ? ['happened', 'news', 'data', 'columns'] : ['news', 'data', 'columns'];
+  // Exploring it (ADR 0025 §9): a file or a published dataset, for someone who has never seen it.
+  if (explorable(card)) out.push('explore');
   // The rules set on a file's columns (rules.ts), each with its switch: on every file's import card, beside its columns.
   if (!profileOf(card) && state.doc.sources.some((x) => x.id === id)) out.push('rules');
   const removes = c !== undefined && c.same && c.rowsIn != null && c.rowsOut != null && c.rowsIn > c.rowsOut;
@@ -4186,6 +4191,7 @@ const TABS: Record<Tab, (card: string, id: string, who: string) => Promise<HTMLE
   news: newsTab,
   data: dataTab,
   columns: columnsTab,
+  explore: exploreTab,
   dropped: droppedTab,
   odd: oddTab,
   history: historyTab,
@@ -11970,22 +11976,28 @@ const rowDiffsDone = new Map<string, RowDiff | string>();
  * An output's rows compared between two runs here (ADR 0021 §4): each read as the viewer may read it, matched by the
  * output's key where the viewer reads all of its columns, else as whole rows over the columns both versions show.
  */
-function rowDiffOf(ra: RunRecord, rb: RunRecord, name: string): { id: string; done: RowDiff | string | undefined; asked: Promise<RowDiff | string> } {
-  const id = `${ra.result.hash}|${rb.result.hash}|${name}|${state.viewer}`;
+function rowDiffOf(ra: RunRecord, rb: RunRecord, name: string, who = state.viewer, dataset = false): { id: string; done: RowDiff | string | undefined; asked: Promise<RowDiff | string> } {
+  const id = `${ra.result.hash}|${rb.result.hash}|${name}|${who}|${dataset ? 'dataset' : 'output'}`;
   let asked = rowDiffs.get(id);
   if (!asked) {
     asked = (async (): Promise<RowDiff | string> => {
       const [ia, ib] = await Promise.all([inspect(ra), inspect(rb)]);
-      const oa = ia.plan.outputs.find((o) => o.name === name);
-      const ob = ib.plan.outputs.find((o) => o.name === name);
-      if (!oa || !ob) return `${name} isn’t built by both versions.`;
-      const va = viewIn(ia, oa.node);
-      const vb = viewIn(ib, ob.node);
-      const sa = readIn(ia, oa.node);
-      const sb = readIn(ib, ob.node);
-      if (!sa || !sb) return `${name} is closed to ${personName(state.viewer)}.`;
+      // An output by the name it is published under; any dataset of the flow (a file, a step) by its own, where each
+      // run built it (ADR 0025 §9).
+      const built = (insp: Inspection): number | undefined => {
+        const i = dataset ? insp.index.get(name) : insp.plan.outputs.find((o) => o.name === name)?.node;
+        return i !== undefined && (!dataset || insp.manifest.has(i)) ? i : undefined;
+      };
+      const [na, nb] = [built(ia), built(ib)];
+      if (na === undefined || nb === undefined) return `${name} isn’t built by both ${dataset ? 'days' : 'versions'}.`;
+      const va = viewIn(ia, na, who);
+      const vb = viewIn(ib, nb, who);
+      const sa = readIn(ia, na, who);
+      const sb = readIn(ib, nb, who);
+      if (!sa || !sb) return `${name} is closed to ${personName(who)}.`;
       const columns = va.columns.filter((c) => vb.columns.includes(c));
-      const wanted = diffKeyOf(state.doc, name);
+      // A dataset that keeps another's rows (a file, checked) is matched by that one's key.
+      const wanted = diffKeyOf(state.doc, dataset ? (rowsKeptFrom(state.doc, name) ?? name) : name);
       const key = wanted && wanted.every((c) => columns.includes(c)) ? wanted : null;
       const st = emitDiff(sa, sb, columns, key);
       const rows = async (sql: string | null) => (sql ? (await state.engine!.query(sql)).rows : []);
@@ -12125,6 +12137,450 @@ function comparePart(k: number): HTMLElement | null {
     sameOut.length ? h('p', { class: 'dc-same' }, `${fmtInt(sameOut.length)} the same: ${sameOut.slice(0, 6).map((o) => o.name).join(', ')}${sameOut.length > 6 ? ` and ${fmtInt(sameOut.length - 6)} more` : ''}.`) : null);
 }
 
+
+// ------------------------------------------------------------------ tabs: explore (ADR 0025 §9)
+
+// Exploring a dataset, for someone who has never seen it: what a row is, in a sentence from the ontology; a card a
+// column, counted over every row; a bar tapped lights its rows in every other column, and Keep only makes them the rows
+// every count is over (and, as SQL, one of the reader's own cells); how it joins to the datasets that share its key,
+// counted on both sides today and, against its inventory, over the days its history keeps; and its rows against
+// another day's, by key. The engine is asked through emit.ts; core/explore.ts reads what comes back and words it.
+
+type XpPart = 'columns' | 'joins' | 'days';
+/** A card's exploring, kept while the page is open and across days: the part on show, the part of the dataset picked
+ * (lit in every column), the parts kept (the rows every count is over), and the load its rows are compared with. */
+const xp = {
+  part: new Map<string, XpPart>(),
+  pick: new Map<string, RowPick>(),
+  kept: new Map<string, RowPick[]>(),
+  other: new Map<string, number>(),
+  /** A day asked to run here that didn't (its file refused, the run stopped), by card: said once, where it was asked. */
+  failed: new Map<string, number>(),
+};
+
+/** Whether a card has an Explore tab: a file or a published dataset, whose rows the engine keeps as a table. */
+const explorable = (card: string): boolean => !profileOf(card) && (state.doc.sources.some((x) => x.id === card) || isOutput(card));
+
+/** Where a dataset's reader cells are kept, and how to get there: a judged file's own Notebook tab, else the notebook
+ * that makes it. Null for a dataset no notebook makes. */
+function xpCells(id: string): { path: string; open: () => void } | null {
+  if (isBronze(id)) return { path: `source:${id}`, open: () => openTab(id, 'notebook') };
+  const o = state.doc.outline?.find((x) => x.cells.some((c) => c.step === id || c.source === id));
+  return o ? { path: o.path, open: () => openSection(notebookSectionId(o.path)) } : null;
+}
+
+/** The rows kept as one of the reader's own cells (ADR 0025 §9): added under the notebook that makes the dataset, the
+ * notebook opened, and the cell brought into view once it is drawn. Kept in the browser, as every such cell is. */
+function xpAsCell(id: string, kept: readonly RowPick[]): void {
+  const at = xpCells(id);
+  if (!at || !kept.length) return;
+  const cell: ExploreCell = { id: `x${Date.now().toString(36)}`, kind: 'sql', name: '', text: emitKeptCell(id, kept) };
+  saveExploreCells(at.path, named([...cellsFor(at.path), cell]));
+  at.open();
+  let tries = 240;
+  const show = () => {
+    const ui = exploreAt?.path === at.path && exploreAt.host.isConnected ? exploreAt.ui.get(cell.id) : undefined;
+    if (ui) {
+      ui.root.scrollIntoView({ block: 'center' });
+      ui.root.classList.add('flash');
+    } else if (tries-- > 0) requestAnimationFrame(show);
+  };
+  requestAnimationFrame(show);
+}
+
+async function exploreTab(card: string, id: string, who: string): Promise<HTMLElement> {
+  const nv = await nodeView(id, who);
+  if (typeof nv === 'string') return h('p', { class: 'foot' }, nv);
+  const q = await qualityOf(nv.insp, nv.i, who);
+  if (!q) return h('p', { class: 'foot' }, 'Closed.');
+  const byDay = loads.list.length > 1;
+  const asked = xp.part.get(card) ?? 'columns';
+  const part: XpPart = asked === 'days' && !byDay ? 'columns' : asked;
+  const body = h('div', { class: 'xp-body' });
+  const chip = (p: XpPart, label: string) => h('button', { type: 'button', class: 'vf-pick-chip', 'aria-pressed': String(p === part), 'data-part': p, onclick: () => (xp.part.set(card, p), void renderSheet()) }, label);
+  const root = h('div', { class: 'xp-tab', 'data-part': part },
+    h('p', { class: 'xp-row' }, rowSaid(state.doc, id, q.rows)),
+    h('div', { class: 'vf-pick xp-parts', role: 'group', 'aria-label': 'What to explore' }, chip('columns', `Its ${plural(q.profiles.length, 'column')}`), chip('joins', 'How it joins'), byDay ? chip('days', 'Against another day') : null),
+    body);
+  if (part === 'joins') xpJoins(body, id, nv, who);
+  else if (part === 'days') xpDays(body, card, id, who);
+  else xpColumns(body, card, id, nv, q);
+  return root;
+}
+
+/** A column's head on its card: its title, its name where the title says more, and what kind of column it is. */
+function xpHead(id: string, p: Profile): HTMLElement {
+  const m = meaningsOf(id)(p.name);
+  return h('div', { class: 'xp-head' },
+    h('h3', {}, ...(m ? [m.title] : breakable(p.name))),
+    m && saysMore(p.name, m.title) ? h('code', { class: 'xp-code' }, ...breakable(p.name)) : null,
+    h('span', { class: 'tag' }, ROLE_SAID[columnRole(p, modelLeftOut(state.doc.ontology, id, p.name))]));
+}
+
+/**
+ * A column's card (ADR 0025 §9): how full it is, how its rows sit with the values written for it, and its chart, each
+ * bar a button that picks its rows. With a part picked, every bar shows how many of its rows are in it.
+ */
+function xpCard(id: string, p: Profile, c: ExploreCard, o: { pick: RowPick | null; written: number; onPick: (pick: RowPick) => void }): HTMLElement {
+  const picking = !!o.pick;
+  const share = (x: number, of: number) => (x > 0 ? Math.max(1.5, (x / Math.max(1, of)) * 100).toFixed(1) : '0');
+  const barSaid = (b: Bar) => `${b.label}: ${litSaid(b.rows, c.rows)}${picking ? `, ${fmtInt(b.lit)} of them in the part picked` : ''}`;
+  // A value's row: its name, its share of the rows as a bar, its count.
+  const row = (b: Bar, key: string) => {
+    const on = samePick(o.pick, b.pick);
+    return h('button', { type: 'button', class: `xp-bar${b.pick && 'value' in b.pick && b.pick.value === null ? ' none' : ''}`, 'aria-pressed': String(on), 'data-bar': key, title: barSaid(b), 'aria-label': barSaid(b), onclick: () => o.onPick(b.pick) },
+      // A space between its name and its count, so the row copies and reads as words, not as one run of them.
+      h('span', { class: 'xp-v' }, b.label), ' ',
+      h('span', { class: 'xp-track' }, h('i', { class: 'all', style: `width:${share(b.rows, c.rows)}%` }), picking ? h('i', { class: 'lit', style: `width:${share(b.lit, c.rows)}%` }) : null),
+      h('span', { class: 'xp-n' }, ...(picking ? [h('b', {}, fmtInt(b.lit)), ` of ${fmtInt(b.rows)}`] : [fmtInt(b.rows)])), ' ');
+  };
+  // A number's bins or a time's stamps: a column a bar, in order, its height its rows; one of them in the tab order,
+  // the arrow keys moving along them.
+  const hist = (bars: readonly Bar[]) => {
+    const max = Math.max(1, ...bars.map((b) => b.rows));
+    const at = Math.max(0, bars.findIndex((b) => samePick(o.pick, b.pick)));
+    const el = h('div', { class: 'xp-hist', role: 'group', 'aria-label': `${c.column}: its rows ${c.ask === 'bins' ? 'by value' : 'over time'}, ${plural(bars.length, 'bar')}` },
+      ...bars.map((b, k) => h('button', { type: 'button', class: 'xp-bin', 'aria-pressed': String(samePick(o.pick, b.pick)), 'data-bar': `b${k}`, tabindex: k === at ? '0' : '-1', title: barSaid(b), 'aria-label': barSaid(b), onclick: () => o.onPick(b.pick) },
+        h('i', { class: 'all', style: `height:${share(b.rows, max)}%` }), picking ? h('i', { class: 'lit', style: `height:${share(b.lit, max)}%` }) : null)));
+    el.addEventListener('keydown', (e) => {
+      const key = (e as KeyboardEvent).key;
+      const bins = [...el.querySelectorAll<HTMLElement>('.xp-bin')];
+      const from = bins.indexOf(document.activeElement as HTMLElement);
+      const to = key === 'ArrowRight' ? from + 1 : key === 'ArrowLeft' ? from - 1 : key === 'Home' ? 0 : key === 'End' ? bins.length - 1 : -1;
+      if (from < 0 || to < 0 || to >= bins.length || to === from) return;
+      e.preventDefault();
+      bins[from]!.tabIndex = -1;
+      bins[to]!.tabIndex = 0;
+      bins[to]!.focus();
+    });
+    return el;
+  };
+  const fit = c.fit
+    ? h('div', { class: 'xp-fit' },
+        h('div', { class: 'xp-fitbar', role: 'img', 'aria-label': fitSaid(c.fit, o.written) },
+          ...([['fits', c.fit.fits], ['other', c.fit.other], ['none', c.fit.empty]] as const).filter(([, x]) => x > 0).map(([cls, x]) => h('i', { class: cls, style: `flex-grow:${x}` }))),
+        h('p', { class: 'xp-fit-said' }, `${fitSaid(c.fit, o.written)[0]!.toUpperCase()}${fitSaid(c.fit, o.written).slice(1)}.`))
+    : null;
+  const extras = [c.under ? row(c.under, 'under') : null, c.over ? row(c.over, 'over') : null, c.empty ? row(c.empty, 'empty') : null];
+  const chart: Child[] = c.why
+    ? [c.why === 'unique' ? h('p', { class: 'xp-why' }, 'It names rows rather than describing them, so it has no shape to chart.') : null]
+    : c.ask === 'values'
+      ? [h('div', { class: 'xp-bars' }, ...c.bars.map((b, k) => row(b, `v${k}`)), c.empty ? row(c.empty, 'empty') : null),
+          c.rest ? h('p', { class: 'foot xp-rest' }, `and ${plural(c.rest.values, 'more value')} on ${plural(c.rest.rows, 'row')}`) : null]
+      : [c.bars.length ? hist(c.bars) : null,
+          c.axis ? h('div', { class: 'xp-axis', 'aria-hidden': 'true' }, h('span', {}, c.axis[0]), ' ', h('span', {}, c.axis[1])) : null,
+          extras.some(Boolean) ? h('div', { class: 'xp-bars' }, ...extras) : null];
+  return h('article', { class: `xp-card${picking ? ' picking' : ''}`, 'data-column': p.name }, xpHead(id, p), h('p', { class: 'xp-said' }, cardSaid(c)), fit, ...chart);
+}
+
+/**
+ * A dataset's columns explored (ADR 0025 §9): a card a column over every row, redrawn in place as a part is picked or
+ * kept, so the place on the page and the bar under the finger stay where they are.
+ */
+function xpColumns(body: HTMLElement, card: string, id: string, nv: { insp: Inspection; i: number; read: string }, q: Quality): void {
+  const engine = state.engine!;
+  const meanings = meaningsOf(id);
+  const types = new Map(nv.insp.plan.nodes[nv.i]!.schema!.map(([c, t]) => [c.toLowerCase(), t as string]));
+  const numeric = (c: string) => ['int', 'real', 'num'].includes(types.get(c.toLowerCase()) ?? 'any');
+  const labelOf = (column: string) => (v: unknown) => drawnLabel(meanings(column), v);
+  const said = (pick: RowPick) => pickSaid(pick, labelOf(pick.column));
+  const asks = q.profiles.map(askOf);
+  // A part picked or kept on a column the dataset doesn't have today (another day's file, a column renamed since) is
+  // let go: there is nothing of it to count.
+  const has = new Set(q.profiles.map((p) => p.name));
+  if (xp.pick.has(card) && !has.has(xp.pick.get(card)!.column)) xp.pick.delete(card);
+  if (xp.kept.has(card)) {
+    const still = xp.kept.get(card)!.filter((p) => has.has(p.column));
+    if (still.length) xp.kept.set(card, still);
+    else xp.kept.delete(card);
+  }
+  const head = h('div', { class: 'xp-kept' });
+  const grid = h('div', { class: 'xp-grid' });
+  const lit = h('div', { class: 'xp-lit', role: 'status', hidden: true });
+  const cards = new Map<string, HTMLElement>();
+  for (const p of q.profiles) {
+    const el = h('article', { class: 'xp-card wait', 'data-column': p.name }, xpHead(id, p), h('div', { class: 'skeleton short', 'aria-hidden': 'true' }));
+    cards.set(p.name, el);
+    grid.append(el);
+  }
+  body.replaceChildren(head, grid, lit);
+  // The sheet drawn again (another tab, another day, another card) makes anything still being counted here stale.
+  const born = drill.token;
+  let token = 0;
+  // Where the keyboard goes on once the cards are redrawn, when the button pressed is gone with the bar at the foot:
+  // back to the bar that was picked (Clear), or to what is kept (Keep only).
+  let focusNext: { column: string; bar: string } | 'kept' | null = null;
+  const pressed = (): { column: string; bar: string } | null => {
+    const el = grid.querySelector<HTMLElement>('[aria-pressed="true"]');
+    const column = el?.closest<HTMLElement>('.xp-card')?.dataset.column;
+    return el?.dataset.bar && column ? { column, bar: el.dataset.bar } : null;
+  };
+  const kept = () => xp.kept.get(card) ?? [];
+  const setKept = (next: RowPick[]) => {
+    if (next.length) xp.kept.set(card, next);
+    else xp.kept.delete(card);
+    void draw();
+  };
+  const setPick = (pick: RowPick | null) => {
+    if (!pick || samePick(xp.pick.get(card) ?? null, pick)) xp.pick.delete(card);
+    else xp.pick.set(card, pick);
+    void draw();
+  };
+  const cells = xpCells(id);
+  const drawHead = (n: number) => {
+    const now = kept();
+    if (!now.length) {
+      head.replaceChildren(h('p', { class: 'foot xp-over' }, `Counted over every row${n === q.rows && n > 1 ? `: all ${fmtInt(n)}` : ''}. Tap a bar to see its rows in every other column.`));
+      return;
+    }
+    const chips = now.map((p, k) => h('span', { class: 'xp-chip' }, said(p),
+      h('button', { type: 'button', 'aria-label': `Stop keeping only ${said(p)}`, onclick: () => setKept(now.filter((_, j) => j !== k)) }, '×')));
+    head.replaceChildren(
+      h('p', { class: 'xp-kept-said' }, 'Only the rows where ', ...chips.flatMap((c, k): Child[] => (k ? [' and ', c] : [c])), `: ${litSaid(n, q.rows)}.`),
+      h('div', { class: 'xp-kept-acts' },
+        cells ? h('button', { type: 'button', class: 'btn small xp-cell', title: 'The rows kept, as SQL in a cell of your own to read and change', onclick: () => xpAsCell(id, now) }, 'As a cell ›') : null,
+        h('button', { type: 'button', class: 'btn small xp-all', onclick: () => setKept([]) }, 'Every row')));
+  };
+  const drawLit = (pick: RowPick | null, l: number, n: number) => {
+    lit.hidden = !pick;
+    if (!pick) return void lit.replaceChildren();
+    const keep = h('button', { type: 'button', class: 'btn small primary xp-keep', onclick: () => {
+      focusNext = 'kept';
+      xp.pick.delete(card);
+      setKept([...kept(), pick]);
+    } }, 'Keep only');
+    keep.disabled = l === 0;
+    lit.replaceChildren(h('p', {}, h('b', {}, said(pick)), ` · ${litSaid(l, n)}`),
+      h('div', { class: 'xp-lit-acts' }, keep, h('button', { type: 'button', class: 'btn small xp-clear', onclick: () => {
+        focusNext = pressed();
+        setPick(null);
+      } }, 'Clear')));
+  };
+  const draw = async (): Promise<void> => {
+    const mine = ++token;
+    const stale = () => mine !== token || born !== drill.token;
+    const pick = xp.pick.get(card) ?? null;
+    const base = emitKept(nv.read, kept());
+    try {
+      const counts = (await engine.query(emitLit(base, pick))).rows[0]!.map(Number);
+      if (stale()) return;
+      const n = counts[0] ?? 0;
+      // What is kept is counted as the whole was: each column's facts over the rows kept, its bins as they were, so a
+      // chart before and after keeping reads on one axis.
+      let profiles = q.profiles;
+      if (kept().length) {
+        const f = (await engine.query(emitColumnFacts(base, q.profiles.map((p) => ({ name: p.name, numeric: numeric(p.name) }))))).rows[0]!;
+        if (stale()) return;
+        const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
+        profiles = q.profiles.map((p, k) => ({ ...p, facts: { rows: Number(f[0]), present: Number(f[1 + 5 * k]), distinct: Number(f[2 + 5 * k]), min: f[3 + 5 * k], max: f[4 + 5 * k], mean: num(f[5 + 5 * k]) } }));
+      }
+      drawHead(n);
+      drawLit(pick, counts[1] ?? 0, n);
+      for (const [k, p] of profiles.entries()) {
+        const ask = asks[k]!;
+        const sql = ask.ask === 'values' ? emitValueCounts(base, ask.column, ask.limit, pick) : ask.ask === 'bins' ? emitBinCounts(base, ask.column, ask.lo, ask.width, ask.bins, pick) : ask.ask === 'stamps' ? emitStampCounts(base, ask.column, ask.chars, pick) : null;
+        const written = Object.keys(meanings(p.name)?.values ?? {});
+        let el: HTMLElement;
+        try {
+          const counted = sql ? (await engine.query(sql)).rows : [];
+          const fit = written.length && p.facts.rows > 0 ? (await engine.query(emitFit(base, p.name, written))).rows[0]! : null;
+          // A number's and a time's bars leave out the rows with no value: those the pick lights are asked apart.
+          const emptyLit = pick && ask.ask !== 'values' && p.facts.present < p.facts.rows ? Number((await engine.query(emitLit(emitKept(base, [{ column: p.name, value: null }]), pick))).rows[0]![1]) : 0;
+          if (stale()) return;
+          el = xpCard(id, p, cardOf(p, ask, counted, { fit, label: labelOf(p.name), emptyLit }), { pick, written: written.length, onPick: setPick });
+        } catch (e) {
+          if (stale()) return;
+          el = h('article', { class: 'xp-card', 'data-column': p.name }, xpHead(id, p), h('p', { class: 'status bad' }, `It couldn’t be counted: ${message(e)}`));
+        }
+        const old = cards.get(p.name)!;
+        const focused = old.contains(document.activeElement) ? (document.activeElement as HTMLElement).dataset.bar : undefined;
+        old.replaceWith(el);
+        cards.set(p.name, el);
+        if (focused !== undefined) el.querySelector<HTMLElement>(`[data-bar="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
+      }
+      const next = focusNext;
+      focusNext = null;
+      if (next === 'kept') head.querySelector<HTMLElement>('.xp-all')?.focus({ preventScroll: true });
+      else if (next) cards.get(next.column)?.querySelector<HTMLElement>(`[data-bar="${CSS.escape(next.bar)}"]`)?.focus({ preventScroll: true });
+    } catch (e) {
+      if (!stale()) head.replaceChildren(h('p', { class: 'status bad' }, message(e)));
+    }
+  };
+  void draw();
+}
+
+/**
+ * How a dataset joins (ADR 0025 §9): the datasets that share its key (its inventory first), each counted on both sides
+ * on today's rows, with the keys that find no match; and, against its inventory, the match day by day, which each run
+ * measures as it counts its scope (ADR 0014 §4). The first is counted at once, the others when opened.
+ */
+function xpJoins(body: HTMLElement, id: string, nv: { insp: Inspection; i: number; read: string }, who: string): void {
+  const read = nv.read;
+  // The dataset's scope, as a condition on the dataset it is counted against: as the run's plan has it for a watched
+  // dataset (its parameters bound), else as it is written.
+  const watched = nv.insp.plan.publish?.watch.find(([n]) => n === nv.i)?.[1];
+  const written = writtenRules(state.doc, id).scope;
+  const scope: string | [string, string[]][] | null = (typeof watched === 'object' ? watched.scope?.where : undefined) ?? (!written ? null : written.from === 'ontology' ? written.match : written.where);
+  const ids = [...state.doc.sources.map((x) => x.id), ...steps().keys()];
+  const partners = joinPartners(state.doc, id)
+    .map((p) => ({ ...p, node: ids.find((n) => n.toLowerCase() === p.dataset.toLowerCase()) }))
+    .filter((p): p is JoinPartner & { node: string } => !!p.node && visible(p.node));
+  if (!partners.length) {
+    body.replaceChildren(h('p', { class: 'xp-none' }, 'Nothing in the ontology says what a row of it is, so it has no key to join by yet. Say what its rows are on the Ontology page, and the datasets that share its key are counted here.'));
+    return;
+  }
+  const loose = partners.some((p) => p.loose);
+  // What its rows are looked up in (its list, what a link of its own names) is counted at once; the rest when opened.
+  const leads = partners.filter((p) => p.leads);
+  const rest = partners.filter((p) => !p.leads);
+  const more = (p: JoinPartner & { node: string }) => {
+    const d = h('details', { class: 'xp-more', 'data-partner': p.node }, h('summary', {}, h('b', {}, p.node), h('code', { class: 'xp-on' }, xpOn(p))));
+    d.addEventListener('toggle', () => {
+      if (d.open && d.children.length === 1) d.append(xpJoin(id, read, p, who, false, null));
+    });
+    return d;
+  };
+  // The others, counted when opened: those with the same key, then those a link of the ontology's ties it to.
+  const group = (title: string, ps: (JoinPartner & { node: string })[]): Child => (ps.length ? h('section', { class: 'xp-others' }, h('h3', {}, title), ...ps.map(more)) : null);
+  const keyed = rest.filter((p) => p.why !== 'link');
+  const linked = rest.filter((p) => p.why === 'link');
+  body.replaceChildren(...([
+    h('p', { class: 'foot xp-over' }, `Counted on today’s rows, on both sides${loose ? '; ids match whatever their case and the spaces around them' : ''}.`),
+    ...leads.map((p) => xpJoin(id, read, p, who, true, p.why === 'scope' ? scope : null)),
+    group(`${plural(keyed.length, leads.some((p) => p.why !== 'link') ? 'other dataset' : 'dataset')} with the same key`, keyed),
+    group(`${plural(linked.length, 'dataset')} whose rows name its own`, linked),
+  ] as Child[]).filter((x): x is HTMLElement => !!x && typeof x !== 'string'));
+}
+
+/** What a join is on, beside its dataset's name: its key, or a link's name and its two columns. */
+const xpOn = (p: JoinPartner): string => (p.link ? `${p.link.name} · ${p.own === p.key ? p.own : `${p.own} = ${p.key}`}` : p.own === p.key ? `on ${p.own}` : `${p.own} = ${p.key}`);
+
+/** One join, counted (ADR 0025 §9): a sentence and a bar a side, the keys with no match on each, and the month's match
+ * where the partner is the dataset this one's scope is counted against. */
+function xpJoin(id: string, read: string, p: JoinPartner & { node: string }, who: string, headed: boolean, scope: string | [string, string[]][] | null): HTMLElement {
+  const why = joinWhy(id, { ...p, dataset: p.node });
+  const out = h('div', { class: 'xp-join-out', 'aria-live': 'polite' }, h('p', { class: 'foot' }, 'Counting…'));
+  const go = h('button', { type: 'button', class: 'linkish xp-go', onclick: () => (explorable(p.node) ? openTab(p.node, 'explore') : select(p.node)) }, `${explorable(p.node) ? 'Explore' : 'Open'} ${p.node} ›`);
+  const box = h('section', { class: 'xp-join', 'data-partner': p.node },
+    headed ? h('div', { class: 'xp-join-head' }, h('h3', {}, p.node), h('code', { class: 'xp-on' }, xpOn(p))) : null,
+    h('p', { class: 'xp-join-why' }, why), out, go);
+  const born = drill.token;
+  void (async () => {
+    const pv = await nodeView(p.node, who);
+    if (born !== drill.token) return;
+    if (typeof pv === 'string') return void out.replaceChildren(h('p', { class: 'foot' }, `${p.node}: ${pv}`));
+    const engine = state.engine!;
+    // Against the dataset its scope is counted against, the other side is the keys the scope keeps of it, as its gate
+    // counts them (ADR 0014 §4): a file of the internet-facing applications isn't short of the ones that aren't.
+    const scoped = scope !== null;
+    const other = scoped ? emitWhere(pv.read, scope) : pv.read;
+    const r = joinRead((await engine.query(emitJoinMatch(read, p.own, other, p.key, p.loose))).rows[0]!);
+    const [here, there] = joinSaid(id, { dataset: p.node, type: p.type, ...(p.link ? { link: p.link } : {}) }, r, scoped);
+    const lostHere = r.a.keys - r.a.keysMatched;
+    const lostThere = r.b.keys - r.b.keysMatched;
+    const LIST = 8;
+    const keysHere = lostHere ? (await engine.query(emitUnmatchedKeys(read, p.own, other, p.key, LIST, p.loose))).rows : [];
+    const keysThere = lostThere ? (await engine.query(emitUnmatchedKeys(other, p.key, read, p.own, LIST, p.loose))).rows : [];
+    if (born !== drill.token) return;
+    const side = (said: string, part: number, whole: number, cls: string) => h('div', { class: `xp-side ${cls}` },
+      h('div', { class: 'xp-match', role: 'img', 'aria-label': said }, h('i', { style: `width:${whole > 0 ? ((part / whole) * 100).toFixed(1) : '0'}%` })),
+      h('p', {}, said));
+    const keyList = (title: string, keys: readonly (readonly unknown[])[], total: number, cls: string) => (keys.length
+      ? h('div', { class: `xp-keys ${cls}` }, h('p', { class: 'xp-keys-h' }, title),
+          h('ul', {}, ...keys.map(([k, n]) => h('li', {}, h('code', {}, String(k)), Number(n) > 1 ? h('span', {}, ` ${plural(Number(n), 'row')}`) : null))),
+          total > keys.length ? h('p', { class: 'foot' }, `and ${plural(total - keys.length, 'more key')}`) : null)
+      : null);
+    // The match over the days kept, where each run counted this dataset's scope against the partner.
+    const days = p.why === 'scope' ? matchDays(rangesForLoad(id)?.file, 31, viewedDay()) : [];
+    const monthSaid = matchSaid(days);
+    const pc = (x: number) => `${Math.round(x * 100)}%`;
+    const month = monthSaid
+      ? h('div', { class: 'xp-month' }, h('p', { class: 'xp-keys-h' }, 'The match, day by day'),
+          svgNode(matchBars({ days: days.map((d) => ({ day: d.day, covered: d.covered, ...(d.covered !== null ? { title: `${dayLabel(d.day)}: ${pc(d.covered)} of ${plural(d.inScope, 'key')} in scope had a row${d.out ? `, ${plural(d.out, 'row')} out of scope` : ''}` } : {}) })), aria: monthSaid })),
+          h('p', { class: 'xp-month-said' }, monthSaid))
+      : null;
+    out.replaceChildren(...([
+      side(here, r.a.matched, r.a.rows, 'here'),
+      keyList(`The ${lostHere === 1 ? 'key' : `${fmtInt(lostHere)} keys`} of ${id} with no match ${scoped ? 'in scope ' : ''}in ${p.node}`, keysHere, lostHere, 'here'),
+      // A link into this dataset is said by the other's rows that name a row here; every other join by its keys.
+      p.link?.way === 'in' ? side(there, r.b.matched, r.b.rows, 'there') : side(there, r.b.keysMatched, r.b.keys, 'there'),
+      keyList(`The ${lostThere === 1 ? 'key' : `${fmtInt(lostThere)} keys`} ${scoped ? 'in scope in' : 'of'} ${p.node} with no row in ${id}`, keysThere, lostThere, 'there'),
+      month] as (HTMLElement | null)[]).filter((x): x is HTMLElement => !!x));
+  })().catch((e) => {
+    if (born === drill.token) out.replaceChildren(h('p', { class: 'status bad' }, `It couldn’t be counted: ${message(e)}`));
+  });
+  return box;
+}
+
+/**
+ * A dataset's rows against another day's (ADR 0025 §9, on ADR 0021 §4's compare): by its key where it has one, else as
+ * whole rows; rows only in one day, and rows whose cells changed. Rows are read from both days' runs in this browser,
+ * so a day not run here yet is run first, and the day on screen put back.
+ */
+function xpDays(body: HTMLElement, card: string, id: string, who: string): void {
+  const here = asReaders(id, who) ? state.names.get(id) : latest();
+  const k = here?.load;
+  if (!here || k === undefined || !loads.list[k]) {
+    body.replaceChildren(h('p', { class: 'foot' }, 'Run a day to compare its rows with another day’s.'));
+    return;
+  }
+  // The other days' latest runs in this visit, whose rows this engine holds: what readers got of a filled day.
+  const ran = new Map<number, RunRecord>();
+  for (const r of state.runs) if (r.load !== undefined && r.load !== k && !r.derived && !ran.has(r.load)) ran.set(r.load, filledOf(r) ?? r);
+  // The day asked for; else the nearest day before that ran here, the day before, or the day after.
+  const before = [...ran.keys()].filter((x) => x < k).sort((a, b) => b - a)[0];
+  const asked = xp.other.get(card);
+  const other = asked !== undefined && asked !== k && loads.list[asked] ? asked : before ?? (k > 0 ? k - 1 : loads.list.length > 1 ? k + 1 : -1);
+  if (other < 0) {
+    body.replaceChildren(h('p', { class: 'foot' }, 'There is no other day to compare it with.'));
+    return;
+  }
+  const pick = h('select', { class: 'dc-pick xp-other', 'aria-label': `The day ${dayLabel(loads.list[k]!.day)} is compared with`, onchange: (e: Event) => {
+    const j = loads.list.findIndex((l) => l.day === (e.target as HTMLSelectElement).value);
+    if (j >= 0) xp.other.set(card, j);
+    void renderSheet();
+  } }, ...loads.list.map((l, j) => (j === k ? null : h('option', { value: l.day, ...(j === other ? { selected: true } : {}) }, `${dayLabel(l.day)}${ran.has(j) ? '' : ' · not run here yet'}`))));
+  const head = h('div', { class: 'xp-days-head', 'data-day': loads.list[k]!.day }, h('span', {}, h('b', {}, dayLabel(loads.list[k]!.day)), ' against'), pick);
+  const out = h('div', { class: 'xp-days-out', 'aria-live': 'polite' });
+  body.replaceChildren(head, out);
+  const there = ran.get(other);
+  const otherDay = dayLabel(loads.list[other]!.day);
+  if (!there) {
+    // A day's rows are in this engine once the day has run here: one tap runs it, and the day on screen again.
+    const may = mayRun() && !whatIf?.run;
+    const run = h('button', { type: 'button', class: 'btn show xp-run', onclick: () => void xpRunOther(card, other) }, `Run ${otherDay} here, and compare ›`);
+    run.disabled = state.running;
+    const failed = xp.failed.get(card) === other;
+    xp.failed.delete(card);
+    out.replaceChildren(h('p', { class: 'xp-none' }, failed ? `${otherDay} didn’t run here: its file was refused, or the run stopped. There are no rows of it to compare.` : `Rows are read from both days as they ran in this browser, and ${otherDay} hasn’t run here yet.`),
+      may ? run : h('p', { class: 'foot' }, whatIf?.run ? 'Close the what-if first: running another day closes it.' : 'Only someone who may decide runs a day.'));
+    return;
+  }
+  // The earlier day first, so what is only in the later one reads as added.
+  const [ra, rb] = other < k ? [there, here] : [here, there];
+  const [la, lb] = other < k ? [otherDay, dayLabel(loads.list[k]!.day)] : [dayLabel(loads.list[k]!.day), otherDay];
+  const got = rowDiffOf(ra, rb, id, who, true);
+  const draw = (d: RowDiff | string) => out.replaceChildren(typeof d === 'string' ? h('p', { class: 'dc-said' }, d) : rowDiffView(d, la, lb));
+  if (got.done !== undefined) draw(got.done);
+  else {
+    out.append(h('p', { class: 'dc-said' }, 'Comparing the rows…'));
+    void got.asked.then(draw, (e) => out.replaceChildren(h('p', { class: 'dc-said' }, `The rows couldn’t be compared: ${message(e)}`)));
+  }
+}
+
+/** Run another day here, then the day that was on screen again, and show the two compared on the card's Explore tab. */
+async function xpRunOther(card: string, other: number): Promise<void> {
+  const back = loads.at;
+  if (state.running || !loads.list[other] || back < 0) return;
+  xp.part.set(card, 'days');
+  xp.other.set(card, other);
+  drill.tab.set(card, 'explore');
+  await runLoad(other);
+  await runLoad(back);
+  if (!state.runs.some((r) => r.load === other && !r.derived)) xp.failed.set(card, other);
+  if (state.selected === card) void renderSheet();
+  else select(card);
+}
 
 // ------------------------------------------------------------------ what-if runs (ADR 0021 §2, §4, Q-191)
 
