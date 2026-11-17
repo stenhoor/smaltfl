@@ -1,5 +1,5 @@
 /**
- * The estate's ontology in a document of its own (src/core/shared.ts, compose.ts; ADR 0025 §8): flows import it, each
+ * The estate's ontology in a document of its own (src/core/shared.ts, compose.ts; ADR 0026 §8): flows import it, each
  * takes what is about the datasets it has or reads, a flow may handle a column of its own datasets its own way where it
  * says so with its reason, and saying a shared column again without that mark is refused.
  */

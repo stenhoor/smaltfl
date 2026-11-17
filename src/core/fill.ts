@@ -265,7 +265,7 @@ export function repairDocument(doc: FlowDocument, repair: Repair): FlowDocument 
   const filled: FillStep = repair.donor
     ? { ...step, inputs: [step.inputs[0]!, donor.id], missing: structuredClone(repair.missing), from: repair.donor.day }
     : { ...step, inputs: [step.inputs[0]!], missing: structuredClone(repair.missing), from: null };
-  // In a flow that reads flows (ADR 0025), the donor is the same flow's as the file it fills: its own source, there.
+  // In a flow that reads flows (ADR 0026), the donor is the same flow's as the file it fills: its own source, there.
   const flows = repair.donor && doc.flows ? doc.flows.map((f) => (f.sources.some((x) => x.toLowerCase() === source.id.toLowerCase()) ? { ...f, sources: [...f.sources, donor.id] } : f)) : doc.flows;
   return {
     ...doc,

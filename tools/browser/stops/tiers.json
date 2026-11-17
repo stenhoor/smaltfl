@@ -1,7 +1,7 @@
 [
   {
     "name": "tiers-wait",
-    "what": "What waits for a decision names the flow whose file holds (ADR 0025 §5): Evidence feeds, then the file and what it said",
+    "what": "What waits for a decision names the flow whose file holds (ADR 0026 §5): Evidence feeds, then the file and what it said",
     "view": "month",
     "viewFirst": true,
     "element": "#view-month .mo-wait",
@@ -12,7 +12,7 @@
   },
   {
     "name": "tiers-march",
-    "what": "March in tiers (ADR 0025 §5): a row a flow, its bar for a day the worst any of its files or steps said; the top flow's days it only waited on Evidence feeds drawn as outlines, said after its own; the calm flows folded",
+    "what": "March in tiers (ADR 0026 §5): a row a flow, its bar for a day the worst any of its files or steps said; the top flow's days it only waited on Evidence feeds drawn as outlines, said after its own; the calm flows folded",
     "view": "month",
     "viewFirst": true,
     "element": "#view-month .mo-health",
@@ -59,7 +59,7 @@
   },
   {
     "name": "tiers-own-month",
-    "what": "A flow's own month (ADR 0025 §5), by its link: Evidence feeds' March, by what its files and steps and Inventory's came to. A line says whose month it is and goes back; its counts, its calendar, the day that waits with only what it gives; no scenes and no score, which are the top flow's",
+    "what": "A flow's own month (ADR 0026 §5), by its link: Evidence feeds' March, by what its files and steps and Inventory's came to. A line says whose month it is and goes back; its counts, its calendar, the day that waits with only what it gives; no scenes and no score, which are the top flow's",
     "view": "month/2024-03/in/feeds",
     "viewFirst": true,
     "full": true,
@@ -134,7 +134,7 @@
   },
   {
     "name": "tiers-link",
-    "what": "From the whole month to a flow's own (ADR 0025 §5): Evidence feeds' row opened, and Its own month",
+    "what": "From the whole month to a flow's own (ADR 0026 §5): Evidence feeds' row opened, and Its own month",
     "view": "month",
     "viewFirst": true,
     "clicks": ["#view-month .mh-row[data-row=\"flow:feeds\"] .mh-flow-name", "#view-month .mh-row[data-row=\"flow:feeds\"] .mh-month"],
@@ -169,7 +169,7 @@
   },
   {
     "name": "tiers-open-day",
-    "what": "A day opened from a flow's own month is the day screen inside that flow (ADR 0025 §4, §5): Wed Mar 27 in Evidence feeds",
+    "what": "A day opened from a flow's own month is the day screen inside that flow (ADR 0026 §4, §5): Wed Mar 27 in Evidence feeds",
     "view": "month/2024-03/in/feeds",
     "viewFirst": true,
     "clicks": ["#view-month .mo-sum .mo-open"],
@@ -184,7 +184,7 @@
   },
   {
     "name": "tiers-from-card",
-    "what": "From a flow's card to its own month (ADR 0025 §5): its sheet's link, on the month of the day on screen",
+    "what": "From a flow's card to its own month (ADR 0026 §5): its sheet's link, on the month of the day on screen",
     "day": "Wed 27",
     "in": "",
     "flow": "feeds",

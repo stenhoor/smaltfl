@@ -568,7 +568,7 @@ export function emitDrop(table: string): string {
   return `DROP TABLE ${q(table)}`;
 }
 
-// ------------------------------------------------------------------ exploring a dataset (ADR 0025 §9)
+// ------------------------------------------------------------------ exploring a dataset (ADR 0026 §9)
 
 /**
  * A part of a dataset, picked on one of its columns as a reader taps it: the rows with one value (`null`: the rows with
@@ -703,7 +703,7 @@ export function emitKeptCell(dataset: string, picks: readonly RowPick[]): string
 }
 
 /**
- * What a use of a flow reads of the dataset mapped onto one of its inputs (ADR 0025 §11): the columns the flow needs,
+ * What a use of a flow reads of the dataset mapped onto one of its inputs (ADR 0026 §11): the columns the flow needs,
  * by name, and no other. So a flow reads of an input what it declares, a column the dataset lacks stops the run at
  * this step by name, and the flow's own steps never learn which dataset they were given. `ref` writes the dataset
  * where it is read, as a notebook's cell names one.
@@ -712,7 +712,7 @@ export function emitPort(columns: readonly string[], dataset: string, ref: (data
   return `SELECT ${columns.map((c) => q(c)).join(', ')}\nFROM ${ref(dataset)}`;
 }
 
-/** A join as a form gives it (ADR 0025 §10): two datasets, the key on each side, which rows are kept and the columns
+/** A join as a form gives it (ADR 0026 §10): two datasets, the key on each side, which rows are kept and the columns
  * taken. */
 export interface JoinColumns {
   left: string;
@@ -727,7 +727,7 @@ export interface JoinColumns {
 }
 
 /**
- * A join as a statement a person reads and changes in a cell (ADR 0025 §10): the columns taken, a line a side, the
+ * A join as a statement a person reads and changes in a cell (ADR 0026 §10): the columns taken, a line a side, the
  * key. `ref` writes a dataset where it is read: its name, or in a notebook's cell the name between `${` and `}`.
  */
 export function emitJoin(j: JoinColumns, ref: (dataset: string) => string = (d) => q(d)): string {

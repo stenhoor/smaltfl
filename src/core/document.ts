@@ -298,7 +298,7 @@ export interface FlowDocument {
    */
   changes?: ChangeSet[];
   /**
-   * The flows this one reads (ADR 0025 §1): each a flow of its own, in its own folder, read into this document when it
+   * The flows this one reads (ADR 0026 §1): each a flow of its own, in its own folder, read into this document when it
    * is read (compose.ts), so the document a run hashes has every flow it reads in it and the plan stays flat. On disk a
    * flow lists them by path; read, each says which sources and steps are its own, the flows it reads in turn, and its
    * own flow hash. Every flow in the document is listed, in an order where a flow comes after the flows it reads. Part
@@ -306,19 +306,19 @@ export interface FlowDocument {
    */
   flows?: FlowPart[];
   /**
-   * The flow's open inputs (ADR 0025 §11): each a dataset the flow reads in place of a file of its own, with the columns
+   * The flow's open inputs (ADR 0026 §11): each a dataset the flow reads in place of a file of its own, with the columns
    * it needs. A flow with one runs only inside a flow that uses it, which maps one of its own datasets onto each
    * (`flows`' `{ path, as, inputs }` on disk; `FlowPart.use` once read). Part of the flow hash.
    */
   inputs?: InputDef[];
   /**
-   * The flow's settings (ADR 0025 §11): values each use may give, read in its notebooks as `${params.name}` and written
+   * The flow's settings (ADR 0026 §11): values each use may give, read in its notebooks as `${params.name}` and written
    * into the steps where the notebooks are read: a use with another value is other steps, with another hash. Each has
    * a default, which the flow read on its own runs with. Part of the flow hash.
    */
   settings?: SettingDef[];
   /**
-   * A use of a flow, as its own document (ADR 0025 §11): the flow it is a use of, the dataset mapped onto each of its
+   * A use of a flow, as its own document (ADR 0026 §11): the flow it is a use of, the dataset mapped onto each of its
    * inputs and the value of each setting. The document is the flow read under the use's name, its steps named after
    * it, and it reads datasets it doesn't hold: it is hashed, kept and compared, and never run on its own. Part of the
    * flow hash.
@@ -342,12 +342,12 @@ export interface FlowDocument {
   outline?: NotebookOutline[];
 }
 
-/** A flow another reads, as that flow's file lists it (ADR 0025 §1): its document's path, relative to the file; read,
+/** A flow another reads, as that flow's file lists it (ADR 0026 §1): its document's path, relative to the file; read,
  * the flow as the document holds it. */
 export type FlowRef = string | FlowPart;
 
 /**
- * A flow read into a document (ADR 0025 §1, §2): its own sources and steps, by id, the flows it reads in turn, and what
+ * A flow read into a document (ADR 0026 §1, §2): its own sources and steps, by id, the flows it reads in turn, and what
  * it is known by, its own flow hash: the hash of the document read from its own folder, with the flows it reads in it.
  */
 export interface FlowPart {
@@ -365,10 +365,10 @@ export interface FlowPart {
   reads: string[];
   /** Whether the document's own flow lists it (true), or only a flow it reads does. */
   direct: boolean;
-  /** The flows that pin it (ADR 0025 §7): each reads it only as the flow its hash names, so reading refuses any other
+  /** The flows that pin it (ADR 0026 §7): each reads it only as the flow its hash names, so reading refuses any other
    * until the pin is moved. By id, the document's own flow by ''. Absent where none does. */
   pin?: string[];
-  /** A use of a flow (ADR 0025 §11): what it is a use of, and what this use maps and sets. Its `id` is the use's name,
+  /** A use of a flow (ADR 0026 §11): what it is a use of, and what this use maps and sets. Its `id` is the use's name,
    * its `hash` the use's own, its `path` the used flow's. Absent for a flow read as it is. */
   use?: FlowUse;
 }
@@ -376,7 +376,7 @@ export interface FlowPart {
 /** A flow part's fields: any other is refused by name. */
 const FLOW_PART_FIELDS = ['path', 'id', 'name', 'description', 'hash', 'sources', 'steps', 'reads', 'direct', 'pin', 'use'];
 
-/** An open input of a flow (ADR 0025 §11): a dataset it reads in place of a file of its own. A flow that uses it maps
+/** An open input of a flow (ADR 0026 §11): a dataset it reads in place of a file of its own. A flow that uses it maps
  * one of its own datasets onto it, and the flow's steps read the columns named here and no other. */
 export interface InputDef {
   id: string;
@@ -385,7 +385,7 @@ export interface InputDef {
   columns: string[];
 }
 
-/** A setting of a flow (ADR 0025 §11): a value each use may give, with the default the flow has on its own. */
+/** A setting of a flow (ADR 0026 §11): a value each use may give, with the default the flow has on its own. */
 export interface SettingDef {
   name: string;
   type: ParamType;
@@ -394,7 +394,7 @@ export interface SettingDef {
 }
 
 /**
- * What a use of a flow is (ADR 0025 §11): the flow used, by its id, its name and its own flow hash (with its inputs
+ * What a use of a flow is (ADR 0026 §11): the flow used, by its id, its name and its own flow hash (with its inputs
  * open); each of its inputs with the dataset mapped onto it and the columns the flow needs of it; and each of its
  * settings with its type, its value here (the flow's default where the use gives none) and that default.
  */
@@ -436,7 +436,7 @@ export function flowOf(doc: Pick<FlowDocument, 'flows'>, id: string): FlowPart |
   return (doc.flows ?? []).find((f) => f.sources.some((x) => x.toLowerCase() === lower) || f.steps.some((x) => x.toLowerCase() === lower));
 }
 
-/** What a flow gives (ADR 0025 §1): the datasets it publishes, which a flow that reads it may read. A part by its id;
+/** What a flow gives (ADR 0026 §1): the datasets it publishes, which a flow that reads it may read. A part by its id;
  * the document's own flow with no id. In the steps' order. */
 export function givesOf(doc: Pick<FlowDocument, 'flows' | 'steps'>, flow?: string): string[] {
   const owner = flowOwners(doc);
@@ -479,7 +479,7 @@ export interface OutlineCell {
   publishes?: string[];
   /** The source or step a gate cell judges. */
   gate?: string;
-  /** The open input an input cell binds (ADR 0025 §11); in a use, `step` is the step that reads the dataset mapped
+  /** The open input an input cell binds (ADR 0026 §11); in a use, `step` is the step that reads the dataset mapped
    * onto it. */
   input?: string;
 }
@@ -497,13 +497,13 @@ export interface CellRef {
 export interface NotebookDef {
   path: string;
   source: string;
-  /** The use of a flow this notebook is read for (ADR 0025 §11), by the use's name: its cells are that use's steps,
+  /** The use of a flow this notebook is read for (ADR 0026 §11), by the use's name: its cells are that use's steps,
    * named after it, its inputs the datasets the use maps and its settings the use's values. Its path then ends in
    * `#<use>`, so the same notebook read for two uses is two entries. Absent for a notebook read as it is. */
   use?: string;
 }
 
-/** The path a notebook has when it is read for a use (ADR 0025 §11): its own, then `#` and the use's name. */
+/** The path a notebook has when it is read for a use (ADR 0026 §11): its own, then `#` and the use's name. */
 export const usePath = (path: string, use: string): string => `${path}#${use}`;
 /** A notebook's path as its file has it: without the use it is read for. */
 export const filePath = (path: string): string => (path.includes('#') ? path.slice(0, path.indexOf('#')) : path);
@@ -736,7 +736,7 @@ export function validateDocument(doc: unknown): Issue[] {
       if (typeof s.table !== 'string' || s.table === '') add(`${at}.table`, 'the name of a table in the database');
     });
 
-  // Open inputs (ADR 0025 §11): each a name the flow's steps read, as they read a file's, with the columns it needs.
+  // Open inputs (ADR 0026 §11): each a name the flow's steps read, as they read a file's, with the columns it needs.
   if (doc.inputs !== undefined) {
     if (!Array.isArray(doc.inputs)) add('$.inputs', 'a list of the flow’s open inputs, each { id, columns }');
     else
@@ -750,7 +750,7 @@ export function validateDocument(doc: unknown): Issue[] {
       });
     if (doc.use !== undefined) add('$.inputs', 'a use has every input mapped: its own document has none open');
   }
-  // Settings (ADR 0025 §11): like parameters, each with a default; a name is one or the other.
+  // Settings (ADR 0026 §11): like parameters, each with a default; a name is one or the other.
   if (doc.settings !== undefined) {
     if (!Array.isArray(doc.settings)) add('$.settings', 'a list of the flow’s settings, each { name, type, default }');
     else {
@@ -768,7 +768,7 @@ export function validateDocument(doc: unknown): Issue[] {
       });
     }
   }
-  // A use's own document (ADR 0025 §11) reads the datasets mapped onto its inputs, which it doesn't hold.
+  // A use's own document (ADR 0026 §11) reads the datasets mapped onto its inputs, which it doesn't hold.
   const given = new Set<string>();
   if (doc.use !== undefined) {
     const problem = useProblem(doc.use);
@@ -1176,7 +1176,7 @@ function validateWatch(w: Record<string, unknown>, at: string, add: (path: strin
     if (w[k] !== undefined && (!Array.isArray(w[k]) || (w[k] as unknown[]).some((c) => typeof c !== 'string' || c === '') || new Set(w[k] as string[]).size !== (w[k] as unknown[]).length)) add(`${at}.${k}`, 'a list of columns, each once');
 }
 
-/** What is wrong with a use (ADR 0025 §11) as a document or a flow's part gives it, in a sentence; null where it is one. */
+/** What is wrong with a use (ADR 0026 §11) as a document or a flow's part gives it, in a sentence; null where it is one. */
 function useProblem(u: unknown): string | null {
   const shape = '{ of: { id, name, hash }, inputs: { input: { to, columns } }, settings: { name: { type, value, default } } }: the flow used, the dataset mapped onto each of its inputs and the value of each setting';
   if (!isRecord(u) || !isRecord(u.of) || !isRecord(u.inputs) || !isRecord(u.settings)) return shape;
@@ -1193,7 +1193,7 @@ function useProblem(u: unknown): string | null {
 }
 
 /**
- * The flows a document reads (ADR 0025 §1): each a part with its own sources and steps, none shared; a flow after the
+ * The flows a document reads (ADR 0026 §1): each a part with its own sources and steps, none shared; a flow after the
  * flows it reads, so none reads itself; and what one flow reads of another is that flow's to give: a dataset it
  * publishes, or one of its files as it arrived, and only of a flow it lists. A use of a flow (§11) reads, besides, the
  * datasets mapped onto its inputs: those of the flow that lists it, or what a flow that one lists gives.
@@ -1260,7 +1260,7 @@ function validateFlows(doc: Record<string, unknown>, ids: Map<string, string>, a
     const i = (doc.steps as unknown[]).indexOf(s);
     for (const input of Array.isArray(s.inputs) ? s.inputs : []) if (typeof input === 'string') check(`$.steps[${i}].inputs`, reader, String(s.id), input);
   });
-  // What a use maps is what the flow that lists it may read itself (ADR 0025 §11): a dataset of that flow's own, or
+  // What a use maps is what the flow that lists it may read itself (ADR 0026 §11): a dataset of that flow's own, or
   // of a flow it lists. A flow lists every flow it reads from, and a use is no way round that.
   parts.forEach((part, i) => {
     if (!part.use) return;
@@ -1384,7 +1384,7 @@ function validateExtras(doc: Record<string, unknown>, ids: Map<string, string>, 
             }
             if (p.newValues !== undefined && p.newValues !== 'alert') add(`${at}.newValues`, 'alert: a value never seen before is something wrong');
             if (p.models !== undefined && p.models !== 'include' && p.models !== 'exclude') add(`${at}.models`, 'include or exclude: whether the two models read the column');
-            // A flow's own handling of a column the estate describes (ADR 0025 §8): for its own datasets, with why.
+            // A flow's own handling of a column the estate describes (ADR 0026 §8): for its own datasets, with why.
             if (p.override !== undefined) {
               if (!isRecord(p.override) || typeof p.override.reason !== 'string' || p.override.reason.trim() === '') add(`${at}.override`, '{ reason }: why this flow handles the column its own way');
               if (!Array.isArray(p.datasets) || p.datasets.length === 0) add(`${at}.override`, 'an override is of the flow’s own datasets: datasets names them');
@@ -1510,7 +1510,7 @@ function validateExtras(doc: Record<string, unknown>, ids: Map<string, string>, 
       // A shared ontology is brought in when the flow is read (shared.ts): a document still listing paths wasn't.
       if ((o as Record<string, unknown>).import !== undefined) add('$.ontology.import', 'shared ontologies are brought in when the flow is read (readFlow): this document lists paths it was never read with');
       if (o.shared !== undefined && (!Array.isArray(o.shared) || o.shared.some((x: unknown) => !isRecord(x) || typeof x.file !== 'string' || typeof x.path !== 'string' || !known(x.file) || !Array.isArray(x.columns) || x.columns.some((c: unknown) => typeof c !== 'string')))) add('$.ontology.shared', 'where each shared part came from: [{ file: a source, path, columns }]');
-      // Where the estates' ontologies it took came from (ADR 0025 §8): each by its name, its path and its hash.
+      // Where the estates' ontologies it took came from (ADR 0026 §8): each by its name, its path and its hash.
       if (o.estate !== undefined && (!Array.isArray(o.estate) || o.estate.some((x: unknown) => !isRecord(x) || typeof x.name !== 'string' || x.name === '' || typeof x.path !== 'string' || x.path === '' || typeof x.hash !== 'string' || !/^[0-9a-f]{64}$/.test(x.hash)))) add('$.ontology.estate', 'where each estate’s ontology came from: [{ name, path, hash }]');
       // The threshold each dataset is judged by (Q-207): a source's or a step's, a share of the day's rows.
       if (o.overwhelming !== undefined) {

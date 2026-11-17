@@ -1,5 +1,5 @@
 /**
- * Building in the app: the catalogue (ADR 0025 §10). A build ships flows that are made already, each as the document
+ * Building in the app: the catalogue (ADR 0026 §10). A build ships flows that are made already, each as the document
  * reading its own folder gives. *Add a flow* puts one into the flow on screen: its own steps, notebooks, checks and
  * meanings join the document, and the document lists it among the flows it reads, by the hash it is known by. What it
  * reads must be read here too, as the same flows: a flow is added to a flow that already reads what it is built on.
@@ -37,7 +37,7 @@ export interface CatalogueEntry {
   /** How many files and steps are its own. */
   files: number;
   steps: number;
-  /** Its open inputs and its settings (ADR 0025 §11), where it has any: such a flow is added as a use, under a name,
+  /** Its open inputs and its settings (ADR 0026 §11), where it has any: such a flow is added as a use, under a name,
    * with a dataset mapped onto each input; what it gives is then named after the use. */
   inputs?: InputDef[];
   settings?: SettingDef[];
@@ -76,7 +76,7 @@ const settings = (p: FlowDocument['publish']) => {
 };
 
 /**
- * Why a catalogue flow can't be added to a document (ADR 0025 §10), each in a sentence; none, and it can. It is read
+ * Why a catalogue flow can't be added to a document (ADR 0026 §10), each in a sentence; none, and it can. It is read
  * here already; it is built on a flow this one doesn't read, or reads as another flow (by its hash); it has files of
  * its own, or watches a dataset, for which a build would have to ship data; a name of its own is taken; it keeps
  * another calendar, another day or another way of pausing; or it has policies of its own. A flow with an open input
@@ -150,7 +150,7 @@ function withOntology(a: Ontology | undefined, b: Ontology | undefined): Ontolog
 }
 
 /**
- * A document with a catalogue flow added (ADR 0025 §10): the flow's own notebooks, steps, gates, contracts and meanings
+ * A document with a catalogue flow added (ADR 0026 §10): the flow's own notebooks, steps, gates, contracts and meanings
  * after the document's, each notebook by its path from the document's folder, and the flow listed last among the flows
  * the document reads, by `path` and `hash`, with what is its own and the flows it reads. For a flow `addProblems` says
  * nothing against. `own` is the document reading the flow's folder gives.
@@ -185,7 +185,7 @@ export function addFlow(doc: FlowDocument, own: FlowDocument, path: string, hash
     hash,
     sources: [],
     steps: mine.steps.map((s) => s.id),
-    // The flows it lists; and, for a use (ADR 0025 §11), the flows that give the datasets mapped onto its inputs.
+    // The flows it lists; and, for a use (ADR 0026 §11), the flows that give the datasets mapped onto its inputs.
     reads: [...new Set([...(own.flows ?? []).filter((f) => f.direct).map((f) => f.id), ...Object.values(own.use?.inputs ?? {}).flatMap((x) => flowOf(doc, x.to)?.id ?? [])])],
     direct: true,
     ...(own.use ? { use: own.use } : {}),

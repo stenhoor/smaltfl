@@ -91,7 +91,7 @@ export { composeAll, composeFlow, flowProblems, pathFrom } from './core/compose.
 export type { FlowFiles } from './core/compose.js';
 export { filePath, flowOf, flowOwners, givesOf, readsOf, usedName, usePath, usesOf } from './core/document.js';
 export type { FlowPart, FlowRef, FlowUse, InputDef, SettingDef, UseSetting } from './core/document.js';
-// A flow used under a name: its inputs and its settings (ADR 0025 §11).
+// A flow used under a name: its inputs and its settings (ADR 0026 §11).
 export { flowUse, mapProblems, readsFill, USE_NAME, useDocument, useName, useNames, useOf, useOntologyProblems, useProblems } from './core/reuse.js';
 export type { UseSpec } from './core/reuse.js';
 export type { CellStep, DfCompiler, Expanded, ExpandOptions, NotebookRef } from './core/notebook.js';

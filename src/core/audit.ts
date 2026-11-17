@@ -410,7 +410,7 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
     }
     const flow = flows.get(m.flow.hash);
     if (flow && (await flowHash(JSON.parse(text(flow.bytes)) as FlowDocument)) !== m.flow.hash) problems.push("its flow document doesn't hash to what the manifest says");
-    // The flows it read (ADR 0025 §2, §7): the ones its document names, each one's own document in the bag by the hash
+    // The flows it read (ADR 0026 §2, §7): the ones its document names, each one's own document in the bag by the hash
     // the run names it by, and held unchanged in the run's document. So the day a flow changed is on the record: the
     // first run that names another hash for it.
     const runDoc = flow ? (JSON.parse(text(flow.bytes)) as FlowDocument) : null;
@@ -508,7 +508,7 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
       rule = may.rule ?? null;
     }
     if (a.option === 'asis' && (typeof e.reason !== 'string' || e.reason.trim() === '')) problems.push('it publishes as is with no reason');
-    // In a flow that reads flows (ADR 0025 §6): the flow a decision says it is about is the one whose file or step
+    // In a flow that reads flows (ADR 0026 §6): the flow a decision says it is about is the one whose file or step
     // holds its load, by the hash the run's document knows it by; a decision it says it carries is an earlier one of
     // the same run, to the same end, about the load its own follows.
     if (a.flow !== undefined || a.carried !== undefined) {
@@ -525,7 +525,7 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
         }
       }
     }
-    // Between pages of one browser (ADR 0025 §6, second step): a decision of the record's own flow made on a page says
+    // Between pages of one browser (ADR 0026 §6, second step): a decision of the record's own flow made on a page says
     // the flow as kept when its run ran, which the record's `flow` entry before that run says too; one carried from
     // another page cites the decision it carries in that page's record, and the proof kept beside it holds that entry,
     // in its record under a checkpoint the same browser signed: made at the same flow, about the same load, to the same

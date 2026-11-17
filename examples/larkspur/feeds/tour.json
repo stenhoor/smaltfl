@@ -1,7 +1,7 @@
 {
   "format": "smaltfl-story/1",
   "flow": "feeds",
-  "note": "Evidence feeds' own page, on the tour's two months (ADR 0025 §6): the tour's story (examples/larkspur/tour.json) as far as it is about this flow's files. The same files sent again, the same decisions at the same times, each by the flow's owner; HR's file and its decision are HR organisation's, and not here. Wed Mar 27 is left to decide, as it is in the tour.",
+  "note": "Evidence feeds' own page, on the tour's two months (ADR 0026 §6): the tour's story (examples/larkspur/tour.json) as far as it is about this flow's files. The same files sent again, the same decisions at the same times, each by the flow's owner; HR's file and its decision are HR organisation's, and not here. Wed Mar 27 is left to decide, as it is in the tour.",
   "deliveries": [
     {
       "day": "2024-02-26",

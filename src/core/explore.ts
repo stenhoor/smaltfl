@@ -1,5 +1,5 @@
 /**
- * Exploring a dataset (ADR 0025 §9), for someone who has never seen it: what a row is, in a sentence; a card a column
+ * Exploring a dataset (ADR 0026 §9), for someone who has never seen it: what a row is, in a sentence; a card a column
  * over every row, with a small chart that fits what the column holds; a part picked on one column and lit in every
  * other; and how the dataset joins to the others that share its key, counted on both sides.
  *
@@ -129,7 +129,7 @@ export function stampLabel(stamp: string): string {
 }
 
 /**
- * A column's card from what the engine counted (ADR 0025 §9): `counted` is the rows of the statement `askOf` asked
+ * A column's card from what the engine counted (ADR 0026 §9): `counted` is the rows of the statement `askOf` asked
  * for (`[value, rows, lit]`, `[bin, rows, lit]` or `[stamp, rows, lit]`), `fit` the row of `emitFit` where values are
  * written for the column. `label` names a coded value as the ontology does. A value's bars are the most common first;
  * a number's and a time's in order, every bin and stamp between the first and the last drawn, the empty ones too, so a
@@ -291,7 +291,7 @@ const said = (doc: Described, dataset: string): boolean => !!rowsOf(doc.ontology
 const KEEPS = new Set(['expectations', 'filter', 'fill']);
 
 /**
- * The dataset whose rows a dataset's are (ADR 0025 §9): itself where something says what its rows are; else the one it
+ * The dataset whose rows a dataset's are (ADR 0026 §9): itself where something says what its rows are; else the one it
  * keeps the rows of, back through the steps that only check, filter or fill them (what a flow gives of a file is the
  * file's rows, checked). Null where nothing says, here or behind it.
  */
@@ -307,7 +307,7 @@ export function rowsKeptFrom(doc: Described, dataset: string): string | null {
 }
 
 /**
- * What a row is (ADR 0025 §9), in a sentence from the ontology: "One row is an application: 600 rows, one for each
+ * What a row is (ADR 0026 §9), in a sentence from the ontology: "One row is an application: 600 rows, one for each
  * app_id." A dataset that keeps another's rows (a file, checked) is said as that one is, and says so. Where no rows
  * entry or type says, its key if a gate gives it one, and that nothing says what a row is yet.
  */
@@ -352,7 +352,7 @@ export interface JoinPartner {
 }
 
 /**
- * The datasets a dataset joins to (ADR 0025 §9): the one its scope is counted against (the inventory); then every other
+ * The datasets a dataset joins to (ADR 0026 §9): the one its scope is counted against (the inventory); then every other
  * dataset whose rows are objects of the same type, the type's own dataset first, in the ontology's order; then, for a
  * type's own dataset, the datasets the ontology's links tie it to, a column of one naming the key of the other (a link
  * of a type to itself, a hierarchy, is no join to another dataset and is left out). A dataset that keeps another's rows
@@ -405,7 +405,7 @@ export function joinPartners(doc: Described, dataset: string): JoinPartner[] {
   return out;
 }
 
-/** Why two datasets join, in a sentence for the join's head (ADR 0025 §9). */
+/** Why two datasets join, in a sentence for the join's head (ADR 0026 §9). */
 export function joinWhy(dataset: string, p: JoinPartner): string {
   const thing = p.type ? p.type.toLowerCase() : null;
   const a = (word: string) => `${article(word)} ${word}`;
@@ -433,7 +433,7 @@ export function joinRead(row: readonly unknown[]): { a: JoinSide; b: JoinSide } 
 }
 
 /**
- * A join in two sentences, one a side (ADR 0025 §9): how many of this dataset's rows find a match there, and how many
+ * A join in two sentences, one a side (ADR 0026 §9): how many of this dataset's rows find a match there, and how many
  * of the other's keys have a row here. "596 of 600 rows find their application in cmdb_apps (over 99%): 4 don't."
  * "588 of the 612 keys in cmdb_apps have a row here (96%): 24 have none." `scoped`: the other side is counted over
  * the keys this dataset's scope keeps of it, as its gate counts them (ADR 0014 §4), and each sentence says so.
@@ -483,7 +483,7 @@ export interface MatchDay {
 }
 
 /**
- * A dataset's match with its inventory over the days a history keeps (ADR 0025 §9): each run counts its scope (ADR
+ * A dataset's match with its inventory over the days a history keeps (ADR 0026 §9): each run counts its scope (ADR
  * 0014 §4), so the rate needs no new measure. The `last` days up to `until` (the day on screen: a day after it isn't
  * known on it). Empty where the history counts no scope.
  */

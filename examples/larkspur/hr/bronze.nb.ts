@@ -1,4 +1,4 @@
-// The organisation as HR exports it each day (ADR 0020 §2), a flow of its own (ADR 0025): its units and the people
+// The organisation as HR exports it each day (ADR 0020 §2), a flow of its own (ADR 0026): its units and the people
 // leading them, judged as they arrive. Each file has a gate (written checks hold the day, learned ones warn) and a
 // check step that keeps the rows it can read. The organisation's notebook reads the checked steps.
 import { cell, md, param } from 'smaltnb';

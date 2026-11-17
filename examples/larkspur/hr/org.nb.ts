@@ -2,7 +2,7 @@
 // from every unit up to the group, which gives each unit its levels and the leader it answers to. A vacant unit's leader
 // is its acting leader, or else the leader above it, marked as inherited. The walk stops at a parent the extract doesn't
 // list, and gives up eight levels up: a chain that reaches neither the group nor an end is a loop. The units, the leaders,
-// the closure and the chain are what this flow gives the flows that read it (ADR 0025).
+// the closure and the chain are what this flow gives the flows that read it (ADR 0026).
 import { cell, md, sql } from 'smaltnb';
 import { check, gate, publish } from 'smaltfl/notebook';
 import { hr_org_units_checked, hr_people_checked } from './bronze.nb.js';

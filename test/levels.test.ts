@@ -1,5 +1,5 @@
 /**
- * Flows in flows on the screen (ADR 0025 §3, §4, core/levels.ts): the document a level's canvas lays out, a flow a
+ * Flows in flows on the screen (ADR 0026 §3, §4, core/levels.ts): the document a level's canvas lays out, a flow a
  * card; the flows entered, as a link names them; a flow's day by precedence, with its extent counted and a flow that
  * only waits told apart from one that holds; what a flow gives and who reads it. On a small estate, then on Larkspur.
  */

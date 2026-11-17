@@ -82,7 +82,7 @@ Another notebook's exports are imported like any module (`import { posture } fro
 
 ## A flow that reads other flows
 
-A flow can read flows that are already made ([ADR 0025](../adr/0025-flows-in-flows.md)). It lists them in its
+A flow can read flows that are already made ([ADR 0026](../adr/0026-flows-in-flows.md)). It lists them in its
 `flow.json`, each by the path of that flow's own `flow.json`:
 
 ```json
@@ -141,7 +141,7 @@ Reading then refuses any other `hr/flow.json`, and says both hashes, until someo
 ### A flow used more than once: inputs and settings
 
 A flow made to be used on more than one dataset names no dataset of its reader. It declares what is open
-([ADR 0025](../adr/0025-flows-in-flows) §11):
+([ADR 0026](../adr/0026-flows-in-flows) §11):
 
 ```json
 {

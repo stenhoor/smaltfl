@@ -20,7 +20,7 @@ export function source(id: string): Source {
   return new Source(id);
 }
 
-/** An open input of the flow (ADR 0025 §11), by its id in the flow document: `const feed = input('feed')`. */
+/** An open input of the flow (ADR 0026 §11), by its id in the flow document: `const feed = input('feed')`. */
 export class Input {
   constructor(readonly id: string) {}
 }

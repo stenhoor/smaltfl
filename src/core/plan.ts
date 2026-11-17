@@ -378,7 +378,7 @@ export async function translate(given: FlowDocument, values: Readonly<Record<str
   const doc = forDay(given, values, options.asOf);
   const issues = validateDocument(doc);
   if (issues.length > 0) throw new PlanError(`the flow document has ${issues.length} problem${issues.length === 1 ? '' : 's'}: ${issues[0]!.path}: ${issues[0]!.message}`, issues);
-  // A flow with an open input, or a use's own document, reads datasets it doesn't hold (ADR 0025 §11): there is no plan
+  // A flow with an open input, or a use's own document, reads datasets it doesn't hold (ADR 0026 §11): there is no plan
   // of it alone.
   if (doc.inputs?.length) {
     const message = `${doc.name} has ${doc.inputs.length === 1 ? 'an open input' : 'open inputs'} (${doc.inputs.map((x) => x.id).join(', ')}): it runs inside a flow that uses it, which maps one of its own datasets onto each`;

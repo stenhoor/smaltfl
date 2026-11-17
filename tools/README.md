@@ -59,7 +59,7 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
   - the arrow keys and Page Down (a stop's `press`), the scenes opened, the dark scheme, and **Decide ›** from the month.
 
   Run it at every size. It must report `problems: none`.
-- `levels.json`: flows in flows on the canvas (ADR 0025 §3, §4), on the tour (same build as `overview.json`):
+- `levels.json`: flows in flows on the canvas (ADR 0026 §3, §4), on the tour (same build as `overview.json`):
   - the top of Larkspur on a normal day: four flows, a card each, with what the posture product has of its own;
   - the day that waits: Evidence feeds paused, its extent counted, the others normal;
   - its sheet: the day in a sentence, what holds it, what it reads, what it gives and who reads it;
@@ -72,7 +72,7 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
 
   A stop's `in` names the flows to enter first (`"feeds"`, `"applications/feeds"`; `""` is the top) and `flow` the flow
   whose card to open. It must report `problems: none` at every size.
-- `tiers.json`: the month in tiers (ADR 0025 §5), on the tour (same build as `overview.json`):
+- `tiers.json`: the month in tiers (ADR 0026 §5), on the tour (same build as `overview.json`):
   - what waits for a decision naming the flow whose file holds;
   - March's flows as rows of days, the days the top flow only waited on Evidence feeds as outlines;
   - February, where Applications held only where HR's file did: the flows that followed or waited, folded, each
@@ -87,7 +87,7 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
 
   A stop that stays on the month names its link each time (`"view": "month/2024-03/in/feeds", "viewFirst": true`): the
   tour goes back to the day screen between stops. It must report `problems: none` at every size.
-- `explore.json`: exploring a dataset (ADR 0025 §9), on the tour (same build as `overview.json`):
+- `explore.json`: exploring a dataset (ADR 0026 §9), on the tour (same build as `overview.json`):
   - a file's columns: what a row is, a card a column over every row, how the rows sit with the values written;
   - a bar tapped, lit in every other column; the same part on the next day; **Keep only**, a part picked within what is
     kept by the keyboard (a stop's `press`), the rows kept as one of the reader's cells, and **Every row**;
@@ -99,7 +99,7 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
 
   Its stops follow one another on one card: a part picked or kept stays while the page is open. It must report
   `problems: none` at every size.
-- `whose.json`: a held day decided at the flow that holds (ADR 0025 §6), on the tour (same build as `overview.json`):
+- `whose.json`: a held day decided at the flow that holds (ADR 0026 §6), on the tour (same build as `overview.json`):
   - at the top, where the estate only waits, the day's button says where: *Decide at Evidence feeds ›*;
   - the decision sheet's head: whose it is, what of it holds, and who waits on it;
   - inside the flow that holds, the button is its own, and its sheet has **Decide ›** too;
@@ -108,7 +108,7 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
   - the dark scheme.
 
   It must report `problems: none` at every size.
-- `follow.json`: a change followed, said and tested (ADR 0025 §7), on Larkspur's month (same build as `month.json`):
+- `follow.json`: a change followed, said and tested (ADR 0026 §7), on Larkspur's month (same build as `month.json`):
   - the day a recorded change takes effect: Evidence feeds' card says CHANGED, and its sheet what changed, who
     recorded it and why;
   - a flow that reads it: what it follows;
@@ -117,7 +117,7 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
   - the dark scheme.
 
   It must report `problems: none` at every size.
-- `build.json`: building in the app (ADR 0025 §10), on the tour (same build as `overview.json`):
+- `build.json`: building in the app (ADR 0026 §10), on the tour (same build as `overview.json`):
   - **Add a flow ›** above the canvas, and the catalogue: each flow with what it gives and what it is built on;
   - Ownership added: the day runs again, its card is on the canvas, its sheet says it was added here, and what it
     gives is explored;
@@ -129,7 +129,7 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
   - what was made here, the join taken out again; the dark scheme.
 
   Its stops follow one another: what one adds, the next has. It must report `problems: none` at every size.
-- `alone.json`: building in a flow that reads no other and ships no catalogue (ADR 0025 §10, §12), on the control
+- `alone.json`: building in a flow that reads no other and ships no catalogue (ADR 0026 §10, §12), on the control
   estate (same build as `estate.json`):
   - nothing above the canvas, and the join form all the same, from app_scores' How it joins;
   - the join written: the joined dataset on its Explore tab, its notebook a box, and the bar above the canvas there
@@ -139,7 +139,7 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
   - the join taken out: the notebook and the bar are gone.
 
   Its stops follow one another: what one adds, the next has. It must report `problems: none` at every size.
-- `use.json`: a flow with open inputs used under a name (ADR 0025 §11), on the tour (same build as `overview.json`):
+- `use.json`: a flow with open inputs used under a name (ADR 0026 §11), on the tour (same build as `overview.json`):
   - the catalogue's flow with inputs: what each use gives, what it reads of its inputs, what each use sets;
   - the form: a dataset for each input, a value for its setting, a name, and what a use is;
   - used on the TLS feed: its card, and its sheet with what is mapped, its setting as the flow has it, the flows it
@@ -152,7 +152,7 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
   - used on a dataset of the estate's own, and inside that use the dataset itself feeding its input; the dark scheme.
 
   Its stops follow one another: what one adds, the next has. It must report `problems: none` at every size.
-- `carry.json`: a decision carried between two pages that share a flow (ADR 0025 §6, second step), on the tour and
+- `carry.json`: a decision carried between two pages that share a flow (ADR 0026 §6, second step), on the tour and
   Evidence feeds' own page built side by side, each told where the other is:
   `npm run build:app -- --variant tour --out dist/app-tour --page feeds=../feeds/` and
   `npm run build:app -- --flow examples/larkspur/feeds/flow.json --out dist/app-feeds --page "larkspur=../tour/=Larkspur estate"`,
@@ -174,7 +174,7 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
     fill withdrawn there, and the estate's page taking that too.
 
   Its stops follow one another: what one decides, the next finds. It must report `problems: none` at every size.
-- `voice.json`: the voice (ADR 0025 §12), on the tour (same build as `overview.json`):
+- `voice.json`: the voice (ADR 0026 §12), on the tour (same build as `overview.json`):
   - a gold dataset's seal on a normal day: what the seal is, then *Worth its smalt.*;
   - Certificates added from the catalogue, its first day here gone out as usual: the status line says so, and the
     line once;
@@ -182,7 +182,7 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
   - plain words ticked in About this flow, and the same seal with the line left out.
 
   Its stops follow one another: what one adds, the next has. It must report `problems: none` at every size.
-- `overrides.json`: the estate's ontology and a flow's own handling of a column (ADR 0025 §8), on the tour (same build
+- `overrides.json`: the estate's ontology and a flow's own handling of a column (ADR 0026 §8), on the tour (same build
   as `overview.json`):
   - the head of the Ontology page: the estate's ontology by name, hash and path, the flows that read the same one,
     and the one column a flow handles its own way, with its flow, datasets and reason;

@@ -143,7 +143,7 @@ describe('the build’s entries under this browser’s', () => {
     expect(file.entries[3]!.about).toMatchObject({ decision: 2 });
   });
 
-  it('renumbers the decision a carried one cites, and leaves its leaf and its flow as they are (ADR 0025 §6)', () => {
+  it('renumbers the decision a carried one cites, and leaves its leaf and its flow as they are (ADR 0026 §6)', () => {
     const file = { entries: [
       entry(0, '2024-03-27T08:00:00Z', { day: '2024-03-27', option: 'dont', scope: 'day', flow: { id: 'feeds', hash: 'f'.repeat(64) } }, 'ciso', 'decide'),
       entry(1, '2024-03-27T08:00:00Z', { day: '2024-03-27', option: 'dont', scope: 'day', carried: { seq: 0, leaf: 'a'.repeat(64) } }, 'ciso', 'decide'),

@@ -71,7 +71,7 @@ export interface Rule {
 }
 
 /**
- * A flow's own handling of a column an estate's ontology describes (ADR 0025 §8), as the page notes it: the flow, the
+ * A flow's own handling of a column an estate's ontology describes (ADR 0026 §8), as the page notes it: the flow, the
  * datasets of its own it handles the column so in, and why, in the flow's words.
  */
 export interface Handling {
@@ -112,10 +112,10 @@ export interface ColumnCard {
    * there with the column's own, so the key says under its column that it has to be there, and counted once, as the
    * file's. */
   fileRules: { rule: Rule; said: string }[];
-  /** Set where what this card says of the column is a flow's own handling of it (ADR 0025 §8): the entry in force for
+  /** Set where what this card says of the column is a flow's own handling of it (ADR 0026 §8): the entry in force for
    * this dataset is the flow's override of what the estate says. */
   own?: Handling;
-  /** Where the column is handled differently (ADR 0025 §8): the flows' own handlings of it in other datasets, which
+  /** Where the column is handled differently (ADR 0026 §8): the flows' own handlings of it in other datasets, which
    * every other card of the column notes. Absent where there are none. */
   elsewhere?: Handling[];
 }
@@ -158,7 +158,7 @@ export interface OntologyPage {
   /** The object types with a link or an action, or that no file's rows are tied to. A type that only says what
    * files' rows are isn't drawn as a box: that is the files' own rules now. */
   types: ObjectType[];
-  /** The estates' ontologies the flow imports (ADR 0025 §8), each by its name, the path the flow gives it by and its
+  /** The estates' ontologies the flow imports (ADR 0026 §8), each by its name, the path the flow gives it by and its
    * hash, the same in every flow that imports it. Absent where the flow imports none. */
   estate?: EstateFrom[];
   /** Every column a flow handles its own way, in the ontology's order: what the page lists at its head, and notes on
@@ -198,7 +198,7 @@ export function typesShown(ontology: Ontology | undefined): ObjectType[] {
  * gives the ones the viewer may read, so a hidden column has no card and its rules aren't listed); a file it returns
  * nothing for has no cards yet. `every` gives all the columns a file has, where that is more than the cards (a rule
  * on one column may stand aside for a mark on another the viewer can't read); the cards' columns without it.
- * `estates` are the estates' ontologies the flow imports, as read (ADR 0025 §8): with them a handling says what the
+ * `estates` are the estates' ontologies the flow imports, as read (ADR 0026 §8): with them a handling says what the
  * estate says of its column there; without them, what the document still holds of it for other datasets.
  */
 export function ontologyPage(doc: PageDoc, columns: (file: string) => readonly string[] | undefined = () => undefined, every: (file: string) => readonly string[] | undefined = columns, estates: readonly EstateOntology[] = []): OntologyPage {
@@ -332,7 +332,7 @@ export function ontologyPage(doc: PageDoc, columns: (file: string) => readonly s
           const fileRules = rules.filter((r) => r.columns?.some((c) => lower(c) === lower(name))).map((rule) => ({ rule, said: onCard.get(rule) ?? rule.said }));
           const called = p?.title ?? name;
           const values = Object.entries(p?.values ?? {});
-          // A flow's own handling of the column (ADR 0025 §8): this card's, where its entry is the override; and the
+          // A flow's own handling of the column (ADR 0026 §8): this card's, where its entry is the override; and the
           // ones in other datasets, which every other card of the column notes.
           const about = handled.filter((x) => lower(x.column) === lower(name));
           const mineIs = p?.override ? about.find((x) => x.datasets.some((d) => lower(d) === lower(id))) : undefined;
@@ -372,7 +372,7 @@ export function ontologyPage(doc: PageDoc, columns: (file: string) => readonly s
   const files = doc.sources.map((src) => section(src.id, src.description, false));
   // The datasets the flow makes that a gate judges (watched, published, or with a gate cell of their own) and that have
   // rules (Q-144): an intermediate step nothing judges has none to list. One whose column a flow handles its own way
-  // (ADR 0025 §8) is listed whatever its rules: its card is where the handling is noted.
+  // (ADR 0026 §8) is listed whatever its rules: its card is where the handling is noted.
   const ownWay = new Set(handled.flatMap((x) => x.datasets.map(lower)));
   const made = steps.filter((st) => gateChecksOf(doc, st.id) !== null).map((st) => section(st.id, st.description ?? st.dataset?.description, true)).filter((m) => m.count > 0 || ownWay.has(lower(m.id)));
   // Each file names the made datasets that read it, near or far.
@@ -384,7 +384,7 @@ export function ontologyPage(doc: PageDoc, columns: (file: string) => readonly s
 }
 
 /**
- * The columns the flows handle their own way (ADR 0025 §8), in the ontology's order: each override entry with the flow
+ * The columns the flows handle their own way (ADR 0026 §8), in the ontology's order: each override entry with the flow
  * its datasets are of, its reason, and what the estate says of the column, read from the estates' ontologies where they
  * are given, else from what the document holds of the column for other datasets (the estate's entry, where it is for
  * every dataset). Entries that say the same of one flow's datasets are one handling.

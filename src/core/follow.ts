@@ -1,5 +1,5 @@
 /**
- * A change followed, said and tested (ADR 0025 §7). A flow reads the flows it lists as they are, so a change to one
+ * A change followed, said and tested (ADR 0026 §7). A flow reads the flows it lists as they are, so a change to one
  * reaches every flow built on it with nothing done. This module says the rest, for the page: whose a change is (the flow
  * whose file or step it is about), which flows follow it, why a change of a pinned flow is refused, what differs between
  * two versions of a flow in words (its files, its steps, what it gives, its checks), and what testing a change on the
@@ -25,7 +25,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 const flowOrder = (doc: Pick<FlowDocument, 'flows'>): string[] => [...(doc.flows ?? []).map((f) => f.id), ''];
 
 /**
- * The flows a change set is of (ADR 0025 §7): those whose file or step one of its edits is about, in the document's
+ * The flows a change set is of (ADR 0026 §7): those whose file or step one of its edits is about, in the document's
  * order, its own flow ('') last. A change that names no dataset (a version's rules taken whole) is the document's own.
  */
 export function changeFlows(doc: Pick<FlowDocument, 'flows'>, change: Pick<ChangeSet, 'edits'>): string[] {
@@ -48,7 +48,7 @@ function reach(parts: readonly FlowPart[], flow: string): Set<string> {
 }
 
 /**
- * The flows that follow a change of these flows (ADR 0025 §7): every flow that reads one of them, itself or through
+ * The flows that follow a change of these flows (ADR 0026 §7): every flow that reads one of them, itself or through
  * another, in the document's order, its own flow ('') last. Not the flows the change is of.
  */
 export function followersOf(doc: Pick<FlowDocument, 'flows'>, flows: readonly string[]): string[] {
@@ -66,7 +66,7 @@ export interface FlowChange {
 }
 
 /**
- * The change sets that bear on a flow (ADR 0025 §7), in the order given: its own, and those of the flows it reads,
+ * The change sets that bear on a flow (ADR 0026 §7), in the order given: its own, and those of the flows it reads,
  * which it follows. `flow` '' is the document's own flow. A change that bears on no file or step the flow has or reads
  * isn't listed.
  */
@@ -82,7 +82,7 @@ export function flowChanges(doc: Pick<FlowDocument, 'flows' | 'changes'>, flow: 
 }
 
 /**
- * Why a change of these flows can't be made. A use of a flow (ADR 0025 §11) changes the flow's inputs and its settings
+ * Why a change of these flows can't be made. A use of a flow (ADR 0026 §11) changes the flow's inputs and its settings
  * and nothing else: its checks and steps stay as the flow wrote them, so a rule isn't changed on a use's datasets. And
  * (§7) a flow whose hash the change would move, one the change is of or one that follows it, is pinned by a flow that
  * reads it, which reads it only as it is. In a sentence, naming the first; null where the change can be made. `nameOf`
@@ -101,7 +101,7 @@ export function pinProblem(doc: Pick<FlowDocument, 'flows'>, of: readonly string
 
 // ------------------------------------------------------------------ what changed between two versions of a flow
 
-/** What differs between two versions of a flow's document (ADR 0025 §7): its files, its steps, what it gives, the flows
+/** What differs between two versions of a flow's document (ADR 0026 §7): its files, its steps, what it gives, the flows
  * it reads, and its checks (the rules people set and the gates, `rulesDiff`), each in words. */
 export interface FlowDiff {
   files: { added: string[]; removed: string[]; changed: string[] };
@@ -219,7 +219,7 @@ export function testCount(days: readonly DayTest[]): TestCount {
 }
 
 /**
- * A test in a sentence (ADR 0025 §7): "Under the changed Evidence feeds, 2 of the last 14 days would have paused: Tue
+ * A test in a sentence (ADR 0026 §7): "Under the changed Evidence feeds, 2 of the last 14 days would have paused: Tue
  * Mar 12 and Mon Mar 18; 12 come out the same." `what` is the change's subject ("the changed Evidence feeds"); `dayOf`
  * names a day. The test informs: nothing in it holds the change back.
  */

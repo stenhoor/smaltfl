@@ -990,7 +990,7 @@ describe('a row of days as bars (dayBars; ADR 0024 §4, §5)', () => {
     expect(svg).not.toContain('db-none');
   });
 
-  it('draws a day a flow only waited on another as an outline at half height: not out, and nothing of its own wrong (ADR 0025 §5)', () => {
+  it('draws a day a flow only waited on another as an outline at half height: not out, and nothing of its own wrong (ADR 0026 §5)', () => {
     const waited = dayBars({ days: [{ day: day(1), level: 'ok' }, { day: day(2), level: 'waited' }, { day: day(3), level: 'bad' }], w: 60, h: 20, aria: 'Stock over March: waited on Orders on Sat 2' });
     const of = (cls: string) => [...waited.matchAll(new RegExp(`<rect class="db ${cls}"[^>]* height="([\\d.]+)"`, 'g'))].map((m) => Number(m[1]));
     expect(waited.match(/class="db db-waited"/g)).toHaveLength(1);
@@ -1021,7 +1021,7 @@ describe('a row of days as bars (dayBars; ADR 0024 §4, §5)', () => {
   });
 });
 
-describe('a join’s match over the days kept (matchBars; ADR 0025 §9)', () => {
+describe('a join’s match over the days kept (matchBars; ADR 0026 §9)', () => {
   const day = (n: number) => `2024-03-${String(n).padStart(2, '0')}`;
   const covered = [1, 1, 0.96, null, 0.99, 1];
   const svg = matchBars({ days: covered.map((c, i) => ({ day: day(i + 1), covered: c, ...(c !== null ? { title: `${day(i + 1)}: ${Math.round(c * 100)}%` } : {}) })), w: 240, h: 40, aria: 'Over 5 days, between 96% and 100% of the keys in scope had a row; on the last, 100%.' });

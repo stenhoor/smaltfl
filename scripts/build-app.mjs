@@ -2,17 +2,17 @@
 // (the same page as a document, for a static host such as GitHub Pages),
 // app.js (the page), worker.js (the engine worker), inline.js (the engine in the page, for browsers without the
 // worker), parse.js (smaltql's SQL parser, loaded when a screen asks where a column is used), derive.js (the notebook
-// parser, loaded when someone first builds in the app, ADR 0025 §10), and data/ (a flow's files, listed in
+// parser, loaded when someone first builds in the app, ADR 0026 §10), and data/ (a flow's files, listed in
 // data/loads.json, format 2: each source's binding with its file or its daily loads and the days a paused one may be
 // filled from, and each watched source's history, ADR 0010 §9; the flows it reads, the estates' ontologies it imports
-// and the flows of its catalogue, each as its own document, ADR 0025).
+// and the flows of its catalogue, each as its own document, ADR 0026).
 //
 //   node scripts/build-app.mjs            Larkspur (examples/larkspur/, ADR 0020), the demo
 //   node scripts/build-app.mjs --variant tour [--out dist/app-tour]
 //                                         Larkspur's tour, February and March (ADR 0023): a variant of its data
 //                                         list, its own generator arguments and story
 //   node scripts/build-app.mjs --flow examples/larkspur/feeds/flow.json --out dist/app-feeds --page "larkspur=../app/=Larkspur estate"
-//                                         a flow the estate reads, as a page of its own on the tour's files (ADR 0025
+//                                         a flow the estate reads, as a page of its own on the tour's files (ADR 0026
 //                                         §6): `--page` names the pages that share a flow with it, by where the site
 //                                         puts them
 //   node scripts/build-app.mjs --flow examples/security-signins/flow.json [--out dist/app-signins]
@@ -74,7 +74,7 @@ const flowAt = process.argv.indexOf('--flow');
 const flowPath = flowAt >= 0 ? process.argv[flowAt + 1] : 'examples/larkspur/flow.json';
 const variantAt = process.argv.indexOf('--variant');
 const variant = variantAt >= 0 ? process.argv[variantAt + 1] : null;
-// The pages of the site that share a flow with this one (ADR 0025 §6), any number: `--page feeds=../feeds/` for a flow
+// The pages of the site that share a flow with this one (ADR 0026 §6), any number: `--page feeds=../feeds/` for a flow
 // it reads that has a page of its own, `--page "larkspur=../app/=Larkspur estate"` for a flow that reads it, named
 // since this flow's document doesn't know it. A held day decided on one page is carried to the other, and each links
 // to the other. Where the pages are is the site's to say, not the flow's: an argument, and nothing the data is made from.
@@ -103,14 +103,14 @@ const bindingsOf = (doc) => JSON.parse(readFileSync(bindingsPath(doc), 'utf8'));
  * one made there, and the month's runs were recorded under them. */
 const storyChanges = (storyPath) => (storyPath ? (JSON.parse(readFileSync(storyPath, 'utf8')).changes ?? []) : []);
 const shipFlow = async (path, storyPath = null) => {
-  // Each change set is also the flows' whose file or step it is about (ADR 0025 §7): the document names each flow it
+  // Each change set is also the flows' whose file or step it is about (ADR 0026 §7): the document names each flow it
   // reads by the hash that flow's own document has with them, as the recorder's runs do.
   const { doc } = await readWithChanges(path, storyChanges(storyPath));
   const bytes = Buffer.from(JSON.stringify(doc, null, 2) + '\n');
   writeFileSync(`${out}/data/flow.json`, bytes);
   return { path: 'flow.json', from: path, sha256: sha256(bytes), bytes: bytes.length };
 };
-/** Each flow the flow reads, as its own document (ADR 0025 §2), shipped as data/flows/<id>.json and listed in loads.json:
+/** Each flow the flow reads, as its own document (ADR 0026 §2), shipped as data/flows/<id>.json and listed in loads.json:
  * a run keeps them beside its own document, so verify can check that it holds each unchanged. */
 const shipFlows = async (path, storyPath = null) => {
   const out_ = {};
@@ -124,7 +124,7 @@ const shipFlows = async (path, storyPath = null) => {
   });
   return out_;
 };
-/** The estates' ontologies the flow imports (ADR 0025 §8), as their files give them, shipped as data/estates/<n>.json and
+/** The estates' ontologies the flow imports (ADR 0026 §8), as their files give them, shipped as data/estates/<n>.json and
  * listed in loads.json by name and hash: the Ontology page reads what the estate says of a column from them. */
 const shipEstates = async (path) => {
   const all = await readEstates(path);
@@ -135,7 +135,7 @@ const shipEstates = async (path) => {
     return { name: from.name, hash: from.hash, path: `estates/${k}.json`, from: join(dirname(path), from.path), sha256: sha256(bytes), bytes: bytes.length };
   });
 };
-/** The flow's catalogue (ADR 0025 §10): each flow in its `catalogue` folder as its own document, shipped as
+/** The flow's catalogue (ADR 0026 §10): each flow in its `catalogue` folder as its own document, shipped as
  * data/catalogue/<id>.json and listed in loads.json with what it gives and what it is built on. The page adds one to
  * the flow on screen, where it is built from the day's run: no data is made for it here. */
 const shipCatalogue = async (path) => {
@@ -283,10 +283,10 @@ async function dataKey(flowPath, bind) {
   const { metafile } = await build({ entryPoints: entries, bundle: true, write: false, metafile: true, platform: 'node', format: 'esm', outdir: 'node_modules/.cache/smaltfl/keys', packages: 'external', logLevel: 'silent' });
   const files = new Set([...Object.keys(metafile.inputs), bind.generate, 'scripts/data/history.mjs', 'scripts/data/record.mjs', 'packed.json', 'package-lock.json']);
   // A demo's scenes are words the page shows (ADR 0023 §4), nothing the data is made from: a change to them keeps it.
-  // So does a change to its catalogue (ADR 0025 §10): the flows in its `catalogue` folder are added in the page, and
+  // So does a change to its catalogue (ADR 0026 §10): the flows in its `catalogue` folder are added in the page, and
   // built there from the day's run.
-  // The flows it reads (ADR 0025), wherever their folders are: each one's document and notebooks. A read flow's own data
-  // list and story are for a page of its own (ADR 0025 §6), and nothing its reader's data is made from.
+  // The flows it reads (ADR 0026), wherever their folders are: each one's document and notebooks. A read flow's own data
+  // list and story are for a page of its own (ADR 0026 §6), and nothing its reader's data is made from.
   const doc = await readFlow(flowPath);
   const read = new Set((doc.flows ?? []).map((f) => dirname(join(dirname(flowPath), f.path))));
   const ofFlow = (p) => {
@@ -305,7 +305,7 @@ async function dataKey(flowPath, bind) {
   if (flowPath.endsWith('.smaltfl.json')) files.add(flowPath).add(flowPath.replace(/\.smaltfl\.json$/, '.data.json'));
   else walk(dirname(flowPath));
   for (const dir of read) ofFlow(dir);
-  // What it reads from outside its own folder: the estates' ontologies it imports (ADR 0025 §8) and its story.
+  // What it reads from outside its own folder: the estates' ontologies it imports (ADR 0026 §8) and its story.
   for (const e of doc.ontology?.estate ?? []) files.add(join(dirname(flowPath), e.path));
   if (bind.story) files.add(bind.story);
   walk('examples/ontologies');

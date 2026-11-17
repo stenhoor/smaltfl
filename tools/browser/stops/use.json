@@ -1,7 +1,7 @@
 [
   {
     "name": "use-catalogue",
-    "what": "Larkspur's tour, Wed Feb 7, as the owner: the catalogue has a flow with open inputs (ADR 0025 §11). It says what each use gives, what it reads of the datasets mapped onto its inputs and what each use sets, and Use it in place of Add it",
+    "what": "Larkspur's tour, Wed Feb 7, as the owner: the catalogue has a flow with open inputs (ADR 0026 §11). It says what each use gives, what it reads of the datasets mapped onto its inputs and what each use sets, and Use it in place of Add it",
     "day": "Wed 7",
     "in": "",
     "click": "#build-bar .build-add",

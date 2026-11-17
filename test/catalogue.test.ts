@@ -1,5 +1,5 @@
 /**
- * The catalogue (src/core/catalogue.ts, ADR 0025 §10): a flow made already, added to a flow that reads what it is built
+ * The catalogue (src/core/catalogue.ts, ADR 0026 §10): a flow made already, added to a flow that reads what it is built
  * on. What adding makes is, for a run, the document reading a flow that lists the added one gives: the same plan, node
  * for node. On Larkspur and its two catalogue flows, through the engine on a small flow, and Larkspur's two through the
  * engine on days of the estate: a flow made for a catalogue has to run on the days of the flow it is added to.
@@ -169,7 +169,7 @@ describe('adding a flow from the catalogue', () => {
   });
 });
 
-describe('a flow added and run (ADR 0025 §10)', () => {
+describe('a flow added and run (ADR 0026 §10)', () => {
   const PARAMS = [{ name: 'day', type: 'text', default: null }];
   const flow = (id: string, name: string, more: Record<string, unknown>) => ({ smaltfl: 4, id, name, parameters: PARAMS, ...more });
   const nb = (imports: string, body: string) => `import { cell, sql } from 'smaltnb';\nimport { check, publish, source } from 'smaltfl/notebook';\n${imports}\n${body}\n`;

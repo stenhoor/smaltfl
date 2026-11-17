@@ -1,5 +1,5 @@
 /**
- * A decision carried between pages (ADR 0025 §6, second step, Q-240). A hold is the flow's whose file or step holds,
+ * A decision carried between pages (ADR 0026 §6, second step, Q-245). A hold is the flow's whose file or step holds,
  * and so is the decision: made once, at that flow, on whichever page the flow is on. Two pages of one browser that
  * share a flow keep a record each (a record is one flow's, log.ts `logOrigin`), in one store. Where the same file
  * holds the same flow on both, the page that finds it decided on the other records that decision as its own record
@@ -19,7 +19,7 @@ import type { IdentityCard } from './manifest.js';
 
 export const CARRIED_FORMAT = 1;
 
-/** Where a carried decision was made (ADR 0025 §6): the other record's entry, and the proof of it kept here. */
+/** Where a carried decision was made (ADR 0026 §6): the other record's entry, and the proof of it kept here. */
 export interface CarriedFrom {
   /** The record it is kept in, by its origin (`smaltfl/log/<flow>/<signer>`): another flow's, signed by this browser. */
   origin: string;
@@ -140,7 +140,7 @@ const ms = (at: string): number => {
 };
 
 /**
- * What the other pages of this browser decided about a load of a flow (ADR 0025 §6): the latest decision about it made
+ * What the other pages of this browser decided about a load of a flow (ADR 0026 §6): the latest decision about it made
  * on one of them, by the device's clock, where that page knows the flow by the same id. A record whose latest decision
  * about the load was itself carried from elsewhere is no source: the page it came from is. Nor is one whose latest was
  * applied under a standing decision (`under`): this page applies the standing decision it carried, by its own rule.
@@ -207,7 +207,7 @@ const sameEnd = (a: Partial<DecideAbout>, b: Partial<DecideAbout>): string | nul
 
 /**
  * What is wrong with a carried decision, checked offline from its own entry, the proof kept beside it and the card of
- * the browser that signs its record (ADR 0025 §6): it cites a decision in another flow's record of the same browser;
+ * the browser that signs its record (ADR 0026 §6): it cites a decision in another flow's record of the same browser;
  * the proof holds that entry, by its leaf, in that record under a checkpoint the browser signed; and the decision it
  * carries was made at the same flow, about the same load, to the same end, by the same person for the same reason, no
  * later than it was carried. None, and it holds.

@@ -1,5 +1,5 @@
 /**
- * The month in tiers (ADR 0025 §5): above the files and steps, a row a flow. A flow's bar for a day is the worst any
+ * The month in tiers (ADR 0026 §5): above the files and steps, a row a flow. A flow's bar for a day is the worst any
  * of its own files or steps said that day (`flowRows`), with its days in words (`flowRowSaid`). A flow that held
  * nothing of its own while another flow's hold kept back what it gives only waited: told apart and folded with the
  * calm ones, as a step that only followed a file is (ADR 0024 §5), since waiting is not failing.
@@ -44,7 +44,7 @@ export interface TierRowDef extends MonthRowDef {
 }
 
 /**
- * The month's rows, each in its flow (ADR 0025 §5): a file with the steps of its own flow that read it alone (its
+ * The month's rows, each in its flow (ADR 0026 §5): a file with the steps of its own flow that read it alone (its
  * fill, its checks), then every other step. The month folds a step that reads one file alone into that file's row
  * (overview.ts `healthRows`); where the step is another flow's, it is that flow's step instead, which reads the file:
  * so a flow's rows are its own, and a step that only followed another flow's file is still told apart from one with
@@ -74,7 +74,7 @@ const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'obj
 const aboutOf = (e: Pick<LogEntry, 'about'>): RunAbout => (isRecord(e.about) ? (e.about as unknown as RunAbout) : {});
 
 /**
- * Each flow's row of the month (ADR 0025 §5): the flows the document reads, in its order, then the document's own flow,
+ * Each flow's row of the month (ADR 0026 §5): the flows the document reads, in its order, then the document's own flow,
  * which is built on them. A row's cell for a day is the worst over the day's runs of what its own files and steps said
  * (overview.ts `healthOf`). A day it `waited`: no run of the day has it holding, and in one of them a hold of another
  * flow keeps back something it gives (every hold, where the flow publishes together). None for a document that reads no
@@ -177,7 +177,7 @@ export function flowRowSaid(r: FlowRow, dayName: (day: string) => string, nameOf
 }
 
 /**
- * What a flow's own month is about (ADR 0025 §5): the flow, and every flow it reads, itself or through another, by id
+ * What a flow's own month is about (ADR 0026 §5): the flow, and every flow it reads, itself or through another, by id
  * in the document's order with the flow last, as it is built on them. A flow's month is the month of what it stands on.
  */
 export function scopeFlows(doc: Pick<FlowDocument, 'flows'>, flow: string): string[] {
@@ -193,7 +193,7 @@ export function scopeNodes(doc: Pick<FlowDocument, 'flows' | 'sources' | 'steps'
 }
 
 /**
- * A day in a flow's own month (ADR 0025 §5), from the day as the whole month has it and what was found that day inside
+ * A day in a flow's own month (ADR 0026 §5), from the day as the whole month has it and what was found that day inside
  * the flow's scope. A day something in scope held is the day's own: paused, decided or kept back, as the decision
  * made it. A day held only outside its scope is none of its business: unusual, not judged or normal by what its own
  * files and steps said. A day not run, not arrived or failed is that for every flow.

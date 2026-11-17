@@ -79,7 +79,7 @@
   },
   {
     "name": "overview-rows",
-    "what": "March's flows as rows of days (ADR 0024 §5, in tiers since ADR 0025 §5): a flow's bar for a day the worst any of its files or steps said, the flows with a day of their own first, each with its days in words; the calm flows folded into a count; the days the top flow only waited on another drawn apart",
+    "what": "March's flows as rows of days (ADR 0024 §5, in tiers since ADR 0026 §5): a flow's bar for a day the worst any of its files or steps said, the flows with a day of their own first, each with its days in words; the calm flows folded into a count; the days the top flow only waited on another drawn apart",
     "view": "month",
     "viewFirst": true,
     "element": "#view-month .mo-health",
@@ -96,7 +96,7 @@
   },
   {
     "name": "overview-rows-open",
-    "what": "A flow's row opened (ADR 0025 §5): Evidence feeds' files as the month shows files, the ones that held a day first, then those unusual on one, each with its days in words, set in under the flow with their days lined up; the clean files folded; and a link to the flow's own month",
+    "what": "A flow's row opened (ADR 0026 §5): Evidence feeds' files as the month shows files, the ones that held a day first, then those unusual on one, each with its days in words, set in under the flow with their days lined up; the clean files folded; and a link to the flow's own month",
     "view": "month",
     "viewFirst": true,
     "click": "#view-month .mh-row[data-row=\"flow:feeds\"] .mh-flow-name",

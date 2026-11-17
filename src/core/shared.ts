@@ -128,10 +128,10 @@ export function sharedOf(doc: Pick<FlowDocument, 'sources' | 'ontology'>, file: 
   };
 }
 
-// ------------------------------------------------------------------ an estate's ontology (ADR 0025 §8)
+// ------------------------------------------------------------------ an estate's ontology (ADR 0026 §8)
 
 /**
- * An estate's ontology, in a document of its own (ADR 0025 §8, Q-229: "ontology should own that"): its object types and
+ * An estate's ontology, in a document of its own (ADR 0026 §8, Q-234: "ontology should own that"): its object types and
  * links, what each dataset's rows are, its dependencies, and what its columns mean, with their values and bands. Every
  * flow of the estate imports it (`ontology.import`), and reading a flow takes from it what is about the datasets the
  * flow has or reads (`takeEstate`). It travels under a hash of its own (`estateHash`), the same in every flow.
@@ -180,11 +180,11 @@ export function asEstate(value: unknown, path: string): EstateOntology {
  * imports it, so two flows read the same estate where their hashes of it agree. */
 export const estateHash = (estate: EstateOntology): Promise<string> => hashOf('estate/0', estate);
 
-/** A property a flow marks as its own handling of a column the estate describes (ADR 0025 §8). */
+/** A property a flow marks as its own handling of a column the estate describes (ADR 0026 §8). */
 export const isOverride = (p: PropertyType): boolean => p.override !== undefined;
 
 /**
- * What an estate's ontology says of a column in a dataset (ADR 0025 §8), and the estate whose it is: its entry that
+ * What an estate's ontology says of a column in a dataset (ADR 0026 §8), and the estate whose it is: its entry that
  * names the dataset, else the one for every dataset, as `propertyOf` reads a flow's; the first estate that says it.
  * Nothing where no estate describes the column there: a flow that describes it then overrides nothing.
  */
@@ -198,7 +198,7 @@ export function estateSays(estates: readonly EstateOntology[], dataset: string, 
 }
 
 /**
- * What a flow takes of an estate's ontology (ADR 0025 §8): what is about the datasets it has or reads, by id, without
+ * What a flow takes of an estate's ontology (ADR 0026 §8): what is about the datasets it has or reads, by id, without
  * case. A type whose list is here; a rows entry of a dataset here whose type is; a link between two types here; a
  * dependency, trimmed to the datasets here; a noun; a column's meaning, whole where it is for every dataset, else
  * trimmed to the datasets here (its bands and its lookup with it). `overridden` are the flow's own handlings, as
@@ -262,7 +262,7 @@ export function takeEstate(estate: EstateOntology, datasets: ReadonlySet<string>
 }
 
 /**
- * What stands in the way of a flow's own ontology beside the estates' it imports (ADR 0025 §8), each as a sentence: a
+ * What stands in the way of a flow's own ontology beside the estates' it imports (ADR 0026 §8), each as a sentence: a
  * column an estate describes said again without the mark (an accident is not an override); an override with no reason,
  * of no dataset, of a dataset that isn't the flow's own, or of a column no estate describes. `mine` are the flow's own
  * sources and steps (not those of the flows it reads). None, and the flow's ontology sits with the estates'.

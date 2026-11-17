@@ -1,5 +1,5 @@
 /**
- * A decision carried between pages (ADR 0025 §6, second step, Q-240): two pages of one browser that share a flow keep
+ * A decision carried between pages (ADR 0026 §6, second step, Q-245): two pages of one browser that share a flow keep
  * a record each; a held load one of them decided, at the same flow, is decided on the other by that decision, citing
  * it. On Larkspur's estate and on Evidence feeds read from its own folder, as its own page reads it.
  */

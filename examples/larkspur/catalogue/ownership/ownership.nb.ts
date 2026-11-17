@@ -1,4 +1,4 @@
-// Ownership, a flow for the catalogue (ADR 0025 §10): who answers for what. It reads what the Applications flow and the
+// Ownership, a flow for the catalogue (ADR 0026 §10): who answers for what. It reads what the Applications flow and the
 // HR organisation give, and has no file of its own: added to a flow that reads those two, it is built from the day's
 // run as they are.
 import { cell, md, param, sql } from 'smaltnb';

@@ -201,7 +201,7 @@ describe('the datasets the flow makes', () => {
   });
 });
 
-describe('a column a flow handles its own way (ADR 0025 §8)', () => {
+describe('a column a flow handles its own way (ADR 0026 §8)', () => {
   const dir = new URL('../examples/larkspur/', import.meta.url);
   const estate = () => asEstate(JSON.parse(readFileSync(new URL('ontology.json', dir), 'utf8')), 'ontology.json');
   const columns = (id: string) => ({ apps: ['app_id', 'owner_team_id'], app_owners: ['app_id', 'owner_team_id'], cmdb_apps: ['app_id', 'owner_team_id'], dim_app: ['app_id', 'owner_team_id'] })[id];

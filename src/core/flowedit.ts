@@ -26,7 +26,7 @@ export interface ColumnChange {
   description?: string;
   /** A label for a value, by the value as the file writes it. Left empty, the value has no label of its own. */
   values?: Record<string, string>;
-  /** Why the flow handles the column its own way here (ADR 0025 §8), where an estate's ontology describes it: the
+  /** Why the flow handles the column its own way here (ADR 0026 §8), where an estate's ontology describes it: the
    * file's own entry is then the flow's override, marked as one with this reason. Left out, or empty, no mark is made. */
   override?: string;
 }
@@ -47,7 +47,7 @@ const listed = (xs: readonly string[]) => (xs.length <= 1 ? (xs[0] ?? '') : `${x
  * nowhere, `saysMore`), and an unlisted one as it was; an empty label for a value whose label already says no more
  * than the value ("Yes" for yes) is no change.
  *
- * Where an estate's ontology describes the column (ADR 0025 §8), the caller gives the flow's reason (`change.override`):
+ * Where an estate's ontology describes the column (ADR 0026 §8), the caller gives the flow's reason (`change.override`):
  * the file's own entry is marked as the flow's override with it, and the record says so. A reason alone, reworded on an
  * entry that is an override already, is a change of its own.
  */
@@ -114,7 +114,7 @@ export function nameColumn(doc: FlowDocument, file: string, column: string, chan
  * same change made each one's own, as `nameColumn` makes it, so a step's output reads as the file's column does. Said
  * once, with where it went: "Renamed status to Result in tls, carried to tls_checked". `through` is where the column
  * goes on (`columnUses`'s `carried` after the file); a dataset that already reads so is passed over. A reason for the
- * flow's own handling (`change.override`, ADR 0025 §8) marks each dataset where an estate describes the column
+ * flow's own handling (`change.override`, ADR 0026 §8) marks each dataset where an estate describes the column
  * (`described`; every one, where it isn't given).
  */
 export function nameColumnThrough(doc: FlowDocument, file: string, column: string, change: ColumnChange, through: readonly string[], described: (dataset: string) => boolean = () => true): { doc: FlowDocument; said: string | null } {
@@ -344,7 +344,7 @@ export function switchRule(doc: FlowDocument, file: string, id: string, on: bool
 // ------------------------------------------------------------------ what the page keeps of an edited flow
 
 /** A name edit as it was made (`nameColumnThrough`): the file, the column, what changed and the datasets it was carried
- * to. Kept so it can be made again on the own document of each flow read that has the file (ADR 0025 §7, follow.ts). */
+ * to. Kept so it can be made again on the own document of each flow read that has the file (ADR 0026 §7, follow.ts). */
 export interface NameOp {
   file: string;
   column: string;

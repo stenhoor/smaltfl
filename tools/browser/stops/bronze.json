@@ -102,7 +102,7 @@
   },
   {
     "name": "bronze-explore",
-    "what": "The held file explored (ADR 0025 §9): what a row is, a card a column; Failing tapped under Status, and the 121 failing are every WAF that is off or only monitoring, none that blocks",
+    "what": "The held file explored (ADR 0026 §9): what a row is, a card a column; Failing tapped under Status, and the 121 failing are every WAF that is off or only monitoring, none that blocks",
     "day": "Tue 12",
     "card": "waf",
     "tab": "Explore",

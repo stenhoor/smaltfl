@@ -23,7 +23,7 @@
   },
   {
     "name": "follow-card",
-    "what": "Larkspur's month, Mon Mar 18, the day the WAF's band takes effect (ADR 0025 §7): the change is Evidence feeds', whose file it is about, and its card says CHANGED; Applications, which only follows it, says what it gives",
+    "what": "Larkspur's month, Mon Mar 18, the day the WAF's band takes effect (ADR 0026 §7): the change is Evidence feeds', whose file it is about, and its card says CHANGED; Applications, which only follows it, says what it gives",
     "day": "Mon 18",
     "in": "",
     "expect": {

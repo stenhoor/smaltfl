@@ -1,7 +1,7 @@
 [
   {
     "name": "build-bar",
-    "what": "Larkspur's tour, Wed Feb 7, as the owner: above the canvas, Add a flow (ADR 0025 §10), since the build ships a catalogue",
+    "what": "Larkspur's tour, Wed Feb 7, as the owner: above the canvas, Add a flow (ADR 0026 §10), since the build ships a catalogue",
     "day": "Wed 7",
     "in": "",
     "expect": {

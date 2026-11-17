@@ -1,7 +1,7 @@
 [
   {
     "name": "levels-top",
-    "what": "The top of a flow that reads flows, on a normal day (ADR 0025 §3): each flow it reads is one card, a second sheet behind it, with FLOW and the count of what it gives, a tick and what it has; the posture product's own files and notebooks beside them. Nothing of a read flow is drawn here but its card",
+    "what": "The top of a flow that reads flows, on a normal day (ADR 0026 §3): each flow it reads is one card, a second sheet behind it, with FLOW and the count of what it gives, a tick and what it has; the posture product's own files and notebooks beside them. Nothing of a read flow is drawn here but its card",
     "day": "Thu 7",
     "expect": {
       "state": "done",
@@ -28,7 +28,7 @@
   },
   {
     "name": "levels-paused",
-    "what": "The day that waits (ADR 0025 §3): the flow whose file holds says so on its card, by the month's mark and in colour, with its extent counted (1 of 13); the flows that read nothing of that file are normal",
+    "what": "The day that waits (ADR 0026 §3): the flow whose file holds says so on its card, by the month's mark and in colour, with its extent counted (1 of 13); the flows that read nothing of that file are normal",
     "day": "Wed 27",
     "expect": {
       "state": "held",
@@ -46,7 +46,7 @@
   },
   {
     "name": "levels-sheet",
-    "what": "A flow's sheet, from its card (ADR 0025 §4): what its day came to as a state and its extent, never a score; Open the flow; what holds it, a tap from the card inside; the flows it reads, each with its own day; what it gives, each with whether today's went out and who reads it; the hash it is known by",
+    "what": "A flow's sheet, from its card (ADR 0026 §4): what its day came to as a state and its extent, never a score; Open the flow; what holds it, a tap from the card inside; the flows it reads, each with its own day; what it gives, each with whether today's went out and who reads it; the hash it is known by",
     "day": "Wed 27",
     "flow": "feeds",
     "full": true,
@@ -82,7 +82,7 @@
   },
   {
     "name": "levels-holds-inside",
-    "what": "What holds a flow is a tap from the card inside that holds (ADR 0025 §4): the canvas goes into the flow, a line at the top says where you are and what the flow made of the day, and the file's own sheet opens",
+    "what": "What holds a flow is a tap from the card inside that holds (ADR 0026 §4): the canvas goes into the flow, a line at the top says where you are and what the flow made of the day, and the file's own sheet opens",
     "day": "Wed 27",
     "flow": "feeds",
     "click": "#sheet .fl-row[data-inside=\"access_reviews\"]",
@@ -106,7 +106,7 @@
   },
   {
     "name": "levels-inside",
-    "what": "Inside Evidence feeds (ADR 0025 §4): its thirteen files, its notebook and the flow it reads as a card that leads the canvas, joined to the notebook whose gates count each file against the inventory; the day's head and Decide as at the top; arranging is the top level's",
+    "what": "Inside Evidence feeds (ADR 0026 §4): its thirteen files, its notebook and the flow it reads as a card that leads the canvas, joined to the notebook whose gates count each file against the inventory; the day's head and Decide as at the top; arranging is the top level's",
     "day": "Wed 27",
     "in": "feeds",
     "expect": {
@@ -125,7 +125,7 @@
   },
   {
     "name": "levels-up",
-    "what": "The line at the top goes back (ADR 0025 §4): up to the flow that reads this one",
+    "what": "The line at the top goes back (ADR 0026 §4): up to the flow that reads this one",
     "click": "#crumbs .crumb-up",
     "expect": {
       "count": {
@@ -138,7 +138,7 @@
   },
   {
     "name": "levels-double-click",
-    "what": "On a desktop a double-click on a flow's card enters it (ADR 0025 §4): Applications reads the other three, each a card inside it",
+    "what": "On a desktop a double-click on a flow's card enters it (ADR 0026 §4): Applications reads the other three, each a card inside it",
     "devices": ["desktop", "wide"],
     "day": "Wed 27",
     "in": "",
@@ -151,7 +151,7 @@
   },
   {
     "name": "levels-open-button",
-    "what": "On a phone the sheet's button enters (ADR 0025 §4), as on any size",
+    "what": "On a phone the sheet's button enters (ADR 0026 §4), as on any size",
     "day": "Wed 27",
     "in": "",
     "flow": "applications",
@@ -163,7 +163,7 @@
   },
   {
     "name": "levels-nested",
-    "what": "A flow read by two flows is one flow (ADR 0025 §1): inside Applications, Evidence feeds is the same card with the same day, and opens to the same canvas, the line at the top saying the way in",
+    "what": "A flow read by two flows is one flow (ADR 0026 §1): inside Applications, Evidence feeds is the same card with the same day, and opens to the same canvas, the line at the top saying the way in",
     "flow": "feeds",
     "click": "#sheet .fl-open",
     "expect": {
@@ -173,7 +173,7 @@
   },
   {
     "name": "levels-next-day",
-    "what": "Stepping to the next day stays inside the flow on screen (ADR 0025 §4): each level has a link, and the day's buttons keep it",
+    "what": "Stepping to the next day stays inside the flow on screen (ADR 0026 §4): each level has a link, and the day's buttons keep it",
     "click": ".dh-step button:last-child",
     "waitFor": "#status[data-state=\"done\"]",
     "waitForMs": 120000,
@@ -185,7 +185,7 @@
   },
   {
     "name": "levels-reload",
-    "what": "A level's link opens it again (ADR 0025 §4): after a reload the page is on the same day, inside the same flow",
+    "what": "A level's link opens it again (ADR 0026 §4): after a reload the page is on the same day, inside the same flow",
     "reload": true,
     "expect": {
       "status": "^Thu Mar 28",
@@ -207,7 +207,7 @@
   },
   {
     "name": "levels-decided",
-    "what": "A paused day once decided (ADR 0025 §3): Mon Mar 11's first files, the backup feed filled from the day before: the flow's card says how its day went out, by the month's decided mark, in the ink",
+    "what": "A paused day once decided (ADR 0026 §3): Mon Mar 11's first files, the backup feed filled from the day before: the flow's card says how its day went out, by the month's decided mark, in the ink",
     "day": "Mon 11",
     "version": 1,
     "in": "",

@@ -1937,7 +1937,7 @@ export function scoreSpark(o: { days: readonly string[]; points: readonly ScoreP
 export interface BarDay {
   day: string;
   /** none: no run, or nothing built; ok: nothing to report; unjudged: nothing to compare it with; warn: unusual; bad:
-   * held, paused or refused; waited: a flow with nothing wrong of its own, kept back by another flow's hold (ADR 0025
+   * held, paused or refused; waited: a flow with nothing wrong of its own, kept back by another flow's hold (ADR 0026
    * §5). */
   level: 'none' | 'ok' | 'unjudged' | 'warn' | 'bad' | 'waited';
   /** A bad day someone has decided since, or whose file was sent again: drawn hollow, as closed. */
@@ -1998,7 +1998,7 @@ export interface MatchBar {
 }
 
 /**
- * A dataset's match with its inventory over the days a history keeps (ADR 0025 §9): a bar a day, its height the share
+ * A dataset's match with its inventory over the days a history keeps (ADR 0026 §9): a bar a day, its height the share
  * of the keys in scope that had a row. The axis runs from the lowest day, rounded down to five points and never above
  * 95%, to 100%, both ends printed, so a point lost shows; a day at the axis's foot still has a 3 px bar, and a day that
  * counted no scope has none (the missing-data convention). The last day is drawn in ink, the days before it lighter.

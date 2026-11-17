@@ -198,7 +198,7 @@ section.view { display: grid; gap: 14px; }
 .edge.look { stroke-width: 1; opacity: 0.45; }
 .card.profile rect.box { fill: color-mix(in srgb, var(--violet, var(--smalt)) 7%, var(--surface)); stroke: color-mix(in srgb, var(--violet, var(--smalt)) 55%, var(--surface)); stroke-width: 2; }
 .card.profile .kind { fill: var(--violet, var(--smalt)); }
-/* Flows in flows (ADR 0025 §3): a flow this one reads is one card, a second sheet behind it. Its day is said by the
+/* Flows in flows (ADR 0026 §3): a flow this one reads is one card, a second sheet behind it. Its day is said by the
    month's marks, with colour for the day that waits alone (ADR 0024 §3); a flow that waits on another is dashed, since
    today's rows of it aren't out. */
 .card.flow rect.box { stroke: var(--ink-2); stroke-width: 1.6; }
@@ -1095,7 +1095,7 @@ th .th-title { display: block; font-family: var(--font); font-size: 10.5px; font
 .fe-back { justify-self: start; min-height: 44px; margin-top: 2px; }
 /* The rules over time (ADR 0021 §5): the rules in force on the day on screen by hash, each change set with its day, and
    when edits take effect. The control wraps under its label on a phone; the date field is 16 px, so a phone doesn't zoom. */
-/* Where the ontology comes from (ADR 0025 §8): the estate's ontology by name and hash, and the columns a flow handles
+/* Where the ontology comes from (ADR 0026 §8): the estate's ontology by name and hash, and the columns a flow handles
    its own way. */
 #ontology-estate { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin: 0 0 12px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
 #ontology-estate[hidden] { display: none; }
@@ -2043,7 +2043,7 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .mh-bars { grid-column: 1 / -1; grid-row: 2; min-width: 0; }
 .mh-said { font-size: 12.5px; color: var(--ink-2); text-align: right; overflow-wrap: anywhere; }
 .mh-row.off .mh-said { color: var(--ink); }
-/* In tiers (ADR 0025 §5): a row a flow, which opens to its own files and steps, set in from it. */
+/* In tiers (ADR 0026 §5): a row a flow, which opens to its own files and steps, set in from it. */
 .mh-flow-name { grid-column: 1; justify-self: start; min-height: 32px; border: 0; background: none; padding: 0; color: var(--ink); font: inherit; font-size: 13.5px; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
 .mh-flow-name b { color: var(--smalt); }
 .mh-rows.fine .mh-flow-name b { font-weight: 600; }
@@ -2140,7 +2140,7 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .dh-step { display: flex; gap: 6px; }
 .dh-title { display: flex; align-items: center; gap: 8px; margin: 2px 0 0; }
 .dh-title h2 { margin: 0; font-size: 20px; }
-/* Where you are, inside a flow the page's flow reads (ADR 0025 §4): the flows entered, each a link back, then what the
+/* Where you are, inside a flow the page's flow reads (ADR 0026 §4): the flows entered, each a link back, then what the
    flow on screen made of the day. One line on a phone, the trail cut before the day is. */
 .crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 8px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-size: 13px; }
 .crumbs[hidden] { display: none; }
@@ -2154,7 +2154,7 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .crumb-day > .g, .crumb-day > .mo-ok { flex: none; }
 .crumb-day.fo-waiting, .crumb-day.fo-failed { color: var(--bad); font-weight: 600; }
 .crumb-day.fo-unusual { color: var(--warn); font-weight: 600; }
-/* A flow's sheet (ADR 0025 §4): its day, what holds it, what it reads and what it gives, each row a tap from the card
+/* A flow's sheet (ADR 0026 §4): its day, what holds it, what it reads and what it gives, each row a tap from the card
    it is about. */
 .fl-sheet { gap: 14px; }
 .fl-day { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
@@ -2179,7 +2179,7 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .fl-note { margin: 0; font-size: 13px; color: var(--ink-2); }
 .fl-open { justify-self: start; }
 .fl-month { display: inline-flex; align-items: center; color: var(--smalt); font-weight: 600; text-decoration: none; }
-/* Another page of the site that shares a flow with this one (ADR 0025 §6): a link, said where the decision is. */
+/* Another page of the site that shares a flow with this one (ADR 0026 §6): a link, said where the decision is. */
 .vf-whose a, #flow-pages a, .vf-rc-carried a { color: var(--smalt); font-weight: 600; text-decoration: none; white-space: nowrap; }
 .vf-whose a:hover, #flow-pages a:hover, .vf-rc-carried a:hover { text-decoration: underline; }
 .vf-not-carried { margin: 0 0 6px; font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
@@ -2280,7 +2280,7 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .dh-whatif-ask { margin: 0; font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
 .wi-open { border: 0; background: none; padding: 0; min-height: 28px; color: var(--smalt); font: inherit; font-weight: 600; cursor: pointer; }
 .wi-file, .wi-rules { min-height: 44px; max-width: 100%; min-width: 0; border: 1px solid var(--muted); border-radius: 8px; padding: 6px 8px; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; }
-/* Explore (ADR 0025 §9): what a row is, a card a column counted over every row, a part picked and lit in every other
+/* Explore (ADR 0026 §9): what a row is, a card a column counted over every row, a part picked and lit in every other
    column, how it joins, and its rows against another day's. A phone's column of cards; where the sheet has room for
    two or three they run down one column and then the next, each as tall as it needs, with no gaps under a short one. */
 .xp-tab { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-width: 0; }
@@ -2368,12 +2368,12 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .xp-other { min-height: 36px; max-width: 100%; }
 .xp-days-out { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-width: 0; }
 .xp-run { justify-self: start; }
-/* Whose decision a held day is (ADR 0025 §6): a line at the head of the decision sheet, and Decide on the sheet of the
+/* Whose decision a held day is (ADR 0026 §6): a line at the head of the decision sheet, and Decide on the sheet of the
    flow that holds. */
 .vf-whose { margin: 0 0 2px; font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
 .fl-decide { background: var(--smalt); border-color: var(--smalt); color: var(--surface); font-weight: 600; }
 .fl-asked { color: var(--muted); font-size: 12.5px; }
-/* Building in the app (ADR 0025 §10): the bar above the canvas, the catalogue's flows, the join form. */
+/* Building in the app (ADR 0026 §10): the bar above the canvas, the catalogue's flows, the join form. */
 .build-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 8px; }
 .build-bar[hidden] { display: none; }
 .build-bar .btn { min-height: 36px; }
@@ -2387,7 +2387,7 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .cat-why { color: var(--bad); }
 .cat-add { justify-self: start; min-height: 40px; }
 .cat-none-say { margin: 0; font-size: 15px; font-weight: 600; }
-/* A use of a flow (ADR 0025 §11): its settings on its sheet, one the use changed told apart. */
+/* A use of a flow (ADR 0026 §11): its settings on its sheet, one the use changed told apart. */
 .fl-settings { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 13.5px; }
 .fl-settings li { padding: 6px 10px; border-radius: 8px; background: var(--sunk); overflow-wrap: anywhere; }
 .fl-settings li.set { box-shadow: inset 3px 0 0 var(--smalt); }
@@ -2407,7 +2407,7 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .jf-label { font-size: 13px; font-weight: 600; }
 .jf-how, .jf-col { display: flex; align-items: center; gap: 6px; font-size: 13.5px; min-height: 32px; overflow-wrap: anywhere; }
 .jf-cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0 12px; max-height: 190px; overflow: auto; }
-/* What changed in a flow (ADR 0025 §7): each change, who made it and when, and what testing it on the days recorded found. */
+/* What changed in a flow (ADR 0026 §7): each change, who made it and when, and what testing it on the days recorded found. */
 .fl-changes { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; min-width: 0; }
 .fl-change { display: grid; gap: 4px; padding: 8px 10px; border-radius: 8px; background: var(--sunk); min-width: 0; }
 .fl-change-what, .fl-change-who, .fl-tested, .fl-testing, .fl-test-none { margin: 0; font-size: 13px; overflow-wrap: anywhere; }

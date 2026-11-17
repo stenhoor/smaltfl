@@ -61,7 +61,7 @@ export function isMonthFile(v: unknown): v is MonthFile {
 
 /** The fields of a decision or a release that cite another entry by its seq: the decision a release applies (and, by
  * load, every one), the standing decision either applies, the release a withdrawal takes back; and, in a decision of a
- * load that only follows another (ADR 0025 §6), the decision it carries (`carried.seq`). */
+ * load that only follows another (ADR 0026 §6), the decision it carries (`carried.seq`). */
 const CITES = ['decision', 'under', 'withdraws'] as const;
 
 /**

@@ -1,5 +1,5 @@
 /**
- * The voice (ADR 0025 §12, Q-234): plain in the app, smalty where it is safe. The few playful lines the app says are
+ * The voice (ADR 0026 §12, Q-239): plain in the app, smalty where it is safe. The few playful lines the app says are
  * here, in one place, each with the plain words that say the same thing and where it may be said: on a success seen
  * once, and on an empty screen. Never on a paused day, a refused file, a decision, a hash or the audit, and never a
  * phrase that says "don't quite believe this" of audited data (`NEVER`).

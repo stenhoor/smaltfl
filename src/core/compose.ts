@@ -1,5 +1,5 @@
 /**
- * Flows in flows (ADR 0025 §1, §2). A flow lists the flows it reads by their paths (`flows` in its `flow.json`), and
+ * Flows in flows (ADR 0026 §1, §2). A flow lists the flows it reads by their paths (`flows` in its `flow.json`), and
  * reading it brings them in, as reading brings in its notebooks and the shared ontologies it imports: by reference in
  * the files, by value in the document. The document a run hashes is the one read, with every flow it reads in it, and
  * the plan made from it is the flat plan it always was, so nothing downstream learns what a flow in a flow is but the
@@ -12,7 +12,7 @@
  * - **One calendar, one day, one way of pausing.** A flow and the flows it reads keep the same calendar, parameters and
  *   publish settings; each brings its own watches. Policies are the reading flow's.
  *
- * - **Reused a little differently** (ADR 0025 §11, `reuse.ts`). A flow may be listed as a use: by its path, a name
+ * - **Reused a little differently** (ADR 0026 §11, `reuse.ts`). A flow may be listed as a use: by its path, a name
  *   (`as`), the dataset mapped onto each of its open inputs and the settings it gives a value. Its notebooks are read
  *   under that name, so each use is a flow of the document with its own steps and its own hash, which holds the used
  *   flow's. One flow used twice is two flows here, and one definition on disk.
@@ -46,12 +46,12 @@ interface Raw {
   doc: FlowDocument;
   /** The flows it lists, by their documents' paths (from the same folder). */
   reads: string[];
-  /** The flows it pins (ADR 0025 §7): the hash it reads each as, by the same paths. Reading refuses any other. */
+  /** The flows it pins (ADR 0026 §7): the hash it reads each as, by the same paths. Reading refuses any other. */
   pins: Map<string, string>;
-  /** The flows it uses under a name (ADR 0025 §11): each by the used flow's path, with what the use maps and sets, and
+  /** The flows it uses under a name (ADR 0026 §11): each by the used flow's path, with what the use maps and sets, and
    * the hash it pins the used flow at, where it does. */
   uses: { path: string; spec: UseSpec; pin: string | null }[];
-  /** The estates' ontologies it imports (ADR 0025 §8), by their paths from the same folder: taken once its steps are
+  /** The estates' ontologies it imports (ADR 0026 §8), by their paths from the same folder: taken once its steps are
    * known, since what a flow takes is what is about its datasets. */
   estates: RawEstate[];
 }
@@ -87,7 +87,7 @@ export async function composeFlow(path: string, files: FlowFiles, ts: TypeScript
 
 /**
  * A flow read from its folder (`composeFlow`), with the own document of each flow it reads, in the order its `flows`
- * list them (ADR 0025 §2): what a run keeps beside its own document. A flow read as it is has the document its own
+ * list them (ADR 0026 §2): what a run keeps beside its own document. A flow read as it is has the document its own
  * folder gives; a use (§11) has the used flow read under its name, which no folder holds.
  */
 export async function composeAll(path: string, files: FlowFiles, ts: TypeScriptKit, options: ExpandOptions = {}): Promise<{ doc: FlowDocument; owns: FlowDocument[] }> {
@@ -99,7 +99,7 @@ export async function composeAll(path: string, files: FlowFiles, ts: TypeScriptK
         const dir = dirOf(p);
         const read = (await files.json(p)) as FlowDocument & { notebooks?: NotebookRef[]; flows?: unknown };
         // The flows it lists: each by the path of its flow.json; or by that path and the hash it is read as (a pin); or,
-        // a use (ADR 0025 §11), by that path, a name, the dataset mapped onto each input and the settings it sets.
+        // a use (ADR 0026 §11), by that path, a name, the dataset mapped onto each input and the settings it sets.
         const record = (f: unknown): f is Record<string, unknown> => typeof f === 'object' && f !== null && !Array.isArray(f);
         const hash = (v: unknown) => v === undefined || (typeof v === 'string' && /^[0-9a-f]{64}$/.test(v));
         const pinned = (f: unknown): f is { path: string; hash: string } => record(f) && Object.keys(f).every((k) => k === 'path' || k === 'hash')
@@ -174,7 +174,7 @@ export async function composeAll(path: string, files: FlowFiles, ts: TypeScriptK
         const root = await raw(p);
         const closure = (await order(p, [], [])).filter((q) => q !== p);
         const read = await Promise.all(closure.map((q) => raw(q)));
-        // The uses (ADR 0025 §11): the flow's own, and those of each flow it reads, each the flow of the one that lists it.
+        // The uses (ADR 0026 §11): the flow's own, and those of each flow it reads, each the flow of the one that lists it.
         const listing = [...read, root].flatMap((by) => by.uses.map((u) => ({ by, ...u })));
         if (closure.length === 0 && listing.length === 0) {
           const expanded = root.doc.notebooks ? await expandNotebooks(root.doc, ts, options) : root.doc;
@@ -185,12 +185,12 @@ export async function composeAll(path: string, files: FlowFiles, ts: TypeScriptK
         const parts: Part[] = [];
         for (const r of read) {
           const own = (await build(r.path)).doc;
-          // A flow with an open input is read where a dataset is mapped onto it (ADR 0025 §11).
+          // A flow with an open input is read where a dataset is mapped onto it (ADR 0026 §11).
           if (own.inputs?.length) fail(p, `${own.name} has ${own.inputs.length === 1 ? 'an open input' : 'open inputs'} (${own.inputs.map((x) => x.id).join(', ')}): use it under a name, as { path, as, inputs }, with a dataset mapped onto ${own.inputs.length === 1 ? 'it' : 'each'}`);
           owns.set(r.doc.id, own);
           parts.push({ raw: r, hash: await flowHash(own), use: null });
         }
-        // A pin (ADR 0025 §7): the flow is read only as the flow the hash names. Any other is refused, both hashes said.
+        // A pin (ADR 0026 §7): the flow is read only as the flow the hash names. Any other is refused, both hashes said.
         for (const x of parts) {
           const pin = root.pins.get(x.raw.path);
           if (pin !== undefined && pin !== x.hash) fail(p, `${root.doc.name} pins ${x.raw.doc.name} at ${pin}, and ${x.raw.path} is ${x.hash} now: move the pin to read the flow as it is, or put the flow back as it was`);
@@ -251,7 +251,7 @@ export async function composeAll(path: string, files: FlowFiles, ts: TypeScriptK
   return { doc, owns: (doc.flows ?? []).map((f) => owns.get(f.id)!) };
 }
 
-/** A flow read into another: as it is, or as a use of the flow at its path (ADR 0025 §11). */
+/** A flow read into another: as it is, or as a use of the flow at its path (ADR 0026 §11). */
 interface Part {
   raw: Raw;
   /** Its own flow hash: for a use, its own document's. */
@@ -281,7 +281,7 @@ function inOrder(at: string, flows: readonly FlowPart[]): FlowPart[] {
 }
 
 /**
- * A flow's document with what it takes of the estates' ontologies it imports (ADR 0025 §8): each estate's parts that
+ * A flow's document with what it takes of the estates' ontologies it imports (ADR 0026 §8): each estate's parts that
  * are about the datasets here, before the flows' own, a flow's own handling of a column in place of what it overrides,
  * and where each estate was read from, with its hash. `own` is the flow's own ontology as its file gives it, and
  * `parts` the flows it reads: an override is of the flow's own datasets, checked here, where both are known. A thing
@@ -309,7 +309,7 @@ async function withEstates(at: string, doc: FlowDocument, estates: readonly RawE
 
 /**
  * A flow's document with the flows it reads merged in: their sources, notebooks, watches, contracts and ontology parts
- * before its own, each flow listed with what is its own. A use (ADR 0025 §11) brings the used flow's notebooks, read
+ * before its own, each flow listed with what is its own. A use (ADR 0026 §11) brings the used flow's notebooks, read
  * for it, and what that flow's ontology and contracts say, of the use's datasets. With the document, each listed
  * flow's notebooks by the paths the document has them at: its steps are their cells, once they are read.
  */
@@ -388,7 +388,7 @@ function merge(root: Raw, parts: readonly Part[]): { doc: FlowDocument; notebook
     ...used.map((x) => ({ name: x.use!.own.name, ontology: renameOntology(x.raw.doc.ontology, useNames(x.use!.of, x.use!.spec.as)) })),
     { name: name(root), ontology: root.doc.ontology },
   ]);
-  // The flows that pin a flow (ADR 0025 §7), by id, the reading document's own flow by '': it is read only as it is.
+  // The flows that pin a flow (ADR 0026 §7), by id, the reading document's own flow by '': it is read only as it is.
   const pinners = (r: Raw): { pin?: string[] } => {
     const by = [...plain.filter((x) => x.raw.pins.has(r.path)).map((x) => x.raw.doc.id), ...(root.pins.has(r.path) ? [''] : [])];
     return by.length ? { pin: by } : {};
@@ -491,7 +491,7 @@ function mergeOntologies(at: string, given: readonly { name: string; ontology: O
 }
 
 /**
- * Whether a document holds a flow it says it reads, unchanged (ADR 0025 §2): every source and step of the flow's own
+ * Whether a document holds a flow it says it reads, unchanged (ADR 0026 §2): every source and step of the flow's own
  * document is in it as written, with its gate's written rules, its contract and its watch. What a verifier checks of
  * each flow a run names, from the flow's own document kept by its hash. The problems found; none, and it does.
  *

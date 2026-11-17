@@ -54,7 +54,7 @@
   },
   {
     "name": "month-rows",
-    "what": "The flows as rows of days (ADR 0024 §5, in tiers since ADR 0025 §5): a flow's bar for a day the worst any of its files or steps said, each flow with its days in words and the day it only waited on another",
+    "what": "The flows as rows of days (ADR 0024 §5, in tiers since ADR 0026 §5): a flow's bar for a day the worst any of its files or steps said, each flow with its days in words and the day it only waited on another",
     "view": "month",
     "viewFirst": true,
     "full": true,

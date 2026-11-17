@@ -1,5 +1,5 @@
 /**
- * Flows in flows (src/core/compose.ts, ADR 0025 §1, §2): a flow lists the flows it reads, and reading it brings them
+ * Flows in flows (src/core/compose.ts, ADR 0026 §1, §2): a flow lists the flows it reads, and reading it brings them
  * in. One definition read once, names that are the estate's, each flow known by its own hash, the same steps with the
  * same keys wherever they are read, and what one flow may read of another: its published datasets and its files.
  */
@@ -134,7 +134,7 @@ describe('a flow reads another flow', () => {
   });
 });
 
-describe('a flow pinned by the flow that reads it (ADR 0025 §7)', () => {
+describe('a flow pinned by the flow that reads it (ADR 0026 §7)', () => {
   it('is read as the flow its hash names, and the part says who pins it', async () => {
     const hash = (await read(SALES)).flows![0]!.hash;
     const pinned = { ...SALES, 'flow.json': { ...SALES['flow.json'], flows: [{ path: 'orders/flow.json', hash }] } };
@@ -302,7 +302,7 @@ describe('a composed document', () => {
   });
 });
 
-describe('a run of a flow that reads flows (ADR 0025 §2)', () => {
+describe('a run of a flow that reads flows (ADR 0026 §2)', () => {
   const engine = () => {
     const db = openEngine();
     db.exec("CREATE TABLE orders_file(order_id INTEGER, day TEXT, customer_id INTEGER); INSERT INTO orders_file VALUES (1,'2024-03-11',1),(2,'2024-03-11',2),(NULL,'2024-03-11',2),(3,'2024-03-11',1)");
@@ -344,7 +344,7 @@ describe('a run of a flow that reads flows (ADR 0025 §2)', () => {
     await expect(runFlow(db, doc, { smaltdb: SMALTDB, parameters: day, flows: [doc] })).rejects.toThrow("a flow document was given (Sales) that the run's flow doesn't read");
   });
 
-  it('is audited offline: the flows a run names are its document’s, each one’s own in the bag and held unchanged (ADR 0025 §7)', async () => {
+  it('is audited offline: the flows a run names are its document’s, each one’s own in the bag and held unchanged (ADR 0026 §7)', async () => {
     installFakeIndexedDB();
     const enc = new TextEncoder();
     const db = engine();
@@ -385,7 +385,7 @@ describe('a run of a flow that reads flows (ADR 0025 §2)', () => {
   });
 });
 
-describe('Larkspur, cut into the flows it is made of (ADR 0025 §12)', () => {
+describe('Larkspur, cut into the flows it is made of (ADR 0026 §12)', () => {
   const dir = new URL('../examples/larkspur/', import.meta.url);
 
   it('is five flows: the posture product reads the organisation, the inventory, the evidence feeds and the applications', async () => {

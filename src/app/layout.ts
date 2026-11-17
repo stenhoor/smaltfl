@@ -86,7 +86,7 @@ export function gridLayout(doc: FlowDocument, collapsed: ReadonlySet<string>, wr
   }
   for (const id of order) if (inputs.get(id)!.length) col.set(id, Math.max(...inputs.get(id)!.map(colOf)) + 1);
 
-  // The cards of the flows a level reads (ADR 0025 §3) are placed as a section's are, and drawn with no frame.
+  // The cards of the flows a level reads (ADR 0026 §3) are placed as a section's are, and drawn with no frame.
   const declared = (doc.groups ?? []).map((g) => ({ id: g.id, name: g.name, color: g.color, members: g.steps.filter((m) => known.has(m)), frame: g.id !== FLOWS_SECTION }));
   const empty = declared.filter((g) => g.members.length === 0);
   const groups = declared.filter((g) => g.members.length > 0);

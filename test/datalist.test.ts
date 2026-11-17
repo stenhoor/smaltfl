@@ -35,7 +35,7 @@ describe('readDataList', () => {
     expect(list).toMatchObject({ daily: ['auth'], judged: 'auth' });
   });
 
-  it('reads the flows a flow reads, each its own document by id: the build\'s own files, as the flow document is (ADR 0025 §2)', () => {
+  it('reads the flows a flow reads, each its own document by id: the build\'s own files, as the flow document is (ADR 0026 §2)', () => {
     const flow = { path: 'flow.json', from: 'examples/larkspur/flow.json', sha256: SHA('f'), bytes: 2 };
     const hr = { path: 'flows/hr.json', from: 'examples/larkspur/hr/flow.json', sha256: SHA('1'), bytes: 3 };
     const feeds = { path: 'flows/feeds.json', from: 'examples/larkspur/feeds/flow.json', sha256: SHA('2'), bytes: 4 };

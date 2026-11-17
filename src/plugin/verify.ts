@@ -125,7 +125,7 @@ export async function verifyRun(db: Database, runId: number, options: VerifyOpti
       notes.push(`the document doesn't translate: ${(e as Error).message}`);
     }
     check({ node: -1, origin: 'flow', check: 'flow', ok: notes.length === 0, expected: plan.flow.hash, actual: fh, ...(notes.length ? { note: notes.join('; ') } : {}) });
-    // Flows (ADR 0025 §2): the flows the run names are the document's, and each one's own document, kept by its hash,
+    // Flows (ADR 0026 §2): the flows the run names are the document's, and each one's own document, kept by its hash,
     // hashes to it and is in the run's document unchanged.
     if (manifest.flow.reads !== undefined || doc.flows?.length) {
       const named = manifest.flow.reads ?? [];

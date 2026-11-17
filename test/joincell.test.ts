@@ -1,5 +1,5 @@
 /**
- * The join form's cell (src/core/joincell.ts, ADR 0025 §10): a join written as a notebook cell, which the notebook
+ * The join form's cell (src/core/joincell.ts, ADR 0026 §10): a join written as a notebook cell, which the notebook
  * parser derives a step from as it does from any cell. On Larkspur's five flows, and through the engine on a small flow.
  */
 import { describe, expect, it } from 'vitest';
@@ -45,7 +45,7 @@ describe('a join written into the flow', () => {
     const nb = written.notebooks!.at(-1)!;
     expect(nb.path).toBe(JOINS_NOTEBOOK);
     expect(nb.source).toBe([
-      '// Joins made in the app (ADR 0025 §10): each a cell the join form wrote. Edit it as any notebook.',
+      '// Joins made in the app (ADR 0026 §10): each a cell the join form wrote. Edit it as any notebook.',
       "import { cell, sql } from 'smaltnb';",
       "import { publish } from 'smaltfl/notebook';",
       "import { apps } from './applications/apps.nb.js';",
@@ -108,7 +108,7 @@ describe('a join written into the flow', () => {
     expect(next.steps.find((s) => s.id === 'units_with_register')).toMatchObject({ kind: 'sql', inputs: ['apps_with_units', 'cmdb_apps'] });
   });
 
-  it('joins what a use of a flow gives, imported under the name it has here (ADR 0025 §11)', async () => {
+  it('joins what a use of a flow gives, imported under the name it has here (ADR 0026 §11)', async () => {
     const [doc, kit] = await Promise.all([loadFlowDir(larkspur), loadFlowDir(new URL('catalogue/by_unit/', larkspur))]);
     const use = await useOf(kit, { as: 'waf_by_unit', inputs: { feed: 'waf_checked', owners: 'app_owners' }, settings: {} }, await flowHash(kit), ts);
     const used = addFlow(doc, use, 'catalogue/by_unit/flow.json', await flowHash(use));

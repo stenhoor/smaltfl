@@ -1,4 +1,4 @@
-// The evidence as its tools export it each day (ADR 0020 §2), a flow of its own (ADR 0025): the findings ledger and
+// The evidence as its tools export it each day (ADR 0020 §2), a flow of its own (ADR 0026): the findings ledger and
 // twelve feeds, one a control, judged as they arrive. Each has a gate (written checks hold the day, learned ones warn), a
 // feed may be filled from another day (ADR 0023), and a check step keeps the rows it can read, which this flow gives.
 // Which applications a feed should cover is read from the inventory's list of them, the CMDB's file as it arrived.

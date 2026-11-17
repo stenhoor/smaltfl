@@ -1,4 +1,4 @@
-// What the group runs, as its systems export it (ADR 0020 §2), a flow of its own (ADR 0025): the applications from the
+// What the group runs, as its systems export it (ADR 0020 §2), a flow of its own (ADR 0026): the applications from the
 // CMDB and the cloud inventory each day, and the architecture inventory of shared platforms, which changes rarely. Each
 // daily file has a gate and a check step that keeps the rows it can read, which this flow gives to the flows that read
 // it; the evidence feeds read the CMDB's file as it arrived, to know which applications each should cover.

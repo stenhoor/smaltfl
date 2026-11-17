@@ -1,4 +1,4 @@
-// Certificates, a flow for the catalogue (ADR 0025 §10): the TLS certificates about to run out. It reads what the
+// Certificates, a flow for the catalogue (ADR 0026 §10): the TLS certificates about to run out. It reads what the
 // Evidence feeds give, and has no file of its own. The TLS feed is one a held day can fill from another day, so both
 // datasets carry filled_from, as everything built from a filled feed does (ADR 0009 amendment 1): the day the rows
 // came from, null on a day that arrived whole.

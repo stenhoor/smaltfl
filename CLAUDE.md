@@ -17,9 +17,9 @@ match smaltdb's `CLAUDE.md`.
 | `npm run test:slow` | The month-long engine runs `npm test` leaves out (`SLOW` in `vitest.config.ts`: `test/estate-flow.test.ts`, about 90 s). CI runs it, and `npm run test:isolated` (every file in a fresh module graph), in a job beside `test` | Changes to the runtime, the gates or the estate |
 | `npm run test:tour` | The tour's answer key (`test/larkspur-tour.test.ts`, ADR 0023): Larkspur's tour, February and March, made at the demo's scale as the build makes it (`scripts/data/make.mjs`), about ten minutes in CI; a CI job of its own. `SMALTFL_TOUR_WORK=<folder>` checks a month made already (the build's cache) | Changes to the judge, the recorder, the generator or the tour's story |
 | `npm run build` | `dist/`: the core (`index.js`), the runtime plugin (`plugin/index.js`) and their declarations | Packaging checks |
-| `npm run docs:dev` | The site (VitePress, `docs/`, the brand kit copied unchanged into `docs/.vitepress/theme/`); `.github/workflows/docs.yml` deploys it to GitHub Pages with Larkspur's tour at `/app/` (the demo, ADR 0023), Evidence feeds' own page at `/feeds/` (a flow the estate reads, on the tour's files, ADR 0025 §6), Larkspur's planted month at `/larkspur/` (ADR 0020), the control estate at `/estate/` and the sign-ins at `/signins/` (each build writes `index.html` beside `page.html`) | Docs and site changes |
+| `npm run docs:dev` | The site (VitePress, `docs/`, the brand kit copied unchanged into `docs/.vitepress/theme/`); `.github/workflows/docs.yml` deploys it to GitHub Pages with Larkspur's tour at `/app/` (the demo, ADR 0023), Evidence feeds' own page at `/feeds/` (a flow the estate reads, on the tour's files, ADR 0026 §6), Larkspur's planted month at `/larkspur/` (ADR 0020), the control estate at `/estate/` and the sign-ins at `/signins/` (each build writes `index.html` beside `page.html`) | Docs and site changes |
 | `npm run bench` | The scenario benchmarks in `bench/`, written to `bench/results/node.json` | Changes that could affect speed |
-| `npm run build:app` | The app in `dist/app` on Larkspur (`examples/larkspur/`, its notebooks expanded, shipped as `data/flow.json`, its days generated from its seed); `-- --variant tour --out dist/app-tour` for its tour, February and March, the demo (ADR 0023, the data list's `variants`; its scenes listed on the month screen from `scenes.json`); `-- --flow examples/security-signins/flow.json --out dist/app-signins` for the sign-ins (its generator's `--demo` days from the data list's `generateArgs`); `-- --flow examples/larkspur/feeds/flow.json --out dist/app-feeds` for Evidence feeds' own page; `--page id=address[=name]` names the pages of the site that share a flow with it (ADR 0025 §6). Bundles are named by content (`bundles.json`). A generated flow's days, histories and samples are kept in `node_modules/.cache/smaltfl/data/<hash of what makes them>/`: after a change to the app alone the build takes seconds, not minutes (the docs deploy caches the same folder) | Changes to `src/app` |
+| `npm run build:app` | The app in `dist/app` on Larkspur (`examples/larkspur/`, its notebooks expanded, shipped as `data/flow.json`, its days generated from its seed); `-- --variant tour --out dist/app-tour` for its tour, February and March, the demo (ADR 0023, the data list's `variants`; its scenes listed on the month screen from `scenes.json`); `-- --flow examples/security-signins/flow.json --out dist/app-signins` for the sign-ins (its generator's `--demo` days from the data list's `generateArgs`); `-- --flow examples/larkspur/feeds/flow.json --out dist/app-feeds` for Evidence feeds' own page; `--page id=address[=name]` names the pages of the site that share a flow with it (ADR 0026 §6). Bundles are named by content (`bundles.json`). A generated flow's days, histories and samples are kept in `node_modules/.cache/smaltfl/data/<hash of what makes them>/`: after a change to the app alone the build takes seconds, not minutes (the docs deploy caches the same folder) | Changes to `src/app` |
 | `node tools/browser/regress.cjs APP OUT estate notebook split@desktop,tablet-wide,wide` | The browser regression: each stop set at every size (phone, tablet, tablet-wide, desktop, wide), as many at once as there are cores, one table of what passed; `--devices` narrows the sizes. Copy the built app out of `dist/` first | Before a PR that touches `src/app`; one set and its sizes while iterating |
 
 `npm run typecheck` runs on TypeScript 7: `typescript7`, an npm alias, run as `node node_modules/typescript7/bin/tsc`.
@@ -235,7 +235,7 @@ release (smaltty ADR 0030).
   time, its applications, 46 platforms, a 14-control catalogue mapped to the frameworks, and twenty daily feeds and two
   fixed ones, with the bronze days of its answer key planted (`LARKSPUR_TROUBLE`); `test/larkspur.test.ts` holds the data
   to ADR 0020 §1 and §5; `node scripts/data/larkspur.mjs OUT_DIR` writes it, each file's export time in `loads.json`,
-  never in its rows. `examples/larkspur/` is the flow (slice 2: `bronze.nb.ts`, a gate on every daily file, since ADR 0025 a
+  never in its rows. `examples/larkspur/` is the flow (slice 2: `bronze.nb.ts`, a gate on every daily file, since ADR 0026 a
   `bronze.nb.ts` in each of its flows' folders; the ontology's
   types, links, rows entries and bands; Patch Tuesday in the calendar); `test/larkspur-flow.test.ts` (slow,
   `test/helpers/larkspur-world.ts`) runs six months and March through the engine against the answer key. The `fresh`
@@ -429,7 +429,7 @@ release (smaltty ADR 0030).
   `posture.controls`). The recorder marks each published day's checks and the applications failing each control
   (`PostureMark.checks`, `failing`, `MonthFile.controls`). A day run here reads as its record does where another watched
   dataset was unusual (`calendarDayOf`). `tools/browser/stops/overview.json` walks it on the tour (tour.cjs's `press`).
-- Flows in flows (ADR 0025, docs/research/flows-in-flows.md): a flow reads other flows. Slice 1, the core: a flow lists
+- Flows in flows (ADR 0026, docs/research/flows-in-flows.md): a flow reads other flows. Slice 1, the core: a flow lists
   the flows it reads by their paths (`flows` in its `flow.json`) and reading brings them in, by reference in the files
   and by value in the document and the flat plan (`src/core/compose.ts` `composeFlow`, `FlowFiles`, `merge`,
   `mergeOntologies`; `scripts/flow.ts` `readFlow`, and `readFlows` each read flow's own document; `loadFlowDir` in the
@@ -566,7 +566,7 @@ release (smaltty ADR 0030).
   where the build ships another flow under its name (`loadFlow`), rule edits on a use refused (`pinProblem` in
   follow.ts). Larkspur's catalogue has *Control by unit* (`catalogue/by_unit/`). `test/reuse.test.ts`,
   `test/catalogue.test.ts`, `tools/browser/stops/use.json`.
-  Slice 5, second step (built last of all, Q-240), a decision carried between pages that share a flow: Evidence feeds
+  Slice 5, second step (built last of all, Q-245), a decision carried between pages that share a flow: Evidence feeds
   is a page of its own on the tour's files (`examples/larkspur/feeds/data.json`, its data list, and `tour.json`, its
   story: the tour's as far as it is about its files; a reader's data key takes a read flow's `flow.json` and `*.ts`
   only, `dataKey`), deployed at `/feeds/`; the build's `--page` ships where the pages that share a flow are (loads.json
@@ -664,14 +664,14 @@ release (smaltty ADR 0030).
   [ADR 0024](docs/adr/0024-the-month-at-a-glance.md), the month at a glance, from the maintainer's look at the tour's
   month on 2026-11-16 and research into how such screens are best done (docs/research/ui-month-overview.md): built as
   proposed, for the maintainers to confirm (Q-219 to Q-225); its §"Not built" is what it leaves. **Now:**
-  [ADR 0025](docs/adr/0025-flows-in-flows.md), flows in flows (2026-11-17, the maintainer's answers Q-226 to Q-234): a
+  [ADR 0026](docs/adr/0026-flows-in-flows.md), flows in flows (2026-11-17, the maintainer's answers Q-231 to Q-239): a
   flow reads other flows, each a card on its reader's canvas with its day's mark, entered to see its own flow, rolled
   up into the month, in the slices of its §12: the core and Larkspur cut into five; the canvas in levels; the month in
   tiers; exploring what a flow gives; a paused day decided once, at its flow; a change followed, said and tested on the
   days recorded; the ontology's overrides; inputs and settings; building in the app; the voice. All ten are built,
   slice 5 in two steps (its §"As built", which says what each leaves): the second, a decision carried between a read
-  flow's own page and its reader's, once the maintainer had chosen the page (Q-240), with Q-235 to Q-239 confirmed as
-  built: ADR 0025 is done. What it leaves first is a flow run on its own and read by another (its §"Not built").
+  flow's own page and its reader's, once the maintainer had chosen the page (Q-245), with Q-240 to Q-244 confirmed as
+  built: ADR 0026 is done. What it leaves first is a flow run on its own and read by another (its §"Not built").
 
 ## Rules for this repository
 

@@ -161,7 +161,7 @@ export class FlowRecord {
   }
 
   /** The documents, plans and manifests this record's entries name (by blob, doc or plan), and the proof of each
-   * decision carried from another page (ADR 0025 §6), and only those. */
+   * decision carried from another page (ADR 0026 §6), and only those. */
   async blobs(): Promise<{ hash: string; kind: string; json: string }[]> {
     const named = new Set<string>();
     for (const e of this.entries) {
@@ -186,7 +186,7 @@ export class FlowRecord {
   }
 
   /**
-   * The other records this browser keeps (ADR 0025 §6), one a flow, signed by the same identity: each read and checked
+   * The other records this browser keeps (ADR 0026 §6), one a flow, signed by the same identity: each read and checked
    * as its own page reads it, and never written from here. Asked again, each is read from where it was left, so a
    * decision made on another page since is found. `wanted` says which flows' records to read (a site's other pages
    * keep records here too, and one that shares no flow with this page is none of its business); every one where it

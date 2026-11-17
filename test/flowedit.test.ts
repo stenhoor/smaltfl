@@ -204,7 +204,7 @@ describe('a rename carried through the steps that pass the column on (ADR 0022 �
   });
 });
 
-describe('a column an estate’s ontology describes, handled a flow’s own way (ADR 0025 §8)', () => {
+describe('a column an estate’s ontology describes, handled a flow’s own way (ADR 0026 §8)', () => {
   const larkspur = () => loadFlowDir(new URL('../examples/larkspur/', import.meta.url));
   const own = (doc: FlowDocument, dataset: string, column: string) => propertyOf(doc.ontology, dataset, column)!;
 

@@ -1,5 +1,5 @@
 /**
- * A flow reused a little differently (src/core/reuse.ts, ADR 0025 §11): its inputs and its settings are what a flow that
+ * A flow reused a little differently (src/core/reuse.ts, ADR 0026 §11): its inputs and its settings are what a flow that
  * uses it may change. A flow declares open inputs and settings; a use names it, maps a dataset onto each input and gives
  * the settings a value; each use is a flow of the document, named and hashed apart. On a small estate where one flow is
  * used twice, read from files and run through the engine.
@@ -152,7 +152,7 @@ describe('a flow with open inputs and settings', () => {
   });
 });
 
-describe('a flow used twice (ADR 0025 §11)', () => {
+describe('a flow used twice (ADR 0026 §11)', () => {
   it('is two flows of the document: each named after its use, with its own steps', async () => {
     const doc = await read();
     expect(validateDocument(doc)).toEqual([]);
@@ -418,7 +418,7 @@ publish(sizeable);
   });
 });
 
-describe('a rule isn’t changed on a use (ADR 0025 §11)', () => {
+describe('a rule isn’t changed on a use (ADR 0026 §11)', () => {
   it('is refused, saying whose its checks and steps are', async () => {
     const doc = await read();
     const nameOf = (id: string) => (id === '' ? doc.name : doc.flows!.find((f) => f.id === id)!.name);
@@ -429,7 +429,7 @@ describe('a rule isn’t changed on a use (ADR 0025 §11)', () => {
   });
 });
 
-describe('a flow that uses a flow, read by another (ADR 0025 §11)', () => {
+describe('a flow that uses a flow, read by another (ADR 0026 §11)', () => {
   // Orders uses Tally on its own checked orders; Sales reads Orders, and what its use gives.
   const given: Record<string, unknown> = {
     ...GIVEN,

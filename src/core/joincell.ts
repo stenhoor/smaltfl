@@ -1,5 +1,5 @@
 /**
- * Building in the app: the join form (ADR 0025 §10). Two datasets, the key on each side and the columns to take are
+ * Building in the app: the join form (ADR 0026 §10). Two datasets, the key on each side and the columns to take are
  * written as a notebook cell, in a notebook of the flow's own kept for what is made in the app (`joins.nb.ts`), as the
  * gate toggles write gate cells (ADR 0014 slice 6): the text is the flow's, and the step is derived from it by the
  * parser that reads any notebook (the page loads it when someone first builds, `src/app/derive.ts`). So a join made in
@@ -43,7 +43,7 @@ export function joinedColumns(spec: JoinColumns): string[] {
 }
 
 /**
- * Why a join can't be written (ADR 0025 §10), each in a sentence; none, and it can. Its name is taken or isn't a name;
+ * Why a join can't be written (ADR 0026 §10), each in a sentence; none, and it can. Its name is taken or isn't a name;
  * a side isn't a dataset the flow has; it joins a dataset to itself; it has no key, or a key column a side doesn't
  * have; it takes nothing, or two columns that would have one name; a side is a step another flow keeps to itself; or
  * a side is built from a feed a held day can fill and the join leaves `filled_from` out, which the run would stop on
@@ -83,7 +83,7 @@ export function joinProblems(doc: FlowDocument, spec: JoinSpec, columns: (datase
   if (filled.length && names.length && !names.some((n) => lower(n) === FILLED_FROM)) {
     out.push(`${listed(filled)} ${filled.length === 1 ? 'is' : 'are'} built from a feed a held day can fill from another day: take ${FILLED_FROM}, so the rows that came from another day say so`);
   }
-  // A step of a flow this one reads is read where that flow publishes it (ADR 0025 §1).
+  // A step of a flow this one reads is read where that flow publishes it (ADR 0026 §1).
   for (const side of [spec.left, spec.right]) {
     const part = (doc.flows ?? []).find((f) => f.steps.some((s) => lower(s) === lower(side)));
     const step = doc.steps.find((s) => lower(s.id) === lower(side));
@@ -104,7 +104,7 @@ export function joinSaid(spec: JoinSpec): string {
 /** The module a notebook is imported as from the joins' notebook, at the flow's folder: `./hr/org.nb.js`. */
 const moduleOf = (path: string): string => `${path.startsWith('.') ? '' : './'}${path.replace(/\.ts$/, '.js')}`;
 
-const HEAD = `// Joins made in the app (ADR 0025 §10): each a cell the join form wrote. Edit it as any notebook.
+const HEAD = `// Joins made in the app (ADR 0026 §10): each a cell the join form wrote. Edit it as any notebook.
 import { cell, sql } from 'smaltnb';
 import { publish } from 'smaltfl/notebook';
 `;
@@ -120,7 +120,7 @@ function cellText(spec: JoinSpec): string {
 const quoted = (text: string) => `'${text.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 
 /**
- * A document with a join written into it (ADR 0025 §10): the joins' notebook made where the flow has none, the two
+ * A document with a join written into it (ADR 0026 §10): the joins' notebook made where the flow has none, the two
  * datasets imported there from the notebooks that define them, the join's cell written before the cell that
  * publishes, and the new dataset published with its description. Only the notebooks change: the steps are derived
  * from them again by the caller. For a join `joinProblems` says nothing against.
@@ -135,7 +135,7 @@ export function withJoin(doc: FlowDocument, spec: JoinSpec): FlowDocument {
   const wanted = [spec.left, spec.right].map((d) => {
     const from = definedIn(doc, d);
     const step = [...doc.sources, ...doc.steps].find((x) => lower(x.id) === lower(d))!.id;
-    // What a use of a flow gives (ADR 0025 §11) is imported from the used flow's notebook, the cell's name as the name
+    // What a use of a flow gives (ADR 0026 §11) is imported from the used flow's notebook, the cell's name as the name
     // the dataset has here: `import { big as paid_big }`.
     const cell = Object.entries(doc.cells ?? {}).find(([k]) => lower(k) === lower(step))?.[1];
     const named = from !== null && from.includes('#') && cell && cell.cell !== step ? `${cell.cell} as ${step}` : step;

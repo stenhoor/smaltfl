@@ -1,4 +1,4 @@
-// Control by unit, a flow for the catalogue with open inputs (ADR 0025 §11): one control's evidence told by business
+// Control by unit, a flow for the catalogue with open inputs (ADR 0026 §11): one control's evidence told by business
 // unit. It has no file of its own and names no dataset of the estate: it reads the evidence feed and the owners that a
 // flow using it maps onto its two inputs, and the floor that use sets. So it is used once for each control worth a
 // closer look, each use under its own name, and one change here reaches every one of them.

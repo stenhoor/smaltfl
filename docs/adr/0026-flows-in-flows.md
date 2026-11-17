@@ -1,8 +1,8 @@
-# ADR 0025: Flows in flows
+# ADR 0026: Flows in flows
 
-- **Status:** accepted, 2026-11-17: the maintainer's answers to Q-226 to Q-234, asked through the question prompt once
+- **Status:** accepted, 2026-11-17: the maintainer's answers to Q-231 to Q-239, asked through the question prompt once
   the research was in. The choices the answers left open were built as proposed and confirmed by the maintainer the
-  same day, asked the same way (Q-235 to Q-239), with the one that was open answered (Q-240). Every slice of §12 is
+  same day, asked the same way (Q-240 to Q-244), with the one that was open answered (Q-245). Every slice of §12 is
   built.
 - **Date:** 2026-11-17
 - **Builds on:**
@@ -77,7 +77,7 @@ flow is read, hashed into each flow that imports it.
 
 ### 1. A flow reads other flows
 
-- **Its name is a flow** (Q-233). No new noun: a flow reads other flows, and its card says FLOW. The plain words of the
+- **Its name is a flow** (Q-238). No new noun: a flow reads other flows, and its card says FLOW. The plain words of the
   feature are *reads*, *gives* (the datasets a flow publishes, which other flows may read) and *waits on*.
 - **By reference in the files, by value in the plan.** A flow lists the flows it reads by their paths (`flows` in
   `flow.json`). Reading the flow brings them in, as it brings in notebooks and shared ontologies: the document a run
@@ -116,7 +116,7 @@ flow is read, hashed into each flow that imports it.
 
 - **One card a flow** on its reader's canvas, where today there is a card a file and a box a notebook. Its kind is said
   by its outline, a second sheet behind the card, and by the word FLOW with the count of what it gives. No sign of its
-  own (Q-234 did not pick one).
+  own (Q-239 did not pick one).
 - **The day's mark, by precedence, with a count.** A flow's day is the worst of what is inside it, in the month's own
   marks (ADR 0024 §3): the run failed; paused, waiting; not published; decided; unusual; not judged yet; normal. The
   words give the extent: *Paused · tls, 1 of 13 files*. Never an average, never a score.
@@ -146,16 +146,16 @@ flow is read, hashed into each flow that imports it.
 - **A flow has a month of its own** once entered: its calendar, its counts, its rows, by what its own files and steps
   and the flows it reads came to.
 
-### 6. A paused day is decided once, at its flow (Q-226)
+### 6. A paused day is decided once, at its flow (Q-231)
 
 - **The hold is the flow's** whose file or step holds, and so is the decision: recorded by load, as now (ADR 0010 §7),
   and saying which flow it is about. A flow that reads it shows *waits on* and is never asked.
 - **In two steps.** First inside one page, where there is one record: the sheet, the month and the record say whose the
-  decision is. Then between pages of one browser that share a flow (Q-240: a read flow's own page, on its reader's
+  decision is. Then between pages of one browser that share a flow (Q-245: a read flow's own page, on its reader's
   files): the decision is kept where it was made, at the paused flow, and the other page's record cites the decision it
   carried, so no flow decides the same file twice.
 
-### 7. A change is followed, said and tested (Q-227)
+### 7. A change is followed, said and tested (Q-232)
 
 The maintainer: *"I like follow and say so but test what might fail based on previous runs."*
 
@@ -169,7 +169,7 @@ The maintainer: *"I like follow and say so but test what might fail based on pre
 - **Pinned where it must not move.** A flow may name the hash of a flow it reads. Reading then refuses any other, saying
   both hashes, until someone moves the pin.
 
-### 8. The ontology owns shared types, and a flow may handle a column its own way (Q-229)
+### 8. The ontology owns shared types, and a flow may handle a column its own way (Q-234)
 
 The maintainer: *"I feel like ontology should own that but flows can override it will show up in hash and ontology
 notes unique handling of specific column in specific flow."*
@@ -183,7 +183,7 @@ notes unique handling of specific column in specific flow."*
 - **The ontology notes it.** The Ontology page says, on the column's card, where it is handled differently and why.
 - **Without the mark, saying a shared column again is still refused:** an accident is not an override.
 
-### 9. Exploring what a flow gives (Q-230)
+### 9. Exploring what a flow gives (Q-235)
 
 For someone who has never seen the dataset, on any output a flow gives:
 
@@ -198,14 +198,14 @@ For someone who has never seen the dataset, on any output a flow gives:
 
 Charting two columns against each other is left to smaltbi.
 
-### 10. Building in the app (Q-231)
+### 10. Building in the app (Q-236)
 
 - **A catalogue** of the flows shipped with the build. *Add a flow* puts its card on the canvas and makes what it gives
   readable in the reader's own cells and the exploration view.
 - **A join form** that writes the join step: two datasets, the key on each side, the columns to take. It writes a
   notebook cell, as the gate toggles write gate cells (ADR 0014 slice 6), kept in the browser with every other edit.
 
-### 11. Reused a little differently (Q-228)
+### 11. Reused a little differently (Q-233)
 
 - **Inputs and settings.** A flow may declare an open input, the columns it needs, in place of a file of its own, and
   settings. Each use maps one of its own datasets onto each input and gives the settings. Its checks and steps stay as
@@ -214,11 +214,11 @@ Charting two columns against each other is left to smaltbi.
 
 ### 12. The demo, the voice and the slices
 
-- **Larkspur is cut into five flows** (Q-232): HR organisation, Inventory, Evidence feeds, Applications, and the
+- **Larkspur is cut into five flows** (Q-237): HR organisation, Inventory, Evidence feeds, Applications, and the
   posture product on top, which reads the four. The same steps and the same held days: its answer key stands. What one
   flow reads of another is published there, so the bronze files' checked rows and the organisation's units, leaders and
   closure become datasets the flows give.
-- **Plain in the app, smalty where it is safe** (Q-234): a sealed flow may say *Worth its smalt.*, an empty catalogue
+- **Plain in the app, smalty where it is safe** (Q-239): a sealed flow may say *Worth its smalt.*, an empty catalogue
   *Nothing upstream yet.*; Larkspur's sample world may carry jokes. Nothing playful on a paused day, a refused file, a
   decision, a hash or the audit, and not "a grain of smalt", which says *don't quite believe this*.
 
@@ -474,7 +474,7 @@ never one or another. A step the engine folds into the next has no Explore tab: 
 
 **What it leaves:** where two flows lead on one day, the one choice decides both, each recorded as its own flow's; no
 day of the demos has two. The second step, between pages of one browser that share a flow, was built last, once the
-maintainer had chosen the page (Q-240): its own section, below.
+maintainer had chosen the page (Q-245): its own section, below.
 
 ### Slice 6: a change followed, said and tested (2026-11-17)
 
@@ -717,7 +717,7 @@ Built with slice 9, whose screens two of its three lines are said on.
 ### Slice 8: inputs and settings (2026-11-17)
 
 Built last: the catalogue (slice 9) is where a flow with inputs is used from the page. The maintainer's answer on a
-flow reused "slightly differently" (Q-228): what a flow may change about a flow it reads is its inputs and its
+flow reused "slightly differently" (Q-233): what a flow may change about a flow it reads is its inputs and its
 settings, nothing else.
 
 - **A flow declares what is open.** In its `flow.json`, `inputs`: each a dataset it reads in place of a file of its
@@ -812,7 +812,7 @@ settings, nothing else.
 ### Slice 5, second step: a decision carried between pages (2026-11-17)
 
 §6's second step, built last. It needed two pages of one browser that share a flow and its files, and the site had
-none; the maintainer chose which (Q-240): **one read flow's own page**.
+none; the maintainer chose which (Q-245): **one read flow's own page**.
 
 - **The page.** Evidence feeds, a flow the estate reads, is a page of its own on the tour's files:
   `examples/larkspur/feeds/data.json` is its data list (the tour's generator and arguments; the seventeen files the
@@ -944,25 +944,25 @@ none; the maintainer chose which (Q-240): **one read flow's own page**.
 
 Asked through the question prompt, 2026-11-17, in three rounds of three (docs/OPEN_QUESTIONS.md):
 
-- **Q-226:** a paused day of a shared flow is decided once, at that flow.
-- **Q-227:** a change is followed and said, and tested on the days already recorded.
-- **Q-228:** a flow may change the inputs and settings of a flow it reads, nothing else.
-- **Q-229:** the ontology owns shared types; a flow may override a column, hashed and noted.
-- **Q-230:** exploring an output: highlight and filter, how it joins, two days compared.
-- **Q-231:** building in the app: a catalogue and a join form.
-- **Q-232:** the demo: Larkspur cut into flows.
-- **Q-233:** the name: a flow.
-- **Q-234:** the playful voice: success and empty screens, and the sample estate.
+- **Q-231:** a paused day of a shared flow is decided once, at that flow.
+- **Q-232:** a change is followed and said, and tested on the days already recorded.
+- **Q-233:** a flow may change the inputs and settings of a flow it reads, nothing else.
+- **Q-234:** the ontology owns shared types; a flow may override a column, hashed and noted.
+- **Q-235:** exploring an output: highlight and filter, how it joins, two days compared.
+- **Q-236:** building in the app: a catalogue and a join form.
+- **Q-237:** the demo: Larkspur cut into flows.
+- **Q-238:** the name: a flow.
+- **Q-239:** the playful voice: success and empty screens, and the sample estate.
 
 Built as proposed, then asked the same way on 2026-11-17, in two rounds, and confirmed as built:
 
-- **Q-235:** testing a change on the days recorded informs, and holds nothing back.
-- **Q-236:** a flow's own handling of a column is written in that flow, marked with its reason.
-- **Q-237:** where two flows hold on one day, one choice is recorded as a decision a flow.
-- **Q-238:** a use's datasets are named after it, and it is known by the hash of its own document.
-- **Q-239:** a flow or a join whose own step stops its first run is taken back at once.
+- **Q-240:** testing a change on the days recorded informs, and holds nothing back.
+- **Q-241:** a flow's own handling of a column is written in that flow, marked with its reason.
+- **Q-242:** where two flows hold on one day, one choice is recorded as a decision a flow.
+- **Q-243:** a use's datasets are named after it, and it is known by the hash of its own document.
+- **Q-244:** a flow or a join whose own step stops its first run is taken back at once.
 
 Answered in the same rounds, then built:
 
-- **Q-240:** a decision is carried between a read flow's own page and its reader's: Evidence feeds, on the tour's
+- **Q-245:** a decision is carried between a read flow's own page and its reader's: Evidence feeds, on the tour's
   files (§6's second step).

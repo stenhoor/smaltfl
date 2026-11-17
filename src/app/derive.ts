@@ -1,4 +1,4 @@
-// A flow's steps derived from its notebooks, in a bundle of its own (ADR 0025 §10): the notebook parser (smaltnb's, on
+// A flow's steps derived from its notebooks, in a bundle of its own (ADR 0026 §10): the notebook parser (smaltnb's, on
 // smaltty) is loaded the first time someone builds in the app (a join written as a cell), so the page's first load never
 // carries it. What reading a flow from its folder does after its files are read: the steps, the gates, each step's cell
 // and each notebook's outline, and the check cells in step with the ontology.
@@ -9,7 +9,7 @@ import { expandNotebooks } from '../core/notebook.js';
 import { useOf, type UseSpec } from '../core/reuse.js';
 
 /**
- * A use of a flow as its own document (ADR 0025 §11): the flow's notebooks read under the use's name, with the datasets
+ * A use of a flow as its own document (ADR 0026 §11): the flow's notebooks read under the use's name, with the datasets
  * it maps and the values it sets. `own` is the flow as its folder gives it, its inputs open (a catalogue's flow), and
  * `hash` the hash it is known by. Throws a PlanError naming the first problem.
  */

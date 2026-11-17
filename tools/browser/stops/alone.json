@@ -1,7 +1,7 @@
 [
   {
     "name": "alone-form",
-    "what": "The control estate, a flow that reads no other and ships no catalogue (ADR 0025 §10): nothing above the canvas, and the join form all the same, from a dataset's How it joins. The key offered is the one the two share, and each side's columns are named for their dataset",
+    "what": "The control estate, a flow that reads no other and ships no catalogue (ADR 0026 §10): nothing above the canvas, and the join form all the same, from a dataset's How it joins. The key offered is the one the two share, and each side's columns are named for their dataset",
     "day": "Wed 6",
     "unfold": [
       "nb-scores"
@@ -66,7 +66,7 @@
   },
   {
     "name": "alone-empty",
-    "what": "An empty catalogue (ADR 0025 §12): the build ships no flow to add, said once in the family's voice with the plain words under it; what was made here is listed with the way to take it back",
+    "what": "An empty catalogue (ADR 0026 §12): the build ships no flow to add, said once in the family's voice with the plain words under it; what was made here is listed with the way to take it back",
     "click": "#build-bar .build-add",
     "waitFor": ".vf-detail .cat-none",
     "element": ".vf-detail",

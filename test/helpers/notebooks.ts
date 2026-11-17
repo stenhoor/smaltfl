@@ -8,7 +8,7 @@ import type { ExpandOptions } from '../../src/core/notebook.js';
 export const ts = smaltty;
 
 /** A format-4 flow from its folder: `flow.json` with its notebooks loaded and its steps derived (ADR 0011), and the
- * flows it reads brought in (ADR 0025), as `readFlow` reads one for the build. */
+ * flows it reads brought in (ADR 0026), as `readFlow` reads one for the build. */
 export async function loadFlowDir(dir: URL, options: ExpandOptions = {}): Promise<FlowDocument> {
   return composeFlow('flow.json', { json: async (path) => JSON.parse(readFileSync(new URL(path, dir), 'utf8')), text: async (path) => readFileSync(new URL(path, dir), 'utf8') }, ts, options);
 }

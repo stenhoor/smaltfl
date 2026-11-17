@@ -1,7 +1,7 @@
 [
   {
     "name": "overrides-head",
-    "what": "Larkspur's tour, Wed Feb 7: the Ontology page says first where its ontology comes from (ADR 0025 §8): Larkspur estate's ontology by its hash and the path the flow gives it by, the flows read here that import the same one, and the one column a flow handles its own way, with the flow, its datasets and its reason",
+    "what": "Larkspur's tour, Wed Feb 7: the Ontology page says first where its ontology comes from (ADR 0026 §8): Larkspur estate's ontology by its hash and the path the flow gives it by, the flows read here that import the same one, and the one column a flow handles its own way, with the flow, its datasets and its reason",
     "day": "Wed 7",
     "view": "ontology",
     "viewFirst": true,

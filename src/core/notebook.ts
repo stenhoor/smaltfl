@@ -23,10 +23,10 @@
  *   notebooks to import, `publish` for readers;
  * - `action()` cells never run in a flow run (§2) and are left out;
  * - a notebook imports another listed notebook's exports (`import { x } from './checks.nb.js'`);
- * - `const feed = input('feed')` binds a name to one of the flow's open inputs (ADR 0025 §11), and `${params.floor}`
+ * - `const feed = input('feed')` binds a name to one of the flow's open inputs (ADR 0026 §11), and `${params.floor}`
  *   reads a setting where the document declares `floor` as one: written into the statement as its value.
  *
- * A notebook read for a use of a flow (ADR 0025 §11, `NotebookDef.use`) is the same text read under the use's name:
+ * A notebook read for a use of a flow (ADR 0026 §11, `NotebookDef.use`) is the same text read under the use's name:
  * each step is named after the use (`tls_health_summary`), each input is a step that reads the columns the flow needs
  * of the dataset the use maps onto it, and each setting is the use's value. Two uses of one flow are two sets of steps.
  *
@@ -118,7 +118,7 @@ export function notebookSectionId(path: string): string {
 
 /** A notebook's section name: its file's stem, as words (`clean.nb.ts` → "Clean", `by_hour.nb.ts` → "By hour"). */
 export function notebookName(given: string): string {
-  // A notebook read for a use of a flow (ADR 0025 §11) is named as its file is.
+  // A notebook read for a use of a flow (ADR 0026 §11) is named as its file is.
   const path = filePath(given);
   const stem = path.slice(path.lastIndexOf('/') + 1).replace(/\.nb\.ts$/, '').replace(/\.ts$/, '');
   const words = stem.replace(/[-_]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim();
@@ -146,7 +146,7 @@ interface Parsed {
   statements: number[];
   names: Map<string, Ref>;
   order: string[];
-  /** The use of a flow the notebook is read for (ADR 0025 §11), by name, with what it maps and sets; null as it is. */
+  /** The use of a flow the notebook is read for (ADR 0026 §11), by name, with what it maps and sets; null as it is. */
   use: { name: string; use: FlowUse } | null;
 }
 
@@ -164,7 +164,7 @@ export async function stepsOfNotebooks(doc: Pick<FlowDocument, 'notebooks' | 'so
   const notebooks = doc.notebooks ?? [];
   const sources = new Map((doc.sources ?? []).map((s) => [s.id.toLowerCase(), s.id]));
   const byPath = new Map<string, Parsed>();
-  // Uses of flows (ADR 0025 §11): the uses the document holds, the open inputs of a flow read as it is, and each
+  // Uses of flows (ADR 0026 §11): the uses the document holds, the open inputs of a flow read as it is, and each
   // setting's value where a notebook reads one: a use's own, or the flow's default.
   const uses = usesOf({ flows: doc.flows, use: doc.use, id: doc.id ?? '' });
   const reading: Reading = { sources, open: new Map((doc.inputs ?? []).map((x) => [x.id.toLowerCase(), x])) };
@@ -246,7 +246,7 @@ export async function stepsOfNotebooks(doc: Pick<FlowDocument, 'notebooks' | 'so
     // A notebook read for a use imports the same flow's notebooks as they are read for that use.
     let other = (parsed.use ? byPath.get(usePath(ref.path, parsed.use.name)) : undefined) ?? byPath.get(ref.path);
     if (!other) {
-      // A notebook read here only for uses of its flow (ADR 0025 §11): what a use gives is imported under the name it
+      // A notebook read here only for uses of its flow (ADR 0026 §11): what a use gives is imported under the name it
       // has here, the use's before the cell's (`import { big as paid_big }`), which says which use.
       const forUses = [...byPath.values()].filter((x) => x.use && filePath(x.def.path) === ref.path);
       other = forUses.find((x) => usedName(x.use!.name, ref.name) === name);
@@ -341,7 +341,7 @@ export async function stepsOfNotebooks(doc: Pick<FlowDocument, 'notebooks' | 'so
           list.push({ ...at(cell), kind: 'input', input: c.id });
           continue;
         }
-        // In a use (ADR 0025 §11): the step that reads the columns the flow needs of the dataset mapped onto the input.
+        // In a use (ADR 0026 §11): the step that reads the columns the flow needs of the dataset mapped onto the input.
         const mapped = parsed.use.use.inputs[c.id]!;
         const port: StepDef = {
           kind: 'sql', inputs: [mapped.to], sql: emitPort(mapped.columns, mapped.to, (d) => d), id: idIn(parsed, c.id),
@@ -526,7 +526,7 @@ function classify(parsed: Parsed, cell: Cell, ts: TypeScriptKit, reading: Readin
     return { kind: 'source', id: sources.get(id.toLowerCase())! };
   }
   if (marker === 'input') {
-    // An open input of the flow (ADR 0025 §11): one the document declares, or, in a use, one the use maps.
+    // An open input of the flow (ADR 0026 §11): one the document declares, or, in a use, one the use maps.
     const id = decl!.args[0] !== undefined ? literalValue(tree, ts, decl!.args[0]) : undefined;
     const declared = parsed.use ? Object.keys(parsed.use.use.inputs) : [...reading.open.values()].map((x) => x.id);
     const found = typeof id === 'string' ? declared.find((x) => x.toLowerCase() === id.toLowerCase()) : undefined;
@@ -587,7 +587,7 @@ function classify(parsed: Parsed, cell: Cell, ts: TypeScriptKit, reading: Readin
 const PLACEHOLDER = /\$\{\s*([A-Za-z_$][\w$]*)(?:\s*\.\s*([A-Za-z_$][\w$]*))?\s*\}/g;
 
 /** A sql cell's statement with each `${x}` replaced by the id it reads, and `${params.x}` by `:x`, or by the value
- * of the setting `x` where the flow has one (ADR 0025 §11). */
+ * of the setting `x` where the flow has one (ADR 0026 §11). */
 function sqlOf(text: string, resolve: (name: string) => Ref | undefined, problem: (message: string) => void, setting: (name: string) => string | undefined = () => undefined): { sql: string; inputs: string[] } | null {
   const inputs: string[] = [];
   let bad: string | null = null;
@@ -717,7 +717,7 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 }
 
 /** `./counts.nb.js` from `checks.nb.ts`: the listed notebook's path, with the compiled extension mapped back. A path
- * may climb out of the document's folder (`../inventory/bronze.nb.ts`, a notebook of a flow this one reads, ADR 0025). */
+ * may climb out of the document's folder (`../inventory/bronze.nb.ts`, a notebook of a flow this one reads, ADR 0026). */
 function resolvePath(from: string, module: string): string {
   const dir = from.includes('/') ? from.slice(0, from.lastIndexOf('/') + 1) : '';
   return joinPath(dir, module).replace(/\.js$/, '.ts');

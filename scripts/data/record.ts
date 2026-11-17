@@ -161,7 +161,7 @@ async function main(): Promise<void> {
   const delivered = Array.isArray(generated) ? [] : (generated.deliveries ?? []);
   // The rules over time (ADR 0021 §5): the story's change sets, kept as the document keeps them, so every run is of the
   // rules in force on its day as known when it ran.
-  // In a flow that reads flows, each change set is also the flows' whose file or step it is about (ADR 0025 §7): the
+  // In a flow that reads flows, each change set is also the flows' whose file or step it is about (ADR 0026 §7): the
   // document names each flow by the hash its own document has with them.
   const changes: ChangeSet[] = story?.changes ?? [];
   const flowDoc: FlowDocument = changes.length ? (await readWithChanges(flowPath, changes)).doc : doc;
@@ -459,7 +459,7 @@ async function main(): Promise<void> {
      * flow that watches several datasets, Q-193), and, to publish, released in the engine, the release recorded beside it.
      */
     /**
-     * A day's decisions recorded, one a held load, each saying whose it is (ADR 0025 §6): those whose loads lead first,
+     * A day's decisions recorded, one a held load, each saying whose it is (ADR 0026 §6): those whose loads lead first,
      * then those that only follow, each citing the decision it carries. As recorded, in order.
      */
     const recordDecisions = (abouts: readonly DecideAbout[], holds: readonly Hold[], day: string, at: string, by: string, reason: string | null): LogEntry[] => {

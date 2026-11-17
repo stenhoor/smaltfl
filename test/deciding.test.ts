@@ -1,5 +1,5 @@
 /**
- * Whose decision a held day is (ADR 0025 §6): a hold is the flow's whose file or step holds; a hold at a step built
+ * Whose decision a held day is (ADR 0026 §6): a hold is the flow's whose file or step holds; a hold at a step built
  * from a file or step that holds too follows it, and is decided by its decision. On Larkspur's five flows.
  */
 import { describe, expect, it } from 'vitest';

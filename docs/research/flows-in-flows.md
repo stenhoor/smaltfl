@@ -1,6 +1,6 @@
 # Flows in flows: research notes (2026-11-17)
 
-Research behind [ADR 0025](../adr/0025-flows-in-flows.md). The maintainer, 2026-11-16:
+Research behind [ADR 0026](../adr/0026-flows-in-flows.md). The maintainer, 2026-11-16:
 
 > Right now the demo that we have is there's a lot going on in the Flow itself. [...] we need to come up with a concept of
 > some component hierarchical nature to flows where you can create a flow that can become a part of a flow. It can become
@@ -29,7 +29,7 @@ and naming.
   screenshots of single examples.
 
 The report's last section says where each recommendation rests on weaker evidence. What was decided from it is ADR
-0025; where the report recommends something the ADR does not take (keying a reader by the content of what it reads, a
+0026; where the report recommends something the ADR does not take (keying a reader by the content of what it reads, a
 flow run on its own and read by another), the ADR's "Not built, and why" says so.
 
 ## Nest flows by hash, not by path

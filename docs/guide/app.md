@@ -57,7 +57,7 @@ card** on its canvas, a second sheet behind it, with the word FLOW and the count
   It is the same run, so every card shows the day on screen, and Decide, the news and the notebook pages work as at
   the top.
 - **Each level has a link**: `#day/2024-03-27/in/feeds`. The days either side keep the level.
-- **A flow that changed says so** ([ADR 0025](../adr/0025-flows-in-flows) §7). Its card reads `FLOW · CHANGED` on the
+- **A flow that changed says so** ([ADR 0026](../adr/0026-flows-in-flows) §7). Its card reads `FLOW · CHANGED` on the
   day a change of its own takes effect, and once it was changed here. Its sheet has **What changed**: each change with
   the day it takes effect from, what it did, who made it and why; the changes of the flows it reads, which it
   *follows*; and the flows that read it and follow in turn. A change is the flow's whose file or step it is about, so
@@ -70,7 +70,7 @@ card** on its canvas, a second sheet behind it, with the word FLOW and the count
 
 #### Building in the app {#building-in-the-app}
 
-The owner can build on the flow from the page ([ADR 0025](../adr/0025-flows-in-flows) §10).
+The owner can build on the flow from the page ([ADR 0026](../adr/0026-flows-in-flows) §10).
 
 - **Add a flow ›**, above the canvas, opens the catalogue: flows made already and shipped with the build, each with
   what it gives and what it is built on. **Add it ›** puts its card on the canvas and runs the day with it. Its sheet
@@ -97,7 +97,7 @@ The owner can build on the flow from the page ([ADR 0025](../adr/0025-flows-in-f
 #### Plain words {#plain-words}
 
 The app is plain where anything is decided, held, hashed or audited. In three places it says a line in the smalt
-family's voice ([ADR 0025](../adr/0025-flows-in-flows) §12):
+family's voice ([ADR 0026](../adr/0026-flows-in-flows) §12):
 
 - *Worth its smalt.* under a gold dataset's seal, on a run whose every gate passed with nothing held;
 - *Worth its smalt.* once, on the status line, when a flow added from the catalogue went out as usual on its first
@@ -213,7 +213,7 @@ its meaning, its values and the rules about it. The owner can rename a column, r
 and add, change or remove a rule. A file read by several flows can share one ontology
 (`examples/ontologies/auth.json`): change it once, and every flow that reads the file has the change.
 
-Where the flows share an **estate's ontology** ([ADR 0025](../adr/0025-flows-in-flows) §8), the view says so first:
+Where the flows share an **estate's ontology** ([ADR 0026](../adr/0026-flows-in-flows) §8), the view says so first:
 the estate's name, the hash its ontology travels under, and the flows read here that import the same one. Under it is
 every column a flow **handles its own way**: the flow, the datasets of its own it does so in, and why, each dataset a
 tap to the column's card. That card says the meaning is the flow's own, and what the estate says in its place; every

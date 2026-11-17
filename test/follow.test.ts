@@ -1,5 +1,5 @@
 /**
- * A change followed, said and tested (ADR 0025 §7): whose a change is, which flows follow it, what differs between two
+ * A change followed, said and tested (ADR 0026 §7): whose a change is, which flows follow it, what differs between two
  * versions of a flow and a test's days in a sentence (src/core/follow.ts); and a read flow's own document with the
  * changes made to it (src/core/attribute.ts). On Larkspur's five flows.
  */

@@ -1,5 +1,5 @@
 /**
- * Whose decision a held day is (ADR 0025 §6): a hold is the flow's whose file or step holds, and so is the decision. A
+ * Whose decision a held day is (ADR 0026 §6): a hold is the flow's whose file or step holds, and so is the decision. A
  * flow that reads it waits on it and is never asked: where its own steps hold only because a file or step they are
  * built from holds, their holds follow, and are decided by the decision they follow.
  *
@@ -16,7 +16,7 @@ type Held = Pick<Hold, 'by' | 'origin' | 'load' | 'reaches'>;
 export const flowIdOf = (doc: Pick<FlowDocument, 'flows'>, id: string): string => flowOf(doc, id)?.id ?? '';
 
 /**
- * What a decision's entry says of the flow it is about (ADR 0025 §6): a flow the document reads, by its id and the
+ * What a decision's entry says of the flow it is about (ADR 0026 §6): a flow the document reads, by its id and the
  * hash it is known by. Undefined for the document's own flow: its decisions are as they always were, so a flow that
  * reads none records what it always did.
  */
@@ -39,7 +39,7 @@ export interface HoldGroup<H extends Held = Held> {
 }
 
 /**
- * A day's holds as the decisions it needs (ADR 0025 §6), one a flow that leads, in the document's order of flows, its
+ * A day's holds as the decisions it needs (ADR 0026 §6), one a flow that leads, in the document's order of flows, its
  * own last. A hold leads where no file or step its own is built from holds too; else it follows, and goes with the
  * first flow that leads above it: a step of Applications whose check fails because HR's file broke is decided by HR's
  * decision. Where a hold follows leaders of two flows, its outputs stay back until the other is decided too, since
@@ -96,7 +96,7 @@ export interface LoadRole {
 }
 
 /**
- * Each held load's part in a day's decision (ADR 0025 §6), by its key (`loadKey`): a load a hold leads with is its
+ * Each held load's part in a day's decision (ADR 0026 §6), by its key (`loadKey`): a load a hold leads with is its
  * flow's to decide; a load only a following hold is about is decided with it, and its decision carries the one it
  * follows. A day is still one choice, recorded as one decision a load (Q-193): this says whose each is.
  */
@@ -112,7 +112,7 @@ export function loadRoles(doc: Doc, holds: readonly Held[]): Map<string, LoadRol
 }
 
 /**
- * A day's decisions, one a held load (hold.ts `loadDecisions`), each saying whose it is (ADR 0025 §6): those whose
+ * A day's decisions, one a held load (hold.ts `loadDecisions`), each saying whose it is (ADR 0026 §6): those whose
  * loads lead first, in the order given, then those that follow, each with the load whose decision it carries. Whoever
  * records them cites, in each that follows, the entry recorded for that load (`carried`).
  */
@@ -156,7 +156,7 @@ export const possessive = (name: string): string => `${name}${/s$/i.test(name) ?
 const listed = (names: readonly string[]): string => (names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`);
 
 /**
- * Whose decision it is, in a sentence (ADR 0025 §6): "Evidence feeds’ to decide: access_reviews holds. Larkspur estate
+ * Whose decision it is, in a sentence (ADR 0026 §6): "Evidence feeds’ to decide: access_reviews holds. Larkspur estate
  * waits on it." Null for a flow that reads none and is read by none here: there is nothing to tell apart.
  */
 export function whoseSaid(doc: Doc, g: Pick<HoldGroup, 'flow' | 'leads' | 'follows'>, waiting: readonly string[], nameOf: (flow: string) => string): string | null {

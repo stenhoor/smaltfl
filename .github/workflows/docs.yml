@@ -2,7 +2,7 @@ name: Docs
 
 # The site (VitePress, docs/) and the demos beside it, deployed to GitHub Pages at stenhoor.github.io/smaltfl/:
 # Larkspur's tour at /app/, the demo, two months with their scene list (ADR 0023); Evidence feeds, a flow the estate
-# reads, as a page of its own on the tour's files at /feeds/ (ADR 0025 §6: a paused day decided on either page is
+# reads, as a page of its own on the tour's files at /feeds/ (ADR 0026 §6: a paused day decided on either page is
 # carried to the other, since both are one origin's and share the browser's records; `--page` tells each where the
 # other is); Larkspur's planted month at /larkspur/ (ADR 0020's answer key); the control estate at /estate/ (ADR 0014's
 # answer key, kept as a regression, Q-169) and the sign-in log at /signins/. Each demo's data is generated from its

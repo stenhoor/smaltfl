@@ -1,7 +1,7 @@
 [
   {
     "name": "carry-estate-waits",
-    "what": "The estate's page on the tour's Wed Mar 27 (ADR 0025 §6, second step): the day is Evidence feeds' to decide, and the sheet's head links to the page the site has for that flow",
+    "what": "The estate's page on the tour's Wed Mar 27 (ADR 0026 §6, second step): the day is Evidence feeds' to decide, and the sheet's head links to the page the site has for that flow",
     "day": "Wed 27",
     "in": "",
     "click": "#loads .vf-decide-day",

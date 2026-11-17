@@ -1061,13 +1061,13 @@ export interface DecideAbout {
    */
   load?: Load;
   /**
-   * In a flow that reads flows (ADR 0025 §6): the flow whose file or step holds, by its id and the hash it is known
+   * In a flow that reads flows (ADR 0026 §6): the flow whose file or step holds, by its id and the hash it is known
    * by, where that is a flow the document reads. A hold is that flow's, and so is the decision. None for the
    * document's own flow, so a flow that reads none records what it always did.
    */
   flow?: { id: string; hash: string };
   /**
-   * The decision it carries (ADR 0025 §6): a load held only because a file or step it is built from holds is decided
+   * The decision it carries (ADR 0026 §6): a load held only because a file or step it is built from holds is decided
    * by that one's decision, cited here by its entry's seq and its log/1 leaf. A reading flow is never asked.
    */
   carried?: { seq: number; leaf: string };

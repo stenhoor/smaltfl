@@ -1,7 +1,7 @@
 [
   {
     "name": "explore-columns",
-    "what": "Exploring a file for the first time (ADR 0025 §9): what a row is, in a sentence from the ontology; then a card a column, counted over every row and saying so. A column that names rows has no chart; a category its values, the most common first, the rows with none a bar of their own; a date its rows by the month; where the ontology writes a column's values, how the rows sit with them",
+    "what": "Exploring a file for the first time (ADR 0026 §9): what a row is, in a sentence from the ontology; then a card a column, counted over every row and saying so. A column that names rows has no chart; a category its values, the most common first, the rows with none a bar of their own; a date its rows by the month; where the ontology writes a column's values, how the rows sit with them",
     "day": "Thu 7",
     "card": "tls",
     "tab": "Explore",
@@ -35,7 +35,7 @@
   },
   {
     "name": "explore-pick",
-    "what": "A bar tapped lights its rows in every other column (ADR 0025 §9): the 40 failing certificates are every one of the 22 on TLS 1.0, and expire first. Each bar says how many of its rows are in the part picked; the part and its count stay in view at the foot, with Keep only",
+    "what": "A bar tapped lights its rows in every other column (ADR 0026 §9): the 40 failing certificates are every one of the 22 on TLS 1.0, and expire first. Each bar says how many of its rows are in the part picked; the part and its count stay in view at the foot, with Keep only",
     "day": "Thu 7",
     "card": "tls",
     "tab": "Explore",
@@ -69,7 +69,7 @@
   },
   {
     "name": "explore-keep",
-    "what": "Keep only (ADR 0025 §9): the part picked becomes the rows every count is over, said at the top with a way back; each card is counted again over the 40, on the axes it had",
+    "what": "Keep only (ADR 0026 §9): the part picked becomes the rows every count is over, said at the top with a way back; each card is counted again over the 40, on the axes it had",
     "day": "Fri 8",
     "card": "tls",
     "tab": "Explore",
@@ -100,7 +100,7 @@
   },
   {
     "name": "explore-cell",
-    "what": "The rows kept become one of the reader's own cells (ADR 0025 §9): SQL to read and change, under the notebook that reads the file, run at once; kept in the browser, never in the flow",
+    "what": "The rows kept become one of the reader's own cells (ADR 0026 §9): SQL to read and change, under the notebook that reads the file, run at once; kept in the browser, never in the flow",
     "day": "Fri 8",
     "card": "tls",
     "tab": "Explore",
@@ -126,7 +126,7 @@
   },
   {
     "name": "explore-number",
-    "what": "A published table explored (ADR 0025 §9): a number's rows in bins on round edges, the stray low ones a row beneath; a score's bars end on its largest value, in a bin of its own. End and Enter pick it: the applications scoring 100 are the A grades",
+    "what": "A published table explored (ADR 0026 §9): a number's rows in bins on round edges, the stray low ones a row beneath; a score's bars end on its largest value, in a bin of its own. End and Enter pick it: the applications scoring 100 are the A grades",
     "day": "Fri 8",
     "unfold": ["nb-product"],
     "card": "app_scorecard",
@@ -161,7 +161,7 @@
   },
   {
     "name": "explore-joins",
-    "what": "How it joins (ADR 0025 §9): the inventory its scope is counted against, counted on both sides over the applications in scope, as its gate counts them; the match day by day up to the day on screen, which each run measured; the other datasets of applications a tap from being counted",
+    "what": "How it joins (ADR 0026 §9): the inventory its scope is counted against, counted on both sides over the applications in scope, as its gate counts them; the match day by day up to the day on screen, which each run measured; the other datasets of applications a tap from being counted",
     "day": "Fri 8",
     "card": "tls",
     "tab": "Explore",
@@ -208,7 +208,7 @@
   },
   {
     "name": "explore-join-links",
-    "what": "The inventory's own joins (ADR 0025 §9): what a link of the ontology's names is counted at once, each application's unit and its platform; then the thirteen datasets whose rows are its applications",
+    "what": "The inventory's own joins (ADR 0026 §9): what a link of the ontology's names is counted at once, each application's unit and its platform; then the thirteen datasets whose rows are its applications",
     "day": "Fri 8",
     "card": "cmdb_apps",
     "tab": "Explore",
@@ -293,7 +293,7 @@
   },
   {
     "name": "explore-days",
-    "what": "Against another day (ADR 0025 §9, on ADR 0021's compare): Friday's file against the nearest day before it run in this browser, by its key; rows only in one day, and the cells that changed",
+    "what": "Against another day (ADR 0026 §9, on ADR 0021's compare): Friday's file against the nearest day before it run in this browser, by its key; rows only in one day, and the cells that changed",
     "day": "Fri 8",
     "card": "tls",
     "tab": "Explore",
@@ -330,7 +330,7 @@
   },
   {
     "name": "explore-from-flow",
-    "what": "From a flow's sheet to what it gives (ADR 0025 §9): each dataset a tap from being explored. What Evidence feeds gives of the MFA file is the file's rows, filled and checked, and says so; the canvas goes to the flow that draws it",
+    "what": "From a flow's sheet to what it gives (ADR 0026 §9): each dataset a tap from being explored. What Evidence feeds gives of the MFA file is the file's rows, filled and checked, and says so; the canvas goes to the flow that draws it",
     "day": "Fri 8",
     "in": "",
     "flow": "feeds",

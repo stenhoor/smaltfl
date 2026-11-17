@@ -21,7 +21,7 @@
 //     "element": "#sheet .cp",            optional: capture only the first element matching, cropped to it
 //     "scheme": "dark",                   optional: "light" (default) or "dark"
 //     "mask": "letters",                  optional: mask the text ("letters": keep digits; "all"); reloads after
-//     "in": "feeds",                      optional: the flows entered first (ADR 0025 §4), by id from the top ("feeds",
+//     "in": "feeds",                      optional: the flows entered first (ADR 0026 §4), by id from the top ("feeds",
 //                                         "applications/feeds"); "" is the top. A card inside a flow the page's flow
 //                                         reads is reached without it: the tour goes to the level that draws it
 //     "flow": "feeds",                    optional: the flow whose card to open (its sheet is what is captured)
@@ -36,7 +36,7 @@
 //                                         file input, and wait for the run it starts (Replace the file)
 //     "waitFor": "sel",                   optional: after the taps, wait until this shows (what a tap draws once the engine answers)
 //     "waitForMs": 240000,                optional: how long waitFor waits (default 30 s): what takes many runs to draw
-//     "page": "feeds",                    optional: another app of the same site first (ADR 0025 §6: two pages of one
+//     "page": "feeds",                    optional: another app of the same site first (ADR 0026 §6: two pages of one
 //                                         browser that share a flow), by the name of its folder beside <appDir>, and
 //                                         the stops after it until one says another; "" is <appDir>'s. Both are served
 //                                         from one origin, so they share the browser's records, as a site's pages do
@@ -199,7 +199,7 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
       // A file changed on its way to the page from now on: the page must refuse it.
       if (stop.tamper) tampered.add(stop.tamper);
       await open(stop.scheme === 'dark' ? 'dark' : 'light');
-      // Another app of the site (ADR 0025 §6): the same browser, so its records are there; this page starts anew.
+      // Another app of the site (ADR 0026 §6): the same browser, so its records are there; this page starts anew.
       if (stop.page !== undefined && stop.page !== at) {
         if (stop.page && !fs.existsSync(path.join(site, stop.page, 'page.html'))) problems.push(`${stop.name}: no app "${stop.page}" beside ${root}`);
         else {
@@ -238,7 +238,7 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
           else await settled(before);
         }
       }
-      // A flow that reads flows is drawn in levels (ADR 0025 §4): a card inside a flow it reads is on that flow's own
+      // A flow that reads flows is drawn in levels (ADR 0026 §4): a card inside a flow it reads is on that flow's own
       // canvas, so the tour goes there first, by the link the page gives for it. A stop's `in` names the flows to enter
       // itself ("feeds", or "applications/feeds"); "" is the top.
       const toLevelOf = async (card) => {
@@ -275,7 +275,7 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
         await p.keyboard.press('Enter');
         await p.waitForSelector('#sheet:not([hidden]) .nbc-list', { timeout: 20000 });
       }
-      // A flow the level reads (ADR 0025 §3): its card opens its sheet.
+      // A flow the level reads (ADR 0026 §3): its card opens its sheet.
       if (stop.flow) {
         await toLevelOf(`flow:${stop.flow}`);
         await p.locator(`g.card[data-card="flow:${stop.flow}"]`).first().focus();
@@ -323,7 +323,7 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
           await quiet(2000);
         } else problems.push(`${stop.name}: nothing to click at ${stop.click}`);
       }
-      // A double-click (a flow's card enters the flow, ADR 0025 §4): a mouse's, so at the sizes with one.
+      // A double-click (a flow's card enters the flow, ADR 0026 §4): a mouse's, so at the sizes with one.
       if (stop.dblclick) {
         const target = p.locator(stop.dblclick).first();
         if (await target.count()) {

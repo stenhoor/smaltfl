@@ -211,7 +211,7 @@
   },
   {
     "name": "rules-explore-fit",
-    "what": "The sign-in file explored (ADR 0025 §9): a time by the hour; how the rows sit with the values the ontology writes for Result, and the 15 that hold another, tapped, lit in every other column",
+    "what": "The sign-in file explored (ADR 0026 §9): a time by the hour; how the rows sit with the values the ontology writes for Result, and the 15 that hold another, tapped, lit in every other column",
     "day": "Wed 13",
     "card": "auth",
     "tab": "Explore",

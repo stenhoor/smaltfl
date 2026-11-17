@@ -31,7 +31,7 @@ day takes a few seconds while the engine starts and runs the whole flow, about a
 
 ## The flow {#the-flow}
 
-Larkspur is five flows, four of them read by the fifth ([ADR 0025](../adr/0025-flows-in-flows.md)). The canvas shows
+Larkspur is five flows, four of them read by the fifth ([ADR 0026](../adr/0026-flows-in-flows.md)). The canvas shows
 the top one, the posture product, with each flow it reads as **one card**, a second sheet behind it:
 
 - **Inventory**: the applications' register and the cloud assets, each file with its gate.

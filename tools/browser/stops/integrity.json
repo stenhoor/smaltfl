@@ -1,7 +1,7 @@
 [
   {
     "name": "int-sealed",
-    "what": "Larkspur's first day (ADR 0006): every file the run read is sealed, its bytes matching the data's list as the engine hashed them. At the top, the posture product's own three files, and each flow it reads by its files' seals read as one (ADR 0025 §3; Applications has no file of its own, so no seal)",
+    "what": "Larkspur's first day (ADR 0006): every file the run read is sealed, its bytes matching the data's list as the engine hashed them. At the top, the posture product's own three files, and each flow it reads by its files' seals read as one (ADR 0026 §3; Applications has no file of its own, so no seal)",
     "expect": {
       "status": "^Fri Mar 1",
       "count": { "g.card.source g.seal.ok": 3, "g.card.flow g.seal.ok": 3, "g.seal.bad": 0 }

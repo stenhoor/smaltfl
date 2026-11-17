@@ -1,5 +1,5 @@
 /**
- * A flow reused a little differently (ADR 0025 §11, Q-228): what a flow may change about a flow it reads is its inputs
+ * A flow reused a little differently (ADR 0026 §11, Q-233): what a flow may change about a flow it reads is its inputs
  * and its settings, and nothing else.
  *
  * - **A flow declares what is open.** Its `inputs`: each a dataset it reads in place of a file of its own, with the
@@ -53,7 +53,7 @@ function ownSteps(own: FlowDocument): FlowDocument['steps'] {
 }
 
 /**
- * Why a flow can't be used so (ADR 0025 §11), each in a sentence; none, and it can. `own` is the document reading the
+ * Why a flow can't be used so (ADR 0026 §11), each in a sentence; none, and it can. `own` is the document reading the
  * flow's folder gives, its inputs open. The use's name isn't one; an input has no dataset mapped onto it, or the use
  * maps one the flow doesn't have; a setting isn't the flow's, or its value isn't of its type; a step's name after the
  * use's is too long; or the flow is one this slice doesn't read under a name: it has files of its own, reads other
@@ -92,7 +92,7 @@ export function useProblems(own: FlowDocument, spec: UseSpec): string[] {
 }
 
 /**
- * Why a flow's own ontology can't go with a use of it (ADR 0025 §11), each in a sentence. Two uses would say the same
+ * Why a flow's own ontology can't go with a use of it (ADR 0026 §11), each in a sentence. Two uses would say the same
  * thing twice, and the ontology says a thing once: so a flow used under a name says what its columns mean (of its own
  * datasets, named), what its rows are called and what its rows are, and leaves types, links, actions, references,
  * dependencies and rules to the estate's ontology, which it may import. `own` is the flow's own ontology as its file
@@ -148,7 +148,7 @@ export function flowUse(own: FlowDocument, spec: UseSpec, hash: string): FlowUse
 export const useName = (own: Pick<FlowDocument, 'name'>, spec: Pick<UseSpec, 'as' | 'name'>): string => spec.name ?? `${own.name}: ${spec.as}`;
 
 /**
- * A use's own document before its steps are derived (ADR 0025 §11): the flow's own, under the use's name. Its
+ * A use's own document before its steps are derived (ADR 0026 §11): the flow's own, under the use's name. Its
  * notebooks are the flow's, each read for the use; what its ontology and its contracts say of the flow's datasets they
  * say of the use's; its inputs and settings are no longer open, and `use` says what they are here. `own` is the
  * document reading the flow's folder gives and `hash` its flow hash; for a use `useProblems` says nothing against.
@@ -172,7 +172,7 @@ export function useDocument(own: FlowDocument, spec: UseSpec, hash: string): Flo
 }
 
 /**
- * A use of a flow as its own document (ADR 0025 §11): the flow's notebooks read under the use's name, with the
+ * A use of a flow as its own document (ADR 0026 §11): the flow's notebooks read under the use's name, with the
  * datasets it maps and the values it sets. What a run keeps of the use, by its flow hash, and what a flow that takes
  * the use in adds to its own. It reads datasets it doesn't hold, so it is never run alone.
  */
@@ -198,7 +198,7 @@ export function readsFill(doc: Pick<FlowDocument, 'steps'>, id: string): boolean
 }
 
 /**
- * Why a use's inputs can't be mapped as it says in a flow (ADR 0025 §11), each in a sentence; none, and they can. `doc`
+ * Why a use's inputs can't be mapped as it says in a flow (ADR 0026 §11), each in a sentence; none, and they can. `doc`
  * is the flow that takes the use in and `use` what the use is. A dataset mapped isn't one of the flow's; the use's own
  * name, or one of its steps' names, is taken; a dataset is built from a feed a held day can fill and the input doesn't
  * take `filled_from`, so what the use gives couldn't say which rows came from another day (ADR 0009 amendment 1); or,

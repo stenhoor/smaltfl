@@ -103,7 +103,7 @@ export interface PropertyType {
    */
   due?: Due;
   /**
-   * The flow handles this column its own way (ADR 0025 §8): another meaning, other labels, another band than the
+   * The flow handles this column its own way (ADR 0026 §8): another meaning, other labels, another band than the
    * estate's ontology gives it, for the flow's own datasets (`datasets`), with why. Written in the flow, so in its hash
    * and in every reading flow's; the Ontology page notes it on the column's card. Without it, a flow that describes a
    * column the estate describes is refused.
@@ -226,7 +226,7 @@ export interface Ontology {
   /** The shared ontologies the flow brought in when it was read (shared.ts): each starting file's, and where it was read
    * from. A flow on disk lists them as `import` (paths), which reading the flow resolves into this. */
   shared?: SharedFrom[];
-  /** The estates' ontologies the flow brought in when it was read (shared.ts, ADR 0025 §8): each by its name, the path
+  /** The estates' ontologies the flow brought in when it was read (shared.ts, ADR 0026 §8): each by its name, the path
    * it was read from and its hash. A flow on disk lists them as `import`, beside its starting files' shared ones. */
   estate?: EstateFrom[];
   /** The fixes a held day of each file may be offered (rules.ts `FIX_KINDS`), by file: what the news, the brief and the

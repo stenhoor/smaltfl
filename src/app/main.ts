@@ -137,13 +137,13 @@ const sameFlow = (a: RunRecord, b: RunRecord): boolean => (a.base !== undefined 
  */
 const NO_FLOW: FlowDocument = { smaltfl: 1, id: 'none', name: 'No flow', sources: [], steps: [] };
 let shippedDoc = NO_FLOW;
-/** Each flow the shipped flow reads, as its own document (ADR 0025 §2), and whether a run of this visit has kept them. */
+/** Each flow the shipped flow reads, as its own document (ADR 0026 §2), and whether a run of this visit has kept them. */
 let readFlowDocs: Promise<FlowDocument[]> = Promise.resolve([]);
-/** The estates' ontologies the flow imports (ADR 0025 §8), as their files give them: what the Ontology page says the
+/** The estates' ontologies the flow imports (ADR 0026 §8), as their files give them: what the Ontology page says the
  * estate says of a column a flow handles its own way, and how an edit knows a column the estate describes. */
 let estateDocs: Promise<EstateOntology[]> = Promise.resolve([]);
 let estates: EstateOntology[] = [];
-/** Each read flow's own document as the edits made here leave it (ADR 0025 §7), in the order of the document's flows:
+/** Each read flow's own document as the edits made here leave it (ADR 0026 §7), in the order of the document's flows:
  * what a run keeps beside its own document, each by the hash the document names it by. Empty until first worked out. */
 let ownDocs: FlowDocument[] = [];
 /** The own documents being worked out again after an edit: a run waits for them. */
@@ -177,7 +177,7 @@ const state = {
   arranging: false,
   /** The section whose sheet is open (a step's sheet uses `selected`); a read flow's sheet by its card's key. */
   section: null as string | null,
-  /** The flows entered, from the top (ADR 0025 §4): the last is the flow whose canvas is on screen; none, the flow the
+  /** The flows entered, from the top (ADR 0026 §4): the last is the flow whose canvas is on screen; none, the flow the
    * page opened. */
   level: [] as string[],
   /** What each step changed, for the latest run, as the viewer reads it. */
@@ -205,7 +205,7 @@ const profileOf = (id: string) => profiles().find((p) => p.id === id);
  * the automatic layout puts it beside the step. Only the canvas sees them so: the plan never does.
  */
 function canvasDoc(given: FlowDocument): FlowDocument {
-  // The level on screen (ADR 0025 §4): the flow's own files and steps, and a card for each flow it reads itself.
+  // The level on screen (ADR 0026 §4): the flow's own files and steps, and a card for each flow it reads itself.
   const doc = levelDoc(given, levelAt());
   const shown = new Set([...doc.sources.map((x) => x.id), ...doc.steps.map((x) => x.id)]);
   const boxes = (doc.profiles ?? []).filter((p) => shown.has(p.of));
@@ -221,7 +221,7 @@ const levelAt = (): string | null => state.level.at(-1) ?? null;
 /** A flow by the name people read: a read flow's, or the page's own flow's for ''. */
 const flowName = (id: string): string => (id === '' ? state.doc.name : (state.doc.flows?.find((f) => f.id === id)?.name ?? id));
 /** A person by name: one of the flow's people; in a flow with no policies its one owner; else someone another page of
- * this browser names, whose decision was carried here (ADR 0025 §6). */
+ * this browser names, whose decision was carried here (ADR 0026 §6). */
 const personName = (id: string) => policies()?.principals.find((x) => x.id === id)?.name ?? (!policies() && id === 'owner' ? 'Owner' : (pagePeople.get(id) ?? id));
 /** What the current viewer may read of a node, or null before the node has run. */
 const access = (id: string, who = state.viewer): ReadView | null => {
@@ -321,7 +321,7 @@ const fmtCompact = (n: number) => (Math.abs(n) < 10000 ? fmtInt(n) : Math.abs(n)
 /** A held day's mark (ADR 0009 §12, amendment 1 S12): ‖ paused, ⚑ published as is, the level's step for a day accepted
  * as a new level (S6), ✕ not published, ◧ filled, ◐ the part that arrived alone. */
 const PAUSE_MARK: Record<DayState, VizMark> = { waiting: 'held', asis: 'flag', dont: 'closed', fill: 'fill', complete: 'part', accepted: 'level' };
-/** A flow's day on its card and its sheet, by the month's marks (ADR 0025 §3, ADR 0024 §3): ‖ paused, ☒ not published,
+/** A flow's day on its card and its sheet, by the month's marks (ADR 0026 §3, ADR 0024 §3): ‖ paused, ☒ not published,
  * ☑ decided, ⚠ unusual, ◌ not judged yet, a tick for normal. A flow that waits on another, or has not run, has none. */
 const FLOW_MARK: Partial<Record<FlowDay['outcome'], VizMark | 'ok'>> = { failed: 'alert', waiting: 'held', kept: 'closed', decided: 'decided', unusual: 'warn', unjudged: 'unlearned', normal: 'ok' };
 /** What a held day's mark says, for its accessible name. */
@@ -1192,11 +1192,11 @@ function runSaidNow(): RunSaid | null {
   return { about: { holds: r.result.holds as RunSaid['about']['holds'], claims: (r.claims ?? []) as RunSaid['about']['claims'], outcome: r.result.holds.length ? 'held' : 'ok' }, manifest: r.result.manifest, held, became: p?.state ?? null };
 }
 
-/** What a flow the page's flow reads made of the day on screen (ADR 0025 §3). */
+/** What a flow the page's flow reads made of the day on screen (ADR 0026 §3). */
 const flowDayOf = (id: string): FlowDay => flowDay(state.doc, id, runSaidNow());
 
 /**
- * A flow's seal on its card (ADR 0006, ADR 0025 §3): its files' seals read as one. Broken where any file's is; else
+ * A flow's seal on its card (ADR 0006, ADR 0026 §3): its files' seals read as one. Broken where any file's is; else
  * sealed where every file with a seal is checked back to its bytes; none where no file of it has one (a day not run, a
  * flow with no file of its own).
  */
@@ -1449,7 +1449,7 @@ function setUpCanvas(host: HTMLElement): SVGSVGElement {
   };
   svg.addEventListener('pointerup', end);
   svg.addEventListener('pointercancel', end);
-  // A double-click on a flow's card enters it (ADR 0025 §4); on a phone its sheet's button does.
+  // A double-click on a flow's card enters it (ADR 0026 §4); on a phone its sheet's button does.
   svg.addEventListener('dblclick', (e) => {
     const read = cardFlow((e.target as Element).closest('[data-card]')?.getAttribute('data-card'));
     if (read !== null && !state.arranging) enterFlow(read);
@@ -1496,7 +1496,7 @@ function setUpCanvas(host: HTMLElement): SVGSVGElement {
  */
 function tap(press: { card?: string; head?: string; shield?: boolean }): void {
   if (press.card) {
-    // A flow's card opens its sheet (ADR 0025 §4); a notebook's box the notebook (ADR 0011 §6); any other folded
+    // A flow's card opens its sheet (ADR 0026 §4); a notebook's box the notebook (ADR 0011 §6); any other folded
     // section unfolds.
     if (cardFlow(press.card) !== null || notebookOfSection(press.card)) openSection(press.card);
     else if (state.doc.groups?.some((g) => g.id === press.card)) setFolded(press.card, false);
@@ -1813,7 +1813,7 @@ function notebookCells(o: NotebookOutline): HTMLElement[] {
     } else if ((c.kind === 'source' && c.source) || (c.kind === 'step' && c.step)) {
       parts.push(flowCell(c.cell, (c.source ?? c.step)!, c.kind === 'source' ? 'source' : stepChip(c.step!, c.lang), code(c.line, c.endLine)));
     } else if (c.kind === 'input' && c.input) {
-      // An open input (ADR 0025 §11). In a use it is the step that reads the dataset mapped onto it, with its rows;
+      // An open input (ADR 0026 §11). In a use it is the step that reads the dataset mapped onto it, with its rows;
       // in the flow read as it is, nothing is mapped yet.
       if (c.step) parts.push(flowCell(c.cell, c.step, 'input', code(c.line, c.endLine)));
       else {
@@ -1829,7 +1829,7 @@ function notebookCells(o: NotebookOutline): HTMLElement[] {
     } else if (c.kind === 'publish' && c.publishes) {
       const ui = keep(makeCell({ name: c.cell, chip: 'publish', kind: 'publish', code: code(c.line, c.endLine), readOnly: true, maxLines: 6 }));
       ui.setStatus('ok', '');
-      // In a notebook read for a use of a flow (ADR 0025 §11), the datasets by the names they have here: the use's first.
+      // In a notebook read for a use of a flow (ADR 0026 §11), the datasets by the names they have here: the use's first.
       const named = (n: string) => (nb?.use ? usedName(nb.use, n) : n);
       ui.output.replaceChildren(h('p', { class: 'nbc-line' }, 'Publishes ', ...c.publishes.flatMap((n, i) => [i ? ', ' : '', h('b', {}, named(n))])));
       parts.push(ui.root);
@@ -2312,7 +2312,7 @@ function renderCanvas(): void {
     if (extra.health === 'alert' || extra.health === 'warn') classes.push(`sev-${extra.health}`);
     const guard = extra.shield ? ` ${extra.shield === 'muted' ? 'Rules limit who sees it' : `${personName(state.viewer)} sees part of it`}.` : '';
     const told = (extra.health === 'alert' || extra.health === 'warn' ? ` News: ${SEV_LABEL[extra.health].toLowerCase()}.` : '') + (extra.seal === 'ok' ? ' Sealed: checked back to the bytes.' : extra.seal === 'bad' ? ' Integrity: broken.' : '');
-    // A flow this one reads (ADR 0025 §3): its day in a sentence, the state then its extent.
+    // A flow this one reads (ADR 0026 §3): its day in a sentence, the state then its extent.
     const said = extra.flow ? `${name}: a flow this one reads. ${flowSaid(state.doc, extra.flow, flowName)}.${extra.seal === 'ok' ? ' Its files are sealed: checked back to their bytes.' : extra.seal === 'bad' ? ' Integrity: a file of it is broken.' : ''} Open it for its day, and for its own flow.` : `${name}: ${kind}. ${line.mark ? CARD_SAID[line.mark] : ''}${line.text}.${guard}${told}`;
     const g = s('g', { class: ['card', ...classes].join(' '), 'data-card': key, tabindex: 0, role: 'button', 'aria-label': said });
     // A flow's card has a second sheet behind it: there is a flow inside.
@@ -2411,14 +2411,14 @@ function renderCanvas(): void {
   }
   for (const id of layout.cards.keys()) {
     if (shownAs.has(id)) continue;
-    // A flow this level reads (ADR 0025 §3): one card, its day by precedence with its extent counted.
+    // A flow this level reads (ADR 0026 §3): one card, its day by precedence with its extent counted.
     const read = cardFlow(id);
     if (read !== null) {
       const d = flowDayOf(read);
       const gives = givenBy(state.doc, read).length;
       // The line in the room the card has beside its mark: the names give way before the count does.
       const room = Math.floor(chars * 1.12) - (FLOW_MARK[d.outcome] ? 2 : 0);
-      // The day a change of its own takes effect, and wherever it was changed here, the card says so (ADR 0025 §7).
+      // The day a change of its own takes effect, and wherever it was changed here, the card says so (ADR 0026 §7).
       card(id, `FLOW${partChanged(read) ? ' · CHANGED' : gives ? ` · ${gives === 1 ? '1 OUTPUT' : `${gives} OUTPUTS`}` : ''}`, flowName(read), { text: flowLine(state.doc, d, flowName, room), tone: 'same' }, ['flow', `fo-${d.outcome}`, ...(state.section === id ? ['selected'] : [])], { flow: d, seal: flowSeal(read) });
       continue;
     }
@@ -2470,10 +2470,10 @@ function select(id: string | null): void {
   void renderSheet();
 }
 
-// ------------------------------------------------------------------ flows in flows: the canvas in levels (ADR 0025 §3, §4)
+// ------------------------------------------------------------------ flows in flows: the canvas in levels (ADR 0026 §3, §4)
 
 /**
- * The link of a level (ADR 0025 §4): the day on screen, on the version on screen where one was asked for, then the
+ * The link of a level (ADR 0026 §4): the day on screen, on the version on screen where one was asked for, then the
  * flows entered (`#day/2024-03-12/in/feeds`); without days, `#flow/in/feeds`. The top has no `/in`.
  */
 function levelHash(trail: readonly string[]): string {
@@ -2492,7 +2492,7 @@ function setLevel(trail: readonly string[]): boolean {
   return true;
 }
 
-/** Into a flow the level on screen reads (ADR 0025 §4): its own canvas, with a link of its own, so Back comes back. */
+/** Into a flow the level on screen reads (ADR 0026 §4): its own canvas, with a link of its own, so Back comes back. */
 function enterFlow(id: string): void {
   const trail = readHere(state.doc, levelAt()).some((f) => f.id === id) ? [...state.level, id] : trailOf(state.doc, [id]);
   if (!trail.length) return;
@@ -2541,7 +2541,7 @@ function flowMarkEl(d: FlowDay, size = 14): Node | null {
 }
 
 /**
- * Where you are (ADR 0025 §4): the flows entered, from the page's own flow, each a link back to its canvas; then what
+ * Where you are (ADR 0026 §4): the flows entered, from the page's own flow, each a link back to its canvas; then what
  * the flow on screen made of the day. Hidden at the top.
  */
 function renderCrumbs(): void {
@@ -2566,9 +2566,9 @@ function renderCrumbs(): void {
   nav.hidden = false;
 }
 
-// ------------------------------------------------------------------ the voice (ADR 0025 §12)
+// ------------------------------------------------------------------ the voice (ADR 0026 §12)
 
-/** Plain words (ADR 0025 §12): the few lines the app says in the family's voice, said plainly or left out. Asked for in
+/** Plain words (ADR 0026 §12): the few lines the app says in the family's voice, said plainly or left out. Asked for in
  * About this flow, where it is kept in this browser, or by `?plain` in the address. */
 const PLAIN_KEY = 'smaltfl:plain';
 function plainWords(): boolean {
@@ -2594,7 +2594,7 @@ function wirePlainWords(): void {
   });
 }
 
-// ------------------------------------------------------------------ building in the app (ADR 0025 §10)
+// ------------------------------------------------------------------ building in the app (ADR 0026 §10)
 
 // A catalogue of flows made already, shipped with the build, and a join form. *Add a flow* puts a catalogue flow on the
 // canvas: its own steps join the document, it is built from the day's run, and what it gives can be explored and
@@ -2616,7 +2616,7 @@ function loadBuilder(): Promise<Builder | null> {
 }
 const loadDerive = (): Promise<Derive | null> => loadBuilder().then((m) => m?.derive ?? null);
 
-/** The uses of flows made here (ADR 0025 §11), each as its own document, by the use's name: what a run keeps of it. A
+/** The uses of flows made here (ADR 0026 §11), each as its own document, by the use's name: what a run keeps of it. A
  * use kept from an earlier visit is read again from the catalogue's flow, under its name. */
 const usedDocs = new Map<string, FlowDocument>();
 /** What a use says, as its part of the document keeps it. */
@@ -2684,7 +2684,7 @@ function stoppedAt(ids: readonly string[]): string | null {
   return said.replace(/[.\s]+$/, '');
 }
 
-/** Add a flow from the catalogue (ADR 0025 §10): its own steps, notebooks, checks and meanings join the flow on screen,
+/** Add a flow from the catalogue (ADR 0026 §10): its own steps, notebooks, checks and meanings join the flow on screen,
  * which lists it among the flows it reads by the hash it is known by. Recorded; the day runs again with it. A flow
  * whose own step stops its first run here is taken off again, and the record keeps both: a flow that can't run on this
  * estate's days isn't left to fail every run after. */
@@ -2702,7 +2702,7 @@ async function addFromCatalogue(id: string): Promise<void> {
 }
 
 /**
- * A flow's own document put into the flow on screen (ADR 0025 §10, §11): a catalogue's flow as it is, or a use of one
+ * A flow's own document put into the flow on screen (ADR 0026 §10, §11): a catalogue's flow as it is, or a use of one
  * under its name. Why it can't be, in a few words; null once it is added, recorded and the day has run with it. One
  * whose own step stops its first run here is taken off again, and the record keeps both.
  */
@@ -2726,12 +2726,12 @@ async function addOwn(e: CatalogueEntry, own: FlowDocument, hash: string, said: 
   }
   if (state.failed) return null;
   openSection(flowCard(id));
-  // Its first day here, where it went out with nothing held or unusual: said once (ADR 0025 §12).
+  // Its first day here, where it went out with nothing held or unusual: said once (ADR 0026 §12).
   if (flowDayOf(id).outcome === 'normal') setStatus(`${own.name} is on the canvas: its first day here went out as usual. ${voice('firstPass', plainWords())}`.trim(), false);
   return null;
 }
 
-/** The datasets a use may be given for an input (ADR 0025 §11): those the flow on screen may read itself, built by the
+/** The datasets a use may be given for an input (ADR 0026 §11): those the flow on screen may read itself, built by the
  * day's run, with every column the flow needs of the input. In the document's order. */
 function mappableFor(columns: readonly string[]): string[] {
   const theirs = new Set((state.doc.flows ?? []).flatMap((f) => f.steps).map((x) => x.toLowerCase()));
@@ -2757,7 +2757,7 @@ function useNameFor(e: CatalogueEntry, to: string | undefined): string {
 }
 
 /**
- * The form that uses a catalogue's flow (ADR 0025 §11): a dataset for each of its inputs, a value for each of its
+ * The form that uses a catalogue's flow (ADR 0026 §11): a dataset for each of its inputs, a value for each of its
  * settings and a name. The flow's steps and checks stay as written; what the use gives is named after it. It is added
  * as a flow of its own: a card, a row in the month, a hash in every run.
  */
@@ -2866,7 +2866,7 @@ async function takeOffFlow(id: string): Promise<void> {
   usedDocs.delete(id);
 }
 
-/** Write a join as a cell (ADR 0025 §10): the notebook's text changed, the steps derived from it again by the parser,
+/** Write a join as a cell (ADR 0026 §10): the notebook's text changed, the steps derived from it again by the parser,
  * the change recorded, and the day run again so the joined dataset is there to explore. A join the engine can't run is
  * taken out again, as a flow added is. */
 async function writeJoin(spec: JoinSpec, fail: (why: string) => void): Promise<boolean> {
@@ -2925,7 +2925,7 @@ async function takeOutJoin(name: string): Promise<void> {
 }
 
 /**
- * The catalogue (ADR 0025 §10): the flows this build ships that are made already, each with what it gives and what it
+ * The catalogue (ADR 0026 §10): the flows this build ships that are made already, each with what it gives and what it
  * is built on; for the owner, Add it, or why it can't be added here. Then what was made here: the flows added and the
  * joins written, each with the way to take it back.
  */
@@ -2937,7 +2937,7 @@ function openCatalogue(): void {
     const here = !!state.doc.flows?.some((f) => f.id === e.id);
     const built = e.reads.map((r) => r.name);
     const open = (id: string) => h('button', { type: 'button', class: 'linkish cat-open', onclick: () => (document.querySelector('.vf-detail-wrap')?.remove(), openSection(flowCard(id))) }, 'Open its card ›');
-    // A flow with open inputs or settings (ADR 0025 §11) is used under a name, as often as it is wanted.
+    // A flow with open inputs or settings (ADR 0026 §11) is used under a name, as often as it is wanted.
     if (e.inputs?.length || e.settings?.length) {
       const uses = (state.doc.flows ?? []).filter((f) => f.use?.of.id === e.id);
       return h('article', { class: `cat-flow cat-kit${uses.length ? ' on' : ''}`, 'data-flow': e.id },
@@ -2982,7 +2982,7 @@ function openCatalogue(): void {
     : null;
   openDetail('Add a flow', 'ok', [
     h('p', { class: 'vf-one' }, 'Flows made already, shipped with this build. Adding one puts its card on the canvas: it is built from the day’s run, and what it gives can be explored and joined. A flow with inputs is used under a name, on the datasets mapped onto them, as often as it is wanted.'),
-    // An empty catalogue (ADR 0025 §12): the family's line with its plain words beside it; in plain words, those alone.
+    // An empty catalogue (ADR 0026 §12): the family's line with its plain words beside it; in plain words, those alone.
     entries.length ? list : h('div', { class: 'cat-none' }, h('p', { class: 'cat-none-say' }, voice('emptyCatalogue', plainWords())), plainWords() ? null : h('p', { class: 'foot' }, voice('emptyCatalogue', true))),
     made,
   ]);
@@ -3013,7 +3013,7 @@ function joinName(left: string, right: string): string {
 }
 
 /**
- * The join form (ADR 0025 §10): two datasets, the key on each side, which rows are kept and the columns to take. It
+ * The join form (ADR 0026 §10): two datasets, the key on each side, which rows are kept and the columns to take. It
  * writes the join as a notebook cell, and says so. `partner` is a dataset the ontology says joins, with its key on
  * each side; none, and the other side is picked.
  */
@@ -3108,7 +3108,7 @@ function joinForm(left: string, partner: { dataset: string; own: string; key: st
   if (others.length) void drawRight();
 }
 
-// ------------------------------------------------------------------ a change followed, said and tested (ADR 0025 §7)
+// ------------------------------------------------------------------ a change followed, said and tested (ADR 0026 §7)
 
 /** Whether the flow shipped with a change set (a recorded story's): any other was made here. */
 const shippedChange = (id: string): boolean => (shippedDoc.changes ?? []).some((c) => c.id === id);
@@ -3120,7 +3120,7 @@ function namesEditedIn(id: string): FlowEdit[] {
 }
 
 /**
- * Whether a flow's card says it changed (ADR 0025 §7): on the day a change of its own takes effect, under the rules on
+ * Whether a flow's card says it changed (ADR 0026 §7): on the day a change of its own takes effect, under the rules on
  * screen, and on every day once it was changed here. A flow that only follows another's change says it on its sheet.
  */
 function partChanged(id: string): boolean {
@@ -3143,7 +3143,7 @@ function testDays(c: Pick<ChangeSet, 'from'>): number[] {
 }
 
 /**
- * A change tested on the days recorded (ADR 0025 §7, Q-227): each of the last days before it takes effect is run again
+ * A change tested on the days recorded (ADR 0026 §7, Q-232): each of the last days before it takes effect is run again
  * on the files readers got, under the rules it ran under with the change added, as a what-if (ADR 0021 §4): nothing is
  * published, no name moves, nothing is recorded. What it finds is said on the flow's sheet: the days that would have
  * paused, those that would have been published, and how many come out the same. It informs: the change stands either way.
@@ -3192,7 +3192,7 @@ async function testChange(c: ChangeSet, flow: string): Promise<void> {
 }
 
 /**
- * What changed in a flow (ADR 0025 §7), on its sheet: each change set that is its own, with the day it takes effect
+ * What changed in a flow (ADR 0026 §7), on its sheet: each change set that is its own, with the day it takes effect
  * from, what it did in words, who recorded it and why; those of the flows it reads, which it follows; and the names
  * edited here. Under each change set, the way to test it on the days recorded, and what the test found. Null where
  * nothing changed.
@@ -3234,7 +3234,7 @@ function flowChangedPart(id: string): HTMLElement | null {
 }
 
 /**
- * A flow's sheet (ADR 0025 §4), from its card: what its day came to; what holds it, each a link straight to the card
+ * A flow's sheet (ADR 0026 §4), from its card: what its day came to; what holds it, each a link straight to the card
  * inside that holds; the flows it reads and those that read it; what it gives, each with how today's went and who reads
  * it; and Open the flow, which shows its own canvas.
  */
@@ -3260,7 +3260,7 @@ function renderFlowSheet(id: string): void {
   };
   const block = (title: string, ...rows: (HTMLElement | null)[]) => h('section', { class: 'fl-block' }, h('h3', {}, title), h('div', { class: 'fl-rows' }, ...rows.filter((x): x is HTMLElement => !!x)));
   const holds = d.holding.length ? block(d.outcome === 'waiting' ? 'What holds it' : 'What held it', ...d.holding.map((x) => inside(x.id, x.id, x.said))) : null;
-  // A flow that only waits is never asked (ADR 0025 §6): the day is decided at the flow that holds.
+  // A flow that only waits is never asked (ADR 0026 §6): the day is decided at the flow that holds.
   const waits = d.waitsOn.length ? block(d.outcome === 'waits' ? 'It waits on' : 'It followed', ...d.waitsOn.map((f) => (f === '' ? h('p', { class: 'fl-note' }, `${state.doc.name}, the flow that reads it`) : flowRow(f))),
     d.outcome === 'waits' ? h('p', { class: 'fl-note fl-asked' }, 'Nothing is asked of it: the day is decided where it holds.') : null) : null;
   const look = !d.holding.length && (d.unusual.length || d.unjudged.length)
@@ -3281,7 +3281,7 @@ function renderFlowSheet(id: string): void {
   const gives = given.length
     ? block(`It gives ${plural(given.length, 'dataset')}`, ...given.map((g) => {
         const out = givenSaid(g.id);
-        // Its card, and its Explore tab a tap away (ADR 0025 §9): two buttons in one row.
+        // Its card, and its Explore tab a tap away (ADR 0026 §9): two buttons in one row.
         return h('div', { class: `fl-row fl-given${out.mark === 'waiting' ? ' fo-waiting' : ''}`, 'data-inside': g.id },
           h('button', { type: 'button', class: 'fl-row-main', 'aria-label': `${g.id}: open its card`, onclick: () => openInside(g.id) },
             h('span', { class: 'fl-row-name' }, g.id),
@@ -3297,18 +3297,18 @@ function renderFlowSheet(id: string): void {
         h('span', { class: 'fl-row-name' }, src), h('span', { class: 'fl-row-said' }, 'its file isn’t the one its list names'), h('span', { class: 'fl-row-go', 'aria-hidden': 'true' }, '›'))))
     : null;
   const open = h('button', { type: 'button', class: 'btn show fl-open', onclick: () => enterFlow(id) }, 'Open the flow ›');
-  // The hold is this flow's, and so is the decision (ADR 0025 §6): made from its sheet, by whoever may decide.
+  // The hold is this flow's, and so is the decision (ADR 0026 §6): made from its sheet, by whoever may decide.
   const own = onScreen();
   const held = viewedDay();
   const decideHere = d.outcome === 'waiting' && own && held && !supersededBy(own) && (['asis', 'dont'] as const).some((o) => checkDecision(policies(), state.viewer, o).allowed)
     ? h('button', { type: 'button', class: 'btn primary fl-decide', 'aria-label': `Decide what readers get for ${dayMid(held)}`, onclick: () => decisionSheet(own, storyFor(held)) }, 'Decide ›')
     : null;
-  // Its own month (ADR 0025 §5): its calendar, its counts and its rows, where the flow has days.
+  // Its own month (ADR 0026 §5): its calendar, its counts and its rows, where the flow has days.
   const way = readHere(state.doc, levelAt()).some((f) => f.id === id) ? [...state.level, id] : trailOf(state.doc, [id]);
   const itsMonth = loads.list.length > 1 && way.length
     ? h('a', { class: 'btn fl-month', href: `#month${viewedDay() ? `/${viewedDay()!.slice(0, 7)}` : ''}/in/${way.join('/')}` }, 'Its month ›')
     : null;
-  // Its own page on the site, where it has one (ADR 0025 §6): the same flow on the same files, with a record of its
+  // Its own page on the site, where it has one (ADR 0026 §6): the same flow on the same files, with a record of its
   // own. A held day decided on either is carried to the other.
   const pageAt = pageHref(id, viewedDay());
   const itsPage = pageAt ? h('a', { class: 'btn fl-month fl-page', href: pageAt }, 'Its own page ›') : null;
@@ -3330,7 +3330,7 @@ function renderFlowSheet(id: string): void {
 }
 
 /**
- * What a use of a flow is (ADR 0025 §11), on its sheet: the flow used, the dataset mapped onto each of its inputs, a
+ * What a use of a flow is (ADR 0026 §11), on its sheet: the flow used, the dataset mapped onto each of its inputs, a
  * tap from its card, and each setting with its value here, one the use changed said beside the flow's own. Then the
  * other uses of the same flow here, and what a use may change.
  */
@@ -3354,7 +3354,7 @@ function openSection(id: string, focusName = false): void {
   state.section = id;
   renderCanvas();
   // A notebook's box opens its notebook (ADR 0011 §6); a section of the owner's own, or one being arranged, its settings;
-  // a flow's card its sheet (ADR 0025 §4).
+  // a flow's card its sheet (ADR 0026 §4).
   if (cardFlow(id) === null && (focusName || state.arranging || !notebookOfSection(id))) renderSectionSheet(focusName);
   else void renderSheet();
 }
@@ -4242,7 +4242,7 @@ async function editRules(edit: RuleEdit | readonly RuleEdit[], opts: { why?: str
     saids.push(r.said);
   }
   if (!saids.length) return false;
-  // A flow some flow reads only as it is (a pin, ADR 0025 §7) isn't changed from here.
+  // A flow some flow reads only as it is (a pin, ADR 0026 §7) isn't changed from here.
   const pinned = pinProblem(state.doc, changeFlows(state.doc, { edits }), flowName);
   if (pinned) {
     setStatus(pinned, true);
@@ -4753,7 +4753,7 @@ function loadFlow(): void {
   if (kept.state === 'kept') {
     const shipped = state.doc;
     [state.doc, flowEdits] = [kept.doc, kept.edits];
-    // A use of a catalogue's flow (ADR 0025 §11) is of that flow as it was when it was used: its steps are the flow's
+    // A use of a catalogue's flow (ADR 0026 §11) is of that flow as it was when it was used: its steps are the flow's
     // as read then. Where this build ships another flow under the name, or none, no document here would hold those
     // steps: the use is taken off, and what was made here says so. Where something made here reads what it gives,
     // what this browser kept is dropped whole, as it is when the flow itself is another.
@@ -4784,7 +4784,7 @@ function loadFlow(): void {
 }
 
 /**
- * An edit made here is the flow's whose file or step it is about (ADR 0025 §7): each read flow's own document is made
+ * An edit made here is the flow's whose file or step it is about (ADR 0026 §7): each read flow's own document is made
  * again from the one shipped, with the names edited here and the change sets about it, and the document names each flow
  * by the hash its own document has now. So a flow's hash moves with a change to it or to a flow it reads, and with no
  * other, and the next run keeps the documents as they are now.
@@ -4796,7 +4796,7 @@ function followEdits(): Promise<void> {
       ownDocs = [];
       return;
     }
-    // Each flow read, as it came: shipped with the flow, or added here from the catalogue (ADR 0025 §10).
+    // Each flow read, as it came: shipped with the flow, or added here from the catalogue (ADR 0026 §10).
     const shipped = await readFlowDocs.catch(() => [] as FlowDocument[]);
     const shippedParts = (shippedDoc.flows ?? []).filter((f) => dataList?.flows[f.id]);
     const came = new Map(shippedParts.map((f, k) => [f.id, { doc: shipped[k], hash: f.hash }]));
@@ -4805,7 +4805,7 @@ function followEdits(): Promise<void> {
       const had = came.get(part.id);
       const listed = dataList?.catalogue.find((x) => x.id === part.id);
       if (had?.doc) base.push({ doc: had.doc, hash: had.hash });
-      // A use made here (ADR 0025 §11): the catalogue's flow read under its name, as it was when it was added.
+      // A use made here (ADR 0026 §11): the catalogue's flow read under its name, as it was when it was added.
       else if (part.use && dataList?.catalogue.some((x) => x.id === part.use!.of.id)) {
         const own = await useDoc(part).catch(() => null);
         if (!own) return;
@@ -4840,7 +4840,7 @@ async function flowsToKeep(): Promise<FlowDocument[]> {
   return ownDocs.length ? ownDocs : readFlowDocs.catch(() => []);
 }
 
-/** Why an edit about these datasets can't be made here (ADR 0025 §7): it would move a flow some flow reads only as it
+/** Why an edit about these datasets can't be made here (ADR 0026 §7): it would move a flow some flow reads only as it
  * is (a pin). Null where it can. */
 const pinnedSaid = (datasets: readonly string[]): string | null => pinProblem(state.doc, [...new Set(datasets.map((d) => flowOf(state.doc, d)?.id ?? ''))], flowName);
 
@@ -4995,7 +4995,7 @@ function tabsOf(card: string): Tab[] {
   }
   // A step after the files (the silver layer, ADR 0015 amendment 4): what it did to the data first.
   const out: Tab[] = st && !profileOf(card) && !state.doc.sources.some((x) => x.id === id) ? ['happened', 'news', 'data', 'columns'] : ['news', 'data', 'columns'];
-  // Exploring it (ADR 0025 §9): a file or a published dataset, for someone who has never seen it.
+  // Exploring it (ADR 0026 §9): a file or a published dataset, for someone who has never seen it.
   if (explorable(card)) out.push('explore');
   // The rules set on a file's columns (rules.ts), each with its switch: on every file's import card, beside its columns.
   if (!profileOf(card) && state.doc.sources.some((x) => x.id === id)) out.push('rules');
@@ -5652,7 +5652,7 @@ function notebookSummary(ids: readonly string[]): HTMLElement {
     const total = got.reduce((a, x) => a + (x.facts.ms ?? 0), 0);
     const dropping = got.filter((x) => lostOf(x) > 0);
     const max = Math.max(1, ...got.map((x) => Math.max(x.facts.rowsOut ?? 0, ...(x.facts.inputs.map((i) => i.rows ?? 0)))));
-    // In a notebook read for a use of a flow (ADR 0025 §11) every step's name starts with the use's: a step is called
+    // In a notebook read for a use of a flow (ADR 0026 §11) every step's name starts with the use's: a step is called
     // here as its cell is, which is what tells them apart in the room a row has.
     const called = (id: string): string => {
       const ref = state.doc.cells?.[id];
@@ -6427,7 +6427,7 @@ function sealPart(r: RunRecord): HTMLElement {
   return h('div', { class: `part seal-part ${seal?.state ?? 'none'}` },
     h('p', { class: 'eyebrow' }, `The seal · run ${runName(r)}`),
     h('p', { class: 'seal-head' }, seal?.state === 'sealed' ? glyphEl('seal', 16) : null, seal?.state === 'sealed' ? 'Sealed: every gate passed, or its holds were decided and published; the signed manifest is the seal.' : seal ? `Not sealed: ${seal.why}.` : 'No gates: nothing to seal.'),
-    // A seal on a run whose every gate passed, with nothing held and decided (ADR 0025 §12): the one place a gold
+    // A seal on a run whose every gate passed, with nothing held and decided (ADR 0026 §12): the one place a gold
     // dataset says so in the family's voice; nothing in plain words, since the line above says it.
     seal?.state === 'sealed' && r.result.holds.length === 0 && voice('sealed', plainWords()) ? h('p', { class: 'seal-voice' }, voice('sealed', plainWords())) : null,
     seal?.state === 'sealed' ? h('p', { class: 'foot' }, `Signed by ${seal.signed.signer.name} (${short(seal.signed.signer.fingerprint)})${seal.at ? ` · ${seal.at.toLocaleString()}` : ''} · manifest `, hash4(r.result.hash, 'manifest hash')) : null,
@@ -6462,7 +6462,7 @@ async function nodeView(id: string, who: string): Promise<{ insp: Inspection; i:
   if (!run) return 'Run the flow to see its rows.';
   const insp = await inspect(run);
   const i = insp.index.get(id);
-  // A file no step of the flow reads is read by no run of it: a flow's own page (ADR 0025 §6) has the files of the
+  // A file no step of the flow reads is read by no run of it: a flow's own page (ADR 0026 §6) has the files of the
   // flows it reads, whether or not it reads them itself.
   if (i === undefined || !insp.manifest.has(i)) return sourceIds().has(id) ? 'No step of this flow reads this file, so a run here doesn’t read it.' : 'Not run yet.';
   const view = viewIn(insp, i, who);
@@ -8745,14 +8745,14 @@ function keptBackOf(r: RunRecord): string[] {
 }
 
 /**
- * Whose decision a held run is, as a line at the head of its sheet (ADR 0025 §6): the flow whose file or step holds,
+ * Whose decision a held run is, as a line at the head of its sheet (ADR 0026 §6): the flow whose file or step holds,
  * what of it holds, and the flows that wait on it. A line a flow where more than one leads. Null in a flow that reads
  * none: there is no one else it could be.
  */
 function whoseLine(r: RunRecord): HTMLElement | null {
   const held = keptBackOf(r);
   const day = dayOfRun(r) ?? null;
-  // The page the site has for the flow that decides (ADR 0025 §6, second step): decided there, it is carried here.
+  // The page the site has for the flow that decides (ADR 0026 §6, second step): decided there, it is carried here.
   const link = (flow: string): Child[] => {
     const href = flow ? pageHref(flow, day) : null;
     return href ? [' ', h('a', { class: 'vf-page', href }, `${pageOf(flowName(flow))} ›`)] : [];
@@ -8773,7 +8773,7 @@ function whoseLine(r: RunRecord): HTMLElement | null {
   return h('div', { class: 'vf-whose-box' }, whose, ...notes.map((n) => h('p', { class: 'vf-not-carried' }, n)));
 }
 
-/** Where a held run is decided, after the verb on a button, where that isn't the flow on screen (ADR 0025 §6):
+/** Where a held run is decided, after the verb on a button, where that isn't the flow on screen (ADR 0026 §6):
  * " at Evidence feeds". Nothing where the flow on screen holds, where more than one flow leads, or in a flow that reads
  * none. */
 function decideAt(r: RunRecord | undefined): string {
@@ -9097,7 +9097,7 @@ function receiptOf(r: RunRecord, may: boolean): HTMLElement | null {
   if (v !== null && v > 1 && now.state === 'asis') l.head = l.head.replace(/^Published as is/, `Published version ${v}`);
   const box = receiptBox(l, now.state, d?.seq ?? null, null, l.change && may ? () => decisionSheet(r, day ? storyFor(day) : null) : null, day, l.versions && day ? () => versionsSheet(day) : null);
   box.classList.add('loads-receipt');
-  // Decided on another page of this browser and carried here (ADR 0025 §6): the receipt says where, since nobody
+  // Decided on another page of this browser and carried here (ADR 0026 §6): the receipt says where, since nobody
   // decided it here.
   const there = carriedOf(r);
   if (there) box.querySelector('.vf-rc-sub')?.after(h('p', { class: 'vf-rc-carried' }, `Decided on ${pageOf(pageFlowName(there))}, and carried here: nobody was asked twice.`));
@@ -11635,7 +11635,7 @@ function openOntologyColumn(dataset: string, column: string): void {
 const closed = (text: string) => `${text.trim().replace(/[.。]+$/, '')}.`;
 
 /**
- * Where the ontology comes from, at the head of the Ontology page (ADR 0025 §8): each estate's ontology the flow
+ * Where the ontology comes from, at the head of the Ontology page (ADR 0026 §8): each estate's ontology the flow
  * imports, by its name and hash, with the flows read here that import the same one; then every column a flow handles
  * its own way, with the flow, its datasets (each a tap to the column's card) and its reason. Nothing for a flow that
  * imports no estate's ontology. `sections` are the files and made datasets the page lists.
@@ -11841,7 +11841,7 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
   const labels = shown.map((value, k) => ({ value, input: h('input', { type: 'text', id: `${uid}-v${k}`, value: saysMore(had.get(value), value) ? had.get(value)! : '', maxlength: '60', placeholder: repeats(value) ?? 'No label', autocomplete: 'off', autocapitalize: 'sentences' }) }));
   const err = h('p', { class: 'of-err', role: 'alert', hidden: true });
   const save = h('button', { type: 'submit', class: 'btn of-save' }, 'Save');
-  // A column an estate's ontology describes (ADR 0025 §8): a change here is the flow's own handling of it, written as
+  // A column an estate's ontology describes (ADR 0026 §8): a change here is the flow's own handling of it, written as
   // an override with its reason, which the page notes on every card of the column.
   const estate = estateSays(estates, f.id, c.name);
   const whose = flowOf(state.doc, f.id)?.name ?? state.doc.name;
@@ -11994,7 +11994,7 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
       h('div', { class: 'of-col-head' }, h('div', { class: 'of-col-names' }, h('h4', {}, c.title), c.asWritten ? h('code', {}, ...breakable(c.asWritten)) : null, p?.unit ? h('span', { class: 'unit' }, p.unit) : null), edit),
       slot,
       c.description ? h('p', { class: 'of-mean' }, c.description) : h('p', { class: 'of-none' }, 'Not described yet.'),
-      // A flow's own handling of the column (ADR 0025 §8): here, with its reason and what the estate says in its place;
+      // A flow's own handling of the column (ADR 0026 §8): here, with its reason and what the estate says in its place;
       // and in other datasets, noted on every other card of the column.
       c.own ? h('div', { class: 'of-handled', 'data-flow': c.own.flow.id },
         h('p', {}, h('b', {}, `${possessive(c.own.flow.name)} own handling. `), closed(c.own.reason)),
@@ -12361,7 +12361,7 @@ async function renderOntology(): Promise<void> {
     if (!run) return null;
     const insp = await inspect(run);
     const i = insp.index.get(file);
-    // A file no step of the flow reads is read by no run (a flow's own page, ADR 0025 §6, has the files of the flows
+    // A file no step of the flow reads is read by no run (a flow's own page, ADR 0026 §6, has the files of the flows
     // it reads, whether or not it reads them): it has no rows here to show.
     return i === undefined || insp.ctx.table(i) === undefined ? null : readIn(insp, i);
   };
@@ -12716,7 +12716,7 @@ function loadSummary(): string {
  * (its panel, beside the calendar), the moment it is read as known on (null: now), the outcome its counts filter the
  * calendar and the list by, the folded rows opened under its files and steps, and whether the demo's scenes are open. */
 const monthView = { month: null as string | null, pick: null as string | null, at: null as string | null, filter: 'all' as MonthFilter, open: new Set<string>(), scenes: false,
-  /** The flows entered (ADR 0025 §5): the month on show is the last one's own; none, the page's flow's, of everything. */
+  /** The flows entered (ADR 0026 §5): the month on show is the last one's own; none, the page's flow's, of everything. */
   flow: [] as string[] };
 /** What the month's counts filter by (ADR 0024 §2): every day, or the days of one outcome. */
 type MonthFilter = 'all' | Outcome;
@@ -12973,7 +12973,7 @@ function rowDiffOf(ra: RunRecord, rb: RunRecord, name: string, who = state.viewe
     asked = (async (): Promise<RowDiff | string> => {
       const [ia, ib] = await Promise.all([inspect(ra), inspect(rb)]);
       // An output by the name it is published under; any dataset of the flow (a file, a step) by its own, where each
-      // run built it (ADR 0025 §9).
+      // run built it (ADR 0026 §9).
       const built = (insp: Inspection): number | undefined => {
         const i = dataset ? insp.index.get(name) : insp.plan.outputs.find((o) => o.name === name)?.node;
         return i !== undefined && (!dataset || insp.manifest.has(i)) ? i : undefined;
@@ -13128,7 +13128,7 @@ function comparePart(k: number): HTMLElement | null {
 }
 
 
-// ------------------------------------------------------------------ tabs: explore (ADR 0025 §9)
+// ------------------------------------------------------------------ tabs: explore (ADR 0026 §9)
 
 // Exploring a dataset, for someone who has never seen it: what a row is, in a sentence from the ontology; a card a
 // column, counted over every row; a bar tapped lights its rows in every other column, and Keep only makes them the rows
@@ -13159,7 +13159,7 @@ function xpCells(id: string): { path: string; open: () => void } | null {
   return o ? { path: o.path, open: () => openSection(notebookSectionId(o.path)) } : null;
 }
 
-/** The rows kept as one of the reader's own cells (ADR 0025 §9): added under the notebook that makes the dataset, the
+/** The rows kept as one of the reader's own cells (ADR 0026 §9): added under the notebook that makes the dataset, the
  * notebook opened, and the cell brought into view once it is drawn. Kept in the browser, as every such cell is. */
 function xpAsCell(id: string, kept: readonly RowPick[]): void {
   const at = xpCells(id);
@@ -13208,7 +13208,7 @@ function xpHead(id: string, p: Profile): HTMLElement {
 }
 
 /**
- * A column's card (ADR 0025 §9): how full it is, how its rows sit with the values written for it, and its chart, each
+ * A column's card (ADR 0026 §9): how full it is, how its rows sit with the values written for it, and its chart, each
  * bar a button that picks its rows. With a part picked, every bar shows how many of its rows are in it.
  */
 function xpCard(id: string, p: Profile, c: ExploreCard, o: { pick: RowPick | null; written: number; onPick: (pick: RowPick) => void }): HTMLElement {
@@ -13264,7 +13264,7 @@ function xpCard(id: string, p: Profile, c: ExploreCard, o: { pick: RowPick | nul
 }
 
 /**
- * A dataset's columns explored (ADR 0025 §9): a card a column over every row, redrawn in place as a part is picked or
+ * A dataset's columns explored (ADR 0026 §9): a card a column over every row, redrawn in place as a part is picked or
  * kept, so the place on the page and the bar under the finger stay where they are.
  */
 function xpColumns(body: HTMLElement, card: string, id: string, nv: { insp: Inspection; i: number; read: string }, q: Quality): void {
@@ -13400,7 +13400,7 @@ function xpColumns(body: HTMLElement, card: string, id: string, nv: { insp: Insp
 }
 
 /**
- * How a dataset joins (ADR 0025 §9): the datasets that share its key (its inventory first), each counted on both sides
+ * How a dataset joins (ADR 0026 §9): the datasets that share its key (its inventory first), each counted on both sides
  * on today's rows, with the keys that find no match; and, against its inventory, the match day by day, which each run
  * measures as it counts its scope (ADR 0014 §4). The first is counted at once, the others when opened.
  */
@@ -13415,7 +13415,7 @@ function xpJoins(body: HTMLElement, id: string, nv: { insp: Inspection; i: numbe
   const partners = joinPartners(state.doc, id)
     .map((p) => ({ ...p, node: ids.find((n) => n.toLowerCase() === p.dataset.toLowerCase()) }))
     .filter((p): p is JoinPartner & { node: string } => !!p.node && visible(p.node));
-  // Joining it with any dataset, written as a cell of the flow's own (ADR 0025 §10): the owner's, where a cell may read it.
+  // Joining it with any dataset, written as a cell of the flow's own (ADR 0026 §10): the owner's, where a cell may read it.
   const any = joinable(id) ? h('div', { class: 'xp-join-any' }, h('button', { type: 'button', class: 'btn small xp-join-form', onclick: () => joinForm(id, null) }, 'Join it with another dataset ›'), h('p', { class: 'foot' }, 'A form writes the join as a cell: a new dataset of the flow.')) : null;
   if (!partners.length) {
     body.replaceChildren(...([h('p', { class: 'xp-none' }, 'Nothing in the ontology says what a row of it is, so it has no key to join by yet. Say what its rows are on the Ontology page, and the datasets that share its key are counted here.'), any] as (HTMLElement | null)[]).filter((x): x is HTMLElement => !!x));
@@ -13456,13 +13456,13 @@ function joinable(id: string): boolean {
 /** What a join is on, beside its dataset's name: its key, or a link's name and its two columns. */
 const xpOn = (p: JoinPartner): string => (p.link ? `${p.link.name} · ${p.own === p.key ? p.own : `${p.own} = ${p.key}`}` : p.own === p.key ? `on ${p.own}` : `${p.own} = ${p.key}`);
 
-/** One join, counted (ADR 0025 §9): a sentence and a bar a side, the keys with no match on each, and the month's match
+/** One join, counted (ADR 0026 §9): a sentence and a bar a side, the keys with no match on each, and the month's match
  * where the partner is the dataset this one's scope is counted against. */
 function xpJoin(id: string, read: string, p: JoinPartner & { node: string }, who: string, headed: boolean, scope: string | [string, string[]][] | null): HTMLElement {
   const why = joinWhy(id, { ...p, dataset: p.node });
   const out = h('div', { class: 'xp-join-out', 'aria-live': 'polite' }, h('p', { class: 'foot' }, 'Counting…'));
   const go = h('button', { type: 'button', class: 'linkish xp-go', onclick: () => (explorable(p.node) ? openTab(p.node, 'explore') : select(p.node)) }, `${explorable(p.node) ? 'Explore' : 'Open'} ${p.node} ›`);
-  // The two written as a join, on the key the ontology gives (ADR 0025 §10).
+  // The two written as a join, on the key the ontology gives (ADR 0026 §10).
   const make = joinable(id) && joinable(p.node) ? h('button', { type: 'button', class: 'linkish xp-go xp-join-make', onclick: () => joinForm(id, { dataset: p.node, own: p.own, key: p.key }) }, 'Join them as a new dataset ›') : null;
   const box = h('section', { class: 'xp-join', 'data-partner': p.node },
     headed ? h('div', { class: 'xp-join-head' }, h('h3', {}, p.node), h('code', { class: 'xp-on' }, xpOn(p))) : null,
@@ -13516,7 +13516,7 @@ function xpJoin(id: string, read: string, p: JoinPartner & { node: string }, who
 }
 
 /**
- * A dataset's rows against another day's (ADR 0025 §9, on ADR 0021 §4's compare): by its key where it has one, else as
+ * A dataset's rows against another day's (ADR 0026 §9, on ADR 0021 §4's compare): by its key where it has one, else as
  * whole rows; rows only in one day, and rows whose cells changed. Rows are read from both days' runs in this browser,
  * so a day not run here yet is run first, and the day on screen put back.
  */
@@ -14343,15 +14343,15 @@ function dayTimeline(day: string, at: string | null, subject: (origin: string) =
       const key = `${d.option}|${e.at}|${e.by.as}|${e.reason}`;
       if (key === same) continue;
       same = key;
-      // A load held only because another was is decided by that one's decision (ADR 0025 §6): the line is the one before.
+      // A load held only because another was is decided by that one's decision (ADR 0026 §6): the line is the one before.
       if (d.carried !== undefined) continue;
       const donor = d.repair?.donor?.day;
       const said = d.option === 'fill' && donor ? `filled it from ${dayLabel(donor)}` : d.option === 'asis' && sentAgain ? 'published the version sent again' : DECISION_SAID[d.option];
       // A day the build held, decided here: the wait is the story's, to the morning its record ends (`storyMs`).
       const after = heldAt && e.at > heldAt ? `, ${afterLabel((storyMs(Date.parse(e.at), heldAt) - Date.parse(heldAt)) / 60000)} it was held` : '';
-      // Whose decision it was (ADR 0025 §6): the flow whose file or step held the day.
+      // Whose decision it was (ADR 0026 §6): the flow whose file or step held the day.
       const who = whoSaid(e.by.as);
-      // One made on another page of this browser and carried here (ADR 0025 §6) says the page: nobody decided it here.
+      // One made on another page of this browser and carried here (ADR 0026 §6) says the page: nobody decided it here.
       const there = originOf((d as CarryAbout).from?.origin);
       out.push({ at: e.at, text: there ? `On ${pageOf(pageFlowName(there.flow))}, ${who.replace(/^The /, 'the ')} ${said}. Carried here.` : d.flow?.id ? `At ${flowName(d.flow.id)}, ${who.replace(/^The /, 'the ')} ${said}${after}.` : `${who} ${said}${after}.`, why: e.reason, cls: d.option === 'dont' ? '' : 'ok' });
       continue;
@@ -14438,7 +14438,7 @@ function renderMonth(): void {
   const entries = allEntries();
   const month = monthOf(days, entries, { at, judged: loadSource() });
   const facts = new Map(month.map((d) => [d.day, calendarDay(d)]));
-  // A flow's own month (ADR 0025 §5): the month of the flow entered and of the flows it reads, by what their files and
+  // A flow's own month (ADR 0026 §5): the month of the flow entered and of the flows it reads, by what their files and
   // steps came to. At the top it is every flow's, as it was. `inSuffix` keeps the month's links inside it.
   const mine = monthView.flow.at(-1) ?? null;
   const scopeIds = mine !== null ? scopeFlows(viewDoc(), mine) : null;
@@ -14664,13 +14664,13 @@ function renderMonth(): void {
     const versions = at === null && kd >= 0 ? versionFacts(kd).length : 0;
     const w = would.get(pd.day);
     const events = dayTimeline(pd.day, at, subject);
-    // In a flow's own month (ADR 0025 §5), a day held outside its scope: the flow's day is its own, and what happened to
+    // In a flow's own month (ADR 0026 §5), a day held outside its scope: the flow's day is its own, and what happened to
     // the day as a whole is said as that, so "every check passed" never sits unexplained over a hold.
     const whole = outcomeOf(pf);
     const elsewhere = !!scope && whole.outcome !== po.outcome && (whole.outcome === 'waiting' || whole.outcome === 'decided' || whole.outcome === 'kept');
     const finding = (x: DayFinding) => h('li', { class: `mo-f lv-${x.level}` },
       x.level === 'held' ? glyphEl('held', 13) : x.level === 'unusual' ? glyphEl('warn', 13) : glyphEl('unlearned', 13),
-      // Where the flow reads flows, whose it is (ADR 0025 §5): the day names the flow whose file or step said it.
+      // Where the flow reads flows, whose it is (ADR 0026 §5): the day names the flow whose file or step said it.
       h('span', { class: 'mo-f-what' }, h('code', { class: 'mo-f-of' }, x.origin), h('span', { class: 'mo-f-kind' }, ` ${fileOf.has(x.origin.toLowerCase()) ? `step on ${fileOf.get(x.origin.toLowerCase())}` : kindOf(x.origin)}${state.doc.flows?.length ? ` in ${flowName(flowOf(state.doc, x.origin)?.id ?? '')}` : ''}`), h('span', { class: 'mo-f-said' }, ` ${findingSaid(x)}`)));
     const group = (title: string, xs: readonly DayFinding[]) => (xs.length ? [h('p', { class: 'mo-sub' }, title), h('ul', { class: 'mo-fs' }, ...xs.slice(0, 6).map(finding), xs.length > 6 ? h('li', { class: 'mo-f more' }, `and ${xs.length - 6} more`) : null)] : []);
     // The score that day against the day published before it, and what moved (ADR 0024 §6).
@@ -14753,12 +14753,12 @@ function renderMonth(): void {
 
   // ---- Each file and step over the month (ADR 0024 §5): a row a file (with its own checks), then a row a step, the
   // worst first; a row with nothing to report folded into a count. A bar a day, the worst the day's runs said of it.
-  // Each row in its flow (ADR 0025 §5): a file with its own flow's steps, a step that reads another flow's file its own.
+  // Each row in its flow (ADR 0026 §5): a file with its own flow's steps, a step that reads another flow's file its own.
   const rowDefs = tierRows(viewDoc());
   const rowFlow = new Map(rowDefs.map((r) => [r.id, r.flow]));
   const rows = monthHealth(rowDefs, monthDays, entries, manifestOf, at);
   const barW = W >= 786 ? Math.round(Math.min(620, (W - 60) * 0.44)) : Math.max(240, W - 34);
-  // A flow's row draws the days it only waited on another flow apart (ADR 0025 §5): nothing of its own was wrong.
+  // A flow's row draws the days it only waited on another flow apart (ADR 0026 §5): nothing of its own was wrong.
   const bars = (r: HealthRow, ticks = false, waited: readonly string[] = [], said = healthSaid(r, dayShort), inset = 0) => svgNode(dayBars({
     days: monthDays.map((d, i) => {
       const cell = r.cells[i] ?? null;
@@ -14822,7 +14822,7 @@ function renderMonth(): void {
   };
   const fileRows = rows.filter((r) => r.kind === 'file');
   const stepRows = rows.filter((r) => r.kind === 'step');
-  // ---- In tiers (ADR 0025 §5): where the flow reads flows, a row a flow above its files and steps, its bar for a day
+  // ---- In tiers (ADR 0026 §5): where the flow reads flows, a row a flow above its files and steps, its bar for a day
   // the worst any of them said; a flow that only waited on another folded with the calm ones; a row opens to the flow's
   // own files and steps, as the month shows them for a flow that reads none.
   const tiers = flowRows(viewDoc(), monthDays, entries, manifestOf, at).filter((r) => !scopeIds || scopeIds.includes(r.flow));
@@ -14842,7 +14842,7 @@ function renderMonth(): void {
       h('span', { class: 'mh-bars' }, bars(r, ticks, r.waited, said)),
       h('span', { class: 'mh-said' }, said),
       open ? h('div', { class: 'mh-inside' }, filesGroup(fileRows.filter((x) => inFlow(x, r.flow)), `:${r.flow}`), stepsGroup(stepRows.filter((x) => inFlow(x, r.flow)), `:${r.flow}`),
-        // A read flow has a month of its own (ADR 0025 §5): its calendar, its counts and its rows.
+        // A read flow has a month of its own (ADR 0026 §5): its calendar, its counts and its rows.
         r.flow !== '' && r.flow !== mine ? h('a', { class: 'mh-month', href: `#month/${shown}/in/${(monthView.flow.includes(r.flow) ? monthView.flow.slice(0, monthView.flow.indexOf(r.flow) + 1) : trailOf(state.doc, [...monthView.flow, r.flow])).join('/')}` }, 'Its own month ›') : null) : null);
   };
   // The flows with a day of their own (a file of theirs, or a step no file it reads accounts for), the worst first;
@@ -14908,7 +14908,7 @@ function renderMonth(): void {
 
   // ---- What the demo shows, where it says (ADR 0023 §4): a bar that opens its scenes.
   const scenes = at === null && mine === null ? scenesPanel(dataList?.scenes) : null;
-  // ---- Whose month it is (ADR 0025 §5), inside a flow: the way back up, and what its month is made of.
+  // ---- Whose month it is (ADR 0026 §5), inside a flow: the way back up, and what its month is made of.
   const readsHere = scopeIds ? scopeIds.filter((f) => f !== mine) : [];
   const whose = mine !== null
     ? h('nav', { class: 'crumbs mo-crumbs', 'aria-label': 'Whose month this is' },
@@ -14983,7 +14983,7 @@ function renderLoads(): void {
   const gotVersion = loads.at >= 0 ? correctedOf(loads.at)?.got.v ?? null : null;
   box.replaceChildren(
     h('div', { class: 'dh-nav' },
-      // Back to the month: inside a flow, that flow's own (ADR 0025 §5).
+      // Back to the month: inside a flow, that flow's own (ADR 0026 §5).
       h('a', { class: 'dh-back', href: `${now && monthsOf(days).length > 1 ? `#month/${now.day.slice(0, 7)}` : '#month'}${state.level.length ? `/in/${state.level.join('/')}` : ''}` }, `‹ ${now && monthsOf(days).length > 1 ? monthName(now.day.slice(0, 7)) : loads.span}`),
       h('div', { class: 'dh-step' }, step(prev, 'The day before', `‹ ${prev ? dayShort(prev) : ''}`), step(next, 'The day after', `${next ? dayShort(next) : ''} ›`))),
     now ? h('div', { class: 'dh-title' }, h('h2', {}, dayLabel(now.day)), f ? outcomeMark(outcomeOf(f).outcome, 16) : null) : '',
@@ -16657,7 +16657,7 @@ function recordFlowChange(reason: string | null, doc: FlowDocument = baseDoc()):
     const before = (last?.about as { after?: string } | null)?.after ?? null;
     if (before === fh) return;
     const kept = await ledger.keep('flow', withoutDisplay(doc));
-    // Each flow it reads, as its own document is now (ADR 0025 §7): kept by hash, so an audit of a run from an earlier
+    // Each flow it reads, as its own document is now (ADR 0026 §7): kept by hash, so an audit of a run from an earlier
     // visit still has what the run named.
     for (const own of await flowsToKeep()) await ledger.keep('flow', withoutDisplay(own));
     await ledger.append('flow', state.viewer, { before, after: fh, doc: kept }, reason);
@@ -16773,7 +16773,7 @@ async function release(r: RunRecord, decision: RecordEntry, keys: Record<string,
 async function applyDecided(r: RunRecord): Promise<void> {
   if (!ledger || !r.result.waiting.length) return;
   try {
-    // A held load another page of this browser decided, at its flow, is decided here by that decision (ADR 0025 §6):
+    // A held load another page of this browser decided, at its flow, is decided here by that decision (ADR 0026 §6):
     // recorded and applied, it leaves nothing of the day to apply again.
     if ((await carryDecided(r)).size) return;
     const keys = await keysOf(r);
@@ -16881,7 +16881,7 @@ interface Remedy {
   withdraw?: boolean;
 }
 
-/** A decision carried from another page of this browser (ADR 0025 §6): who made it there, the entry each load's
+/** A decision carried from another page of this browser (ADR 0026 §6): who made it there, the entry each load's
  * decision cites, by the load's key, and the loads it decides here: those it was found for and those that follow. */
 interface Carrying {
   by: string;
@@ -16891,7 +16891,7 @@ interface Carrying {
 
 async function decideNow(target: RunRecord | string, option: DecisionOption, scope: 'day' | 'untilPass', reason: string | null, remedy: Remedy = {}, carrying?: Carrying): Promise<RecordEntry | null> {
   if (!ledger || !state.engine) return null;
-  // A decision carried from another page (ADR 0025 §6) is its maker's there, and says nothing on the status line: the
+  // A decision carried from another page (ADR 0026 §6) is its maker's there, and says nothing on the status line: the
   // run it follows says the day.
   const who = carrying?.by ?? state.viewer;
   const refuse = (text: string): null => {
@@ -16942,7 +16942,7 @@ async function decideNow(target: RunRecord | string, option: DecisionOption, sco
   const level = option === 'accept' ? acceptFor(r)?.level ?? null : null;
   if (option === 'accept' && !level) return refuse(`${day ? dayMid(day) : 'This run'} can't be accepted as a new level: its cause isn't one.`);
   const about: DecideAbout = {
-    // Carried from another page (ADR 0025 §6), it stands for the days it stood for there, whatever is out here.
+    // Carried from another page (ADR 0026 §6), it stands for the days it stood for there, whatever is out here.
     day, run: r.result.run, manifest: r.result.hash, inputs: inputsOf(r.result.manifest), outputs: keys, option, scope: carrying ? scope : option === 'asis' || option === 'accept' || remedy.withdraw || !day || passed ? 'day' : scope, policies: await policiesHash(policies() ?? null), rule: may.rule ?? null,
     ...(derived && dkeys ? { repair: derived.derived!.repair, derived: { run: derived.result.run, manifest: derived.result.hash, keys: dkeys } } : {}),
     ...(level ? { level } : {}),
@@ -16957,11 +16957,11 @@ async function decideNow(target: RunRecord | string, option: DecisionOption, sco
   if (carrying && !held0.length) return null;
   const held = filling ? [...held0.filter((l) => l.source.toLowerCase() === filling), ...held0.filter((l) => l.source.toLowerCase() !== filling)] : held0;
   // What this record's own flow was when the run ran, as its `flow` entry before the run says (ADR 0021 §5): what a
-  // decision of the flow's own file or step is known by on another page of this browser (ADR 0025 §6).
+  // decision of the flow's own file or step is known by on another page of this browser (ADR 0026 §6).
   const ran = ledger.last('run', (e) => (e.about as { manifest?: unknown } | null)?.manifest === r!.result.hash);
   const base = ran ? baseOf(ledger.entries, ran.seq) : null;
   const cited: RecordEntry[] = [];
-  // Each says whose it is (ADR 0025 §6): the flow whose file or step holds its load; the loads that lead first, then
+  // Each says whose it is (ADR 0026 §6): the flow whose file or step holds its load; the loads that lead first, then
   // those held only because one of those is, each citing the decision it carries.
   const recorded = new Map<string, RecordEntry>();
   for (const { about: d, follows } of withRoles(state.doc, r.result.holds, held.length ? loadDecisions({ run: r.result.run, manifest: r.result.hash, inputs: about.inputs, loads: held, option, scope: about.scope, policies: about.policies, rule: about.rule, level }) : [])) {
@@ -16973,7 +16973,7 @@ async function decideNow(target: RunRecord | string, option: DecisionOption, sco
     const e = await ledger.append('decide', who, told as unknown as JSONValue, reason?.trim() || null, lp?.decision?.seq ?? null);
     cited.push(e);
     recorded.set(loadKey(d.load!), e);
-    // Noted for the other pages that share the flow: this record holds a decision of it (ADR 0025 §6).
+    // Noted for the other pages that share the flow: this record holds a decision of it (ADR 0026 §6).
     notePage(d.flow?.id ?? state.doc.id);
   }
   const entry = cited[0] ?? (await ledger.append('decide', who, about as unknown as JSONValue, reason?.trim() || null, p?.decision?.seq ?? null));
@@ -17011,7 +17011,7 @@ async function decideNow(target: RunRecord | string, option: DecisionOption, sco
   return entry;
 }
 
-// ------------------------------------------------------------------ a decision carried between pages (ADR 0025 §6)
+// ------------------------------------------------------------------ a decision carried between pages (ADR 0026 §6)
 
 // A hold is the flow's whose file or step holds, and so is the decision, on whichever page the flow is. Two pages of
 // this browser that share a flow (a flow's own page, and the page of a flow that reads it) keep a record each in one
@@ -17101,7 +17101,7 @@ function carriedOf(shown: RunRecord): string | null {
 }
 
 /**
- * The pages of the site that take a held run's decision from this one (ADR 0025 §6): where it was made in this
+ * The pages of the site that take a held run's decision from this one (ADR 0026 §6): where it was made in this
  * browser, on this page, at a flow another page shares. The flow's own page where a flow this one reads holds; the
  * pages of the flows that read this one where its own file or step does. None for a day the build's record decided
  * (each page has its own), one carried here, or one not decided.
@@ -17135,7 +17135,7 @@ const optionSaid = (a: Partial<DecideAbout>): string =>
 
 /**
  * After a held run, or when the page is looked at again: each held load whose hold leads that another page of this
- * browser decided, at the same flow, is decided here by that decision (ADR 0025 §6, second step), with the loads that
+ * browser decided, at the same flow, is decided here by that decision (ADR 0026 §6, second step), with the loads that
  * follow it. The keys of the loads it decided; none where there was nothing to carry, or it couldn't be: then the
  * sheet says what the other page decided and why it isn't carried (`notCarried`).
  */
@@ -17972,7 +17972,7 @@ function heldNow(a: Record<string, unknown>): DayState | null {
 /** A run a record entry names, as the screens name runs: by the entry that recorded it ("run #13"). */
 const runSaid = (a: Record<string, unknown>) => `run ${runNameOf(typeof a.manifest === 'string' ? a.manifest : undefined, a.run)}`;
 
-/** Whose a decision is, after its line in the record (ADR 0025 §6): the flow whose file or step held its load, and,
+/** Whose a decision is, after its line in the record (ADR 0026 §6): the flow whose file or step held its load, and,
  * for a load held only because another was, the decision it carries. */
 const decidedWhose = (a: Record<string, unknown>): string => {
   const flow = a.flow as { id?: unknown } | undefined;
@@ -18358,7 +18358,7 @@ const homeView = (): string => ((dataList?.loads.length ?? 0) > 1 ? 'month' : 'f
  */
 function routeOf(hash: string): { view: string; day: string | null; version: number | null; look?: SceneLook; month?: string; level?: string[] } {
   const parts = hash.replace(/^#/, '').split('/');
-  // The flows entered (ADR 0025 §4): everything after `/in/`, on the day screen (`#day/2024-03-12/in/feeds`).
+  // The flows entered (ADR 0026 §4): everything after `/in/`, on the day screen (`#day/2024-03-12/in/feeds`).
   const at = parts.indexOf('in');
   const level = at > 0 ? parts.slice(at + 1).filter(Boolean) : [];
   const [name = '', arg, ver] = at > 0 ? parts.slice(0, at) : parts;
@@ -18371,7 +18371,7 @@ function routeOf(hash: string): { view: string; day: string | null; version: num
   }
   if (name === '') return { view: homeView(), day: null, version: null };
   // A month's own link (ADR 0024 §1, `#month/2024-03`): the month screen on that month; a flow's own month with the
-  // flows entered (ADR 0025 §5, `#month/2024-03/in/feeds`).
+  // flows entered (ADR 0026 §5, `#month/2024-03/in/feeds`).
   if (name === 'month') return { view: 'month', day: null, version: null, level, ...(arg && /^\d{4}-\d{2}$/.test(arg) ? { month: arg } : {}) };
   return { view: VIEWS.includes(name) ? name : 'flow', day: null, version: null };
 }
@@ -18405,7 +18405,7 @@ function showView(): void {
   const { view, day, version, look, month, level } = routeOf(location.hash);
   if (look) pendingLook = look;
   if (month) monthView.month = month;
-  // The month of a flow entered (ADR 0025 §5), as its link names it; any other link to the month is the whole flow's.
+  // The month of a flow entered (ADR 0026 §5), as its link names it; any other link to the month is the whole flow's.
   if (view === 'month') monthView.flow = trailOf(state.doc, level ?? []);
   if (state.selected || state.section) select(null);
   for (const v of VIEWS) {
@@ -18416,7 +18416,7 @@ function showView(): void {
   }
   if (view === 'month') renderMonth();
   if (view === 'flow') {
-    // The level a link names (ADR 0025 §4): the flows entered, put right where the flow doesn't read them so; the top
+    // The level a link names (ADR 0026 §4): the flows entered, put right where the flow doesn't read them so; the top
     // without any. A scene's look, or any other link to the day screen, keeps the level its card needs.
     const moved = level ? setLevel(trailOf(state.doc, level)) : false;
     if (day) openDay(day, version);
@@ -18460,13 +18460,13 @@ async function start(): Promise<void> {
       shippedDoc = doc;
       state.doc = structuredClone(doc);
       document.title = `smaltfl: ${doc.name}`;
-      // Each flow it reads, as its own document (ADR 0025 §2): fetched beside it, checked as it is, and kept by the
+      // Each flow it reads, as its own document (ADR 0026 §2): fetched beside it, checked as it is, and kept by the
       // first run, so a run here can be verified to hold each one unchanged.
       const listed = dataList.flows;
       const data = dataList.data;
       readFlowDocs = Promise.all((doc.flows ?? []).filter((f) => listed[f.id]).map(async (f) => JSON.parse(new TextDecoder().decode(await fetchChecked(listed[f.id]!.path, listed[f.id]!, { commit: data?.commit ?? null, onCheck: noteCheck }))) as FlowDocument));
       readFlowDocs.catch(() => undefined);
-      // The estates' ontologies it imports (ADR 0025 §8), each as its file gives it, checked as every file is.
+      // The estates' ontologies it imports (ADR 0026 §8), each as its file gives it, checked as every file is.
       estateDocs = Promise.all(dataList.estates.map(async (e) => JSON.parse(new TextDecoder().decode(await fetchChecked(e.path, e, { commit: data?.commit ?? null, onCheck: noteCheck }))) as EstateOntology));
       void estateDocs.then((all) => (estates = all), () => undefined);
     } catch (e) {
@@ -18480,7 +18480,7 @@ async function start(): Promise<void> {
   // The rules before any change set, and the change sets, kept apart from the document on screen (ADR 0021 §5).
   takeRules(state.doc);
   if (staleUses) saveFlow();
-  // Each flow it reads as the edits kept here leave its own document (ADR 0025 §7): what the first run keeps.
+  // Each flow it reads as the edits kept here leave its own document (ADR 0026 §7): what the first run keeps.
   void followEdits();
   loadArrangement();
   wirePlainWords();
@@ -18490,7 +18490,7 @@ async function start(): Promise<void> {
   const about = $('flow-desc');
   about.textContent = state.doc.description ?? '';
   about.hidden = !state.doc.description;
-  // The pages of the site that share a flow with this one (ADR 0025 §6): a held day decided on one is carried to the
+  // The pages of the site that share a flow with this one (ADR 0026 §6): a held day decided on one is carried to the
   // other, so it is decided once.
   const shared = Object.keys(dataList?.pages ?? {}).filter((id) => id !== state.doc.id);
   const sharedEl = $('flow-pages');
@@ -18532,7 +18532,7 @@ async function start(): Promise<void> {
     setStatus('Opening this flow’s record, and starting the engine…');
     await loadLog();
     mark('record opened');
-    // Where this record carries a decision from another page (ADR 0025 §6), that page's names, read behind the first run.
+    // Where this record carries a decision from another page (ADR 0026 §6), that page's names, read behind the first run.
     if (ledger?.entries.some((e) => e.kind === 'decide' && (e.about as CarryAbout | null)?.from)) void namePages();
     // A day held in an earlier visit still waits (ADR 0009 §10): the tab says so before anything runs.
     syncTitle();

@@ -1,5 +1,5 @@
 /**
- * The voice (src/core/voice.ts, ADR 0025 §12): the playful lines are few, each has plain words, and nothing the app or
+ * The voice (src/core/voice.ts, ADR 0026 §12): the playful lines are few, each has plain words, and nothing the app or
  * its sample world says uses a phrase that asks the reader not to believe audited data.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';

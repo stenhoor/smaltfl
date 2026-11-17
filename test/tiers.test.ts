@@ -1,5 +1,5 @@
 /**
- * The month in tiers (ADR 0025 §5, core/tiers.ts): a row a flow above the files and steps, its day the worst any of its
+ * The month in tiers (ADR 0026 §5, core/tiers.ts): a row a flow above the files and steps, its day the worst any of its
  * own files or steps said; a flow that held nothing of its own while another flow's hold kept back what it gives only
  * waited, told apart from one that held.
  */

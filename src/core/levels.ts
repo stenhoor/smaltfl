@@ -1,5 +1,5 @@
 /**
- * Flows in flows on the screen (ADR 0025 §3, §4): the canvas in levels, and what a flow's day came to.
+ * Flows in flows on the screen (ADR 0026 §3, §4): the canvas in levels, and what a flow's day came to.
  *
  * - **A level** (`levelDoc`) is one flow's own canvas: its files and steps as they are, and each flow it reads itself
  *   as one card (`flowCard`). What those flows read is inside them, a level down. The document the canvas lays out is
@@ -41,7 +41,7 @@ export function readHere(doc: Pick<FlowDocument, 'flows'>, at: string | null = n
 }
 
 /**
- * The document a level's canvas lays out (ADR 0025 §4): the level's own sources and steps, its own sections, and one
+ * The document a level's canvas lays out (ADR 0026 §4): the level's own sources and steps, its own sections, and one
  * card for each flow it reads itself, joined to what reads it: a step that takes its rows, or one judged by a written
  * rule that reads it. A step that reads two datasets of one flow has one edge from that flow's card. A flow the
  * document has nothing left of (closed to the viewer) has no card.
@@ -50,7 +50,7 @@ export function readHere(doc: Pick<FlowDocument, 'flows'>, at: string | null = n
  * reads no flow is returned as it is. Inside a flow the arrangement is the automatic one: the document's `layout` is
  * the top level's.
  *
- * Inside a use of a flow (ADR 0025 §11), each dataset mapped onto one of its inputs is on the canvas: as the card of
+ * Inside a use of a flow (ADR 0026 §11), each dataset mapped onto one of its inputs is on the canvas: as the card of
  * the flow that gives it, or, where it is the listing flow's own, as that dataset itself, an input of the level, so
  * every input of a use shows where its rows come from.
  */
@@ -148,7 +148,7 @@ export function trailOf(doc: Pick<FlowDocument, 'flows'>, asked: readonly string
 }
 
 /**
- * What a flow's day came to, by precedence (ADR 0025 §3): the run failed inside it; it is paused, waiting for a
+ * What a flow's day came to, by precedence (ADR 0026 §3): the run failed inside it; it is paused, waiting for a
  * decision; its day was kept back; a decision published it; it waits on another flow; something in it is unusual;
  * something in it couldn't be judged yet; normal. `none` before a run, and where the run built nothing of it.
  */
@@ -204,7 +204,7 @@ export interface RunSaid {
 const HOW_OF: Partial<Record<DayState, How>> = { asis: 'asis', fill: 'fill', complete: 'complete', accepted: 'accepted' };
 
 /**
- * A flow's day from a run (ADR 0025 §3): each of its own files and steps as the run said it, and the worst of them.
+ * A flow's day from a run (ADR 0026 §3): each of its own files and steps as the run said it, and the worst of them.
  * A what-if's and a restatement's holds are about the run, not about any data, so they are no flow's. A file sent
  * again holds its flow until it is decided, as it holds its day (Q-183).
  */
@@ -347,7 +347,7 @@ export interface Given {
   readers: string[];
 }
 
-/** What a flow gives (ADR 0025 §4): each dataset it publishes, with the flows that read it. */
+/** What a flow gives (ADR 0026 §4): each dataset it publishes, with the flows that read it. */
 export function givenBy(doc: Pick<FlowDocument, 'flows' | 'steps'>, flow: string): Given[] {
   const owner = flowOwners(doc);
   const order = ['', ...(doc.flows ?? []).map((f) => f.id)];

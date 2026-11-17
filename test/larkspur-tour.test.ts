@@ -170,7 +170,7 @@ describe('the tour’s two months, as the demo records them (ADR 0023 §3, amend
     expect(claimOf(ca!, 'platform_impact')!.head).toMatch(/ca-int-2/);
   });
 
-  it('records whose each decision is: the flow whose file held the day, the loads held with it carrying its decision (ADR 0025 §6)', () => {
+  it('records whose each decision is: the flow whose file held the day, the loads held with it carrying its decision (ADR 0026 §6)', () => {
     // A day's decisions as `load:flow`, the flow whose file or step held it (`own` the estate's), with the decision a
     // load that only followed carries.
     const whose = (day: string) => decisionsOf(day).map((e) => `${about(e).load?.source}:${about(e).flow?.id ?? 'own'}${about(e).carried ? ` with #${about(e).carried.seq}` : ''}`);

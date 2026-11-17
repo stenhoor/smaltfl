@@ -1,5 +1,5 @@
 /**
- * Exploring a dataset (ADR 0025 §9): what the engine is asked (emit.ts), over every row. A column's values counted, a
+ * Exploring a dataset (ADR 0026 §9): what the engine is asked (emit.ts), over every row. A column's values counted, a
  * number's rows in bins, a time's by its stamp, a part picked and lit in every other column, kept, and how two
  * datasets join on a key with the keys that find no match.
  */

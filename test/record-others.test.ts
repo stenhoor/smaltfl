@@ -1,5 +1,5 @@
 /**
- * The other records a browser keeps (ADR 0025 §6, second step): a page reads the record of another page that shares a
+ * The other records a browser keeps (ADR 0026 §6, second step): a page reads the record of another page that shares a
  * flow with it, checked as that page reads it, and never writes it. On the tests' IndexedDB.
  */
 import { describe, expect, it } from 'vitest';

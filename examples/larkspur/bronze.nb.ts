@@ -1,6 +1,6 @@
 // The control catalogue, its framework mappings and the risk register as they arrive each day (ADR 0020 §2): the files
 // that are the posture product's own. The organisation, the inventory, the evidence feeds and the applications are flows
-// of their own, which this one reads (ADR 0025). Each file has a gate (written checks hold the day, learned ones warn)
+// of their own, which this one reads (ADR 0026). Each file has a gate (written checks hold the day, learned ones warn)
 // and a check step that keeps the rows it can read. The silver and gold notebooks read the checked steps.
 import { cell, md, param } from 'smaltnb';
 import { check, gate, source } from 'smaltfl/notebook';

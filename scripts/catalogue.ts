@@ -1,5 +1,5 @@
 /**
- * A flow's catalogue from disk (ADR 0025 §10): the flows in the `catalogue` folder beside its `flow.json`, each read as
+ * A flow's catalogue from disk (ADR 0026 §10): the flows in the `catalogue` folder beside its `flow.json`, each read as
  * any flow is (its own folder, the flows it reads brought in, its steps derived), with the entry the app lists it by:
  * what it gives, what it is built on, and the hash it is known by. What the app's build ships, so *Add a flow* has
  * flows that are made already. A flow with no such folder has an empty catalogue.

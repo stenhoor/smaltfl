@@ -54,13 +54,13 @@ export interface DataList {
   data: { commit: string; manifest: string; bytes?: number } | null;
   /** The flow document the data is for, when it isn't the built-in example. */
   flow: FileEntry | null;
-  /** Each flow that flow reads, as its own document (ADR 0025 §2), by id: what a run keeps beside its own document, so
+  /** Each flow that flow reads, as its own document (ADR 0026 §2), by id: what a run keeps beside its own document, so
    * verify can check that it holds each unchanged. The build's own files, as the flow document is. */
   flows: Record<string, FileEntry>;
-  /** The estates' ontologies the flow imports (ADR 0025 §8), each as its file gives it, by name and hash (`estate/0`),
+  /** The estates' ontologies the flow imports (ADR 0026 §8), each as its file gives it, by name and hash (`estate/0`),
    * in the order the flow's document names them. Empty where it imports none. */
   estates: (FileEntry & { name: string; hash: string })[];
-  /** The flow's catalogue (ADR 0025 §10): the flows this build ships that are made already, each with what it gives,
+  /** The flow's catalogue (ADR 0026 §10): the flows this build ships that are made already, each with what it gives,
    * what it is built on and the hash it is known by, and its own document's file (`file`, with its sha256 and size).
    * Empty where the build ships none. */
   catalogue: (CatalogueEntry & { file: string; sha256: string; bytes: number })[];
@@ -91,7 +91,7 @@ export interface DataList {
   /** The demo's scenes (ADR 0023 §4, core/scenes.ts): what it shows, listed on the month screen; none where the list
    * names none, or they aren't a good scenes file (said in the console, never in the way). */
   scenes?: ScenesFile;
-  /** The pages of this site that share a flow with this one (ADR 0025 §6), by the flow's id, each with its address
+  /** The pages of this site that share a flow with this one (ADR 0026 §6), by the flow's id, each with its address
    * from this page: a flow this one reads that has a page of its own, or a flow that reads this one (named, since this
    * page's document doesn't know it). A held day decided on one is carried to the other, and each links to the other.
    * Where the pages are is the site's to say (the build's `--page`), not the flow's. */

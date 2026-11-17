@@ -153,7 +153,7 @@ describe('silver: the company conformed, and the rules applied (ADR 0020 §5)', 
   };
 
   it('watches the steps silver and gold judge, each with a history from runs of the flow', () => {
-    // Each flow brings its own watches (ADR 0025 §1): the applications' three, then the posture product's.
+    // Each flow brings its own watches (ADR 0026 §1): the applications' three, then the posture product's.
     expect(w.steps).toEqual(['apps', 'app_owners', 'shadow_assets', 'effective', 'posture_wide', 'platform_impact', 'dim_app', 'failing_by_unit']);
     for (const st of w.steps) expect(w.bases[st]!.days.length, st).toBe(42);
   });
