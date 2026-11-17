@@ -31,18 +31,36 @@ day takes a few seconds while the engine starts and runs the whole flow, about a
 
 ## The flow {#the-flow}
 
-The canvas shows six notebooks, bronze to gold:
+Larkspur is five flows, four of them read by the fifth ([ADR 0025](../adr/0025-flows-in-flows.md)). The canvas shows
+the top one, the posture product, with each flow it reads as **one card**, a second sheet behind it:
 
-- **bronze**: every daily file as it arrived, each with a gate. The gate checks the file's columns, its amount, its
-  key and the applications it should cover. It also checks values against the bands the ontology writes, and that
-  the file is a fresh export, not yesterday's file again. Each evidence feed has a fill step, so a day missing one can
-  be filled from another day, every row marked with the day it came from (`filled_from`).
-- **org**: the organisation, conformed. Each unit has its chain up to the group, and the leader it answers to: its
-  own, someone acting, or the one above. Its rules: no loop, one root.
-- **apps**: the applications, conformed: ids cleaned, the newest record kept.
+- **Inventory**: the applications' register and the cloud assets, each file with its gate.
+- **HR organisation**: the units and the people, conformed. Each unit has its chain up to the group, and the leader it
+  answers to: its own, someone acting, or the one above. Its rules: no loop, one root.
+- **Evidence feeds**: the findings ledger and the twelve evidence feeds, a control each, as their tools export them.
+  Each file has a gate, which checks its columns, its amount, its key and the applications it should cover against the
+  Inventory's list; values against the bands the ontology writes; and that the file is a fresh export, not
+  yesterday's again. Each feed has a fill step, so a day missing one can be filled from another day, every row marked
+  with the day it came from (`filled_from`).
+- **Applications**: the applications, conformed, from the other three: ids cleaned, the newest record kept.
   - Each application has an owner chain through its team. One whose chain doesn't resolve is kept under
     **Unassigned**.
   - Cloud resources tagged with an application nobody registered are listed apart.
+
+A flow's card says what its day came to, by the month's marks: a tick and what it has on a normal day; **‖** and the
+file that holds it, with how many of its files that is (*access_rev… · 1 of 13*), on a day it is paused; how the day
+went out once someone decided. A flow with nothing wrong of its own whose outputs wait behind another flow's hold says
+*Waits on* that flow. Never a score, never an average.
+
+Tap a card for the flow's sheet: its day in a sentence, what holds it (a tap from the file inside), the flows it reads,
+and what it gives, each dataset with whether today's went out and who reads it. **Open the flow ›** (or a double-click
+on the card) shows the flow's own canvas, with a line at the top that says where you are and goes back. Inside, it is
+the same run: every card shows the day on screen. Each level has a link of its own (`#day/2024-03-27/in/feeds`).
+
+Beside the four cards are the posture product's own three files (the control catalogue, what each control requires,
+the exceptions) and its notebooks:
+
+- **bronze**: its own three files, each with a gate.
 - **evidence**: every evidence feed as one long table, and the vulnerability SLA, told from the findings ledger.
 - **posture**: what applies to each application and the evidence for it.
   - Each pair of an application and a control gets an effective status with its reason: pass, fail, compensated,

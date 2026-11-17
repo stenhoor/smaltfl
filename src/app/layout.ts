@@ -4,6 +4,7 @@
  * empty sections, where a person put them.
  */
 import type { FlowDocument, GroupColor } from '../core/document.js';
+import { FLOWS_SECTION } from '../core/levels.js';
 
 /** World coordinates of the grid canvas, in pixels at zoom 1. */
 export const GRID = { cardW: 176, cardH: 64, gapX: 40, gapY: 26, pad: 14, head: 28, groupGapX: 56, groupGapY: 34 };
@@ -85,7 +86,8 @@ export function gridLayout(doc: FlowDocument, collapsed: ReadonlySet<string>, wr
   }
   for (const id of order) if (inputs.get(id)!.length) col.set(id, Math.max(...inputs.get(id)!.map(colOf)) + 1);
 
-  const declared = (doc.groups ?? []).map((g) => ({ id: g.id, name: g.name, color: g.color, members: g.steps.filter((m) => known.has(m)), frame: true }));
+  // The cards of the flows a level reads (ADR 0025 §3) are placed as a section's are, and drawn with no frame.
+  const declared = (doc.groups ?? []).map((g) => ({ id: g.id, name: g.name, color: g.color, members: g.steps.filter((m) => known.has(m)), frame: g.id !== FLOWS_SECTION }));
   const empty = declared.filter((g) => g.members.length === 0);
   const groups = declared.filter((g) => g.members.length > 0);
   const grouped = new Set(groups.flatMap((g) => g.members));

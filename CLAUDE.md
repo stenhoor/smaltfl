@@ -444,7 +444,19 @@ release (smaltty ADR 0030).
   owns the file (`repairDocument`). The app's build ships each read flow (`data/flows/<id>.json`, loads.json `flows`,
   `DataList.flows`). Larkspur is five flows: `hr/`, `inventory/`, `feeds/`, `applications/` and the posture product at
   the root, which lists the four (the same 92 plan nodes, 37 outputs where it had 19; the ontology whole at the root
-  until slice 7); `test/compose.test.ts`.
+  until slice 7); `test/compose.test.ts`. Slice 2, the canvas in levels: `src/core/levels.ts` (pure, not in what the
+  data's cache is keyed by): `levelDoc` is the document one flow's canvas lays out, its own files, steps and sections and
+  a card a flow it reads itself (`flowCard`, `cardFlow`, `readHere`; a card joined to every flow its flow lists and to
+  the step a written rule judges by it; the cards one frameless section, `FLOWS_SECTION`, which `layout.ts` places and
+  doesn't draw); `trailOf` the flows entered as a link names them; `flowDay` a flow's day from a run (`RunSaid`: its
+  holds and claims as the record keeps them, the outputs kept back, what became of the day), the worst of what is
+  inside it by precedence (failed, paused, kept, decided and how, waits on another flow, unusual, not judged, normal),
+  `flowSaid` its sentence and `flowLine` its card's line fitted to the card; `givenBy`, `readersOfFlow`. The app:
+  `state.level`, `canvasDoc` through `levelDoc`, the card in `renderCanvas` (`FLOW_MARK`, `flowDayOf`, `runSaidNow`),
+  the sheet (`renderFlowSheet`), entering (`enterFlow`, `setLevel`, a double-click), the line at the top
+  (`renderCrumbs`), links (`routeOf`'s `level`, `levelHash`: `#day/2024-03-27/in/feeds`), a card opened from anywhere
+  taking the canvas to its level (`select`, `showLevelOf`); `window.__smaltflLevelOf` for tour.cjs, which goes to the
+  level that draws a card (a stop's `in`, `flow`, `dblclick`); `test/levels.test.ts`, `tools/browser/stops/levels.json`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -530,8 +542,8 @@ release (smaltty ADR 0030).
   flow reads other flows, each a card on its reader's canvas with its day's mark, entered to see its own flow, rolled
   up into the month, in the slices of its §12: the core and Larkspur cut into five; the canvas in levels; the month in
   tiers; exploring what a flow gives; a paused day decided once, at its flow; a change followed, said and tested on the
-  days recorded; the ontology's overrides; inputs and settings; building in the app; the voice. Slice 1 is built (its
-  §"As built", which says what it leaves for the slices after it).
+  days recorded; the ontology's overrides; inputs and settings; building in the app; the voice. Slices 1 and 2 are built
+  (its §"As built", which says what each leaves for the slices after it).
 
 ## Rules for this repository
 

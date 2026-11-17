@@ -59,6 +59,19 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
   - the arrow keys and Page Down (a stop's `press`), the scenes opened, the dark scheme, and **Decide ›** from the month.
 
   Run it at every size. It must report `problems: none`.
+- `levels.json`: flows in flows on the canvas (ADR 0025 §3, §4), on the tour (same build as `overview.json`):
+  - the top of Larkspur on a normal day: four flows, a card each, with what the posture product has of its own;
+  - the day that waits: Evidence feeds paused, its extent counted, the others normal;
+  - its sheet: the day in a sentence, what holds it, what it reads, what it gives and who reads it;
+  - the holding file a tap away, inside the flow, with the line at the top saying where you are;
+  - going back up; entering by a double-click (a stop's `dblclick`, at `desktop` and `wide`) and by the sheet's button;
+  - a flow read by two flows, entered through the other (Applications, then Evidence feeds);
+  - the next day and a reload, both staying inside the flow on screen;
+  - a card inside a read flow opened from the top (the tour goes to the level that draws it: no stop names it);
+  - a day decided (Mon Mar 11's first files, filled), and the dark scheme.
+
+  A stop's `in` names the flows to enter first (`"feeds"`, `"applications/feeds"`; `""` is the top) and `flow` the flow
+  whose card to open. It must report `problems: none` at every size.
 - `integrity.json`: integrity in the browser (ADR 0006) on Larkspur (same build as `month.json`), the taxi's suite
   ported. It checks:
   - the first day's files, each sealed;

@@ -30,7 +30,7 @@
     "viewFirst": true,
     "element": "#view-month .mo-sum",
     "expect": {
-      "text": ["Wed Mar 27", "Paused: it waits for a decision.", "WHAT HOLDS IT", "access_reviews file Almost no apps: 0", "posture_wide step access_review fail almost gone", "ALSO UNUSUAL", "WHAT WAITS 10 of 19 outputs", "WHAT HAPPENED", "20 files arrived. Held by access_reviews and 1 more: nothing built from them was published.", "SCORE none: the roll-up wasn’t published for the day.", "Decide ›", "Open the day ›", "Recorded by the build."],
+      "text": ["Wed Mar 27", "Paused: it waits for a decision.", "WHAT HOLDS IT", "access_reviews file Almost no apps: 0", "posture_wide step access_review fail almost gone", "ALSO UNUSUAL", "WHAT WAITS 11 of 37 outputs", "WHAT HAPPENED", "20 files arrived. Held by access_reviews and 1 more: nothing built from them was published.", "SCORE none: the roll-up wasn’t published for the day.", "Decide ›", "Open the day ›", "Recorded by the build."],
       "words": { "#view-month .mo-sum": 110 }
     }
   },
@@ -69,7 +69,7 @@
     "click": "#view-month .mo-log-row[data-day=\"2024-03-11\"] .mo-log-btn",
     "element": "#view-month .mo-sum",
     "expect": {
-      "text": ["Mon Mar 11", "corrected: version 2 of 2 published", "Corrected: a file sent again, and published.", "WHAT HELD IT", "backup_jobs file Last_state COMPLETED: 64% (usually 94–97%)", "WHAT IT HELD BACK 10 of 19 outputs", "WHAT HAPPENED", "20 files arrived. Held by backup_jobs: nothing built from it was published.", "Sloane Marsden filled it from Sun Mar 10, 3 h after it was held.", "backup_jobs sent again. A later file waits for a decision.", "The backup team fixed its export and sent Monday's file again", "Sloane Marsden published the version sent again", "Monday's own file, every backup as it ran", "2 versions of the day. Recorded by the build."],
+      "text": ["Mon Mar 11", "corrected: version 2 of 2 published", "Corrected: a file sent again, and published.", "WHAT HELD IT", "backup_jobs file Last_state COMPLETED: 64% (usually 94–97%)", "WHAT IT HELD BACK 11 of 37 outputs", "WHAT HAPPENED", "20 files arrived. Held by backup_jobs: nothing built from it was published.", "Sloane Marsden filled it from Sun Mar 10, 3 h after it was held.", "backup_jobs sent again. A later file waits for a decision.", "The backup team fixed its export and sent Monday's file again", "Sloane Marsden published the version sent again", "Monday's own file, every backup as it ran", "2 versions of the day. Recorded by the build."],
       "count": {
         "#view-month .mo-d[aria-pressed=\"true\"][data-day=\"2024-03-11\"]": 1,
         "#view-month .mo-log-btn[aria-pressed=\"true\"]": 1,

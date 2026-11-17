@@ -285,15 +285,64 @@ The slices, each with its tests, its stop sets at every size and its guide:
   months and March of Larkspur and the tour's answer key pass as they stood, but for the order the watched steps are
   listed in: each flow brings its own watches, so the Applications' three come before the posture product's.
 
-**What slice 1 leaves for the slices after it:**
+**What slice 1 left for the slices after it:**
 
-- The canvas still draws a composed flow flat, its notebooks side by side: slice 2 draws each read flow as a card.
-  The browser stop sets that name Larkspur's sections by their old ids (`nb-org`, `nb-apps`, `nb-bronze`) are reworked
-  with it.
+- The canvas drew a composed flow flat, its notebooks side by side: slice 2 draws each read flow as a card.
 - The offline audit doesn't yet check the flows a run names; verify does. It comes with slice 6, where a change to a
   read flow is said and tested.
 - An edit made in the app to a step of a read flow (a column renamed through the steps that pass it on) is an edit of
   the reading flow's copy, and verify's `flows` check says so. Slice 6 makes such an edit at the flow it belongs to.
+
+### Slice 2: the canvas in levels (2026-11-17)
+
+- **A level** (`src/core/levels.ts` `levelDoc`): the document one flow's canvas lays out, derived and never run: the
+  flow's own files, steps and sections, and one card for each flow it reads itself (`flowCard`, `cardFlow`,
+  `readHere`). What those flows read is inside them. A step that reads two datasets of one flow has one line from that
+  flow's card. A flow the viewer has nothing left of has no card.
+- **A card is never adrift.** Evidence feeds reads Inventory through its gates alone (each file is counted against the
+  inventory's applications): no step takes Inventory's rows. So a flow's card is joined to every flow its flow lists,
+  and, on the level of the flow that reads it, to the step a written rule judges by it (`writtenRules`: a scope, a
+  dependency, a reconciliation), or, for a judged file, to the first step that reads the file.
+- **The flows' cards are laid out together** (`FLOWS_SECTION`, a section with no frame, `src/app/layout.ts`): each
+  takes a row that keeps clear the way from the cards before it to what reads them, as a section's steps do, and they
+  lead the canvas. A line from one flow's card never runs behind another's.
+- **A flow's day** (`flowDay`, from `RunSaid`: the run's holds and claims as its record entry keeps them, the outputs
+  kept back, what became of the day): each of its own files and steps as the month reads one (`cellOf`), and the worst
+  by precedence: the run failed inside it; paused; kept back; decided, and how; it waits on another flow; unusual; not
+  judged yet; normal. A what-if's and a restatement's holds are no flow's; a file sent again holds its flow until
+  decided. `flowSaid` is the sentence (*Paused · access_reviews, 1 of 13 files*) and `flowLine` the card's line, fitted
+  to the room the card has: the names give way, then the word after the count; the count never does
+  (*access_rev… · 1 of 13*).
+- **The card** (`renderCanvas`): a second sheet behind it, FLOW and the count of what it gives, the month's marks
+  (`FLOW_MARK`: ‖, ☒, ☑, ⚠, ◌, a tick), colour for the day that waits alone, dashed where it waits on another flow.
+  The day's trail runs through a card where anything inside it is on it.
+- **Its files' seal** (`flowSeal`, ADR 0006): a flow's card carries its files' seals read as one: sealed where every
+  file with a seal is checked back to its bytes, broken where any is. On a day a file was tampered with, the card says
+  whose file was refused (*tls: file refused*), its seal broken, and its sheet leads to the file's Integrity tab.
+- **The sheet** (`renderFlowSheet`): the day in a sentence; **Open the flow ›**; what holds it, each a tap from the
+  card inside; the flows it waits on; the flows it reads, each with its own day; what it gives (`givenBy`), each with
+  whether today's went out and who reads it; what it has, who reads it (`readersOfFlow`) and the hash it is known by.
+- **Entering** (`enterFlow`, `setLevel`, `state.level`): the canvas of the flow, laid out and fitted afresh, with a
+  line at the top (`renderCrumbs`: the flows entered, each a link back, and what the flow on screen made of the day).
+  A double-click on a card enters; so does the sheet's button. Arranging is the top level's.
+- **Links** (`routeOf`, `levelHash`, `trailOf`): `#day/2024-03-27/in/feeds`, `#day/2024-03-27/v1/in/applications/feeds`,
+  `#flow/in/feeds`. A trail that isn't one is put right: the shortest way to the last flow it names. The days either
+  side and the Day tab keep the level.
+- **A card opened from anywhere** (`select` → `showLevelOf`): the canvas goes to the level that shows it, the link
+  following without a new entry in the browser's history.
+- **The browser tour** (`tools/browser/tour.cjs`): goes to the level that draws a card before it opens it
+  (`window.__smaltflLevelOf`), so no stop set had to learn where a card went; a stop's `in`, `flow` and `dblclick`.
+  `tools/browser/stops/levels.json` walks all of this on the tour, at every size.
+- **Tests**: `test/levels.test.ts`.
+- **The stop sets that were there** pass on the new canvas at every size with four changes, none to what a stop
+  shows: Larkspur's two notebooks by their new section ids; `integrity.json`'s counts of sealed files, which were
+  taken on the one flat canvas and are now taken at the top (three files and three flows' seals) and inside Evidence
+  feeds and Inventory, with the tampered day read on the flow's card and its sheet; and, from slice 1's eighteen more
+  datasets, the counts three sets quote (*11 of 37 outputs*, the Ontology page's twenty made datasets).
+
+**What slice 2 leaves:** no day of the tour shows *Waits on* on a card at the top, since the flow that waits there is
+the posture product itself, whose own notebooks are drawn; the state is tested in `test/levels.test.ts`. **Explore ›**
+on each output comes with slice 4; until then a dataset's row opens its card.
 
 ## Consequences
 

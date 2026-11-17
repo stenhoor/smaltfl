@@ -12,7 +12,7 @@ Nothing that judges the days knows where the trouble is planted. The tour picks 
 month has every planted day, and what happened next in its recorded story. It is also where the posture is read over
 the whole month, the rules change twice, a back-dated change restates two days and a what-if run is made the day's.
 
-The flow is the tour's: [six notebooks, bronze to gold](./demo#the-flow).
+The flow is the tour's: [five flows, the posture product reading the other four](./demo#the-flow).
 
 ## A calm day
 

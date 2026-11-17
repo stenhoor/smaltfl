@@ -236,8 +236,12 @@ in the question prompt, nine questions in three rounds. In the slices of ADR 002
    names the flows it read, and verify holds the run's document to each one's own. Larkspur is HR organisation,
    Inventory, Evidence feeds, Applications and the posture product, with the same 92 plan nodes and the same answer
    keys (its six months and March through the engine, the tour's two months at the demo's scale).
-2. The canvas in levels (a card a flow, its sheet, entering it): next.
-3. The month in tiers. 4. Exploring what a flow gives. 5. A paused day decided once, at its flow. 6. A change followed,
+2. **The canvas in levels: built.** Each flow a flow reads is one card on its canvas, a second sheet behind it, saying
+   what its day came to by the month's marks and its extent (*access_rev… · 1 of 13*), never a score; a tap opens its
+   sheet (what holds it, what it reads, what it gives and who reads it); **Open the flow ›** or a double-click shows
+   its own canvas, with a line at the top that says where you are and goes back; each level has a link
+   (`#day/2024-03-27/in/feeds`). `tools/browser/stops/levels.json` walks it on the tour at every size.
+3. The month in tiers: next. 4. Exploring what a flow gives. 5. A paused day decided once, at its flow. 6. A change followed,
    said and tested on the days recorded. 7. The ontology's overrides. 8. Inputs and settings. 9. Building in the app (a
    catalogue, a join form). 10. The voice.
 

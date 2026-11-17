@@ -133,6 +133,7 @@ section.view { display: grid; gap: 14px; }
 .port-key.out::before { right: 0; width: 12px; background: var(--teal-fill); }
 .port-key.out::after { left: 0; background: var(--teal-fill); }
 .shield-key { width: 11px; height: 13px; fill: none; stroke: var(--ink-2); stroke-width: 1.4; }
+.flow-key { position: relative; width: 18px; height: 11px; margin: 3px 4px 0 0; border: 1.5px solid var(--ink-2); border-radius: 3px; background: var(--surface); box-shadow: 3px -3px 0 -1px var(--sunk), 3px -3px 0 0 var(--line); }
 
 #canvas {
   position: relative; height: max(380px, calc(100vh - var(--head, 170px) - 170px)); border: 1px solid var(--line); border-radius: 12px;
@@ -197,6 +198,19 @@ section.view { display: grid; gap: 14px; }
 .edge.look { stroke-width: 1; opacity: 0.45; }
 .card.profile rect.box { fill: color-mix(in srgb, var(--violet, var(--smalt)) 7%, var(--surface)); stroke: color-mix(in srgb, var(--violet, var(--smalt)) 55%, var(--surface)); stroke-width: 2; }
 .card.profile .kind { fill: var(--violet, var(--smalt)); }
+/* Flows in flows (ADR 0025 §3): a flow this one reads is one card, a second sheet behind it. Its day is said by the
+   month's marks, with colour for the day that waits alone (ADR 0024 §3); a flow that waits on another is dashed, since
+   today's rows of it aren't out. */
+.card.flow rect.box { stroke: var(--ink-2); stroke-width: 1.6; }
+.card.flow rect.box.back { fill: var(--sunk); stroke: var(--edge, var(--line)); stroke-width: 1.2; }
+.card.flow .kind { fill: var(--ink-2); font-weight: 600; }
+.card.flow.fo-waiting rect.box:not(.back), .card.flow.fo-failed rect.box:not(.back) { fill: var(--bad-wash); stroke: var(--bad); stroke-width: 2; }
+.card.flow.fo-waiting .what, .card.flow.fo-failed .what { fill: var(--bad); font-weight: 600; }
+.card.flow.fo-unusual .what { fill: var(--warn); font-weight: 600; }
+.card.flow.fo-waits rect.box { stroke-dasharray: 5 4; }
+.card.flow.fo-none rect.box:not(.back) { fill: var(--bg); }
+.card.flow.selected rect.box:not(.back) { stroke: var(--smalt); stroke-width: 2.5; stroke-dasharray: none; }
+.card-tick { fill: none; stroke: var(--teal); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; min-width: 0; }
 .panel h2 { margin: 0 0 4px; font-size: 16px; text-wrap: balance; }
@@ -2090,6 +2104,45 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .dh-step { display: flex; gap: 6px; }
 .dh-title { display: flex; align-items: center; gap: 8px; margin: 2px 0 0; }
 .dh-title h2 { margin: 0; font-size: 20px; }
+/* Where you are, inside a flow the page's flow reads (ADR 0025 §4): the flows entered, each a link back, then what the
+   flow on screen made of the day. One line on a phone, the trail cut before the day is. */
+.crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 8px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-size: 13px; }
+.crumbs[hidden] { display: none; }
+.crumb-up { flex: none; display: inline-grid; place-items: center; min-width: 30px; min-height: 30px; border: 1px solid var(--line); border-radius: 8px; color: var(--smalt); font-weight: 700; font-size: 16px; text-decoration: none; }
+.crumb-trail { flex: 0 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; list-style: none; margin: 0; padding: 0; }
+.crumb-trail li { min-width: 0; overflow-wrap: anywhere; }
+.crumb-trail li + li::before { content: '/'; margin-right: 6px; color: var(--muted); }
+.crumb-trail a { color: var(--smalt); font-weight: 600; text-decoration: none; }
+.crumb-trail [aria-current] { font-weight: 700; color: var(--ink); }
+.crumb-day { flex: 1 1 180px; min-width: 0; display: flex; align-items: center; gap: 6px; margin: 0; color: var(--ink-2); overflow-wrap: anywhere; }
+.crumb-day > .g, .crumb-day > .mo-ok { flex: none; }
+.crumb-day.fo-waiting, .crumb-day.fo-failed { color: var(--bad); font-weight: 600; }
+.crumb-day.fo-unusual { color: var(--warn); font-weight: 600; }
+/* A flow's sheet (ADR 0025 §4): its day, what holds it, what it reads and what it gives, each row a tap from the card
+   it is about. */
+.fl-sheet { gap: 14px; }
+.fl-day { display: flex; align-items: flex-start; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.fl-day p { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.fl-day > .g, .fl-day > .mo-ok { flex: none; margin-top: 1px; }
+.fl-day .mo-ok { font-size: 16px; color: var(--teal); }
+.fl-day.fo-waiting, .fl-day.fo-failed { border-color: var(--bad); background: var(--bad-wash); }
+.fl-day.fo-waiting p, .fl-day.fo-failed p { color: var(--bad); }
+.fl-day.fo-waits { border-style: dashed; }
+.fl-block { display: grid; gap: 6px; min-width: 0; }
+.fl-block h3 { margin: 0; font-family: var(--mono); font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.fl-rows { display: grid; gap: 6px; min-width: 0; }
+.fl-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name go" "said go"; gap: 1px 8px; align-items: center; width: 100%; min-height: 44px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.fl-row:hover { border-color: var(--smalt); }
+.fl-row-name { grid-area: name; font-weight: 600; font-size: 14px; overflow-wrap: anywhere; }
+.fl-row-said { grid-area: said; display: flex; align-items: center; gap: 5px; min-width: 0; font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.fl-row-said > .g, .fl-row-said > .mo-ok { flex: none; }
+.fl-row-go { grid-area: go; color: var(--smalt); font-weight: 700; font-size: 16px; }
+.fl-row.fo-waiting .fl-row-said, .fl-row.fo-failed .fl-row-said { color: var(--bad); font-weight: 600; }
+.fl-row.fo-unusual .fl-row-said { color: var(--warn); font-weight: 600; }
+.fl-row.fo-waits { border-style: dashed; }
+.fl-note { margin: 0; font-size: 13px; color: var(--ink-2); }
+.fl-open { justify-self: start; }
+.fl-known code { font-family: var(--mono); font-size: 11.5px; }
 .dh-life { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: 12px; }
 .dh-life li { padding: 2px 8px; border-radius: 999px; background: var(--sunk); color: var(--ink-2); }
 .dh-life li.bad { color: var(--bad); background: var(--bad-wash); }
@@ -2225,9 +2278,11 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
       <li><svg class="shield-key" viewBox="0 0 12 14" aria-hidden="true"><path d="M6 0 L12 2.5 V7 C12 10.5 9.5 13 6 14 C2.5 13 0 10.5 0 7 V2.5 Z"/></svg>a rule limits who sees it: tap for who</li>
       <li><span class="dot-key warn" aria-hidden="true"></span><span class="dot-key alert" aria-hidden="true"></span>news: something unusual, or wrong</li>
       <li><svg class="seal-key" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="6"/><path d="M 4.2 7 L 6.2 9.2 L 10 4.6"/></svg>sealed: checked back to the bytes it was made from</li>
+      <li><span class="flow-key" aria-hidden="true"></span>a flow this one reads: tap for its day, open it for its own flow</li>
     </ul>
     </details>
     <div id="loads" class="loads" hidden></div>
+    <nav id="crumbs" class="crumbs" aria-label="Where you are in the flow" hidden></nav>
     <div id="canvas" tabindex="0" aria-label="The flow canvas. Arrow keys move around, plus and minus zoom."></div>
   </section>
 

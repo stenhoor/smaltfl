@@ -41,6 +41,24 @@ A card is a source or a step; a box is a notebook. A card's line says its day in
 news (an alert, a warning, a fill). Drag to move around, pinch to zoom, hold a card to move it. Tap a box to read the
 notebook; **Show its steps on the canvas** unfolds it.
 
+### A flow that reads flows
+
+A flow may read other flows ([Writing a flow](./flows#a-flow-that-reads-other-flows)). Each flow it reads is **one
+card** on its canvas, a second sheet behind it, with the word FLOW and the count of what it gives.
+
+- **Its line is its day**, the worst of what is inside it, by the month's marks: a tick and what the flow has; **‖**
+  and what holds it with its extent (*tls · 1 of 13 files*); how the day went out once it was decided; *Waits on
+  Evidence feeds* where nothing of its own is wrong and another flow's hold keeps its outputs back. Never a score.
+- **Tap it** for its sheet: the day in a sentence; what holds it, each a tap from the card inside; the flows it reads;
+  what it gives, each dataset with whether today's went out and who reads it; and the hash the flow is known by, the
+  same wherever it is read.
+- **Open the flow ›**, or a double-click on the card, shows the flow's own canvas: its files, its notebooks, and the
+  flows *it* reads as cards. A line at the top says where you are (*Larkspur estate / Evidence feeds*) and goes back.
+  It is the same run, so every card shows the day on screen, and Decide, the news and the notebook pages work as at
+  the top.
+- **Each level has a link**: `#day/2024-03-27/in/feeds`. The days either side keep the level.
+- A card opened from anywhere else (the day's head, the news, a scene) takes the canvas to the flow that has it.
+
 ## A card's sheet
 
 Tapping a card opens its sheet, the same tabs on every card, the news first:

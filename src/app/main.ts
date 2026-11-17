@@ -16,8 +16,9 @@ import { canonicalJSON } from '../core/canonical.js';
 import type { ChangeSet, ContractDef, FlowDocument, GroupDef, NotebookOutline, OutlineCell, ProfileDef, RuleEdit, StepDef } from '../core/document.js';
 import { applyEdit, changesOn, inForce, resolve as resolveRules, ruleParts, rulesHash, rulesInForce, versionRules, withRuleParts, type RuleParts } from '../core/inforce.js';
 import { diffSaid, ruleVersions, rulesDiff, versionKey, versionOn, type RuleVersion } from '../core/ruleversions.js';
-import { GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
+import { flowOf, GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
 import { notebookSectionId } from '../core/notebook.js';
+import { cardFlow, flowCard, flowDay, flowHas, flowLine, flowSaid, givenBy, levelDoc, readersOfFlow, readHere, trailOf, type FlowDay, type RunSaid } from '../core/levels.js';
 import { lookOf, sceneHash, type SceneLook, type ScenesFile } from '../core/scenes.js';
 import { briefOf, briefText, type BriefIn, type BriefOption } from '../core/brief.js';
 import { compareSummary, diffKeyOf, diffOf, type RowDiff } from '../core/compare.js';
@@ -155,8 +156,11 @@ const state = {
   collapsed: new Set<string>(),
   /** Arrange: cards and sections move at a touch, and sections can be made and edited. */
   arranging: false,
-  /** The section whose sheet is open (a step's sheet uses `selected`). */
+  /** The section whose sheet is open (a step's sheet uses `selected`); a read flow's sheet by its card's key. */
   section: null as string | null,
+  /** The flows entered, from the top (ADR 0025 §4): the last is the flow whose canvas is on screen; none, the flow the
+   * page opened. */
+  level: [] as string[],
   /** What each step changed, for the latest run, as the viewer reads it. */
   changes: new Map<string, Change>(),
   /** Whom a step's sheet shows that step as, when not the viewer: View as, for one step. */
@@ -181,7 +185,9 @@ const profileOf = (id: string) => profiles().find((p) => p.id === id);
  * The flow as the canvas lays it out: a profile box of a step shown is a box reading that step, in its section, so
  * the automatic layout puts it beside the step. Only the canvas sees them so: the plan never does.
  */
-function canvasDoc(doc: FlowDocument): FlowDocument {
+function canvasDoc(given: FlowDocument): FlowDocument {
+  // The level on screen (ADR 0025 §4): the flow's own files and steps, and a card for each flow it reads itself.
+  const doc = levelDoc(given, levelAt());
   const shown = new Set([...doc.sources.map((x) => x.id), ...doc.steps.map((x) => x.id)]);
   const boxes = (doc.profiles ?? []).filter((p) => shown.has(p.of));
   if (!boxes.length) return doc;
@@ -191,6 +197,10 @@ function canvasDoc(doc: FlowDocument): FlowDocument {
     groups: doc.groups?.map((g) => ({ ...g, steps: [...g.steps, ...boxes.filter((p) => g.steps.includes(p.of)).map((p) => p.id)] })),
   };
 }
+/** The flow whose canvas is on screen: a flow the page's flow reads, by id, or null for the page's own (the top). */
+const levelAt = (): string | null => state.level.at(-1) ?? null;
+/** A flow by the name people read: a read flow's, or the page's own flow's for ''. */
+const flowName = (id: string): string => (id === '' ? state.doc.name : (state.doc.flows?.find((f) => f.id === id)?.name ?? id));
 const personName = (id: string) => policies()?.principals.find((x) => x.id === id)?.name ?? id;
 /** What the current viewer may read of a node, or null before the node has run. */
 const access = (id: string, who = state.viewer): ReadView | null => {
@@ -290,6 +300,9 @@ const fmtCompact = (n: number) => (Math.abs(n) < 10000 ? fmtInt(n) : Math.abs(n)
 /** A held day's mark (ADR 0009 §12, amendment 1 S12): ‖ paused, ⚑ published as is, the level's step for a day accepted
  * as a new level (S6), ✕ not published, ◧ filled, ◐ the part that arrived alone. */
 const PAUSE_MARK: Record<DayState, VizMark> = { waiting: 'held', asis: 'flag', dont: 'closed', fill: 'fill', complete: 'part', accepted: 'level' };
+/** A flow's day on its card and its sheet, by the month's marks (ADR 0025 §3, ADR 0024 §3): ‖ paused, ☒ not published,
+ * ☑ decided, ⚠ unusual, ◌ not judged yet, a tick for normal. A flow that waits on another, or has not run, has none. */
+const FLOW_MARK: Partial<Record<FlowDay['outcome'], VizMark | 'ok'>> = { failed: 'alert', waiting: 'held', kept: 'closed', decided: 'decided', unusual: 'warn', unjudged: 'unlearned', normal: 'ok' };
 /** What a held day's mark says, for its accessible name. */
 const PAUSE_WORD: Record<DayState, string> = { waiting: 'paused', asis: 'published as is', dont: 'not published', fill: 'filled', complete: 'part only', accepted: 'new level' };
 /** What a card's mark says to a screen reader, before its line. */
@@ -1143,6 +1156,36 @@ function outputState(id: string): 'stale' | 'alert' | DayState | null {
   return day && storyFor(day)?.severity === 'alert' ? 'alert' : null;
 }
 
+/**
+ * The run on screen as a flow's day reads it (core/levels.ts): its holds and the claims it was judged by, the outputs
+ * its holds keep back, and what became of its day. After a run that stopped, where it stopped. Null before a run.
+ */
+function runSaidNow(): RunSaid | null {
+  if (!latest()) return null;
+  if (state.failed) return { about: { holds: [], claims: [], outcome: 'failed' }, manifest: null, held: [], became: null, failedAt: state.failed.origin ?? null, refusedFile: !!state.failed.file };
+  const r = onScreen();
+  if (!r) return null;
+  const p = pauseOf(r);
+  // What waits, or once decided what waited when the day was held, as an output's own card says it (`outputState`).
+  const held = p ? [...new Set([...r.result.waiting, ...(p.pause?.waiting ?? [])])] : [];
+  return { about: { holds: r.result.holds as RunSaid['about']['holds'], claims: (r.claims ?? []) as RunSaid['about']['claims'], outcome: r.result.holds.length ? 'held' : 'ok' }, manifest: r.result.manifest, held, became: p?.state ?? null };
+}
+
+/** What a flow the page's flow reads made of the day on screen (ADR 0025 §3). */
+const flowDayOf = (id: string): FlowDay => flowDay(state.doc, id, runSaidNow());
+
+/**
+ * A flow's seal on its card (ADR 0006, ADR 0025 §3): its files' seals read as one. Broken where any file's is; else
+ * sealed where every file with a seal is checked back to its bytes; none where no file of it has one (a day not run, a
+ * flow with no file of its own).
+ */
+function flowSeal(id: string): 'ok' | 'bad' | 'amber' | null {
+  const seals = (state.doc.flows?.find((f) => f.id === id)?.sources ?? []).map((src) => sealOf(src));
+  if (seals.includes('bad')) return 'bad';
+  if (seals.includes('amber')) return 'amber';
+  return seals.includes('ok') ? 'ok' : null;
+}
+
 // ------------------------------------------------------------------ the canvas
 
 // The canvas is an open grid you move around: drag to pan, pinch or ctrl/⌘-scroll to zoom, tap a card to open it, hold
@@ -1224,7 +1267,7 @@ function renderTools(): void {
   tools.replaceChildren(
     ...(state.arranging
       ? [b('Fit', fitView), b('+ Section', addSection), resetButton(), b('Done', () => setArranging(false), { class: 'primary' })]
-      : [b('−', () => zoom(1 / 1.25), { 'aria-label': 'Zoom out' }), b('+', () => zoom(1.25), { 'aria-label': 'Zoom in' }), b('Fit', fitView), ...(isOwner() ? [b('Tidy', tidy), b('Arrange', () => setArranging(true), { class: 'accent' })] : [])]),
+      : [b('−', () => zoom(1 / 1.25), { 'aria-label': 'Zoom out' }), b('+', () => zoom(1.25), { 'aria-label': 'Zoom in' }), b('Fit', fitView), ...(isOwner() && !state.level.length ? [b('Tidy', tidy), b('Arrange', () => setArranging(true), { class: 'accent' })] : [])]),
   );
   host.classList.toggle('arranging', state.arranging);
   setHint();
@@ -1385,6 +1428,11 @@ function setUpCanvas(host: HTMLElement): SVGSVGElement {
   };
   svg.addEventListener('pointerup', end);
   svg.addEventListener('pointercancel', end);
+  // A double-click on a flow's card enters it (ADR 0025 §4); on a phone its sheet's button does.
+  svg.addEventListener('dblclick', (e) => {
+    const read = cardFlow((e.target as Element).closest('[data-card]')?.getAttribute('data-card'));
+    if (read !== null && !state.arranging) enterFlow(read);
+  });
   // Belt and braces for touch: the page must not scroll or zoom under the canvas, nor show a callout on a long press.
   svg.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
   svg.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -1427,8 +1475,9 @@ function setUpCanvas(host: HTMLElement): SVGSVGElement {
  */
 function tap(press: { card?: string; head?: string; shield?: boolean }): void {
   if (press.card) {
-    // A notebook's box opens the notebook (ADR 0011 §6); any other folded section unfolds.
-    if (notebookOfSection(press.card)) openSection(press.card);
+    // A flow's card opens its sheet (ADR 0025 §4); a notebook's box the notebook (ADR 0011 §6); any other folded
+    // section unfolds.
+    if (cardFlow(press.card) !== null || notebookOfSection(press.card)) openSection(press.card);
     else if (state.doc.groups?.some((g) => g.id === press.card)) setFolded(press.card, false);
     else {
       state.sheetFocus = press.shield ? 'access' : null;
@@ -1540,8 +1589,8 @@ function endMove(commit: boolean): void {
 
 /** The document with a step moved into a section, or out of every section (null). A section it leaves empty stays put. */
 function intoSection(doc: FlowDocument, id: string, target: string | null, before: GridLayout): FlowDocument {
-  // A profile box stays in the section of the step it looks at.
-  if (profileOf(id)) return doc;
+  // A profile box stays in the section of the step it looks at; a flow's card is no step of this flow's.
+  if (profileOf(id) || cardFlow(id) !== null) return doc;
   const layout = { ...(doc.layout ?? {}) };
   const groups = (doc.groups ?? []).map((g) => {
     if (!g.steps.includes(id)) return g.id === target ? { ...g, steps: [...g.steps, id] } : g;
@@ -2200,6 +2249,13 @@ function renderCanvas(): void {
   const trail = trailDay && trailSrc && storyFor(trailDay)?.severity === 'alert' ? new Set([trailSrc, ...downstreamOf(trailSrc)]) : new Set<string>();
   const heldAt = state.failed && !state.failed.file ? state.failed.origin : undefined;
   const pastGate = heldAt ? new Set(downstreamOf(heldAt)) : new Set<string>();
+  // A flow's card is on the day's trail where anything inside it is.
+  const onTrail = (key: string, set: ReadonlySet<string> = trail): boolean => {
+    const read = cardFlow(key);
+    if (read === null) return set.has(key);
+    const part = state.doc.flows?.find((f) => f.id === read);
+    return !!part && [...part.sources, ...part.steps].some((id) => set.has(id));
+  };
   for (const st of doc.steps) {
     for (const input of st.inputs) {
       const from = shown(input);
@@ -2208,15 +2264,15 @@ function renderCanvas(): void {
       seen.add(`${from}>${to}`);
       const { d, cx, cy } = edgePath(drawn.at.get(from)!, drawn.at.get(to)!, routeVia(layout, drawn.at.get(to)!));
       // A profile box only looks: its edge is a light solid line (dashes mean absent, and nothing else).
-      const tinted = !profileOf(st.id) && trail.has(input) && trail.has(st.id);
-      const path = s('path', { class: `${profileOf(st.id) ? 'edge look' : 'edge'}${tinted ? ` trail${pastGate.has(st.id) ? ' unbuilt' : ''}` : ''}`, d });
+      const tinted = !profileOf(st.id) && onTrail(input) && onTrail(st.id);
+      const path = s('path', { class: `${profileOf(st.id) ? 'edge look' : 'edge'}${tinted ? ` trail${onTrail(st.id, pastGate) ? ' unbuilt' : ''}` : ''}`, d });
       const dot = s('circle', { class: 'edge-dot', cx, cy, r: 2.5 });
       parts.push(path, dot);
       drawn.edges.push({ from, to, path, dot });
     }
   }
   const chars = Math.floor((cardW - 24) / 7.2);
-  const card = (key: string, kind: string, name: string, line: CardLine, classes: string[], extra: { port?: 'in' | 'out'; end?: boolean; shield?: ReturnType<typeof shieldOf>; health?: Severity; seal?: 'ok' | 'bad' | 'amber' | null } = {}) => {
+  const card = (key: string, kind: string, name: string, line: CardLine, classes: string[], extra: { port?: 'in' | 'out'; end?: boolean; shield?: ReturnType<typeof shieldOf>; health?: Severity; seal?: 'ok' | 'bad' | 'amber' | null; flow?: FlowDay } = {}) => {
     const { x, y } = drawn.at.get(key)!;
     if (line.tone !== 'same') classes.push(`tone-${line.tone}`);
     // One colour rule (ADR 0008 §10): a card's line and its badge take the card's own severity, and nothing else does;
@@ -2224,7 +2280,11 @@ function renderCanvas(): void {
     if (extra.health === 'alert' || extra.health === 'warn') classes.push(`sev-${extra.health}`);
     const guard = extra.shield ? ` ${extra.shield === 'muted' ? 'Rules limit who sees it' : `${personName(state.viewer)} sees part of it`}.` : '';
     const told = (extra.health === 'alert' || extra.health === 'warn' ? ` News: ${SEV_LABEL[extra.health].toLowerCase()}.` : '') + (extra.seal === 'ok' ? ' Sealed: checked back to the bytes.' : extra.seal === 'bad' ? ' Integrity: broken.' : '');
-    const g = s('g', { class: ['card', ...classes].join(' '), 'data-card': key, tabindex: 0, role: 'button', 'aria-label': `${name}: ${kind}. ${line.mark ? CARD_SAID[line.mark] : ''}${line.text}.${guard}${told}` });
+    // A flow this one reads (ADR 0025 §3): its day in a sentence, the state then its extent.
+    const said = extra.flow ? `${name}: a flow this one reads. ${flowSaid(state.doc, extra.flow, flowName)}.${extra.seal === 'ok' ? ' Its files are sealed: checked back to their bytes.' : extra.seal === 'bad' ? ' Integrity: a file of it is broken.' : ''} Open it for its day, and for its own flow.` : `${name}: ${kind}. ${line.mark ? CARD_SAID[line.mark] : ''}${line.text}.${guard}${told}`;
+    const g = s('g', { class: ['card', ...classes].join(' '), 'data-card': key, tabindex: 0, role: 'button', 'aria-label': said });
+    // A flow's card has a second sheet behind it: there is a flow inside.
+    if (extra.flow) g.append(s('rect', { class: 'box back', x: x + 5, y: y - 5, width: cardW, height: cardH, rx: 9 }));
     g.append(s('rect', { class: 'box', x, y, width: cardW, height: cardH, rx: 9 }));
     // Its seal: checked back to the bytes (a tick), or broken (a cross); beside the news dot.
     if (extra.seal) {
@@ -2255,7 +2315,19 @@ function renderCanvas(): void {
       m.classList.add('card-mark');
       g.append(m);
     }
-    g.append(s('text', { class: 'what', x: x + 12 + (line.mark ? 17 : 0), y: y + 53 }, fit(line.text, Math.floor(chars * 1.12) - (extra.shield ? 1 : 0) - (line.mark ? 2 : 0))));
+    // A flow's day by the month's marks (ADR 0024 §3): a tick for normal, and none where it waits on another flow or
+    // has not run.
+    const fm = extra.flow ? FLOW_MARK[extra.flow.outcome] : undefined;
+    if (fm === 'ok') g.append(s('path', { class: 'card-tick', d: `M ${x + 13} ${y + 49.5} l 3.4 3.6 l 6 -7.4` }));
+    else if (fm) {
+      const m = svgNode(glyph(fm, 14));
+      m.setAttribute('x', String(x + 11));
+      m.setAttribute('y', String(y + 42));
+      m.classList.add('card-mark', 'flow-mark');
+      g.append(m);
+    }
+    const marked = !!line.mark || !!fm;
+    g.append(s('text', { class: 'what', x: x + 12 + (marked ? 17 : 0), y: y + 53 }, fit(line.text, Math.floor(chars * 1.12) - (extra.shield ? 1 : 0) - (marked ? 2 : 0))));
     // Ports: data comes into an input from outside the flow, and leaves an output as a published dataset.
     const cy = y + cardH / 2;
     if (extra.port === 'in') {
@@ -2307,6 +2379,16 @@ function renderCanvas(): void {
   }
   for (const id of layout.cards.keys()) {
     if (shownAs.has(id)) continue;
+    // A flow this level reads (ADR 0025 §3): one card, its day by precedence with its extent counted.
+    const read = cardFlow(id);
+    if (read !== null) {
+      const d = flowDayOf(read);
+      const gives = givenBy(state.doc, read).length;
+      // The line in the room the card has beside its mark: the names give way before the count does.
+      const room = Math.floor(chars * 1.12) - (FLOW_MARK[d.outcome] ? 2 : 0);
+      card(id, `FLOW${gives ? ` · ${gives === 1 ? '1 OUTPUT' : `${gives} OUTPUTS`}` : ''}`, flowName(read), { text: flowLine(state.doc, d, flowName, room), tone: 'same' }, ['flow', `fo-${d.outcome}`, ...(state.section === id ? ['selected'] : [])], { flow: d, seal: flowSeal(read) });
+      continue;
+    }
     const box = profileOf(id);
     if (box) {
       card(id, 'PROFILE', id, profileLine(box), ['profile', ...(state.selected === id ? ['selected'] : [])], { shield: shieldOf(box.of), health: healthOf(id), seal: sealOf(id) });
@@ -2334,6 +2416,7 @@ function renderCanvas(): void {
   world.replaceChildren(...parts);
   canvasSealed = sealed;
   syncCanvasKey();
+  renderCrumbs();
   const refocus = focused?.card ? drawn.cards.get(focused.card) : focused?.head ? drawn.heads.get(focused.head) : undefined;
   (refocus as SVGElement | undefined)?.focus({ preventScroll: true });
   if (!view.ready && host.clientWidth > 0) startView(layout);
@@ -2345,9 +2428,182 @@ function select(id: string | null): void {
   state.selected = id;
   state.section = null;
   state.issues = [];
-  if (id) showWorkspace();
+  if (id) {
+    // A card opened from anywhere (the day's head, the news, a scene, the Ontology) is on the canvas behind its sheet.
+    showLevelOf(id);
+    showWorkspace();
+  }
   renderCanvas();
   void renderSheet();
+}
+
+// ------------------------------------------------------------------ flows in flows: the canvas in levels (ADR 0025 §3, §4)
+
+/**
+ * The link of a level (ADR 0025 §4): the day on screen, on the version on screen where one was asked for, then the
+ * flows entered (`#day/2024-03-12/in/feeds`); without days, `#flow/in/feeds`. The top has no `/in`.
+ */
+function levelHash(trail: readonly string[]): string {
+  const day = viewedDay();
+  const version = loads.at >= 0 ? (loads.version.get(loads.at) ?? null) : null;
+  return `${day ? dayHash(day, version) : '#flow'}${trail.length ? `/in/${trail.join('/')}` : ''}`;
+}
+
+/** The canvas on a level: laid out and fitted afresh, since it is another flow's. Nothing is run: it is the same run. */
+function setLevel(trail: readonly string[]): boolean {
+  if (trail.length === state.level.length && trail.every((id, k) => state.level[k] === id)) return false;
+  state.level = [...trail];
+  state.arranging = false;
+  view.ready = false;
+  renderTools();
+  return true;
+}
+
+/** Into a flow the level on screen reads (ADR 0025 §4): its own canvas, with a link of its own, so Back comes back. */
+function enterFlow(id: string): void {
+  const trail = readHere(state.doc, levelAt()).some((f) => f.id === id) ? [...state.level, id] : trailOf(state.doc, [id]);
+  if (!trail.length) return;
+  const want = levelHash(trail);
+  if (want === location.hash) return;
+  location.hash = want;
+}
+
+/**
+ * The canvas goes to the level that shows a source or step as itself, where it isn't there already: up the flows
+ * entered where it is one of them, into a flow the level reads, else the shortest way down. The link follows, without a
+ * new entry in the browser's history.
+ */
+function showLevelOf(id: string): void {
+  if (!state.doc.flows?.length || $('view-flow').hidden) return;
+  const owner = flowOf(state.doc, profileOf(id)?.of ?? id)?.id ?? null;
+  if (owner === levelAt()) return;
+  const at = owner === null ? -1 : state.level.indexOf(owner);
+  const trail = owner === null ? [] : at >= 0 ? state.level.slice(0, at + 1) : readHere(state.doc, levelAt()).some((f) => f.id === owner) ? [...state.level, owner] : trailOf(state.doc, [owner]);
+  if (setLevel(trail)) window.history.replaceState(null, '', levelHash(trail));
+}
+
+/**
+ * The link of the level whose canvas shows a card (a source, a step, a notebook's box, a flow's card), or null where it
+ * is on the level on screen, or nowhere: for the browser tools (tools/browser/tour.cjs opens a card where it is drawn).
+ */
+(window as unknown as { __smaltflLevelOf?: (card: string) => string | null }).__smaltflLevelOf = (card) => {
+  const read = cardFlow(card);
+  const member = read === null ? (state.doc.groups?.find((g) => g.id === card)?.steps[0] ?? profileOf(card)?.of ?? card) : null;
+  if (member !== null && ![...state.doc.sources, ...state.doc.steps].some((x) => x.id === member)) return null;
+  // A flow's card is on every level that reads it: the level on screen where it does, else the nearest to the top.
+  if (read !== null && (!state.doc.flows?.some((f) => f.id === read) || readHere(state.doc, levelAt()).some((f) => f.id === read))) return null;
+  const trail = read !== null ? trailOf(state.doc, [read]).slice(0, -1) : trailOf(state.doc, [flowOf(state.doc, member!)?.id ?? '']);
+  return (trail.at(-1) ?? null) === levelAt() ? null : levelHash(trail);
+};
+
+/** A card inside a flow, from that flow's sheet: the flow's canvas, and the card's own sheet. */
+function openInside(card: string): void {
+  select(card);
+}
+
+/** A flow's mark as HTML: the month's (ADR 0024 §3), a tick for a normal day. Null where it has none. */
+function flowMarkEl(d: FlowDay, size = 14): Node | null {
+  const m = FLOW_MARK[d.outcome];
+  return m === 'ok' ? h('span', { class: 'mo-ok', 'aria-hidden': 'true' }, '✓') : m ? glyphEl(m, size) : null;
+}
+
+/**
+ * Where you are (ADR 0025 §4): the flows entered, from the page's own flow, each a link back to its canvas; then what
+ * the flow on screen made of the day. Hidden at the top.
+ */
+function renderCrumbs(): void {
+  const nav = document.getElementById('crumbs');
+  if (!nav) return;
+  const at = levelAt();
+  if (at === null) {
+    nav.hidden = true;
+    nav.replaceChildren();
+    return;
+  }
+  const d = flowDayOf(at);
+  const up = state.level.slice(0, -1);
+  nav.replaceChildren(
+    h('a', { class: 'crumb-up', href: levelHash(up), 'aria-label': `Up to ${flowName(up.at(-1) ?? '')}` }, '‹'),
+    h('ol', { class: 'crumb-trail' },
+      h('li', {}, h('a', { href: levelHash([]) }, state.doc.name)),
+      ...state.level.map((id, k) => (k === state.level.length - 1 ? h('li', { 'aria-current': 'page' }, flowName(id)) : h('li', {}, h('a', { href: levelHash(state.level.slice(0, k + 1)) }, flowName(id)))))),
+    h('p', { class: `crumb-day fo-${d.outcome}` }, flowMarkEl(d, 13), h('span', {}, flowSaid(state.doc, d, flowName))),
+  );
+  nav.hidden = false;
+}
+
+/**
+ * A flow's sheet (ADR 0025 §4), from its card: what its day came to; what holds it, each a link straight to the card
+ * inside that holds; the flows it reads and those that read it; what it gives, each with how today's went and who reads
+ * it; and Open the flow, which shows its own canvas.
+ */
+function renderFlowSheet(id: string): void {
+  const sheet = $('sheet');
+  const part = state.doc.flows?.find((f) => f.id === id);
+  if (!part) {
+    state.section = null;
+    sheet.hidden = true;
+    sheet.replaceChildren();
+    return;
+  }
+  sheet.classList.remove('drill', 'nb-page');
+  drill.token++;
+  dropShown();
+  const d = flowDayOf(id);
+  const inside = (card: string, label: string, said?: string) => h('button', { type: 'button', class: 'fl-row', 'data-inside': card, onclick: () => openInside(card) },
+    h('span', { class: 'fl-row-name' }, label), said ? h('span', { class: 'fl-row-said' }, said) : null, h('span', { class: 'fl-row-go', 'aria-hidden': 'true' }, '›'));
+  const flowRow = (f: string) => {
+    const fd = flowDayOf(f);
+    return h('button', { type: 'button', class: `fl-row fo-${fd.outcome}`, 'data-flow': f, onclick: () => openSection(flowCard(f)) },
+      h('span', { class: 'fl-row-name' }, flowName(f)), h('span', { class: 'fl-row-said' }, flowMarkEl(fd, 13), h('span', {}, flowSaid(state.doc, fd, flowName))), h('span', { class: 'fl-row-go', 'aria-hidden': 'true' }, '›'));
+  };
+  const block = (title: string, ...rows: (HTMLElement | null)[]) => h('section', { class: 'fl-block' }, h('h3', {}, title), h('div', { class: 'fl-rows' }, ...rows.filter((x): x is HTMLElement => !!x)));
+  const holds = d.holding.length ? block(d.outcome === 'waiting' ? 'What holds it' : 'What held it', ...d.holding.map((x) => inside(x.id, x.id, x.said))) : null;
+  const waits = d.waitsOn.length ? block(d.outcome === 'waits' ? 'It waits on' : 'It followed', ...d.waitsOn.map((f) => (f === '' ? h('p', { class: 'fl-note' }, `${state.doc.name}, the flow that reads it`) : flowRow(f)))) : null;
+  const look = !d.holding.length && (d.unusual.length || d.unjudged.length)
+    ? block(d.unusual.length ? 'Unusual today' : 'Not judged yet', ...(d.unusual.length ? d.unusual : d.unjudged).map((x) => inside(x, x, d.unusual.length ? cardLine(x).text : 'nothing to compare it with yet')))
+    : null;
+  const reads = part.reads.length ? block(`It reads ${plural(part.reads.length, 'flow')}`, ...part.reads.map(flowRow)) : null;
+  const readers = readersOfFlow(state.doc, id);
+  const given = givenBy(state.doc, id);
+  // What it gives, each with whether today's went out and who reads it. A dataset the day's holds keep back says what
+  // readers see meanwhile, as its own card does.
+  const givenSaid = (name: string): { mark: DayState | null; text: string } => {
+    const line = cardLine(name);
+    if (line.mark) return { mark: line.mark, text: `${CARD_SAID[line.mark].replace(/, $/, '').toLowerCase()} · ${line.text}` };
+    const n = nodeOf(name);
+    if (!n || notBuilt(name) || outputState(name) === 'stale') return { mark: null, text: latest() ? 'not built today' : 'not run yet' };
+    return { mark: null, text: `today’s is out${typeof n.rows === 'number' ? ` · ${plural(n.rows, 'row')}` : ''}` };
+  };
+  const gives = given.length
+    ? block(`It gives ${plural(given.length, 'dataset')}`, ...given.map((g) => {
+        const out = givenSaid(g.id);
+        return h('button', { type: 'button', class: `fl-row fl-given${out.mark === 'waiting' ? ' fo-waiting' : ''}`, 'data-inside': g.id, onclick: () => openInside(g.id) },
+          h('span', { class: 'fl-row-name' }, g.id),
+          h('span', { class: 'fl-row-said' }, out.mark ? glyphEl(PAUSE_MARK[out.mark], 13) : null, h('span', {}, `${out.text} · ${g.readers.length ? `read by ${g.readers.map(flowName).join(', ')}` : 'no flow here reads it'}`)),
+          h('span', { class: 'fl-row-go', 'aria-hidden': 'true' }, '›'));
+      }))
+    : h('section', { class: 'fl-block' }, h('h3', {}, 'It gives nothing'), h('p', { class: 'fl-note' }, 'No step of it is published, so no flow can read it yet.'));
+  // Its files' seals (ADR 0006): a broken one is a tap from its file's Integrity tab; all sealed is said once.
+  const seal = flowSeal(id);
+  const broken = seal === 'bad' ? part.sources.filter((src) => sealOf(src) === 'bad') : [];
+  const integrityPart = broken.length
+    ? block('Integrity: broken', ...broken.map((src) => h('button', { type: 'button', class: 'fl-row fo-failed', 'data-inside': src, onclick: () => openTab(src, 'integrity') },
+        h('span', { class: 'fl-row-name' }, src), h('span', { class: 'fl-row-said' }, 'its file isn’t the one its list names'), h('span', { class: 'fl-row-go', 'aria-hidden': 'true' }, '›'))))
+    : null;
+  const open = h('button', { type: 'button', class: 'btn show fl-open', onclick: () => enterFlow(id) }, 'Open the flow ›');
+  sheet.setAttribute('aria-label', 'Flow');
+  sheet.replaceChildren(
+    h('div', { class: 'sheet-head' },
+      h('div', { style: 'flex:1;min-width:0' }, h('p', { class: 'eyebrow' }, `Flow · ${part.path}`), h('h2', {}, part.name), part.description ? h('p', { class: 'foot' }, part.description) : null),
+      h('button', { class: 'close', type: 'button', 'aria-label': 'Close', onclick: () => select(null) }, '×')),
+    h('div', { class: 'sheet-body fl-sheet' },
+      h('div', { class: `fl-day fo-${d.outcome}`, role: 'status' }, flowMarkEl(d, 18), h('p', {}, flowSaid(state.doc, d, flowName))),
+      h('div', { class: 'row' }, open),
+      integrityPart, holds, waits, look, reads, gives,
+      h('p', { class: 'foot fl-known' }, `${flowHas(d)[0]!.toUpperCase()}${flowHas(d).slice(1)} of its own. `, seal === 'ok' ? 'Its files are sealed: each matches the data’s list, as the engine hashed it. ' : '', readers.length ? `Read by ${readers.map(flowName).join(', ')}. ` : '', 'Known by ', h('code', { title: part.hash }, short(part.hash)), ': the same flow, with the same hash, wherever it is read.')),
+  );
+  sheet.hidden = false;
 }
 
 function openSection(id: string, focusName = false): void {
@@ -2355,8 +2611,9 @@ function openSection(id: string, focusName = false): void {
   state.selected = null;
   state.section = id;
   renderCanvas();
-  // A notebook's box opens its notebook (ADR 0011 §6); a section of the owner's own, or one being arranged, its settings.
-  if (focusName || state.arranging || !notebookOfSection(id)) renderSectionSheet(focusName);
+  // A notebook's box opens its notebook (ADR 0011 §6); a section of the owner's own, or one being arranged, its settings;
+  // a flow's card its sheet (ADR 0025 §4).
+  if (cardFlow(id) === null && (focusName || state.arranging || !notebookOfSection(id))) renderSectionSheet(focusName);
   else void renderSheet();
 }
 
@@ -9218,6 +9475,8 @@ function setAside(f: Finding, day: string): void {
 async function renderSheet(): Promise<void> {
   $('sheet').classList.remove('nb-page');
   if (state.section) {
+    const read = cardFlow(state.section);
+    if (read !== null) return renderFlowSheet(read);
     const g = state.doc.groups?.find((x) => x.id === state.section);
     const o = notebookOfSection(state.section);
     if (g && o && !state.arranging) return renderNotebookSheet(g, o);
@@ -13134,8 +13393,9 @@ function renderLoads(): void {
   const i = now ? days.indexOf(now.day) : -1;
   const prev = i > 0 ? days[i - 1]! : null;
   const next = i >= 0 && i < days.length - 1 ? days[i + 1]! : null;
+  // The day before and the day after, on the level on screen: stepping through a flow's days stays inside it.
   const step = (d: string | null, label: string, text: string) => h('button', { type: 'button', class: 'btn small', disabled: !d, 'aria-label': d ? `${label}: ${dayLabel(d)}` : label, onclick: () => {
-    if (d) location.hash = dayHash(d);
+    if (d) location.hash = `${dayHash(d)}${state.level.length ? `/in/${state.level.join('/')}` : ''}`;
   } }, text);
   const src = loadSource();
   const lens = profiles().find((p) => p.of === src)?.id ?? src;
@@ -13190,7 +13450,7 @@ function renderLoads(): void {
         waitingDay && after?.verb ? h('button', { type: 'button', class: 'btn small primary vf-decide-day', 'aria-label': `Decide what readers get for ${dayMid(waitingDay)}`, onclick: () => decideDay(waitingDay) }, `${after.verb} ›`) : null,
         lens && top && visible(src!) ? h('button', { type: 'button', class: 'btn small', onclick: () => openTab(lens, 'news') }, 'The news ›') : null)),
     (now ? storyOfDay(now.day) : null) ?? '');
-  if (now) $('tab-flow').setAttribute('href', dayHash(now.day, loads.version.get(loads.at) ?? null));
+  if (now) $('tab-flow').setAttribute('href', levelHash(state.level));
 }
 
 
@@ -16229,9 +16489,14 @@ const homeView = (): string => ((dataList?.loads.length ?? 0) > 1 ? 'month' : 'f
  * already on it; the other views by name. No hash is home; any other (a brief's link, `#brief-…`) is the day screen, as
  * it was.
  */
-function routeOf(hash: string): { view: string; day: string | null; version: number | null; look?: SceneLook; month?: string } {
-  const [name = '', arg, ver] = hash.replace(/^#/, '').split('/');
-  if (name === 'day') return { view: 'flow', day: arg && /^\d{4}-\d{2}-\d{2}$/.test(arg) ? arg : null, version: ver && /^v[1-9]\d*$/.test(ver) ? Number(ver.slice(1)) : null };
+function routeOf(hash: string): { view: string; day: string | null; version: number | null; look?: SceneLook; month?: string; level?: string[] } {
+  const parts = hash.replace(/^#/, '').split('/');
+  // The flows entered (ADR 0025 §4): everything after `/in/`, on the day screen (`#day/2024-03-12/in/feeds`).
+  const at = parts.indexOf('in');
+  const level = at > 0 ? parts.slice(at + 1).filter(Boolean) : [];
+  const [name = '', arg, ver] = at > 0 ? parts.slice(0, at) : parts;
+  if (name === 'day') return { view: 'flow', day: arg && /^\d{4}-\d{2}-\d{2}$/.test(arg) ? arg : null, version: ver && /^v[1-9]\d*$/.test(ver) ? Number(ver.slice(1)) : null, level };
+  if (name === 'flow') return { view: 'flow', day: null, version: null, level };
   // A scene's look (ADR 0023 §4, `#scene/4/2`): its day, on its version, then the place to look.
   if (name === 'scene') {
     const look = sceneLook(arg, ver);
@@ -16269,7 +16534,7 @@ function openDay(day: string, version: number | null = null): void {
 }
 
 function showView(): void {
-  const { view, day, version, look, month } = routeOf(location.hash);
+  const { view, day, version, look, month, level } = routeOf(location.hash);
   if (look) pendingLook = look;
   if (month) monthView.month = month;
   if (state.selected || state.section) select(null);
@@ -16281,9 +16546,15 @@ function showView(): void {
   }
   if (view === 'month') renderMonth();
   if (view === 'flow') {
+    // The level a link names (ADR 0025 §4): the flows entered, put right where the flow doesn't read them so; the top
+    // without any. A scene's look, or any other link to the day screen, keeps the level its card needs.
+    const moved = level ? setLevel(trailOf(state.doc, level)) : false;
     if (day) openDay(day, version);
     renderLoads();
     renderCanvas();
+    // The card or the button that was pressed is gone with the level it was on: the keyboard goes on from the line that
+    // says where you are, or from the canvas at the top.
+    if (moved && (!document.activeElement || document.activeElement === document.body)) (document.querySelector<HTMLElement>('#crumbs .crumb-up') ?? $('canvas')).focus({ preventScroll: true });
     // A day already on screen in the version a scene names runs nothing: its look opens now.
     applyLook();
   }

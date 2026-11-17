@@ -20,7 +20,12 @@
 //     "element": "#sheet .cp",            optional: capture only the first element matching, cropped to it
 //     "scheme": "dark",                   optional: "light" (default) or "dark"
 //     "mask": "letters",                  optional: mask the text ("letters": keep digits; "all"); reloads after
+//     "in": "feeds",                      optional: the flows entered first (ADR 0025 §4), by id from the top ("feeds",
+//                                         "applications/feeds"); "" is the top. A card inside a flow the page's flow
+//                                         reads is reached without it: the tour goes to the level that draws it
+//     "flow": "feeds",                    optional: the flow whose card to open (its sheet is what is captured)
 //     "click": "#sheet .vf-hero",         optional: tap this first (a detail sheet opens), then capture
+//     "dblclick": "g.card.flow",          optional: double-click this first (a mouse's: give the stop "devices")
 //     "clicks": ["sel", ...],             optional: tap each in order, settling ~900 ms (or a run) after each; an entry
 //                                         ["sel", "text"] types the text into that field instead (a form's input), or
 //                                         chooses that value where the field is a select
@@ -204,8 +209,27 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
           else await settled(before);
         }
       }
+      // A flow that reads flows is drawn in levels (ADR 0025 §4): a card inside a flow it reads is on that flow's own
+      // canvas, so the tour goes there first, by the link the page gives for it. A stop's `in` names the flows to enter
+      // itself ("feeds", or "applications/feeds"); "" is the top.
+      const toLevelOf = async (card) => {
+        const want = await p.evaluate((c) => (window.__smaltflLevelOf ? window.__smaltflLevelOf(c) : null), card);
+        if (!want) return;
+        await p.evaluate((h) => { location.hash = h; }, want);
+        await p.waitForSelector(`g.card[data-card="${card}"]`, { timeout: 20000 }).catch(() => {});
+        await quiet(1500);
+      };
+      if (stop.in !== undefined) {
+        const base = await p.evaluate(() => location.hash.replace(/\/in\/.*$/, ''));
+        const want = `${/^#(day|flow)\b/.test(base) ? base : '#flow'}${stop.in ? `/in/${stop.in}` : ''}`;
+        if (want !== (await p.evaluate(() => location.hash))) {
+          await p.evaluate((h) => { location.hash = h; }, want);
+          await quiet(2000);
+        }
+      }
       // A notebook is a box on the canvas (ADR 0011 §6): its steps are cards only once it is unfolded.
       for (const box of stop.unfold ?? []) {
+        await toLevelOf(box);
         const el = p.locator(`g.card[data-card="${box}"]`);
         if (!(await el.count())) continue;
         await el.first().focus();
@@ -217,9 +241,18 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
         await p.waitForSelector('#sheet', { state: 'hidden', timeout: 20000 }).catch(() => {});
       }
       if (stop.box) {
+        await toLevelOf(stop.box);
         await p.locator(`g.card[data-card="${stop.box}"]`).first().focus();
         await p.keyboard.press('Enter');
         await p.waitForSelector('#sheet:not([hidden]) .nbc-list', { timeout: 20000 });
+      }
+      // A flow the level reads (ADR 0025 §3): its card opens its sheet.
+      if (stop.flow) {
+        await toLevelOf(`flow:${stop.flow}`);
+        await p.locator(`g.card[data-card="flow:${stop.flow}"]`).first().focus();
+        await p.keyboard.press('Enter');
+        await p.waitForSelector('#sheet:not([hidden]) .fl-sheet', { timeout: 20000 });
+        await quiet(1000);
       }
       // A select on screen now (the viewer) is set now; one in a view not shown yet (the month's as known on) once its
       // view is (viewFirst).
@@ -231,6 +264,7 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
         } else selectLater = true;
       }
       if (stop.card) {
+        await toLevelOf(stop.card);
         await p.locator(`g.card[data-card="${stop.card}"]`).focus();
         await p.keyboard.press('Enter');
         await p.waitForSelector('#sheet:not([hidden]) .tab-panel:not([aria-busy])', { timeout: 60000 });
@@ -259,6 +293,15 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
           await target.click();
           await quiet(2000);
         } else problems.push(`${stop.name}: nothing to click at ${stop.click}`);
+      }
+      // A double-click (a flow's card enters the flow, ADR 0025 §4): a mouse's, so at the sizes with one.
+      if (stop.dblclick) {
+        const target = p.locator(stop.dblclick).first();
+        if (await target.count()) {
+          // Sent to the element itself: a card is drawn in the canvas's own coordinates, which the page doesn't scroll to.
+          await target.dispatchEvent('dblclick');
+          await quiet(2000);
+        } else problems.push(`${stop.name}: nothing to double-click at ${stop.dblclick}`);
       }
       for (const step of stop.clicks ?? []) {
         const [sel, typed] = Array.isArray(step) ? step : [step];
@@ -313,7 +356,7 @@ const WEEKDAY = { Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sa
         saved = { name: dl.suggestedFilename(), path: to, bytes: fs.statSync(to).size };
         console.log(`${stop.name}: saved ${to} (${saved.bytes} bytes)`);
       }
-      const scope = (stop.click || stop.clicks) && (await p.locator('.vf-detail').count()) ? '.vf-detail' : stop.card || stop.box ? '#sheet' : 'body';
+      const scope = (stop.click || stop.clicks) && (await p.locator('.vf-detail').count()) ? '.vf-detail' : stop.card || stop.box || stop.flow ? '#sheet' : 'body';
       const m = await p.evaluate((sel) => {
         const el = document.querySelector(sel);
         const text = (el?.innerText ?? '').replace(/\s+/g, ' ').trim();
