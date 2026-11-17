@@ -90,7 +90,7 @@ import { FlowRecord } from './record.js';
 import { buildBag } from '../core/bag.js';
 import { zip } from '../core/zip.js';
 import { entryLeaf, parseCheckpoint, type JSONValue, type LogEntry as RecordEntry } from '../core/log.js';
-import { connect, type Engine } from './engine.js';
+import { connect, engineBusy, type Engine } from './engine.js';
 import { besideSlot, edgePath, frameAt, freeSlot, GRID, gridLayout, groupKey, pinLayout, routeVia, type GridLayout } from './layout.js';
 
 declare const __SMALTDB_VERSION__: string;
@@ -18758,4 +18758,14 @@ async function checkList(index: DataList): Promise<void> {
   }
 }
 
-void start();
+/**
+ * Whether the page is at work: still starting, a run under way, or the engine asked something it hasn't answered. For
+ * the browser tools (tools/browser/tour.cjs), which wait for this to be false after each step instead of pausing a fixed
+ * time: what keeps the browser regression in minutes (ADR 0025). It changes nothing the page does.
+ */
+let starting = true;
+(window as unknown as { __smaltflBusy?: () => boolean }).__smaltflBusy = () => starting || state.running || engineBusy();
+
+void start().finally(() => {
+  starting = false;
+});

@@ -209,12 +209,10 @@ npm run build                               # declarations; NOTE: wipes dist/, s
 npm run build:app                           # dist/app on Larkspur, its days generated; the bundles are named by content (app.<hash>.js), so a
                                             # browser never serves a stale build under the old name (bundles.json says which)
 npm run build:app -- --variant tour --out dist/app-tour   # the demo: the tour's two months and their scene list (ADR 0023)
-node tools/browser/regress.cjs APP OUT tour  # the tour's scenes, a stop a look, at every size (APP: a copy of dist/app-tour)
-# Two pages that share a flow (ADR 0026 §6): the tour and Evidence feeds' own page, side by side as the site serves them
-npm run build:app -- --variant tour --out dist/app-tour --page feeds=../feeds/
-npm run build:app -- --flow examples/larkspur/feeds/flow.json --out dist/app-feeds --page "larkspur=../tour/=Larkspur estate"
-# copy them to SITE/tour and SITE/feeds, then: a decision carried each way, changed, refused, and both bags audited
-node tools/browser/regress.cjs SITE/tour OUT carry
+npm run regress                             # the browser regression (ADR 0025): the four demos built, every stop set run, five
+                                            # minutes on four cores; `-- tour` for one set, `-- tour --full` at every size
+npm run regress -- carry                    # one set: here the two pages that share a flow (ADR 0026 §6), the tour and
+                                            # Evidence feeds' own page, built side by side as the site serves them
 ```
 
 Results on 2026-11-09, at `e42d9ec` on data `0ca4dd1`:
@@ -325,6 +323,27 @@ a bag in which a fill was withdrawn on a day whose holds kept back only some of 
 don't reach, so the audit expects an older version of those names than the engine, rightly, leaves. To see it: on the
 tour, decide Wed Mar 27 with a fill, change the decision to *Keep*, export for audit. The fix belongs with a stop
 that audits a withdrawal. (A fill's own release failed the audit on such a day too, and that is fixed.)
+
+**For the maintainers to confirm: [ADR 0025](adr/0025-the-browser-regression-in-minutes.md), the browser regression
+in minutes** (2026-11-16, Q-226 to Q-230). The maintainer, after a regression of 26 minutes, asked for it in minutes
+and for a way to keep it there. Measured first: 22 sets, 246 stops, replayed at five sizes; a third of the time was the
+tool waiting (250 ms of stillness after every step, screenshots nobody looked at, the app opened again for the dark
+scheme), the rest the engine's 166 runs, done once a size. Built as proposed:
+
+- **`npm run regress`**: the four demos built, every set run, one table. Five minutes on four cores, where it took 26
+  to 37. One set while working is seconds to a minute.
+- **The tour asks the page when it is at rest** (`window.__smaltflBusy`, and a count of what the page started), and
+  never waits a fixed time.
+- **Each set is replayed once**, on a phone, and its page taken to the other four sizes by resizing it, the layout
+  checked at each. CI replays every set at every size, a size a job (`.github/workflows/ci.yml`, `demos` and
+  `browser`).
+- **The budget** (`tools/browser/sets.json`): the runs each set may make, counted and held; a new stop that opens a
+  day is paid for. CLAUDE.md's rule says how a stop is added.
+- **Not two minutes.** What is left is the engine: Larkspur's 76 days are 3.2 minutes by themselves on four cores.
+  Q-229 lists the ways under it; the first is the build computing every day's claims ahead, as it does the first
+  day's.
+- **Found on the way** (Q-230): with the engine in the page (`?engine=page`), the second day opened is paused where
+  the worker publishes it.
 
 **For the maintainers to confirm: [ADR 0024](adr/0024-the-month-at-a-glance.md), the month at a glance** (2026-11-16,
 Q-219 to Q-225). The maintainer looked at the tour's month and asked for research into how such a screen is best done,

@@ -12,7 +12,8 @@ incident page, the drill and the phone canvas in [adr/0012-visual-first-in-two-m
 bronze layer in [adr/0015-the-bronze-layer.md](adr/0015-the-bronze-layer.md), the mark in [adr/0016-the-mark.md](adr/0016-the-mark.md), time in [adr/0021-time.md](adr/0021-time.md), the answers of 2026-11-14 in
 [adr/0022-the-answers-of-2026-11-14.md](adr/0022-the-answers-of-2026-11-14.md), the demo as a tour in
 [adr/0023-the-demo-as-a-tour.md](adr/0023-the-demo-as-a-tour.md), the month at a glance in
-[adr/0024-the-month-at-a-glance.md](adr/0024-the-month-at-a-glance.md), flows in flows in
+[adr/0024-the-month-at-a-glance.md](adr/0024-the-month-at-a-glance.md), the browser regression in minutes in
+[adr/0025-the-browser-regression-in-minutes.md](adr/0025-the-browser-regression-in-minutes.md), flows in flows in
 [adr/0026-flows-in-flows.md](adr/0026-flows-in-flows.md). The
 research behind the proposals is in [research/ecosystem-survey.md](research/ecosystem-survey.md).
 
@@ -59,6 +60,22 @@ was open, Q-245 ([adr/0026-flows-in-flows.md](adr/0026-flows-in-flows.md), its �
 | Q-243 | A use of a flow (Q-233): what are its datasets called, what is it known by, and what may be used so? | **The use's name before the flow's own** (`tls_by_unit_units`), and **the flow hash of its own document**, which holds the used flow's, so two uses are two hashes and a change to the flow moves both. An input is a step that reads the columns the flow declares and no other. For now a flow used under a name has no file of its own, reads no flow of its own and watches nothing (ADR 0026 §11) | decided, as built (confirmed 2026-11-17) |
 | Q-244 | A flow added from the catalogue, or a join the form wrote, whose own step stops its first run: left in, or taken back? | **Taken back at once**, the status line saying what the engine said, and the record keeping the adding and the taking back. A use kept in a browser is taken off at start where a later build ships another flow under its name (ADR 0026 §10, §11) | decided, as built (confirmed 2026-11-17) |
 | Q-245 | A paused day is decided once, at its flow (Q-231), in two steps. The second carries a decision between pages of one browser that share a flow, and no two pages the site deployed did: the tour and the planted month are one flow on different files, and the estate and the sign-ins read no flow. Which page should a decision be carried to or from? | **One read flow's own page** (as recommended): Evidence feeds, a flow the estate reads, as a page of its own on the tour's files, deployed at `/feeds/` beside the tour at `/app/`. A day held at that flow is decided on either page and the other carries the decision: recorded there as its record needs it, by whoever made it, citing the entry it carried by the other record's origin, seq and leaf, with a proof of it kept beside it that the offline audit checks. A decision made under other rules (the flow known by another hash on the page that made it) isn't carried, and the sheet says so (ADR 0026 §6, its §"As built", slice 5's second step) | decided 2026-11-17, built |
+
+## The browser regression in minutes: built as proposed, for the maintainers to confirm (ADR 0025)
+
+The maintainer, 2026-11-16, after a browser regression of 26 minutes: *"Waiting 30 minutes on a regression test is
+utterly unacceptable. This needs to be somewhere in the minute range […] come up with a plan on how to make sure that we
+always keep our test suite optimized and running quickly […] part of our build."* Measured first: a third of the time
+was the tool waiting, the rest the engine's runs, done once a size
+([adr/0025-the-browser-regression-in-minutes.md](adr/0025-the-browser-regression-in-minutes.md)).
+
+| ID | Question | Proposal, as built | Status |
+| --- | --- | --- | --- |
+| Q-226 | Every stop set was replayed at each of five sizes: the engine's 166 runs, 830 times. What does a session run before a PR? | **Each set once, on a phone, the page taken to the other sizes by resizing it** and its layout checked at each (`npm run regress`, five minutes on four cores). The replay at every size is CI's, a size a job, and a change to a screen's layout still replays the set it touches at every size (ADR 0018 §4). The resize doesn't see what the page decides when it opens: rows are the phone's cards at a tablet's width (ADR 0025 §3) | proposed, built |
+| Q-227 | The regression grew a reasonable stop at a time. What holds it? | **A budget counted in the engine's runs,** which are the cost and are the same on every machine: each set's `runs` in `tools/browser/sets.json`, each demo's cost of a run, and their sum under `budget.engineSeconds` (802 of 840). A set that makes more runs, a stops file not listed, or a sum over the budget fails. The whole run's seconds are a note outside CI (ADR 0025 §5) | proposed, built |
+| Q-228 | CI needs Playwright, which the tools take as a session has it (installed beside the project). A devDependency? | **Installed for CI's `browser` job alone** (`npm install -g playwright@1.63.0`), so `package.json` and the lockfile don't change. Add it as a devDependency if the maintainers prefer one install (ADR 0025 §6) | proposed, built |
+| Q-229 | The maintainer asked for a couple of minutes; the whole regression is five. The rest is the engine: Larkspur's 76 days, 7 to 10 s each, are 3.2 minutes on four cores by themselves. Which way under it? | **Not built: the maintainers' to choose.** Every day's claims computed ahead by the build, as the first day's are (ADR 0019): a third of a Larkspur day, for a visitor as for the regression. Or the engine itself (smaltdb is 38% of a recorded month's time, garbage collection 16%): stenhoor's, first. Or fewer Larkspur days in the sets: more than half would have to go. CI, with a job a size, is not held up by any of it (ADR 0025, Not built) | open |
+| Q-230 | With the engine in the page (`?engine=page`, what a browser without workers gets), the second day opened on Larkspur is paused, "run here on other files than the record's", where the worker publishes it as normal. A fault? | **Found while measuring, not looked into.** The worker's path is the one every stop set runs | open |
 
 ## The month at a glance: built as proposed, for the maintainers to confirm (ADR 0024)
 
