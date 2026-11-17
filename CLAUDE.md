@@ -457,6 +457,18 @@ release (smaltty ADR 0030).
   (`renderCrumbs`), links (`routeOf`'s `level`, `levelHash`: `#day/2024-03-27/in/feeds`), a card opened from anywhere
   taking the canvas to its level (`select`, `showLevelOf`); `window.__smaltflLevelOf` for tour.cjs, which goes to the
   level that draws a card (a stop's `in`, `flow`, `dblclick`); `test/levels.test.ts`, `tools/browser/stops/levels.json`.
+  Slice 3, the month in tiers: `src/core/tiers.ts` (pure, outside the data's cache key): `tierRows` puts each of the
+  month's rows in its flow (a file with its own flow's steps; another flow's step that reads the file alone is that
+  flow's, and follows the file), `flowRows` is a row a flow (its cells the worst of its own files and steps; `own` its
+  rows' own days, `followedOn` the flows whose files account for the rest; `waited`/`waitedOn` the days a hold of
+  another flow kept back what it gives), `flowOff`, `onlyFollowed`, `onlyWaited`, `flowRowSaid`; a flow's own month is
+  its scope's (`scopeFlows`, `scopeNodes`: the flow and every flow it reads; `flowMonthOutcome`: a day held in scope is
+  the day's own outcome, a day held outside it is the flow's own files' and steps'). In `renderMonth`: the flows' tier
+  (`flowsGroup`, `flowRow`: a row opens to its files and steps, `rowIn`; the followers and waiters folded,
+  `flows-aside`), `dayBars`' `waited` level, the flow named where a day waits and in a day's findings, and a flow's own
+  month (`monthView.flow`, `routeOf`'s `month` with `level`: `#month/2024-03/in/feeds`; `foundOn`, `inSuffix`, the line
+  that says whose month it is, no scenes and no score); a flow's card links to *Its month ›* and the day screen inside
+  a flow goes back to that flow's month; `test/tiers.test.ts`, `tools/browser/stops/tiers.json`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -542,7 +554,7 @@ release (smaltty ADR 0030).
   flow reads other flows, each a card on its reader's canvas with its day's mark, entered to see its own flow, rolled
   up into the month, in the slices of its §12: the core and Larkspur cut into five; the canvas in levels; the month in
   tiers; exploring what a flow gives; a paused day decided once, at its flow; a change followed, said and tested on the
-  days recorded; the ontology's overrides; inputs and settings; building in the app; the voice. Slices 1 and 2 are built
+  days recorded; the ontology's overrides; inputs and settings; building in the app; the voice. Slices 1 to 3 are built
   (its §"As built", which says what each leaves for the slices after it).
 
 ## Rules for this repository

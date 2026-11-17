@@ -16,9 +16,10 @@ import { canonicalJSON } from '../core/canonical.js';
 import type { ChangeSet, ContractDef, FlowDocument, GroupDef, NotebookOutline, OutlineCell, ProfileDef, RuleEdit, StepDef } from '../core/document.js';
 import { applyEdit, changesOn, inForce, resolve as resolveRules, ruleParts, rulesHash, rulesInForce, versionRules, withRuleParts, type RuleParts } from '../core/inforce.js';
 import { diffSaid, ruleVersions, rulesDiff, versionKey, versionOn, type RuleVersion } from '../core/ruleversions.js';
-import { flowOf, GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
+import { flowOf, givesOf, GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
 import { notebookSectionId } from '../core/notebook.js';
 import { cardFlow, flowCard, flowDay, flowHas, flowLine, flowSaid, givenBy, levelDoc, readersOfFlow, readHere, trailOf, type FlowDay, type RunSaid } from '../core/levels.js';
+import { flowMonthOutcome, flowOff, flowRows, flowRowSaid, onlyFollowed, onlyWaited, scopeFlows, scopeNodes, tierRows, type FlowRow } from '../core/tiers.js';
 import { lookOf, sceneHash, type SceneLook, type ScenesFile } from '../core/scenes.js';
 import { briefOf, briefText, type BriefIn, type BriefOption } from '../core/brief.js';
 import { compareSummary, diffKeyOf, diffOf, type RowDiff } from '../core/compare.js';
@@ -33,7 +34,7 @@ import { calendarHead, heldLoadLine, dayMid, dayShort, guessWords, judgedWords, 
 import { UNTIL, afterLabel, afterLine, betweenLine, dayPausedLine, daySentence, decidedLines, decisionDrawing, donorPicked, failLine, goShown, heldLine, outputPausedLine, passedLine, pausedChecks, pauseLines, pauseReasons, pickFails, receiptLines, remedyHead, ribbonOf, runFigures, sheetText, versionLines, waitedLabel, checksSeen, filesSeen, findingOf, type RunSight, type AfterPart, type KeptLacks, type RemedySaid, type SheetIn, type SheetPick, type SheetText, type Sight } from '../core/decision.js';
 import { contractSaid, countedChecks, rangesFor, dayClaim, dayState, flowStory, learnedMeasures, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, upstreamSteps, tailPath, type Claim, decisionFor, decisionForLoad, standingForLoad, heldLoadsOf, dayPauseOfLoads, loadDecisions, keysForLoads, loadKey, loadsOf, byLoad, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, latestPublished, publishedDays, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
 import { checkAgainst as againstRecord, endOfDay, isMonthFile, isRestate, knownOn, layered, monthOf, ownHolds, restatedOutcome, runDay, runsByDay, versionsOf, type CellState, type DayState as MonthState, type MonthDay, type MonthFile, type RecordCheck, type RestateAbout, type RunAbout } from '../core/month.js';
-import { againstSaid, againstWay, countSaid, findingsOf, followsFiles, headlineOf, healthOf as monthHealth, healthRows, healthSaid, HOW_WORD, monthsOf, moversOf, offDays, OUTCOME_WORD, outcomeOf, outcomeSaid, pointsSaid, readSaid, scoreRead, summaryOf, worstFirst, type DayFinding, type DayOutcome, type HealthRow, type Outcome } from '../core/overview.js';
+import { againstSaid, againstWay, countSaid, findingsOf, followsFiles, headlineOf, healthOf as monthHealth, healthSaid, HOW_WORD, monthsOf, moversOf, offDays, OUTCOME_WORD, outcomeOf, outcomeSaid, pointsSaid, readSaid, scoreRead, summaryOf, worstFirst, type DayFinding, type DayOutcome, type HealthRow, type Outcome } from '../core/overview.js';
 import { dayVersions, donorIdOf, fillCounts, levelOf as acceptedLevel, levelWays, partLabel as remedyPart, type Offer, type Repair, type Version } from '../core/fill.js';
 import { gridOf, shadeOf, shareOf, standOut } from './grid.js';
 import { setUpSplit, showWorkspace } from './split.js';
@@ -2592,6 +2593,11 @@ function renderFlowSheet(id: string): void {
         h('span', { class: 'fl-row-name' }, src), h('span', { class: 'fl-row-said' }, 'its file isn’t the one its list names'), h('span', { class: 'fl-row-go', 'aria-hidden': 'true' }, '›'))))
     : null;
   const open = h('button', { type: 'button', class: 'btn show fl-open', onclick: () => enterFlow(id) }, 'Open the flow ›');
+  // Its own month (ADR 0025 §5): its calendar, its counts and its rows, where the flow has days.
+  const way = readHere(state.doc, levelAt()).some((f) => f.id === id) ? [...state.level, id] : trailOf(state.doc, [id]);
+  const itsMonth = loads.list.length > 1 && way.length
+    ? h('a', { class: 'btn fl-month', href: `#month${viewedDay() ? `/${viewedDay()!.slice(0, 7)}` : ''}/in/${way.join('/')}` }, 'Its month ›')
+    : null;
   sheet.setAttribute('aria-label', 'Flow');
   sheet.replaceChildren(
     h('div', { class: 'sheet-head' },
@@ -2599,7 +2605,7 @@ function renderFlowSheet(id: string): void {
       h('button', { class: 'close', type: 'button', 'aria-label': 'Close', onclick: () => select(null) }, '×')),
     h('div', { class: 'sheet-body fl-sheet' },
       h('div', { class: `fl-day fo-${d.outcome}`, role: 'status' }, flowMarkEl(d, 18), h('p', {}, flowSaid(state.doc, d, flowName))),
-      h('div', { class: 'row' }, open),
+      h('div', { class: 'row' }, open, itsMonth),
       integrityPart, holds, waits, look, reads, gives,
       h('p', { class: 'foot fl-known' }, `${flowHas(d)[0]!.toUpperCase()}${flowHas(d).slice(1)} of its own. `, seal === 'ok' ? 'Its files are sealed: each matches the data’s list, as the engine hashed it. ' : '', readers.length ? `Read by ${readers.map(flowName).join(', ')}. ` : '', 'Known by ', h('code', { title: part.hash }, short(part.hash)), ': the same flow, with the same hash, wherever it is read.')),
   );
@@ -11713,7 +11719,9 @@ function loadSummary(): string {
 /** The month screen's own state: the month on show (`YYYY-MM`; null: the latest with a day known), the day picked on it
  * (its panel, beside the calendar), the moment it is read as known on (null: now), the outcome its counts filter the
  * calendar and the list by, the folded rows opened under its files and steps, and whether the demo's scenes are open. */
-const monthView = { month: null as string | null, pick: null as string | null, at: null as string | null, filter: 'all' as MonthFilter, open: new Set<string>(), scenes: false };
+const monthView = { month: null as string | null, pick: null as string | null, at: null as string | null, filter: 'all' as MonthFilter, open: new Set<string>(), scenes: false,
+  /** The flows entered (ADR 0025 §5): the month on show is the last one's own; none, the page's flow's, of everything. */
+  flow: [] as string[] };
 /** What the month's counts filter by (ADR 0024 §2): every day, or the days of one outcome. */
 type MonthFilter = 'all' | Outcome;
 
@@ -12825,11 +12833,11 @@ const findingSaid = (f: DayFinding): string => (isOwner() || visible(f.origin) ?
 /** Whether a dataset is one of the flow's files (a source) or a step it builds. */
 const kindOf = (origin: string): 'file' | 'step' => (state.doc.sources.some((x) => x.id.toLowerCase() === origin.toLowerCase()) ? 'file' : 'step');
 
-/** The file each of its own steps reads (a step that reads that file and nothing else: its fill, its checks), by the
- * step's id in lower case (core/overview.ts `healthRows`). */
+/** The file each of its own steps reads (a step of the file's own flow that reads that file and nothing else: its fill,
+ * its checks), by the step's id in lower case (core/overview.ts `healthRows`, in each flow by core/tiers.ts `tierRows`). */
 function ownFiles(): Map<string, string> {
   const out = new Map<string, string>();
-  for (const r of healthRows(state.doc)) if (r.kind === 'file') for (const o of r.origins.slice(1)) out.set(o.toLowerCase(), r.id);
+  for (const r of tierRows(state.doc)) if (r.kind === 'file') for (const o of r.origins.slice(1)) out.set(o.toLowerCase(), r.id);
   return out;
 }
 
@@ -12962,7 +12970,18 @@ function renderMonth(): void {
   const entries = allEntries();
   const month = monthOf(days, entries, { at, judged: loadSource() });
   const facts = new Map(month.map((d) => [d.day, calendarDay(d)]));
-  const outcomes: DayOutcome[] = month.map((d) => ({ day: d.day, ...outcomeOf(facts.get(d.day)!) }));
+  // A flow's own month (ADR 0025 §5): the month of the flow entered and of the flows it reads, by what their files and
+  // steps came to. At the top it is every flow's, as it was. `inSuffix` keeps the month's links inside it.
+  const mine = monthView.flow.at(-1) ?? null;
+  const scopeIds = mine !== null ? scopeFlows(viewDoc(), mine) : null;
+  const scope = mine !== null ? new Set(scopeNodes(viewDoc(), mine).map((x) => x.toLowerCase())) : null;
+  const foundOn = (d: string): DayFinding[] => (scope ? dayFindings(d, at).filter((x) => scope.has(x.origin.toLowerCase())) : dayFindings(d, at));
+  const inSuffix = monthView.flow.length ? `/in/${monthView.flow.join('/')}` : '';
+  const readsHereN = scopeIds ? scopeIds.length - 1 : 0;
+  const outcomes: DayOutcome[] = month.map((d) => {
+    const o: DayOutcome = { day: d.day, ...outcomeOf(facts.get(d.day)!) };
+    return scope ? flowMonthOutcome(o, foundOn(d.day)) : o;
+  });
   const byDay = new Map(outcomes.map((o) => [o.day, o]));
   // The days run again under rules changed since and not restated yet (ADR 0021 §5): those whose outcome would change.
   const pend = at === null && !restating ? pendingRestating() : null;
@@ -12996,7 +13015,7 @@ function renderMonth(): void {
   } }, h('option', { value: '' }, 'now'), ...days.map((d) => h('option', { value: d, ...(at === endOfDay(d) ? { selected: true } : {}) }, `the end of ${dayLabel(d)}`)));
   const mi = months.indexOf(shown);
   const page = (m: string | undefined, label: string, text: string, fk: string) => (m
-    ? h('a', { class: 'btn small mo-page', href: `#month/${m}`, 'data-fk': fk, 'aria-label': `${label}: ${monthName(m)}`, title: monthName(m) }, text)
+    ? h('a', { class: 'btn small mo-page', href: `#month/${m}${inSuffix}`, 'data-fk': fk, 'aria-label': `${label}: ${monthName(m)}`, title: monthName(m) }, text)
     : h('span', { class: 'btn small mo-page off', 'aria-disabled': 'true', title: `No month ${label === 'The month before' ? 'before' : 'after'} ${monthName(shown)}` }, text));
   const head = h('div', { class: 'mo-head' },
     h('div', { class: 'mo-for' }, h('p', { class: 'eyebrow' }, 'For the day'),
@@ -13012,18 +13031,18 @@ function renderMonth(): void {
     ? h('section', { class: 'panel mo-wait', 'aria-label': 'Waiting for a decision' },
         h('p', { class: 'eyebrow' }, `Waiting for a decision · ${plural(waiting.length, 'day')}`),
         h('ul', { class: 'mo-wait-list' }, ...(waiting.length > WAIT_ROWS + 1 && !monthView.open.has('wait') ? waiting.slice(0, WAIT_ROWS) : waiting).map((d) => {
-          const lead = dayFindings(d, at).find((x) => x.level === 'held');
+          const lead = foundOn(d).find((x) => x.level === 'held');
           const first = (runsByDay(knownOn(entries, at)).get(d) ?? [])[0];
           const waited = first && at === null ? waitedLabel((storyMs(Date.now(), first.at) - Date.parse(first.at)) / 60000) : null;
           return h('li', { class: 'mo-wait-row', 'data-day': d },
             glyphEl('held', 16),
             h('div', { class: 'mo-wait-said' },
               h('button', { type: 'button', class: 'linkish mo-wait-day', 'data-fk': `w:${d}`, onclick: () => pickDay(d) }, dayLabel(d)),
-              lead ? h('span', { class: 'mo-wait-why' }, ` ${subject(lead.origin)}: ${findingSaid(lead)}`) : null,
+              lead ? h('span', { class: 'mo-wait-why' }, ` ${state.doc.flows?.length ? `${flowName(flowOf(state.doc, lead.origin)?.id ?? '')} · ` : ''}${subject(lead.origin)}: ${findingSaid(lead)}`) : null,
               waited ? h('span', { class: 'mo-wait-since' }, ` · ${waited.replace(/^W/, 'w')}`) : null),
             at === null && may
               ? h('button', { type: 'button', class: 'btn small primary mo-decide', 'aria-label': `Decide what readers get for ${dayMid(d)}`, onclick: () => openDecision(d) }, 'Decide ›')
-              : h('a', { class: 'btn small', href: dayHash(d) }, 'Open the day ›'));
+              : h('a', { class: 'btn small', href: `${dayHash(d)}${inSuffix}` }, 'Open the day ›'));
         })),
         // Many days waiting: the ones that have waited longest, the rest a tap away, so the month still starts near the top.
         waiting.length > WAIT_ROWS + 1 ? h('button', { type: 'button', class: 'linkish mh-fold mo-wait-fold', 'data-fold': 'wait', 'data-fk': 'f:wait', 'aria-expanded': String(monthView.open.has('wait')), onclick: () => {
@@ -13034,8 +13053,9 @@ function renderMonth(): void {
     : null;
 
   // ---- The product's score on each day published (Q-186), as known: a day a restatement took back isn't published.
-  const post = dataList?.posture;
-  const marks = recorded?.posture;
+  // The product's score is the page's own flow's: a flow's own month has none.
+  const post = mine === null ? dataList?.posture : undefined;
+  const marks = mine === null ? recorded?.posture : undefined;
   const takenBack = takenBackDays(at);
   const shownScore = (d: string) => (!at || endOfDay(d) <= at) && !takenBack.has(d);
   const markOf = (d: string) => (marks && shownScore(d) ? marks[d] : undefined);
@@ -13051,7 +13071,7 @@ function renderMonth(): void {
         const read = scoreRead(points.filter((p) => p.day.startsWith(m)));
         const said = !s.arrived ? 'not arrived yet' : `${s.auto} of ${s.arrived} on their own`;
         const more = [s.unusual ? `${s.unusual} unusual` : '', s.paused ? `${s.paused} paused` : '', s.failed ? `${s.failed} failed` : ''].filter(Boolean).join(' · ');
-        return h('a', { class: 'mo-card', href: `#month/${m}`, 'data-month': m, 'data-fk': `m:${m}`, ...(m === shown ? { 'aria-current': 'true' } : {}), 'aria-label': `${monthName(m)}: ${headlineOf(s)}` },
+        return h('a', { class: 'mo-card', href: `#month/${m}${inSuffix}`, 'data-month': m, 'data-fk': `m:${m}`, ...(m === shown ? { 'aria-current': 'true' } : {}), 'aria-label': `${monthName(m)}: ${headlineOf(s)}` },
           h('span', { class: 'mo-card-name' }, monthName(m)),
           svgNode(dayBars({ days: md.map((d) => ({ day: d, ...barOfOutcome(byDay.get(d)!.outcome) })), w: 220, h: 16, aria: `${monthName(m)}, day by day` })),
           h('span', { class: 'mo-card-said' }, said),
@@ -13079,7 +13099,7 @@ function renderMonth(): void {
 
   // ---- The calendar: a week a row from Monday, a day a cell with its mark and, from tablet width, a word and the
   // dataset the day is about. One month at a time.
-  const leads = new Map(monthDays.map((d) => [d, dayFindings(d, at).find((x) => x.level !== 'unjudged')] as const));
+  const leads = new Map(monthDays.map((d) => [d, foundOn(d).find((x) => x.level !== 'unjudged')] as const));
   const cells: Node[] = [];
   if (monthDays.length) {
     for (let i = 0, lead = (dateOf(monthDays[0]!).getUTCDay() + 6) % 7; i < lead; i++) cells.push(h('span', { class: 'mo-pad', 'aria-hidden': 'true' }));
@@ -13095,7 +13115,7 @@ function renderMonth(): void {
       const word = dayWord(o);
       const about = leads.get(d) ? subject(leads.get(d)!.origin) : null;
       const dim = filter !== 'all' && o.outcome !== filter;
-      cells.push(h('button', { type: 'button', class: `mo-d st-${f.state} oc-${o.outcome}${f.decided && f.decided !== 'waiting' ? ` dec-${f.decided}` : ''}${f.corrected ? ' corrected' : ''}${f.restated ? ' restated' : ''}${w?.changed ? ' would-change' : ''}${d === now ? ' at' : ''}${dim ? ' dim' : ''}`, 'data-day': d, 'data-fk': `d:${d}`, tabindex: d === pick ? '0' : '-1', 'aria-pressed': String(d === pick), 'aria-label': f.label, title: f.label, onclick: () => {
+      cells.push(h('button', { type: 'button', class: `mo-d st-${f.state} oc-${o.outcome}${f.decided && f.decided !== 'waiting' ? ` dec-${f.decided}` : ''}${f.corrected ? ' corrected' : ''}${f.restated ? ' restated' : ''}${w?.changed ? ' would-change' : ''}${d === now ? ' at' : ''}${dim ? ' dim' : ''}`, 'data-day': d, 'data-fk': `d:${d}`, tabindex: d === pick ? '0' : '-1', 'aria-pressed': String(d === pick), 'aria-label': scope ? `${dayLabel(d)}: ${outcomeSaid(o.outcome, o.how)}` : f.label, title: scope ? `${dayLabel(d)}: ${outcomeSaid(o.outcome, o.how)}` : f.label, onclick: () => {
         monthView.pick = d;
         renderMonth();
         // Where the day's panel sits under the calendar (a phone, a tablet), a tap brings it into view: what the tap
@@ -13105,7 +13125,7 @@ function renderMonth(): void {
         if (shownPanel && calBox && shownPanel.getBoundingClientRect().top >= calBox.getBoundingClientRect().bottom - 1 && shownPanel.getBoundingClientRect().top > window.innerHeight - 120) {
           shownPanel.scrollIntoView({ block: 'nearest', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
         }
-      }, ondblclick: () => (location.hash = dayHash(d)) },
+      }, ondblclick: () => (location.hash = `${dayHash(d)}${inSuffix}`) },
         h('span', { class: 'mo-top' }, h('span', { class: 'mo-date' }, String(dateOf(d).getUTCDate())), h('span', { class: 'mo-mark' }, outcomeMark(o.outcome, 14), w?.changed ? h('span', { class: 'mo-delta', 'aria-hidden': 'true' }, 'Δ') : null)),
         word ? h('span', { class: 'mo-w' }, word) : l?.note ? h('span', { class: 'mo-w mo-note' }, l.note) : null,
         about && o.outcome !== 'normal' ? h('span', { class: 'mo-hl' }, about) : null));
@@ -13160,23 +13180,30 @@ function renderMonth(): void {
   if (pd && pf && po) {
     const dayRuns = runsByDay(knownOn(entries, at)).get(pd.day) ?? [];
     const last = dayRuns.at(-1);
-    const found = dayFindings(pd.day, at);
+    const found = foundOn(pd.day);
     const held = found.filter((x) => x.level === 'held');
     const odd = found.filter((x) => x.level === 'unusual');
     const unj = found.filter((x) => x.level === 'unjudged');
     // What it held back: the outputs that waited behind the run that first held the day.
-    const firstHeld = dayRuns.find((e) => (e.about as unknown as RunAbout).outcome === 'held' && findingsOf(e.about as unknown as RunAbout).some((x) => x.level === 'held'));
-    const waitingOut = firstHeld ? ((firstHeld.about as unknown as RunAbout).waiting ?? []) : [];
+    const firstHeld = dayRuns.find((e) => (e.about as unknown as RunAbout).outcome === 'held' && findingsOf(e.about as unknown as RunAbout).some((x) => x.level === 'held' && (!scope || scope.has(x.origin.toLowerCase()))));
+    // In a flow's own month, what the flows in its scope give: the rest waits in another flow's month.
+    const given = scopeIds ? new Set(scopeIds.flatMap((f) => givesOf(state.doc, f)).map((x) => x.toLowerCase())) : null;
+    const waitingOut = (firstHeld ? ((firstHeld.about as unknown as RunAbout).waiting ?? []) : []).filter((name) => !given || given.has(name.toLowerCase()));
     const fm = firstHeld ? manifestOf(String((firstHeld.about as unknown as RunAbout).manifest)) : null;
-    const outputs = fm ? Object.keys(fm.outputs).length : 0;
+    const outputs = fm ? Object.keys(fm.outputs).filter((name) => !given || given.has(name.toLowerCase())).length : 0;
     const c = recordChecks.get(pd.day);
     const kd = loads.list.findIndex((x) => x.day === pd.day);
     const versions = at === null && kd >= 0 ? versionFacts(kd).length : 0;
     const w = would.get(pd.day);
     const events = dayTimeline(pd.day, at, subject);
+    // In a flow's own month (ADR 0025 §5), a day held outside its scope: the flow's day is its own, and what happened to
+    // the day as a whole is said as that, so "every check passed" never sits unexplained over a hold.
+    const whole = outcomeOf(pf);
+    const elsewhere = !!scope && whole.outcome !== po.outcome && (whole.outcome === 'waiting' || whole.outcome === 'decided' || whole.outcome === 'kept');
     const finding = (x: DayFinding) => h('li', { class: `mo-f lv-${x.level}` },
       x.level === 'held' ? glyphEl('held', 13) : x.level === 'unusual' ? glyphEl('warn', 13) : glyphEl('unlearned', 13),
-      h('span', { class: 'mo-f-what' }, h('code', { class: 'mo-f-of' }, x.origin), h('span', { class: 'mo-f-kind' }, ` ${fileOf.has(x.origin.toLowerCase()) ? `step on ${fileOf.get(x.origin.toLowerCase())}` : kindOf(x.origin)}`), h('span', { class: 'mo-f-said' }, ` ${findingSaid(x)}`)));
+      // Where the flow reads flows, whose it is (ADR 0025 §5): the day names the flow whose file or step said it.
+      h('span', { class: 'mo-f-what' }, h('code', { class: 'mo-f-of' }, x.origin), h('span', { class: 'mo-f-kind' }, ` ${fileOf.has(x.origin.toLowerCase()) ? `step on ${fileOf.get(x.origin.toLowerCase())}` : kindOf(x.origin)}${state.doc.flows?.length ? ` in ${flowName(flowOf(state.doc, x.origin)?.id ?? '')}` : ''}`), h('span', { class: 'mo-f-said' }, ` ${findingSaid(x)}`)));
     const group = (title: string, xs: readonly DayFinding[]) => (xs.length ? [h('p', { class: 'mo-sub' }, title), h('ul', { class: 'mo-fs' }, ...xs.slice(0, 6).map(finding), xs.length > 6 ? h('li', { class: 'mo-f more' }, `and ${xs.length - 6} more`) : null)] : []);
     // The score that day against the day published before it, and what moved (ADR 0024 §6).
     const mk = markOf(pd.day);
@@ -13198,10 +13225,10 @@ function renderMonth(): void {
       h('div', { class: 'mo-sum-top', 'aria-live': 'polite' },
         h('div', { class: 'mo-sum-head' }, h('h3', {}, dayLabel(pd.day)), outcomeMark(po.outcome, 16),
           // Its versions, where it has more than one: the lead sentence under the head says everything else.
-          pf.restated || pf.corrected ? h('span', { class: 'mo-word' }, pf.restated ? `restated: version ${wentWith(kd)} of ${pf.corrected}${pf.state === 'published' ? ' published' : ', not published'}` : `corrected: version ${correctedOf(kd)?.got.v ?? pf.corrected} of ${pf.corrected} published`) : null),
+          (pf.restated || pf.corrected) && !elsewhere ? h('span', { class: 'mo-word' }, pf.restated ? `restated: version ${wentWith(kd)} of ${pf.corrected}${pf.state === 'published' ? ' published' : ', not published'}` : `corrected: version ${correctedOf(kd)?.got.v ?? pf.corrected} of ${pf.corrected} published`) : null),
         h('p', { class: 'mo-sum-said' }, `${outcomeSaid(po.outcome, po.how)}.`, loads.list[kd]?.note ? ` ${loads.list[kd]!.note}.` : '')),
       // The day's head in the record's words, where no finding below says it (a run that failed, a day restated).
-      pf.headline && !held.length && !odd.length ? h('p', { class: 'mo-sum-hl' }, pf.headline) : null,
+      pf.headline && !held.length && !odd.length && !scope ? h('p', { class: 'mo-sum-hl' }, pf.headline) : null,
       w ? h('p', { class: `mo-sum-hl rs-would${w.changed ? ' changed' : ''}` }, `Under the rules changed since: ${w.before} → ${w.after}${w.changed ? '. It waits for the restatement.' : '. Noted: the same.'}`) : null,
       ...group(po.outcome === 'waiting' ? 'What holds it' : 'What held it', held),
       ...group(held.length ? 'Also unusual' : 'What was unusual', odd),
@@ -13209,12 +13236,13 @@ function renderMonth(): void {
         ? h('p', { class: 'mo-sub quiet' }, `${plural(unj.length, 'dataset')} weren’t judged: no earlier day like this one to compare with.`)
         : h('div', {}, ...group('Not judged yet', unj)),
       waitingOut.length ? h('p', { class: 'mo-reach' }, h('span', { class: 'mo-sub-k' }, po.outcome === 'waiting' ? 'What waits ' : 'What it held back '), `${waitingOut.length}${outputs ? ` of ${outputs}` : ''} outputs: ${waitingOut.slice(0, 3).join(', ')}${waitingOut.length > 3 ? ` and ${waitingOut.length - 3} more` : ''}.`) : null,
-      events.length ? h('p', { class: 'mo-sub' }, 'What happened') : null,
+      elsewhere ? h('p', { class: 'mo-sum-hl mo-elsewhere' }, `Nothing of ${flowName(mine!)}${readsHereN ? ' or of the flows it reads' : ''} held it. The day as a whole: ${outcomeSaid(whole.outcome, whole.how).replace(/^./, (c) => c.toLowerCase())}, by another flow.`) : null,
+      events.length ? h('p', { class: 'mo-sub' }, elsewhere ? 'What happened to the day' : 'What happened') : null,
       events.length ? h('ol', { class: 'mo-events' }, ...events.map((e) => h('li', { class: `mo-ev ${e.cls}` }, h('span', { class: 'mo-ev-when' }, e.at.slice(0, 10) === pd.day ? e.at.slice(11, 16) : `${dayShort(e.at.slice(0, 10))} ${e.at.slice(11, 16)}`), h('span', { class: 'mo-ev-what' }, e.text, e.why ? h('q', { class: 'mo-ev-why' }, e.why) : null)))) : null,
       scoreLine,
       h('div', { class: 'mo-sum-acts' },
         po.outcome === 'waiting' && at === null && may ? h('button', { type: 'button', class: 'btn primary mo-decide', 'aria-label': `Decide what readers get for ${dayMid(pd.day)}`, onclick: () => openDecision(pd.day) }, 'Decide ›') : null,
-        h('a', { class: `btn mo-open${po.outcome === 'waiting' && at === null && may ? '' : ' primary'}`, href: dayHash(pd.day) }, pd.state === 'notRun' ? 'Run the day ›' : 'Open the day ›')),
+        h('a', { class: `btn mo-open${po.outcome === 'waiting' && at === null && may ? '' : ' primary'}`, href: `${dayHash(pd.day)}${inSuffix}` }, pd.state === 'notRun' ? 'Run the day ›' : 'Open the day ›')),
       h('p', { class: 'mo-prov' },
         versions > 1 ? `${plural(versions, 'version')} of the day. ` : '',
         last ? (dayRuns.some((e) => e.by.as === 'build') ? `Recorded by the build${c && c !== 'flow' && c !== 'inputs' ? (c.matches ? ' · run here, the same as the record ✓' : ' · run here, it differs from the record') : ''}.` : 'Run in this browser.') : '',
@@ -13236,15 +13264,15 @@ function renderMonth(): void {
         listed.length
           ? h('ol', { class: 'mo-log-list' }, ...(listed.length > LOG_ROWS + 2 && !monthView.open.has('log') ? listed.slice(0, LOG_ROWS) : listed).map((o) => {
               const lead = leads.get(o.day);
-              const more = dayFindings(o.day, at).filter((x) => x.level !== 'unjudged').length - 1;
+              const more = foundOn(o.day).filter((x) => x.level !== 'unjudged').length - 1;
               return h('li', { class: `mo-log-row oc-${o.outcome}`, 'data-day': o.day },
-                h('button', { type: 'button', class: 'mo-log-btn', 'data-fk': `l:${o.day}`, 'aria-pressed': String(o.day === pick), 'aria-label': facts.get(o.day)!.label, onclick: () => pickDay(o.day) },
+                h('button', { type: 'button', class: 'mo-log-btn', 'data-fk': `l:${o.day}`, 'aria-pressed': String(o.day === pick), 'aria-label': scope ? `${dayLabel(o.day)}: ${outcomeSaid(o.outcome, o.how)}` : facts.get(o.day)!.label, onclick: () => pickDay(o.day) },
                   h('span', { class: 'mo-log-day' }, dayShort(o.day)),
                   h('span', { class: 'mo-log-state' }, outcomeMark(o.outcome, 13), h('span', {}, dayWord(o) ?? OUTCOME_WORD[o.outcome])),
                   lead
                     ? h('span', { class: 'mo-log-what' }, h('code', {}, subject(lead.origin)), ` ${findingSaid(lead)}`, more > 0 ? h('span', { class: 'mo-log-more' }, ` +${more}`) : null)
-                    : h('span', { class: 'mo-log-what' }, facts.get(o.day)!.headline ?? '')),
-                h('a', { class: 'mo-log-open', href: dayHash(o.day), 'aria-label': `Open ${dayLabel(o.day)}` }, glyphEl('chev', 14)));
+                    : h('span', { class: 'mo-log-what' }, scope ? '' : (facts.get(o.day)!.headline ?? ''))),
+                h('a', { class: 'mo-log-open', href: `${dayHash(o.day)}${inSuffix}`, 'aria-label': `Open ${dayLabel(o.day)}` }, glyphEl('chev', 14)));
             }))
           : h('p', { class: 'mo-checked' }, filter === 'all' ? 'Nothing: every day went out with every check passing.' : 'No day of the month is so.'),
         // A month where most days needed a look lists the first dozen (what waits, then the latest), the rest a tap away.
@@ -13257,17 +13285,29 @@ function renderMonth(): void {
 
   // ---- Each file and step over the month (ADR 0024 §5): a row a file (with its own checks), then a row a step, the
   // worst first; a row with nothing to report folded into a count. A bar a day, the worst the day's runs said of it.
-  const rows = monthHealth(healthRows(viewDoc()), monthDays, entries, manifestOf, at);
+  // Each row in its flow (ADR 0025 §5): a file with its own flow's steps, a step that reads another flow's file its own.
+  const rowDefs = tierRows(viewDoc());
+  const rowFlow = new Map(rowDefs.map((r) => [r.id, r.flow]));
+  const rows = monthHealth(rowDefs, monthDays, entries, manifestOf, at);
   const barW = W >= 786 ? Math.round(Math.min(620, (W - 60) * 0.44)) : Math.max(240, W - 34);
-  const bars = (r: HealthRow, ticks = false) => svgNode(dayBars({
-    days: monthDays.map((d, i) => ({ day: d, ...barOfCell(r.cells[i] ?? null, !waits.has(d)), title: `${r.label}, ${dayLabel(d)}: ${r.cells[i] ? CELL_WORD[r.cells[i]!] : 'no run'}` })),
-    w: barW, h: 16, pick, ticks, aria: `${r.label} over ${monthName(shown)}: ${healthSaid(r, dayShort)}`,
+  // A flow's row draws the days it only waited on another flow apart (ADR 0025 §5): nothing of its own was wrong.
+  const bars = (r: HealthRow, ticks = false, waited: readonly string[] = [], said = healthSaid(r, dayShort), inset = 0) => svgNode(dayBars({
+    days: monthDays.map((d, i) => {
+      const cell = r.cells[i] ?? null;
+      const only = waited.includes(d) && cell !== 'unusual';
+      return { day: d, ...(only ? { level: 'waited' as const } : barOfCell(cell, !waits.has(d))), title: `${r.label}, ${dayLabel(d)}: ${only ? 'waited on another flow' : cell ? CELL_WORD[cell] : 'no run'}` };
+    }),
+    // Inside a flow's row its files and steps are set in: on a phone their bars are as much narrower.
+    w: barW - (W >= 786 ? 0 : inset), h: 16, pick, ticks, aria: `${r.label} over ${monthName(shown)}: ${said}`,
   }));
-  const healthRow = (r: HealthRow, ticks: boolean) => h('li', { class: `mh-row${offDays(r) ? ' off' : ''}`, 'data-row': r.id },
+  const healthRow = (r: HealthRow, ticks: boolean, inset = 0) => h('li', { class: `mh-row${offDays(r) ? ' off' : ''}`, 'data-row': r.id },
     h('code', { class: 'mh-name' }, r.label),
-    h('span', { class: 'mh-bars' }, bars(r, ticks)),
+    h('span', { class: 'mh-bars' }, bars(r, ticks, [], undefined, inset)),
     h('span', { class: 'mh-said' }, healthSaid(r, dayShort)));
-  const fold = (id: string, label: (open: boolean) => string, rs: HealthRow[]) => {
+  /** A row of a file or a step inside a flow's row (`key`), set in. */
+  const INSET = 14;
+  const rowIn = (key: string) => (r: HealthRow, ticks: boolean) => healthRow(r, ticks, key ? INSET : 0);
+  const fold = <R extends HealthRow>(id: string, label: (open: boolean) => string, rs: R[], row: (r: R, ticks: boolean) => HTMLElement = healthRow) => {
     if (!rs.length) return [];
     const open = monthView.open.has(id);
     return [
@@ -13276,7 +13316,7 @@ function renderMonth(): void {
         else monthView.open.add(id);
         renderMonth();
       } }, `${open ? '▾' : '▸'} ${label(open)}`),
-      open ? h('ul', { class: 'mh-rows fine' }, ...rs.map((r) => healthRow(r, false))) : null,
+      open ? h('ul', { class: 'mh-rows fine' }, ...rs.map((r) => row(r, false))) : null,
     ];
   };
   const some = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -13284,7 +13324,7 @@ function renderMonth(): void {
   const top = (rs: HealthRow[]) => (rs.length > GROUP_ROWS + 2 ? rs.slice(0, GROUP_ROWS) : rs);
   const rest = (rs: HealthRow[]) => (rs.length > GROUP_ROWS + 2 ? rs.slice(GROUP_ROWS) : []);
   // The files: those that held a day or were unusual on one, the worst first; the rest folded into a count.
-  const filesGroup = (rs: HealthRow[]) => {
+  const filesGroup = (rs: HealthRow[], key = '') => {
     if (!rs.length) return null;
     const off = worstFirst(rs.filter((r) => offDays(r) > 0), waits);
     const fine = rs.filter((r) => offDays(r) === 0);
@@ -13293,13 +13333,13 @@ function renderMonth(): void {
       : `${heldN ? `${heldN} of ${rs.length} held a day` : `None of the ${rs.length} held a day`}${off.length > heldN ? `${heldN ? ', and' : ';'} ${off.length - heldN} ${heldN ? 'more ' : ''}${off.length - heldN === 1 ? 'was' : 'were'} unusual on one` : ''}.`;
     return h('div', { class: 'mh-group', 'data-group': 'files' },
       h('p', { class: 'mh-head' }, h('b', {}, 'Incoming files.'), ` ${said}`),
-      off.length ? h('ul', { class: 'mh-rows' }, ...top(off).map((r, i) => healthRow(r, i === 0))) : null,
-      ...fold('files-more', () => `${some(rest(off).length, 'more file', 'more files')} with something to report`, rest(off)),
-      ...fold('files', (open) => (off.length ? `${some(fine.length, 'file', 'files')} with nothing to report` : open ? 'Hide them' : `Show ${fine.length === 1 ? 'it' : `all ${fine.length}`}`), fine));
+      off.length ? h('ul', { class: 'mh-rows' }, ...top(off).map((r, i) => rowIn(key)(r, i === 0))) : null,
+      ...fold(`files-more${key}`, () => `${some(rest(off).length, 'more file', 'more files')} with something to report`, rest(off), rowIn(key)),
+      ...fold(`files${key}`, (open) => (off.length ? `${some(fine.length, 'file', 'files')} with nothing to report` : open ? 'Hide them' : `Show ${fine.length === 1 ? 'it' : `all ${fine.length}`}`), fine, rowIn(key)));
   };
   // The steps: those with a day of their own (held or unusual where no file they read was), which is trouble inside the
   // flow; those that only followed a file, folded; the rest, folded.
-  const stepsGroup = (rs: HealthRow[]) => {
+  const stepsGroup = (rs: HealthRow[], key = '') => {
     if (!rs.length) return null;
     const own = worstFirst(rs.filter((r) => r.own.length > 0), waits);
     const followed = rs.filter(followsFiles);
@@ -13307,27 +13347,66 @@ function renderMonth(): void {
     const said = `${own.length ? `${own.length} of ${rs.length} had a day of ${own.length === 1 ? 'its' : 'their'} own to report: trouble no file ${own.length === 1 ? 'it reads' : 'they read'} accounts for.` : `None of the ${rs.length} had trouble of its own.`}${followed.length ? ` ${some(followed.length, 'step', 'steps')} held or ${followed.length === 1 ? 'was' : 'were'} unusual only where a file ${followed.length === 1 ? 'it reads' : 'they read'} was.` : ''}`;
     return h('div', { class: 'mh-group', 'data-group': 'steps' },
       h('p', { class: 'mh-head' }, h('b', {}, 'Steps the flow builds.'), ` ${said}`),
-      own.length ? h('ul', { class: 'mh-rows' }, ...top(own).map((r, i) => healthRow(r, i === 0))) : null,
-      ...fold('steps-more', () => `${some(rest(own).length, 'more step', 'more steps')} with a day of their own`, rest(own)),
-      ...fold('followed', () => `${some(followed.length, 'step', 'steps')} that followed a file`, worstFirst(followed, waits)),
-      ...fold('steps', () => `${some(fine.length, 'step', 'steps')} with nothing to report`, fine));
+      own.length ? h('ul', { class: 'mh-rows' }, ...top(own).map((r, i) => rowIn(key)(r, i === 0))) : null,
+      ...fold(`steps-more${key}`, () => `${some(rest(own).length, 'more step', 'more steps')} with a day of their own`, rest(own), rowIn(key)),
+      ...fold(`followed${key}`, () => `${some(followed.length, 'step', 'steps')} that followed a file`, worstFirst(followed, waits), rowIn(key)),
+      ...fold(`steps${key}`, () => `${some(fine.length, 'step', 'steps')} with nothing to report`, fine, rowIn(key)));
   };
   const fileRows = rows.filter((r) => r.kind === 'file');
   const stepRows = rows.filter((r) => r.kind === 'step');
+  // ---- In tiers (ADR 0025 §5): where the flow reads flows, a row a flow above its files and steps, its bar for a day
+  // the worst any of them said; a flow that only waited on another folded with the calm ones; a row opens to the flow's
+  // own files and steps, as the month shows them for a flow that reads none.
+  const tiers = flowRows(viewDoc(), monthDays, entries, manifestOf, at).filter((r) => !scopeIds || scopeIds.includes(r.flow));
+  // A flow that reads none has no tier above its own files and steps.
+  const alone = scopeIds?.length === 1 ? scopeIds[0]! : null;
+  const inFlow = (r: HealthRow, flow: string) => rowFlow.get(r.id) === flow;
+  const flowRow = (r: FlowRow, ticks: boolean) => {
+    const id = `flow:${r.flow}`;
+    const open = monthView.open.has(id);
+    const said = flowRowSaid(r, dayShort, flowName);
+    return h('li', { class: `mh-row mh-flow${flowOff(r) ? ' off' : ''}${open ? ' open' : ''}`, 'data-row': id },
+      h('button', { type: 'button', class: 'linkish mh-flow-name', 'data-fk': `t:${r.flow}`, 'aria-expanded': String(open), onclick: () => {
+        if (open) monthView.open.delete(id);
+        else monthView.open.add(id);
+        renderMonth();
+      } }, h('span', { 'aria-hidden': 'true' }, open ? '▾ ' : '▸ '), h('b', {}, r.label)),
+      h('span', { class: 'mh-bars' }, bars(r, ticks, r.waited, said)),
+      h('span', { class: 'mh-said' }, said),
+      open ? h('div', { class: 'mh-inside' }, filesGroup(fileRows.filter((x) => inFlow(x, r.flow)), `:${r.flow}`), stepsGroup(stepRows.filter((x) => inFlow(x, r.flow)), `:${r.flow}`),
+        // A read flow has a month of its own (ADR 0025 §5): its calendar, its counts and its rows.
+        r.flow !== '' && r.flow !== mine ? h('a', { class: 'mh-month', href: `#month/${shown}/in/${(monthView.flow.includes(r.flow) ? monthView.flow.slice(0, monthView.flow.indexOf(r.flow) + 1) : trailOf(state.doc, [...monthView.flow, r.flow])).join('/')}` }, 'Its own month ›') : null) : null);
+  };
+  // The flows with a day of their own (a file of theirs, or a step no file it reads accounts for), the worst first;
+  // those that only followed or waited on another flow folded, as the steps that followed a file are; the calm folded.
+  const flowsGroup = (rs: FlowRow[]) => {
+    const off = worstFirst(rs.filter(flowOff), waits);
+    const aside = rs.filter((r) => !flowOff(r) && (onlyFollowed(r) || onlyWaited(r)));
+    const fine = rs.filter((r) => !flowOff(r) && !onlyFollowed(r) && !onlyWaited(r));
+    const heldN = off.filter((r) => r.held.some((d) => r.own.includes(d))).length;
+    const said = `${!off.length ? `None of the ${rs.length} had a day of its own to report.`
+      : `${heldN ? `${heldN} of ${rs.length} held a day on ${heldN === 1 ? 'its' : 'their'} own account` : `None of the ${rs.length} held a day on its own account`}${off.length > heldN ? `${heldN ? ', and' : ';'} ${off.length - heldN} ${heldN ? 'more ' : ''}${off.length - heldN === 1 ? 'was' : 'were'} unusual on one` : ''}.`}${aside.length ? ` ${some(aside.length, 'flow', 'flows')} only followed or waited on another.` : ''}`;
+    return h('div', { class: 'mh-group', 'data-group': 'flows' },
+      h('p', { class: 'mh-head' }, h('b', {}, 'Flows.'), ` ${said} Open one for its files and steps.`),
+      off.length ? h('ul', { class: 'mh-rows mh-flows' }, ...off.map((r, i) => flowRow(r, i === 0))) : null,
+      ...fold('flows-aside', () => `${some(aside.length, 'flow', 'flows')} that only followed or waited on another`, aside, flowRow),
+      ...fold('flows-fine', () => `${some(fine.length, 'flow', 'flows')} with nothing to report`, fine, flowRow));
+  };
   const healthPart = rows.length && sum.arrived
-    ? h('section', { class: 'panel mo-health', 'aria-label': 'Each file and step over the month', onclick: (e: Event) => {
+    ? h('section', { class: 'panel mo-health', 'aria-label': tiers.length ? 'Each flow over the month, with its files and steps' : 'Each file and step over the month', onclick: (e: Event) => {
         const d = (e.target as Element).closest?.('[data-day]')?.getAttribute('data-day');
         if (d && (e.target as Element).closest('svg')) pickDay(d);
       } },
-        h('p', { class: 'eyebrow' }, `Files and steps over ${monthName(shown)}`),
-        filesGroup(fileRows),
-        stepsGroup(stepRows),
+        h('p', { class: 'eyebrow' }, `${tiers.length && alone === null ? 'Flows, files and steps' : 'Files and steps'} over ${monthName(shown)}`),
+        alone !== null ? filesGroup(fileRows.filter((x) => inFlow(x, alone))) : tiers.length ? flowsGroup(tiers) : filesGroup(fileRows),
+        alone !== null ? stepsGroup(stepRows.filter((x) => inFlow(x, alone))) : tiers.length ? null : stepsGroup(stepRows),
         h('p', { class: 'mh-key' },
           svgNode(dayBars({ days: [{ day: '2024-01-02', level: 'ok' }], w: 10, h: 16, aria: 'A low bar' })), 'fine',
           svgNode(dayBars({ days: [{ day: '2024-01-02', level: 'warn' }], w: 10, h: 16, aria: 'A half bar' })), 'unusual',
           svgNode(dayBars({ days: [{ day: '2024-01-02', level: 'bad' }], w: 10, h: 16, aria: 'A full bar' })), 'held the day, waiting',
           svgNode(dayBars({ days: [{ day: '2024-01-02', level: 'bad', done: true }], w: 10, h: 16, aria: 'A hollow full bar' })), 'held the day, since decided',
           svgNode(dayBars({ days: [{ day: '2024-01-02', level: 'unjudged' }], w: 10, h: 16, aria: 'A low hollow bar' })), 'not judged',
+          ...(tiers.length && alone === null ? [svgNode(dayBars({ days: [{ day: '2024-01-02', level: 'waited' }], w: 10, h: 16, aria: 'A dashed outline, half height' })), 'waited on another flow'] : []),
           h('span', { class: 'mh-key-none' }, 'no bar: no run')))
     : null;
 
@@ -13360,9 +13439,21 @@ function renderMonth(): void {
   }
 
   // ---- What the demo shows, where it says (ADR 0023 §4): a bar that opens its scenes.
-  const scenes = at === null ? scenesPanel(dataList?.scenes) : null;
+  const scenes = at === null && mine === null ? scenesPanel(dataList?.scenes) : null;
+  // ---- Whose month it is (ADR 0025 §5), inside a flow: the way back up, and what its month is made of.
+  const readsHere = scopeIds ? scopeIds.filter((f) => f !== mine) : [];
+  const whose = mine !== null
+    ? h('nav', { class: 'crumbs mo-crumbs', 'aria-label': 'Whose month this is' },
+        h('a', { class: 'crumb-up', href: `#month/${shown}${monthView.flow.length > 1 ? `/in/${monthView.flow.slice(0, -1).join('/')}` : ''}`, 'data-fk': 'u:up', 'aria-label': `Up to ${flowName(monthView.flow.at(-2) ?? '')}’s month` }, '‹'),
+        h('ol', { class: 'crumb-trail' },
+          h('li', {}, h('a', { href: `#month/${shown}` }, state.doc.name)),
+          ...monthView.flow.map((id, k) => (k === monthView.flow.length - 1 ? h('li', { 'aria-current': 'page' }, flowName(id)) : h('li', {}, h('a', { href: `#month/${shown}/in/${monthView.flow.slice(0, k + 1).join('/')}` }, flowName(id)))))),
+        h('p', { class: 'crumb-day' }, readsHere.length
+          ? `Its own month: by what its files and steps came to, and those of ${readsHere.map(flowName).join(', ').replace(/, ([^,]*)$/, ' and $1')}, which it reads.`
+          : 'Its own month: by what its files and steps came to.'))
+    : null;
   box.classList.toggle('mo-few', months.length === 2 || months.length === 3);
-  box.replaceChildren(head, scenes ?? '', waitPart ?? '', cards ?? '', summaryPart, calPanel, panel ?? '', logPart ?? '', healthPart ?? '', scorePart ?? '');
+  box.replaceChildren(head, whose ?? '', scenes ?? '', waitPart ?? '', cards ?? '', summaryPart, calPanel, panel ?? '', logPart ?? '', healthPart ?? '', scorePart ?? '');
   if (focused) box.querySelector<HTMLElement>(`[data-fk="${focused.replace(/"/g, '')}"]`)?.focus({ preventScroll: true });
 }
 
@@ -13424,7 +13515,8 @@ function renderLoads(): void {
   const gotVersion = loads.at >= 0 ? correctedOf(loads.at)?.got.v ?? null : null;
   box.replaceChildren(
     h('div', { class: 'dh-nav' },
-      h('a', { class: 'dh-back', href: now && monthsOf(days).length > 1 ? `#month/${now.day.slice(0, 7)}` : '#month' }, `‹ ${now && monthsOf(days).length > 1 ? monthName(now.day.slice(0, 7)) : loads.span}`),
+      // Back to the month: inside a flow, that flow's own (ADR 0025 §5).
+      h('a', { class: 'dh-back', href: `${now && monthsOf(days).length > 1 ? `#month/${now.day.slice(0, 7)}` : '#month'}${state.level.length ? `/in/${state.level.join('/')}` : ''}` }, `‹ ${now && monthsOf(days).length > 1 ? monthName(now.day.slice(0, 7)) : loads.span}`),
       h('div', { class: 'dh-step' }, step(prev, 'The day before', `‹ ${prev ? dayShort(prev) : ''}`), step(next, 'The day after', `${next ? dayShort(next) : ''} ›`))),
     now ? h('div', { class: 'dh-title' }, h('h2', {}, dayLabel(now.day)), f ? outcomeMark(outcomeOf(f).outcome, 16) : null) : '',
     (now ? lifecycleOf(now.day) : null) ?? '',
@@ -16503,8 +16595,9 @@ function routeOf(hash: string): { view: string; day: string | null; version: num
     return look ? { view: 'flow', day: look.day, version: look.version ?? null, look } : { view: homeView(), day: null, version: null };
   }
   if (name === '') return { view: homeView(), day: null, version: null };
-  // A month's own link (ADR 0024 §1, `#month/2024-03`): the month screen on that month.
-  if (name === 'month' && arg && /^\d{4}-\d{2}$/.test(arg)) return { view: 'month', day: null, version: null, month: arg };
+  // A month's own link (ADR 0024 §1, `#month/2024-03`): the month screen on that month; a flow's own month with the
+  // flows entered (ADR 0025 §5, `#month/2024-03/in/feeds`).
+  if (name === 'month') return { view: 'month', day: null, version: null, level, ...(arg && /^\d{4}-\d{2}$/.test(arg) ? { month: arg } : {}) };
   return { view: VIEWS.includes(name) ? name : 'flow', day: null, version: null };
 }
 
@@ -16537,6 +16630,8 @@ function showView(): void {
   const { view, day, version, look, month, level } = routeOf(location.hash);
   if (look) pendingLook = look;
   if (month) monthView.month = month;
+  // The month of a flow entered (ADR 0025 §5), as its link names it; any other link to the month is the whole flow's.
+  if (view === 'month') monthView.flow = trailOf(state.doc, level ?? []);
   if (state.selected || state.section) select(null);
   for (const v of VIEWS) {
     $(`view-${v}`).hidden = v !== view;

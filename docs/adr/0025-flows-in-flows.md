@@ -344,6 +344,43 @@ The slices, each with its tests, its stop sets at every size and its guide:
 the posture product itself, whose own notebooks are drawn; the state is tested in `test/levels.test.ts`. **Explore ›**
 on each output comes with slice 4; until then a dataset's row opens its card.
 
+### Slice 3: the month in tiers (2026-11-17)
+
+- **A row a flow** (`src/core/tiers.ts` `flowRows`, pure; the month screen's `flowsGroup`, `flowRow`): above the files
+  and steps, each flow the document reads and then its own flow, its bar for a day the worst any of its own files or
+  steps said (overview.ts `healthOf`), its days in words (`flowRowSaid`). A row opens to the flow's own files and steps,
+  as the month shows them for a flow that reads none, set in under it with their days lined up under the flow's.
+- **Each row in its flow** (`tierRows`): the month folds a step that reads one file alone into that file's row. Where the
+  step is another flow's (Applications conforms the Inventory's register), it is that flow's step instead, which reads
+  the file: a flow's rows are its own.
+- **A flow's own days** are its rows' own days, the rule of ADR 0024 §5 a tier up: every day a file of it held or was
+  unusual, and each day a step of it did that no file the step reads accounts for, whichever flow the file is in. A
+  flow that held or was unusual only where a file of another flow did **followed** that flow (`onlyFollowed`,
+  `followedOn`): on the tour's Fri Feb 16, HR's file breaks the one-root rule and Applications' owner chains break
+  with it, so the month says *2 of 5 held a day on their own account* and lists Applications under *2 flows that only
+  followed or waited on another*, as *held on Fri 16, following HR organisation*. This goes a step past §5 as it was
+  written, which told apart only a flow that waited: a flow whose own checks failed because the flow under it broke is
+  no more the cause than one that waited, and a step is told apart the same way already.
+- **A day it only waited** (`waited`, `waitedOn`, `onlyWaited`): no run of the day has the flow holding, and a hold of
+  another flow keeps back something it gives (every hold, where the flow publishes together). Drawn as a dashed
+  outline at half height (`dayBars`' `waited` level, viz.ts): its rows weren't out, and nothing of its own was wrong.
+  Said after the flow's own days, and not twice for a day it was unusual on.
+- **What waits for a decision names the flow** whose file or step holds (*Evidence feeds · access_reviews: Almost no
+  apps: 0*), and so does each finding of the day picked (*access_reviews file in Evidence feeds*).
+- **A flow's own month** (`#month/2024-03/in/feeds`; `monthView.flow`, `scopeFlows`, `scopeNodes`,
+  `flowMonthOutcome`): the month screen for the flow entered and every flow it reads. A day something in its scope
+  held is the day's own outcome (paused, decided and how, kept back); a day held only outside it is none of its
+  business, and is unusual, not judged or normal by what its own files and steps said, with a line that says the day
+  as a whole was held by another flow. Its counts, its sentence, its calendar, what needed a look, what waits and what
+  a held day held back (of what its scope gives) are the scope's. A flow that reads none has no tier above its files
+  and steps. The scenes and the product's score are the top flow's and aren't shown.
+- **Ways in and out**: a line at the top says whose month it is and goes back up, a month at a time; a flow's row
+  links to *Its own month ›*; a flow's card's sheet to *Its month ›*; inside a flow the day screen's way back to the
+  month is that flow's month; a day opened from a flow's month is the day screen inside that flow. The month's pager,
+  its cards and its links keep the flow.
+- **Tests**: `test/tiers.test.ts`; `dayBars`' waited bar in `test/viz.test.ts`. `tools/browser/stops/tiers.json` walks
+  it on the tour; `overview.json` and `month.json` read the rows in their tiers.
+
 ## Consequences
 
 - **A flow's document grows.** The app ships the composed document, so a page still opens one file and needs no parser.

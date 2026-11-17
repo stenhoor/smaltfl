@@ -72,6 +72,21 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
 
   A stop's `in` names the flows to enter first (`"feeds"`, `"applications/feeds"`; `""` is the top) and `flow` the flow
   whose card to open. It must report `problems: none` at every size.
+- `tiers.json`: the month in tiers (ADR 0025 §5), on the tour (same build as `overview.json`):
+  - what waits for a decision naming the flow whose file holds;
+  - March's flows as rows of days, the days the top flow only waited on Evidence feeds as outlines;
+  - February, where Applications held only where HR's file did: the flows that followed or waited, folded, each
+    saying whom;
+  - a flow's own month by its link (`#month/2024-03/in/feeds`): its counts, its calendar, the day that waits with what
+    it gives alone, no scenes and no score;
+  - a day held outside a flow (Inventory, Mon Feb 26), normal there, saying the day as a whole was held by another flow;
+  - a flow that reads none (HR organisation), with no tier above its files and steps;
+  - the ways in and out: a row's *Its own month ›*, a flow read by a flow, the line at the top going back up, a day
+    opened inside the flow, a card's *Its month ›*, the day screen's way back;
+  - the dark scheme.
+
+  A stop that stays on the month names its link each time (`"view": "month/2024-03/in/feeds", "viewFirst": true`): the
+  tour goes back to the day screen between stops. It must report `problems: none` at every size.
 - `integrity.json`: integrity in the browser (ADR 0006) on Larkspur (same build as `month.json`), the taxi's suite
   ported. It checks:
   - the first day's files, each sealed;

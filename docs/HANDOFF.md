@@ -241,7 +241,12 @@ in the question prompt, nine questions in three rounds. In the slices of ADR 002
    sheet (what holds it, what it reads, what it gives and who reads it); **Open the flow ›** or a double-click shows
    its own canvas, with a line at the top that says where you are and goes back; each level has a link
    (`#day/2024-03-27/in/feeds`). `tools/browser/stops/levels.json` walks it on the tour at every size.
-3. The month in tiers: next. 4. Exploring what a flow gives. 5. A paused day decided once, at its flow. 6. A change followed,
+3. **The month in tiers: built.** Above the files and steps, a row a flow, its bar for a day the worst any of its files
+   or steps said; a row opens to its files and steps. A flow that held only where a flow under it broke *followed*, and
+   one whose outputs another flow's hold kept back *waited* (a dashed outline): both are folded with the calm ones.
+   What waits for a decision names the flow. A flow has a month of its own (`#month/2024-03/in/feeds`): its calendar,
+   its counts and its rows, by what it and the flows it reads came to. `tools/browser/stops/tiers.json`.
+4. Exploring what a flow gives: next. 5. A paused day decided once, at its flow. 6. A change followed,
    said and tested on the days recorded. 7. The ontology's overrides. 8. Inputs and settings. 9. Building in the app (a
    catalogue, a join form). 10. The voice.
 

@@ -1937,8 +1937,9 @@ export function scoreSpark(o: { days: readonly string[]; points: readonly ScoreP
 export interface BarDay {
   day: string;
   /** none: no run, or nothing built; ok: nothing to report; unjudged: nothing to compare it with; warn: unusual; bad:
-   * held, paused or refused. */
-  level: 'none' | 'ok' | 'unjudged' | 'warn' | 'bad';
+   * held, paused or refused; waited: a flow with nothing wrong of its own, kept back by another flow's hold (ADR 0025
+   * §5). */
+  level: 'none' | 'ok' | 'unjudged' | 'warn' | 'bad' | 'waited';
   /** A bad day someone has decided since, or whose file was sent again: drawn hollow, as closed. */
   done?: boolean;
   /** What pointing at the day says. */
@@ -1948,8 +1949,9 @@ export interface BarDay {
 /**
  * A row of days as bars (ADR 0024 §4, §5): a bar a day, its height what the day came to. A day with nothing to report is
  * a low tick; an unusual one half height; a held one full height, solid while it waits and hollow once decided; a day
- * not judged a low hollow tick; a day with no run nothing at all (the missing-data convention: absence is never drawn
- * as fine). The height says it, so the row reads in grey. A week starts on a taller hair of the baseline, and `ticks`
+ * not judged a low hollow tick; a day a flow only waited on another a dashed outline at half height, since its rows
+ * weren't out and nothing of its own was wrong; a day with no run nothing at all (the missing-data convention: absence
+ * is never drawn as fine). The height says it, so the row reads in grey. A week starts on a taller hair of the baseline, and `ticks`
  * names each Monday's date under it. Each day is a column to point at or tap (`data-day`, its `title`).
  */
 export function dayBars(o: { days: readonly BarDay[]; w?: number; h?: number; pick?: string | null; ticks?: boolean; aria: string }): string {
@@ -1961,7 +1963,7 @@ export function dayBars(o: { days: readonly BarDay[]; w?: number; h?: number; pi
   const bw = Math.max(1.5, cw - gap);
   const base = bh + 1;
   const H = base + 1 + (o.ticks ? 12 : 0);
-  const height: Record<BarDay['level'], number> = { none: 0, ok: 3, unjudged: 3, warn: Math.max(6, Math.round(bh * 0.55)), bad: bh };
+  const height: Record<BarDay['level'], number> = { none: 0, ok: 3, unjudged: 3, warn: Math.max(6, Math.round(bh * 0.55)), waited: Math.max(6, Math.round(bh * 0.55)), bad: bh };
   const isMonday = (day: string) => new Date(`${day}T12:00:00Z`).getUTCDay() === 1;
   const at = o.days.findIndex((d, i) => i > 0 && isMonday(d.day));
   const firstMonday = at < 0 ? Infinity : at;
@@ -1974,7 +1976,7 @@ export function dayBars(o: { days: readonly BarDay[]; w?: number; h?: number; pi
     if (monday && i > 0) s += `<line class="db-week" x1="${f1(i * cw)}" x2="${f1(i * cw)}" y1="${f1(base - 2)}" y2="${f1(base + 3)}"/>`;
     const hgt = height[d.level];
     if (hgt > 0) {
-      const hollow = d.level === 'unjudged' || (d.level === 'bad' && d.done);
+      const hollow = d.level === 'unjudged' || d.level === 'waited' || (d.level === 'bad' && d.done);
       // A hollow bar's stroke sits inside its box, so it is as tall and as wide as a solid one.
       const inset = hollow ? 0.75 : 0;
       s += `<rect class="db db-${d.level}${d.level === 'bad' && d.done ? ' done' : ''}" x="${f1(x + inset)}" y="${f1(base - hgt + inset)}" width="${f1(Math.max(1, bw - 2 * inset))}" height="${f1(Math.max(1, hgt - 2 * inset))}" rx="${bw >= 5 ? 1.5 : 0.5}"/>`;

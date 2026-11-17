@@ -741,6 +741,7 @@ select.ch-mode.hold { color: var(--bad); } select.ch-mode.warn { color: var(--wa
 .viz .focus { fill: var(--smalt-wash); opacity: 0.7; } .viz .focus-rule { stroke: var(--smalt); stroke-width: 3; stroke-linecap: round; }
 .viz .db-ok { fill: var(--muted); } .viz .db-warn { fill: var(--warn); } .viz .db-bad { fill: var(--bad); }
 .viz .db-bad.done { fill: none; stroke: var(--bad); stroke-width: 1.5; } .viz .db-unjudged { fill: none; stroke: var(--muted); stroke-width: 1; }
+.viz .db-waited { fill: none; stroke: var(--ink-2); stroke-width: 1.2; stroke-dasharray: 2.2 1.6; }
 .viz .db-pick { fill: var(--smalt-wash); } .viz .db-week { stroke: var(--muted); stroke-width: 1; } .viz .db-hit { fill: transparent; cursor: pointer; }
 @media (min-width: 820px) {
   .posture .pv-tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); }
@@ -2016,6 +2017,13 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .mh-bars { grid-column: 1 / -1; grid-row: 2; min-width: 0; }
 .mh-said { font-size: 12.5px; color: var(--ink-2); text-align: right; overflow-wrap: anywhere; }
 .mh-row.off .mh-said { color: var(--ink); }
+/* In tiers (ADR 0025 §5): a row a flow, which opens to its own files and steps, set in from it. */
+.mh-flow-name { grid-column: 1; justify-self: start; min-height: 32px; border: 0; background: none; padding: 0; color: var(--ink); font: inherit; font-size: 13.5px; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+.mh-flow-name b { color: var(--smalt); }
+.mh-rows.fine .mh-flow-name b { font-weight: 600; }
+.mh-month { justify-self: start; display: inline-flex; align-items: center; min-height: 32px; color: var(--smalt); font-size: 13px; font-weight: 600; text-decoration: none; }
+.mo-crumbs { margin: 0; }
+.mh-inside { grid-column: 1 / -1; display: grid; gap: 12px; min-width: 0; margin: 6px 0 4px; padding: 10px 0 2px 12px; border-left: 2px solid var(--line); }
 .mh-fold { justify-self: start; min-height: 36px; border: 0; background: none; padding: 0; color: var(--smalt); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .mh-key { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 5px; margin: 0; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12px; color: var(--ink-2); }
 .mh-key svg { flex: none; margin-left: 10px; }
@@ -2051,6 +2059,8 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
   .mo-log-btn { grid-template-columns: 56px 116px minmax(0, 1fr); }
   .mo-log-what { grid-column: auto; }
   .mh-row { grid-template-columns: minmax(120px, 190px) auto minmax(0, 1fr); align-items: end; gap: 14px; }
+  /* A flow's files and steps are set in by 14 px: their names' column is as much narrower, so their days line up under the flow's. */
+  .mh-inside .mh-row { grid-template-columns: minmax(106px, 176px) auto minmax(0, 1fr); }
   .mh-bars { grid-column: auto; grid-row: auto; }
   .mh-said { padding-bottom: 1px; text-align: left; }
 }
@@ -2142,6 +2152,7 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .fl-row.fo-waits { border-style: dashed; }
 .fl-note { margin: 0; font-size: 13px; color: var(--ink-2); }
 .fl-open { justify-self: start; }
+.fl-month { display: inline-flex; align-items: center; color: var(--smalt); font-weight: 600; text-decoration: none; }
 .fl-known code { font-family: var(--mono); font-size: 11.5px; }
 .dh-life { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: 12px; }
 .dh-life li { padding: 2px 8px; border-radius: 999px; background: var(--sunk); color: var(--ink-2); }

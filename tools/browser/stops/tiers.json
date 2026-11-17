@@ -1,0 +1,223 @@
+[
+  {
+    "name": "tiers-wait",
+    "what": "What waits for a decision names the flow whose file holds (ADR 0025 §5): Evidence feeds, then the file and what it said",
+    "view": "month",
+    "viewFirst": true,
+    "element": "#view-month .mo-wait",
+    "expect": {
+      "textIn": { "#view-month .mo-wait": ["Wed Mar 27", "Evidence feeds · access_reviews: Almost no apps: 0", "Decide ›"] },
+      "count": { "#view-month .mo-wait-row": 1, "#view-month .mo-crumbs": 0 }
+    }
+  },
+  {
+    "name": "tiers-march",
+    "what": "March in tiers (ADR 0025 §5): a row a flow, its bar for a day the worst any of its files or steps said; the top flow's days it only waited on Evidence feeds drawn as outlines, said after its own; the calm flows folded",
+    "view": "month",
+    "viewFirst": true,
+    "element": "#view-month .mo-health",
+    "expect": {
+      "text": [
+        "FLOWS, FILES AND STEPS OVER MARCH 2024",
+        "Flows. 1 of 5 held a day on its own account, and 2 more were unusual on one. Open one for its files and steps.",
+        "Evidence feeds",
+        "Larkspur estate",
+        "held 3 days (Thu 21, Sat 23, Wed 27) · unusual 3 days (Thu 7, Mon 11, Mon 18) · waited on Evidence feeds 2 days (Tue 5, Wed 6)",
+        "Inventory",
+        "2 flows with nothing to report",
+        "waited on another flow"
+      ],
+      "count": {
+        "#view-month .mh-row.mh-flow": 3,
+        "#view-month .mh-row[data-row=\"flow:\"] .db-waited": 2,
+        "#view-month .mh-row[data-row=\"flow:feeds\"] .db-waited": 0,
+        "#view-month .mh-row[data-row=\"flow:feeds\"] .db-bad:not(.done)": 1,
+        "#view-month .mh-inside": 0
+      }
+    }
+  },
+  {
+    "name": "tiers-february",
+    "what": "February: two flows held a day on their own account; Applications held only where HR's file did, and the top flow was unusual only where a flow it reads held: both folded as flows that followed, each saying whom, as a step that followed a file is",
+    "view": "month/2024-02",
+    "viewFirst": true,
+    "click": "#view-month .mh-fold[data-fold=\"flows-aside\"]",
+    "element": "#view-month .mo-health",
+    "expect": {
+      "text": [
+        "Flows. 2 of 5 held a day on their own account. 2 flows only followed or waited on another. Open one for its files and steps.",
+        "HR organisation",
+        "held on Fri 16",
+        "2 flows that only followed or waited on another",
+        "Applications",
+        "held on Fri 16, following HR organisation",
+        "unusual 2 days (Fri 16, Mon 26), following HR organisation and Evidence feeds",
+        "1 flow with nothing to report"
+      ],
+      "count": { "#view-month .mh-row.mh-flow": 4, "#view-month .mh-row.mh-flow.off": 2, "#view-month .mh-fold[aria-expanded=\"true\"]": 1 }
+    }
+  },
+  {
+    "name": "tiers-own-month",
+    "what": "A flow's own month (ADR 0025 §5), by its link: Evidence feeds' March, by what its files and steps and Inventory's came to. A line says whose month it is and goes back; its counts, its calendar, the day that waits with only what it gives; no scenes and no score, which are the top flow's",
+    "view": "month/2024-03/in/feeds",
+    "viewFirst": true,
+    "full": true,
+    "element": "#view-month",
+    "expect": {
+      "text": [
+        "Larkspur estate",
+        "Evidence feeds",
+        "Its own month: by what its files and steps came to, and those of Inventory, which it reads.",
+        "WAITING FOR A DECISION · 1 DAY",
+        "25 of 31 days went out on their own, 4 with something unusual. 6 were paused for a decision: 5 published by a decision and 1 still waits.",
+        "access_reviews file in Evidence feeds Almost no apps: 0",
+        "WHAT WAITS 1 of 15 outputs: access_reviews_checked.",
+        "Flows. 1 of 2 held a day on its own account, and 1 more was unusual on one."
+      ],
+      "noText": ["WHAT THIS DEMO SHOWS", "THE GROUP’S SCORE", "Larkspur estate held"],
+      "count": {
+        "#view-month .mo-crumbs": 1,
+        "#view-month .mo-crumbs .crumb-trail li": 2,
+        "#view-month .mo-d": 31,
+        "#view-month .mo-d.oc-waiting": 1,
+        "#view-month .mo-scenes": 0,
+        "#view-month .mo-trend": 0,
+        "#view-month .mh-row.mh-flow": 2,
+        "#view-month .mo-card": 2
+      }
+    }
+  },
+  {
+    "name": "tiers-own-month-calm",
+    "what": "A day held outside a flow is none of its business: Inventory's February has Mon 26 normal, the day the MFA export was held in Evidence feeds, and its panel says the day as a whole was held by another flow before what happened to it",
+    "view": "month/2024-02/in/inventory",
+    "viewFirst": true,
+    "click": "#view-month .mo-d[data-day=\"2024-02-26\"]",
+    "element": "#view-month .mo-sum",
+    "expect": {
+      "text": [
+        "Mon Feb 26",
+        "Published: every check passed.",
+        "Nothing of Inventory held it. The day as a whole: corrected: a file sent again, and published, by another flow.",
+        "WHAT HAPPENED TO THE DAY",
+        "Held by mfa"
+      ],
+      "noText": ["corrected: version 2 of 2 published", "WHAT HELD IT"],
+      "count": { "#view-month .mo-d.oc-normal[data-day=\"2024-02-26\"]": 1, "#view-month .mo-d.oc-decided": 0, "#view-month .mo-wait-row": 0 }
+    }
+  },
+  {
+    "name": "tiers-own-month-alone",
+    "what": "A flow that reads none has no tier above its own files and steps: HR organisation's February, the day its file broke the one-root rule and was sent again, with what it held back of what HR gives",
+    "view": "month/2024-02/in/hr",
+    "viewFirst": true,
+    "click": "#view-month .mo-d[data-day=\"2024-02-16\"]",
+    "full": true,
+    "element": "#view-month",
+    "expect": {
+      "text": [
+        "Its own month: by what its files and steps came to.",
+        "28 of 29 days went out on their own. 1 was paused for a decision: 1 published by a decision.",
+        "Fri Feb 16",
+        "corrected: version 2 of 2 published",
+        "org_chain step on hr_org_units in HR organisation expectations failed: one_root (4 rows)",
+        "WHAT IT HELD BACK 1 of 4 outputs: org_chain.",
+        "FILES AND STEPS OVER FEBRUARY 2024",
+        "Incoming files. 1 of 2 held a day.",
+        "hr_org_units",
+        "held on Fri 16"
+      ],
+      "noText": ["app_owners", "Flows."],
+      "count": { "#view-month .mh-row.mh-flow": 0, "#view-month .mh-row": 1, "#view-month .mo-log-row": 1 }
+    }
+  },
+  {
+    "name": "tiers-link",
+    "what": "From the whole month to a flow's own (ADR 0025 §5): Evidence feeds' row opened, and Its own month",
+    "view": "month",
+    "viewFirst": true,
+    "clicks": ["#view-month .mh-row[data-row=\"flow:feeds\"] .mh-flow-name", "#view-month .mh-row[data-row=\"flow:feeds\"] .mh-month"],
+    "element": "#view-month .mo-crumbs",
+    "expect": {
+      "textIn": { "#view-month .mo-crumbs": ["Larkspur estate", "Evidence feeds", "Its own month"] },
+      "count": { "#view-month .mo-crumbs .crumb-trail li": 2, "#view-month .mo-trend": 0 }
+    }
+  },
+  {
+    "name": "tiers-nested",
+    "what": "Inside Evidence feeds' month, Inventory's row leads to Inventory's own, and the line at the top says the way in",
+    "view": "month/2024-03/in/feeds",
+    "viewFirst": true,
+    "clicks": ["#view-month .mh-row[data-row=\"flow:inventory\"] .mh-flow-name", "#view-month .mh-row[data-row=\"flow:inventory\"] .mh-month"],
+    "element": "#view-month .mo-crumbs",
+    "expect": {
+      "textIn": { "#view-month .mo-crumbs": ["Larkspur estate", "Evidence feeds", "Inventory", "Its own month: by what its files and steps came to."] },
+      "count": { "#view-month .mo-crumbs .crumb-trail li": 3, "#view-month .mh-row.mh-flow": 0 }
+    }
+  },
+  {
+    "name": "tiers-up",
+    "what": "The line at the top goes back up, a month at a time",
+    "view": "month/2024-03/in/feeds/inventory",
+    "viewFirst": true,
+    "clicks": ["#view-month .mo-crumbs .crumb-up", "#view-month .mo-crumbs .crumb-up"],
+    "element": "#view-month .mo-health",
+    "expect": {
+      "count": { "#view-month .mo-crumbs": 0, "#view-month .mo-trend": 1, "#view-month .mh-row.mh-flow.off": 3 }
+    }
+  },
+  {
+    "name": "tiers-open-day",
+    "what": "A day opened from a flow's own month is the day screen inside that flow (ADR 0025 §4, §5): Wed Mar 27 in Evidence feeds",
+    "view": "month/2024-03/in/feeds",
+    "viewFirst": true,
+    "clicks": ["#view-month .mo-sum .mo-open"],
+    "waitFor": "#crumbs .crumb-trail",
+    "waitForMs": 120000,
+    "expect": {
+      "state": "held",
+      "status": "^Wed Mar 27",
+      "textIn": { "#crumbs": ["Larkspur estate", "Evidence feeds", "Paused · access_reviews, 1 of 13 files"] },
+      "count": { "g.card.source": 13, "g.card[data-card=\"flow:inventory\"]": 1 }
+    }
+  },
+  {
+    "name": "tiers-from-card",
+    "what": "From a flow's card to its own month (ADR 0025 §5): its sheet's link, on the month of the day on screen",
+    "day": "Wed 27",
+    "in": "",
+    "flow": "feeds",
+    "click": "#sheet .fl-month",
+    "waitFor": "#view-month .mo-crumbs",
+    "element": "#view-month .mo-crumbs",
+    "expect": {
+      "textIn": { "#view-month .mo-crumbs": ["Larkspur estate", "Evidence feeds"], "#view-month .mo-name": ["March 2024"] },
+      "count": { "#view-month .mo-crumbs .crumb-trail li": 2 }
+    }
+  },
+  {
+    "name": "tiers-back-from-day",
+    "what": "The day screen's way back to the month, inside a flow, is that flow's own month",
+    "day": "Wed 27",
+    "in": "feeds",
+    "click": "#loads .dh-back",
+    "waitFor": "#view-month .mo-crumbs",
+    "element": "#view-month .mo-crumbs",
+    "expect": {
+      "textIn": { "#view-month .mo-crumbs": ["Evidence feeds", "Its own month"] },
+      "count": { "#view-month .mo-crumbs .crumb-trail li": 2, "#view-month .mo-trend": 0 }
+    }
+  },
+  {
+    "name": "tiers-dark",
+    "what": "The tiers in the dark scheme: the flows' rows, the outlines of the days waited",
+    "view": "month",
+    "viewFirst": true,
+    "scheme": "dark",
+    "element": "#view-month .mo-health",
+    "expect": {
+      "count": { "#view-month .mh-row.mh-flow": 3, "#view-month .mh-row[data-row=\"flow:\"] .db-waited": 2 }
+    }
+  }
+]

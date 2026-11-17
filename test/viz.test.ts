@@ -990,6 +990,16 @@ describe('a row of days as bars (dayBars; ADR 0024 §4, §5)', () => {
     expect(svg).not.toContain('db-none');
   });
 
+  it('draws a day a flow only waited on another as an outline at half height: not out, and nothing of its own wrong (ADR 0025 §5)', () => {
+    const waited = dayBars({ days: [{ day: day(1), level: 'ok' }, { day: day(2), level: 'waited' }, { day: day(3), level: 'bad' }], w: 60, h: 20, aria: 'Stock over March: waited on Orders on Sat 2' });
+    const of = (cls: string) => [...waited.matchAll(new RegExp(`<rect class="db ${cls}"[^>]* height="([\\d.]+)"`, 'g'))].map((m) => Number(m[1]));
+    expect(waited.match(/class="db db-waited"/g)).toHaveLength(1);
+    // As tall as an unusual day and never as tall as a held one: it is hollow, so its stroke sits inside its box.
+    expect(of('db-waited')).toEqual([9.5]);
+    expect(of('db-bad')).toEqual([20]);
+    expect(waited).not.toMatch(/NaN|undefined/);
+  });
+
   it('makes each day a column to tap, with what pointing at it says, and marks the day picked', () => {
     expect(svg.match(/class="db-hit" data-day="/g)).toHaveLength(14);
     expect(svg).toContain('data-day="2024-03-05"');

@@ -59,6 +59,18 @@ card** on its canvas, a second sheet behind it, with the word FLOW and the count
 - **Each level has a link**: `#day/2024-03-27/in/feeds`. The days either side keep the level.
 - A card opened from anywhere else (the day's head, the news, a scene) takes the canvas to the flow that has it.
 
+On the **month**, the flows are rows of days above their files and steps. A flow's bar for a day is the worst any of
+its files or steps said. Open a row for those files and steps.
+
+- A flow that held or was unusual only where a file of a flow under it did **followed** that flow, and says whom
+  (*held on Fri 16, following HR organisation*). A flow whose outputs another flow's hold kept back **waited**: a
+  dashed outline on that day. Both are folded with the calm flows: the flows listed are those with trouble of their
+  own.
+- **Its own month ›** on a row, or **Its month ›** on a flow's card, is the month of that flow and the flows it reads
+  (`#month/2024-03/in/feeds`): its calendar, its counts and its rows. A day held outside it is none of its business
+  there, and says so.
+- What waits for a decision names the flow whose file or step holds.
+
 ## A card's sheet
 
 Tapping a card opens its sheet, the same tabs on every card, the news first:
