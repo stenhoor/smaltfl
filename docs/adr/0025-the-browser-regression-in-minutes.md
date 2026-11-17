@@ -235,8 +235,15 @@ prompt):** `budget.engineSeconds` 1,330, the same room as before (four more Lark
 Raising it is the maintainers' (§5). The other ways were put beside it and not taken: the test of a changed flow run
 on a week of days, not a fortnight (63 engine seconds back, and a change to what the app does); or 840 held by taking
 sets and days out (the 22 sets alone are 764, so 76 engine seconds are free under it, eight Larkspur runs for eleven
-sets). CI's `browser` jobs replay every set at a size: five to nine minutes a job before, eight
-to fourteen expected now, under their limit of twenty.
+sets).
+
+**In CI** the `browser` jobs replay every set at a size: five to nine minutes of regression a job with the 22 sets,
+ten and a half to fourteen with all 33 (629 to 834 s on the first run, a third apart from one of GitHub's machines to
+the next; the session's pass 649 s). A job is stopped at thirty minutes, where it was twenty: about twice the
+slowest job, as twenty was for the 22 sets. That first run found one more thing in the tool: **the page may be at
+work for three minutes in a stop, and `follow`'s test of a changed flow takes longer than that on CI's machines** at
+the four larger sizes. A stop that says how long its own wait may take (`"waitForMs"`, which that stop always said) is
+now given that long to work; a stop that says nothing is held to three minutes, as before.
 
 ## The questions, for the maintainers
 

@@ -56,7 +56,9 @@
 //     "upload": ["sel", "file"],          optional: after the taps, choose this file (relative to the stops file) in a
 //                                         file input, and wait for the run it starts (Replace the file)
 //     "waitFor": "sel",                   optional: after the taps, wait until this shows (what a tap draws once the engine answers)
-//     "waitForMs": 240000,                optional: how long waitFor waits (default 30 s): what takes many runs to draw
+//     "waitForMs": 240000,                optional: how long waitFor waits (default 30 s): what takes many runs to draw.
+//                                         The page may be at work that long in the stop, where it is more than the
+//                                         three minutes any stop is given (a test of fourteen days on a slow machine)
 //     "reload": true,                     optional: reload the page first, keeping IndexedDB, and wait for its run
 //     "view": "runs",                     optional: show a view (#runs, #policies, ...) before capturing
 //     "viewFirst": true,                  optional: show the view before the clicks, not after
@@ -174,8 +176,9 @@ if (!['all', 'fail', 'none'].includes(SHOTS)) {
 const HOOKED = fs.readdirSync(root).some((f) => /^app\..*\.js$/.test(f) && fs.readFileSync(path.join(root, f), 'utf8').includes('__smaltflBusy'));
 // How long a wait lasts at most: in all (a run, the engine), and once the app says it isn't at work while the page
 // still is (what it started and hasn't finished: a tab that goes on computing). A page that isn't at rest by then is a
-// problem the stop reports: nothing on it should work that long with nothing asked of it. A build that doesn't say
-// when it is at work is given what every build was before, and no problem is made of it.
+// problem the stop reports: nothing on it should work that long with nothing asked of it. A stop that asks for more
+// says so ("waitForMs": what takes many runs to draw), and is given that long. A build that doesn't say when it is at
+// work is given what every build was before, and no problem is made of it.
 const HARD = 180000;
 const SOFT = HOOKED ? 30000 : 4000;
 // How long the app has to show its first run: it takes a few seconds, and one that hasn't by then never will.
@@ -394,9 +397,11 @@ function tracker() {
   let limits = [];
   // The status line's run number and state (data-run, data-state), with its words: what changed after a step.
   const status = () => p.evaluate(() => { const el = document.querySelector('#status'); return `${el?.dataset.run ?? ''}|${el?.dataset.state ?? ''}|${el?.textContent ?? ''}`; });
+  // How long the page may be at work in the stop under way: HARD, or as long as the stop says its own wait may take.
+  let hardNow = HARD;
   // The page at rest (the tracker above), and nothing it imports still on its way. It stands where fixed sleeps stood:
   // a stop waits as long as the page is at work, and no longer.
-  const idle = async (soft = SOFT, hard = HARD, still = 0) => {
+  const idle = async (soft = SOFT, hard = hardNow, still = 0) => {
     for (let round = 0; round < 4; round++) {
       const r = await p.evaluate(([s, h, q]) => window.__tour.idle(s, h, q), [soft, hard, still]).catch(() => null);
       // A wait a limit ended, not the page coming to rest: said with the stop, since it is time spent on nothing.
@@ -675,6 +680,7 @@ function tracker() {
     const had = problems.length;
     cost.stops++;
     limits = [];
+    hardNow = Math.max(HARD, stop.waitForMs ?? 0);
     try {
       // A file changed on its way to the page from now on: the page must refuse it.
       if (stop.tamper) tampered.add(stop.tamper);
@@ -874,7 +880,7 @@ function tracker() {
       // Read a moment too early? Once more, after the page has been still as long as every stop used to wait: only
       // what stays wrong is a problem.
       if (fails.length) {
-        await idle(SOFT, HARD, 250);
+        await idle(SOFT, hardNow, 250);
         ({ m, scope } = await measure(stop));
         fails = await expected(stop, m, scope, saved, kept);
       }
@@ -890,7 +896,7 @@ function tracker() {
       if (others.length || at !== NATIVE) await sizeTo(NATIVE);
       metrics.push(m);
       // A wait that a limit ended: the page never came to rest, which is a fault in it or in the stop.
-      if (HOOKED) for (const what of new Set(limits)) problems.push(`${stop.name}: the page wasn't at rest after ${what === 'the app at work' ? HARD / 1000 : SOFT / 1000} s (${what})`);
+      if (HOOKED) for (const what of new Set(limits)) problems.push(`${stop.name}: the page wasn't at rest after ${what === 'the app at work' ? hardNow / 1000 : SOFT / 1000} s (${what})`);
       const run = Number((await status()).split('|')[0] || 0);
       // On another app of the site (a stop's `page`), counted apart: a run costs what its own demo's runs cost.
       const made = Math.max(0, run - runsSeen);
