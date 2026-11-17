@@ -139,6 +139,19 @@ out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute
   - the join taken out: the notebook and the bar are gone.
 
   Its stops follow one another: what one adds, the next has. It must report `problems: none` at every size.
+- `use.json`: a flow with open inputs used under a name (ADR 0025 §11), on the tour (same build as `overview.json`):
+  - the catalogue's flow with inputs: what each use gives, what it reads of its inputs, what each use sets;
+  - the form: a dataset for each input, a value for its setting, a name, and what a use is;
+  - used on the TLS feed: its card, and its sheet with what is mapped, its setting as the flow has it, the flows it
+    reads and what it gives;
+  - used again on the WAF feed with a floor of its own and a name: the setting told from the flow's own, the flow
+    used twice;
+  - what a use gives explored; a use entered; its notebook read as a page, an input's cell with its rows;
+  - what a use gives joined to another dataset; the record's lines; the uses and the join kept across a reload; the
+    catalogue saying where the flow is used; one taken off;
+  - used on a dataset of the estate's own, and inside that use the dataset itself feeding its input; the dark scheme.
+
+  Its stops follow one another: what one adds, the next has. It must report `problems: none` at every size.
 - `voice.json`: the voice (ADR 0025 §12), on the tour (same build as `overview.json`):
   - a gold dataset's seal on a normal day: what the seal is, then *Worth its smalt.*;
   - Certificates added from the catalogue, its first day here gone out as usual: the status line says so, and the

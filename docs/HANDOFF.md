@@ -256,7 +256,8 @@ in the question prompt, nine questions in three rounds. In the slices of ADR 002
    holds, and so is its decision: each decision by load says its flow, a load held only because one it is built from
    holds carries that one's decision, and the sheet, the Decide buttons, the day's story, the month, the record and the
    audit say whose it is (`src/core/deciding.ts`). The second step, a decision carried between pages of one browser
-   that share a flow, is left for after slice 9.
+   that share a flow, isn't built: no two pages the site deploys share a flow and its files, and which page should
+   exist for it is the maintainers' to choose (Q-240; the proposal is a read flow's own page on its reader's files).
 6. **A change followed, said and tested: built** (after slice 7). A change is the flow's whose file or step it is
    about, and is made in that flow's own document too, so its hash moves with it and with the flows it reads, and no
    other (`src/core/attribute.ts`); the build and the recorder put a story's changes where they belong. A flow's card
@@ -272,7 +273,14 @@ in the question prompt, nine questions in three rounds. In the slices of ADR 002
    where its ontology comes from, lists every column a flow handles its own way, and notes it on each card of the
    column; the names form asks for the reason on a column the estate describes. `src/core/shared.ts`,
    `test/estate-ontology.test.ts`, `tools/browser/stops/overrides.json`.
-8. Inputs and settings: next.
+8. **Inputs and settings: built** (last). A flow declares open `inputs`, each with the columns it needs, and
+   `settings`, each with a default; a flow uses it under a name, `{ path, as, inputs, settings }`, mapping one of its
+   own datasets onto each input. The used flow's notebooks are read under that name: its steps named after the use,
+   each input a step that reads the needed columns of the mapped dataset, each setting the use's value. Each use is a
+   flow of the document, named and hashed apart, and a change to the flow moves every use. In the app the catalogue's
+   **Use it ›** asks for the datasets, the settings and a name; Larkspur's catalogue has *Control by unit*. A use
+   changes its inputs and settings, nothing else: its checks and steps stay as written. `src/core/reuse.ts`,
+   `test/reuse.test.ts`, `tools/browser/stops/use.json`.
 9. **Building in the app: built** (before slice 8). A flow's folder may hold a `catalogue/` of flows made already,
    which the build ships as they read (`examples/larkspur/catalogue/`: Ownership and Certificates). **Add a flow ›**
    above the canvas lists them; adding one puts its card on the canvas, runs the day with it, and its datasets can be
@@ -291,9 +299,12 @@ in the question prompt, nine questions in three rounds. In the slices of ADR 002
     of the page and the sample flows against what the wordplay never says. **Plain words**, in About this flow or
     `?plain`, leaves them out. `test/voice.test.ts`, `tools/browser/stops/voice.json`.
 
-Two readings of the maintainer's answers are ADR 0025's own, for the maintainer to correct: that testing a changed flow
-on the days recorded *informs* and does not hold the change back (§7), and that an override is written in the flow that
-makes it, marked as one, with its reason (§8).
+The choices the maintainer's answers leave open are built as proposed, for the maintainers to confirm (Q-235 to
+Q-239 in docs/OPEN_QUESTIONS.md): testing a changed flow on the days recorded *informs* and holds nothing back (§7); an
+override is written in the flow that makes it, marked with its reason (§8); two flows that hold on one day are one
+choice, recorded as a decision a flow (§6); a use's datasets are named after it and it is known by its own document's
+hash (§11); a flow or a join whose own step stops its first run is taken back at once (§10). One is open, and not
+built: which page a decision is carried to or from (Q-240).
 
 **For the maintainers to confirm: [ADR 0024](adr/0024-the-month-at-a-glance.md), the month at a glance** (2026-11-16,
 Q-219 to Q-225). The maintainer looked at the tour's month and asked for research into how such a screen is best done,

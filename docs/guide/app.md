@@ -77,6 +77,12 @@ The owner can build on the flow from the page ([ADR 0025](../adr/0025-flows-in-f
   says it was added here; each dataset it gives has **Explore ›**. **Take it off** removes it, where nothing reads
   what it gives. A flow whose own step stops its first run here is taken off again at once, and the status line says
   what stopped it.
+- **Use it ›**, on a catalogue's flow with inputs ([Flows](./flows#a-flow-used-more-than-once-inputs-and-settings)):
+  a form asks for a dataset for each input, among those the day's run built with the columns the flow needs; a value
+  for each setting, with the flow's own beside it; and a name. The use is a flow of its own: a card on the canvas, a
+  row in the month and its own hash in every run, and what it gives is named after it. **Use it again ›** makes
+  another, on other datasets or with other settings. A use's sheet says what it is a use of, what is mapped onto each
+  input and what was set here. Its steps and checks stay as the flow wrote them.
 - **A join form**, on a dataset's **Explore › How it joins**: *Join them as a new dataset ›* beside a dataset the
   ontology says it joins, or *Join it with another dataset ›*. Pick the other dataset, the key on each side, which
   rows are kept and the columns to take, and name it. The form writes the join as a cell of `joins.nb.ts`, a notebook

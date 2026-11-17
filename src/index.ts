@@ -87,10 +87,13 @@ export { DONOR_WINDOW, dayVersions, donorChoices, donorFor, donorIdOf, donorRule
 export type { Direction, DonorPick, DonorQuery, FillCounts, NoDonor, Offer, OfferInput, Repair, Version } from './core/fill.js';
 export { PLUGIN_NAME } from './core/protocol.js';
 export { expandNotebooks, joinPath, loadNotebooks, NOTEBOOK_MODULE, stepsOfNotebooks } from './core/notebook.js';
-export { composeFlow, flowProblems, pathFrom } from './core/compose.js';
+export { composeAll, composeFlow, flowProblems, pathFrom } from './core/compose.js';
 export type { FlowFiles } from './core/compose.js';
-export { flowOf, flowOwners, givesOf, readsOf } from './core/document.js';
-export type { FlowPart, FlowRef } from './core/document.js';
+export { filePath, flowOf, flowOwners, givesOf, readsOf, usedName, usePath, usesOf } from './core/document.js';
+export type { FlowPart, FlowRef, FlowUse, InputDef, SettingDef, UseSetting } from './core/document.js';
+// A flow used under a name: its inputs and its settings (ADR 0025 §11).
+export { flowUse, mapProblems, readsFill, USE_NAME, useDocument, useName, useNames, useOf, useOntologyProblems, useProblems } from './core/reuse.js';
+export type { UseSpec } from './core/reuse.js';
 export type { CellStep, DfCompiler, Expanded, ExpandOptions, NotebookRef } from './core/notebook.js';
 // One load's numbers, and a source's tail (ADR 0010 §6, E11, E12).
 export { appendPeriods, checksOf, emptyHistory, hourOf, measuresHash, measuresLeaf, measuresOf, measuresProblem, periodOf, periodOfMeasures, samePeriod, scanColumns, settingsFor, tailBefore, tailRef, SAMPLE } from './core/measures.js';

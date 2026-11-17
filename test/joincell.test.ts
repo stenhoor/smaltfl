@@ -9,7 +9,9 @@ import { emitJoin } from '../src/core/emit.js';
 import { derive } from '../src/app/derive.js';
 import { JOINS_NOTEBOOK, joinedColumns, joinProblems, joinSaid, joinsOf, withJoin, withoutJoin, type JoinSpec } from '../src/core/joincell.js';
 import { notebookSectionId } from '../src/core/notebook.js';
+import { addFlow } from '../src/core/catalogue.js';
 import { flowHash, translate } from '../src/core/plan.js';
+import { useOf } from '../src/core/reuse.js';
 import { runFlow, verifyRun } from '../src/index.js';
 import { openEngine, SMALTDB } from './helpers/engine.js';
 import { loadFlowDir, ts } from './helpers/notebooks.js';
@@ -104,6 +106,30 @@ describe('a join written into the flow', () => {
     expect(text).toContain("publish(units_with_register, { description: 'Each application’s level and hosting' });");
     expect(joinsOf(next)).toEqual(['apps_with_units', 'units_with_register']);
     expect(next.steps.find((s) => s.id === 'units_with_register')).toMatchObject({ kind: 'sql', inputs: ['apps_with_units', 'cmdb_apps'] });
+  });
+
+  it('joins what a use of a flow gives, imported under the name it has here (ADR 0025 §11)', async () => {
+    const [doc, kit] = await Promise.all([loadFlowDir(larkspur), loadFlowDir(new URL('catalogue/by_unit/', larkspur))]);
+    const use = await useOf(kit, { as: 'waf_by_unit', inputs: { feed: 'waf_checked', owners: 'app_owners' }, settings: {} }, await flowHash(kit), ts);
+    const used = addFlow(doc, use, 'catalogue/by_unit/flow.json', await flowHash(use));
+    // The WAF's units with each unit's name, from HR's units. The use's rows come from a feed a held day can fill.
+    const named: JoinSpec = { name: 'waf_units_named', left: 'waf_by_unit_units', right: 'org_units', on: [['business_unit_id', 'org_unit_id']], how: 'left', take: { left: ['business_unit_id', 'pass_share', 'behind', 'filled_from'], right: ['name'] } };
+    expect(joinProblems(used, named)).toEqual([]);
+    expect(joinProblems(used, { ...named, take: { left: ['business_unit_id', 'pass_share'], right: ['name'] } })).toEqual(['waf_by_unit_units is built from a feed a held day can fill from another day: take filled_from, so the rows that came from another day say so']);
+    const next = await derive(withJoin(used, named));
+    expect(validateDocument(next)).toEqual([]);
+    const text = next.notebooks!.find((n) => n.path === JOINS_NOTEBOOK)!.source;
+    // The cell's own name in the used flow's notebook, as the name the dataset has here.
+    expect(text).toContain("import { units as waf_by_unit_units } from './catalogue/by_unit/by_unit.nb.js';");
+    expect(text).toContain('FROM ${waf_by_unit_units} l');
+    expect(next.steps.find((s) => s.id === 'waf_units_named')).toMatchObject({ kind: 'sql', inputs: ['waf_by_unit_units', 'org_units'] });
+    // The use's own steps are read again as they were: the same ids, the same statements.
+    const stepsOf = (d: FlowDocument) => d.steps.filter((s) => s.id.startsWith('waf_by_unit_'));
+    expect(stepsOf(next)).toEqual(stepsOf(used));
+    expect(next.flows!.at(-1)).toEqual(used.flows!.at(-1));
+    // A second join on the same dataset imports it once.
+    const again = await derive(withJoin(next, { ...named, name: 'waf_units_again' }));
+    expect(again.notebooks!.find((n) => n.path === JOINS_NOTEBOOK)!.source.match(/as waf_by_unit_units/g)).toHaveLength(1);
   });
 
   it('is taken out again, and the notebook with it once nothing is left', async () => {

@@ -11,7 +11,7 @@
  * Pure: no DOM, no engine. Nothing the data is made from reads this module.
  */
 import { canonicalJSON } from './canonical.js';
-import type { CellRef, FlowDocument, FlowPart, GroupDef, NotebookDef, NotebookOutline } from './document.js';
+import { flowOf, type CellRef, type FlowDocument, type FlowPart, type GroupDef, type InputDef, type NotebookDef, type NotebookOutline, type SettingDef } from './document.js';
 import { joinPath, notebookSectionId } from './notebook.js';
 import type { Ontology, PropertyType } from './ontology.js';
 
@@ -37,6 +37,10 @@ export interface CatalogueEntry {
   /** How many files and steps are its own. */
   files: number;
   steps: number;
+  /** Its open inputs and its settings (ADR 0025 §11), where it has any: such a flow is added as a use, under a name,
+   * with a dataset mapped onto each input; what it gives is then named after the use. */
+  inputs?: InputDef[];
+  settings?: SettingDef[];
 }
 
 /** What is a flow's own in the document reading its folder gives: its sources and steps, apart from the flows it reads. */
@@ -59,6 +63,8 @@ export function entryOf(own: FlowDocument, path: string, hash: string): Catalogu
     reads: (own.flows ?? []).map((f) => ({ id: f.id, name: f.name, hash: f.hash })),
     files: mine.sources.length,
     steps: mine.steps.length,
+    ...(own.inputs?.length ? { inputs: own.inputs } : {}),
+    ...(own.settings?.length ? { settings: own.settings } : {}),
   };
 }
 
@@ -73,13 +79,15 @@ const settings = (p: FlowDocument['publish']) => {
  * Why a catalogue flow can't be added to a document (ADR 0025 §10), each in a sentence; none, and it can. It is read
  * here already; it is built on a flow this one doesn't read, or reads as another flow (by its hash); it has files of
  * its own, or watches a dataset, for which a build would have to ship data; a name of its own is taken; it keeps
- * another calendar, another day or another way of pausing; or it has policies of its own.
+ * another calendar, another day or another way of pausing; or it has policies of its own. A flow with an open input
+ * (§11) is added as a use: `own` is then the use's own document (`reuse.ts` `useOf`), under the use's name.
  */
 export function addProblems(doc: FlowDocument, own: FlowDocument): string[] {
   const out: string[] = [];
   if (!doc.notebooks) out.push(`${doc.name} isn’t written as notebooks: a flow is added to a flow that is`);
   if (own.id === doc.id) out.push(`${own.name} is this flow`);
-  if ((doc.flows ?? []).some((f) => f.id === own.id)) out.push(`${own.name} is read here already`);
+  if ((doc.flows ?? []).some((f) => f.id === own.id)) out.push(own.use ? `${own.id} is the name of a flow read here already: a use has a name of its own` : `${own.name} is read here already`);
+  if (own.inputs?.length) out.push(`${own.name} has ${own.inputs.length === 1 ? 'an open input' : 'open inputs'} (${listed(own.inputs.map((x) => x.id))}): it is added as a use, with a dataset mapped onto ${own.inputs.length === 1 ? 'it' : 'each'}`);
   if (out.length) return out;
   const mine = ownOf(own);
   for (const part of own.flows ?? []) {
@@ -177,8 +185,10 @@ export function addFlow(doc: FlowDocument, own: FlowDocument, path: string, hash
     hash,
     sources: [],
     steps: mine.steps.map((s) => s.id),
-    reads: (own.flows ?? []).filter((f) => f.direct).map((f) => f.id),
+    // The flows it lists; and, for a use (ADR 0025 §11), the flows that give the datasets mapped onto its inputs.
+    reads: [...new Set([...(own.flows ?? []).filter((f) => f.direct).map((f) => f.id), ...Object.values(own.use?.inputs ?? {}).flatMap((x) => flowOf(doc, x.to)?.id ?? [])])],
     direct: true,
+    ...(own.use ? { use: own.use } : {}),
   };
   return {
     ...doc,

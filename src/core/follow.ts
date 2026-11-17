@@ -82,11 +82,15 @@ export function flowChanges(doc: Pick<FlowDocument, 'flows' | 'changes'>, flow: 
 }
 
 /**
- * Why a change of these flows can't be made (ADR 0025 §7): a flow whose hash it would move, one the change is of or one
- * that follows it, is pinned by a flow that reads it, which reads it only as it is. In a sentence, naming the first;
- * null where none is pinned. `nameOf` names a flow, the document's own by ''.
+ * Why a change of these flows can't be made. A use of a flow (ADR 0025 §11) changes the flow's inputs and its settings
+ * and nothing else: its checks and steps stay as the flow wrote them, so a rule isn't changed on a use's datasets. And
+ * (§7) a flow whose hash the change would move, one the change is of or one that follows it, is pinned by a flow that
+ * reads it, which reads it only as it is. In a sentence, naming the first; null where the change can be made. `nameOf`
+ * names a flow, the document's own by ''.
  */
 export function pinProblem(doc: Pick<FlowDocument, 'flows'>, of: readonly string[], nameOf: (flow: string) => string): string | null {
+  const use = (doc.flows ?? []).find((f) => of.includes(f.id) && f.use);
+  if (use) return `${use.name} is a use of ${use.use!.of.name}: a use changes its inputs and its settings, and its checks and steps stay as ${use.use!.of.name} wrote them. Change ${use.use!.of.name} where it is written, and every use of it follows.`;
   const moved = new Set([...of, ...followersOf(doc, of)]);
   const part = (doc.flows ?? []).find((f) => moved.has(f.id) && f.pin?.length);
   if (!part) return null;

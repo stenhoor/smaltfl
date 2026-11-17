@@ -6,7 +6,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { smaltty } from 'smaltkit/typescript';
-import { composeFlow } from '../src/core/compose.js';
+import { composeAll, composeFlow, type FlowFiles } from '../src/core/compose.js';
 import type { ChangeSet, FlowDocument } from '../src/core/document.js';
 import { attributeChanges } from '../src/core/attribute.js';
 import { asEstate, type EstateFrom, type EstateOntology } from '../src/core/shared.js';
@@ -18,17 +18,19 @@ import { asEstate, type EstateFrom, type EstateOntology } from '../src/core/shar
  * change to a shared file, or to a flow others read, reaches every flow the next time it is read.
  */
 export async function readFlow(path: string): Promise<FlowDocument> {
-  const dir = dirname(path);
-  return composeFlow(basename(path), { json: async (p) => JSON.parse(readFileSync(join(dir, p), 'utf8')), text: async (p) => readFileSync(join(dir, p), 'utf8') }, smaltty);
+  return composeFlow(basename(path), filesIn(dirname(path)), smaltty);
 }
+
+/** A flow's files, each by its path from the flow's folder. */
+const filesIn = (dir: string): FlowFiles => ({ json: async (p) => JSON.parse(readFileSync(join(dir, p), 'utf8')), text: async (p) => readFileSync(join(dir, p), 'utf8') });
 
 /**
  * Each flow a flow reads, as its own document (ADR 0025 §2), in the order the flow lists them: the document read from
- * its own folder, whose flow hash the reading document names it by. What a run keeps beside its own document.
+ * its own folder, whose flow hash the reading document names it by; for a use of a flow (§11), the used flow read
+ * under the use's name, which no folder holds. What a run keeps beside its own document.
  */
 export async function readFlows(path: string): Promise<FlowDocument[]> {
-  const doc = await readFlow(path);
-  return Promise.all((doc.flows ?? []).map((f) => readFlow(join(dirname(path), f.path))));
+  return (await composeAll(basename(path), filesIn(dirname(path)), smaltty)).owns;
 }
 
 /**

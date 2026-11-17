@@ -49,6 +49,10 @@ export function readHere(doc: Pick<FlowDocument, 'flows'>, at: string | null = n
  * `at` null is the document's own flow, the top; a flow the document doesn't read is the top too. A document that
  * reads no flow is returned as it is. Inside a flow the arrangement is the automatic one: the document's `layout` is
  * the top level's.
+ *
+ * Inside a use of a flow (ADR 0025 §11), each dataset mapped onto one of its inputs is on the canvas: as the card of
+ * the flow that gives it, or, where it is the listing flow's own, as that dataset itself, an input of the level, so
+ * every input of a use shows where its rows come from.
  */
 export function levelDoc(doc: FlowDocument, at: string | null = null): FlowDocument {
   const parts = doc.flows ?? [];
@@ -60,10 +64,12 @@ export function levelDoc(doc: FlowDocument, at: string | null = null): FlowDocum
   const have = new Set([...doc.sources, ...doc.steps].map((x) => x.id.toLowerCase()));
   const cards = readHere(doc, here?.id ?? null).filter((f) => [...f.sources, ...f.steps].some((id) => have.has(id.toLowerCase())));
   const carded = new Set(cards.map((f) => f.id));
+  // The datasets mapped onto a use's inputs that no card here stands for: the listing flow's own, drawn as they are.
+  const given = new Map(Object.values(here?.use?.inputs ?? {}).map((x) => x.to).filter((to) => have.has(to.toLowerCase()) && ownerOf(to) !== level && !carded.has(ownerOf(to))).map((to) => [to.toLowerCase(), to]));
   // What a source or step shows as on this level: itself, the card of the flow it is in, or nothing.
   const shownAs = (id: string): string | null => {
     const o = ownerOf(id);
-    return o === level ? id : carded.has(o) ? flowCard(o) : null;
+    return o === level ? id : carded.has(o) ? flowCard(o) : given.has(id.toLowerCase()) ? id : null;
   };
   const inputs = new Map(doc.steps.map((s) => [s.id.toLowerCase(), s.inputs]));
   const cardOf = (f: FlowPart): StepDef => {
@@ -94,21 +100,25 @@ export function levelDoc(doc: FlowDocument, at: string | null = null): FlowDocum
     for (const key of read) had.add(key);
     looks.set(judged.id, had);
   }
+  // A dataset given to a use by the flow that lists it: a file as it is, a step with nothing drawn behind it.
+  const givenSteps = doc.steps.filter((s) => given.has(s.id.toLowerCase())).map((s) => ({ ...s, inputs: [] }) as StepDef);
   const steps: StepDef[] = [
     ...cards.map(cardOf),
+    ...givenSteps,
     ...ownSteps.map((s) => ({ ...s, inputs: [...new Set([...s.inputs.flatMap((i) => shownAs(i) ?? []), ...(looks.get(s.id) ?? [])])] }) as StepDef),
   ];
   const mine = new Set(steps.map((s) => s.id));
   // The level's own sections: a notebook of another flow has none of its steps here; an empty section is the top's.
   const groups = (doc.groups ?? []).flatMap((g) => {
     if (g.steps.length === 0) return here ? [] : [g];
-    const own = g.steps.filter((id) => mine.has(id));
+    // A dataset given to a use stands on its own here, as an input does: its notebook's box is the listing flow's.
+    const own = g.steps.filter((id) => mine.has(id) && !given.has(id.toLowerCase()));
     return own.length ? [{ ...g, steps: own }] : [];
   });
   // First of the sections, so the flows a level reads lead its canvas: above its own files where they share a column.
   if (cards.length) groups.unshift({ id: FLOWS_SECTION, name: 'Flows', steps: cards.map((f) => flowCard(f.id)) });
   const { layout: _layout, ...rest } = doc;
-  return { ...(here ? rest : doc), sources: doc.sources.filter((s) => ownerOf(s.id) === level), steps, groups };
+  return { ...(here ? rest : doc), sources: doc.sources.filter((s) => ownerOf(s.id) === level || given.has(s.id.toLowerCase())), steps, groups };
 }
 
 /**

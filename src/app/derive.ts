@@ -6,6 +6,16 @@ import { smaltty } from 'smaltkit/typescript';
 import type { FlowDocument } from '../core/document.js';
 import { syncRuleCells } from '../core/gatecell.js';
 import { expandNotebooks } from '../core/notebook.js';
+import { useOf, type UseSpec } from '../core/reuse.js';
+
+/**
+ * A use of a flow as its own document (ADR 0025 §11): the flow's notebooks read under the use's name, with the datasets
+ * it maps and the values it sets. `own` is the flow as its folder gives it, its inputs open (a catalogue's flow), and
+ * `hash` the hash it is known by. Throws a PlanError naming the first problem.
+ */
+export async function use(own: FlowDocument, spec: UseSpec, hash: string): Promise<FlowDocument> {
+  return useOf(own, spec, hash, smaltty);
+}
 
 /**
  * The document with its steps derived again from its notebooks as they are now. Its sections follow: a notebook's

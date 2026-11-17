@@ -20,6 +20,20 @@ export function source(id: string): Source {
   return new Source(id);
 }
 
+/** An open input of the flow (ADR 0025 §11), by its id in the flow document: `const feed = input('feed')`. */
+export class Input {
+  constructor(readonly id: string) {}
+}
+
+/**
+ * Binds a name to one of the flow's open inputs: a dataset the flow reads in place of a file of its own, with the
+ * columns the document says it needs. A `sql` cell reads it as `${feed}`. A flow that uses this one maps one of its own
+ * datasets onto it; the flow's settings are read as parameters are, `${params.floor}`, each use giving its own value.
+ */
+export function input(id: string): Input {
+  return new Input(id);
+}
+
 /** A check's settings: the rules, and how much may be dropped (0 to 1) before the run fails or holds. */
 export interface CheckOptions {
   rules: ExpectationRule[];

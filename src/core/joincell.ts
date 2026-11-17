@@ -8,8 +8,9 @@
  * Pure: no DOM, no engine, no parser. `withJoin` gives the document with its notebooks' text changed and its steps as
  * they were; deriving them again is the caller's. Nothing the data is made from reads this module.
  */
-import { FILLED_FROM, type FlowDocument, type NotebookDef } from './document.js';
+import { FILLED_FROM, filePath, type FlowDocument, type NotebookDef } from './document.js';
 import { emitJoin, type JoinColumns } from './emit.js';
+import { readsFill } from './reuse.js';
 
 const lower = (x: string) => x.toLowerCase();
 /** "A", "A and B", "A, B and C". */
@@ -39,23 +40,6 @@ function definedIn(doc: FlowDocument, id: string): string | null {
 export function joinedColumns(spec: JoinColumns): string[] {
   const taken = new Set(spec.take.left.map(lower));
   return [...spec.take.left, ...spec.take.right.map((c) => (taken.has(lower(c)) ? `${spec.right}_${c}` : c))];
-}
-
-/** Whether a dataset is built from a feed a held day can fill from another day: a fill step, or a step that reads one. */
-function readsFill(doc: FlowDocument, id: string): boolean {
-  const steps = new Map(doc.steps.map((st) => [lower(st.id), st]));
-  const seen = new Set<string>();
-  const stack = [lower(id)];
-  while (stack.length) {
-    const at = stack.pop()!;
-    if (seen.has(at)) continue;
-    seen.add(at);
-    const step = steps.get(at);
-    if (!step) continue;
-    if (step.kind === 'fill') return true;
-    stack.push(...step.inputs.map(lower));
-  }
-  return false;
 }
 
 /**
@@ -151,9 +135,13 @@ export function withJoin(doc: FlowDocument, spec: JoinSpec): FlowDocument {
   const wanted = [spec.left, spec.right].map((d) => {
     const from = definedIn(doc, d);
     const step = [...doc.sources, ...doc.steps].find((x) => lower(x.id) === lower(d))!.id;
-    return { name: step, line: `import { ${step} } from '${moduleOf(from ?? JOINS_NOTEBOOK)}';`, own: from === JOINS_NOTEBOOK };
+    // What a use of a flow gives (ADR 0025 §11) is imported from the used flow's notebook, the cell's name as the name
+    // the dataset has here: `import { big as paid_big }`.
+    const cell = Object.entries(doc.cells ?? {}).find(([k]) => lower(k) === lower(step))?.[1];
+    const named = from !== null && from.includes('#') && cell && cell.cell !== step ? `${cell.cell} as ${step}` : step;
+    return { name: step, line: `import { ${named} } from '${moduleOf(filePath(from ?? JOINS_NOTEBOOK))}';`, own: from === JOINS_NOTEBOOK };
   });
-  const imported = (name: string) => lines.some((line) => line.startsWith('import ') && new RegExp(`[{,]\\s*${name}\\s*[,}]`).test(line));
+  const imported = (name: string) => lines.some((line) => line.startsWith('import ') && new RegExp(`[{,]\\s*(?:[A-Za-z_$][\\w$]*\\s+as\\s+)?${name}\\s*[,}]`).test(line));
   const imports = [...new Set(wanted.filter((w) => !w.own && !imported(w.name)).map((w) => w.line))];
   const withImports = [...lines.slice(0, lastImport + 1), ...imports, ...lines.slice(lastImport + 1)];
   // The cell before the one that publishes; the dataset published at the end.

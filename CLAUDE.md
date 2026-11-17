@@ -548,6 +548,24 @@ release (smaltty ADR 0030).
   this flow, kept in the browser, or `?plain`), `.seal-voice` in `sealPart`. A new playful line goes in `VOICE`, never
   in the page; none on a paused day, a refused file, a decision, a hash or the audit. `test/voice.test.ts`,
   `tools/browser/stops/voice.json`.
+  Slice 8 (built last), inputs and settings: a flow declares open `inputs` (each an id and the columns it needs) and
+  `settings` (name, type, default) in its `flow.json` (`InputDef`, `SettingDef` in document.ts); its notebooks bind an
+  input with `input('id')` (`src/notebook.ts`) and read a setting as `${params.name}`. A use is a `flows` entry
+  `{ path, as, name, inputs, settings, hash }`. `src/core/reuse.ts` (in the key): `UseSpec`, `useProblems`,
+  `useOntologyProblems`, `useNames`, `renameOntology`, `flowUse`, `useDocument`, `useOf` (a use's own document: the
+  flow read under the use's name), `mapProblems` (a mapped dataset that isn't there, lacks a column or is built from a
+  fillable feed without `filled_from` taken), `readsFill`. `notebook.ts` reads a notebook for a use (`NotebookDef.use`,
+  its path ending `#<use>`; `usePath`, `filePath`, `usedName`, `usesOf` in document.ts): steps named `<use>_<cell>`,
+  an input a step over the mapped dataset's needed columns (`emitPort` in emit.ts), a setting a literal; a flow imports
+  what a use gives as `{ big as paid_big }`. `compose.ts`: `composeAll` (the document with each read flow's own
+  document), a use a `FlowPart` with `use` (`FlowUse`: `of`, `inputs`, `settings`), its hash its own document's, its
+  `reads` the flows that give what is mapped; `validateFlows` lets a use read a dataset of the flow that lists it;
+  `translate` refuses a flow with open inputs and a use's own document. The app: the catalogue's **Use it ›**
+  (`useForm`, `mappableFor`, `useNameFor`, `addOwn`), `usedDocs`/`useDoc` (a use's own document, read again by
+  `derive.js`'s `use`), `usePart` on the sheet, an input's cell on the notebook page, a kept use taken off at start
+  where the build ships another flow under its name (`loadFlow`), rule edits on a use refused (`pinProblem` in
+  follow.ts). Larkspur's catalogue has *Control by unit* (`catalogue/by_unit/`). `test/reuse.test.ts`,
+  `test/catalogue.test.ts`, `tools/browser/stops/use.json`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -633,8 +651,8 @@ release (smaltty ADR 0030).
   flow reads other flows, each a card on its reader's canvas with its day's mark, entered to see its own flow, rolled
   up into the month, in the slices of its §12: the core and Larkspur cut into five; the canvas in levels; the month in
   tiers; exploring what a flow gives; a paused day decided once, at its flow; a change followed, said and tested on the
-  days recorded; the ontology's overrides; inputs and settings; building in the app; the voice. Slices 1 to 4, 6, 7, 9
-  and 10 are built, and slice 5's first step (its §"As built", which says what each leaves for the slices after it).
+  days recorded; the ontology's overrides; inputs and settings; building in the app; the voice. Slices 1 to 4 and 6 to
+  10 are built, and slice 5's first step (its §"As built", which says what each leaves).
 
 ## Rules for this repository
 

@@ -16,7 +16,7 @@ import { canonicalJSON } from '../core/canonical.js';
 import type { ChangeSet, ContractDef, FlowDocument, GroupDef, NotebookOutline, OutlineCell, ProfileDef, RuleEdit, StepDef } from '../core/document.js';
 import { applyEdit, changesOn, inForce, resolve as resolveRules, ruleParts, rulesHash, rulesInForce, versionRules, withRuleParts, type RuleParts } from '../core/inforce.js';
 import { diffSaid, ruleVersions, rulesDiff, versionKey, versionOn, type RuleVersion } from '../core/ruleversions.js';
-import { flowOf, givesOf, GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
+import { flowOf, givesOf, GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, usedName, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
 import { notebookSectionId } from '../core/notebook.js';
 import { holdGroups, possessive, waitingOn, whoseSaid, withRoles } from '../core/deciding.js';
 import { cardFlow, flowCard, flowDay, flowHas, flowLine, flowSaid, givenBy, levelDoc, readersOfFlow, readHere, trailOf, type FlowDay, type RunSaid } from '../core/levels.js';
@@ -63,7 +63,8 @@ import { estateSaid, handlingSaid, ontologyPage, originSaid, typesShown, type Co
 import { MAX_CODES, proposalsOf, shareRange, valueCandidates, watchedFile, type Proposal } from '../core/proposals.js';
 import { applyBand, asShipped, keptOf as keptFlow, nameColumn, nameColumnThrough, restoreKept, setRule, type FlowEdit, type NameOp, type RuleInput } from '../core/flowedit.js';
 import { ownWithEdits } from '../core/attribute.js';
-import { addFlow, addProblems, takeOff, takeOffProblems } from '../core/catalogue.js';
+import { addFlow, addProblems, takeOff, takeOffProblems, type CatalogueEntry } from '../core/catalogue.js';
+import { mapProblems, USE_NAME, useName, useProblems, type UseSpec } from '../core/reuse.js';
 import { JOINS_NOTEBOOK, joinProblems, joinSaid as joinWritten, joinsOf, withJoin, withoutJoin, type JoinSpec } from '../core/joincell.js';
 import { changeFlows, flowChanges, followersOf, pinProblem, testCount, testSaid, type DayTest, type TestCount } from '../core/follow.js';
 import { estateSays, sharedOf, type EstateOntology } from '../core/shared.js';
@@ -1808,6 +1809,15 @@ function notebookCells(o: NotebookOutline): HTMLElement[] {
       parts.push(ui.root);
     } else if ((c.kind === 'source' && c.source) || (c.kind === 'step' && c.step)) {
       parts.push(flowCell(c.cell, (c.source ?? c.step)!, c.kind === 'source' ? 'source' : stepChip(c.step!, c.lang), code(c.line, c.endLine)));
+    } else if (c.kind === 'input' && c.input) {
+      // An open input (ADR 0025 §11). In a use it is the step that reads the dataset mapped onto it, with its rows;
+      // in the flow read as it is, nothing is mapped yet.
+      if (c.step) parts.push(flowCell(c.cell, c.step, 'input', code(c.line, c.endLine)));
+      else {
+        const ui = keep(makeCell({ name: c.cell, chip: 'input', kind: 'source', code: code(c.line, c.endLine), readOnly: true, maxLines: 6, label: `Cell ${c.cell}, read-only` }));
+        ui.setStatus('idle', 'open', 'a flow that uses this one maps a dataset onto it');
+        parts.push(ui.root);
+      }
     } else if (c.kind === 'gate' && c.gate) {
       const ui = keep(makeCell({ name: c.cell, chip: 'gate', kind: 'gate', code: code(c.line, c.endLine), readOnly: true, maxLines: 8, label: `Cell ${c.cell}, read-only` }));
       ui.setStatus(latest() ? 'ok' : 'idle', latest() ? '' : 'not run', `judges ${c.gate}`);
@@ -1816,7 +1826,9 @@ function notebookCells(o: NotebookOutline): HTMLElement[] {
     } else if (c.kind === 'publish' && c.publishes) {
       const ui = keep(makeCell({ name: c.cell, chip: 'publish', kind: 'publish', code: code(c.line, c.endLine), readOnly: true, maxLines: 6 }));
       ui.setStatus('ok', '');
-      ui.output.replaceChildren(h('p', { class: 'nbc-line' }, 'Publishes ', ...c.publishes.flatMap((n, i) => [i ? ', ' : '', h('b', {}, n)])));
+      // In a notebook read for a use of a flow (ADR 0025 §11), the datasets by the names they have here: the use's first.
+      const named = (n: string) => (nb?.use ? usedName(nb.use, n) : n);
+      ui.output.replaceChildren(h('p', { class: 'nbc-line' }, 'Publishes ', ...c.publishes.flatMap((n, i) => [i ? ', ' : '', h('b', {}, named(n))])));
       parts.push(ui.root);
     }
   }
@@ -2587,12 +2599,38 @@ function wirePlainWords(): void {
 // the notebook parser, loaded the first time someone builds here.
 
 type Derive = (doc: FlowDocument) => Promise<FlowDocument>;
+/** What the notebook parser's bundle gives: a document's steps derived again, and a use of a flow read under its name. */
+interface Builder {
+  derive: Derive;
+  use: (own: FlowDocument, spec: UseSpec, hash: string) => Promise<FlowDocument>;
+}
 /** The notebook parser, in a bundle of its own (`derive.js`): the page's first load never carries it. */
-let deriveLoad: Promise<Derive | null> | null = null;
-function loadDerive(): Promise<Derive | null> {
-  return (deriveLoad ??= import(/* @vite-ignore */ new URL('./derive.js', import.meta.url).href)
-    .then((m: { derive: Derive }) => m.derive)
+let builderLoad: Promise<Builder | null> | null = null;
+function loadBuilder(): Promise<Builder | null> {
+  return (builderLoad ??= import(/* @vite-ignore */ new URL('./derive.js', import.meta.url).href)
+    .then((m: Builder) => m)
     .catch(() => null));
+}
+const loadDerive = (): Promise<Derive | null> => loadBuilder().then((m) => m?.derive ?? null);
+
+/** The uses of flows made here (ADR 0025 §11), each as its own document, by the use's name: what a run keeps of it. A
+ * use kept from an earlier visit is read again from the catalogue's flow, under its name. */
+const usedDocs = new Map<string, FlowDocument>();
+/** What a use says, as its part of the document keeps it. */
+const specOfUse = (part: NonNullable<FlowDocument['flows']>[number]): UseSpec => ({
+  as: part.id,
+  name: part.name,
+  inputs: Object.fromEntries(Object.entries(part.use?.inputs ?? {}).map(([k, x]) => [k, x.to])),
+  settings: Object.fromEntries(Object.entries(part.use?.settings ?? {}).map(([k, v]) => [k, v.value])),
+});
+async function useDoc(part: NonNullable<FlowDocument['flows']>[number]): Promise<FlowDocument> {
+  const had = usedDocs.get(part.id);
+  if (had) return had;
+  const builder = await loadBuilder();
+  if (!builder || !part.use) throw new Error(`${part.name} couldn’t be read again: the notebook parser couldn’t be loaded`);
+  const own = await builder.use(await catalogueDoc(part.use.of.id), specOfUse(part), part.use.of.hash);
+  usedDocs.set(part.id, own);
+  return own;
 }
 
 /** The catalogue's flows, each as its own document, fetched and checked the first time it is asked for. */
@@ -2653,27 +2691,159 @@ async function addFromCatalogue(id: string): Promise<void> {
   if (state.running) return void setStatus('The flow is running. Add the flow when the run has ended.', true);
   try {
     const own = await catalogueDoc(id);
-    const base = baseDoc();
-    const problems = addProblems(base, own);
-    const next = problems.length ? null : addFlow(base, own, e.path, e.hash);
-    const issue = next ? validateDocument(next)[0] : undefined;
-    if (!next || issue) return void setStatus(`${e.name} can’t be added: ${problems[0] ?? issue!.message}.`, true);
-    document.querySelector('.vf-detail-wrap')?.remove();
-    const said = `Added ${e.name} from the catalogue: it gives ${listed(e.gives)}`;
-    setStatus(`${said}. Recorded; the day runs again with it.`, false);
-    await builtInto(next, said);
-    const stopped = stoppedAt(next.flows?.find((f) => f.id === id)?.steps ?? []);
-    if (stopped !== null) {
-      await builtInto(takeOff(baseDoc(), id), `Took ${e.name} off again: its first run here stopped (${stopped})`);
-      return void setStatus(`${e.name} couldn’t be added: its first run here stopped. ${stopped}. It was taken off again, and the flow runs as it did.`, true);
-    }
-    if (state.failed) return;
-    openSection(flowCard(id));
-    // Its first day here, where it went out with nothing held or unusual: said once (ADR 0025 §12).
-    if (flowDayOf(id).outcome === 'normal') setStatus(`${e.name} is on the canvas: its first day here went out as usual. ${voice('firstPass', plainWords())}`.trim(), false);
+    const why = await addOwn(e, own, e.hash, `Added ${e.name} from the catalogue: it gives ${listed(e.gives)}`);
+    if (why) setStatus(`${e.name} can’t be added: ${why}.`, true);
   } catch (err) {
     setStatus(`${e.name} couldn’t be added: ${message(err)}`, true);
   }
+}
+
+/**
+ * A flow's own document put into the flow on screen (ADR 0025 §10, §11): a catalogue's flow as it is, or a use of one
+ * under its name. Why it can't be, in a few words; null once it is added, recorded and the day has run with it. One
+ * whose own step stops its first run here is taken off again, and the record keeps both.
+ */
+async function addOwn(e: CatalogueEntry, own: FlowDocument, hash: string, said: string, columns: (dataset: string) => readonly string[] | undefined = () => undefined): Promise<string | null> {
+  const base = baseDoc();
+  const problems = [...addProblems(base, own), ...(own.use ? mapProblems(base, own.name, own.use, columns) : [])];
+  const next = problems.length ? null : addFlow(base, own, e.path, hash);
+  const issue = next ? validateDocument(next)[0] : undefined;
+  if (!next || issue) return problems[0] ?? issue!.message;
+  const id = own.id;
+  if (own.use) usedDocs.set(id, own);
+  document.querySelector('.vf-detail-wrap')?.remove();
+  setStatus(`${said}. Recorded; the day runs again with it.`, false);
+  await builtInto(next, said);
+  const stopped = stoppedAt(next.flows?.find((f) => f.id === id)?.steps ?? []);
+  if (stopped !== null) {
+    await builtInto(takeOff(baseDoc(), id), `Took ${own.name} off again: its first run here stopped (${stopped})`);
+    usedDocs.delete(id);
+    setStatus(`${own.name} couldn’t be added: its first run here stopped. ${stopped}. It was taken off again, and the flow runs as it did.`, true);
+    return null;
+  }
+  if (state.failed) return null;
+  openSection(flowCard(id));
+  // Its first day here, where it went out with nothing held or unusual: said once (ADR 0025 §12).
+  if (flowDayOf(id).outcome === 'normal') setStatus(`${own.name} is on the canvas: its first day here went out as usual. ${voice('firstPass', plainWords())}`.trim(), false);
+  return null;
+}
+
+/** The datasets a use may be given for an input (ADR 0025 §11): those the flow on screen may read itself, built by the
+ * day's run, with every column the flow needs of the input. In the document's order. */
+function mappableFor(columns: readonly string[]): string[] {
+  const theirs = new Set((state.doc.flows ?? []).flatMap((f) => f.steps).map((x) => x.toLowerCase()));
+  const has = (id: string) => {
+    const cols = state.columns.get(id);
+    return !!cols && columns.every((c) => cols.some((x) => x.toLowerCase() === c.toLowerCase()));
+  };
+  // Its own files and steps, and what a flow it lists itself publishes, or that flow's files.
+  return [...state.doc.sources.map((x) => x.id), ...state.doc.steps.map((x) => x.id)].filter((id) => visible(id) && !!nodeOf(id) && !notBuilt(id) && has(id)
+    && flowOf(state.doc, id)?.direct !== false
+    && (!theirs.has(id.toLowerCase()) || state.doc.steps.find((x) => x.id === id)?.dataset !== undefined));
+}
+
+/** A use's name from what is mapped onto its first input: `tls_checked` and `by_unit` give `tls_by_unit`, numbered where
+ * that name is a flow's already. */
+function useNameFor(e: CatalogueEntry, to: string | undefined): string {
+  const taken = new Set([state.doc.id, ...(state.doc.flows ?? []).map((f) => f.id)]);
+  const subject = (to ?? '').toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/_(checked|filled|clean)$/, '');
+  const base = `${subject ? `${subject}_` : ''}${e.id}`.replace(/^[^a-z]+/, '').slice(0, 28).replace(/_+$/, '') || 'use';
+  let name = base;
+  for (let n = 2; taken.has(name); n++) name = `${base}_${n}`;
+  return name;
+}
+
+/**
+ * The form that uses a catalogue's flow (ADR 0025 §11): a dataset for each of its inputs, a value for each of its
+ * settings and a name. The flow's steps and checks stay as written; what the use gives is named after it. It is added
+ * as a flow of its own: a card, a row in the month, a hash in every run.
+ */
+function useForm(e: CatalogueEntry): void {
+  const inputs = e.inputs ?? [];
+  const settings = e.settings ?? [];
+  const uid = `uf-${Date.now().toString(36)}`;
+  const picks = inputs.map((x) => {
+    const found = mappableFor(x.columns);
+    const select = h('select', { id: `${uid}-in-${x.id}`, class: 'uf-input', 'data-input': x.id }, ...found.map((d) => h('option', { value: d }, d))) as HTMLSelectElement;
+    return { input: x, found, select };
+  });
+  const values = settings.map((x) => {
+    const field = h('input', { type: x.type === 'text' ? 'text' : 'number', ...(x.type === 'real' ? { step: 'any' } : {}), id: `${uid}-set-${x.name}`, class: 'uf-setting', 'data-setting': x.name, value: String(x.default), autocomplete: 'off' }) as HTMLInputElement;
+    return { setting: x, field };
+  });
+  const as = h('input', { type: 'text', id: `${uid}-as`, class: 'uf-as', maxlength: '32', autocomplete: 'off', autocapitalize: 'none', spellcheck: 'false' }) as HTMLInputElement;
+  const called = h('input', { type: 'text', id: `${uid}-called`, class: 'uf-called', maxlength: '60', autocomplete: 'off' }) as HTMLInputElement;
+  const gives = h('p', { class: 'of-hint uf-gives' });
+  const err = h('p', { class: 'of-err uf-err', role: 'alert', hidden: true });
+  const go = h('button', { type: 'submit', class: 'btn primary uf-go' }, 'Use it') as HTMLButtonElement;
+  let named = false;
+  as.addEventListener('input', () => ((named = true), say()));
+  const say = () => {
+    const name = as.value.trim();
+    gives.textContent = USE_NAME.test(name) ? `What it gives is named after it: ${listed(e.gives.map((g) => `${name}_${g}`))}.` : 'Lower-case letters, digits and underscores, a letter first.';
+    called.placeholder = `${e.name}: ${name || '…'}`;
+  };
+  const rename = () => {
+    if (!named) as.value = useNameFor(e, picks[0]?.select.value);
+    say();
+  };
+  for (const pick of picks) pick.select.addEventListener('change', rename);
+  rename();
+  const none = picks.filter((x) => x.found.length === 0);
+  const form = h('form', { class: 'of-form jf-form uf-form', 'aria-label': `Use ${e.name}`, novalidate: true },
+    ...picks.map(({ input, found, select }) => h('div', { class: 'of-field' },
+      h('label', { for: select.id }, `Its input ${input.id}`),
+      input.description ? h('p', { class: 'of-hint' }, input.description) : null,
+      found.length ? select : h('p', { class: 'of-err uf-none' }, 'No dataset the day’s run built has these columns.'),
+      h('p', { class: 'of-hint' }, `It reads ${listed(input.columns)} of it, and nothing else.`))),
+    ...values.map(({ setting, field }) => h('div', { class: 'of-field' },
+      h('label', { for: field.id }, `Its setting ${setting.name}`),
+      setting.description ? h('p', { class: 'of-hint' }, setting.description) : null,
+      field,
+      h('p', { class: 'of-hint' }, `${e.name}’s own: ${String(setting.default)}.`))),
+    h('div', { class: 'of-field' }, h('label', { for: as.id }, 'Its name here'), as, gives),
+    h('div', { class: 'of-field' }, h('label', { for: called.id }, 'What it is called'), called, h('p', { class: 'of-hint' }, 'On its card and in the month. Left empty, the flow’s name and the use’s.')),
+    h('p', { class: 'of-hint uf-says' }, `Added as a flow of its own: a card on the canvas, a row in the month, and its own hash in every run, which holds ${e.name}’s. Its steps and checks stay as ${e.name} wrote them: a use changes what is mapped onto its inputs, and its settings.`),
+    err,
+    h('div', { class: 'of-acts' }, go, h('button', { type: 'button', class: 'btn quiet', onclick: () => document.querySelector('.vf-detail-wrap')?.remove() }, 'Cancel')));
+  if (none.length) go.disabled = true;
+  form.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const fail = (why: string) => {
+      err.textContent = why;
+      err.hidden = false;
+      go.disabled = false;
+    };
+    if (state.running) return fail('The flow is running. Use the flow when the run has ended.');
+    const given: Record<string, string | number> = {};
+    for (const { setting, field } of values) {
+      const text = field.value.trim();
+      const value = setting.type === 'text' ? text : Number(text);
+      if (setting.type !== 'text' && (text === '' || !Number.isFinite(value as number))) return fail(`${setting.name} is a number.`);
+      if (value !== setting.default) given[setting.name] = value;
+    }
+    const spec: UseSpec = { as: as.value.trim(), ...(called.value.trim() ? { name: called.value.trim() } : {}), inputs: Object.fromEntries(picks.map((x) => [x.input.id, x.select.value])), settings: given };
+    go.disabled = true;
+    err.hidden = true;
+    void (async () => {
+      try {
+        const def = await catalogueDoc(e.id);
+        const problems = useProblems(def, spec);
+        if (problems.length) return fail(`${problems[0]}.`);
+        const builder = await loadBuilder();
+        if (!builder) return fail('The notebook parser couldn’t be loaded, so the flow can’t be read under a name: nothing was added.');
+        const own = await builder.use(def, spec, e.hash);
+        const mapped = picks.map((x) => `${x.input.id} is ${x.select.value}`);
+        const set = Object.entries(given).map(([k, v]) => `${k} ${String(v)}`);
+        const said = `Used ${e.name} as ${spec.as}: ${listed(mapped)}${set.length ? `; ${listed(set)}` : ''}. It gives ${listed(givesOf(own))}`;
+        const why = await addOwn(e, own, await flowHash(own), said, (d) => state.columns.get(d));
+        if (why) fail(`${why}.`);
+      } catch (error) {
+        fail(`${useName(e, spec)} couldn’t be added: ${message(error)}`);
+      }
+    })();
+  });
+  openDetail(`Use ${e.name}`, 'ok', [e.description ? h('p', { class: 'vf-one' }, e.description) : null, form]);
 }
 
 /** Take a flow added here off again: where nothing reads what it gives. */
@@ -2690,6 +2860,7 @@ async function takeOffFlow(id: string): Promise<void> {
   const said = `Took ${name} off: the flow no longer reads it`;
   setStatus(`${said}. Recorded.`, false);
   await builtInto(takeOff(base, id), said);
+  usedDocs.delete(id);
 }
 
 /** Write a join as a cell (ADR 0025 §10): the notebook's text changed, the steps derived from it again by the parser,
@@ -2762,13 +2933,26 @@ function openCatalogue(): void {
   const entry = (e: (typeof entries)[number], why: string | null | undefined) => {
     const here = !!state.doc.flows?.some((f) => f.id === e.id);
     const built = e.reads.map((r) => r.name);
+    const open = (id: string) => h('button', { type: 'button', class: 'linkish cat-open', onclick: () => (document.querySelector('.vf-detail-wrap')?.remove(), openSection(flowCard(id))) }, 'Open its card ›');
+    // A flow with open inputs or settings (ADR 0025 §11) is used under a name, as often as it is wanted.
+    if (e.inputs?.length || e.settings?.length) {
+      const uses = (state.doc.flows ?? []).filter((f) => f.use?.of.id === e.id);
+      return h('article', { class: `cat-flow cat-kit${uses.length ? ' on' : ''}`, 'data-flow': e.id },
+        h('h4', {}, e.name),
+        e.description ? h('p', { class: 'cat-desc' }, e.description) : null,
+        h('p', { class: 'cat-gives' }, h('b', {}, `Each use gives ${plural(e.gives.length, 'dataset')}, named after it: `), listed(e.gives), '.'),
+        e.inputs?.length ? h('p', { class: 'cat-reads' }, `It reads what is mapped onto its ${e.inputs.length === 1 ? 'input' : `${e.inputs.length} inputs`}: ${listed(e.inputs.map((x) => `${x.id} (${listed(x.columns)})`))}. No file of its own.`) : null,
+        e.settings?.length ? h('p', { class: 'cat-reads' }, `Each use sets ${listed(e.settings.map((x) => `${x.name}, ${String(x.default)} where it says nothing`))}.`) : null,
+        ...uses.map((f) => h('p', { class: 'cat-on', 'data-use': f.id }, h('b', {}, f.id), ` · used here on ${listed(Object.values(f.use!.inputs).map((x) => x.to))}. `, open(f.id))),
+        owner ? h('button', { type: 'button', class: 'btn small primary cat-add cat-use', onclick: () => useForm(e) }, uses.length ? 'Use it again ›' : 'Use it ›')
+          : h('p', { class: 'foot' }, 'Using a flow is the owner’s: each use is part of the flow.'));
+    }
     return h('article', { class: `cat-flow${here ? ' on' : ''}`, 'data-flow': e.id },
       h('h4', {}, e.name),
       e.description ? h('p', { class: 'cat-desc' }, e.description) : null,
       h('p', { class: 'cat-gives' }, h('b', {}, `It gives ${plural(e.gives.length, 'dataset')}: `), listed(e.gives), '.'),
       h('p', { class: 'cat-reads' }, built.length ? `Built on ${listed(built)}.` : 'It reads no other flow.', e.files ? ` ${plural(e.files, 'file')} of its own.` : ' No file of its own: it is built from the day’s run.'),
-      here ? h('p', { class: 'cat-on' }, addedHere(e.id) ? 'Added here: its card is on the canvas.' : 'This flow reads it already.', ' ',
-          h('button', { type: 'button', class: 'linkish cat-open', onclick: () => (document.querySelector('.vf-detail-wrap')?.remove(), openSection(flowCard(e.id))) }, 'Open its card ›'))
+      here ? h('p', { class: 'cat-on' }, addedHere(e.id) ? 'Added here: its card is on the canvas.' : 'This flow reads it already.', ' ', open(e.id))
         : why === undefined ? h('p', { class: 'foot' }, 'Checking what it is built on…')
           : why ? h('p', { class: 'cat-why' }, `It can’t be added here: ${why}.`)
             : owner ? h('button', { type: 'button', class: 'btn small primary cat-add', onclick: () => void addFromCatalogue(e.id) }, 'Add it ›')
@@ -2777,7 +2961,7 @@ function openCatalogue(): void {
   const draw = (whys: Map<string, string | null>) => list.replaceChildren(...entries.map((e) => entry(e, whys.get(e.id))));
   draw(new Map());
   // Why each can or can't be added, once its document is here.
-  void Promise.all(entries.map(async (e): Promise<[string, string | null]> => {
+  void Promise.all(entries.filter((e) => !e.inputs?.length && !e.settings?.length).map(async (e): Promise<[string, string | null]> => {
     try {
       return [e.id, addProblems(baseDoc(), await catalogueDoc(e.id))[0] ?? null];
     } catch (err) {
@@ -2789,12 +2973,12 @@ function openCatalogue(): void {
   const made = added.length || joins.length
     ? block('Made here',
         h('ul', { class: 'cat-made' },
-          ...added.map((f) => h('li', { 'data-flow': f.id }, h('span', {}, h('b', {}, f.name), ' · a flow added from the catalogue'), owner ? h('button', { type: 'button', class: 'linkish cat-off', onclick: () => void takeOffFlow(f.id) }, 'Take it off') : null)),
+          ...added.map((f) => h('li', { 'data-flow': f.id }, h('span', {}, h('b', {}, f.name), f.use ? ` · a use of ${f.use.of.name}, from the catalogue` : ' · a flow added from the catalogue'), owner ? h('button', { type: 'button', class: 'linkish cat-off', onclick: () => void takeOffFlow(f.id) }, 'Take it off') : null)),
           ...joins.map((j) => h('li', { 'data-join': j }, h('span', {}, h('b', {}, j), ` · a join written in ${JOINS_NOTEBOOK}`), owner ? h('button', { type: 'button', class: 'linkish cat-off', onclick: () => void takeOutJoin(j) }, 'Take it out') : null))),
         h('p', { class: 'foot' }, 'Each is part of the flow as kept in this browser, and recorded. Back to the flow as shipped, on the Ontology page, takes them all away.'))
     : null;
   openDetail('Add a flow', 'ok', [
-    h('p', { class: 'vf-one' }, 'Flows made already, shipped with this build. Adding one puts its card on the canvas: it is built from the day’s run, and what it gives can be explored and joined.'),
+    h('p', { class: 'vf-one' }, 'Flows made already, shipped with this build. Adding one puts its card on the canvas: it is built from the day’s run, and what it gives can be explored and joined. A flow with inputs is used under a name, on the datasets mapped onto them, as often as it is wanted.'),
     // An empty catalogue (ADR 0025 §12): the family's line with its plain words beside it; in plain words, those alone.
     entries.length ? list : h('div', { class: 'cat-none' }, h('p', { class: 'cat-none-say' }, voice('emptyCatalogue', plainWords())), plainWords() ? null : h('p', { class: 'foot' }, voice('emptyCatalogue', true))),
     made,
@@ -3131,11 +3315,30 @@ function renderFlowSheet(id: string): void {
       h('div', { class: 'row' }, decideHere, open, itsMonth),
       addedHere(id) ? h('p', { class: 'fl-note fl-added' }, 'Added here from the catalogue: built from the day’s run, and part of the flow as kept in this browser. ',
         isOwner() ? h('button', { type: 'button', class: 'linkish fl-off', onclick: () => void takeOffFlow(id) }, 'Take it off') : null) : null,
-      integrityPart, holds, waits, look, flowChangedPart(id), reads, gives,
+      integrityPart, holds, waits, look, usePart(part, inside), flowChangedPart(id), reads, gives,
       h('p', { class: 'foot fl-known' }, `${flowHas(d)[0]!.toUpperCase()}${flowHas(d).slice(1)} of its own. `, seal === 'ok' ? 'Its files are sealed: each matches the data’s list, as the engine hashed it. ' : '', readers.length ? `Read by ${readers.map(flowName).join(', ')}. ` : '', 'Known by ', h('code', { title: part.hash }, short(part.hash)), ': the same flow, with the same hash, wherever it is read.',
         part.pin?.length ? ` Pinned by ${listed(part.pin.map(flowName))}, which ${part.pin.length === 1 ? 'reads' : 'read'} it only as it is: a change to it is refused until the pin is moved.` : '')),
   );
   sheet.hidden = false;
+}
+
+/**
+ * What a use of a flow is (ADR 0025 §11), on its sheet: the flow used, the dataset mapped onto each of its inputs, a
+ * tap from its card, and each setting with its value here, one the use changed said beside the flow's own. Then the
+ * other uses of the same flow here, and what a use may change.
+ */
+function usePart(part: NonNullable<FlowDocument['flows']>[number], inside: (card: string, label: string, said?: string) => HTMLElement): HTMLElement | null {
+  const use = part.use;
+  if (!use) return null;
+  const others = (state.doc.flows ?? []).filter((f) => f.id !== part.id && f.use?.of.id === use.of.id);
+  const settings = Object.entries(use.settings);
+  return h('section', { class: 'fl-block fl-use' }, h('h3', {}, `A use of ${use.of.name}`),
+    h('div', { class: 'fl-rows' },
+      ...Object.entries(use.inputs).map(([name, x]) => (visible(x.to) && nodeOf(x.to) ? inside(x.to, x.to, `is its input ${name}: it reads ${listed(x.columns)}`) : h('p', { class: 'fl-note' }, `Its input ${name} is ${visible(x.to) ? x.to : 'a dataset closed to you'}.`)))),
+    settings.length ? h('ul', { class: 'fl-settings' }, ...settings.map(([name, v]) => h('li', { 'data-setting': name, class: v.value === v.default ? '' : 'set' },
+      h('b', {}, name), ` ${String(v.value)}`, h('span', { class: 'fl-setting-own' }, v.value === v.default ? ` · as ${use.of.name} has it` : ` · set here; ${use.of.name}’s own is ${String(v.default)}`)))) : null,
+    h('p', { class: 'fl-note' }, others.length ? `${use.of.name} is used ${others.length + 1} times here: also as ${listed(others.map((f) => f.id))}. ` : '',
+      `Its steps and checks are ${use.of.name}’s, as written: a use changes what is mapped onto its inputs, and its settings. A change to ${use.of.name}, known by `, h('code', { title: use.of.hash }, short(use.of.hash)), ', reaches every use of it.'));
 }
 
 function openSection(id: string, focusName = false): void {
@@ -4529,6 +4732,8 @@ function forgetFlow(): void {
   }
 }
 
+/** Whether a use kept here was taken off at start, its flow being another in this build: what is kept is saved again. */
+let staleUses = false;
 function loadFlow(): void {
   let saved: unknown = null;
   try {
@@ -4538,8 +4743,31 @@ function loadFlow(): void {
     return;
   }
   const kept = restoreKept(state.doc, shippedHash, saved);
-  if (kept.state === 'kept') [state.doc, flowEdits] = [kept.doc, kept.edits];
-  else if (kept.state === 'dropped') {
+  if (kept.state === 'kept') {
+    const shipped = state.doc;
+    [state.doc, flowEdits] = [kept.doc, kept.edits];
+    // A use of a catalogue's flow (ADR 0025 §11) is of that flow as it was when it was used: its steps are the flow's
+    // as read then. Where this build ships another flow under the name, or none, no document here would hold those
+    // steps: the use is taken off, and what was made here says so. Where something made here reads what it gives,
+    // what this browser kept is dropped whole, as it is when the flow itself is another.
+    for (const part of (state.doc.flows ?? []).filter((f) => f.use && !shippedDoc.flows?.some((x) => x.id === f.id))) {
+      const now = dataList?.catalogue.find((x) => x.id === part.use!.of.id)?.hash;
+      if (now === part.use!.of.hash) continue;
+      const was = `a use of ${part.use!.of.name} as an earlier build shipped it, and this build ships ${now ? 'another' : 'none'}`;
+      const why = `${part.name} was ${was}`;
+      if (takeOffProblems(state.doc, part.id).length) {
+        const n = flowEdits.length;
+        [state.doc, flowEdits] = [shipped, []];
+        forgetFlow();
+        flowDropped = { edits: n, why };
+        flowReason = `${plural(n, 'change')} kept in this browser ${n === 1 ? 'was' : 'were'} dropped: ${why}`;
+        return;
+      }
+      state.doc = takeOff(state.doc, part.id);
+      flowEdits = [...flowEdits, { at: new Date().toISOString(), said: `Took ${part.name} off: it was ${was}. Use it again from the catalogue` }];
+      staleUses = true;
+    }
+  } else if (kept.state === 'dropped') {
     forgetFlow();
     flowDropped = { edits: kept.edits.length, why: kept.why };
     // The record last saw the edited flow: the next run's flow entry says why it is the shipped one again.
@@ -4570,7 +4798,12 @@ function followEdits(): Promise<void> {
       const had = came.get(part.id);
       const listed = dataList?.catalogue.find((x) => x.id === part.id);
       if (had?.doc) base.push({ doc: had.doc, hash: had.hash });
-      else if (listed) base.push({ doc: await catalogueDoc(part.id), hash: listed.hash });
+      // A use made here (ADR 0025 §11): the catalogue's flow read under its name, as it was when it was added.
+      else if (part.use && dataList?.catalogue.some((x) => x.id === part.use!.of.id)) {
+        const own = await useDoc(part).catch(() => null);
+        if (!own) return;
+        base.push({ doc: own, hash: await flowHash(own) });
+      } else if (listed) base.push({ doc: await catalogueDoc(part.id), hash: listed.hash });
       else return;
     }
     await estateDocs.catch(() => []);
@@ -5412,13 +5645,19 @@ function notebookSummary(ids: readonly string[]): HTMLElement {
     const total = got.reduce((a, x) => a + (x.facts.ms ?? 0), 0);
     const dropping = got.filter((x) => lostOf(x) > 0);
     const max = Math.max(1, ...got.map((x) => Math.max(x.facts.rowsOut ?? 0, ...(x.facts.inputs.map((i) => i.rows ?? 0)))));
-    const head = `${plural(got.length, 'step')} ran${total ? ` in ${msSaid(total)}` : ''}. ${dropping.length ? `${dropping.map((x) => `${x.id} left out ${fmtInt(lostOf(x))}`).join('; ')}.` : 'No step left a row out.'}`;
+    // In a notebook read for a use of a flow (ADR 0025 §11) every step's name starts with the use's: a step is called
+    // here as its cell is, which is what tells them apart in the room a row has.
+    const called = (id: string): string => {
+      const ref = state.doc.cells?.[id];
+      return ref && ref.notebook.includes('#') ? ref.cell : id;
+    };
+    const head = `${plural(got.length, 'step')} ran${total ? ` in ${msSaid(total)}` : ''}. ${dropping.length ? `${dropping.map((x) => `${called(x.id)} left out ${fmtInt(lostOf(x))}`).join('; ')}.` : 'No step left a row out.'}`;
     box.replaceChildren(h('h3', { class: 'sv-sum-h' }, 'What the steps did today'), h('p', {}, head),
       h('ol', { class: 'sv-rows' }, ...got.map((x) => {
         const out = x.facts.rowsOut ?? 0;
         const lost = lostOf(x);
         return h('li', {}, h('button', { type: 'button', class: 'sv-row', onclick: () => openTab(x.id, 'happened'), 'aria-label': `${x.id}: ${x.story.head}` },
-          h('span', { class: 'sv-name' }, x.id),
+          h('span', { class: 'sv-name' }, called(x.id)),
           h('span', { class: 'sv-bar', 'aria-hidden': 'true' }, h('span', { class: 'on', style: `width:${((out / max) * 100).toFixed(1)}%` }), lost ? h('span', { class: 'lost', style: `width:${((lost / max) * 100).toFixed(1)}%` }) : null),
           h('span', { class: 'sv-n' }, `${fmtInt(out)}${lost ? ` · −${fmtInt(lost)}` : ''}`),
           h('span', { class: 'sv-ms' }, x.facts.status === 'reused' ? 'reused' : x.facts.ms != null ? msSaid(x.facts.ms) : 'inside')));
@@ -17915,6 +18154,7 @@ async function start(): Promise<void> {
   loadFlow();
   // The rules before any change set, and the change sets, kept apart from the document on screen (ADR 0021 §5).
   takeRules(state.doc);
+  if (staleUses) saveFlow();
   // Each flow it reads as the edits kept here leave its own document (ADR 0025 §7): what the first run keeps.
   void followEdits();
   loadArrangement();

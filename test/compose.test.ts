@@ -175,7 +175,7 @@ publish(top);`),
     const doc = await read(reports);
     expect(doc.flows!.map((f) => [f.id, f.pin ?? null])).toEqual([['orders', ['sales']], ['sales', null]]);
     for (const bad of [{ path: 'orders/flow.json' }, { path: 'orders/flow.json', hash: 'abc' }, { path: 'orders/flow.json', hash, also: 1 }, 7]) {
-      expect(await refused({ ...SALES, 'flow.json': { ...SALES['flow.json'], flows: [bad] } })).toMatch(/flows is a list of the flows this one reads, each by the path of its flow\.json, or \{ path, hash \}/);
+      expect(await refused({ ...SALES, 'flow.json': { ...SALES['flow.json'], flows: [bad] } })).toMatch(/flows is a list of the flows this one reads, each by the path of its flow\.json; or \{ path, hash \}/);
     }
   });
 });

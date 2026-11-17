@@ -702,6 +702,16 @@ export function emitKeptCell(dataset: string, picks: readonly RowPick[]): string
   return `SELECT *\nFROM ${dataset}${picks.length ? `\nWHERE ${picks.map(plain).join('\n  AND ')}` : ''}`;
 }
 
+/**
+ * What a use of a flow reads of the dataset mapped onto one of its inputs (ADR 0025 §11): the columns the flow needs,
+ * by name, and no other. So a flow reads of an input what it declares, a column the dataset lacks stops the run at
+ * this step by name, and the flow's own steps never learn which dataset they were given. `ref` writes the dataset
+ * where it is read, as a notebook's cell names one.
+ */
+export function emitPort(columns: readonly string[], dataset: string, ref: (dataset: string) => string = (d) => q(d)): string {
+  return `SELECT ${columns.map((c) => q(c)).join(', ')}\nFROM ${ref(dataset)}`;
+}
+
 /** A join as a form gives it (ADR 0025 §10): two datasets, the key on each side, which rows are kept and the columns
  * taken. */
 export interface JoinColumns {

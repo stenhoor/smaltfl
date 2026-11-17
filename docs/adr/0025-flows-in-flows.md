@@ -471,9 +471,8 @@ never one or another. A step the engine folds into the next has no Explore tab: 
   tour's answer key holds every recorded decision to its flow (`test/larkspur-tour.test.ts`).
 
 **What it leaves:** where two flows lead on one day, the one choice decides both, each recorded as its own flow's; no
-day of the demos has two. The second step, between pages of one browser that share a flow, comes after the slices
-that build flows from flows: the records already share one IndexedDB and a record's origin names its flow, so a
-reading flow's record will cite the decision it carried by that origin, its seq and its leaf.
+day of the demos has two. The second step, between pages of one browser that share a flow, isn't built: it needs a
+second page that shares a flow and its files, which no page of the site does (Q-240, §"Not built").
 
 ### Slice 6: a change followed, said and tested (2026-11-17)
 
@@ -590,7 +589,7 @@ Built before slice 6: a flow read on its own needs its ontology before a change 
   here* and says whose handling it would be (the flow that owns the file); saved, the file's own entry is the flow's
   override with that reason (`ColumnChange.override`, `nameColumn`), carried to the datasets that pass the column on
   where the estate describes it there too (`nameColumnThrough`'s `described`). A name saved with no reason is asked
-  for one. The record's line says *…, its own way: <reason>*.
+  for one. The record's line says *…, its own way:* and the reason.
 - **Tests**: `test/estate-ontology.test.ts` (the shape, the vector, what a flow takes, the refusals, hashes that move
   only where they should, Larkspur's five flows), `test/ontologypage.test.ts` (the handlings and the cards' notes),
   `test/flowedit.test.ts` (the mark made, reworded and carried). `tools/browser/stops/overrides.json` walks the page on
@@ -684,7 +683,7 @@ Built before slice 8: adding a flow as it is comes before adding one with its in
 **What it leaves:**
 
 - A catalogue flow has no file of its own and no watch: its data would have to be made and shipped by the build. One
-  with inputs to map (slice 8) is added with a form.
+  with inputs to map is added with a form (slice 8).
 - The join form writes one key pair from its selects; a second pair is written in the cell by hand. It doesn't warn
   of a key that repeats on the other side beyond saying so: **How it joins** counts it.
 - A cell isn't edited in the page yet. The parser is there now, so it can be.
@@ -713,6 +712,101 @@ Built with slice 9, whose screens two of its three lines are said on.
   page says the lines through `voice()` alone). `tools/browser/stops/voice.json` on the tour (the seal on a normal day,
   the first pass, nothing on a held day, plain words) and `alone.json`'s empty catalogue on the control estate.
 
+### Slice 8: inputs and settings (2026-11-17)
+
+Built last: the catalogue (slice 9) is where a flow with inputs is used from the page. The maintainer's answer on a
+flow reused "slightly differently" (Q-228): what a flow may change about a flow it reads is its inputs and its
+settings, nothing else.
+
+- **A flow declares what is open.** In its `flow.json`, `inputs`: each a dataset it reads in place of a file of its
+  own, by an id, with the columns it needs; and `settings`: each a value with a type and a default. In its notebooks,
+  `const feed = input('feed')` binds a name to an input (`smaltfl/notebook`), read in SQL as a file is, and
+  `${params.floor}` reads a setting where the document declares `floor` as one. A setting is declared in the notebook
+  as a parameter is, so the notebook still runs on its own in smaltnb, with the defaults. A name is a parameter, the
+  same for every flow in a run, or a setting, each use's own.
+- **A use** is an entry of a flow's `flows`:
+  `{ "path": "kit/tally/flow.json", "as": "paid", "inputs": { "rows": "orders_checked" }, "settings": { "floor": 25 } }`,
+  with an optional `name` for the screen and an optional `hash`, which pins the flow used. It maps one of the reading
+  flow's datasets onto each input: one of its own, a file, or what a flow it lists publishes.
+- **The flow's notebooks are read under the use's name** (`notebook.ts`; `NotebookDef.use`, the notebook's path then
+  ending in `#<use>`), the same text for every use:
+  - each step is named after the use: `paid_by_status`, `paid_big`;
+  - each input is a step, `paid_rows`, that reads the columns the flow needs of the dataset mapped onto it and no
+    other (`emitPort` in `emit.ts`). So a flow reads of an input what it declares, a column the dataset lacks stops the
+    run at that step by name, and no plan or runtime learns what an input is;
+  - each setting is the use's value, written into the statement as a literal of its type (`literal`, as a parameter's
+    is at translation).
+
+  The flow's steps and checks are as written. What its ontology says of its own datasets (what a column means there,
+  what its rows are called, what its rows are) it says of the use's (`renameOntology`), and so do its contracts.
+- **Each use is named and hashed apart.** A use is a flow of the document, a `FlowPart` whose `use` says what it is a
+  use of, by id, name and hash, what is mapped onto each input and each setting's type, value and default
+  (`FlowUse`). So it has a card, a row in the month and its own days, like any flow read.
+  - Its hash is the flow hash of its own document (`useOf`, `reuse.ts`): the flow's document under the use's name,
+    which holds the hash of the flow used. Two uses of one flow have two hashes; a change to the flow moves both, and
+    no other flow's. No new hash encoding: it is `flow/1` over a document.
+  - A run names each use among the flows it read (`manifest.flow.reads`) and keeps its own document, and verify's
+    `flows` check holds the run's document to it, as for any flow (`composeAll` gives the own documents; a use's is
+    held by no folder).
+  - A use's own document reads datasets it doesn't hold: it is valid, hashed, kept and compared, and never translated
+    alone, and neither is a flow with an open input (`translate` refuses both in a sentence).
+- **What a use reads.** The flows that give the datasets mapped onto its inputs are the flows it reads (`reads`), so
+  its card is joined to theirs, and it waits where they hold. What may be mapped is what the flow that lists the use
+  may read itself (`validateFlows`): a dataset of its own, published or not, or what a flow it lists publishes, or
+  that flow's files. A flow lists every flow it reads from, and a use is no way round that: a dataset of a flow two
+  flows down is mapped once the lister lists that flow.
+  Inside a use, every input shows where its rows come from (`levelDoc`): the flow that gives the mapped dataset as a
+  card, or, where it is the listing flow's own, that dataset itself.
+  A flow reads what a use gives by the name it has there: `import { big as paid_big } from './kit/tally/tally.nb.js'`,
+  the alias saying which use. A flow that uses a flow may itself be read by another: its use is then a flow of the
+  reader's document, a flow down, and what it gives is the listing flow's to pass on.
+- **Refused, each in a sentence** (`useProblems`, `useOntologyProblems`, `mapProblems`): a name that isn't one or is
+  taken; an input with nothing mapped, or one the flow doesn't have; a setting the flow doesn't have, or a value not
+  of its type; a dataset that isn't there, or lacks a column the flow needs (where the columns are known); a flow with
+  an open input listed as it is; and a dataset built from a feed a held day can fill, mapped onto an input that
+  doesn't take `filled_from`: what the use gives couldn't say which rows came from another day (ADR 0009 amendment 1).
+- **In the app** (`useForm`, `addOwn`, `usePart` in `main.ts`): the catalogue lists a flow with inputs with what each
+  use gives, what it reads of its inputs and what each use sets, and **Use it ›**. The form offers, for each input, the
+  datasets the day's run built that have its columns; a field for each setting, with the flow's own value; and a name,
+  after which what it gives is named. The use is made by the notebook parser the page loads to build (`derive.js`'s
+  `use`), added as a catalogue's flow is, recorded in words (*Used Control by unit as waf_by_unit: feed is waf_checked
+  and owners is app_owners; floor 99.5. It gives …*), kept in the browser, and taken off the same way. **Use it again ›**
+  makes another. A use's sheet says what it is a use of, the dataset mapped onto each input, a tap from its card, each
+  setting with a value set here told from the flow's own, the other uses of the same flow, and what a use may change.
+  Its notebook reads as a page: the flow's text, with this use's steps and rows.
+- **Its checks and steps stay as written, in the app too.** A change to the rules of a use's datasets is refused,
+  saying whose they are (`pinProblem` in `follow.ts`). A use kept in a browser is of the flow as it was when it was
+  used: where a later build ships another flow under the name, the use is taken off at start, and the list of what
+  was made here says so.
+- **Larkspur's catalogue has one**: *Control by unit* (`examples/larkspur/catalogue/by_unit/`). One control's evidence
+  told by business unit: how many of each unit's applications pass and fail it, the units under a floor (90 percent,
+  a setting) and the failing applications. Its inputs are an evidence feed (`app_id`, `status`, `filled_from`) and the
+  owners (`app_id`, `name`, `business_unit_id`, `lifecycle`): it names no dataset of the estate.
+- **From the package**: `composeAll` beside `composeFlow`, `useOf`, `useProblems`, `mapProblems` and the rest of
+  `reuse.ts`, and the document's `FlowUse`, `InputDef` and `SettingDef`: what a host needs to read a flow with uses
+  and keep each use's own document with a run.
+- **Nothing that was there moved.** Every example flow, read by the code before and after, has the same flow hash, the
+  same plan and the same hashes for the flows it reads (computed both ways and compared). The demos' data is made
+  again all the same, since what it is keyed by includes the code that reads a flow.
+- **Tests**: `test/reuse.test.ts` (a small estate where one flow is used twice, once on a read flow's dataset and once
+  on a step of its own: the document, each use's own document and hash, the ontology, the canvas in levels, the run
+  through the engine with its manifest and verify, a column the mapped dataset lacks, every refusal, the fill mark, a
+  flow with settings and a file of its own, a rule not changed on a use, and a flow that uses a flow read by another);
+  `test/catalogue.test.ts` (*Control by unit* used twice on a day of Larkspur, through the engine: each use's units
+  and failing applications counted against the day's own, the floor telling them apart, and a use made in the page
+  hashing as the same use listed in the estate's `flow.json` does). `tools/browser/stops/use.json` walks it on the tour
+  at every size.
+
+**What it leaves:**
+
+- A flow used under a name has no file of its own, reads no flow of its own, watches nothing and has no dated change:
+  each is refused. So a use has no history of its own to be judged by yet, and a flow that needs another flow's dataset
+  takes it as an input.
+- An input's columns are names: their types aren't declared or checked.
+- A setting is read in SQL cells. A check's rules are text, and don't read one.
+- A use's inputs and settings aren't changed in place in the app: take it off and use it again.
+- What a read flow's use gives is read by the flow that lists the use, which passes it on in a step of its own.
+
 ## Consequences
 
 - **A flow's document grows.** The app ships the composed document, so a page still opens one file and needs no parser.
@@ -726,6 +820,13 @@ Built with slice 9, whose screens two of its three lines are said on.
 
 ## Not built, and why
 
+- **§6's second step: a decision carried between pages that share a flow** (Q-240). Inside one page a decision says
+  whose it is and is made once, at the flow that holds (slice 5). Between pages it needs two pages of one browser that
+  share a flow *and its files*, and the site deploys none: the tour and the planted month are one flow on different
+  files, under one record already, and the estate and the sign-ins read no flow. The first thing it needs is such a
+  page, which is the maintainers' to choose; the proposal is a read flow's own page on its reader's files. The records
+  share one IndexedDB and each names its flow, so the reader's record would cite the decision it carried by the other
+  record's origin, its seq and its leaf.
 - **A flow run on its own and read by another** (a join against what another flow published in its own runs, held where
   the producer holds). §1 runs a read flow inside its reader. Both are wanted in time; this is the first, since every
   part of it has a precedent, and §6's second step is the bridge to the other.
@@ -746,3 +847,15 @@ Asked through the question prompt, 2026-11-17, in three rounds of three (docs/OP
 - **Q-232:** the demo: Larkspur cut into flows.
 - **Q-233:** the name: a flow.
 - **Q-234:** the playful voice: success and empty screens, and the sample estate.
+
+Built as proposed, for the maintainers to confirm:
+
+- **Q-235:** testing a change on the days recorded informs, and holds nothing back.
+- **Q-236:** a flow's own handling of a column is written in that flow, marked with its reason.
+- **Q-237:** where two flows hold on one day, one choice is recorded as a decision a flow.
+- **Q-238:** a use's datasets are named after it, and it is known by the hash of its own document.
+- **Q-239:** a flow or a join whose own step stops its first run is taken back at once.
+
+Open:
+
+- **Q-240:** which page a decision is carried to or from (§6's second step, not built).

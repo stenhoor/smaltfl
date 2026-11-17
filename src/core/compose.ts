@@ -12,6 +12,11 @@
  * - **One calendar, one day, one way of pausing.** A flow and the flows it reads keep the same calendar, parameters and
  *   publish settings; each brings its own watches. Policies are the reading flow's.
  *
+ * - **Reused a little differently** (ADR 0025 §11, `reuse.ts`). A flow may be listed as a use: by its path, a name
+ *   (`as`), the dataset mapped onto each of its open inputs and the settings it gives a value. Its notebooks are read
+ *   under that name, so each use is a flow of the document with its own steps and its own hash, which holds the used
+ *   flow's. One flow used twice is two flows here, and one definition on disk.
+ *
  * What one flow may read of another (its published datasets, and its files) is the document's own rule, checked by
  * `validateDocument`, so a composed document is checked wherever it is read. Pure: the caller reads the files.
  */
@@ -22,6 +27,7 @@ import { syncRuleCells } from './gatecell.js';
 import { expandNotebooks, joinPath, loadNotebooks, type ExpandOptions, type NotebookRef } from './notebook.js';
 import type { Ontology } from './ontology.js';
 import { flowHash, PlanError } from './plan.js';
+import { mapProblems, renameOntology, useNames, useOf, useOntologyProblems, useProblems, type UseSpec } from './reuse.js';
 import { asEstate, estateHash, importOntologies, isEstate, isOverride, overrideProblems, takeEstate, type EstateFrom, type EstateOntology } from './shared.js';
 
 /** How a flow's files are read: each by its path from the folder of the flow asked for. */
@@ -42,6 +48,9 @@ interface Raw {
   reads: string[];
   /** The flows it pins (ADR 0025 §7): the hash it reads each as, by the same paths. Reading refuses any other. */
   pins: Map<string, string>;
+  /** The flows it uses under a name (ADR 0025 §11): each by the used flow's path, with what the use maps and sets, and
+   * the hash it pins the used flow at, where it does. */
+  uses: { path: string; spec: UseSpec; pin: string | null }[];
   /** The estates' ontologies it imports (ADR 0025 §8), by their paths from the same folder: taken once its steps are
    * known, since what a flow takes is what is about its datasets. */
   estates: RawEstate[];
@@ -73,6 +82,15 @@ const fail = (path: string, message: string): never => {
  * that reads none is read as it always was. Throws a PlanError naming the first problem.
  */
 export async function composeFlow(path: string, files: FlowFiles, ts: TypeScriptKit, options: ExpandOptions = {}): Promise<FlowDocument> {
+  return (await composeAll(path, files, ts, options)).doc;
+}
+
+/**
+ * A flow read from its folder (`composeFlow`), with the own document of each flow it reads, in the order its `flows`
+ * list them (ADR 0025 §2): what a run keeps beside its own document. A flow read as it is has the document its own
+ * folder gives; a use (§11) has the used flow read under its name, which no folder holds.
+ */
+export async function composeAll(path: string, files: FlowFiles, ts: TypeScriptKit, options: ExpandOptions = {}): Promise<{ doc: FlowDocument; owns: FlowDocument[] }> {
   const raws = new Map<string, Promise<Raw>>();
   const raw = (p: string): Promise<Raw> => {
     let got = raws.get(p);
@@ -80,13 +98,25 @@ export async function composeFlow(path: string, files: FlowFiles, ts: TypeScript
       got = (async () => {
         const dir = dirOf(p);
         const read = (await files.json(p)) as FlowDocument & { notebooks?: NotebookRef[]; flows?: unknown };
-        // The flows it lists: each by the path of its flow.json, or by that path and the hash it is read as (a pin).
-        const pinned = (f: unknown): f is { path: string; hash: string } => typeof f === 'object' && f !== null && !Array.isArray(f) && Object.keys(f).every((k) => k === 'path' || k === 'hash')
-          && typeof (f as { path?: unknown }).path === 'string' && (f as { path: string }).path !== '' && typeof (f as { hash?: unknown }).hash === 'string' && /^[0-9a-f]{64}$/.test((f as { hash: string }).hash);
-        if (read.flows !== undefined && (!Array.isArray(read.flows) || read.flows.some((f) => !(typeof f === 'string' && f !== '') && !pinned(f)))) {
-          fail(p, 'flows is a list of the flows this one reads, each by the path of its flow.json, or { path, hash } to read it only as the flow that hash names (a pin)');
+        // The flows it lists: each by the path of its flow.json; or by that path and the hash it is read as (a pin); or,
+        // a use (ADR 0025 §11), by that path, a name, the dataset mapped onto each input and the settings it sets.
+        const record = (f: unknown): f is Record<string, unknown> => typeof f === 'object' && f !== null && !Array.isArray(f);
+        const hash = (v: unknown) => v === undefined || (typeof v === 'string' && /^[0-9a-f]{64}$/.test(v));
+        const pinned = (f: unknown): f is { path: string; hash: string } => record(f) && Object.keys(f).every((k) => k === 'path' || k === 'hash')
+          && typeof f.path === 'string' && f.path !== '' && f.hash !== undefined && hash(f.hash);
+        const strings = (v: unknown) => record(v) && Object.values(v).every((x) => typeof x === 'string');
+        const values = (v: unknown) => record(v) && Object.values(v).every((x) => typeof x === 'string' || (typeof x === 'number' && Number.isFinite(x)));
+        const used = (f: unknown): f is { path: string; as: string; name?: string; inputs?: Record<string, string>; settings?: Record<string, string | number>; hash?: string } =>
+          record(f) && Object.keys(f).every((k) => ['path', 'as', 'name', 'inputs', 'settings', 'hash'].includes(k)) && typeof f.path === 'string' && f.path !== '' && typeof f.as === 'string'
+          && (f.name === undefined || (typeof f.name === 'string' && f.name !== '')) && (f.inputs === undefined || strings(f.inputs)) && (f.settings === undefined || values(f.settings)) && hash(f.hash);
+        if (read.flows !== undefined && (!Array.isArray(read.flows) || read.flows.some((f) => !(typeof f === 'string' && f !== '') && !pinned(f) && !used(f)))) {
+          fail(p, 'flows is a list of the flows this one reads, each by the path of its flow.json; or { path, hash } to read it only as the flow that hash names (a pin); or { path, as, inputs, settings } to use it under a name, with the dataset mapped onto each of its inputs and the settings it gives a value');
         }
-        const listed = ((read.flows as (string | { path: string; hash: string })[] | undefined) ?? []).map((f) => (typeof f === 'string' ? { path: joinPath(dir, f), hash: null } : { path: joinPath(dir, f.path), hash: f.hash }));
+        const entries = (read.flows as unknown[] | undefined) ?? [];
+        const listed = entries.flatMap((f) => (typeof f === 'string' ? [{ path: joinPath(dir, f), hash: null as string | null }] : pinned(f) ? [{ path: joinPath(dir, f.path), hash: f.hash as string | null }] : []));
+        const uses = entries.flatMap((f) => (typeof f !== 'string' && !pinned(f) && used(f)
+          ? [{ path: joinPath(dir, f.path), spec: { as: f.as, ...(f.name !== undefined ? { name: f.name } : {}), inputs: f.inputs ?? {}, settings: f.settings ?? {} }, pin: f.hash ?? null }]
+          : []));
         const { flows: _flows, ...own } = read;
         // What it imports: an estate's ontology is set aside until its steps are known; a starting file's joins its own.
         const seen = new Map<string, Promise<unknown>>();
@@ -118,7 +148,7 @@ export async function composeFlow(path: string, files: FlowFiles, ts: TypeScript
         }
         const imported = await importOntologies(mine, json);
         const doc = (await loadNotebooks(imported as FlowDocument & { notebooks?: NotebookRef[] }, (q) => files.text(joinPath(dir, q)))) as FlowDocument;
-        return { path: p, dir, doc, reads: listed.map((f) => f.path), pins: new Map(listed.filter((f) => f.hash !== null).map((f) => [f.path, f.hash!] as const)), estates };
+        return { path: p, dir, doc, reads: listed.map((f) => f.path), pins: new Map(listed.filter((f) => f.hash !== null).map((f) => [f.path, f.hash!] as const)), uses, estates };
       })();
       raws.set(p, got);
     }
@@ -134,47 +164,120 @@ export async function composeFlow(path: string, files: FlowFiles, ts: TypeScript
     return out;
   };
 
-  const built = new Map<string, Promise<FlowDocument>>();
-  const build = (p: string): Promise<FlowDocument> => {
+  // Each flow asked for, with the own document of each flow it reads, by that flow's id: a flow read as it is as its
+  // own folder gives it, a use as the used flow read under its name.
+  const built = new Map<string, Promise<{ doc: FlowDocument; owns: Map<string, FlowDocument> }>>();
+  const build = (p: string): Promise<{ doc: FlowDocument; owns: Map<string, FlowDocument> }> => {
     let got = built.get(p);
     if (!got) {
       got = (async () => {
         const root = await raw(p);
         const closure = (await order(p, [], [])).filter((q) => q !== p);
-        if (closure.length === 0) {
+        const read = await Promise.all(closure.map((q) => raw(q)));
+        // The uses (ADR 0025 §11): the flow's own, and those of each flow it reads, each the flow of the one that lists it.
+        const listing = [...read, root].flatMap((by) => by.uses.map((u) => ({ by, ...u })));
+        if (closure.length === 0 && listing.length === 0) {
           const expanded = root.doc.notebooks ? await expandNotebooks(root.doc, ts, options) : root.doc;
           const taken = await withEstates(p, expanded, root.estates, root.doc.ontology, []);
-          return taken.notebooks ? syncRuleCells(taken) : taken;
+          return { doc: taken.notebooks ? syncRuleCells(taken) : taken, owns: new Map() };
         }
-        const parts = await Promise.all(closure.map(async (q) => ({ raw: await raw(q), hash: await flowHash(await build(q)) })));
+        const owns = new Map<string, FlowDocument>();
+        const parts: Part[] = [];
+        for (const r of read) {
+          const own = (await build(r.path)).doc;
+          // A flow with an open input is read where a dataset is mapped onto it (ADR 0025 §11).
+          if (own.inputs?.length) fail(p, `${own.name} has ${own.inputs.length === 1 ? 'an open input' : 'open inputs'} (${own.inputs.map((x) => x.id).join(', ')}): use it under a name, as { path, as, inputs }, with a dataset mapped onto ${own.inputs.length === 1 ? 'it' : 'each'}`);
+          owns.set(r.doc.id, own);
+          parts.push({ raw: r, hash: await flowHash(own), use: null });
+        }
         // A pin (ADR 0025 §7): the flow is read only as the flow the hash names. Any other is refused, both hashes said.
         for (const x of parts) {
           const pin = root.pins.get(x.raw.path);
           if (pin !== undefined && pin !== x.hash) fail(p, `${root.doc.name} pins ${x.raw.doc.name} at ${pin}, and ${x.raw.path} is ${x.hash} now: move the pin to read the flow as it is, or put the flow back as it was`);
         }
+        for (const u of listing) {
+          const def = await raw(u.path);
+          // The flow used, as its own folder gives it, its inputs open: what the use is a use of, by its hash.
+          const of = (await build(u.path)).doc;
+          const ofHash = await flowHash(of);
+          if (u.pin !== null && u.pin !== ofHash) fail(p, `${u.by.doc.name} pins ${def.doc.name} at ${u.pin}, and ${def.path} is ${ofHash} now: move the pin to read the flow as it is, or put the flow back as it was`);
+          const problems = [...useProblems(of, u.spec), ...useOntologyProblems(def.doc.name, def.doc.ontology)];
+          if (problems.length) fail(p, `${u.by.doc.name} uses ${def.doc.name} as ${u.spec.as}: ${problems[0]}`);
+          if (parts.some((x) => x.use?.spec.as === u.spec.as)) fail(p, `two flows are used as ${u.spec.as}: a use has a name of its own`);
+          const own = await useOf(of, u.spec, ofHash, ts, options);
+          owns.set(u.spec.as, own);
+          parts.push({ raw: def, hash: await flowHash(own), use: { spec: u.spec, by: u.by, own, of, pinned: u.pin !== null } });
+        }
         const merged = merge(root, parts);
-        const expanded = await expandNotebooks(merged, ts, options);
-        // Each flow's own steps: the cells of its own notebooks.
+        const expanded = await expandNotebooks(merged.doc, ts, options);
+        // Each flow's own steps: the cells of its own notebooks, a use's those of the notebooks read for it.
         const cells = expanded.cells ?? {};
-        const flows = expanded.flows!.map((f, k): FlowPart => {
-          const from = parts[k]!.raw;
-          const mine = new Set((from.doc.notebooks ?? []).map((n) => pathFrom(root.dir, joinPath(from.dir, n.path))));
-          return { ...f, steps: expanded.steps.filter((s) => mine.has(cells[s.id]?.notebook ?? '')).map((s) => s.id) };
+        const stepsOf = (k: number) => expanded.steps.filter((s) => merged.notebooks[k]!.has(cells[s.id]?.notebook ?? '')).map((s) => s.id);
+        const owner = new Map<string, string>();
+        merged.doc.flows!.forEach((f, k) => {
+          for (const id of [...f.sources, ...stepsOf(k)]) owner.set(id.toLowerCase(), f.id);
         });
+        // A use reads the flows that give the datasets mapped onto its inputs, but the flow that lists it, whose own
+        // datasets are its to map; and the flow that lists a use reads it.
+        const flows = merged.doc.flows!.map((f, k): FlowPart => {
+          const x = parts[k]!;
+          const steps = stepsOf(k);
+          if (!x.use) return { ...f, steps, reads: [...f.reads, ...parts.filter((y) => y.use?.by === x.raw).map((y) => y.use!.spec.as)] };
+          const lister = x.use.by === root ? '' : x.use.by.doc.id;
+          const from = [...new Set(Object.values(f.use!.inputs).map((i) => owner.get(i.to.toLowerCase()) ?? ''))].filter((id) => id !== '' && id !== lister && id !== f.id);
+          return { ...f, steps, reads: from };
+        });
+        const ordered = inOrder(p, flows);
         // The estates' ontologies it imports, and those the flows it reads import, each once: what is about every dataset
         // here, with each flow's own handlings in place of what they override.
         const estates = [...new Map([...parts.flatMap((x) => x.raw.estates), ...root.estates].map((e) => [e.path, e] as const)).values()];
-        const doc = syncRuleCells(await withEstates(p, { ...expanded, flows }, estates, root.doc.ontology, flows));
+        const doc = syncRuleCells(await withEstates(p, { ...expanded, flows: ordered }, estates, root.doc.ontology, ordered));
+        // What a use maps: datasets of the flow that takes it in, each with what the used flow needs of it.
+        for (const f of ordered) {
+          if (!f.use) continue;
+          const problems = mapProblems(doc, f.name, f.use);
+          if (problems.length) fail(p, problems[0]!);
+        }
         // A flow that reads flows is checked as it is read: what it reads of each is that flow's to give.
         const issues = validateDocument(doc);
         if (issues.length > 0) throw new PlanError(`${p}: ${issues[0]!.path}: ${issues[0]!.message}`, issues);
-        return doc;
+        return { doc, owns };
       })();
       built.set(p, got);
     }
     return got;
   };
-  return build(path);
+  const { doc, owns } = await build(path);
+  return { doc, owns: (doc.flows ?? []).map((f) => owns.get(f.id)!) };
+}
+
+/** A flow read into another: as it is, or as a use of the flow at its path (ADR 0025 §11). */
+interface Part {
+  raw: Raw;
+  /** Its own flow hash: for a use, its own document's. */
+  hash: string;
+  use: { spec: UseSpec; by: Raw; own: FlowDocument; of: FlowDocument; pinned: boolean } | null;
+}
+
+/** The flows in an order where each comes after the flows it reads, as they were listed otherwise. Two that read each
+ * other (two uses mapped onto each other's datasets) are refused. */
+function inOrder(at: string, flows: readonly FlowPart[]): FlowPart[] {
+  const out: FlowPart[] = [];
+  const state = new Map<string, 'open' | 'done'>();
+  const byId = new Map(flows.map((f) => [f.id, f]));
+  const visit = (f: FlowPart, trail: string[]): void => {
+    if (state.get(f.id) === 'done') return;
+    if (state.get(f.id) === 'open') fail(at, `the flows read each other in a circle: ${[...trail.slice(trail.indexOf(f.name)), f.name].join(' → ')}`);
+    state.set(f.id, 'open');
+    for (const r of f.reads) {
+      const read = byId.get(r);
+      if (read) visit(read, [...trail, f.name]);
+    }
+    state.set(f.id, 'done');
+    out.push(f);
+  };
+  for (const f of flows) visit(f, []);
+  return out;
 }
 
 /**
@@ -204,13 +307,19 @@ async function withEstates(at: string, doc: FlowDocument, estates: readonly RawE
   return { ...doc, ontology: { ...ontology, estate: from } };
 }
 
-/** A flow's document with the flows it reads merged in: their sources, notebooks, watches, contracts and ontology
- * parts before its own, each flow listed with what is its own. */
-function merge(root: Raw, parts: readonly { raw: Raw; hash: string }[]): FlowDocument {
+/**
+ * A flow's document with the flows it reads merged in: their sources, notebooks, watches, contracts and ontology parts
+ * before its own, each flow listed with what is its own. A use (ADR 0025 §11) brings the used flow's notebooks, read
+ * for it, and what that flow's ontology and contracts say, of the use's datasets. With the document, each listed
+ * flow's notebooks by the paths the document has them at: its steps are their cells, once they are read.
+ */
+function merge(root: Raw, parts: readonly Part[]): { doc: FlowDocument; notebooks: Set<string>[] } {
   const at = root.path;
   const name = (r: Raw) => r.doc.name;
+  const plain = parts.filter((x) => !x.use);
+  const used = parts.filter((x) => x.use);
   if (!root.doc.notebooks || parts.some((p) => !p.raw.doc.notebooks)) fail(at, 'a flow that reads flows, and each flow it reads, is a folder with notebooks (a flow.json and its .nb.ts files)');
-  const all = [...parts.map((p) => p.raw), root];
+  const all = [...plain.map((p) => p.raw), root];
 
   // Names are the estate's: an id is one flow's.
   const owner = new Map<string, Raw>();
@@ -221,16 +330,17 @@ function merge(root: Raw, parts: readonly { raw: Raw; hash: string }[]): FlowDoc
       owner.set(s.id.toLowerCase(), r);
     }
   }
-  const ids = new Map<string, Raw>();
-  for (const r of all) {
-    const had = ids.get(r.doc.id);
-    if (had) fail(at, `${had.path} and ${r.path} are both called ${r.doc.id}: each flow has its own id`);
-    ids.set(r.doc.id, r);
+  const ids = new Map<string, string>();
+  for (const [id, path] of [...all.map((r): [string, string] => [r.doc.id, r.path]), ...used.map((x): [string, string] => [x.use!.spec.as, `${x.raw.path} as ${x.use!.spec.as}`])]) {
+    const had = ids.get(id);
+    if (had) fail(at, `${had} and ${path} are both called ${id}: each flow has its own id`);
+    ids.set(id, path);
   }
 
   // One day: the same parameters, by name and type; the reading flow's defaults.
+  const every = [root, ...plain.map((p) => p.raw), ...new Set(used.map((x) => x.raw))];
   const parameters: ParameterDef[] = [];
-  for (const r of [root, ...parts.map((p) => p.raw)]) {
+  for (const r of every) {
     for (const d of r.doc.parameters ?? []) {
       const had = parameters.find((x) => x.name === d.name);
       if (!had) parameters.push(d);
@@ -246,7 +356,7 @@ function merge(root: Raw, parts: readonly { raw: Raw; hash: string }[]): FlowDoc
   };
   let publish = root.doc.publish;
   const watch: NonNullable<PublishDef['watch']> = {};
-  for (const r of all) {
+  for (const r of [...all, ...new Set(used.map((x) => x.raw))]) {
     if (!same(r.doc.calendar, root.doc.calendar)) fail(at, `${name(r)} keeps another calendar than ${name(root)}: a flow and the flows it reads keep one`);
     if (r.doc.publish && root.doc.publish && !same(settings(r.doc.publish), settings(root.doc.publish))) {
       const mine = settings(root.doc.publish) as Record<string, unknown>;
@@ -256,14 +366,14 @@ function merge(root: Raw, parts: readonly { raw: Raw; hash: string }[]): FlowDoc
     }
     if (r.doc.publish && !root.doc.publish) fail(at, `${name(r)} says what pauses it (a publish block) and ${name(root)} doesn't: the flow that reads it says the same`);
     if (r.doc.policies && r !== root && !same(r.doc.policies, root.doc.policies)) fail(at, `${name(r)} has policies of its own: inside another flow the reading flow's apply, so it has none, or the same`);
-    for (const [id, w] of Object.entries(r.doc.publish?.watch ?? {})) watch[id] = w;
+    if (all.includes(r)) for (const [id, w] of Object.entries(r.doc.publish?.watch ?? {})) watch[id] = w;
   }
   if (publish) publish = { ...publish, ...(Object.keys(watch).length ? { watch } : {}) };
 
   const contracts: NonNullable<FlowDocument['contracts']> = {};
-  for (const r of all) {
-    for (const [id, c] of Object.entries(r.doc.contracts ?? {})) {
-      if (contracts[id]) fail(at, `${id} has a contract in two flows`);
+  for (const [who, given] of [...all.map((r): [string, FlowDocument['contracts']] => [name(r), r.doc.contracts]), ...used.map((x): [string, FlowDocument['contracts']] => [x.use!.own.name, x.use!.own.contracts])]) {
+    for (const [id, c] of Object.entries(given ?? {})) {
+      if (contracts[id]) fail(at, `${id} has a contract in two flows (the second is ${who})`);
       contracts[id] = c;
     }
   }
@@ -272,37 +382,64 @@ function merge(root: Raw, parts: readonly { raw: Raw; hash: string }[]): FlowDoc
   if (twice) fail(at, `two change sets are called ${twice.id}`);
 
   const rebase = (r: Raw, n: NotebookDef): NotebookDef => ({ ...n, path: pathFrom(root.dir, joinPath(r.dir, n.path)) });
-  const ontology = mergeOntologies(at, all.map((r) => ({ name: name(r), ontology: r.doc.ontology })));
+  const ontology = mergeOntologies(at, [
+    ...plain.map((x) => ({ name: name(x.raw), ontology: x.raw.doc.ontology })),
+    // What a used flow's own ontology says, of the use's datasets: before an estate's is taken, as every flow's is.
+    ...used.map((x) => ({ name: x.use!.own.name, ontology: renameOntology(x.raw.doc.ontology, useNames(x.use!.of, x.use!.spec.as)) })),
+    { name: name(root), ontology: root.doc.ontology },
+  ]);
   // The flows that pin a flow (ADR 0025 §7), by id, the reading document's own flow by '': it is read only as it is.
   const pinners = (r: Raw): { pin?: string[] } => {
-    const by = [...parts.filter((x) => x.raw.pins.has(r.path)).map((x) => x.raw.doc.id), ...(root.pins.has(r.path) ? [''] : [])];
+    const by = [...plain.filter((x) => x.raw.pins.has(r.path)).map((x) => x.raw.doc.id), ...(root.pins.has(r.path) ? [''] : [])];
     return by.length ? { pin: by } : {};
   };
-  const flows = parts.map(({ raw: r, hash }): FlowPart => ({
-    path: pathFrom(root.dir, r.path),
-    id: r.doc.id,
-    name: r.doc.name,
-    ...(r.doc.description ? { description: r.doc.description } : {}),
-    hash,
-    sources: r.doc.sources.map((s) => s.id),
-    steps: [],
-    reads: r.reads.map((q) => parts.find((x) => x.raw.path === q)!.raw.doc.id),
-    direct: root.reads.includes(r.path),
-    ...pinners(r),
-  }));
+  const flows = parts.map((x): FlowPart => {
+    const r = x.raw;
+    if (x.use) {
+      const own = x.use.own;
+      return {
+        path: pathFrom(root.dir, r.path),
+        id: x.use.spec.as,
+        name: own.name,
+        ...(own.description ? { description: own.description } : {}),
+        hash: x.hash,
+        sources: [],
+        steps: [],
+        reads: [],
+        direct: x.use.by === root,
+        ...(x.use.pinned ? { pin: [x.use.by === root ? '' : x.use.by.doc.id] } : {}),
+        use: own.use!,
+      };
+    }
+    return {
+      path: pathFrom(root.dir, r.path),
+      id: r.doc.id,
+      name: r.doc.name,
+      ...(r.doc.description ? { description: r.doc.description } : {}),
+      hash: x.hash,
+      sources: r.doc.sources.map((s) => s.id),
+      steps: [],
+      reads: r.reads.map((q) => plain.find((y) => y.raw.path === q)!.raw.doc.id),
+      direct: root.reads.includes(r.path),
+      ...pinners(r),
+    };
+  });
+  // Each listed flow's notebooks, by the paths the document has them at.
+  const listed = parts.map((x) => (x.use ? x.use.own.notebooks ?? [] : x.raw.doc.notebooks ?? []).map((n) => rebase(x.raw, n)));
   const { parameters: _p, sources: _s, notebooks: _n, ontology: _o, contracts: _c, publish: _pub, changes: _ch, flows: _f, ...rest } = root.doc;
-  return {
+  const doc: FlowDocument = {
     ...rest,
     ...(parameters.length ? { parameters } : {}),
     sources: all.flatMap((r) => r.doc.sources),
     steps: [],
-    notebooks: all.flatMap((r) => (r.doc.notebooks ?? []).map((n) => rebase(r, n))),
+    notebooks: [...listed.flat(), ...(root.doc.notebooks ?? [])],
     ...(ontology ? { ontology } : {}),
     ...(Object.keys(contracts).length ? { contracts } : {}),
     ...(publish ? { publish } : {}),
     ...(changes.length ? { changes } : {}),
     flows,
   };
+  return { doc, notebooks: listed.map((ns) => new Set(ns.map((n) => n.path))) };
 }
 
 /** The flows' ontologies as one: each list after the other, a thing said twice refused (a meaning is said in one place). */

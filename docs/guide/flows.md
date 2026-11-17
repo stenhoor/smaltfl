@@ -138,6 +138,56 @@ Where a flow must not move under its reader, the reader names its hash:
 
 Reading then refuses any other `hr/flow.json`, and says both hashes, until someone moves the pin.
 
+### A flow used more than once: inputs and settings
+
+A flow made to be used on more than one dataset names no dataset of its reader. It declares what is open
+([ADR 0025](../adr/0025-flows-in-flows) §11):
+
+```json
+{
+  "smaltfl": 4, "id": "tally", "name": "Tally",
+  "inputs": [{ "id": "rows", "description": "Anything with a status and an amount", "columns": ["status", "amount"] }],
+  "settings": [{ "name": "floor", "type": "real", "default": 10 }],
+  "sources": [], "notebooks": ["tally.nb.ts"]
+}
+```
+
+Its notebook binds each input by its id and reads a setting as it reads a parameter:
+
+```ts
+export const params = param({ day: param.text(''), floor: param.number(10) });
+export const rows = input('rows');
+export const by_status = sql`SELECT status, sum(amount) AS total FROM ${rows} GROUP BY status`;
+export const big = sql`SELECT status, total FROM ${by_status} WHERE total >= ${params.floor}`;
+```
+
+A flow uses it under a name, mapping one of its own datasets onto each input and giving the settings it wants another
+value for:
+
+```json
+"flows": [
+  "orders/flow.json",
+  { "path": "kit/tally/flow.json", "as": "paid", "inputs": { "rows": "orders_checked" }, "settings": { "floor": 25 } },
+  { "path": "kit/tally/flow.json", "as": "mine", "name": "My tally", "inputs": { "rows": "recent" } }
+]
+```
+
+- **Each use is a flow of its own.** The used flow's notebooks are read under the use's name: its steps are
+  `paid_by_status` and `paid_big`, and `mine_by_status` and `mine_big`. Each use has its own card, its own days and
+  its own hash in every run; a change to the flow moves the hash of every use.
+- **An input reads what it declares.** `paid_rows` reads `status` and `amount` of `orders_checked` and nothing else.
+  A dataset that lacks one stops the run at that step, by name.
+- **What may be mapped** is what the flow that uses it may read: its own files and steps, published or not, and what
+  the flows it lists publish, or their files. A dataset of a flow it doesn't list is mapped once it lists that flow.
+- **A setting is a value in the statement.** `paid_big` reads `total >= 25.0`; `mine_big` keeps the flow's own 10.
+- **To read what a use gives**, import it by the name it has here:
+  `import { big as paid_big } from './kit/tally/tally.nb.js'`.
+- **A use changes its inputs and its settings, and nothing else.** The flow's steps and checks stay as written. What
+  its ontology says of its own datasets (a column's meaning, what its rows are called) it says of each use's.
+- A dataset built from a feed a held day can fill is mapped onto an input that takes `filled_from`, so what the use
+  gives can say which rows came from another day.
+- For now a flow used under a name has no file of its own, reads no flow of its own and watches nothing.
+
 ### A catalogue of flows to add
 
 A flow's folder may hold a `catalogue/` folder, each folder in it a flow made already: a `flow.json` and its
@@ -154,6 +204,9 @@ examples/larkspur/
 The app's build ships each one as it reads, and the app offers them under **Add a flow ›**
 ([The app](./app#building-in-the-app)). A catalogue flow reads flows the flow already reads, has no file of its own
 and watches nothing: it is built in the page from the day's run, so the build makes no data for it.
+
+A catalogue's flow with open inputs is offered as **Use it ›**: the app asks which datasets to map and what to set,
+and adds it as a use. Larkspur's *Control by unit* is one.
 
 A catalogue's flow keeps the rules of the flows it reads. One built on a feed a held day can fill carries
 `filled_from` in everything it gives, as every dataset built from that feed does, or its run stops and names the

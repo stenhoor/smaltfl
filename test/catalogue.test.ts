@@ -11,11 +11,12 @@ import external from '@smaltdb/external';
 import { describe, expect, it } from 'vitest';
 import smaltfl from '../src/plugin/index.js';
 import { addFlow, addProblems, entryOf, takeOff, takeOffProblems } from '../src/core/catalogue.js';
-import { composeFlow, type FlowFiles } from '../src/core/compose.js';
+import { composeFlow, flowProblems, type FlowFiles } from '../src/core/compose.js';
 import { givesOf, validateDocument, type FlowDocument } from '../src/core/document.js';
 import { nodeKey } from '../src/core/keys.js';
 import { notebookSectionId } from '../src/core/notebook.js';
 import { flowHash, translate, type FlowPlan } from '../src/core/plan.js';
+import { mapProblems, useOf, useProblems, type UseSpec } from '../src/core/reuse.js';
 import { sha256Hex, utf8 } from '../src/core/hash.js';
 import { versionTable } from '../src/plugin/store.js';
 import { pinFile, runFlow, verifyRun } from '../src/index.js';
@@ -40,11 +41,11 @@ async function keys(plan: FlowPlan): Promise<Map<string, string>> {
 const sorted = (m: Map<string, string>) => [...m.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
 
 /** Larkspur read from disk with its own flow.json listing more flows: what adding a flow must come to. */
-async function listing(more: string[]): Promise<FlowDocument> {
+async function listing(more: unknown[]): Promise<FlowDocument> {
   const root = new URL('../examples/', import.meta.url);
   const files: FlowFiles = {
     json: async (p) => {
-      const read = JSON.parse(readFileSync(new URL(p, root), 'utf8')) as { flows?: string[] };
+      const read = JSON.parse(readFileSync(new URL(p, root), 'utf8')) as { flows?: unknown[] };
       return p === 'larkspur/flow.json' ? { ...read, flows: [...(read.flows ?? []), ...more] } : read;
     },
     text: async (p) => readFileSync(new URL(p, root), 'utf8'),
@@ -71,13 +72,19 @@ describe('a flow’s catalogue on disk', () => {
   it('is the flows in the catalogue folder beside its flow.json, each read as any flow is', async () => {
     const all = await readCatalogue('examples/larkspur/flow.json');
     expect(all.map((x) => [x.entry.id, x.entry.path, x.entry.gives])).toEqual([
+      ['by_unit', 'catalogue/by_unit/flow.json', ['units', 'failing']],
       ['certificates', 'catalogue/certificates/flow.json', ['certs_expiring', 'certs_by_issuer']],
       ['ownership', 'catalogue/ownership/flow.json', ['apps_by_unit', 'unowned_apps']],
     ]);
     for (const { entry, doc } of all) expect(entry.hash, entry.id).toBe(await flowHash(doc));
-    // Each can be added to the flow whose catalogue it is in.
+    // Each can be added to the flow whose catalogue it is in: as it is, or, with open inputs, as a use.
     const doc = await loadFlowDir(larkspur);
-    for (const x of all) expect(addProblems(doc, x.doc), x.entry.id).toEqual([]);
+    for (const x of all.filter((y) => !y.entry.inputs)) expect(addProblems(doc, x.doc), x.entry.id).toEqual([]);
+    const kit = all.find((x) => x.entry.id === 'by_unit')!;
+    expect(kit.entry.inputs!.map((i) => [i.id, i.columns])).toEqual([['feed', ['app_id', 'status', 'filled_from']], ['owners', ['app_id', 'name', 'business_unit_id', 'lifecycle']]]);
+    expect(kit.entry.settings).toEqual([{ name: 'floor', type: 'real', default: 90, description: expect.stringMatching(/^The share of a unit’s applications that must pass/) }]);
+    expect(kit.entry).toMatchObject({ files: 0, steps: 3, reads: [] });
+    expect(addProblems(doc, kit.doc)).toEqual(['Control by unit has open inputs (feed and owners): it is added as a use, with a dataset mapped onto each']);
     // A flow with no such folder has none.
     expect(await readCatalogue('examples/control-estate/flow.json')).toEqual([]);
   });
@@ -308,6 +315,77 @@ describe('Larkspur’s catalogue on days of the estate, through the engine', () 
     const added = addFlow(one, unmarked, pathOf('certificates'), await flowHash(unmarked));
     const db = await engineOn(on);
     await expect(runFlow(db, bare(added), { smaltdb: SMALTDB, parameters: { day: on } })).rejects.toThrow(/certs_by_issuer reads tls_filled and doesn't carry filled_from/);
+    db.close();
+  });
+
+  it('adds a flow with open inputs as a use, twice: two flows named and hashed apart, each built from what is mapped onto it', async () => {
+    const on = '2024-03-12';
+    const [doc, kit] = await Promise.all([loadFlowDir(larkspur), loadFlowDir(catalogue('by_unit'))]);
+    const hash = await flowHash(kit);
+    const use = async (spec: UseSpec) => {
+      expect(useProblems(kit, spec), spec.as).toEqual([]);
+      return useOf(kit, spec, hash, ts);
+    };
+    const tls = await use({ as: 'tls_by_unit', inputs: { feed: 'tls_checked', owners: 'app_owners' }, settings: {} });
+    const waf = await use({ as: 'waf_by_unit', name: 'WAF by unit', inputs: { feed: 'waf_checked', owners: 'app_owners' }, settings: { floor: 99.5 } });
+    expect([tls.name, waf.name]).toEqual(['Control by unit: tls_by_unit', 'WAF by unit']);
+    expect(addProblems(doc, tls)).toEqual([]);
+    expect(mapProblems(doc, tls.name, tls.use!)).toEqual([]);
+    const first = addFlow(doc, tls, pathOf('by_unit'), await flowHash(tls));
+    expect(addProblems(first, tls)).toEqual(['tls_by_unit is the name of a flow read here already: a use has a name of its own']);
+    expect(addProblems(first, waf)).toEqual([]);
+    const both = addFlow(first, waf, pathOf('by_unit'), await flowHash(waf));
+    expect(validateDocument(both)).toEqual([]);
+    // Two flows of the document, each a use of the one flow, reading the flows that give what it maps.
+    const parts = both.flows!.slice(-2);
+    expect(parts.map((f) => [f.id, f.path, f.reads, f.steps.length, f.use!.of.id, f.use!.settings.floor!.value])).toEqual([
+      ['tls_by_unit', 'catalogue/by_unit/flow.json', ['feeds', 'applications'], 5, 'by_unit', 90],
+      ['waf_by_unit', 'catalogue/by_unit/flow.json', ['feeds', 'applications'], 5, 'by_unit', 99.5],
+    ]);
+    expect(parts[0]!.hash).not.toBe(parts[1]!.hash);
+    expect(parts.every((f) => f.use!.of.hash === hash)).toBe(true);
+    expect(givesOf(both, 'waf_by_unit')).toEqual(['waf_by_unit_units', 'waf_by_unit_failing']);
+    expect(both.notebooks!.slice(-2).map((n) => [n.path, n.use])).toEqual([['catalogue/by_unit/by_unit.nb.ts#tls_by_unit', 'tls_by_unit'], ['catalogue/by_unit/by_unit.nb.ts#waf_by_unit', 'waf_by_unit']]);
+    // The same plan as reading the estate with the two uses listed in its own flow.json.
+    const read = await listing([
+      { path: 'catalogue/by_unit/flow.json', as: 'tls_by_unit', inputs: { feed: 'tls_checked', owners: 'app_owners' } },
+      { path: 'catalogue/by_unit/flow.json', as: 'waf_by_unit', name: 'WAF by unit', inputs: { feed: 'waf_checked', owners: 'app_owners' }, settings: { floor: 99.5 } },
+    ]);
+    expect(read.flows!.slice(-2).map((f) => [f.id, f.hash, f.reads])).toEqual(parts.map((f) => [f.id, f.hash, f.reads]));
+    expect(sorted(await keys(await translate(both, { day: on })))).toEqual(sorted(await keys(await translate(read, { day: on }))));
+
+    // Through the engine: each use's units and failing applications, counted against the day's own.
+    const db = await engineOn(on);
+    const r = await runFlow(db, bare(both), { smaltdb: SMALTDB, parameters: { day: on }, flows: [...(await Promise.all(doc.flows!.map((f) => loadFlowDir(new URL(f.path.replace(/flow\.json$/, ''), larkspur))))), tls, waf] });
+    expect(r.manifest.flow.reads!.slice(-2)).toEqual(parts.map((f) => [f.id, f.hash]));
+    for (const [as, feed, floor] of [['tls_by_unit', 'tls_checked', 90], ['waf_by_unit', 'waf_checked', 99.5]] as const) {
+      const judged = `SELECT o.business_unit_id AS unit, f.status AS status FROM ${feed} f JOIN app_owners o ON o.app_id = upper(trim(f.app_id)) WHERE o.lifecycle <> 'retired' AND f.status IN ('pass', 'fail')`;
+      const want = await rowsOf(db, `SELECT unit, count(*), sum(CASE WHEN status = 'pass' THEN 1 ELSE 0 END), sum(CASE WHEN status = 'fail' THEN 1 ELSE 0 END) FROM (${judged}) GROUP BY unit ORDER BY unit`);
+      expect(want.length, as).toBeGreaterThan(5);
+      const got = await rowsOf(db, `SELECT business_unit_id, applications, passing, failing, pass_share, behind, filled_from FROM ${as}_units ORDER BY business_unit_id`);
+      expect(got.map((u) => u.slice(0, 4)), as).toEqual(want);
+      for (const u of got) {
+        const share = (100 * Number(u[2])) / Number(u[1]);
+        expect(Number(u[4]), `${as} ${String(u[0])}`).toBeCloseTo(share, 1);
+        expect(u[5], `${as} ${String(u[0])}`).toBe(share < floor ? 'yes' : 'no');
+        expect(u[6]).toBeNull();
+      }
+      expect(await one(db, `SELECT count(*) FROM ${as}_failing`), as).toBe(want.reduce((n, u) => n + Number(u[3]), 0));
+    }
+    // The floor each use sets tells them apart: more units are behind a floor of 99.5 than the flow's own 90.
+    expect(await one(db, "SELECT count(*) FROM waf_by_unit_units WHERE behind = 'yes'")).toBeGreaterThan(0);
+    // The document holds each use's own document unchanged: what a verifier checks of every flow a run names.
+    for (const own of [tls, waf]) expect(flowProblems(both, own), own.id).toEqual([]);
+    // Taken off again, one at a time, the estate is as it was.
+    const back = takeOff(takeOff(both, 'waf_by_unit'), 'tls_by_unit');
+    expect(back.flows).toEqual(doc.flows);
+    expect(back.steps.map((s) => s.id)).toEqual(doc.steps.map((s) => s.id));
+    expect(back.ontology).toEqual(doc.ontology);
+    // What can't be mapped is said before anything runs: a feed with no fill mark to give, a dataset that isn't here.
+    const findings = await use({ as: 'findings_by_unit', inputs: { feed: 'findings_checked', owners: 'app_owners' }, settings: {} });
+    expect(mapProblems(doc, findings.name, findings.use!, (d) => (d === 'findings_checked' ? ['app_id', 'severity', 'status'] : undefined))).toEqual(['findings_checked has no column filled_from, which Control by unit needs of its input feed']);
+    const nowhere = await use({ as: 'x_by_unit', inputs: { feed: 'nowhere', owners: 'app_owners' }, settings: {} });
+    expect(mapProblems(doc, nowhere.name, nowhere.use!)).toEqual(['Control by unit: x_by_unit maps feed onto nowhere, which isn’t a dataset of Larkspur estate']);
     db.close();
   });
 

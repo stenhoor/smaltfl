@@ -19,7 +19,7 @@
   },
   {
     "name": "build-catalogue",
-    "what": "The catalogue: the flows this build ships that are made already, each with what it gives and what it is built on, and Add it where the flow on screen reads what it is built on",
+    "what": "The catalogue: the flows this build ships that are made already, each with what it gives and what it is built on, and Add it where the flow on screen reads what it is built on; a flow with open inputs has Use it (use.json)",
     "day": "Wed 7",
     "in": "",
     "click": "#build-bar .build-add",
@@ -39,8 +39,8 @@
         ]
       },
       "count": {
-        ".vf-detail .cat-flow": 2,
-        ".vf-detail .cat-add": 2,
+        ".vf-detail .cat-flow": 3,
+        ".vf-detail .cat-add": 3,
         ".vf-detail .cat-made": 0
       }
     }
@@ -285,7 +285,7 @@
         ]
       },
       "count": {
-        ".vf-detail .cat-add": 1,
+        ".vf-detail .cat-add": 2,
         ".vf-detail .cat-made li": 2,
         "g.card[data-card=\"nb-joins\"]": 1
       }
@@ -324,8 +324,8 @@
     "element": ".vf-detail",
     "expect": {
       "count": {
-        ".vf-detail .cat-flow": 2,
-        ".vf-detail .cat-add": 2
+        ".vf-detail .cat-flow": 3,
+        ".vf-detail .cat-add": 3
       }
     }
   }

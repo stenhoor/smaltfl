@@ -1,0 +1,403 @@
+[
+  {
+    "name": "use-catalogue",
+    "what": "Larkspur's tour, Wed Feb 7, as the owner: the catalogue has a flow with open inputs (ADR 0025 §11). It says what each use gives, what it reads of the datasets mapped onto its inputs and what each use sets, and Use it in place of Add it",
+    "day": "Wed 7",
+    "in": "",
+    "click": "#build-bar .build-add",
+    "waitFor": ".vf-detail .cat-kit .cat-use",
+    "element": ".vf-detail .cat-kit",
+    "expect": {
+      "textIn": {
+        ".vf-detail": [
+          "A flow with inputs is used under a name, on the datasets mapped onto them, as often as it is wanted."
+        ],
+        ".vf-detail .cat-kit": [
+          "Control by unit",
+          "Each use gives 2 datasets, named after it: units and failing.",
+          "It reads what is mapped onto its 2 inputs: feed (app_id, status and filled_from) and owners (app_id, name, business_unit_id and lifecycle). No file of its own.",
+          "Each use sets floor, 90 where it says nothing.",
+          "Use it ›"
+        ]
+      },
+      "count": {
+        ".vf-detail .cat-flow": 3,
+        ".vf-detail .cat-kit": 1,
+        ".vf-detail .cat-use": 1
+      }
+    }
+  },
+  {
+    "name": "use-form",
+    "what": "The form that uses it: a dataset for each input, among those the day's run built with the columns the flow needs; a value for its setting, with the flow's own; and a name, after which what it gives is named. It says what a use is: a flow of its own, whose steps and checks stay as written",
+    "day": "Wed 7",
+    "in": "",
+    "clicks": [
+      "#build-bar .build-add",
+      ".cat-kit .cat-use"
+    ],
+    "waitFor": ".vf-detail .uf-form",
+    "element": ".vf-detail",
+    "expect": {
+      "textIn": {
+        ".vf-detail": [
+          "Use Control by unit",
+          "Its input feed",
+          "It reads app_id, status and filled_from of it, and nothing else.",
+          "Its input owners",
+          "Its setting floor",
+          "Control by unit’s own: 90.",
+          "Its name here",
+          "What it gives is named after it: tls_by_unit_units and tls_by_unit_failing.",
+          "Added as a flow of its own: a card on the canvas, a row in the month, and its own hash in every run, which holds Control by unit’s. Its steps and checks stay as Control by unit wrote them: a use changes what is mapped onto its inputs, and its settings."
+        ]
+      },
+      "count": {
+        ".vf-detail .uf-input": 2,
+        ".vf-detail .uf-setting": 1,
+        ".vf-detail .uf-go": 1
+      }
+    }
+  },
+  {
+    "name": "use-added",
+    "what": "Used on the TLS feed, as offered: the day runs again with it, its card is on the canvas, and its sheet says what it is a use of, the dataset mapped onto each input, its setting as the flow has it, the flows it reads and what it gives, named after it",
+    "in": "",
+    "clicks": [
+      "#build-bar .build-add",
+      ".cat-kit .cat-use",
+      ".uf-go"
+    ],
+    "waitFor": "#sheet .fl-use",
+    "waitForMs": 120000,
+    "element": "#sheet",
+    "expect": {
+      "state": "done",
+      "status": "^Control by unit: tls_by_unit is on the canvas: its first day here went out as usual\\. Worth its smalt\\.$",
+      "textIn": {
+        "#sheet": [
+          "Control by unit: tls_by_unit",
+          "A use of Control by unit",
+          "is its input feed: it reads app_id, status and filled_from",
+          "is its input owners: it reads app_id, name, business_unit_id and lifecycle",
+          "floor 90 · as Control by unit has it",
+          "Its steps and checks are Control by unit’s, as written: a use changes what is mapped onto its inputs, and its settings.",
+          "It reads 2 flows",
+          "tls_by_unit_units",
+          "tls_by_unit_failing"
+        ]
+      },
+      "count": {
+        "g.card[data-card=\"flow:tls_by_unit\"]": 1,
+        "#sheet .fl-use .fl-row": 2,
+        "#sheet .fl-settings li.set": 0
+      }
+    }
+  },
+  {
+    "name": "use-again",
+    "what": "Used again, on the WAF feed, with a floor of its own and a name: a second flow of the one definition. Its sheet says the setting was set here beside the flow's own, and that the flow is used twice",
+    "in": "",
+    "clicks": [
+      "#build-bar .build-add",
+      ".cat-kit .cat-use",
+      [
+        ".uf-input[data-input=\"feed\"]",
+        "waf_checked"
+      ],
+      [
+        ".uf-setting[data-setting=\"floor\"]",
+        "99.5"
+      ],
+      [
+        ".uf-called",
+        "WAF by unit"
+      ],
+      ".uf-go"
+    ],
+    "waitFor": "#sheet .fl-use",
+    "waitForMs": 120000,
+    "element": "#sheet",
+    "expect": {
+      "state": "done",
+      "textIn": {
+        "#sheet": [
+          "WAF by unit",
+          "floor 99.5 · set here; Control by unit’s own is 90",
+          "Control by unit is used 2 times here: also as tls_by_unit.",
+          "waf_by_unit_units",
+          "waf_by_unit_failing"
+        ],
+        "#build-bar": [
+          "2 things made here"
+        ]
+      },
+      "count": {
+        "g.card[data-card=\"flow:tls_by_unit\"]": 1,
+        "g.card[data-card=\"flow:waf_by_unit\"]": 1,
+        "#sheet .fl-settings li.set": 1
+      }
+    }
+  },
+  {
+    "name": "use-explore",
+    "what": "What a use gives, explored as any dataset is: the WAF's business units, a card a column, with the unit's pass share and whether it is behind the floor this use set",
+    "in": "",
+    "flow": "waf_by_unit",
+    "click": "#sheet .fl-given[data-inside=\"waf_by_unit_units\"] .fl-explore",
+    "waitFor": "#sheet .xp-tab .xp-card",
+    "element": "#sheet",
+    "expect": {
+      "textIn": {
+        "#sheet": [
+          "waf_by_unit_units",
+          "Pass share",
+          "Behind"
+        ]
+      },
+      "count": {
+        "#sheet .xp-card": 7
+      }
+    }
+  },
+  {
+    "name": "use-inside",
+    "what": "A use entered, as any flow read is: the flows that give what is mapped onto its inputs as cards, and the used flow's notebook as a box of this use's own",
+    "in": "waf_by_unit",
+    "expect": {
+      "textIn": {
+        "#crumbs": [
+          "Larkspur estate",
+          "WAF by unit"
+        ]
+      },
+      "count": {
+        "g.card[data-card=\"flow:feeds\"]": 1,
+        "g.card[data-card=\"flow:applications\"]": 1,
+        "g.card[data-card=\"nb-catalogue_by_unit_by_unit_waf_by_unit\"]": 1
+      }
+    }
+  },
+  {
+    "name": "use-notebook",
+    "what": "Its notebook, read as a page: the used flow's own text, cell for cell, with this use's steps and their rows. An input's cell is the step that reads the dataset mapped onto it; the summary calls each step as its cell does",
+    "in": "waf_by_unit",
+    "box": "nb-catalogue_by_unit_by_unit_waf_by_unit",
+    "waitFor": "#sheet .nbc[data-cell=\"waf_by_unit_units\"]",
+    "element": "#sheet",
+    "expect": {
+      "textIn": {
+        "#sheet": [
+          "The evidence: an application a row, with the control's status.",
+          "Each business unit with how many of its applications pass and fail"
+        ],
+        "#sheet .sv-sum": [
+          "What the steps did today",
+          "judged",
+          "units",
+          "failing"
+        ]
+      },
+      "count": {
+        "#sheet .nbc[data-cell=\"waf_by_unit_feed\"]": 1,
+        "#sheet .nbc[data-cell=\"waf_by_unit_owners\"]": 1,
+        "#sheet .nbc[data-cell=\"waf_by_unit_units\"]": 1
+      },
+      "noTextIn": {
+        "#sheet .sv-sum .sv-rows": [
+          "waf_by_unit"
+        ]
+      }
+    }
+  },
+  {
+    "name": "use-joined",
+    "what": "What a use gives, joined as any dataset is: the WAF's units with each unit's name from HR. The cell imports the use's dataset from the used flow's notebook under the name it has here, and the use's own steps are read again as they were",
+    "in": "",
+    "flow": "waf_by_unit",
+    "clicks": [
+      "#sheet .fl-given[data-inside=\"waf_by_unit_units\"] .fl-explore",
+      "#sheet .vf-pick-chip[data-part=\"joins\"]",
+      "#sheet .xp-join-form",
+      [
+        ".jf-right",
+        "org_units"
+      ],
+      [
+        ".jf-lk",
+        "business_unit_id"
+      ],
+      [
+        ".jf-rk",
+        "org_unit_id"
+      ],
+      ".jf-go"
+    ],
+    "waitFor": "#sheet .xp-tab .xp-card",
+    "waitForMs": 120000,
+    "element": "#sheet",
+    "expect": {
+      "state": "done",
+      "textIn": {
+        "#sheet": [
+          "waf_by_unit_units_with_org_units"
+        ],
+        "#build-bar": [
+          "3 things made here"
+        ]
+      },
+      "count": {
+        "g.card[data-card=\"nb-joins\"]": 1,
+        "g.card[data-card=\"flow:waf_by_unit\"]": 1
+      }
+    }
+  },
+  {
+    "name": "use-record",
+    "what": "The record says each use in words: the flow used, the name, what is mapped onto each input and what was set",
+    "view": "runs",
+    "element": "#record",
+    "expect": {
+      "textIn": {
+        "#record": [
+          "Used Control by unit as tls_by_unit: feed is tls_checked and owners is app_owners. It gives tls_by_unit_units and tls_by_unit_failing",
+          "Used Control by unit as waf_by_unit: feed is waf_checked and owners is app_owners; floor 99.5. It gives waf_by_unit_units and waf_by_unit_failing",
+          "Joined waf_by_unit_units with org_units on business_unit_id = org_unit_id, as waf_by_unit_units_with_org_units"
+        ]
+      },
+      "noTextIn": {
+        "#record": [
+          "refused",
+          "failed"
+        ]
+      }
+    }
+  },
+  {
+    "name": "use-kept",
+    "what": "The page opened again: both uses and the join are kept in this browser with every other edit, each use read again from the catalogue's flow under its name, and the day runs with them",
+    "reload": true,
+    "day": "Wed 7",
+    "in": "",
+    "expect": {
+      "state": "done",
+      "textIn": {
+        "#build-bar": [
+          "3 things made here"
+        ]
+      },
+      "count": {
+        "g.card[data-card=\"flow:tls_by_unit\"]": 1,
+        "g.card[data-card=\"flow:waf_by_unit\"]": 1,
+        "g.card[data-card=\"nb-joins\"]": 1
+      }
+    }
+  },
+  {
+    "name": "use-made",
+    "what": "The catalogue again: the flow says where it is used here, offers another use, and what was made here lists each use with the way to take it off",
+    "in": "",
+    "click": "#build-bar .build-add",
+    "waitFor": ".vf-detail .cat-made",
+    "element": ".vf-detail",
+    "expect": {
+      "textIn": {
+        ".vf-detail .cat-kit": [
+          "tls_by_unit · used here on tls_checked and app_owners.",
+          "waf_by_unit · used here on waf_checked and app_owners.",
+          "Use it again ›"
+        ],
+        ".vf-detail .cat-made": [
+          "Control by unit: tls_by_unit · a use of Control by unit, from the catalogue",
+          "WAF by unit · a use of Control by unit, from the catalogue"
+        ]
+      },
+      "count": {
+        ".vf-detail .cat-made li": 3
+      }
+    }
+  },
+  {
+    "name": "use-taken-off",
+    "what": "One use taken off: its card is gone, the other stays, and the flow runs on",
+    "in": "",
+    "clicks": [
+      "#build-bar .build-add",
+      ".cat-made li[data-flow=\"tls_by_unit\"] .cat-off"
+    ],
+    "waitFor": "body:has(#run:not([disabled])) #build-bar .build-made",
+    "waitForMs": 120000,
+    "expect": {
+      "state": "done",
+      "textIn": {
+        "#build-bar": [
+          "2 things made here"
+        ]
+      },
+      "count": {
+        "g.card[data-card=\"flow:tls_by_unit\"]": 0,
+        "g.card[data-card=\"flow:waf_by_unit\"]": 1
+      }
+    }
+  },
+  {
+    "name": "use-own",
+    "what": "Used on a dataset of the estate's own, the product's fact table: what the flow that lists a use may read is its to map, its own datasets among them",
+    "in": "",
+    "clicks": [
+      "#build-bar .build-add",
+      ".cat-kit .cat-use",
+      [
+        ".uf-input[data-input=\"feed\"]",
+        "fact_control_status"
+      ],
+      ".uf-go"
+    ],
+    "waitFor": "#sheet .fl-use",
+    "waitForMs": 120000,
+    "element": "#sheet",
+    "expect": {
+      "state": "done",
+      "textIn": {
+        "#sheet": [
+          "Control by unit: fact_control_status_by_unit",
+          "is its input feed: it reads app_id, status and filled_from",
+          "It reads 1 flow"
+        ]
+      },
+      "count": {
+        "g.card[data-card=\"flow:fact_control_status_by_unit\"]": 1
+      }
+    }
+  },
+  {
+    "name": "use-own-inside",
+    "what": "Inside that use, every input shows where its rows come from: the flow that gives the owners as a card, and the estate's own dataset as itself",
+    "in": "fact_control_status_by_unit",
+    "expect": {
+      "count": {
+        "g.card[data-card=\"flow:applications\"]": 1,
+        "g.card[data-card=\"fact_control_status\"]": 1,
+        "g.card[data-card=\"flow:feeds\"]": 0
+      }
+    }
+  },
+  {
+    "name": "use-dark",
+    "what": "The use form in the dark scheme, in a fresh browser",
+    "day": "Wed 7",
+    "in": "",
+    "scheme": "dark",
+    "clicks": [
+      "#build-bar .build-add",
+      ".cat-kit .cat-use"
+    ],
+    "waitFor": ".vf-detail .uf-form",
+    "element": ".vf-detail",
+    "expect": {
+      "count": {
+        ".vf-detail .uf-input": 2
+      }
+    }
+  }
+]
