@@ -20,7 +20,7 @@ match smaltdb's `CLAUDE.md`.
 | `npm run docs:dev` | The site (VitePress, `docs/`, the brand kit copied unchanged into `docs/.vitepress/theme/`); `.github/workflows/docs.yml` deploys it to GitHub Pages with Larkspur's tour at `/app/` (the demo, ADR 0023), Larkspur's planted month at `/larkspur/` (ADR 0020), the control estate at `/estate/` and the sign-ins at `/signins/` (each build writes `index.html` beside `page.html`) | Docs and site changes |
 | `npm run bench` | The scenario benchmarks in `bench/`, written to `bench/results/node.json` | Changes that could affect speed |
 | `npm run build:app` | The app in `dist/app` on Larkspur (`examples/larkspur/`, its notebooks expanded, shipped as `data/flow.json`, its days generated from its seed); `-- --variant tour --out dist/app-tour` for its tour, February and March, the demo (ADR 0023, the data list's `variants`; its scenes listed on the month screen from `scenes.json`); `-- --flow examples/security-signins/flow.json --out dist/app-signins` for the sign-ins (its generator's `--demo` days from the data list's `generateArgs`). Bundles are named by content (`bundles.json`). A generated flow's days, histories and samples are kept in `node_modules/.cache/smaltfl/data/<hash of what makes them>/`: after a change to the app alone the build takes seconds, not minutes (the docs deploy caches the same folder) | Changes to `src/app` |
-| `node tools/browser/regress.cjs APP OUT estate notebook split@desktop,tablet-wide,wide` | The browser regression: each stop set at every size (phone, tablet, tablet-wide, desktop, wide), as many at once as there are cores, one table of what passed; `--devices` narrows the sizes. Copy the built app out of `dist/` first | Before a PR that touches `src/app`; one set and its sizes while iterating |
+| `npm run regress` | The browser regression, in minutes ([ADR 0025](docs/adr/0025-the-browser-regression-in-minutes.md)): builds the four demos (their data cached) and runs every stop set (`tools/browser/sets.json`) once on a phone, as many at once as there are cores, checking each stop's layout at the other sizes by resizing the page; one table of what passed, about five minutes on four cores. `-- overview tour` runs those sets; `-- overview --full --shots all` replays a set at every size with its screenshots; `-- --list` says what each set costs. CI replays every set at every size, a size a job | Before a PR that touches `src/app`; the set a change touches, `--full`, while iterating |
 
 `npm run typecheck` runs on TypeScript 7: `typescript7`, an npm alias, run as `node node_modules/typescript7/bin/tsc`.
 The declarations `npm run build` emits stay on TypeScript 6.0.3 (`typescript`, so `npx tsc` is 6.0.3) for one more
@@ -431,6 +431,17 @@ release (smaltty ADR 0030).
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
+- The browser regression in minutes (ADR 0025). The tour waits for the page, never a fixed time: the app says when it
+  is at work (`window.__smaltflBusy`, `src/app/main.ts`: starting, a run under way, `engineBusy` in `engine.ts`), and
+  `tour.cjs` counts what the page started and hasn't finished (`tracker`: fetches, short timers, frames, hashes,
+  IndexedDB) and goes on when none is left (`idle`); a check that fails is read once more after 250 ms of stillness. A
+  set opens on its first stop's day (`#day/…`, so the first day isn't run and left), the dark scheme is the same page
+  (`emulateMedia`; a stop that needs a new browser says `"fresh": true`), screenshots are the tour's default and the
+  regression's on failure (`TOUR_SHOTS`). `regress.cjs` replays each set once at its smallest size and takes the page
+  to the others by resizing it (`TOUR_SWEEP`: the layout at each, nothing run again); `--full` replays at every size.
+  `tools/browser/sets.json` is the manifest and the budget: each set's demo, sizes and the runs the engine may make
+  for it (`runs`), each demo's cost of a run, `budget.engineSeconds` over their sum; a set that makes more runs, a
+  stops file not listed, or a sum over the budget fails the regression. CI's `demos` and `browser` jobs run it.
 - **State of the work:** [docs/HANDOFF.md](docs/HANDOFF.md) says what is built, how to check it and what is left, in
   priority order. Read it before starting. **What comes next:** [ADR 0011](docs/adr/0011-notebooks-as-the-step-surface.md),
   notebooks (smaltnb's `.nb.ts`) as the only step surface, in slices; its §"The slices" is the order of work. Then
@@ -508,7 +519,11 @@ release (smaltty ADR 0030).
   found (ADR 0022's addendum). The retirement's list is done. **Then:**
   [ADR 0024](docs/adr/0024-the-month-at-a-glance.md), the month at a glance, from the maintainer's look at the tour's
   month on 2026-11-16 and research into how such screens are best done (docs/research/ui-month-overview.md): built as
-  proposed, for the maintainers to confirm (Q-219 to Q-225); its §"Not built" is what it leaves. What comes next is the
+  proposed, for the maintainers to confirm (Q-219 to Q-225); its §"Not built" is what it leaves. **And:**
+  [ADR 0025](docs/adr/0025-the-browser-regression-in-minutes.md), the browser regression in minutes, from the
+  maintainer's request of 2026-11-16 (a regression of 26 minutes): `npm run regress`, five minutes on four cores,
+  budgeted in the engine's runs and run by CI at every size; built as proposed, for the maintainers to confirm (Q-226
+  to Q-230). Its §"Not built" says what stands between five minutes and two (Q-229). What comes next is the
   maintainers' (docs/HANDOFF.md).
 
 ## Rules for this repository
@@ -527,12 +542,19 @@ release (smaltty ADR 0030).
 - **Phone, tablet and desktop** ([ADR 0018](docs/adr/0018-phone-tablet-and-desktop.md)). Every screen of the app works
   and reads well on a phone (390×844), a tablet upright and sideways (820×1180, 1180×820) and a desktop window
   (1440×900). Phone rules stay the base; wider layouts are added with `min-width` media queries in `src/app/page.html`,
-  never by changing what a phone gets. A change to `src/app` runs the stop set it touches with `tour.cjs` at all four
-  sizes (`TOUR_DEVICE=phone|tablet|tablet-wide|desktop`), looks at the screenshots, and reports no problem the change
-  added (`tools/browser/regress.cjs` runs the sets at every size in parallel); nothing may scroll sideways. From 960 px the page is the desktop split (`src/app/split.ts`, Q-159): the flow
+  never by changing what a phone gets. A change to `src/app` runs the stop set it touches at every size
+  (`npm run regress -- <set> --full --shots all`, or `tour.cjs` with `TOUR_DEVICE=phone|tablet|tablet-wide|desktop`),
+  looks at the screenshots, and reports no problem the change added; nothing may scroll sideways. From 960 px the page is the desktop split (`src/app/split.ts`, Q-159): the flow
   on the left and the workspace (the sheet) on the right across the window but a band at each edge, a bar between them
   dragged to resize them (`--sheet-w`, kept in the browser) and buttons that give either side the whole window
   (`body[data-split]`); `TOUR_DEVICE=wide` (2560×1440) and `tools/browser/stops/split.json` check it.
+- **The browser regression stays in minutes** ([ADR 0025](docs/adr/0025-the-browser-regression-in-minutes.md)). Its
+  cost is the engine's runs, and they are budgeted (`tools/browser/sets.json`). A new stop goes beside the stops
+  already on its day, so it opens none: such a stop costs a third of a second. A stop that opens a day, decides,
+  reloads or runs a what-if is a run: raise its set's `runs` by what it adds, and keep the sum under
+  `budget.engineSeconds`, by taking a day out elsewhere if need be. Raising the budget itself is the maintainers' to
+  agree. A new stop set is listed in `sets.json` with its demo. No stop waits a fixed time, and `waitFor` is for what
+  many runs draw.
 - Don't reformat files with Prettier. No fixed sleeps in tests. Probe tests (`test/zz-*.test.ts`) are scratch files:
   delete them, never commit them.
 

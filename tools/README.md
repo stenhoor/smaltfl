@@ -6,17 +6,31 @@ are not part of the package, the tests or the build.
 ## browser/
 
 They need Playwright with Chromium (`require('playwright')`), and Python 3 with Pillow for the two image scripts.
-Build the app first (`npm run build:app`, Larkspur by default; `-- --flow … --out …` for another flow) and copy it
-out of `dist/` somewhere, because `npm run build` wipes `dist/`. Pass **absolute** paths.
+
+**The regression is one command: `npm run regress`** (ADR 0025). It builds the four demos into
+`node_modules/.cache/smaltfl/apps/` (seconds once their data is cached) and runs every stop set on the demo it is
+written for, five minutes on four cores. `npm run regress -- overview tour` runs those sets alone, and `npm run
+regress -- overview --full --shots all` replays one at every size with every stop's screenshot, to look at. For the
+tour by itself, build the app (`npm run build:app`, Larkspur by default; `-- --flow … --out …` for another flow)
+somewhere outside `dist/`, because `npm run build` wipes `dist/`, and pass **absolute** paths.
 
 | Command | What it does |
 |---|---|
-| `node tools/browser/regress.cjs <appDir> <outDir> <set>[@sizes] ...` | The regression in one command: each named stop set (`estate`, `notebook`, `split@desktop,tablet-wide,wide`, …) at every size, its own `tour.cjs` process, up to one a core at once, the longest first; one line a job and the problems at the end (`regress.json`). `--devices phone,desktop` narrows the sizes, `--jobs N` the parallelism. |
-| `node tools/browser/tour.cjs <appDir> <outDir> <stops.json>` | Serves the built app, drives it at phone size (390×844; it waits for the page to stop changing, never a fixed sleep; `TOUR_DEVICE=tablet` 820×1180, `tablet-wide` 1180×820, `desktop` 1440×900, `wide` 2560×1440; `TOUR_SCALE=2` for screenshots a person will look at) through the stops, fails any stop where the page or an open sheet scrolls sideways, saves `<name>.png` for each and writes `metrics.json`: the status line, the visible text, word counts, charts, words before the first chart, and every failed `expect` as a problem. The stop format and the `expect` checks are documented at the top of the file: a stop's `tamper` changes a file on its way to the page from that stop on, and `expect.download` and `expect.audit` check what a stop downloaded (its name, and a bag's verdict from `node scripts/audit.mjs check`). |
+| `node tools/browser/regress.cjs [set[@sizes] ...]` | The regression (`npm run regress` is this with `--build`): each set the manifest lists (`sets.json`), or those named, its own `tour.cjs` process, up to one a core at once, the longest first; one line a job (its stops, its runs against its budget, its seconds) and the problems at the end (`regress.json`). By default a set is replayed **once**, at its smallest size, and its page is resized to its other sizes after each stop, the layout checked at each; `--full` replays it at every size. `--sizes phone,desktop` narrows the sizes, `--jobs N` the parallelism, `--shots all\|fail\|none` the screenshots (default: the stops that failed), `--apps DIR` and `--out DIR` where the demos are and the results go, `--list` prints each set's cost, `--timed` fails a whole run over the manifest's seconds. |
+| `node tools/browser/tour.cjs <appDir> <outDir> <stops.json>` | Serves the built app and drives it through the stops at phone size (390×844; `TOUR_DEVICE=tablet` 820×1180, `tablet-wide` 1180×820, `desktop` 1440×900, `wide` 2560×1440; `TOUR_SCALE=2` for screenshots a person will look at). It never waits a fixed time: it asks the page when it is at rest (`window.__smaltflBusy`, and a count of what the page started and hasn't finished). It fails any stop where the page or an open sheet scrolls sideways, at its own size and at each size in `TOUR_SWEEP=tablet,desktop` (the same page resized), saves `<name>.png` for each stop (`TOUR_SHOTS=fail` for the failed ones alone, `none`) and writes `metrics.json`: the status line, the visible text, word counts, charts, words before the first chart, and every failed `expect` as a problem. Its last lines are `problems: …` and `cost: {…}` (stops, the times the app was opened, the engine's runs, seconds). The stop format and the `expect` checks are documented at the top of the file: a stop's `tamper` changes a file on its way to the page from that stop on, `fresh` opens a new browser with nothing kept, and `expect.download` and `expect.audit` check what a stop downloaded (its name, and a bag's verdict from `node scripts/audit.mjs check`). |
 | `python3 -I tools/browser/cvd.py <outDir> <png>…` | Greyscale and deuteranopia versions of screenshots (Machado et al. 2009), for the colour check. |
 | `python3 -I tools/browser/slices.py <in.png> <out.png> [height] [strips] [start]` | Slices a tall screenshot into side-by-side strips you can read in one image. |
 
-**Stop sets** (`browser/stops/`). The stops in a file run in one session, in order, and later stops depend on what earlier ones ran (which day readers keep, what was decided): run a whole file, not a few stops out of it.
+**Stop sets** (`browser/stops/`). The stops in a file run in one session, in order, and later stops depend on what earlier ones ran (which day readers keep, what was decided): run a whole file, not a few stops out of it. A set whose first stop names a day opens the app on that day.
+
+**The manifest and the budget** (`browser/sets.json`, ADR 0025 §5). Every stop set is listed with the demo it runs on
+(`tour`, `larkspur`, `estate`, `signins`), the sizes it is held to where not all, and `runs`: the runs the engine may
+make for it. A run is what a stop costs: a day opened, a decision, a what-if, a reload (9 s on Larkspur, 3 s on the
+estate, half a second on the sign-ins); a stop that opens no day costs a third of a second. The regression fails a set
+that makes more runs than it says, a stops file the manifest doesn't list, and a sum of runs over
+`budget.engineSeconds`. So: put a new stop beside the stops already on its day; if it must open a day, raise the set's
+`runs` and keep the sum under the budget, taking a day out elsewhere if need be. `node tools/browser/regress.cjs
+--list` prints what each set costs.
 - `apps.json`: the estate's application scores and the summaries by type of application at a glance (the heat
   tables on the Data tab: control by hosting and criticality, the controls failed together, profiles at risk).
 - `bronze.json`: the bronze card (ADR 0015 amendment 2): waf's Quality on the held Tue Mar 12 (the verdict, its issues, every
