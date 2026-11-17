@@ -598,8 +598,9 @@ release (smaltty ADR 0030).
   for it (`runs`; on another demo of the same site its stops go to, `with`, counted apart: `carry` on the tour and
   Evidence feeds' page), each demo's cost of a run, `budget.engineSeconds` over their sum; a set that makes more runs,
   a stops file not listed, or a sum over the budget fails the regression. CI's `demos` and `browser` jobs run it.
-  Amended on 2026-11-17 for ADR 0026's eleven sets (its §"Amended", Q-246): 33 sets on five demos, 215 runs, 1,292 of
-  1,330 engine seconds; the tour finds a set's opening day by the list's `slot`.
+  Amended on 2026-11-17 for ADR 0026's eleven sets (its §"Amended"; the budget raised with the maintainer's
+  agreement, Q-246): 33 sets on five demos, 215 runs, 1,292 of 1,330 engine seconds; the tour finds a set's opening
+  day by the list's `slot`.
 - **State of the work:** [docs/HANDOFF.md](docs/HANDOFF.md) says what is built, how to check it and what is left, in
   priority order. Read it before starting. **What comes next:** [ADR 0011](docs/adr/0011-notebooks-as-the-step-surface.md),
   notebooks (smaltnb's `.nb.ts`) as the only step surface, in slices; its §"The slices" is the order of work. Then

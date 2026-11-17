@@ -355,10 +355,10 @@ scheme), the rest the engine's 166 runs, done once a size. Built as proposed:
   day's.
 - **Found on the way** (Q-230): with the engine in the page (`?engine=page`), the second day opened is paused where
   the worker publishes it.
-- **Amended on 2026-11-17, with ADR 0026's eleven sets** (its §"Amended"; Q-246, for the maintainer to agree): 33
+- **Amended on 2026-11-17, with ADR 0026's eleven sets** (its §"Amended"; Q-246, which the maintainer decided): 33
   sets on five demos, 395 stops, 215 runs of the engine, **7 min 35 s** on four cores. The budget is raised from 840
-  engine seconds to 1,330 (1,292 used), which only the maintainers do; holding 840 would leave eight Larkspur runs for
-  the eleven sets. What bringing them in found: a set never did open on its first stop's day (the tour read `day`
+  engine seconds to 1,330 (1,292 used), which only the maintainers do, and the maintainer agreed it; holding 840 would
+  have left eight Larkspur runs for the eleven sets. What bringing them in found: a set never did open on its first stop's day (the tour read `day`
   where the data's list says `slot`), which it does now, a run fewer in eleven of the 22 sets; a level entered on a
   refused day fetched the file again, fixed; a fill can't be withdrawn in an engine that has run no other day, left
   (above). A set that goes to another demo of the site says its runs there (`"with"`), and no set leaves a day and

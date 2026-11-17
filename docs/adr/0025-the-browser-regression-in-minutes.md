@@ -230,10 +230,12 @@ the regression run as quickly with them. What changed here:
 The eleven sets are 528 engine seconds. The dearest: `follow` 153 (its test of a changed flow runs fourteen Larkspur
 days again as what-ifs, 126 by itself, the one place that test is walked), `carry` 87, `use` 72, `build` 54.
 
-**The budget is raised for them, proposed for the maintainer to agree (Q-246):** `budget.engineSeconds` 1,330, the
-same room as before (four more Larkspur days), and `budget.seconds` 510. Raising it is the maintainers' (§5), and the
-other way is to take sets or days out: the 22 sets alone are 764, so 76 engine seconds are free under 840, eight
-Larkspur runs for eleven sets. CI's `browser` jobs replay every set at a size: five to nine minutes a job before, eight
+**The budget is raised for them, and the maintainer agreed it on 2026-11-17 (Q-246, asked through the question
+prompt):** `budget.engineSeconds` 1,330, the same room as before (four more Larkspur days), and `budget.seconds` 510.
+Raising it is the maintainers' (§5). The other ways were put beside it and not taken: the test of a changed flow run
+on a week of days, not a fortnight (63 engine seconds back, and a change to what the app does); or 840 held by taking
+sets and days out (the 22 sets alone are 764, so 76 engine seconds are free under it, eight Larkspur runs for eleven
+sets). CI's `browser` jobs replay every set at a size: five to nine minutes a job before, eight
 to fourteen expected now, under their limit of twenty.
 
 ## The questions, for the maintainers
@@ -249,7 +251,7 @@ to fourteen expected now, under their limit of twenty.
   is paused where the worker publishes it. Found while measuring; not looked into.
 - **Q-246.** ADR 0026's eleven sets take the regression from 802 engine seconds to 1,292, and from five minutes to
   seven and a half. The budget raised to 1,330 (and 510 s for the whole run), or sets and days taken out to hold 840?
-  Proposed: raised (§"Amended").
+  Decided by the maintainer, 2026-11-17: raised (§"Amended").
 
 ## Not built
 
