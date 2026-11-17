@@ -4,24 +4,29 @@
  * read a flow with; the tests have the same in test/helpers/notebooks.ts.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { smaltty } from 'smaltkit/typescript';
+import { composeFlow } from '../src/core/compose.js';
 import type { FlowDocument } from '../src/core/document.js';
-import { syncRuleCells } from '../src/core/gatecell.js';
-import { expandNotebooks, loadNotebooks, type NotebookRef } from '../src/core/notebook.js';
-import { importOntologies } from '../src/core/shared.js';
 
 /**
- * A flow from disk, the shared ontologies it imports brought in (shared.ts: each starting file's meanings and rules,
- * read relative to the flow), and the check cells that enforce a shared file's rules listing them (`syncRuleCells`), so
- * a change to a shared file reaches every flow that imports it.
+ * A flow from disk (compose.ts): the shared ontologies it imports brought in (shared.ts: each starting file's meanings
+ * and rules, read relative to the flow), its notebooks loaded and its steps derived, the flows it reads and theirs
+ * brought in (ADR 0025), and the check cells that enforce a shared file's rules listing them (`syncRuleCells`), so a
+ * change to a shared file, or to a flow others read, reaches every flow the next time it is read.
  */
 export async function readFlow(path: string): Promise<FlowDocument> {
   const dir = dirname(path);
-  const raw = await importOntologies(JSON.parse(readFileSync(path, 'utf8')) as FlowDocument, async (p) => JSON.parse(readFileSync(join(dir, p), 'utf8')));
-  if (!(raw as { notebooks?: NotebookRef[] }).notebooks) return raw;
-  const loaded = await loadNotebooks(raw as FlowDocument & { notebooks: NotebookRef[] }, async (p) => readFileSync(join(dir, p), 'utf8'));
-  return syncRuleCells(await expandNotebooks(loaded as FlowDocument, smaltty));
+  return composeFlow(basename(path), { json: async (p) => JSON.parse(readFileSync(join(dir, p), 'utf8')), text: async (p) => readFileSync(join(dir, p), 'utf8') }, smaltty);
+}
+
+/**
+ * Each flow a flow reads, as its own document (ADR 0025 §2), in the order the flow lists them: the document read from
+ * its own folder, whose flow hash the reading document names it by. What a run keeps beside its own document.
+ */
+export async function readFlows(path: string): Promise<FlowDocument[]> {
+  const doc = await readFlow(path);
+  return Promise.all((doc.flows ?? []).map((f) => readFlow(join(dirname(path), f.path))));
 }
 
 /** The flow's data list: `<doc>.data.json` beside a `.smaltfl.json`, `data.json` in a folder. */

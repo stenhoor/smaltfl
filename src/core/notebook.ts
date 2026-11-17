@@ -632,14 +632,20 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
-/** `./counts.nb.js` from `checks.nb.ts`: the listed notebook's path, with the compiled extension mapped back. */
+/** `./counts.nb.js` from `checks.nb.ts`: the listed notebook's path, with the compiled extension mapped back. A path
+ * may climb out of the document's folder (`../inventory/bronze.nb.ts`, a notebook of a flow this one reads, ADR 0025). */
 function resolvePath(from: string, module: string): string {
   const dir = from.includes('/') ? from.slice(0, from.lastIndexOf('/') + 1) : '';
+  return joinPath(dir, module).replace(/\.js$/, '.ts');
+}
+
+/** A path under a folder, with `.` and `..` worked out; one that climbs above where it started keeps its `..`. */
+export function joinPath(dir: string, path: string): string {
   const out: string[] = [];
-  for (const p of `${dir}${module}`.split('/')) {
+  for (const p of `${dir}/${path}`.split('/')) {
     if (p === '.' || p === '') continue;
-    if (p === '..') out.pop();
+    if (p === '..' && out.length > 0 && out[out.length - 1] !== '..') out.pop();
     else out.push(p);
   }
-  return out.join('/').replace(/\.js$/, '.ts');
+  return out.join('/');
 }

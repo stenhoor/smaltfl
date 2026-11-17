@@ -233,6 +233,68 @@ The slices, each with its tests, its stop sets at every size and its guide:
 9. **Building in the app** (§10).
 10. **The voice** (§12).
 
+## As built
+
+### Slice 1: the core, and Larkspur cut into five (2026-11-17)
+
+- **The document** (`src/core/document.ts`): `FlowDocument.flows`, a `FlowPart` for each flow read, directly or through
+  another: its `path` from the reading flow's folder, its `id`, `name` and `description`, its own `hash`, the `sources`
+  and `steps` that are its own, the flows it `reads`, and whether the reading flow lists it itself (`direct`). The
+  field is part of the flow hash and no display field. `flowOwners`, `flowOf`, `givesOf` (what a flow publishes) and
+  `readsOf` (every flow one reads, through others too) read it.
+- **The document's own rule** (`validateFlows`, in `validateDocument`): a step reads a published step or a source of a
+  flow its own flow lists, and nothing else of another flow. Each refusal says which flows and what would make it
+  right: *publish it there*, *list the flow*, or *a flow reads the flows it lists, not the flow that reads it*. A
+  gate's scope, reconcile and dependency rules are held to the same. A `flows` list still holding paths is refused: it
+  was never read.
+- **Reading** (`src/core/compose.ts`, `composeFlow`): pure, the caller reads the files (`FlowFiles`). Each flow's file
+  is read once, with its shared ontologies and its notebooks; a circle is refused with its path
+  (*a → b → a*); the flows are merged, a flow after the flows it reads; one `expandNotebooks` derives every step;
+  each part's steps are the cells of its own notebooks; `syncRuleCells`, then the whole document is validated. Refused
+  in `merge`, naming both flows: an id that is two things, another calendar, another way of pausing (naming the
+  `publish` settings that differ), a parameter of two types, a part with policies of its own, a contract or a change
+  set said twice. `mergeOntologies` joins the flows' ontologies and refuses a thing said twice. A flow that reads none
+  is read exactly as before: no hash of any other flow moved.
+- **A notebook imports across folders** (`joinPath` in `notebook.ts` keeps a leading `..`): `feeds/bronze.nb.ts` imports
+  `cmdb_apps` from `../inventory/bronze.nb.js`. `pathFrom` rebases a part's notebook paths to the reading flow's folder.
+- **The hash a flow is known by** is `flowHash` of the document `composeFlow` gives for its own folder. The test holds
+  each of Larkspur's four read flows to it: read on its own and read inside the posture product, the same hash.
+- **The run** (`src/core/manifest.ts`, `src/plugin/runtime.ts`): `manifest.flow.reads`, each read flow's id and hash,
+  only where the document has `flows`. `runFlow`'s option `flows` gives the read flows' own documents; the run keeps
+  each by its hash in `_smaltfl_flows`, and refuses one it doesn't read.
+- **Verify** (`src/plugin/verify.ts`): a `flows` check on a run whose flow reads any: the manifest names what the
+  document does; each kept document hashes to the hash it is named by; and the run's document holds it unchanged
+  (`flowProblems`: every source, every step, each gate's written rules, each contract and watch). Left out of that
+  comparison, because other checks cover them: a check's mode and a rule's switch (the day's rules, by the rules hash),
+  and what a decision fills in a fill step (the repair check).
+- **A fill inside a read flow**: `repairDocument` (`fill.ts`) adds the donor to the sources of the flow that owns the
+  filled file, so the derived document is still one each flow's part accounts for.
+- **The build and the app**: `scripts/flow.ts` reads through `composeFlow` (`readFlow`; `readFlows` gives each read
+  flow's own document). `scripts/build-app.mjs` ships them as `data/flows/<id>.json`, listed in `loads.json` (`flows`,
+  `DataList.flows`), and keys the data's cache by the read flows' folders too. The page fetches them checked and gives
+  them to its first run.
+- **Larkspur** (`examples/larkspur/`): `hr/` (HR organisation: two files, seven steps), `inventory/` (four files, two
+  steps), `feeds/` (Evidence feeds: thirteen files, twenty-five steps; reads Inventory, for the scope of the findings'
+  gate), `applications/` (seven steps and no file; reads the three) and the posture product at the root, which lists
+  the four. Eighteen datasets are published that were steps read across notebooks: the organisation's units, leaders
+  and closure, and each bronze file's checked rows. The plan has the same 92 nodes with the same inputs, and 37 outputs
+  where it had 19. The ontology stays whole in the posture product's `flow.json` until slice 7.
+- **Tests**: `test/compose.test.ts` (reading, the refusals, the keys of a flow's steps the same on its own and inside
+  another, hashes that move only where they should, and through the engine: the manifest's reads, verify's `flows`
+  check, a flow run on its own then *found built* by the flow that reads it, Larkspur as five). The engine's six
+  months and March of Larkspur and the tour's answer key pass as they stood, but for the order the watched steps are
+  listed in: each flow brings its own watches, so the Applications' three come before the posture product's.
+
+**What slice 1 leaves for the slices after it:**
+
+- The canvas still draws a composed flow flat, its notebooks side by side: slice 2 draws each read flow as a card.
+  The browser stop sets that name Larkspur's sections by their old ids (`nb-org`, `nb-apps`, `nb-bronze`) are reworked
+  with it.
+- The offline audit doesn't yet check the flows a run names; verify does. It comes with slice 6, where a change to a
+  read flow is said and tested.
+- An edit made in the app to a step of a read flow (a column renamed through the steps that pass it on) is an edit of
+  the reading flow's copy, and verify's `flows` check says so. Slice 6 makes such an edit at the flow it belongs to.
+
 ## Consequences
 
 - **A flow's document grows.** The app ships the composed document, so a page still opens one file and needs no parser.

@@ -25,27 +25,13 @@
       }
     ]
   },
+  "flows": [
+    "hr/flow.json",
+    "inventory/flow.json",
+    "feeds/flow.json",
+    "applications/flow.json"
+  ],
   "sources": [
-    {
-      "id": "hr_org_units",
-      "table": "hr_org_units_file",
-      "description": "The HR system's daily extract of the organisation: every unit (the group, its segments, business units, departments and teams) with its parent, its leader, and anyone acting for a vacant or absent one"
-    },
-    {
-      "id": "hr_people",
-      "table": "hr_people_file",
-      "description": "The leaders in the HR extract: each with their title, manager, unit and status (active, on leave, or left in the last thirty days)"
-    },
-    {
-      "id": "cmdb_apps",
-      "table": "cmdb_apps_file",
-      "description": "The CMDB's applications: the owning team, tier, exposure, data class, datastore, hosting, site, runtime platform and lifecycle, with when each record last changed"
-    },
-    {
-      "id": "cloud_assets",
-      "table": "cloud_assets_file",
-      "description": "The cloud inventory: resources counted by application tag in each account"
-    },
     {
       "id": "control_catalog",
       "table": "control_catalog_file",
@@ -60,87 +46,10 @@
       "id": "exceptions",
       "table": "exceptions_file",
       "description": "The risk register: every version of every exception, with its approver, reason, validity and status that day"
-    },
-    {
-      "id": "findings",
-      "table": "findings_file",
-      "description": "The vulnerability scanners and penetration tests: open findings, those fixed in the last thirty days, and one scan-information row an application scanned, saying whether the scanner logged in"
-    },
-    {
-      "id": "tls",
-      "table": "tls_file",
-      "description": "TLS on exposed endpoints: the ingress, the certificate's issuer, the protocol offered and the certificate's expiry. One row an application it applies to (live internet- and partner-facing applications)"
-    },
-    {
-      "id": "waf",
-      "table": "waf_file",
-      "description": "The web application firewall in front of internet-facing applications: its ingress, its mode and its ruleset’s age. One row an application it applies to"
-    },
-    {
-      "id": "pentest_schedule",
-      "table": "pentest_schedule_file",
-      "description": "Yearly penetration tests for exposed tier 1 and 2 applications: the last test, the next due date and the open high findings"
-    },
-    {
-      "id": "encryption",
-      "table": "encryption_file",
-      "description": "Encryption at rest for applications with a datastore: the store and its key store"
-    },
-    {
-      "id": "key_rotation",
-      "table": "key_rotation_file",
-      "description": "Yearly key rotation for regulated data: the key store, the last rotation, the next due date and the key's age"
-    },
-    {
-      "id": "backup_jobs",
-      "table": "backup_jobs_file",
-      "description": "Backups for the applications we host that keep data: the controller, the last job's state, the last success and the recovery point"
-    },
-    {
-      "id": "dr_exercises",
-      "table": "dr_exercises_file",
-      "description": "Yearly disaster-recovery exercises for tier 1 applications: the last exercise, the next due date and whether the recovery time was met"
-    },
-    {
-      "id": "mfa",
-      "table": "mfa_file",
-      "description": "MFA for every live application: the identity provider, the share of users registered and whether MFA is enforced. Registered is not enforced"
-    },
-    {
-      "id": "access_reviews",
-      "table": "access_reviews_file",
-      "description": "Quarterly access reviews for applications with confidential or regulated data: the last review, the next due date, the reviewers and the access revoked"
-    },
-    {
-      "id": "logging_coverage",
-      "table": "logging_coverage_file",
-      "description": "Central logging for the applications we host: the pipeline, the forwarder's certificate issuer, the last event received and the retention"
-    },
-    {
-      "id": "privileged_vault",
-      "table": "privileged_vault_file",
-      "description": "Privileged accounts of tier 1 and 2 applications: the vault, the accounts, and how many are not vaulted"
-    },
-    {
-      "id": "edr_coverage",
-      "table": "edr_coverage_file",
-      "description": "Endpoint detection on the hosts of the applications we host: hosts, hosts reporting, hosts in reduced functionality and the sensor version"
-    },
-    {
-      "id": "platforms",
-      "table": "platforms_file",
-      "description": "The architecture inventory: each shared platform, its kind and its site"
-    },
-    {
-      "id": "platform_links",
-      "table": "platform_links_file",
-      "description": "What each platform depends on, and the controls it provides to the applications on it (common or hybrid)"
     }
   ],
   "notebooks": [
     "bronze.nb.ts",
-    "org.nb.ts",
-    "apps.nb.ts",
     "evidence.nb.ts",
     "posture.nb.ts",
     "product.nb.ts"
@@ -3104,22 +3013,6 @@
     "together": false,
     "reach": "downstream",
     "watch": {
-      "hr_org_units": {
-        "history": "history.hr_org_units.json",
-        "pattern": "none"
-      },
-      "hr_people": {
-        "history": "history.hr_people.json",
-        "pattern": "none"
-      },
-      "cmdb_apps": {
-        "history": "history.cmdb_apps.json",
-        "pattern": "none"
-      },
-      "cloud_assets": {
-        "history": "history.cloud_assets.json",
-        "pattern": "none"
-      },
       "control_catalog": {
         "history": "history.control_catalog.json",
         "pattern": "none"
@@ -3131,63 +3024,6 @@
       "exceptions": {
         "history": "history.exceptions.json",
         "pattern": "none"
-      },
-      "findings": {
-        "history": "history.findings.json",
-        "pattern": "monthly"
-      },
-      "tls": {
-        "history": "history.tls.json",
-        "pattern": "none"
-      },
-      "waf": {
-        "history": "history.waf.json",
-        "pattern": "none"
-      },
-      "pentest_schedule": {
-        "history": "history.pentest_schedule.json",
-        "pattern": "none"
-      },
-      "encryption": {
-        "history": "history.encryption.json",
-        "pattern": "none"
-      },
-      "key_rotation": {
-        "history": "history.key_rotation.json",
-        "pattern": "none"
-      },
-      "backup_jobs": {
-        "history": "history.backup_jobs.json",
-        "pattern": "none"
-      },
-      "dr_exercises": {
-        "history": "history.dr_exercises.json",
-        "pattern": "none"
-      },
-      "mfa": {
-        "history": "history.mfa.json",
-        "pattern": "none"
-      },
-      "access_reviews": {
-        "history": "history.access_reviews.json",
-        "pattern": "none"
-      },
-      "logging_coverage": {
-        "history": "history.logging_coverage.json",
-        "pattern": "none"
-      },
-      "privileged_vault": {
-        "history": "history.privileged_vault.json",
-        "pattern": "none"
-      },
-      "edr_coverage": {
-        "history": "history.edr_coverage.json",
-        "pattern": "none"
-      },
-      "apps": {
-        "history": "history.apps.json",
-        "pattern": "none",
-        "calendar": false
       },
       "effective": {
         "history": "history.effective.json",
@@ -3206,20 +3042,6 @@
         "count": [
           "platform_id",
           "status"
-        ]
-      },
-      "shadow_assets": {
-        "history": "history.shadow_assets.json",
-        "pattern": "none",
-        "calendar": false,
-        "count": []
-      },
-      "app_owners": {
-        "history": "history.app_owners.json",
-        "pattern": "none",
-        "calendar": false,
-        "count": [
-          "business_unit_id"
         ]
       },
       "dim_app": {

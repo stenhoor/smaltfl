@@ -297,6 +297,14 @@ export interface FlowDocument {
    * never made from a document that still has them, and a day before every change set runs as it always did.
    */
   changes?: ChangeSet[];
+  /**
+   * The flows this one reads (ADR 0025 §1): each a flow of its own, in its own folder, read into this document when it
+   * is read (compose.ts), so the document a run hashes has every flow it reads in it and the plan stays flat. On disk a
+   * flow lists them by path; read, each says which sources and steps are its own, the flows it reads in turn, and its
+   * own flow hash. Every flow in the document is listed, in an order where a flow comes after the flows it reads. Part
+   * of the flow hash.
+   */
+  flows?: FlowPart[];
   /** Display only: sections of the canvas, each holding sources and steps. Not part of any hash. */
   groups?: GroupDef[];
   /**
@@ -313,6 +321,68 @@ export interface FlowDocument {
   cells?: Record<string, CellRef>;
   /** Display only, in a format-4 document: each notebook's cells in order, as the notebook view reads them. */
   outline?: NotebookOutline[];
+}
+
+/** A flow another reads, as that flow's file lists it (ADR 0025 §1): its document's path, relative to the file; read,
+ * the flow as the document holds it. */
+export type FlowRef = string | FlowPart;
+
+/**
+ * A flow read into a document (ADR 0025 §1, §2): its own sources and steps, by id, the flows it reads in turn, and what
+ * it is known by, its own flow hash: the hash of the document read from its own folder, with the flows it reads in it.
+ */
+export interface FlowPart {
+  /** Its document's path, relative to the reading document's. */
+  path: string;
+  id: string;
+  name: string;
+  description?: string;
+  /** Its own flow hash (`flow/1`), as reading it on its own gives it. */
+  hash: string;
+  /** Its own sources and steps, by id: what it brings, apart from what the flows it reads bring. */
+  sources: string[];
+  steps: string[];
+  /** The flows it reads itself, by id. */
+  reads: string[];
+  /** Whether the document's own flow lists it (true), or only a flow it reads does. */
+  direct: boolean;
+}
+
+/** A flow part's fields: any other is refused by name. */
+const FLOW_PART_FIELDS = ['path', 'id', 'name', 'description', 'hash', 'sources', 'steps', 'reads', 'direct'];
+
+/** The flow a source or step is its own of, by id (lower case): a part's id, or '' for the document's own flow. */
+export function flowOwners(doc: Pick<FlowDocument, 'flows'>): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const f of doc.flows ?? []) for (const id of [...f.sources, ...f.steps]) out.set(id.toLowerCase(), f.id);
+  return out;
+}
+
+/** The flow a source or step belongs to: the part that lists it, or undefined for the document's own flow's. */
+export function flowOf(doc: Pick<FlowDocument, 'flows'>, id: string): FlowPart | undefined {
+  const lower = id.toLowerCase();
+  return (doc.flows ?? []).find((f) => f.sources.some((x) => x.toLowerCase() === lower) || f.steps.some((x) => x.toLowerCase() === lower));
+}
+
+/** What a flow gives (ADR 0025 §1): the datasets it publishes, which a flow that reads it may read. A part by its id;
+ * the document's own flow with no id. In the steps' order. */
+export function givesOf(doc: Pick<FlowDocument, 'flows' | 'steps'>, flow?: string): string[] {
+  const owner = flowOwners(doc);
+  return doc.steps.filter((s) => s.dataset !== undefined && (owner.get(s.id.toLowerCase()) ?? '') === (flow ?? '')).map((s) => s.id);
+}
+
+/** Every flow a flow reads, itself or through the flows it reads, by id, in the document's order; the document's own
+ * flow with no id. */
+export function readsOf(doc: Pick<FlowDocument, 'flows'>, flow?: string): string[] {
+  const parts = doc.flows ?? [];
+  const seen = new Set<string>();
+  const visit = (id: string) => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    for (const r of parts.find((f) => f.id === id)?.reads ?? []) visit(r);
+  };
+  for (const id of flow === undefined ? parts.filter((f) => f.direct).map((f) => f.id) : (parts.find((f) => f.id === flow)?.reads ?? [])) visit(id);
+  return parts.filter((f) => seen.has(f.id)).map((f) => f.id);
 }
 
 /** A notebook's cells in order, for the notebook view: what each is, and the step, source or section it makes. */
@@ -640,6 +710,7 @@ export function validateDocument(doc: unknown): Issue[] {
     else for (const [k, v] of Object.entries(doc.layout)) if (!(Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === 'number' && Number.isFinite(n)))) add(`$.layout.${k}`, '[x, y]');
   }
   validateExtras(doc, ids, add);
+  validateFlows(doc, ids, add);
   validateGates(doc, add);
   validateContracts(doc, add);
   validateChanges(doc, add);
@@ -972,6 +1043,72 @@ function validateWatch(w: Record<string, unknown>, at: string, add: (path: strin
   if (w.scale !== undefined && w.scale !== 'fixed' && w.scale !== 'volume') add(`${at}.scale`, 'fixed or volume');
   for (const k of ['count', 'follow'] as const)
     if (w[k] !== undefined && (!Array.isArray(w[k]) || (w[k] as unknown[]).some((c) => typeof c !== 'string' || c === '') || new Set(w[k] as string[]).size !== (w[k] as unknown[]).length)) add(`${at}.${k}`, 'a list of columns, each once');
+}
+
+/**
+ * The flows a document reads (ADR 0025 §1): each a part with its own sources and steps, none shared; a flow after the
+ * flows it reads, so none reads itself; and what one flow reads of another is that flow's to give: a dataset it
+ * publishes, or one of its files as it arrived, and only of a flow it lists.
+ */
+function validateFlows(doc: Record<string, unknown>, ids: Map<string, string>, add: (path: string, message: string) => void): void {
+  if (doc.flows === undefined) return;
+  if (!Array.isArray(doc.flows)) return add('$.flows', 'a list of the flows this one reads');
+  if (doc.flows.some((f) => typeof f === 'string')) return add('$.flows', 'the flows a flow reads are brought in when it is read (readFlow): this document lists paths it was never read with');
+  const parts: FlowPart[] = [];
+  const seen = new Map<string, string>();
+  const owner = new Map<string, FlowPart>();
+  doc.flows.forEach((f: unknown, i: number) => {
+    const at = `$.flows[${i}]`;
+    const strings = (v: unknown) => Array.isArray(v) && v.every((x) => typeof x === 'string');
+    if (!isRecord(f) || typeof f.path !== 'string' || f.path === '' || typeof f.id !== 'string' || f.id === '' || typeof f.name !== 'string' || typeof f.hash !== 'string' || !/^[0-9a-f]{64}$/.test(f.hash)
+      || !strings(f.sources) || !strings(f.steps) || !strings(f.reads) || typeof f.direct !== 'boolean' || (f.description !== undefined && typeof f.description !== 'string')) {
+      return add(at, '{ path, id, name, hash, sources, steps, reads, direct }: a flow as it was read, with its own flow hash');
+    }
+    for (const k of Object.keys(f)) if (!FLOW_PART_FIELDS.includes(k)) add(`${at}.${k}`, `not a flow's part (${FLOW_PART_FIELDS.join(', ')})`);
+    const part = f as unknown as FlowPart;
+    if (seen.has(part.id.toLowerCase()) || part.id === doc.id) add(`${at}.id`, part.id === doc.id ? `${part.id} is this flow's own id: a flow doesn't read itself` : `two flows are called ${part.id}`);
+    seen.set(part.id.toLowerCase(), at);
+    for (const r of part.reads) if (!parts.some((p) => p.id === r)) add(`${at}.reads`, `${part.name} reads ${r}, which isn't listed before it: a flow comes after the flows it reads, and none reads itself`);
+    for (const [kind, list] of [['source', part.sources], ['step', part.steps]] as const) {
+      for (const id of list) {
+        const where = ids.get(id.toLowerCase());
+        if (!where || where.startsWith('$.sources') !== (kind === 'source')) add(`${at}.${kind}s`, `no ${kind} ${id}`);
+        else if (owner.has(id.toLowerCase())) add(`${at}.${kind}s`, `${id} is ${owner.get(id.toLowerCase())!.name}'s and ${part.name}'s: a source or a step is one flow's`);
+        else owner.set(id.toLowerCase(), part);
+      }
+    }
+    parts.push(part);
+  });
+  if (parts.length !== doc.flows.length) return;
+  // What one flow reads of another: a published dataset or a file, of a flow it lists.
+  const steps = (Array.isArray(doc.steps) ? doc.steps : []).filter((s: unknown): s is Record<string, unknown> => isRecord(s) && typeof s.id === 'string');
+  const published = new Set(steps.filter((s) => s.dataset !== undefined).map((s) => String(s.id).toLowerCase()));
+  const own = typeof doc.name === 'string' ? doc.name : 'this flow';
+  const lists = (reader: FlowPart | undefined, read: FlowPart) => (reader ? reader.reads.includes(read.id) : read.direct);
+  const check = (at: string, reader: FlowPart | undefined, what: string, id: string) => {
+    const from = owner.get(id.toLowerCase());
+    if (from === reader || from === undefined) {
+      // Its own, or the reading document's own flow's: a flow read into another can't read back out of it.
+      if (from === undefined && reader !== undefined && ids.has(id.toLowerCase())) add(at, `${what} reads ${id}, which is ${own}'s: a flow reads the flows it lists, not the flow that reads it`);
+      return;
+    }
+    if (!lists(reader, from)) add(at, `${what} reads ${id}, which is ${from.name}'s, and ${reader ? reader.name : own} doesn't list ${from.name} among the flows it reads`);
+    else if (ids.get(id.toLowerCase())!.startsWith('$.steps') && !published.has(id.toLowerCase())) add(at, `${what} reads ${id}, a step of ${from.name} that it doesn't publish: a flow reads what another gives (publish ${id} there) or its files`);
+  };
+  steps.forEach((s) => {
+    const reader = owner.get(String(s.id).toLowerCase());
+    const i = (doc.steps as unknown[]).indexOf(s);
+    for (const input of Array.isArray(s.inputs) ? s.inputs : []) if (typeof input === 'string') check(`$.steps[${i}].inputs`, reader, String(s.id), input);
+  });
+  // A gate's written rules name datasets too (its scope's inventory, a dependency's source, what it reconciles with).
+  if (isRecord(doc.gates)) {
+    for (const [node, g] of Object.entries(doc.gates)) {
+      if (!isRecord(g)) continue;
+      const reader = owner.get(node.toLowerCase());
+      const named = [isRecord(g.scope) ? g.scope.of : undefined, isRecord(g.reconcile) ? g.reconcile.of : undefined, ...(Array.isArray(g.needs) ? g.needs.map((n: unknown) => (isRecord(n) ? n.from : undefined)) : [])];
+      for (const id of named) if (typeof id === 'string') check(`$.gates.${node}`, reader, `${node}'s gate`, id);
+    }
+  }
 }
 
 /** Groups, the ontology and the policies: their references, checked against the flow's ids. */

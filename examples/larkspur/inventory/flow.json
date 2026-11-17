@@ -1,0 +1,72 @@
+{
+  "smaltfl": 4,
+  "id": "inventory",
+  "name": "Inventory",
+  "description": "What the group runs: the applications in the CMDB, the cloud inventory, and the shared platforms with what depends on them. Each daily file is judged as it arrives, and its readable rows are what this flow gives.",
+  "parameters": [
+    {
+      "name": "day",
+      "type": "text",
+      "default": null
+    }
+  ],
+  "calendar": {
+    "base": "us",
+    "zone": "UTC",
+    "days": [
+      {
+        "name": "Patch Tuesday",
+        "short": "Patch Tue",
+        "weekday": "tue",
+        "between": [
+          8,
+          14
+        ]
+      }
+    ]
+  },
+  "sources": [
+    {
+      "id": "cmdb_apps",
+      "table": "cmdb_apps_file",
+      "description": "The CMDB's applications: the owning team, tier, exposure, data class, datastore, hosting, site, runtime platform and lifecycle, with when each record last changed"
+    },
+    {
+      "id": "cloud_assets",
+      "table": "cloud_assets_file",
+      "description": "The cloud inventory: resources counted by application tag in each account"
+    },
+    {
+      "id": "platforms",
+      "table": "platforms_file",
+      "description": "The architecture inventory: each shared platform, its kind and its site"
+    },
+    {
+      "id": "platform_links",
+      "table": "platform_links_file",
+      "description": "What each platform depends on, and the controls it provides to the applications on it (common or hybrid)"
+    }
+  ],
+  "notebooks": [
+    "bronze.nb.ts"
+  ],
+  "publish": {
+    "hold": [
+      "checks",
+      "wrong"
+    ],
+    "period": "day",
+    "together": false,
+    "reach": "downstream",
+    "watch": {
+      "cmdb_apps": {
+        "history": "history.cmdb_apps.json",
+        "pattern": "none"
+      },
+      "cloud_assets": {
+        "history": "history.cloud_assets.json",
+        "pattern": "none"
+      }
+    }
+  }
+}

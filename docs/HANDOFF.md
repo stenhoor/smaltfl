@@ -222,6 +222,29 @@ Results on 2026-11-09, at `e42d9ec` on data `0ca4dd1`:
 
 ## What is not done
 
+**In hand: [ADR 0025](adr/0025-flows-in-flows.md), flows in flows** (2026-11-17, the maintainer's answers Q-226 to
+Q-234). The maintainer asked for flows that are parts of other flows: build one, read it from many, stack them, change
+a bronze flow once and have it reach everything built on it; a card for each flow on its reader's canvas with the day's
+pass or fail, opened to see its own flow; a way to explore what a flow gives; all of it rolled up into the month. The
+research is [research/flows-in-flows.md](research/flows-in-flows.md): what Alteryx, Palantir, Dataiku, KNIME, dbt, Dagster
+and the design tools do, how they roll a status up, how they hash, and what none of them does. The design was settled
+in the question prompt, nine questions in three rounds. In the slices of ADR 0025 §12:
+
+1. **The core, and Larkspur cut into five: built** (ADR 0025 §"As built"). A flow lists the flows it reads
+   (`flows` in `flow.json`); reading brings them in (`src/core/compose.ts`); the plan stays flat, so every hold, every
+   check and the recorder run a composed flow as they run any other. A flow is known by its own flow hash, every run
+   names the flows it read, and verify holds the run's document to each one's own. Larkspur is HR organisation,
+   Inventory, Evidence feeds, Applications and the posture product, with the same 92 plan nodes and the same answer
+   keys (its six months and March through the engine, the tour's two months at the demo's scale).
+2. The canvas in levels (a card a flow, its sheet, entering it): next.
+3. The month in tiers. 4. Exploring what a flow gives. 5. A paused day decided once, at its flow. 6. A change followed,
+   said and tested on the days recorded. 7. The ontology's overrides. 8. Inputs and settings. 9. Building in the app (a
+   catalogue, a join form). 10. The voice.
+
+Two readings of the maintainer's answers are ADR 0025's own, for the maintainer to correct: that testing a changed flow
+on the days recorded *informs* and does not hold the change back (§7), and that an override is written in the flow that
+makes it, marked as one, with its reason (§8).
+
 **For the maintainers to confirm: [ADR 0024](adr/0024-the-month-at-a-glance.md), the month at a glance** (2026-11-16,
 Q-219 to Q-225). The maintainer looked at the tour's month and asked for research into how such a screen is best done,
 and a solution: page through the months; the panel for a day didn't say what went on that day; the symbols were

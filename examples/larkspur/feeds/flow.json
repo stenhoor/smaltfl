@@ -1,0 +1,164 @@
+{
+  "smaltfl": 4,
+  "id": "feeds",
+  "name": "Evidence feeds",
+  "description": "The findings ledger and twelve evidence feeds, one a control, as their tools export them each day. Each is judged as it arrives against the inventory’s list of applications, may be filled from another day when it is missing or wrong, and gives its readable rows.",
+  "parameters": [
+    {
+      "name": "day",
+      "type": "text",
+      "default": null
+    }
+  ],
+  "calendar": {
+    "base": "us",
+    "zone": "UTC",
+    "days": [
+      {
+        "name": "Patch Tuesday",
+        "short": "Patch Tue",
+        "weekday": "tue",
+        "between": [
+          8,
+          14
+        ]
+      }
+    ]
+  },
+  "flows": [
+    "../inventory/flow.json"
+  ],
+  "sources": [
+    {
+      "id": "findings",
+      "table": "findings_file",
+      "description": "The vulnerability scanners and penetration tests: open findings, those fixed in the last thirty days, and one scan-information row an application scanned, saying whether the scanner logged in"
+    },
+    {
+      "id": "tls",
+      "table": "tls_file",
+      "description": "TLS on exposed endpoints: the ingress, the certificate's issuer, the protocol offered and the certificate's expiry. One row an application it applies to (live internet- and partner-facing applications)"
+    },
+    {
+      "id": "waf",
+      "table": "waf_file",
+      "description": "The web application firewall in front of internet-facing applications: its ingress, its mode and its ruleset’s age. One row an application it applies to"
+    },
+    {
+      "id": "pentest_schedule",
+      "table": "pentest_schedule_file",
+      "description": "Yearly penetration tests for exposed tier 1 and 2 applications: the last test, the next due date and the open high findings"
+    },
+    {
+      "id": "encryption",
+      "table": "encryption_file",
+      "description": "Encryption at rest for applications with a datastore: the store and its key store"
+    },
+    {
+      "id": "key_rotation",
+      "table": "key_rotation_file",
+      "description": "Yearly key rotation for regulated data: the key store, the last rotation, the next due date and the key's age"
+    },
+    {
+      "id": "backup_jobs",
+      "table": "backup_jobs_file",
+      "description": "Backups for the applications we host that keep data: the controller, the last job's state, the last success and the recovery point"
+    },
+    {
+      "id": "dr_exercises",
+      "table": "dr_exercises_file",
+      "description": "Yearly disaster-recovery exercises for tier 1 applications: the last exercise, the next due date and whether the recovery time was met"
+    },
+    {
+      "id": "mfa",
+      "table": "mfa_file",
+      "description": "MFA for every live application: the identity provider, the share of users registered and whether MFA is enforced. Registered is not enforced"
+    },
+    {
+      "id": "access_reviews",
+      "table": "access_reviews_file",
+      "description": "Quarterly access reviews for applications with confidential or regulated data: the last review, the next due date, the reviewers and the access revoked"
+    },
+    {
+      "id": "logging_coverage",
+      "table": "logging_coverage_file",
+      "description": "Central logging for the applications we host: the pipeline, the forwarder's certificate issuer, the last event received and the retention"
+    },
+    {
+      "id": "privileged_vault",
+      "table": "privileged_vault_file",
+      "description": "Privileged accounts of tier 1 and 2 applications: the vault, the accounts, and how many are not vaulted"
+    },
+    {
+      "id": "edr_coverage",
+      "table": "edr_coverage_file",
+      "description": "Endpoint detection on the hosts of the applications we host: hosts, hosts reporting, hosts in reduced functionality and the sensor version"
+    }
+  ],
+  "notebooks": [
+    "bronze.nb.ts"
+  ],
+  "publish": {
+    "hold": [
+      "checks",
+      "wrong"
+    ],
+    "period": "day",
+    "together": false,
+    "reach": "downstream",
+    "watch": {
+      "findings": {
+        "history": "history.findings.json",
+        "pattern": "monthly"
+      },
+      "tls": {
+        "history": "history.tls.json",
+        "pattern": "none"
+      },
+      "waf": {
+        "history": "history.waf.json",
+        "pattern": "none"
+      },
+      "pentest_schedule": {
+        "history": "history.pentest_schedule.json",
+        "pattern": "none"
+      },
+      "encryption": {
+        "history": "history.encryption.json",
+        "pattern": "none"
+      },
+      "key_rotation": {
+        "history": "history.key_rotation.json",
+        "pattern": "none"
+      },
+      "backup_jobs": {
+        "history": "history.backup_jobs.json",
+        "pattern": "none"
+      },
+      "dr_exercises": {
+        "history": "history.dr_exercises.json",
+        "pattern": "none"
+      },
+      "mfa": {
+        "history": "history.mfa.json",
+        "pattern": "none"
+      },
+      "access_reviews": {
+        "history": "history.access_reviews.json",
+        "pattern": "none"
+      },
+      "logging_coverage": {
+        "history": "history.logging_coverage.json",
+        "pattern": "none"
+      },
+      "privileged_vault": {
+        "history": "history.privileged_vault.json",
+        "pattern": "none"
+      },
+      "edr_coverage": {
+        "history": "history.edr_coverage.json",
+        "pattern": "none"
+      }
+    }
+  }
+}

@@ -126,6 +126,9 @@ const sameFlow = (a: RunRecord, b: RunRecord): boolean => (a.base !== undefined 
  */
 const NO_FLOW: FlowDocument = { smaltfl: 1, id: 'none', name: 'No flow', sources: [], steps: [] };
 let shippedDoc = NO_FLOW;
+/** Each flow the shipped flow reads, as its own document (ADR 0025 §2), and whether a run of this visit has kept them. */
+let readFlowDocs: Promise<FlowDocument[]> = Promise.resolve([]);
+let readFlowsKept = false;
 /** The data list the page opened (loads.json): each source's binding and files, each watch's history. */
 let dataList: DataList | null = null;
 
@@ -14722,7 +14725,8 @@ async function run(early?: EarlyClaims): Promise<void> {
     loads.correct = null;
     const correction = loads.restates || loads.whatIf ? undefined : correct ?? (before && primarySource() ? { of: { run: before.result.run, manifest: before.result.hash }, sources: [primarySource()!] } : (sent ?? undefined));
     await defineTablesFor(engine, state.doc);
-    const result = await runFlow(engine, state.doc, { smaltdb: SMALTDB, parameters, data, log: recordHead(), ...(told ? { claims: told } : {}), ...(asked && Object.keys(asked.tell).length ? { tell: asked.tell } : {}), ...(Object.keys(sources).length ? { sources } : {}), ...(correction ? { correction } : {}), ...(loads.restates ? { restates: loads.restates } : {}), ...(loads.whatIf ? { whatIf: true as const } : {}) });
+    const result = await runFlow(engine, state.doc, { smaltdb: SMALTDB, parameters, data, log: recordHead(), ...(readFlowsKept ? {} : { flows: await readFlowDocs.catch(() => []) }), ...(told ? { claims: told } : {}), ...(asked && Object.keys(asked.tell).length ? { tell: asked.tell } : {}), ...(Object.keys(sources).length ? { sources } : {}), ...(correction ? { correction } : {}), ...(loads.restates ? { restates: loads.restates } : {}), ...(loads.whatIf ? { whatIf: true as const } : {}) });
+    readFlowsKept = true;
     const ms = performance.now() - t;
     mark('run: flow run');
     // A held run returns, built, checked and recorded, its versions staged: only `published` names show it. Every watched
@@ -16315,6 +16319,12 @@ async function start(): Promise<void> {
       shippedDoc = doc;
       state.doc = structuredClone(doc);
       document.title = `smaltfl: ${doc.name}`;
+      // Each flow it reads, as its own document (ADR 0025 §2): fetched beside it, checked as it is, and kept by the
+      // first run, so a run here can be verified to hold each one unchanged.
+      const listed = dataList.flows;
+      const data = dataList.data;
+      readFlowDocs = Promise.all((doc.flows ?? []).filter((f) => listed[f.id]).map(async (f) => JSON.parse(new TextDecoder().decode(await fetchChecked(listed[f.id]!.path, listed[f.id]!, { commit: data?.commit ?? null, onCheck: noteCheck }))) as FlowDocument));
+      readFlowDocs.catch(() => undefined);
     } catch (e) {
       opening = e;
     }

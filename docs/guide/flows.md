@@ -80,6 +80,49 @@ A notebook is TypeScript that `tsc` checks as written. The cells smaltfl reads:
 
 Another notebook's exports are imported like any module (`import { posture } from './posture.nb.js'`).
 
+## A flow that reads other flows
+
+A flow can read flows that are already made ([ADR 0025](../adr/0025-flows-in-flows.md)). It lists them in its
+`flow.json`, each by the path of that flow's own `flow.json`:
+
+```json
+{
+  "smaltfl": 4,
+  "id": "larkspur",
+  "name": "Larkspur estate",
+  "flows": ["hr/flow.json", "inventory/flow.json", "feeds/flow.json", "applications/flow.json"],
+  "sources": [{ "id": "control_catalog", "table": "control_catalog_file" }],
+  "notebooks": ["bronze.nb.ts", "evidence.nb.ts", "posture.nb.ts", "product.nb.ts"]
+}
+```
+
+and its notebooks import what those flows give, as they import each other's cells:
+
+```ts
+import { org_chain } from './hr/org.nb.js';
+import { tls_checked } from './feeds/bronze.nb.js';
+```
+
+- **It reads what a flow gives, and its files.** A step may read a dataset the other flow **publishes**, or one of its
+  sources as it arrived. A step the other flow keeps to itself is refused, and the message says to publish it there.
+- **It lists every flow it reads from.** Reading a flow only through another flow that reads it isn't enough.
+- **A name is one thing.** A source's or a step's id is unique across a flow and the flows it reads: `org_chain` is
+  `org_chain` wherever it is read. Two flows that use a name are refused, both named.
+- **One calendar, one day, one way of pausing.** The flows keep the same `calendar`, the same parameters and the same
+  `publish` settings (what holds, `together`, `reach`). Each brings its own `watch` entries, gates and contracts.
+  Policies are the reading flow's.
+- **No circles.** A flow that reads itself through others is refused.
+
+Reading the flow (`readFlow` in `scripts/flow.ts`, `composeFlow` in the package) brings the flows it reads in: the
+document it gives has all of their sources and steps, and lists each flow with what is its own and its own **flow
+hash**, the hash that reading that flow's folder by itself gives. The plan made from it is the flat plan any flow has.
+So a flow read by two flows is one definition, its steps have the same keys in both, and in one database they are built
+once. A run's manifest names the flows it read by those hashes (`flow.reads`), and verifying the run checks that its
+document holds each one unchanged.
+
+Larkspur is five flows this way: `examples/larkspur/` reads `hr/`, `inventory/`, `feeds/` and `applications/`, and
+`applications/` reads the other three.
+
 ## From the notebook to a run
 
 People say what, the machine decides how ([ADR 0004](../adr/0004-the-flow-plan.md)): the notebooks are translated into

@@ -235,7 +235,8 @@ release (smaltty ADR 0030).
   time, its applications, 46 platforms, a 14-control catalogue mapped to the frameworks, and twenty daily feeds and two
   fixed ones, with the bronze days of its answer key planted (`LARKSPUR_TROUBLE`); `test/larkspur.test.ts` holds the data
   to ADR 0020 §1 and §5; `node scripts/data/larkspur.mjs OUT_DIR` writes it, each file's export time in `loads.json`,
-  never in its rows. `examples/larkspur/` is the flow (slice 2: `bronze.nb.ts`, a gate on every daily file; the ontology's
+  never in its rows. `examples/larkspur/` is the flow (slice 2: `bronze.nb.ts`, a gate on every daily file, since ADR 0025 a
+  `bronze.nb.ts` in each of its flows' folders; the ontology's
   types, links, rows entries and bands; Patch Tuesday in the calendar); `test/larkspur-flow.test.ts` (slow,
   `test/helpers/larkspur-world.ts`) runs six months and March through the engine against the answer key. The `fresh`
   check (Q-172): a file exported before the day it covers is the last load's again (`FileFacts`, the `stale` finding in
@@ -243,8 +244,8 @@ release (smaltty ADR 0030).
   `retell.ts`), from the data list's `exported_at` and `before` (`fileFacts` in the app; `fileTwins` in `viz.ts`); in
   a gated flow a volume change under a twentieth or its rows' floor isn't told, a new value or pair is unusual only on
   the floor's rows, and a written band is read on a value's first day too. Slice 3, silver: the silver days planted too
-  (`LARKSPUR_SILVER`), and four notebooks: `org.nb.ts` (the walk up the chain, its rules `no_loop` and `one_root`),
-  `apps.nb.ts` (ids conformed, the newest record kept, owner chains with Unassigned, shadow tags), `evidence.nb.ts` (every
+  (`LARKSPUR_SILVER`), and four notebooks: `hr/org.nb.ts` (the walk up the chain, its rules `no_loop` and `one_root`),
+  `applications/apps.nb.ts` (ids conformed, the newest record kept, owner chains with Unassigned, shadow tags), `evidence.nb.ts` (every
   feed as one long table; the vulnerability SLA told from the ledger) and `posture.nb.ts` (what applies, coverage, the
   effective status with its reason, remediation, `platform_impact`, `posture_wide` with the key-rotation needs rule).
   Watched in the engine: `apps`, `effective`, `posture_wide`, `platform_impact`, `shadow_assets` (the world builds their
@@ -428,6 +429,22 @@ release (smaltty ADR 0030).
   `posture.controls`). The recorder marks each published day's checks and the applications failing each control
   (`PostureMark.checks`, `failing`, `MonthFile.controls`). A day run here reads as its record does where another watched
   dataset was unusual (`calendarDayOf`). `tools/browser/stops/overview.json` walks it on the tour (tour.cjs's `press`).
+- Flows in flows (ADR 0025, docs/research/flows-in-flows.md): a flow reads other flows. Slice 1, the core: a flow lists
+  the flows it reads by their paths (`flows` in its `flow.json`) and reading brings them in, by reference in the files
+  and by value in the document and the flat plan (`src/core/compose.ts` `composeFlow`, `FlowFiles`, `merge`,
+  `mergeOntologies`; `scripts/flow.ts` `readFlow`, and `readFlows` each read flow's own document; `loadFlowDir` in the
+  tests). The document read has a `FlowPart` a flow (`document.ts` `flows`: its `path`, `id`, its own `hash`, the
+  `sources` and `steps` that are its own, the flows it `reads`, `direct`; `flowOwners`, `flowOf`, `givesOf`, `readsOf`),
+  hashed with it. An id is one thing across a flow and the flows it reads; a step reads what a listed flow publishes, or
+  its sources, and nothing else of another flow (`validateFlows`); one calendar, one set of parameters and publish
+  settings, each flow its own watches, gates and contracts; no circle. A notebook imports across folders (`joinPath`,
+  `pathFrom`). A flow is known by `flowHash` of the document read from its own folder; a run names the flows read
+  (`manifest.flow.reads`) and keeps each one's own document (`runFlow`'s `flows`, `_smaltfl_flows`), and verify's `flows`
+  check holds the run's document to them (`flowProblems`). A fill's derived document names its donor in the flow that
+  owns the file (`repairDocument`). The app's build ships each read flow (`data/flows/<id>.json`, loads.json `flows`,
+  `DataList.flows`). Larkspur is five flows: `hr/`, `inventory/`, `feeds/`, `applications/` and the posture product at
+  the root, which lists the four (the same 92 plan nodes, 37 outputs where it had 19; the ontology whole at the root
+  until slice 7); `test/compose.test.ts`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -508,8 +525,13 @@ release (smaltty ADR 0030).
   found (ADR 0022's addendum). The retirement's list is done. **Then:**
   [ADR 0024](docs/adr/0024-the-month-at-a-glance.md), the month at a glance, from the maintainer's look at the tour's
   month on 2026-11-16 and research into how such screens are best done (docs/research/ui-month-overview.md): built as
-  proposed, for the maintainers to confirm (Q-219 to Q-225); its §"Not built" is what it leaves. What comes next is the
-  maintainers' (docs/HANDOFF.md).
+  proposed, for the maintainers to confirm (Q-219 to Q-225); its §"Not built" is what it leaves. **Now:**
+  [ADR 0025](docs/adr/0025-flows-in-flows.md), flows in flows (2026-11-17, the maintainer's answers Q-226 to Q-234): a
+  flow reads other flows, each a card on its reader's canvas with its day's mark, entered to see its own flow, rolled
+  up into the month, in the slices of its §12: the core and Larkspur cut into five; the canvas in levels; the month in
+  tiers; exploring what a flow gives; a paused day decided once, at its flow; a change followed, said and tested on the
+  days recorded; the ontology's overrides; inputs and settings; building in the app; the voice. Slice 1 is built (its
+  §"As built", which says what it leaves for the slices after it).
 
 ## Rules for this repository
 

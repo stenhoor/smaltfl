@@ -53,6 +53,9 @@ export interface DataList {
   data: { commit: string; manifest: string; bytes?: number } | null;
   /** The flow document the data is for, when it isn't the built-in example. */
   flow: FileEntry | null;
+  /** Each flow that flow reads, as its own document (ADR 0025 §2), by id: what a run keeps beside its own document, so
+   * verify can check that it holds each unchanged. The build's own files, as the flow document is. */
+  flows: Record<string, FileEntry>;
   sources: Record<string, ListedSource>;
   /** Each watched source's history, by source id. */
   histories: Record<string, FileEntry>;
@@ -166,14 +169,16 @@ export function readDataList(raw: unknown): DataList {
     if (recorded) files.recorded = recorded;
     const flow = isRecord(index.flow) ? (index.flow as unknown as FileEntry) : null;
     if (flow) files.flow = flow;
+    const flows = (isRecord(index.flows) ? index.flows : {}) as Record<string, FileEntry>;
+    for (const [id, f] of Object.entries(flows)) files[`flow:${id}`] = f;
     return {
-      format: 2, ...(typeof index.month === 'string' ? { month: index.month } : {}), ...(typeof index.built === 'string' ? { built: index.built } : {}), data, flow, sources, histories, samples, ranges, ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), loadSource, daily, judged,
+      format: 2, ...(typeof index.month === 'string' ? { month: index.month } : {}), ...(typeof index.built === 'string' ? { built: index.built } : {}), data, flow, flows, sources, histories, samples, ranges, ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), loadSource, daily, judged,
       ...(postureOf(index.posture) ? { posture: postureOf(index.posture)! } : {}),
       ...(scenesOf(index.scenes) ? { scenes: scenesOf(index.scenes)! } : {}),
       loads, donors: loadSource ? sources[loadSource]!.donors ?? [] : [], files,
     };
   }
-  return { format: 2, data, flow: null, sources: {}, histories: {}, samples: {}, ranges: {}, loadSource: null, daily: [], judged: null, loads: [], donors: [], files: {} };
+  return { format: 2, data, flow: null, flows: {}, sources: {}, histories: {}, samples: {}, ranges: {}, loadSource: null, daily: [], judged: null, loads: [], donors: [], files: {} };
 }
 
 /** Every file a list names, with the sha256 and size it gives: what must be in MANIFEST.json, as it says. */
@@ -181,7 +186,7 @@ export function namedFiles(list: DataList): { path: string; sha256: string; byte
   // The flow document is the build's own file (ADR 0011: a folder's flow.json, its notebooks expanded), never the data
   // branch's: it is checked against loads.json's entry when it is read, not against MANIFEST.json. So are the types
   // computed ahead (ADR 0019 amendment 2), which the build makes from it.
-  const fixed = Object.entries(list.files).filter(([k]) => k !== 'flow' && k !== 'types' && k !== 'recorded').map(([, f]) => ({ path: f.from ?? f.path, sha256: f.sha256, bytes: f.bytes }));
+  const fixed = Object.entries(list.files).filter(([k]) => k !== 'flow' && !k.startsWith('flow:') && k !== 'types' && k !== 'recorded').map(([, f]) => ({ path: f.from ?? f.path, sha256: f.sha256, bytes: f.bytes }));
   const days = [...list.loads, ...list.donors, ...Object.values(list.sources).flatMap((s) => s.deliveries ?? [])].flatMap((l) => (l.files ? Object.values(l.files) : [l])).map((l) => ({ path: l.file, sha256: l.sha256, bytes: l.bytes ?? -1 }));
   return [...fixed, ...days];
 }

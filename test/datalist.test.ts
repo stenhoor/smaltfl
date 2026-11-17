@@ -35,6 +35,20 @@ describe('readDataList', () => {
     expect(list).toMatchObject({ daily: ['auth'], judged: 'auth' });
   });
 
+  it('reads the flows a flow reads, each its own document by id: the build\'s own files, as the flow document is (ADR 0025 §2)', () => {
+    const flow = { path: 'flow.json', from: 'examples/larkspur/flow.json', sha256: SHA('f'), bytes: 2 };
+    const hr = { path: 'flows/hr.json', from: 'examples/larkspur/hr/flow.json', sha256: SHA('1'), bytes: 3 };
+    const feeds = { path: 'flows/feeds.json', from: 'examples/larkspur/feeds/flow.json', sha256: SHA('2'), bytes: 4 };
+    const list = readDataList({ format: 2, data: null, flow, flows: { hr, feeds }, sources: {}, histories: {} });
+    expect(list.flows).toEqual({ hr, feeds });
+    expect(list.files).toEqual({ flow, 'flow:hr': hr, 'flow:feeds': feeds });
+    // Checked by their entries when they are read, not against the data's manifest.
+    expect(namedFiles(list)).toEqual([]);
+    // A flow that reads none lists none.
+    expect(readDataList({ format: 2, data: null, flow, sources: {}, histories: {} }).flows).toEqual({});
+    expect(readDataList(null).flows).toEqual({});
+  });
+
   it('reads several daily sources as days, each with every source\'s file, and the dataset the views follow (ADR 0013 §5)', () => {
     const l = (id: string, slot: string, c: string) => ({ slot, file: `loads/${id}_${slot}.csv`, sha256: SHA(c), bytes: 1, rows: 400 });
     const hist = (id: string) => ({ path: `history.${id}.json`, from: `history.${id}.json`, sha256: SHA(id[0]!), bytes: 5 });

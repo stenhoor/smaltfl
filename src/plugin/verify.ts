@@ -33,6 +33,7 @@ import { measuresHash } from '../core/measures.js';
 import { measureTable } from './measure.js';
 import { nodeKey } from '../core/keys.js';
 import type { ManifestNode, RunManifest } from '../core/manifest.js';
+import { flowProblems } from '../core/compose.js';
 import { rulesHash } from '../core/inforce.js';
 import { manifestHash, ontologyHash, planHash, policiesHash } from '../core/manifest.js';
 import { shapeOf } from '../core/optimize.js';
@@ -124,6 +125,25 @@ export async function verifyRun(db: Database, runId: number, options: VerifyOpti
       notes.push(`the document doesn't translate: ${(e as Error).message}`);
     }
     check({ node: -1, origin: 'flow', check: 'flow', ok: notes.length === 0, expected: plan.flow.hash, actual: fh, ...(notes.length ? { note: notes.join('; ') } : {}) });
+    // Flows (ADR 0025 §2): the flows the run names are the document's, and each one's own document, kept by its hash,
+    // hashes to it and is in the run's document unchanged.
+    if (manifest.flow.reads !== undefined || doc.flows?.length) {
+      const named = manifest.flow.reads ?? [];
+      const said: string[] = [];
+      if (!same(named, (doc.flows ?? []).map((f) => [f.id, f.hash]))) said.push("the flows it names aren't the document's");
+      for (const [id, hash] of named) {
+        const name = doc.flows?.find((f) => f.id === id)?.name ?? id;
+        const row = db.query('SELECT doc FROM _smaltfl_flows WHERE hash = ?', [hash]).rows[0];
+        if (!row) {
+          said.push(`${name}'s own document isn't kept with the run`);
+          continue;
+        }
+        const own = JSON.parse(String(row[0])) as FlowDocument;
+        if ((await flowHash(own)) !== hash) said.push(`${name}'s kept document doesn't hash to the hash it is named by`);
+        else for (const problem of flowProblems(doc, own).slice(0, 2)) said.push(`${name}: ${problem}`);
+      }
+      check({ node: -1, origin: 'flow', check: 'flows', ok: said.length === 0, ...(said.length ? { note: said.slice(0, 4).join('; ') } : {}) });
+    }
   } else if (manifest.smaltflRun === 1 && manifest.flow.policies !== undefined) {
     check({ node: -1, origin: 'flow', check: 'flow', ok: false, expected: plan.flow.hash, actual: null, note: 'the flow document is no longer stored' });
   }
