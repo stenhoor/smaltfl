@@ -199,6 +199,7 @@
   {
     "name": "rules-tab-dark",
     "what": "The Rules tab in dark, in a fresh browser: the three rules the flow ships with",
+    "fresh": true,
     "scheme": "dark",
     "card": "auth",
     "tab": "Rules",

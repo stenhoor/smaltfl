@@ -16,10 +16,18 @@ export interface Engine extends PluginCaller {
  * engine answers one at a time, so this is where its time went. */
 const calls: [string, number, number][] = [];
 (globalThis as { __smaltflEngine?: typeof calls }).__smaltflEngine = calls;
+/** The requests the engine has been sent and hasn't answered yet. */
+let asked = 0;
+/** Whether the engine has a request it hasn't answered: part of what `window.__smaltflBusy` says (main.ts). */
+export const engineBusy = (): boolean => asked > 0;
 function timed(e: Engine): Engine {
   const t = <T>(what: string, p: Promise<T>): Promise<T> => {
     const at = performance.now();
-    return p.finally(() => calls.push([what.slice(0, 160), Math.round(at), Math.round(performance.now())]));
+    asked++;
+    return p.finally(() => {
+      asked--;
+      calls.push([what.slice(0, 160), Math.round(at), Math.round(performance.now())]);
+    });
   };
   return {
     mode: e.mode,
