@@ -225,14 +225,14 @@ Results on 2026-11-09, at `e42d9ec` on data `0ca4dd1`:
 
 ## What is not done
 
-**Next: [ADR 0027](adr/0027-the-ontology-over-time.md), the ontology over time** (designed 2026-11-18, the
-maintainer's answers Q-247 to Q-279; nothing of it is built). The maintainer asked for a temporal ontology: how the
-ontology changes over time, why certain things apply on certain dates, what was going on and what was decided then,
-shown visually and carried with the data so that analysis is always aware of its context. The research is
-[research/temporal-ontology.md](research/temporal-ontology.md): temporal data models, ontologies and knowledge graphs,
-law, clinical terms and statistics, HR systems, data platforms, how change over time is drawn, and analysis across a
-change of definition, in two passes, the second against the primary pages. The design was settled in the question
-prompt, thirty-three questions in seven rounds. Its shape:
+**Now: [ADR 0027](adr/0027-the-ontology-over-time.md), the ontology over time** (designed 2026-11-18, the maintainer's
+answers Q-247 to Q-279; slices 1 to 3 of ten are built, its §"As built"). The maintainer asked for a temporal
+ontology: how the ontology changes over time, why certain things apply on certain dates, what was going on and what
+was decided then, shown visually and carried with the data so that analysis is always aware of its context. The
+research is [research/temporal-ontology.md](research/temporal-ontology.md): temporal data models, ontologies and
+knowledge graphs, law, clinical terms and statistics, HR systems, data platforms, how change over time is drawn, and
+analysis across a change of definition, in two passes, the second against the primary pages. The design was settled in
+the question prompt, thirty-three questions in seven rounds. Its shape:
 
 - **The line.** The ontology is the business's rules, meanings and kinds of things. Who and what is where from day to
   day is data. A reorg or a freeze is context, written down as an event.
@@ -250,7 +250,25 @@ In the slices of ADR 0027 §11, the first of which moves no hash: (1) the regist
 smaltfl already dates; (2) reasons, kinds and events; (3) the gate, and document format 5; (4) the two doors; (5)
 kinds, relations and meanings over time, and the shared ontology's own changes; (6) reading across a change; (7)
 context that travels; (8) who decides; (9) who hears, and the auditor; (10) the demo's new scene. Q-280 to Q-285 are
-the choices the answers leave open, proposed for the maintainers to confirm as each is built.
+the choices the answers leave open, proposed for the maintainers to confirm as each is built; Q-286 to Q-291 are the
+ones slice 3 made as it was built.
+
+Built so far:
+
+- **Slice 1, the register on screen:** every change set as a list and, from tablet width, as lanes; since when and by
+  which change on each rule; what was coming on a day's head; marks on the month's score.
+- **Slice 2, reasons, kinds and events:** a kind and a reason on every change, the note, who decided; events written
+  in a story or in the app, on days, lanes and charts; a coming change tried on the days before it.
+- **Slice 3, the gate:** a list or a column the ontology closes (a rule of kind `closed`). What arrives that the
+  ontology doesn't have stops what the file reaches, named by the run, with three decisions on the day's head: declare
+  it from the day, publish without it, or don't publish. An entry declared before its data waits for it. An event can
+  say what it excuses of the learned checks. Document format 5 puts the ontology first, and every example flow but
+  the older controls posture is format 5. How to check it: `test/closed.test.ts`, `test/excuse.test.ts`,
+  `test/described.test.ts`, Larkspur's answer key (`npm run test:slow`: Wed 27 at the gate and declared, Sat 9 told
+  as expected), and `npm run regress -- gate` on the sign-ins.
+
+What comes next is slice 4, the two doors: *Add a source* (here is the data, then its description) and *Describe*
+(the description first, then the data), and a format-4 flow brought up to format 5 in the app.
 
 **Built: [ADR 0026](adr/0026-flows-in-flows.md), flows in flows** (2026-11-17, the maintainer's answers Q-231 to
 Q-245: every slice of its §12, and both steps of slice 5). The maintainer asked for flows that are parts of other flows: build one, read it from many, stack them, change

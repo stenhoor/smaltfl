@@ -11,6 +11,7 @@ import { eventsProblems, excusesFor, EXCUSABLE, isClaimExcuses, type ClaimExcuse
 import { HistoryRanges } from '../src/core/history.js';
 import { asideBefore, claimHolds, flowStory, rangesFor } from '../src/core/hold.js';
 import { excusedBy, type Finding } from '../src/core/news.js';
+import { AS_EXPECTED, expectedOf, findingsOf as dayFindings } from '../src/core/overview.js';
 import { timelineOf } from '../src/core/timeline.js';
 import { PLANTED, securityDoc, securityHistory } from './fixtures/security.js';
 
@@ -79,6 +80,11 @@ describe('a finding an event excuses', () => {
     expect(excused.state).not.toBe('wrong');
     expect(excused.head).toBe('As expected: MFA provider maintenance');
     expect(claimHolds(doc.publish!.hold, { state: excused.state, below: false })).toBe(false);
+    // The month reads the same head (overview.ts): the day picked says what the event explains, and no finding of it.
+    expect(excused.head.startsWith(AS_EXPECTED)).toBe(true);
+    expect(expectedOf({ claims: [{ source: 'auth', state: excused.state, head: excused.head }] })).toEqual([{ origin: 'auth', event: 'MFA provider maintenance' }]);
+    expect(dayFindings({ claims: [{ source: 'auth', state: excused.state, head: excused.head }] })).toEqual([]);
+    expect(expectedOf({ claims: [{ source: 'auth', state: plain.state, head: plain.head }] })).toEqual([]);
     const marked = findingsOf(excused).filter((f) => f.excused);
     expect(marked.map((f) => f.kind).sort()).toEqual(expect.arrayContaining(['gone', 'share', 'volume']));
     expect(marked.every((f) => f.severity === 'note' && f.excused!.event === 'mfa-maintenance')).toBe(true);

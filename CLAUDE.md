@@ -599,7 +599,29 @@ release (smaltty ADR 0030).
   `latestEvents`, `eventsOn`, `eventDay`), a story's `events` shipped in loads.json (`DataList.events`) and the app's
   own in the record (an `event` entry: `flowEvents`, `eventForm`, `writeEvent`); the register lists both, with each
   kind's mark (`kindMark`), the lanes' *Going on*, the day's `eventsLine`, the month's `eventBands`; a change tried
-  from its entry (`testChange` with no flow). `test/events.test.ts`.
+  from its entry (`testChange` with no flow). `test/events.test.ts`. Slice 3, the gate: a list or column the ontology
+  closes is a rule of kind `closed` (`rules.ts`: `defines`, `entries`, `leftOut`; `closedOf`, `isList`, `arrivalOf`,
+  `entryDiff`, `engineRules`), enforced by its file's check step (`emitRuleCheck`; a key left out by `emitLeftOut`,
+  an `aside` rule `<id>_left_out`, counted apart from the rows the rules drop), named in the plan only where declared
+  (`publish.closed`, `ClosedPlan`: no plan version, Q-286); the run names what arrived and what waits for data
+  (`countClosed`, `ManifestNode.closed`, `ClosedCounts`; `emitUndeclared`, `emitKeysPresent`), the hold says it
+  (`undeclaredSaid`, `Hold.undeclared`) and verify names it again (`closed`). The edits `declareEntry` and `leaveOut`
+  (`flowedit.ts`, an entry's own), on the register as one thing (`entry:` subjects, begun on the day first named). The
+  app: `gatePart` (*At the gate*: `gateStops` by the rules as known now, `docKnownNow`; `decideAtGate`,
+  `declareLeftOut`, `leftOutNow`, `waitingNow`; `rerunAndRestate` shared with a mapped column), *Publish as is* off on
+  the sheet, `closedEntries` and the closed kind of `ruleForm` (`entriesOnScreen`) on the Ontology page, `gateMarks`
+  (the lanes' *What stopped at the gate*); `latestGot` (hold.ts) is the day readers see once a restatement publishes
+  one, and `skipOf` learns from such a day (`restatedGot`: unless the run restated still holds the pause's own file). What an event excuses (§6): `Excuse`, `EXCUSABLE`, `excusesFor`, `ClaimExcuse` in events.ts; `excusedBy`
+  (news.ts, `Finding.excused`), `Aside`/`asideOn` (history.ts), `asideBefore` and `StoryClaim2.excuses` (hold.ts),
+  `TellFor.excuses`, the story's head *As expected: …*; the recorder writes a story's events into the record
+  (`timelineOf`'s `event`) and the audit holds a claim's excuses to them (`retell.ts`); the app's `excusesNow`,
+  `excusedLine`, `excusesSaid`, `excusedDays`, and the month's day picked saying what an event explains, no finding
+  of the day (`expectedOf`, `AS_EXPECTED` in overview.ts; `dayExpected`). Document format 5 (`document.ts`; `described.ts`: `undescribed`,
+  `rowSaid`, `asideOf`; `setAside`; the build's `undescribedIn`; the app's `firstLine`, `asideColumn`): every example
+  flow but `examples/controls/`. Larkspur's catalogue is closed (the story declares the SBOM control on Wed 27 and
+  plans the agents' reinstall of Sat 9 as an event that excuses); the sign-ins' Method is closed, its month to Mon 25
+  (`GATE_DAYS`). `test/closed.test.ts`, `test/excuse.test.ts`, `test/described.test.ts`,
+  `tools/browser/stops/gate.json`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -714,9 +736,11 @@ release (smaltty ADR 0030).
   of things, and data that changes stays data; the ontology comes first (a source is made with its description, and an
   entry of a closed list or a value of a closed column the ontology doesn't have pauses what it reaches until it is
   declared); every change is a dated record with a kind and a reason; events are context written by people, and may
-  say what they excuse; a day is read under what was in force and carries that context. Nothing of it is built: in the
-  slices of its §11, the first of which (the register on screen) moves no hash. Its Q-280 to Q-285 are proposed, for
-  the maintainers to confirm as each is built.
+  say what they excuse; a day is read under what was in force and carries that context. In the slices of its §11:
+  slice 1 (the register on screen), slice 2 (reasons, kinds and events) and slice 3 (the gate, what an event excuses,
+  document format 5) are built (its §"As built", which says what each leaves); slice 4, the two doors, is next. Its
+  Q-280 to Q-285 are proposed, for the maintainers to confirm as each is built, and Q-286 to Q-291 are the choices
+  slice 3 made as it was built.
 
 ## Rules for this repository
 

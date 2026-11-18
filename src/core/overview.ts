@@ -218,6 +218,27 @@ export function findingsOf(about: RunAbout): DayFinding[] {
   return out;
 }
 
+/** How a story's head begins where an event someone wrote down explains what the checks found (ADR 0027 §6). story.ts
+ * writes it; `test/overview.test.ts` holds the two together. */
+export const AS_EXPECTED = 'As expected: ';
+
+/**
+ * What a run found that an event explains (ADR 0027 §6): each watched dataset whose story is headed "As expected: …",
+ * with the event's name, where no hold names the dataset. It is no finding: it holds nothing, marks nothing unusual and
+ * raises no cell of the month. The day picked says it, so that a normal day with a planned change in it reads as one.
+ */
+export function expectedOf(about: RunAbout): { origin: string; event: string }[] {
+  const held = new Set((about.holds ?? []).filter((h) => h.by !== 'correction' && h.by !== 'restated' && h.by !== 'what-if').map((h) => h.origin.toLowerCase()));
+  const out: { origin: string; event: string }[] = [];
+  for (const c of about.claims ?? []) {
+    if (!c.source || !c.head?.startsWith(AS_EXPECTED) || held.has(c.source.toLowerCase())) continue;
+    if (c.state && WRONG.has(c.state)) continue;
+    const event = c.head.slice(AS_EXPECTED.length).trim();
+    if (event && !out.some((x) => x.origin.toLowerCase() === c.source!.toLowerCase())) out.push({ origin: c.source, event });
+  }
+  return out;
+}
+
 /** A row of the month before its days are read: a file with the steps that read it alone, or a step with the files it
  * reads, directly or through other steps. */
 export interface MonthRowDef extends GridRow {

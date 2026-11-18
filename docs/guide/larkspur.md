@@ -126,7 +126,7 @@ As the app says them when the days are run in order:
 | Wed 6 | The backup file is Tue 5's again | Paused: *backup_jobs: The same file as Tue 5's* (bronze, `fresh`) |
 | Thu 7 | The logging file lacks a column | Paused: the file is refused and nothing is built (bronze, the schema). The Ontology view's row for the file says *file refused* |
 | Fri 8 | Key rotation passes where encryption fails | Paused: *57 applications: key_rotation status pass needs encryption not fail* (silver, the needs rule) |
-| Sat 9 | An agent reinstall makes old findings look new | The findings file warns: *Status new: 3.2%*. Silver keeps each finding's first date, so nothing becomes less overdue. Published |
+| Sat 9 | An agent reinstall makes old findings look new | The reinstall was planned, and written down on Fri 8 as an event that excuses the findings' mix of statuses ([ADR 0027](../adr/0027-the-ontology-over-time) §6). The findings file is told *As expected: Scanner agents reinstalled on eks-prod-4*, and the day isn't learned from as usual. Silver keeps each finding's first date, so nothing becomes less overdue. Published |
 | Wed 13 | WAF rows for applications that aren't internet-facing | Paused: *waf: 50 apps out of scope* (bronze, the scope) |
 | Thu 14 | February's Patch Tuesday findings fall due | Published |
 | Fri 15 | 46 exceptions expire unrenewed | Unusual: failures whose reason is the expired exception, not a regression. Published |
@@ -136,7 +136,7 @@ As the app says them when the days are run in order:
 | Thu 21 | The TLS file arrives twice | Paused: *tls: 815 apps repeat a key* |
 | Sat 23 | DR exercises due Fri 22 ran late; a new cloud account tags resources with an application nobody registered | Paused: *dr_exercises: Late: 111 of 193 due*. shadow_assets warns of the new tags, which gold counts under Unregistered. The late exercises' statuses hold Sun 24, Mon 25 and Tue 26 too, as a lasting change does until someone accepts it (Q-86) |
 | Tue 26 | No TLS rows for one business unit's internet-facing applications | Paused: *tls: 39 in scope with no app* (the scope) |
-| Wed 27 on | The catalogue adds a control with no evidence feed yet | Unusual until Sat 30: more results, said as no data and not as failing. Published |
+| Wed 27 on | The catalogue adds a control with no evidence feed yet | The catalogue is a closed list: the ontology has each control it has accepted. Wed 27 stops at the gate, *not in the ontology: control_id sbom (1 row)*, and the posture product waits while the flows it reads go out. Declared that morning, the day runs again and is published. Then unusual until Sat 30: more results, said as no data and not as failing |
 | Thu 28 | An HR error makes a VP report to one of their own directors | Paused: *6 of 245 rows broke no_loop* (silver, org_chain) |
 | Fri 29 | Quarter-end access reviews | The access reviews file has no quality issues. Published |
 
@@ -157,12 +157,16 @@ versions.)
 | Mon 18 | HR sent the extract again with the teams under their new department, published. ↻2 |
 | Thu 21 | Sent again with half its repeats out, still wrong, kept back; then sent again, every certificate once, published. ↻3 |
 | Tue 26 | Kept back while the scanner team looks for the missing business unit. ⊠ |
+| Wed 27 | At 09:10 the software bill of materials was declared in the catalogue from that day, with its reason (the control board added it), and the day ran again under it; at 09:25 the security lead restated it, published. ↻2 |
 | Sat 23 to Mon 25, Thu 28 | Still waiting for you: the DR exercises from Sat 23, and Thu 28's loop in the organisation. ‖ |
 | Sat 16, Sun 17 | On Mon 25 the findings' values check was set back to hold the day, back-dated to Fri 1: the scanner hadn't logged in that weekend, and the posture read far fewer findings than there were. Every day already run ran again under it; these two would now be held, and the security lead restated them as not published. The other 23 came out the same, and were noted. |
 
-The rules changed twice ([ADR 0021](../adr/0021-time) §5): on Fri 15 the WAF band was tightened to a tenth from Mon 18,
-which reached no day already run, and on Mon 25 the back-dated change above. The **Ontology** view lists the four
-versions of the rules this makes, each with where and when it was in force, and compares any two.
+The rules changed three times ([ADR 0021](../adr/0021-time) §5): on Fri 15 the WAF band was tightened to a tenth from
+Mon 18, which reached no day already run; on Mon 25 the back-dated change above; and on Wed 27 the new control was
+declared from that day. The **Ontology** view lists the five versions of the rules this makes, each with where and
+when it was in force, and compares any two. Its head is the register: each change with its kind, its reason and who
+decided, what was going on (the push, the reinstall, the reorganisation, the freeze), and, from tablet width, the
+same as lanes over the month.
 
 **What if… ›** on a day runs it again on any of its files under any of those versions, apart from the record. On Sat 16,
 under the rules as shipped, it would have passed, where readers got it restated and held. On Thu 21, on the TLS file

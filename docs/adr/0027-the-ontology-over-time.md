@@ -1,8 +1,9 @@
 # ADR 0027: The ontology over time
 
 - **Status:** accepted, 2026-11-18: the maintainer's answers to Q-247 to Q-279, asked through the question prompt in
-  seven rounds once the research was in. Nothing of it is built yet: it is built in the slices of §11. The choices the
-  answers leave open are proposed here (Q-280 to Q-285), for the maintainers to confirm as each is built.
+  seven rounds once the research was in. It is built in the slices of §11: the first three are (§"As built"). The choices the
+  answers leave open are proposed here (Q-280 to Q-285), for the maintainers to confirm as each is built, and those a
+  slice made as it was built after them (Q-286 to Q-291, slice 3).
 - **Date:** 2026-11-18
 - **Builds on:**
   - [ADR 0006](0006-integrity.md): the record and the audit bag, which keep every change and decision this ADR adds.
@@ -441,6 +442,125 @@ new name, making a what-if the day's) record the kind their edit usually is, wit
 settled as built, not as proposed: events live in the story and the record, beside the document, so that no flow's
 hash moves when one is written.
 
+### Slice 3: the gate, what an event excuses, document format 5 (2026-11-18)
+
+Built in three parts. No hash tag gains a version: each new field is written only where a flow uses it, so every plan,
+manifest and claim of a flow that closes nothing and is excused by nothing hashes as it did. A build that doesn't read
+one of them refuses the plan (`validatePlan` refuses a publish field it doesn't know), which is what a new version
+would have been for. The rules in force (`rules/1`) hash a closed list as they hash any rule, as written: for the
+ontology `{ objectTypes: [], linkTypes: [], actionTypes: [], rules: [{ id: control_id_closed, file: controls, column:
+control_id, kind: closed, defines: [weight], entries: [[mfa, 3], [tls, 2]], leftOut: [sbom], action: hold }], aside: {
+controls: [notes] } }`, no gates and no switches, the hash is
+`0be5a5742f2df02badfde63045002a7362baf50f86f60ca86b77a824ed0729bd` (`test/closed.test.ts`).
+
+**A closed list or column** (§4) is a rule of the ontology (`src/core/rules.ts`, kind `closed`): the file, its key
+column, the columns that define an entry (`defines`; none for a closed column, whose entries are its values), the
+entries the ontology has accepted, each as the file writes it, and the keys left out (`leftOut`). It always holds.
+The check step that reads the file enforces it, as it does every rule people set:
+
+- `emitRuleCheck` writes it for the engine: a row's entry is one the ontology has, its key and each defining column as
+  declared (a blank is `''`). A blank key is no entry. A reworded name passes: only the defining columns are the
+  ontology's.
+- The plan names it (`publish.closed`, `ClosedPlan`: the rule, its key, its defining columns, the keys the ontology
+  has) by the check step's node, only where a flow declares one.
+- **The run names what arrived** (`countClosed`, `ManifestNode.closed`, `ClosedCounts`): each entry the ontology
+  doesn't have, the rows that carry it, and whether its key is one the ontology has with other defining values (an
+  entry *changed*, else *new*); twenty at most, the rest counted. Verify names them again (its `closed` check).
+- **The hold says it** (`undeclaredSaid`, `Hold.undeclared`): *not in the ontology: control_id sbom (1 row)*, *not as
+  the ontology has it: control_id tls (1 row)*. It is a hold under the checks, as a file whose columns changed is, and
+  it reaches what the check step reaches: under `reach: downstream`, what is built from the file. What it doesn't feed
+  publishes.
+- A flow that holds nothing stops on it: the ontology comes first there too.
+
+**The three decisions** (Q-253) are on the day's head (`gatePart` in the app: *At the gate*), each arrival with what
+defines it or what differs, its rows and what waits:
+
+- **Declare it** is the edit `declareEntry` (an entry new, or changed under its key), a dated change set from the day
+  with a kind and a reason (the business changed, unless its author says otherwise). The days recorded from that day
+  run again under it and one restatement decides them, as a column read under its new name is decided (ADR 0022 §2).
+- **Publish without it** is the edit `leaveOut`: the key's rows are kept out of what goes on from the day until the
+  entry is declared, by a rule of the check step that no person writes (`aside`, named `<rule>_left_out`). They are
+  counted by that rule and not among the rows the rules dropped, so a step's limit on dropped rows isn't spent by a
+  decision. Every day says what is left out, how many rows, since when and why, with *Declare it ›*, which reads the
+  entry from the rows left out.
+- **Don't publish** is the decision sheet's. There, *Publish as is* is off for a day at the gate: what the ontology
+  doesn't have isn't published as it came.
+
+Each edit is an entry's own (`declareEntry`, `leaveOut` in `RuleEdit`), not the rule sent whole, so two declarations
+recorded in either order both stand. The register gives an entry a row of *What there is* from the day it was first
+named (`subjectOf`, `livesOf`), and a new lane, *What stopped at the gate*, marks each day a run stopped (`gateMarks`,
+an upright bar). The Ontology page lists a closed rule's entries with since when each (`closedEntries`), closes a
+column on the values typed and a list on the entries the load on screen has (`entriesOnScreen`, five hundred at
+most), and declares an entry ahead of its data.
+
+**Waiting for data** (Q-255): an entry of a closed list the ontology has that no row of the file carries. The run
+names it (`ClosedCounts.waiting`), the day's head and the Ontology page say so, and nothing is held. A closed column's
+values needn't all occur, so only a list's entries wait.
+
+**What an event excuses** (§6, `src/core/events.ts`): `Excuse` (a dataset the event is about, a check, a column where
+the check is of columns), `EXCUSABLE` (the amount, a column's shares, pairs, blanks, a shape: the checks learned from
+the history as series of their own), `excusesFor` (every excuse of an event about a dataset that began on or before a
+day, as known at a moment).
+
+- The judge tells a finding an event going on excuses as expected (`excusedBy` in `news.ts`: a note with the event,
+  `Finding.excused`); a value the ontology marks bad is never excused, nor any finding of a written check. A day
+  whose loud findings are all excused is said by its event: *As expected: Scanner agents reinstalled on eks-prod-4*.
+- The days an event covered are set aside from what the series its check reads learn from (`Aside`, `asideOn` in
+  `history.ts`; `asideBefore` in `hold.ts`), never the day being judged.
+- **A claim names what it was excused by** (`StoryClaim2.excuses`, `ClaimExcuse`), only where an event excuses
+  something of its source. The engine tells a watched step's claim under what the page says (`TellFor.excuses`).
+- **An event written after a run excuses nothing of it.** A run is told under the events known when its day's files
+  first ran; a day run again under rules changed since keeps those. The recorder writes a story's events into the
+  record when they were written (`timelineOf`'s `event`), and the offline audit holds each claim's excuses to the
+  events written down before it (`retell.ts`).
+- In the app the event's form says what it excuses, the day's head and the register say it, and a finding told as
+  expected says by which event. The day picked on the month says it apart from what was found (*What an event
+  explains*: `expectedOf` in `overview.ts`, the app's `dayExpected`): it is no finding, so the day's mark, the counts
+  and the rows of days read it as the normal day it was.
+
+**Document format 5** (§4, Q-274; `src/core/described.ts`): a notebook flow that puts the ontology first.
+`validateDocument` asks of it that every source says what one row is (a rows entry, a type whose objects are its
+rows, or a noun), that every change set says its kind and why, and that a closed list has the check step that
+enforces it. A document doesn't hold its sources' columns, so *every column described or set aside* is asked where
+they are known (`undescribed`): the build refuses a format-5 flow with a declared column the ontology doesn't
+describe, and the Ontology view says what a flow still lacks, or what a format-4 flow would be asked. **Set aside**
+(`ontology.aside`, `setAside`) names the columns a file has that the flow doesn't take: such a column isn't one its
+source declares, so no step reads it, and a new column in a file is settled either way on the day's head. Every
+example flow is format 5 but the controls posture (ADR 0013), which says what it would lack.
+
+**The demos.** Larkspur's control catalogue is a closed list of its fourteen controls. On Wed 27 the fifteenth stops
+the posture product at the gate, and the story declares it that morning: the month's answer key moves there, and
+this ADR is that decision (§11). The story also plans the scanner agents' reinstall of Sat 9 as an event that excuses
+the findings' mix of statuses, so that day is told as expected. The sign-ins' Method is a closed column, and its
+month runs three days longer: magic links arrive on Sat 23 and codes by text message on Sun 24, which is where the
+browser regression exercises the three decisions (`tools/browser/stops/gate.json`, nine runs of half a second).
+
+**A day a restatement publishes** (a day held at the gate, declared and run again) is the day readers see from then
+(`latestGot` in `hold.ts`), and the recorder marks its posture. Before, only a passing run or a release counted, so
+the days after such a day said readers were on an older one. It is learned from too (`restatedGot` in `skipOf`): the
+history takes it as it takes a day passed by a later run of the same files, from the restatement on, unless the run
+restated still holds the file the pause was about (a decision carried publishes such a day, and its file is as it
+was). Before, its pause stood open for good and the days after learned nothing from it (Q-291).
+
+**What it leaves.**
+
+- **No plan version** (Q-286). §12 said a new one; the plan's format number says how its watches are judged, with
+  gates or without, and a list is closed by flows of both kinds.
+- **A missing entry waits, and isn't paused** (Q-287). §4 named a missing entry beside a new one. A rule reads one
+  day's file, and can't tell *not yet* from *no longer*; the ontology ahead of the data is allowed (Q-255), so both
+  read as waiting for data. Ending an entry is slice 5's.
+- **What may be excused** (Q-288) is the five checks above. The forest, the classifier and the hours of a day learn
+  from whole days, not a series, and aren't excused.
+- **Waiting for evidence.** Q-255's example is a control with no evidence feed. That is the posture product's own
+  coverage column, which says so today. The gate knows a list's own file.
+- **The lanes** don't draw a waiting entry dotted, and the register doesn't show a key left out as open until it is
+  declared.
+- **A format-4 flow isn't brought up in the app.** The Ontology view says what it would be asked; saving it as
+  format 5 comes with the two doors (slice 4).
+- **The engine's names don't move on a restatement** (ADR 0021 §5, as built there). The record says which day
+  readers got; a day declared at the gate is drawn from its own run.
+- A decision on the sheet still can't point at an event. A declaration at the gate can.
+
 ## Consequences
 
 - **A flow can stop for a reason it never could:** the data is ahead of the ontology. That is the point of the gate,
@@ -487,7 +607,25 @@ Proposed here, for the maintainers to confirm as each is built:
 - **Q-284:** a chart is cut only where a change of kind *the business changed* has a step of its own on that series. A
   change that moved nothing there is a mark.
 - **Q-285:** a closed list's accepted entries are kept in the ontology with the columns that define them, and the
-  first description of an existing list is taken from its file as it stands, as the start of its history.
+  first description of an existing list is taken from its file as it stands, as the start of its history. Built so in
+  slice 3: a rule of kind `closed`, its entries read from the load on screen when a list is closed in the app.
+
+Proposed with slice 3, as built:
+
+- **Q-286:** a closed list adds no plan version: its plan carries `publish.closed` only where a flow declares one, as
+  it carries contracts, and a build that doesn't read it refuses the plan.
+- **Q-287:** an entry the ontology has and the file doesn't is *waiting for data*, whether it hasn't arrived yet or has
+  gone: it is said every day and pauses nothing. An entry is ended in the ontology (slice 5), not by its row going.
+- **Q-288:** an event may excuse the amount, a column's mix, pairs, blanks and a shape. Never the forest or the
+  classifier, never a value the ontology marks bad, never a written check.
+- **Q-289:** *publish without it* stands from its day until the entry is declared, and the rows it leaves out aren't
+  counted against a check step's limit on dropped rows.
+- **Q-290:** format 5 asks the document what it can answer by itself (what one row is, a kind and a reason on every
+  change, a check step for a closed list) and asks for the columns where they are known (the build, the page). A
+  column set aside is one the source doesn't declare, named in the ontology.
+- **Q-291:** a day a restatement publishes is the day readers see from then, by the record, and a day the history
+  learns from, unless the run restated still holds the file its pause was about. The engine's names follow releases
+  only, as ADR 0021 §5 left them.
 
 ## The questions
 

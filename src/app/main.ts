@@ -40,7 +40,7 @@ import { calendarHead, heldLoadLine, dayMid, dayShort, guessWords, judgedWords, 
 import { UNTIL, afterLabel, afterLine, betweenLine, dayPausedLine, daySentence, decidedLines, decisionDrawing, donorPicked, failLine, goShown, heldLine, outputPausedLine, passedLine, pausedChecks, pauseLines, pauseReasons, pickFails, receiptLines, remedyHead, ribbonOf, runFigures, sheetText, versionLines, waitedLabel, checksSeen, filesSeen, findingOf, type RunSight, type AfterPart, type KeptLacks, type RemedySaid, type SheetIn, type SheetPick, type SheetText, type Sight } from '../core/decision.js';
 import { contractSaid, countedChecks, rangesFor, dayClaim, dayState, flowStory, learnedMeasures, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, upstreamSteps, tailPath, type Claim, decisionFor, decisionForLoad, standingForLoad, heldLoadsOf, dayPauseOfLoads, loadDecisions, keysForLoads, loadKey, loadsOf, byLoad, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, latestGot, latestPublished, publishedDays, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
 import { checkAgainst as againstRecord, endOfDay, isMonthFile, isRestate, knownOn, layered, monthOf, ownHolds, restatedOutcome, runDay, runsByDay, versionsOf, type CellState, type DayState as MonthState, type MonthDay, type MonthFile, type RecordCheck, type RestateAbout, type RunAbout } from '../core/month.js';
-import { againstSaid, againstWay, countSaid, findingsOf, followsFiles, headlineOf, healthOf as monthHealth, healthSaid, HOW_WORD, monthsOf, moversOf, offDays, OUTCOME_WORD, outcomeOf, outcomeSaid, pointsSaid, readSaid, scoreRead, summaryOf, worstFirst, type DayFinding, type DayOutcome, type HealthRow, type Outcome } from '../core/overview.js';
+import { againstSaid, againstWay, AS_EXPECTED, countSaid, expectedOf, findingsOf, followsFiles, headlineOf, healthOf as monthHealth, healthSaid, HOW_WORD, monthsOf, moversOf, offDays, OUTCOME_WORD, outcomeOf, outcomeSaid, pointsSaid, readSaid, scoreRead, summaryOf, worstFirst, type DayFinding, type DayOutcome, type HealthRow, type Outcome } from '../core/overview.js';
 import { dayVersions, donorIdOf, fillCounts, levelOf as acceptedLevel, levelWays, partLabel as remedyPart, type Offer, type Repair, type Version } from '../core/fill.js';
 import { gridOf, shadeOf, shareOf, standOut } from './grid.js';
 import { setUpSplit, showWorkspace } from './split.js';
@@ -15177,6 +15177,16 @@ function dayFindings(day: string, at: string | null): DayFinding[] {
   return runs[0] ? ordered(findingsOf(runs[0].about as unknown as RunAbout)) : [];
 }
 
+/**
+ * What an event explains on a day (ADR 0027 §6), as known on a moment: the datasets the run that tells the day (the one
+ * `dayFindings` reads) headed "As expected: …", each with its event's name. No finding: nothing here marks the day.
+ */
+function dayExpected(day: string, at: string | null): { origin: string; event: string }[] {
+  const runs = runsByDay(knownOn(allEntries(), at)).get(day) ?? [];
+  const told = runs.find((e) => findingsOf(e.about as unknown as RunAbout).some((x) => x.level !== 'unjudged')) ?? runs[0];
+  return told ? expectedOf(told.about as unknown as RunAbout) : [];
+}
+
 /** A finding's words as the viewer may read them: what a dataset closed to them was told isn't said. */
 const findingSaid = (f: DayFinding): string => (isOwner() || visible(f.origin) ? f.said : 'closed to you');
 
@@ -15541,6 +15551,8 @@ function renderMonth(): void {
     const held = found.filter((x) => x.level === 'held');
     const odd = found.filter((x) => x.level === 'unusual');
     const unj = found.filter((x) => x.level === 'unjudged');
+    // What an event someone wrote down explains (ADR 0027 §6): said under the findings, a finding of nothing.
+    const asExpected = dayExpected(pd.day, at).filter((x) => !scope || scope.has(x.origin.toLowerCase()));
     // What it held back: the outputs that waited behind the run that first held the day.
     const firstHeld = dayRuns.find((e) => (e.about as unknown as RunAbout).outcome === 'held' && findingsOf(e.about as unknown as RunAbout).some((x) => x.level === 'held' && (!scope || scope.has(x.origin.toLowerCase()))));
     // In a flow's own month, what the flows in its scope give: the rest waits in another flow's month.
@@ -15592,6 +15604,12 @@ function renderMonth(): void {
       unj.length > 3
         ? h('p', { class: 'mo-sub quiet' }, `${plural(unj.length, 'dataset')} weren’t judged: no earlier day like this one to compare with.`)
         : h('div', {}, ...group('Not judged yet', unj)),
+      asExpected.length ? h('p', { class: 'mo-sub' }, 'What an event explains') : null,
+      asExpected.length ? h('ul', { class: 'mo-fs mo-expected' }, ...asExpected.slice(0, 6).map((x) => h('li', { class: 'mo-f lv-expected', 'data-of': x.origin },
+        glyphEl('explained', 13),
+        h('span', { class: 'mo-f-what' }, h('code', { class: 'mo-f-of' }, x.origin), h('span', { class: 'mo-f-kind' }, ` ${kindOf(x.origin)}${state.doc.flows?.length ? ` in ${flowName(flowOf(state.doc, x.origin)?.id ?? '')}` : ''}`),
+          h('span', { class: 'mo-f-said' }, ` ${isOwner() || visible(x.origin) ? `${AS_EXPECTED}${x.event}` : 'closed to you'}`)))),
+        asExpected.length > 6 ? h('li', { class: 'mo-f more' }, `and ${asExpected.length - 6} more`) : null) : null,
       waitingOut.length ? h('p', { class: 'mo-reach' }, h('span', { class: 'mo-sub-k' }, po.outcome === 'waiting' ? 'What waits ' : 'What it held back '), `${waitingOut.length}${outputs ? ` of ${outputs}` : ''} outputs: ${waitingOut.slice(0, 3).join(', ')}${waitingOut.length > 3 ? ` and ${waitingOut.length - 3} more` : ''}.`) : null,
       elsewhere ? h('p', { class: 'mo-sum-hl mo-elsewhere' }, `Nothing of ${flowName(mine!)}${readsHereN ? ' or of the flows it reads' : ''} held it. The day as a whole: ${outcomeSaid(whole.outcome, whole.how).replace(/^./, (c) => c.toLowerCase())}, by another flow.`) : null,
       events.length ? h('p', { class: 'mo-sub' }, elsewhere ? 'What happened to the day' : 'What happened') : null,

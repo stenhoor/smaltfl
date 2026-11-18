@@ -12,19 +12,19 @@
   },
   {
     "name": "register-marks",
-    "what": "The month's score is marked where the rules changed (ADR 0027 §7, slice 1): a diamond on Mon 18, where the WAF's band took effect, and on Fri 1, the day the values check's correction reaches back to; each change named under the chart, a link to it",
+    "what": "The month's score is marked where the rules changed (ADR 0027 §7, slice 1): a diamond on Mon 18, where the WAF's band took effect, on Fri 1, the day the values check's correction reaches back to, and on Wed 27, the day the catalogue's fifteenth control was declared; each change named under the chart, a link to it",
     "view": "month",
     "element": "#view-month .mo-changes",
     "expect": {
-      "text": ["WHERE THE RULES CHANGED", "Fri 1:", "Mon 18: Accepted a new band in waf"],
+      "text": ["WHERE THE RULES CHANGED", "Fri 1:", "Mon 18: Accepted a new band in waf", "Wed 27: Declared sbom in control_catalog"],
       "textIn": {
         "#view-month .mo-going": ["What was going on", "Quarter-end change freeze, Mon 25 to Sun 31"]
       },
       "count": {
-        "#view-month .mo-changes [data-change]": 2,
-        "#view-month .viz .ev-band": 5,
-        "#view-month .viz .chg-mark": 2,
-        "#view-month .mo-going [data-event]": 5
+        "#view-month .mo-changes [data-change]": 3,
+        "#view-month .viz .ev-band": 6,
+        "#view-month .viz .chg-mark": 3,
+        "#view-month .mo-going [data-event]": 6
       }
     }
   },
@@ -57,26 +57,29 @@
   },
   {
     "name": "versions-list",
-    "what": "The Ontology view on Thu Mar 21 (ADR 0021 §5): the two change sets, then the four versions of the rules (as shipped, the band, the values check alone before Mon 18, both from Mon 18), each with its hash, where and when it was in force and its recorded runs; the one on screen (the band: Thu 21's version readers got ran on Fri 22, before the back-dated change) and the one as known now (both) marked; the one on screen compared with the one before it",
+    "what": "The Ontology view on Thu Mar 21 (ADR 0021 §5): the three change sets, then the five versions of the rules (as shipped, the band, the values check alone before Mon 18, both from Mon 18, and the catalogue's fifteenth control with them from Wed 27), each with its hash, where and when it was in force and its recorded runs; the one on screen (the band: Thu 21's version readers got ran on Fri 22, before the back-dated change) and the one as known now (both) marked; the one on screen compared with the one before it",
     "day": "Thu 21",
     "view": "ontology",
     "element": "#rules-time",
     "expect": {
       "pageText": [
         "The rules in force on Thu Mar 21",
-        "2 change sets",
-        "4 versions of the rules",
+        "3 change sets",
+        "5 versions of the rules",
         "The rules as shipped",
         "On Thu Mar 21: Version 2 on screen, as the day’s version ran; Version 4 as known now.",
         "Compare",
         "Band for Status Fail in waf: 0%–15% → 0%–10%"
       ],
-      "count": { "#rules-time .rt-ver": 4, "#rules-time .rt-ver.on": 1 }
+      "count": {
+        "#rules-time .rt-ver": 5,
+        "#rules-time .rt-ver.on": 1
+      }
     }
   },
   {
     "name": "register-list",
-    "what": "The Ontology view's head as a register (ADR 0027 §9, slice 1): the two change sets as entries, newest first, each with its days and how it was said (the band said on Fri 15 for Mon 18, three days ahead; the values check recorded on Mon 25 and back-dated to Fri 1), what it did, why in its author's words, and the days it reached that had already run",
+    "what": "The Ontology view's head as a register (ADR 0027 §9, slice 1): the three change sets as entries, newest first, each with its days and how it was said (the catalogue's new control declared on its day, Wed 27; the band said on Fri 15 for Mon 18, three days ahead; the values check recorded on Mon 25 and back-dated to Fri 1), what it did, why in its author's words, and the days it reached that had already run",
     "day": "Thu 21",
     "view": "ontology",
     "viewFirst": true,
@@ -84,6 +87,8 @@
     "expect": {
       "text": [
         "MARCH 2024",
+        "From Wed 27 · recorded on its day",
+        "Declared sbom in control_catalog",
         "From Mon 18 · said Fri 15, 3 days ahead",
         "Accepted a new band in waf",
         "monitor mode, the security lead wants a WAF failing more than a tenth",
@@ -91,15 +96,15 @@
         "recorded after"
       ],
       "count": {
-        "#rules-time .rg-item[data-change]": 2,
-        "#rules-time .rg-item[data-event]": 5,
+        "#rules-time .rg-item[data-change]": 3,
+        "#rules-time .rg-item[data-event]": 6,
         "#rules-time .rg-item.rg-coming": 0
       }
     }
   },
   {
     "name": "register-kinds",
-    "what": "Each change says its kind with the kind's own mark, who decided it and when, and what led to it (ADR 0027 §2, slice 2): the band, the business changing, decided by the security lead on Thu 14 because of the WAF's day in monitor mode; the values check, a mistake corrected. The thinking opens under it: what was seen, chosen and turned down, what is expected, when to look again",
+    "what": "Each change says its kind with the kind's own mark, who decided it and when, and what led to it (ADR 0027 §2, slice 2): the band and the catalogue's new control, the business changing, each decided by the security lead (the band on Thu 14 because of the WAF's day in monitor mode); the values check, a mistake corrected. The thinking opens under it: what was seen, chosen and turned down, what is expected, when to look again",
     "day": "Thu 21",
     "view": "ontology",
     "viewFirst": true,
@@ -114,12 +119,13 @@
           "What we turned down",
           "Look again"
         ],
-        "#rules-time .rg-item[data-change=\"findings-values-hold\"]": ["A mistake corrected", "Because of: Scanner scn-dc-west without its login"]
+        "#rules-time .rg-item[data-change=\"findings-values-hold\"]": ["A mistake corrected", "Because of: Scanner scn-dc-west without its login"],
+        "#rules-time .rg-item[data-change=\"sbom-declared\"]": ["The business changed", "Decided by Sloane Marsden on Tue 26"]
       },
       "count": {
-        "#rules-time .rg-item[data-kind=\"business\"]": 1,
+        "#rules-time .rg-item[data-kind=\"business\"]": 2,
         "#rules-time .rg-item[data-kind=\"corrected\"]": 1,
-        "#rules-time .rg-note": 1
+        "#rules-time .rg-note": 2
       }
     }
   },
@@ -129,21 +135,16 @@
     "day": "Thu 21",
     "view": "ontology",
     "viewFirst": true,
-    "devices": [
-      "tablet",
-      "tablet-wide",
-      "desktop",
-      "wide"
-    ],
+    "devices": ["tablet", "tablet-wide", "desktop", "wide"],
     "element": "#rules-time .rg-lanes",
     "expect": {
       "count": {
-        "#rules-time .rg-lanes .rg-on": 2,
+        "#rules-time .rg-lanes .rg-on": 3,
         "#rules-time .rg-lanes .rg-was": 1,
-        "#rules-time .rg-lanes .rg-said": 2,
+        "#rules-time .rg-lanes .rg-said": 3,
         "#rules-time .rg-lanes .rg-then": 1,
         "#rules-time .rg-lanes .rg-decided": 8,
-        "#rules-time .rg-lanes .rg-back": 4
+        "#rules-time .rg-lanes .rg-back": 5
       }
     }
   },
@@ -157,8 +158,8 @@
     "element": "#rules-time .rg-lanes",
     "expect": {
       "count": {
-        "#rules-time .rg-lanes .rg-event": 5,
-        "#rules-time .rg-lanes .rg-kind": 2
+        "#rules-time .rg-lanes .rg-event": 6,
+        "#rules-time .rg-lanes .rg-kind": 3
       }
     }
   },
@@ -202,6 +203,68 @@
     }
   },
   {
+    "name": "register-excuses",
+    "what": "The reinstall's event on the register (ADR 0027 §6): what it excuses, in words, and the day a run was told as expected under it",
+    "day": "Thu 21",
+    "view": "ontology",
+    "viewFirst": true,
+    "element": "#rules-time .rg-item[data-event=\"agent-reinstall\"]",
+    "expect": {
+      "text": ["Scanner agents reinstalled on eks-prod-4", "Excuses a shift in the mix of a column (status), in findings. Told as expected on Sat 9."]
+    }
+  },
+  {
+    "name": "first-line",
+    "what": "The Ontology view's head says the ontology comes first (document format 5, ADR 0027 §4): every file says what one row is, every column is described or set aside, and a change says its kind and why",
+    "day": "Thu 21",
+    "view": "ontology",
+    "viewFirst": true,
+    "element": "#rules-time .rt-first",
+    "expect": {
+      "text": ["The ontology comes first. Every file says what one row is, and every column it has is described or set aside. A change says its kind and why."],
+      "count": {
+        "#rules-time .rt-first[data-format=\"5\"]": 1,
+        "#rules-time .rt-first.lacking": 0
+      }
+    }
+  },
+  {
+    "name": "closed-list",
+    "what": "The control catalogue on the Ontology page, on Thu Mar 21: a closed list of its fourteen controls, each with what defines it; the fifteenth isn't the ontology's until Wed 27",
+    "day": "Thu 21",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": ["#view-ontology .of-item[data-file=\"control_catalog\"] .of-row", "#view-ontology .of-item.open .of-entries summary"],
+    "waitFor": "#view-ontology .of-item.open .of-entry",
+    "element": "#view-ontology .of-item.open .of-entries",
+    "expect": {
+      "text": ["The 14 entries the ontology has"],
+      "count": {
+        "#view-ontology .of-item.open .of-entry": 14,
+        "#view-ontology .of-item.open .of-entry[data-key=\"sbom\"]": 0
+      }
+    }
+  },
+  {
+    "name": "closed-ahead-form",
+    "what": "Change on the closed list's line: an entry the business has decided on can be declared before its data (Q-255), its key and what each defining column will hold; it then waits for data until the file has it",
+    "day": "Thu 21",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": ["#view-ontology .of-item.open .of-rule[data-rule$=\"set=control_id_closed\"] .of-act"],
+    "waitFor": "#view-ontology .of-item.open .of-ahead",
+    "element": "#view-ontology .of-item.open .of-rule-form",
+    "expect": {
+      "text": [
+        "Declare an entry before its data",
+        "It is in force from the day below and is shown as waiting for data until a row of control_catalog carries it, as declared."
+      ],
+      "count": {
+        "#view-ontology .of-item.open .of-ahead-def": 12
+      }
+    }
+  },
+  {
     "name": "versions-compare",
     "what": "Any two compared: the rules as shipped against the values check alone, the one thing between them",
     "day": "Thu 21",
@@ -229,26 +292,19 @@
   },
   {
     "name": "register-coming",
-    "what": "As known on the end of Fri Mar 15 the band is coming: said that afternoon for Mon 18, it is on top of the register; the values check's correction, recorded ten days later, isn't known yet, and the register says one more was recorded after",
+    "what": "As known on the end of Fri Mar 15 the band is coming: said that afternoon for Mon 18, it is on top of the register; the values check's correction, recorded ten days later, and the catalogue's new control, declared on Wed 27, aren't known yet, and the register says two more were recorded after",
     "day": "Thu 21",
     "view": "ontology",
     "viewFirst": true,
     "clicks": [
-      [
-        "#rules-time .rt-known",
-        "2024-03-15"
-      ]
+      ["#rules-time .rt-known", "2024-03-15"]
     ],
     "element": "#rules-time .rg-list",
     "expect": {
-      "text": [
-        "COMING",
-        "From Mon 18 · said Fri 15, 3 days ahead",
-        "1 more change was recorded after the moment this is read at."
-      ],
+      "text": ["COMING", "From Mon 18 · said Fri 15, 3 days ahead", "2 more changes were recorded after the moment this is read at."],
       "count": {
         "#rules-time .rg-item[data-change]": 1,
-        "#rules-time .rg-item[data-event]": 3,
+        "#rules-time .rg-item[data-event]": 4,
         "#rules-time .rg-item.rg-coming": 1
       }
     }
@@ -273,7 +329,7 @@
         "#rules-time .rg-list": ["Audit week", "Wed 20 to Fri 22 · written"]
       },
       "count": {
-        "#rules-time .rg-item[data-event]": 6
+        "#rules-time .rg-item[data-event]": 7
       }
     }
   }

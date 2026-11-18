@@ -36,8 +36,10 @@ detail, how to check it and what is left are in [where the work stands](../HANDO
   March; the answer key the gates were built against, kept as a regression, and a day whose TLS file renames the
   column every control is joined on.
 - [The sign-in log](/signins/){target="_self"}: a year of generated sign-ins, the shared ontology's rules and fixes,
-  two days only the models see, and two days whose files changed their columns (a column added on Thu Mar 7, one
-  renamed on Fri Mar 22).
+  two days only the models see, two days whose files changed their columns (a column added on Thu Mar 7, one
+  renamed on Fri Mar 22), and three days at the gate ([ADR 0027](../adr/0027-the-ontology-over-time) §4): Method is a
+  closed column, magic links arrive on Sat Mar 23 and codes by text message on Sun Mar 24, each waiting for someone
+  to declare it, publish without it or not publish.
 
 ## Depends on
 

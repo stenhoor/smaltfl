@@ -15,7 +15,7 @@ import { changesProblems, validateDocument, type ChangeSet, type FlowDocument } 
 import { emitRuleCheck } from '../src/core/emit.js';
 import { declareEntry, leaveOut, setRule } from '../src/core/flowedit.js';
 import { latestGot, latestPublished, undeclaredSaid } from '../src/core/hold.js';
-import { applyEdit, resolve } from '../src/core/inforce.js';
+import { applyEdit, resolve, rulesHash } from '../src/core/inforce.js';
 import type { JSONValue } from '../src/core/log.js';
 import { expandNotebooks } from '../src/core/notebook.js';
 import { translate, validatePlan, type ClosedPlan } from '../src/core/plan.js';
@@ -169,6 +169,27 @@ describe('a closed list or column in the plan', () => {
     expect(() => validatePlan(withClosed([[0, closed[0]![1]]]))).toThrow(/isn't a check step/);
     expect(() => validatePlan(withClosed([[closed[0]![0], [{ ...closed[0]![1][0]!, rule: 'has_id' }]]]))).toThrow(/isn't a rule of controls_checked that stops the day/);
     expect(() => validatePlan(withClosed([closed[1], closed[0]]))).toThrow(/sorted by node/);
+  });
+});
+
+describe('what a run names of a closed list, under the encodings as they were', () => {
+  it('hashes a closed list, its keys left out and the columns set aside under rules/1, as any rules in force (a vector)', async () => {
+    const closed: OntologyRule = { id: 'control_id_closed', file: 'controls', column: 'control_id', kind: 'closed', defines: ['weight'], entries: [['mfa', '3'], ['tls', '2']], leftOut: ['sbom'], action: 'hold' };
+    const parts = { ontology: { objectTypes: [], linkTypes: [], actionTypes: [], rules: [closed], aside: { controls: ['notes'] } }, steps: [] };
+    expect(await rulesHash(parts as never)).toBe('0be5a5742f2df02badfde63045002a7362baf50f86f60ca86b77a824ed0729bd');
+    // The order entries were declared in is part of what was declared.
+    expect(await rulesHash({ ...parts, ontology: { ...parts.ontology, rules: [{ ...closed, entries: [['tls', '2'], ['mfa', '3']] }] } } as never)).not.toBe('0be5a5742f2df02badfde63045002a7362baf50f86f60ca86b77a824ed0729bd');
+  });
+
+  it('leaves the plan of a flow that closes nothing as it was, format and all', async () => {
+    const open = await translate(await doc([]), { day: '2024-03-01' });
+    const shut = await translate(await doc(), { day: '2024-03-01' });
+    expect([open.smaltflPlan, shut.smaltflPlan]).toEqual([3, 3]);
+    expect(Object.keys(open.publish!).sort()).toEqual(['calendar', 'hold', 'meanwhile', 'period', 'reach', 'together', 'until', 'watch']);
+    expect(Object.keys(shut.publish!).sort()).toEqual(['calendar', 'closed', 'hold', 'meanwhile', 'period', 'reach', 'together', 'until', 'watch']);
+    // The check step of a flow that closes nothing has its own rules alone, none of them left out by a decision.
+    const n = open.nodes.find((x) => x.origin === 'controls_checked')!;
+    expect(n.op === 'expect' && n.rules.map((r) => r[2])).toEqual(['drop']);
   });
 });
 
