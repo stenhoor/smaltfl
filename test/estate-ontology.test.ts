@@ -238,6 +238,27 @@ describe('a flow read with the estate’s ontology it imports', () => {
     expect(await flowHash(sales)).not.toBe(await flowHash(await composeFlow('flow.json', files(SHOP()), ts)));
   });
 
+  it('keeps what a flow’s own ontology says beside it: the columns set aside, and a dataset described ahead of its data', async () => {
+    const five = (x: Record<string, unknown>) => Object.fromEntries(Object.entries(x).map(([k, v]) => [k, k.endsWith('flow.json') ? { ...(v as object), smaltfl: 5 } : v]));
+    const awaited = [{ id: 'returns', name: 'Returns', row: { one: 'return', many: 'returns' }, key: ['return_id'], columns: [{ column: 'return_id', description: 'The return' }, { column: 'sku', description: 'What came back' }] }];
+    const given = five(SHOP(
+      { objectTypes: [], linkTypes: [], actionTypes: [], aside: { orders: ['notes'] } },
+      { import: ['./ontology.json'], objectTypes: [], linkTypes: [], actionTypes: [], aside: { products: ['legacy_sku'] }, awaited },
+    ));
+    const orders = await composeFlow('orders/flow.json', files(given), ts);
+    expect(validateDocument(orders)).toEqual([]);
+    expect(orders.ontology!.aside).toEqual({ orders: ['notes'] });
+    // The reader has its own, and what the flow it reads set aside in its file.
+    const sales = await composeFlow('flow.json', files(given), ts);
+    expect(validateDocument(sales)).toEqual([]);
+    expect(sales.ontology!.aside).toEqual({ orders: ['notes'], products: ['legacy_sku'] });
+    expect(sales.ontology!.awaited).toEqual(awaited);
+    expect(sales.ontology!.estate).toHaveLength(1);
+    // A dataset described ahead in two flows is said twice.
+    const twice = five(SHOP({ objectTypes: [], linkTypes: [], actionTypes: [], awaited }, { import: ['./ontology.json'], objectTypes: [], linkTypes: [], actionTypes: [], awaited }));
+    await expect(composeFlow('flow.json', files(twice), ts)).rejects.toThrow(/the dataset described ahead returns is said by Orders and by Sales: the ontology says a thing once/);
+  });
+
   it('refuses a shared column said again without the mark, an override of another flow’s dataset, and a thing the estate says said again', async () => {
     const again = SHOP({ objectTypes: [], linkTypes: [], actionTypes: [], properties: [{ column: 'status', title: 'State', description: '', datasets: ['orders'] }] });
     await expect(composeFlow('orders/flow.json', files(again), ts)).rejects.toThrow(/Orders describes status on orders, which Shop’s ontology describes: an override says so/);

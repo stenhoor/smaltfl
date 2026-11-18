@@ -59,7 +59,7 @@
       "from": "2024-03-27",
       "recorded": "2024-03-27T09:10:00Z",
       "by": "owner",
-      "why": "The control board added a software bill of materials for every application we host: the catalogue lists it from today, before any tool reports on it",
+      "why": "The control board added a software bill of materials for every application we host: the catalogue lists it from today, before any tool reports on it, and the feed it will be evidenced by is described ahead",
       "kind": "business",
       "decided": { "by": "Sloane Marsden", "on": "2024-03-26" },
       "note": {
@@ -69,7 +69,16 @@
         "expect": "Coverage falls by about eight points until a feed is built. The score stays where it is",
         "lookAgain": "2024-04-30"
       },
-      "edits": [{ "op": "declareEntry", "file": "control_catalog", "rule": "control_id_closed", "entry": ["sbom", "2", "daily", "*", "*", "*", "*", "cloud;onprem", "active;retiring", "", "", "", "system"] }]
+      "edits": [
+        { "op": "declareEntry", "file": "control_catalog", "rule": "control_id_closed", "entry": ["sbom", "2", "daily", "*", "*", "*", "*", "cloud;onprem", "active;retiring", "", "", "", "system"] },
+        { "op": "describeAhead", "dataset": { "id": "sbom_inventory", "name": "SBOM inventory", "description": "Each application's software bill of materials, as the build pipeline will export it once a day", "row": { "one": "component list", "many": "component lists" }, "key": ["app_id"], "columns": [
+          { "column": "app_id", "title": "Application", "description": "The application the bill of materials is of" },
+          { "column": "generated_at", "title": "Generated", "description": "When the build pipeline last made the bill of materials" },
+          { "column": "format", "title": "Format", "description": "The format it is written in: CycloneDX or SPDX" },
+          { "column": "components", "title": "Components", "description": "How many components it lists" },
+          { "column": "status", "title": "Status", "description": "pass where a bill of materials was made in the last seven days, fail where it is older or missing" }
+        ] } }
+      ]
     }
   ],
   "events": [

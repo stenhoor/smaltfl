@@ -205,6 +205,39 @@ export const NEEDS_FIELDS = ['id', 'datasets', 'from', 'key', 'when', 'then', 'd
 /** The ontology's needs rules applied to a dataset (Q-119), in the ontology's order; ids are compared without case. */
 export const needsOf = (ontology: Ontology | undefined, dataset: string): NeedsDef[] => (ontology?.needs ?? []).filter((n) => n.datasets.some((d) => d.toLowerCase() === dataset.toLowerCase()));
 
+/**
+ * A dataset the business described before its data exists (ADR 0027 §5, Q-255): what one row of it is, by which key,
+ * and what each of its columns holds. It is in force from the day its change says and **waits for data** until a
+ * source of its name is in the flow, which binding a file to it makes (the file's columns mapped onto these). It stays
+ * in the ontology after that: described on one day, evidenced from another.
+ */
+export interface AwaitedDataset {
+  /** The dataset's name in the flow once it has data: lower-case letters, digits and underscores. */
+  id: string;
+  /** What people call it. */
+  name: string;
+  /** What it is, in a line. */
+  description?: string;
+  /** What one row is, as a count reads: "component", "components". */
+  row: Noun;
+  /** The columns that tell one row from another. */
+  key: string[];
+  /** Its columns, each with what it holds. */
+  columns: AwaitedColumn[];
+}
+
+/** A column of a dataset described ahead of its data. */
+export interface AwaitedColumn {
+  column: string;
+  /** What people call it; made from its name where none is given. */
+  title?: string;
+  description: string;
+}
+
+/** An awaited dataset's settings, and a column's: any other is refused by name. */
+export const AWAITED_FIELDS = ['id', 'name', 'description', 'row', 'key', 'columns'] as const;
+export const AWAITED_COLUMN_FIELDS = ['column', 'title', 'description'] as const;
+
 export interface Ontology {
   objectTypes: ObjectType[];
   linkTypes: LinkType[];
@@ -235,6 +268,9 @@ export interface Ontology {
   /** The columns of each file that the flow doesn't take (ADR 0027 §4, format 5), by file: named so that every column a
    * file has is either described or set aside. A column set aside isn't one its source declares, so no step reads it. */
   aside?: Record<string, string[]>;
+  /** The datasets described before their data exists (ADR 0027 §5, Q-255, format 5): each waits for data until a source
+   * of its name is in the flow, and stays here after, the record of what was asked for. */
+  awaited?: AwaitedDataset[];
   /** The share of a day's rows a learned check's alert must move to hold the day where its check only warns (Q-132,
    * Q-207), by dataset (a source or a watched step): it wins over the flow's (`publish.overwhelming`), which wins over
    * a quarter. */

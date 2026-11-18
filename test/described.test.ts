@@ -6,12 +6,15 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { asideOf, columnDescribed, isAside, rowSaid, undescribed, undescribedSaid } from '../src/core/described.js';
-import { DOCUMENT_FORMATS, validateDocument, type ChangeSet, type FlowDocument } from '../src/core/document.js';
-import { setAside } from '../src/core/flowedit.js';
-import { rulesHash } from '../src/core/inforce.js';
+import { editTargets } from '../src/core/attribute.js';
+import { asideOf, awaitedIssues, awaitedOf, columnDescribed, isAside, rowSaid, undescribed, undescribedSaid } from '../src/core/described.js';
+import { changesProblems, DOCUMENT_FORMATS, EDIT_OPS, validateDocument, type ChangeSet, type FlowDocument } from '../src/core/document.js';
+import { describeAhead, setAside } from '../src/core/flowedit.js';
+import { applyEdit, resolve, rulesHash } from '../src/core/inforce.js';
 import { expandNotebooks } from '../src/core/notebook.js';
+import type { AwaitedDataset } from '../src/core/ontology.js';
 import { translate } from '../src/core/plan.js';
+import { defaultKind, livesOf, registerOf, shortOf, subjectOf } from '../src/core/register.js';
 import { loadFlowDir, ts } from './helpers/notebooks.js';
 
 const NB = `import { cell, param, sql } from 'smaltnb';
@@ -122,6 +125,96 @@ describe('what a source still lacks, where its columns are known', () => {
     expect(back.said).toBe('Took controls’s column legacy_id back from aside');
     expect(back.doc.ontology).not.toHaveProperty('aside');
     expect(await rulesHash(back.doc)).toBe(await rulesHash(d));
+  });
+});
+
+describe('a dataset described before its data exists (ADR 0027 §5, Q-255)', () => {
+  const SBOM: AwaitedDataset = {
+    id: 'sbom_inventory', name: 'SBOM inventory', description: 'Each application’s bill of materials', row: { one: 'component list', many: 'component lists' }, key: ['app_id'],
+    columns: [{ column: 'app_id', title: 'Application', description: 'The application it is of' }, { column: 'components', description: 'How many components it lists' }],
+  };
+  const withAwaited = (awaited: unknown) => doc({ ontology: { ...ONTOLOGY, awaited } });
+
+  it('is the ontology’s, in a format-5 document: well formed, and each once', async () => {
+    expect(validateDocument(await withAwaited([SBOM]))).toEqual([]);
+    expect(awaitedOf((await withAwaited([SBOM])).ontology).map((a) => a.id)).toEqual(['sbom_inventory']);
+    expect(awaitedOf((await doc()).ontology)).toEqual([]);
+    expect(messages(await doc({ smaltfl: 4, ontology: { ...ONTOLOGY, awaited: [SBOM] } }))).toEqual(['$.ontology.awaited: a dataset described ahead of its data is a format-5 document’s (the ontology first)']);
+    expect(messages(await withAwaited([]))).toEqual(['$.ontology.awaited: the datasets described ahead of their data: a list of one or more; absent when there are none']);
+    expect(messages(await withAwaited([SBOM, { ...SBOM, name: 'Again' }]))).toEqual(['$.ontology.awaited[1].id: sbom_inventory is described ahead twice']);
+    // One whose name is a dataset of the flow has its data: it stays, the record of what was asked for.
+    expect(validateDocument(await withAwaited([{ ...SBOM, id: 'controls' }]))).toEqual([]);
+  });
+
+  it('says what one lacks, field by field', () => {
+    const lacks = (x: Record<string, unknown>) => awaitedIssues({ ...SBOM, ...x }).map(([path, message]) => `${path}: ${message}`);
+    expect(awaitedIssues(SBOM)).toEqual([]);
+    expect(awaitedIssues('sbom')).toEqual([['', 'a dataset described ahead of its data: { id, name, row: { one, many }, key, columns }']]);
+    expect(lacks({ id: 'SBOM inventory' })).toEqual(['.id: the dataset’s name: lower-case letters, digits and underscores, starting with a letter']);
+    expect(lacks({ name: ' ' })).toEqual(['.name: what people call it']);
+    expect(lacks({ row: { one: 'bill' } })).toEqual(['.row: what one row is: { one, many }, one or two words each']);
+    expect(lacks({ row: { one: 'bill of materials', many: 'bills of materials' } })).toEqual(['.row: what one row is: { one, many }, one or two words each']);
+    expect(lacks({ key: [] })).toEqual(['.key: the columns that tell one row from another: a list of one or more']);
+    expect(lacks({ key: ['app'] })).toEqual(['.key: app isn’t one of its columns']);
+    expect(lacks({ key: ['app_id', 'APP_ID'] })).toEqual(['.key: each key column once']);
+    expect(lacks({ columns: [] })).toEqual(['.columns: its columns: a list of one or more, each { column, description }']);
+    expect(lacks({ columns: [{ column: 'app_id', description: '' }] })).toEqual(['.columns[0].description: what app_id holds: a described dataset describes every column']);
+    expect(lacks({ columns: [...SBOM.columns, { column: 'App_ID', description: 'Again' }] })).toEqual(['.columns[2].column: App_ID is named twice']);
+    expect(lacks({ columns: [{ column: 'app_id', description: 'x', type: 'TEXT' }] })).toEqual(['.columns[0].type: not a setting of a described column: column, title, description']);
+    expect(lacks({ from: '2024-03-27' })).toEqual(['.from: not a setting of a dataset described ahead: id, name, description, row, key, columns']);
+  });
+
+  it('is written by an edit, said in words, and replaced by a later description of the same dataset', async () => {
+    const d = await doc();
+    const first = describeAhead(d, { ...SBOM, name: ' SBOM inventory ' });
+    expect(first.said).toBe('Described sbom_inventory ahead of its data: one row is a component list, by app_id; 2 columns');
+    expect(first.doc.ontology!.awaited).toEqual([SBOM]);
+    expect(validateDocument(first.doc)).toEqual([]);
+    expect(describeAhead(first.doc, SBOM)).toEqual({ doc: first.doc, said: null });
+    const again = describeAhead(first.doc, { ...SBOM, key: ['app_id', 'components'], row: { one: 'entry', many: 'entries' } });
+    expect(again.said).toBe('Described sbom_inventory again, still ahead of its data: one row is an entry, by app_id and components; 2 columns');
+    expect(again.doc.ontology!.awaited).toHaveLength(1);
+    // Another dataset is another entry, after it.
+    expect(describeAhead(first.doc, { ...SBOM, id: 'licences', name: 'Licences' }).doc.ontology!.awaited!.map((a) => a.id)).toEqual(['sbom_inventory', 'licences']);
+  });
+
+  it('is a dated change: in force from its day, as known when it was recorded, and part of the rules in force', async () => {
+    expect(EDIT_OPS).toContain('describeAhead');
+    const change: ChangeSet = { id: 'sbom-described', from: '2024-03-27', recorded: '2024-03-27T09:10:00Z', by: 'owner', why: 'The board asked for it before any tool reports on it', kind: 'business', edits: [{ op: 'describeAhead', dataset: SBOM }] };
+    expect(changesProblems([change])).toEqual([]);
+    expect(changesProblems([{ ...change, edits: [{ op: 'describeAhead', dataset: { ...SBOM, key: [] } }] } as ChangeSet]).map((i) => `${i.path}: ${i.message}`))
+      .toEqual(['$.changes[0].edits[0].dataset.key: the columns that tell one row from another: a list of one or more']);
+    const d = await doc({ changes: [change] });
+    expect(validateDocument(d)).toEqual([]);
+    expect(awaitedOf(resolve(d, '2024-03-26').doc.ontology)).toEqual([]);
+    expect(awaitedOf(resolve(d, '2024-03-27').doc.ontology).map((a) => a.id)).toEqual(['sbom_inventory']);
+    expect(awaitedOf(resolve(d, '2024-03-28', '2024-03-27T09:00:00Z').doc.ontology)).toEqual([]);
+    expect(resolve(d, '2024-03-27').applied.map((a) => a.said)).toEqual([['Described sbom_inventory ahead of its data: one row is a component list, by app_id; 2 columns']]);
+    const bare = await doc();
+    expect(applyEdit(bare, change.edits[0]!)!.said).toBe('Described sbom_inventory ahead of its data: one row is a component list, by app_id; 2 columns');
+    expect(await rulesHash(resolve(d, '2024-03-27').doc)).not.toBe(await rulesHash(bare));
+    expect(await rulesHash(resolve(d, '2024-03-26').doc)).toBe(await rulesHash(bare));
+    // Nothing reads it yet: the plan is what it was.
+    expect((await translate(d, { day: '2024-03-27' })).nodes.map((n) => n.origin)).toEqual((await translate(bare, { day: '2024-03-27' })).nodes.map((n) => n.origin));
+  });
+
+  it('hashes with the rules in force as the ontology writes it (rules/1): the vector', async () => {
+    const small = { smaltfl: 5, id: 'f', name: 'F', sources: [], steps: [], ontology: { objectTypes: [], linkTypes: [], actionTypes: [], awaited: [{ id: 'sbom_inventory', name: 'SBOM inventory', row: { one: 'component list', many: 'component lists' }, key: ['app_id'], columns: [{ column: 'app_id', description: 'The application it is of' }] }] } } as unknown as FlowDocument;
+    expect(await rulesHash(small)).toBe('330a5021ffbb273c8c0b49b3f37003ec327340169a28a9e9eeb13fa4714576f4');
+  });
+
+  it('is one thing on the register from the day it was described, a first description, and the flow’s own that wrote it', async () => {
+    const edit = { op: 'describeAhead', dataset: SBOM } as const;
+    expect(subjectOf(edit)).toEqual({ key: 'awaited:sbom_inventory', dataset: 'sbom_inventory', lane: 'is', what: 'described ahead of its data' });
+    expect(shortOf(edit)).toBe('described');
+    expect(defaultKind([edit])).toBe('described');
+    expect(defaultKind([edit, { op: 'declareEntry', file: 'controls', rule: 'c_closed', entry: ['sbom'] }])).toBe('business');
+    expect(editTargets(edit)).toEqual([]);
+    const change: ChangeSet = { id: 'sbom-described', from: '2024-03-27', recorded: '2024-03-27T09:10:00Z', by: 'owner', why: 'Asked for', kind: 'described', edits: [edit] };
+    const d = await doc({ changes: [change] });
+    const days = ['2024-03-25', '2024-03-26', '2024-03-27', '2024-03-28'];
+    const lives = livesOf(registerOf(d, { today: '2024-03-28' }).entries, days, '2024-03-28');
+    expect(lives.map((l) => [l.subject.key, l.spans.map((sp) => [sp.from, sp.short])])).toEqual([['awaited:sbom_inventory', [['2024-03-27', 'described']]]]);
   });
 });
 

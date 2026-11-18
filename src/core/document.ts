@@ -8,7 +8,8 @@
 import { calendarProblems, EVERIES, isEvery, type CalendarDef, type Every } from './calendar.js';
 import type { AcceptedBand, ColumnChange, RuleInput } from './flowedit.js';
 import { CHECK_MODES, CHECK_NAMES, gateProblems, type CheckMode, type CheckName, type GateDef } from './gates.js';
-import { marksVerdicts, NEEDS_FIELDS, ROWS_FIELDS, type Ontology } from './ontology.js';
+import { awaitedIssues } from './described.js';
+import { marksVerdicts, NEEDS_FIELDS, ROWS_FIELDS, type AwaitedDataset, type Ontology } from './ontology.js';
 import { checkStepOf, FIX_KINDS, rulesIssues } from './rules.js';
 import { DECIDE, DECIDE_OPTIONS, type Policies } from './policy.js';
 import type { ParamType, ParamValue } from './sqltext.js';
@@ -227,9 +228,12 @@ export type RuleEdit =
    * it from the day, under its key (an entry the rule has under that key is replaced; a key left out is in again). */
   | { op: 'declareEntry'; file: string; rule: string; entry: string[] }
   /** A key left out of what goes on until it is declared (Q-253, "Publish without it"). */
-  | { op: 'leaveOut'; file: string; rule: string; key: string };
+  | { op: 'leaveOut'; file: string; rule: string; key: string }
+  /** A dataset described before its data exists (ADR 0027 §5, Q-255, "Describe it first"): the ontology has its
+   * description from the day, in place of an earlier one of the same dataset, and it waits for data. */
+  | { op: 'describeAhead'; dataset: AwaitedDataset };
 
-export const EDIT_OPS = ['setRule', 'removeRule', 'switchRule', 'nameColumn', 'acceptBand', 'setCheck', 'useVersion', 'mapColumn', 'declareValues', 'declareKey', 'declareEntry', 'leaveOut'] as const;
+export const EDIT_OPS = ['setRule', 'removeRule', 'switchRule', 'nameColumn', 'acceptBand', 'setCheck', 'useVersion', 'mapColumn', 'declareValues', 'declareKey', 'declareEntry', 'leaveOut', 'describeAhead'] as const;
 
 /**
  * A dated change set (ADR 0021 §5, Q-184): edits of the rules people set, in force from a business day, as known from
@@ -1117,6 +1121,9 @@ function validateChanges(doc: Record<string, unknown>, add: (path: string, messa
           need('rule', text(e.rule), 'the closed rule, by its name');
           need('key', text(e.key), 'the key left out until it is declared');
           return;
+        case 'describeAhead':
+          for (const [path, message] of awaitedIssues(e.dataset)) add(`${ea}.dataset${path}`, message);
+          return;
       }
     });
   });
@@ -1620,6 +1627,21 @@ function validateExtras(doc: Record<string, unknown>, ids: Map<string, string>, 
         else for (const [f, list] of Object.entries(o.aside)) {
           if (!sourceIds.includes(f.toLowerCase())) add(`$.ontology.aside.${f}`, `no source ${f}: a column is set aside in a file`);
           if (!Array.isArray(list) || list.length === 0 || list.some((x) => typeof x !== 'string' || x === '') || new Set(list.map((x) => String(x).toLowerCase())).size !== list.length) add(`$.ontology.aside.${f}`, 'its columns set aside, each once; absent when there are none');
+        }
+      }
+      // The datasets described before their data exists (ADR 0027 §5, Q-255): each once, and well formed. One whose
+      // name is a dataset of the flow has its data: it stays, the record of what was asked for.
+      if (o.awaited !== undefined) {
+        if (doc.smaltfl !== 5) add('$.ontology.awaited', 'a dataset described ahead of its data is a format-5 document’s (the ontology first)');
+        else if (!Array.isArray(o.awaited) || o.awaited.length === 0) add('$.ontology.awaited', 'the datasets described ahead of their data: a list of one or more; absent when there are none');
+        else {
+          const ids: string[] = [];
+          o.awaited.forEach((x: unknown, i: number) => {
+            for (const [path, message] of awaitedIssues(x)) add(`$.ontology.awaited[${i}]${path}`, message);
+            const id = isRecord(x) && typeof x.id === 'string' ? x.id.toLowerCase() : null;
+            if (id !== null && ids.includes(id)) add(`$.ontology.awaited[${i}].id`, `${id} is described ahead twice`);
+            if (id !== null) ids.push(id);
+          });
         }
       }
     }

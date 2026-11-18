@@ -63,6 +63,9 @@ export function subjectOf(edit: RuleEdit): Subject {
       return subject(`entry:${edit.file}:${edit.rule}:${edit.entry[0] ?? ''}`, edit.file, 'is', `${edit.entry[0] ?? ''}, an entry`);
     case 'leaveOut':
       return subject(`entry:${edit.file}:${edit.rule}:${edit.key}`, edit.file, 'is', `${edit.key}, an entry`);
+    // A dataset described before its data exists (ADR 0027 §5): one thing from the day it was described.
+    case 'describeAhead':
+      return subject(`awaited:${edit.dataset.id}`, edit.dataset.id, 'is', 'described ahead of its data');
     case 'useVersion':
       return subject('version', '', 'check', 'the rules, a version taken whole');
   }
@@ -93,6 +96,8 @@ export function shortOf(edit: RuleEdit): string {
       return 'declared';
     case 'leaveOut':
       return 'left out';
+    case 'describeAhead':
+      return 'described';
     case 'useVersion':
       return 'a version';
   }
@@ -124,6 +129,8 @@ export function defaultKind(edits: readonly RuleEdit[]): ChangeKind {
   // A key left out until it is declared is the file ahead of the ontology: its meaning hasn't changed.
   if (ops.size && [...ops].every((op) => op === 'mapColumn' || op === 'leaveOut')) return 'source';
   if ([...ops].every((op) => op === 'declareValues' || op === 'declareKey' || op === 'acceptBand') && (ops.has('declareValues') || ops.has('declareKey'))) return 'described';
+  // A dataset described ahead of its data is a first description too.
+  if (ops.size && [...ops].every((op) => op === 'describeAhead')) return 'described';
   if (ops.size && [...ops].every((op) => op === 'acceptBand')) return 'retuned';
   if (ops.size && [...ops].every((op) => op === 'useVersion')) return 'corrected';
   return 'business';
@@ -270,7 +277,7 @@ export function livesOf(entries: readonly Entry[], days: readonly string[], toda
     for (const e of entry.edits) {
       // An entry of a closed list the ontology didn't have (ADR 0027 §4) begins with the change that first names it:
       // nothing of it was shipped. One whose defining columns a change moved stood before, as shipped.
-      const row = bySubject.get(e.subject.key) ?? { subject: e.subject, begins: (e.edit.op === 'declareEntry' && !(e.said ?? '').startsWith('Changed ')) || e.edit.op === 'leaveOut', touches: [] };
+      const row = bySubject.get(e.subject.key) ?? { subject: e.subject, begins: (e.edit.op === 'declareEntry' && !(e.said ?? '').startsWith('Changed ')) || e.edit.op === 'leaveOut' || e.edit.op === 'describeAhead', touches: [] };
       // Two edits of one thing in one change set: the last says what it was left as.
       const had = row.touches.findIndex((x) => x.entry === entry);
       if (had >= 0) row.touches[had] = { entry, short: e.short };

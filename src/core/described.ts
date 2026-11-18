@@ -12,11 +12,12 @@
  *   though the source declares them (a column can't be both taken and set aside).
  * - `undescribedSaid`: one source's, in a sentence.
  * - `asideOf`: the columns a file has set aside; `isAside`.
+ * - `awaitedOf`: the datasets described before their data exists (§5, Q-255); `awaitedIssues` holds one to its shape.
  *
  * Pure: no DOM, no engine.
  */
 import type { FlowDocument } from './document.js';
-import { propertyOf, rowsOf, type Ontology } from './ontology.js';
+import { AWAITED_COLUMN_FIELDS, AWAITED_FIELDS, propertyOf, rowsOf, type AwaitedDataset, type Ontology } from './ontology.js';
 
 const lower = (x: string) => x.toLowerCase();
 
@@ -75,4 +76,46 @@ export function undescribedSaid(u: Undescribed): string {
     ...(u.taken.length ? [`${listed(u.taken)} ${u.taken.length === 1 ? 'is' : 'are'} set aside and declared all the same`] : []),
   ];
   return `${u.source}: ${parts.join('; ')}`;
+}
+
+/** The datasets the ontology describes ahead of their data (ADR 0027 §5, Q-255), in its order. */
+export const awaitedOf = (o: Ontology | undefined): AwaitedDataset[] => o?.awaited ?? [];
+
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+const text = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '';
+const NAME = /^[a-z][a-z0-9_]*$/;
+
+/**
+ * What is wrong with a dataset described ahead of its data, each as a path under it and a sentence; none, and it is
+ * one: a name the flow could use, what people call it, what one row is, a key of its own columns, and every column
+ * named once and described.
+ */
+export function awaitedIssues(x: unknown): [path: string, message: string][] {
+  if (!isRecord(x)) return [['', 'a dataset described ahead of its data: { id, name, row: { one, many }, key, columns }']];
+  const out: [string, string][] = [];
+  for (const k of Object.keys(x)) if (!(AWAITED_FIELDS as readonly string[]).includes(k)) out.push([`.${k}`, `not a setting of a dataset described ahead: ${AWAITED_FIELDS.join(', ')}`]);
+  if (typeof x.id !== 'string' || !NAME.test(x.id)) out.push(['.id', 'the dataset’s name: lower-case letters, digits and underscores, starting with a letter']);
+  if (!text(x.name)) out.push(['.name', 'what people call it']);
+  if (x.description !== undefined && typeof x.description !== 'string') out.push(['.description', 'what it is, in a line']);
+  // A noun, as the ontology keeps one for every dataset: a word or two.
+  const noun = (v: unknown) => text(v) && v.trim().split(/\s+/).length <= 2;
+  if (!isRecord(x.row) || !noun(x.row.one) || !noun(x.row.many)) out.push(['.row', 'what one row is: { one, many }, one or two words each']);
+  const columns = Array.isArray(x.columns) ? x.columns : null;
+  if (!columns || columns.length === 0) out.push(['.columns', 'its columns: a list of one or more, each { column, description }']);
+  const names: string[] = [];
+  (columns ?? []).forEach((c: unknown, i: number) => {
+    if (!isRecord(c) || !text(c.column)) return void out.push([`.columns[${i}]`, 'a column: { column, title?, description }']);
+    for (const k of Object.keys(c)) if (!(AWAITED_COLUMN_FIELDS as readonly string[]).includes(k)) out.push([`.columns[${i}].${k}`, `not a setting of a described column: ${AWAITED_COLUMN_FIELDS.join(', ')}`]);
+    if (!text(c.description)) out.push([`.columns[${i}].description`, `what ${c.column} holds: a described dataset describes every column`]);
+    if (c.title !== undefined && !text(c.title)) out.push([`.columns[${i}].title`, 'what people call it']);
+    if (names.includes(c.column.toLowerCase())) out.push([`.columns[${i}].column`, `${c.column} is named twice`]);
+    names.push(c.column.toLowerCase());
+  });
+  const key = Array.isArray(x.key) && x.key.length > 0 && x.key.every((k: unknown) => typeof k === 'string') ? (x.key as string[]) : null;
+  if (!key) out.push(['.key', 'the columns that tell one row from another: a list of one or more']);
+  else {
+    for (const k of key) if (names.length && !names.includes(k.toLowerCase())) out.push(['.key', `${k} isn’t one of its columns`]);
+    if (new Set(key.map((k) => k.toLowerCase())).size !== key.length) out.push(['.key', 'each key column once']);
+  }
+  return out;
 }

@@ -34,6 +34,9 @@ export function editTargets(edit: RuleEdit): string[] {
       return [edit.node];
     case 'useVersion':
       return [];
+    // A dataset described ahead of its data is no file or step yet: the change is the flow's that wrote it.
+    case 'describeAhead':
+      return [];
   }
 }
 

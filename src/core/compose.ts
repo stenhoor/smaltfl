@@ -448,8 +448,8 @@ function mergeOntologies(at: string, given: readonly { name: string; ontology: O
   if (has.length === 0) return undefined;
   if (has.length === 1) return has[0]!.ontology;
   const out: Ontology = { objectTypes: [], linkTypes: [], actionTypes: [] };
-  const lists = ['objectTypes', 'linkTypes', 'actionTypes', 'properties', 'references', 'rows', 'needs', 'rules', 'shared'] as const;
-  const maps = ['nouns', 'fixes', 'overwhelming'] as const;
+  const lists = ['objectTypes', 'linkTypes', 'actionTypes', 'properties', 'references', 'rows', 'needs', 'rules', 'shared', 'awaited'] as const;
+  const maps = ['nouns', 'fixes', 'aside', 'overwhelming'] as const;
   const keyOf: Record<(typeof lists)[number], (x: never) => string> = {
     objectTypes: (x: { id: string }) => x.id,
     linkTypes: (x: { id: string }) => x.id,
@@ -460,8 +460,9 @@ function mergeOntologies(at: string, given: readonly { name: string; ontology: O
     needs: (x: { id: string }) => x.id,
     rules: (x: { file: string; id: string }) => `${x.file.toLowerCase()} ${x.id}`,
     shared: (x: { file: string }) => x.file.toLowerCase(),
+    awaited: (x: { id: string }) => x.id.toLowerCase(),
   } as never;
-  const what: Record<string, string> = { objectTypes: 'object type', linkTypes: 'link', actionTypes: 'action', properties: 'column', references: 'reference', rows: 'rows entry', needs: 'dependency', rules: 'rule', shared: 'shared ontology' };
+  const what: Record<string, string> = { objectTypes: 'object type', linkTypes: 'link', actionTypes: 'action', properties: 'column', references: 'reference', rows: 'rows entry', needs: 'dependency', rules: 'rule', shared: 'shared ontology', awaited: 'dataset described ahead' };
   for (const k of lists) {
     const seen = new Map<string, string>();
     const merged: unknown[] = [];

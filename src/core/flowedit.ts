@@ -12,7 +12,7 @@
  */
 import { canonicalJSON } from './canonical.js';
 import { validateDocument, type FlowDocument, type StepDef } from './document.js';
-import { propertyOf, saysMore, type Ontology, type PropertyType } from './ontology.js';
+import { propertyOf, saysMore, type AwaitedDataset, type Ontology, type PropertyType } from './ontology.js';
 import { syncRuleCells, writeRuleSwitches } from './gatecell.js';
 import { ACTION_SAID, checkStepOf, newRuleId, ruleOn, ruleSaid, switchesFor, type OntologyRule } from './rules.js';
 
@@ -339,6 +339,36 @@ export function setAside(doc: FlowDocument, file: string, column: string, aside:
   const all = next.length ? { ...rest, [source]: next } : rest;
   const { aside: _aside, ...bare } = o;
   return { doc: { ...doc, ontology: Object.keys(all).length ? { ...bare, aside: all } : bare }, said: aside ? `Set ${source}’s column ${column} aside: the flow doesn’t take it` : `Took ${source}’s column ${column} back from aside` };
+}
+
+// ------------------------------------------------------------------ described ahead of its data (ADR 0027 §5)
+
+/** "a vendor", "an application": one of them, with its article. */
+const oneOfThem = (one: string) => `${/^[aeiou]/i.test(one.trim()) ? 'an' : 'a'} ${one.trim()}`;
+
+/** A dataset described ahead, as the ontology keeps it: its settings in one order, nothing else carried. */
+const awaitedEntry = (d: AwaitedDataset): AwaitedDataset => ({
+  id: d.id,
+  name: d.name.trim(),
+  ...(d.description?.trim() ? { description: d.description.trim() } : {}),
+  row: { one: d.row.one.trim(), many: d.row.many.trim() },
+  key: [...d.key],
+  columns: d.columns.map((c) => ({ column: c.column, ...(c.title?.trim() ? { title: c.title.trim() } : {}), description: c.description.trim() })),
+});
+
+/**
+ * A dataset described before its data exists (ADR 0027 §5, Q-255, "Describe it first"): written into the ontology's
+ * `awaited`, in place of an earlier description of the same dataset. It waits for data until a source of its name is
+ * in the flow. Null `said` where the ontology has it so already.
+ */
+export function describeAhead(doc: FlowDocument, dataset: AwaitedDataset): { doc: FlowDocument; said: string | null } {
+  const o = ontologyOf(doc);
+  const entry = awaitedEntry(dataset);
+  const had = (o.awaited ?? []).find((a) => lower(a.id) === lower(entry.id));
+  if (had && canonicalJSON(had as never) === canonicalJSON(entry as never)) return { doc, said: null };
+  const awaited = had ? o.awaited!.map((a) => (a === had ? entry : a)) : [...(o.awaited ?? []), entry];
+  const what = `one row is ${oneOfThem(entry.row.one)}, by ${listed(entry.key)}; ${entry.columns.length} ${entry.columns.length === 1 ? 'column' : 'columns'}`;
+  return { doc: { ...doc, ontology: { ...o, awaited } }, said: had ? `Described ${entry.id} again, still ahead of its data: ${what}` : `Described ${entry.id} ahead of its data: ${what}` };
 }
 
 // ------------------------------------------------------------------ closed lists and columns (ADR 0027 §4)
