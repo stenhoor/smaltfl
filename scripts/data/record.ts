@@ -518,8 +518,11 @@ async function main(): Promise<void> {
       const sha = sha256(bytes);
       await pinFile(db, donor.file, bytes, sha);
       if (!donorTables.has(donor.table)) (await db.execAsync(pinnedDdl(donor)), donorTables.add(donor.table));
+      // Judged under the rules of the day it fills, as the derived run is (the page tells a donor's claim from the
+      // document on screen, the held day's): a change of the rules between the donor's day and that day, an estate's
+      // dated relation among them (ADR 0027 §3), is no other flow than the run's.
       const dParameters = parametersOf(fill.from);
-      const dDoc = forDay(flowDoc, dParameters, at);
+      const dDoc = forDay(flowDoc, parameters, at);
       const dPlan = await translate(dDoc, dParameters);
       const node = dPlan.nodes.findIndex((x) => x.op === 'table' && x.origin === fill.source);
       const known = bases.get(fill.source);
