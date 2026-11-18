@@ -13,6 +13,7 @@
  * outcome would change (Q-199, ADR 0022 §1).
  */
 import { changesProblems, type ChangeSet } from './document.js';
+import { eventsProblems, type FlowEvent } from './events.js';
 import { DECIDE_OPTIONS, type DecisionOption } from './policy.js';
 
 export const STORY_FORMAT = 'smaltfl-story/1';
@@ -76,6 +77,8 @@ export interface StoryFile {
   /** The changes to the rules people set, as the page records them: in force from a day, as known from when recorded. */
   changes?: ChangeSet[];
   restatements?: StoryRestatement[];
+  /** What was going on (ADR 0027 §6): the story's events, each written down at a time by someone, as the page records one. */
+  events?: FlowEvent[];
 }
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -98,6 +101,11 @@ export function storyProblems(v: unknown, o: { sources?: readonly string[]; prin
   const decisions = Array.isArray(s.decisions) ? s.decisions : (out.push('it lists its decisions'), []);
   const changes = s.changes === undefined ? [] : Array.isArray(s.changes) ? s.changes : (out.push('its changes are a list of change sets'), []);
   const restatements = s.restatements === undefined ? [] : Array.isArray(s.restatements) ? s.restatements : (out.push('its restatements are a list'), []);
+  out.push(...eventsProblems(s.events));
+  if (Array.isArray(s.events)) {
+    for (const e of s.events) if (typeof e?.recorded === 'string' && !AT.test(e.recorded)) out.push(`event ${String(e?.id)}: when it was written down is a UTC time, YYYY-MM-DDTHH:MMZ`);
+    if (o.principals) for (const e of s.events) if (typeof e?.by === 'string' && !o.principals.includes(e.by)) out.push(`event ${String(e?.id)}: ${e.by} is not one of the flow’s people`);
+  }
   for (const p of changesProblems(changes)) out.push(`${p.path.replace(/^\$\.changes\[(\d+)\]/, (_, i: string) => `change ${Number(i) + 1}`).replace(/^\$\.changes/, 'its changes')}: ${p.message}`);
   changes.forEach((c, i) => {
     const at = `change ${i + 1}`;

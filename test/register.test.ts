@@ -85,7 +85,7 @@ describe('each thing’s life', () => {
     ]);
     // The correction recorded on Mon 25 stands from Fri 1, as now known.
     expect(lives[1]!.spans.map((s) => [s.from, s.until, s.change, s.short])).toEqual([['2024-03-01', '2024-03-31', 'hold', 'off']]);
-    expect(lives[1]!.said).toEqual([{ day: '2024-03-25', change: 'hold', how: 'back' }]);
+    expect(lives[1]!.said).toEqual([{ day: '2024-03-25', change: 'hold', how: 'back', kind: null }]);
     expect(lives.every((l) => l.spans.every((s) => !s.coming))).toBe(true);
   });
 
@@ -192,5 +192,67 @@ describe('the register drawn (viz.ts, ADR 0027 §9)', () => {
     expect(svg.match(/class="chg-mark"/g)).toHaveLength(1);
     expect(svg).toContain('Mon 18: a &lt;rule&gt;');
     expect(svg).not.toMatch(/NaN|undefined/);
+  });
+});
+
+describe('a change’s kind (ADR 0027 §2)', () => {
+  it('is what its change set says, and none on one made before kinds were asked for', async () => {
+    const { KIND_NAMES, kindReads } = await import('../src/core/register.js');
+    const doc = await flow([{ ...story[0]!, kind: 'business' }, { ...story[1]!, kind: 'corrected' }, change('old', '2024-03-05', '2024-03-05T08:00:00Z', [latency(1)])]);
+    const { entries } = registerOf(doc, { today: '2024-03-31' });
+    expect(entries.map((e) => [e.change.id, e.kind])).toEqual([['band', 'business'], ['old', null], ['hold', 'corrected']]);
+    expect(entries.map((e) => kindReads(e.kind))).toEqual(['cut', 'mark', 'restated']);
+    expect(KIND_NAMES.business).toBe('The business changed');
+    expect(livesOf(entries, march, '2024-03-31').find((l) => l.subject.key === 'rule:auth:country_required')!.said[0]!.kind).toBe('corrected');
+  });
+
+  it('has a usual kind by what the edits are', async () => {
+    const { defaultKind } = await import('../src/core/register.js');
+    expect(defaultKind([{ op: 'mapColumn', file: 'auth', column: 'app_id', from: 'AppID' }])).toBe('source');
+    expect(defaultKind([{ op: 'acceptBand', source: 'waf', band: { column: 'status', value: 'fail', share: [0, 0.1] } }])).toBe('retuned');
+    expect(defaultKind([{ op: 'declareValues', file: 'auth', column: 'result', values: ['ok'] }, { op: 'acceptBand', source: 'auth', band: { column: 'result', value: 'ok', share: [0.9, 1] } }])).toBe('described');
+    expect(defaultKind([{ op: 'declareKey', file: 'auth', column: 'event_id' }])).toBe('described');
+    expect(defaultKind([{ op: 'useVersion', changes: [] }])).toBe('corrected');
+    expect(defaultKind([latency(1)])).toBe('business');
+    expect(defaultKind([latency(1), { op: 'mapColumn', file: 'auth', column: 'app_id', from: 'AppID' }])).toBe('business');
+  });
+
+  it('is checked with the change set: a kind, a note, who decided and what led to it', async () => {
+    const { changesProblems } = await import('../src/core/document.js');
+    const good = { ...story[0]!, kind: 'business', note: { saw: 'a', chose: 'b', turnedDown: 'c', expect: 'd', lookAgain: '2024-06-17' }, decided: { by: 'the security lead', on: '2024-03-14' }, because: { event: 'waf-monitor-mode' } };
+    expect(changesProblems([good])).toEqual([]);
+    const bad = { ...story[0]!, kind: 'whim', note: { saw: '', mood: 'x', lookAgain: 'June' }, decided: { on: '2024-03-14' }, because: {} };
+    expect(changesProblems([bad]).map((p) => `${p.path}: ${p.message}`)).toEqual([
+      '$.changes[0].kind: one of business, retuned, corrected, source, described',
+      '$.changes[0].note.mood: not a part of a note (saw, chose, turnedDown, expect, lookAgain, link)',
+      '$.changes[0].note.saw: a non-empty string, or left out',
+      '$.changes[0].note.lookAgain: the day to look again: YYYY-MM-DD',
+      '$.changes[0].decided: who chose it: { by, on }',
+      '$.changes[0].because: what led to it: { event } by its id, or { decision } by its number in the record',
+    ]);
+  });
+});
+
+describe('kinds and events drawn (viz.ts)', () => {
+  it('marks a kind by its own shape, an event by a bar, and bands a chart with what was going on', async () => {
+    const { kindMark, registerLanes, scoreTrend } = await import('../src/app/viz.js');
+    expect(kindMark('business')).toContain('rg-k-business');
+    expect(kindMark('corrected')).toContain('rg-k-ring');
+    expect(kindMark('none')).toContain('muted');
+    const svg = registerLanes({
+      days: march, today: '2024-03-31', aria: 'x',
+      groups: [
+        { name: 'Going on', rows: [{ label: 'Change freeze', spans: [{ from: '2024-03-25', until: '2024-03-31', kind: 'event', event: 'change-freeze' }], marks: [] }] },
+        { name: 'What we check', rows: [{ label: 'waf', spans: [{ from: '2024-03-18', until: '2024-03-31', kind: 'on', change: 'band' }], marks: [{ day: '2024-03-18', kind: 'business', change: 'band' }, { day: '2024-03-01', kind: 'corrected', change: 'hold' }] }] },
+      ],
+    });
+    expect(svg.match(/class="rg-event"/g)).toHaveLength(1);
+    expect(svg).toContain('data-event="change-freeze"');
+    expect(svg.match(/class="rg-kind"/g)).toHaveLength(2);
+    expect(svg).toContain('data-kind="business"');
+    const chart = scoreTrend({ days: march, points: march.map((day) => ({ day, score: 93, coverage: 95 })), aria: 'x', bands: [{ from: '2024-03-25', until: '2024-03-31', label: 'Change <freeze>' }, { from: '2024-05-01', until: '2024-05-02', label: 'not drawn' }] });
+    expect(chart.match(/class="ev-band"/g)).toHaveLength(1);
+    expect(chart).toContain('Change &lt;freeze&gt;');
+    expect(chart).not.toMatch(/NaN|undefined/);
   });
 });

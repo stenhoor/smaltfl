@@ -28,7 +28,8 @@
     "element": "#loads .dh-rules",
     "expect": {
       "text": ["said this day, from Mon 18: Accepted a new band in waf"],
-      "count": { "#loads .dh-rules-coming": 1 }
+      "textIn": { "#loads .dh-events": ["Remediation push, day 15 of 31", "Reorganisation, and two weeks of handover, day 5 of 14"] },
+      "count": { "#loads .dh-rules-coming": 1, "#loads .dh-events [data-event]": 2 }
     }
   },
   {
@@ -136,6 +137,20 @@
       "count": {
         "#sheet .fl-tested": 1,
         "#sheet .fl-tested-days": 0
+      }
+    }
+  },
+  {
+    "name": "register-trial",
+    "what": "What a change would have done on the days before it is said on its entry in the register (ADR 0027 §2, Q-259): the band's test, just run from its flow's sheet, reads the same there",
+    "view": "ontology",
+    "element": "#rules-time .rg-item[data-change=\"waf-band-tenth\"]",
+    "expect": {
+      "textIn": {
+        "#rules-time .rg-item[data-change=\"waf-band-tenth\"] .rg-trial": ["all of the last 14 days come out the same."]
+      },
+      "count": {
+        "#rules-time .rg-trial": 1
       }
     }
   }

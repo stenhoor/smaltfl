@@ -1853,7 +1853,7 @@ export interface ScorePoint {
  * by a dashed line (the missing-data convention), the axis zoomed to the values and printed at its ends, the last
  * score labelled.
  */
-export function scoreTrend(o: { days: readonly string[]; points: readonly ScorePoint[]; w?: number; h?: number; aria: string; gap?: string; focus?: { from: string; to: string }; marks?: readonly { day: string; label: string }[] }): string {
+export function scoreTrend(o: { days: readonly string[]; points: readonly ScorePoint[]; w?: number; h?: number; aria: string; gap?: string; focus?: { from: string; to: string }; marks?: readonly { day: string; label: string }[]; bands?: readonly { from: string; until: string; label: string }[] }): string {
   const w = o.w ?? 334;
   const h = o.h ?? 132;
   const at = new Map(o.points.map((p) => [p.day, p]));
@@ -1892,6 +1892,14 @@ export function scoreTrend(o: { days: readonly string[]; points: readonly ScoreP
     }
     return { out, pts };
   };
+  // What was going on (ADR 0027 §6): a tint over an event's days and a rule along the top, under everything else.
+  for (const b of o.bands ?? []) {
+    const days = o.days.map((d, i) => ({ d: d.slice(0, 10), i })).filter(({ d }) => b.from <= d && d <= b.until);
+    if (!days.length) continue;
+    const x0 = Math.max(gx, x(days[0]!.i) - cw / 2);
+    const x1 = Math.min(w - 4, x(days.at(-1)!.i) + cw / 2);
+    s += `<rect class="ev-band" x="${f1(x0)}" y="${f1(top)}" width="${f1(Math.max(2, x1 - x0))}" height="${f1(base - top)}"><title>${esc(b.label)}</title></rect><line class="ev-rule" x1="${f1(x0)}" x2="${f1(Math.max(x0 + 2, x1))}" y1="${f1(top + 1)}" y2="${f1(top + 1)}"/>`;
+  }
   // Where the rules changed (ADR 0027 §7): a diamond at the top of the plot and a dashed line through it, under the lines.
   for (const m of o.marks ?? []) {
     const i = o.days.findIndex((d) => d.slice(0, 10) === m.day.slice(0, 10));
@@ -2038,9 +2046,31 @@ export function matchBars(o: { days: readonly MatchBar[]; w?: number; h?: number
 // ------------------------------------------------------------------ the register as lanes (ADR 0027 §9)
 
 /** A run of days in a lane's row: as it was before any change, in force by a change, or coming. */
-export interface LaneSpan { from: string; until: string; kind: 'was' | 'on' | 'next' | 'then'; short?: string; change?: string | null; title?: string }
-/** A mark on a day of a row: the day a change was said, a decision, or a day taken back or restated. */
-export interface LaneMark { day: string; kind: 'said' | 'decided' | 'back'; change?: string | null; title?: string }
+export interface LaneSpan { from: string; until: string; kind: 'was' | 'on' | 'next' | 'then' | 'event'; short?: string; change?: string | null; event?: string | null; title?: string }
+/** A change's kind as the drawings mark it (ADR 0027 §2): never by colour alone. `none`: no kind was given. */
+export type KindMark = 'business' | 'retuned' | 'corrected' | 'source' | 'described' | 'none';
+
+/** The mark of a kind about a point, as SVG shapes: a filled diamond where the business changed, an open one where a
+ * setting was re-tuned, a ring with a dot where a mistake was corrected, a square where the source changed, a small
+ * ring for a first description, a dot where no kind was given. */
+const kindShape = (kind: KindMark, cx: number, cy: number, r: number, extra = ''): string => {
+  const d = `M${f1(cx)} ${f1(cy - r - 1)}L${f1(cx + r)} ${f1(cy)}L${f1(cx)} ${f1(cy + r + 1)}L${f1(cx - r)} ${f1(cy)}Z`;
+  if (kind === 'business') return `<path class="rg-k rg-k-business" d="${d}"${extra}/>`;
+  if (kind === 'retuned') return `<path class="rg-k rg-k-retuned" d="${d}"${extra}/>`;
+  if (kind === 'corrected') return `<circle class="rg-k rg-k-ring" cx="${f1(cx)}" cy="${f1(cy)}" r="${f1(r + 0.6)}"${extra}/><circle class="rg-k-dot" cx="${f1(cx)}" cy="${f1(cy)}" r="${f1(r * 0.42)}"/>`;
+  if (kind === 'source') return `<rect class="rg-k rg-k-source" x="${f1(cx - r + 0.4)}" y="${f1(cy - r + 0.4)}" width="${f1(2 * r - 0.8)}" height="${f1(2 * r - 0.8)}" rx="1.6"${extra}/>`;
+  if (kind === 'described') return `<circle class="rg-k rg-k-ring" cx="${f1(cx)}" cy="${f1(cy)}" r="${f1(r * 0.7)}"${extra}/>`;
+  return `<circle class="rg-k-dot muted" cx="${f1(cx)}" cy="${f1(cy)}" r="${f1(r * 0.5)}"${extra}/>`;
+};
+
+/** A kind's mark as a small drawing of its own, beside the kind's words. */
+export function kindMark(kind: KindMark, size = 12): string {
+  return `<svg class="viz kind-mark" width="${size}" height="${size}" viewBox="0 0 14 14" aria-hidden="true">${kindShape(kind, 7, 7, 5)}</svg>`;
+}
+
+/** A mark on a day of a row: the day a change was said, the day one of a kind took effect, a decision, or a day taken
+ * back or restated. */
+export interface LaneMark { day: string; kind: 'said' | 'decided' | 'back' | KindMark; change?: string | null; title?: string }
 export interface LaneRow { label: string; spans: readonly LaneSpan[]; marks: readonly LaneMark[] }
 export interface LaneGroup { name: string; rows: readonly LaneRow[] }
 
@@ -2091,15 +2121,17 @@ export function registerLanes(o: { days: readonly string[]; today: string; pick?
         if (a === undefined || b === undefined) continue;
         const xa = x0(a) + 1;
         const wd = Math.max(2, x0(b) + dw - 1 - xa);
-        const data = sp.change ? ` data-change="${esc(sp.change)}"` : '';
+        const data = sp.change ? ` data-change="${esc(sp.change)}"` : sp.event ? ` data-event="${esc(sp.event)}"` : '';
         if (sp.kind === 'then') {
           // A slim dashed box, not a line: a line has no height, and what has none isn't counted as showing.
           s += `<rect class="rg-then" x="${f1(xa + 1)}" y="${f1(y + 16.6)}" width="${f1(Math.max(2, wd - 2))}" height="2.4" rx="1.2"${data}>${sp.title ? `<title>${esc(sp.title)}</title>` : ''}</rect>`;
           continue;
         }
         s += `<rect class="rg-${sp.kind}" x="${f1(xa)}" y="${y + 4}" width="${f1(wd)}" height="11" rx="3.5"${data}>${sp.title ? `<title>${esc(sp.title)}</title>` : ''}</rect>`;
-        const text = sp.short ? fit(sp.short, wd - 8, 5.2) : '';
-        if (text) s += `<text class="rg-short" x="${f1(xa + 5)}" y="${y + 12.6}">${esc(text)}</text>`;
+        // A bar by a change keeps room at its start for its kind's mark.
+        const lead = sp.kind === 'was' || sp.kind === 'event' ? 5 : 14;
+        const shown = sp.short ? fit(sp.short, wd - lead - 3, 5.2) : '';
+        if (shown) s += `<text class="rg-short" x="${f1(xa + lead)}" y="${y + 12.6}">${esc(shown)}</text>`;
       }
       for (const m of r.marks) {
         const i = index.get(m.day.slice(0, 10));
@@ -2109,7 +2141,9 @@ export function registerLanes(o: { days: readonly string[]; today: string; pick?
         const data = m.change ? ` data-change="${esc(m.change)}"` : '';
         const t = m.title ? `<title>${esc(m.title)}</title>` : '';
         if (m.kind === 'said') s += `<circle class="rg-said" cx="${f1(cx)}" cy="${f1(cy)}" r="3.6"${data}>${t}</circle>`;
-        else s += `<path class="rg-${m.kind}" d="M${f1(cx)} ${f1(cy - 5)}L${f1(cx + 4.4)} ${f1(cy)}L${f1(cx)} ${f1(cy + 5)}L${f1(cx - 4.4)} ${f1(cy)}Z"${data}>${t}</path>`;
+        else if (m.kind === 'decided' || m.kind === 'back') s += `<path class="rg-${m.kind}" d="M${f1(cx)} ${f1(cy - 5)}L${f1(cx + 4.4)} ${f1(cy)}L${f1(cx)} ${f1(cy + 5)}L${f1(cx - 4.4)} ${f1(cy)}Z"${data}>${t}</path>`;
+        // The day a change of a kind took effect: its kind's mark at the start of its bar.
+        else s += `<g class="rg-kind" data-kind="${m.kind}"${data}>${t}${kindShape(m.kind, x0(i) + 6.5, cy, 3.6)}</g>`;
       }
       y += rowH;
     }

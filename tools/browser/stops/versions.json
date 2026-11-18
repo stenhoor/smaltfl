@@ -16,14 +16,15 @@
     "view": "month",
     "element": "#view-month .mo-changes",
     "expect": {
-      "text": [
-        "WHERE THE RULES CHANGED",
-        "Fri 1:",
-        "Mon 18: Accepted a new band in waf"
-      ],
+      "text": ["WHERE THE RULES CHANGED", "Fri 1:", "Mon 18: Accepted a new band in waf"],
+      "textIn": {
+        "#view-month .mo-going": ["What was going on", "Quarter-end change freeze, Mon 25 to Sun 31"]
+      },
       "count": {
         "#view-month .mo-changes [data-change]": 2,
-        "#view-month .viz .chg-mark": 2
+        "#view-month .viz .ev-band": 5,
+        "#view-month .viz .chg-mark": 2,
+        "#view-month .mo-going [data-event]": 5
       }
     }
   },
@@ -90,8 +91,35 @@
         "recorded after"
       ],
       "count": {
-        "#rules-time .rg-item": 2,
+        "#rules-time .rg-item[data-change]": 2,
+        "#rules-time .rg-item[data-event]": 5,
         "#rules-time .rg-item.rg-coming": 0
+      }
+    }
+  },
+  {
+    "name": "register-kinds",
+    "what": "Each change says its kind with the kind's own mark, who decided it and when, and what led to it (ADR 0027 §2, slice 2): the band, the business changing, decided by the security lead on Thu 14 because of the WAF's day in monitor mode; the values check, a mistake corrected. The thinking opens under it: what was seen, chosen and turned down, what is expected, when to look again",
+    "day": "Thu 21",
+    "view": "ontology",
+    "viewFirst": true,
+    "click": "#rules-time .rg-item[data-change=\"waf-band-tenth\"] .rg-note summary",
+    "element": "#rules-time .rg-item[data-change=\"waf-band-tenth\"]",
+    "expect": {
+      "textIn": {
+        "#rules-time .rg-item[data-change=\"waf-band-tenth\"]": [
+          "The business changed",
+          "Decided by Sloane Marsden on Thu 14",
+          "Because of: WAF in monitor mode on ing-east-3",
+          "What we turned down",
+          "Look again"
+        ],
+        "#rules-time .rg-item[data-change=\"findings-values-hold\"]": ["A mistake corrected", "Because of: Scanner scn-dc-west without its login"]
+      },
+      "count": {
+        "#rules-time .rg-item[data-kind=\"business\"]": 1,
+        "#rules-time .rg-item[data-kind=\"corrected\"]": 1,
+        "#rules-time .rg-note": 1
       }
     }
   },
@@ -120,6 +148,21 @@
     }
   },
   {
+    "name": "register-events",
+    "what": "What was going on has its own lane (ADR 0027 §6): a row an event, a bar over its days, above the rules; and each change's bar begins with its kind's mark",
+    "day": "Thu 21",
+    "view": "ontology",
+    "viewFirst": true,
+    "devices": ["tablet", "tablet-wide", "desktop", "wide"],
+    "element": "#rules-time .rg-lanes",
+    "expect": {
+      "count": {
+        "#rules-time .rg-lanes .rg-event": 5,
+        "#rules-time .rg-lanes .rg-kind": 2
+      }
+    }
+  },
+  {
     "name": "register-since",
     "what": "A rule says since when it has stood and by which change (ADR 0027 §9): in waf's section the band says since Mon 18, said Fri 15; tapping it marks the change in the register",
     "day": "Thu 21",
@@ -138,6 +181,23 @@
       "count": {
         "#view-ontology .of-since": 1,
         "#rules-time .rg-item.at": 1
+      }
+    }
+  },
+  {
+    "name": "register-because",
+    "what": "What led to a change is a tap away: the band's 'because of' opens the event in the register, the WAF's day in monitor mode, written down that Tuesday",
+    "day": "Thu 21",
+    "view": "ontology",
+    "viewFirst": true,
+    "click": "#rules-time .rg-item[data-change=\"waf-band-tenth\"] .rg-because",
+    "element": "#rules-time .rg-item.at",
+    "expect": {
+      "textIn": {
+        "#rules-time .rg-item.at": ["Going on · an incident", "WAF in monitor mode on ing-east-3", "Tue 12 · written Tue 12 · about waf"]
+      },
+      "count": {
+        "#rules-time .rg-item.at[data-event=\"waf-monitor-mode\"]": 1
       }
     }
   },
@@ -187,8 +247,33 @@
         "1 more change was recorded after the moment this is read at."
       ],
       "count": {
-        "#rules-time .rg-item": 1,
+        "#rules-time .rg-item[data-change]": 1,
+        "#rules-time .rg-item[data-event]": 3,
         "#rules-time .rg-item.rg-coming": 1
+      }
+    }
+  },
+  {
+    "name": "register-write",
+    "what": "Read as known now again, the owner writes down what was going on: an audit week, Wed 20 to Fri 22. It is kept in the record and listed at once, context for reading those days and no rule",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      ["#rules-time .rt-known", ""],
+      "#rules-time .rg-write",
+      [".ev-name", "Audit week"],
+      [".ev-from", "2024-03-20"],
+      [".ev-until", "2024-03-22"],
+      ".ev-go"
+    ],
+    "element": "#rules-time .rg-list",
+    "expect": {
+      "status": "^Audit week, Wed 20 to Fri 22: written down\\. Recorded\\.$",
+      "textIn": {
+        "#rules-time .rg-list": ["Audit week", "Wed 20 to Fri 22 · written"]
+      },
+      "count": {
+        "#rules-time .rg-item[data-event]": 6
       }
     }
   }

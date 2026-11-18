@@ -401,6 +401,46 @@ register and the lanes; its line on a card's Quality tab doesn't say since when 
 rule's "since" line is as known when the Ontology view was drawn: picking another moment in *As known on* redraws the
 head, and the rule lines follow at the next visit.
 
+### Slice 2: reasons, kinds and events (2026-11-18)
+
+No run is judged by anything here, and no hash a run names moves. A change set made from now on carries more, so the
+hash of a kept document that holds one is its own.
+
+- **A change set says more** (`document.ts`): `kind` (`CHANGE_KINDS`: business, retuned, corrected, source, and
+  `described` for a first description), `note` (`ChangeNote`: saw, chose, turnedDown, expect, lookAgain, link),
+  `decided` (by, on) and `because` (an event, or a decision by its number). Each is optional in the document and checked
+  where it is there; a change set from before has none, and is shown as "kind not given".
+- **A kind and a reason on every change** (Q-256). `editRules` asks for both wherever its caller gave no reason: a sheet
+  (`askWhy`, `whyFields`) with the four kinds, the one the edit usually is picked (`defaultKind` in `register.ts`: a
+  column read under a new name is the source changing, an accepted band a setting re-tuned, values and a key declared
+  from the data a first description, a version taken whole a correction, anything else the business changing), one
+  line of why, and, folded, who decided and when, what led to it, and the note. Closed without an answer, the change
+  isn't made. A switch on a card's Rules tab, a check's mode, a rule set or removed on the Ontology page all ask now.
+- **Events** (`src/core/events.ts`, pure): `FlowEvent` (a span of days, both in; a kind: reorg, freeze, migration,
+  incident, campaign, other; the datasets it is about, or the whole flow; a note; who wrote it and when),
+  `eventsProblems`, `latestEvents` (as known at a moment: written again under its id an event is changed, or taken
+  back), `eventsOn`, `eventTense`, `eventDay`. A story lists its events (`StoryFile.events`, checked by
+  `storyProblems`), the build ships them in the data list (`loads.json` `events`, `DataList.events`), and the owner
+  writes one in the app (`eventForm`, `writeEvent`: an entry of kind `event` in the record). They are context only:
+  nothing a run reads.
+- **On screen:** the register lists events among the changes (`registerPart`), each change with its kind and the
+  kind's own mark (`kindMark` in viz.ts: a filled diamond, an open one, a ring with a dot, a square), who decided, what
+  led to it (a link to the event), the thinking, and a day to look again once it has come. The lanes gain *Going on*,
+  a bar an event, and each change's bar begins with its kind's mark. The day's head says what was going on, with which
+  day of it this is (`eventsLine`). The month's score is banded over each event's days (`scoreTrend`'s `bands`) and
+  names them under the chart.
+- **A coming change's trial** (Q-259): the register offers *Try it on the days before it* (`testChange`, the test of
+  ADR 0026 §7), and says what it found on the change's entry.
+- **Larkspur's story** gives its two changes a kind, who decided and what led to them, and five events: the
+  remediation push, the reorganisation and its handover, the WAF's day in monitor mode, the scanner's weekend without
+  its login, and the quarter-end freeze.
+
+**What it leaves.** A decision can't point at an event yet: that comes with the gate's decisions in slice 3. The
+forms that already ask for a reason (accepting a proposal, accepting a band from a decision, reading a column under a
+new name, making a what-if the day's) record the kind their edit usually is, without offering the four. Q-283 is
+settled as built, not as proposed: events live in the story and the record, beside the document, so that no flow's
+hash moves when one is written.
+
 ## Consequences
 
 - **A flow can stop for a reason it never could:** the data is ahead of the ontology. That is the point of the gate,
@@ -441,8 +481,9 @@ Proposed here, for the maintainers to confirm as each is built:
 - **Q-282:** identity. Types and links have ids already, and a column is known by its name and the datasets it is
   about. A rename is a label and a redefinition keeps the thing, so no new ids are added. What follows a thing is
   named by id.
-- **Q-283:** events live in the flow's document, or in the estate's ontology where its flows share one, kept apart
-  from the flow as shipped.
+- **Q-283:** events live beside the flow's document: in its story, which the build ships with the data list, and in the
+  record, where one written in the app is kept. Built so in slice 2, so that no flow's hash moves when an event is
+  written (the proposal was the flow's document, or the estate's ontology).
 - **Q-284:** a chart is cut only where a change of kind *the business changed* has a step of its own on that series. A
   change that moved nothing there is a mark.
 - **Q-285:** a closed list's accepted entries are kept in the ontology with the columns that define them, and the

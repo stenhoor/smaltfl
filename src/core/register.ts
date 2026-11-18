@@ -13,9 +13,12 @@
  * - `sinceOf`: the change a subject has stood by since, on a day; none where it stands as shipped.
  * - `comingOn`: the changes that were coming on a day: recorded by its end, in force from a later day.
  * - `tenseSaid`, `howSaid`: the words for a tense and for how a change was said.
+ * - `KIND_NAMES`, `kindOf`, `defaultKind`, `kindReads` (ADR 0027 §2, slice 2): a change's kind in words; the kind a
+ *   change set gives, none on one made before kinds were asked for; the kind an edit is unless its author says
+ *   otherwise; and how history reads across a change of a kind: cut, marked, or restated.
  */
 import { canonicalJSON } from './canonical.js';
-import type { ChangeSet, FlowDocument, RuleEdit } from './document.js';
+import type { ChangeKind, ChangeSet, FlowDocument, RuleEdit } from './document.js';
 import { applyEdit, changesOn, rulesInForce, versionRules, versionSaid } from './inforce.js';
 
 /** The lane a subject is drawn in: what we check, or what there is and what it means. */
@@ -86,6 +89,42 @@ export function shortOf(edit: RuleEdit): string {
   }
 }
 
+/** A change's kind in words (ADR 0027 §2). */
+export const KIND_NAMES: Record<ChangeKind, string> = {
+  business: 'The business changed',
+  retuned: 'A setting re-tuned',
+  corrected: 'A mistake corrected',
+  source: 'The source changed',
+  described: 'First described',
+};
+/** The words for a change set with no kind: one made before kinds were asked for. */
+export const KIND_NOT_GIVEN = 'Kind not given';
+/** The kinds a person chooses between: the first description of something is said by the page, not picked. */
+export const KINDS_ASKED: readonly ChangeKind[] = ['business', 'retuned', 'corrected', 'source'];
+
+/** The kind a change set gives; null on one made before kinds were asked for. */
+export const kindOf = (c: Pick<ChangeSet, 'kind'>): ChangeKind | null => c.kind ?? null;
+
+/**
+ * The kind a set of edits is unless its author says otherwise: a column read under the file's new name is the source
+ * changing; an accepted band is a setting re-tuned; values and a key declared from the data are a first description;
+ * a version's rules taken whole put right what a day ran under; anything else is the business changing.
+ */
+export function defaultKind(edits: readonly RuleEdit[]): ChangeKind {
+  const ops = new Set(edits.map((e) => e.op));
+  if (ops.size && [...ops].every((op) => op === 'mapColumn')) return 'source';
+  if ([...ops].every((op) => op === 'declareValues' || op === 'declareKey' || op === 'acceptBand') && (ops.has('declareValues') || ops.has('declareKey'))) return 'described';
+  if (ops.size && [...ops].every((op) => op === 'acceptBand')) return 'retuned';
+  if (ops.size && [...ops].every((op) => op === 'useVersion')) return 'corrected';
+  return 'business';
+}
+
+/**
+ * How history reads across a change of a kind (ADR 0027 §2, §7): `cut` where old and new are each right for their own
+ * time, `restated` where the old was wrong, `mark` where the meaning is the same or the kind wasn't given.
+ */
+export const kindReads = (kind: ChangeKind | null): 'cut' | 'mark' | 'restated' => (kind === 'business' ? 'cut' : kind === 'corrected' ? 'restated' : 'mark');
+
 /** Where a change stands for the day read from: not in force yet, in force, or over. */
 export type Tense = 'coming' | 'in force' | 'ended';
 /** How a change was said: before its first day, on it, or after it (back-dated). */
@@ -103,6 +142,8 @@ export interface EntryEdit {
 /** A change set as the register shows it. */
 export interface Entry {
   change: ChangeSet;
+  /** Its kind; null on a change set made before kinds were asked for. */
+  kind: ChangeKind | null;
   edits: EntryEdit[];
   /** What it did, one sentence an edit that applied. */
   said: string[];
@@ -170,6 +211,7 @@ export function registerOf(doc: Pick<FlowDocument, 'changes'> & Partial<FlowDocu
     const lead = dayNumber(c.from) - dayNumber(recordedDay);
     return {
       change: c,
+      kind: kindOf(c),
       edits,
       said: edits.flatMap((e) => (e.said ? [e.said] : [])),
       tense: c.from > today ? 'coming' : c.until !== undefined && c.until < today ? 'ended' : 'in force',
@@ -202,7 +244,7 @@ export interface Life {
   subject: Subject;
   spans: Span[];
   /** The days its changes were recorded on, each with the change and how it was said. */
-  said: { day: string; change: string; how: How }[];
+  said: { day: string; change: string; how: How; kind: ChangeKind | null }[];
 }
 
 /**
@@ -235,7 +277,7 @@ export function livesOf(entries: readonly Entry[], days: readonly string[], toda
       if (last && last.change === id && dayAfter(last.until) >= d) last.until = d;
       else spans.push({ from: d, until: d, change: id, short: standing ? standing.short : 'as shipped', coming: d > now });
     }
-    lives.push({ subject: s, spans, said: touches.map(({ entry }) => ({ day: entry.recordedDay, change: entry.change.id, how: entry.how })) });
+    lives.push({ subject: s, spans, said: touches.map(({ entry }) => ({ day: entry.recordedDay, change: entry.change.id, how: entry.how, kind: entry.kind })) });
   }
   const lane = (l: Life) => (l.subject.lane === 'is' ? 0 : 1);
   return lives.map((l, i) => ({ l, i })).sort((a, b) => lane(a.l) - lane(b.l) || a.i - b.i).map(({ l }) => l);

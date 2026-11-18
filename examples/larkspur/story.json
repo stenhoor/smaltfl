@@ -31,6 +31,16 @@
       "recorded": "2024-03-15T16:30:00Z",
       "by": "owner",
       "why": "After Tuesday's monitor mode, the security lead wants a WAF failing more than a tenth of its applications held, from Monday",
+      "kind": "business",
+      "decided": { "by": "Sloane Marsden", "on": "2024-03-14" },
+      "because": { "event": "waf-monitor-mode" },
+      "note": {
+        "saw": "ing-east-3 ran in monitor mode on Tue 12, and 59.6% of its applications failed WAF",
+        "chose": "Hold the day when more than a tenth fail",
+        "turnedDown": "An alert alone: the band of 0 to 15% had let the day's cause read as usual",
+        "expect": "Two or three holds a quarter",
+        "lookAgain": "2024-06-17"
+      },
       "edits": [{ "op": "acceptBand", "source": "waf", "band": { "column": "status", "value": "fail", "share": [0, 0.1] } }]
     },
     {
@@ -39,8 +49,18 @@
       "recorded": "2024-03-25T09:40:00Z",
       "by": "owner",
       "why": "The scanner didn't log in on the weekend of the 16th and found far less: the security lead wants the findings' values check to hold the day again, for the whole month",
+      "kind": "corrected",
+      "decided": { "by": "Sloane Marsden", "on": "2024-03-25" },
+      "because": { "event": "scanner-no-login" },
       "edits": [{ "op": "setCheck", "node": "findings", "check": "values", "mode": "hold" }]
     }
+  ],
+  "events": [
+    { "id": "remediation-push", "name": "Remediation push", "from": "2024-03-01", "until": "2024-03-31", "kind": "campaign", "note": "The new SVP's push: every unit works its oldest failures first", "recorded": "2024-03-01T09:00:00Z", "by": "ciso" },
+    { "id": "reorg-handover", "name": "Reorganisation, and two weeks of handover", "from": "2024-03-11", "until": "2024-03-24", "kind": "reorg", "note": "Seven teams moved to another business unit on Mon 11. Who moved where is in the HR files; fixes slow while their work is handed over", "recorded": "2024-03-11T09:30:00Z", "by": "ciso" },
+    { "id": "waf-monitor-mode", "name": "WAF in monitor mode on ing-east-3", "from": "2024-03-12", "until": "2024-03-12", "kind": "incident", "about": ["waf"], "note": "Patch Tuesday: the WAF on ing-east-3 was put in monitor mode, and the applications behind it went unprotected for the day", "recorded": "2024-03-12T10:00:00Z", "by": "ciso" },
+    { "id": "scanner-no-login", "name": "Scanner scn-dc-west without its login", "from": "2024-03-16", "until": "2024-03-17", "kind": "incident", "about": ["findings"], "note": "The scanner ran without credentials over the weekend and found far less than there was. Seen on Mon 25", "recorded": "2024-03-25T09:30:00Z", "by": "ciso" },
+    { "id": "change-freeze", "name": "Quarter-end change freeze", "from": "2024-03-25", "until": "2024-03-31", "kind": "freeze", "note": "No production change without the change board's chair. Fixes wait for April", "recorded": "2024-03-22T15:00:00Z", "by": "ciso" }
   ],
   "restatements": [
     { "changes": ["findings-values-hold"], "at": "2024-03-25T11:15:00Z", "by": "ciso", "reason": "Sat 16 and Sun 17's posture came from a scan that didn't log in, so it read far fewer findings than there were: taken back" }

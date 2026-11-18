@@ -43,7 +43,9 @@
     "clicks": [
       [".of-rule-form input[type=number] >> nth=1", "10000"],
       [".of-rule-form select:has(option[value=hold])", "hold"],
-      ".of-rule-form button[type=submit]"
+      ".of-rule-form button[type=submit]",
+      [".vf-detail .wy-reason", "A sign-in slower than 10 s is an outage"],
+      ".vf-detail .wy-go"
     ],
     "waitFor": ".vf-detail .rs-days",
     "waitForMs": 300000,
@@ -57,7 +59,9 @@
         "20 days came out the same",
         "Restate 2 days"
       ],
-      "count": { ".vf-detail .rs-day input:checked": 2 }
+      "count": {
+        ".vf-detail .rs-day input:checked": 2
+      }
     }
   },
   {

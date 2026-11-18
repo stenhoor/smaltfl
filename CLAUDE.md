@@ -592,7 +592,14 @@ release (smaltty ADR 0030).
   `registerLanes` and `scoreTrend`'s `marks`. In the app: `registerPart` at the Ontology view's head (a list on a
   phone, lanes from 820 px; `registerNow`, `registerToday`, `entryWhen`, `decidedMarks`, `openChange`), `sinceLink`
   on a rule's line (`ruleSubjectKeys`), what was coming on the day's head (`rulesLine`), `changeMarks` on the month's
-  score; `test/register.test.ts`, stops in `versions.json` and `follow.json`.
+  score; `test/register.test.ts`, stops in `versions.json` and `follow.json`. Slice 2, reasons, kinds and events (no
+  hash a run names moves): a change set's `kind` (`CHANGE_KINDS`), `note` (`ChangeNote`), `decided` and `because` in
+  document.ts; `KIND_NAMES`, `defaultKind`, `kindReads` in register.ts; `editRules` asks why wherever no reason came
+  with the edit (`askWhy`, `whyFields`, `WhyGiven`); `src/core/events.ts` (`FlowEvent`, `eventsProblems`,
+  `latestEvents`, `eventsOn`, `eventDay`), a story's `events` shipped in loads.json (`DataList.events`) and the app's
+  own in the record (an `event` entry: `flowEvents`, `eventForm`, `writeEvent`); the register lists both, with each
+  kind's mark (`kindMark`), the lanes' *Going on*, the day's `eventsLine`, the month's `eventBands`; a change tried
+  from its entry (`testChange` with no flow). `test/events.test.ts`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).

@@ -226,6 +226,32 @@ export const EDIT_OPS = ['setRule', 'removeRule', 'switchRule', 'nameColumn', 'a
  * with every change set from that day or before, recorded by then, applied in the order they were recorded
  * (inforce.ts `inForce`).
  */
+/**
+ * What kind of change a change set is (ADR 0027 §2, Q-256): it says how history is read afterwards. `business`: the
+ * business changed (a new or changed definition, rule or entry), and old and new are each right for their own time.
+ * `retuned`: a setting moved to follow what is normal, its meaning the same. `corrected`: the ontology was wrong.
+ * `source`: the file's form changed and its meaning didn't. `described`: the first description of something, the
+ * start of its history and no change at all.
+ */
+export const CHANGE_KINDS = ['business', 'retuned', 'corrected', 'source', 'described'] as const;
+export type ChangeKind = (typeof CHANGE_KINDS)[number];
+
+/** The thinking behind a change, kept beside its reason (ADR 0027 §2, Q-257): each part there only where it was given. */
+export interface ChangeNote {
+  /** What we saw. */
+  saw?: string;
+  /** What we chose, and what we turned down. */
+  chose?: string;
+  turnedDown?: string;
+  /** What we expect to happen. */
+  expect?: string;
+  /** The day to look again (YYYY-MM-DD). */
+  lookAgain?: string;
+  /** Where anything longer is. */
+  link?: string;
+}
+const NOTE_FIELDS = ['saw', 'chose', 'turnedDown', 'expect', 'lookAgain', 'link'];
+
 export interface ChangeSet {
   /** Its name, unique among the flow's change sets. */
   id: string;
@@ -241,9 +267,17 @@ export interface ChangeSet {
   why: string;
   /** Its edits, in the order they were made. */
   edits: RuleEdit[];
+  /** What kind of change it is (ADR 0027 §2); none on a change set made before kinds were asked for. */
+  kind?: ChangeKind;
+  /** The thinking behind it, where its author wrote any. */
+  note?: ChangeNote;
+  /** Who chose it and on what day, where that isn't who recorded it and when: shown, and nothing is computed from it. */
+  decided?: { by: string; on?: string };
+  /** What led to it: an event by its id, or a decision by its number in the record. */
+  because?: { event?: string; decision?: number };
 }
 
-const CHANGE_FIELDS = ['id', 'from', 'until', 'recorded', 'by', 'why', 'edits'];
+const CHANGE_FIELDS = ['id', 'from', 'until', 'recorded', 'by', 'why', 'edits', 'kind', 'note', 'decided', 'because'];
 
 export const REACHES = ['sources', 'downstream'] as const;
 export type Reach = (typeof REACHES)[number];
@@ -978,6 +1012,26 @@ function validateChanges(doc: Record<string, unknown>, add: (path: string, messa
     if (typeof cs.recorded !== 'string' || !/^\d{4}-\d{2}-\d{2}T/.test(cs.recorded) || Number.isNaN(Date.parse(cs.recorded))) add(`${at}.recorded`, 'when it was made: an ISO 8601 time');
     if (typeof cs.by !== 'string') add(`${at}.by`, 'who made it');
     if (typeof cs.why !== 'string') add(`${at}.why`, 'why, in their words (empty where they gave none)');
+    if (cs.kind !== undefined && !(CHANGE_KINDS as readonly unknown[]).includes(cs.kind)) add(`${at}.kind`, `one of ${CHANGE_KINDS.join(', ')}`);
+    if (cs.note !== undefined) {
+      if (!isRecord(cs.note)) add(`${at}.note`, `the thinking behind it: { ${NOTE_FIELDS.join(', ')} }, each a string`);
+      else {
+        for (const k of Object.keys(cs.note)) if (!NOTE_FIELDS.includes(k)) add(`${at}.note.${k}`, `not a part of a note (${NOTE_FIELDS.join(', ')})`);
+        for (const k of NOTE_FIELDS) if (cs.note[k] !== undefined && !text(cs.note[k])) add(`${at}.note.${k}`, 'a non-empty string, or left out');
+        if (typeof cs.note.lookAgain === 'string' && (!DAY.test(cs.note.lookAgain) || Number.isNaN(Date.parse(`${cs.note.lookAgain}T00:00:00Z`)))) add(`${at}.note.lookAgain`, 'the day to look again: YYYY-MM-DD');
+      }
+    }
+    if (cs.decided !== undefined) {
+      if (!isRecord(cs.decided) || !text(cs.decided.by)) add(`${at}.decided`, 'who chose it: { by, on }');
+      else if (cs.decided.on !== undefined && (typeof cs.decided.on !== 'string' || !DAY.test(cs.decided.on) || Number.isNaN(Date.parse(`${cs.decided.on}T00:00:00Z`)))) add(`${at}.decided.on`, 'the day it was chosen: YYYY-MM-DD');
+    }
+    if (cs.because !== undefined) {
+      if (!isRecord(cs.because) || (cs.because.event === undefined && cs.because.decision === undefined)) add(`${at}.because`, 'what led to it: { event } by its id, or { decision } by its number in the record');
+      else {
+        if (cs.because.event !== undefined && !text(cs.because.event)) add(`${at}.because.event`, 'an event’s id');
+        if (cs.because.decision !== undefined && !(Number.isInteger(cs.because.decision) && (cs.because.decision as number) >= 0)) add(`${at}.because.decision`, 'a decision’s number in the record');
+      }
+    }
     if (!Array.isArray(cs.edits) || cs.edits.length === 0) return add(`${at}.edits`, 'its edits: a list of one or more');
     cs.edits.forEach((e: unknown, j: number) => {
       const ea = `${at}.edits[${j}]`;

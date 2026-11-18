@@ -81,7 +81,7 @@ The choices those answers leave open, proposed in ADR 0027 for the maintainers t
 | Q-280 | How fine is *as known on*, and where is it kept? | Any moment something was recorded, not only a day’s end; part of a link; asked as one question: with later corrections, or as it was known then | proposed |
 | Q-281 | How is a change’s span written? | From its first day to its last, both in, as `until` is today. No end is shown without making clear that day is in | proposed |
 | Q-282 | Does anything need a new identity? | No. Types and links have ids; a column is known by its name and its datasets. A rename is a label, a redefinition keeps the thing, and what follows a thing is named by id | proposed |
-| Q-283 | Where do events live? | In the flow’s document, or in the estate’s ontology where its flows share one, kept apart from the flow as shipped. What an event excuses is named by a run only where it excuses something on its day | proposed |
+| Q-283 | Where do events live? | Beside the flow’s document: in its story, shipped with the data list, and in the record, where one written in the app is kept, so that no flow’s hash moves when an event is written (built so in slice 2; the proposal was the flow’s document or the estate’s ontology). What an event excuses is named by a run only where it excuses something on its day | proposed, built |
 | Q-284 | When is a chart cut? | Only where a change of kind *the business changed* has a step of its own on that series. A change that moved nothing there is a mark | proposed |
 | Q-285 | Where are a closed list’s accepted entries kept? | In the ontology, with the columns that define them. The first description of an existing list is taken from its file as it stands, as the start of its history | proposed |
 

@@ -7,6 +7,7 @@
 import type { Binding } from '../../examples/sources.js';
 import type { CatalogueEntry } from '../core/catalogue.js';
 import { isScenesFile, scenesProblems, type ScenesFile } from '../core/scenes.js';
+import { eventsProblems, type FlowEvent } from '../core/events.js';
 import type { Expected } from './fetch-checked.js';
 
 /** A day's file of a source, as the data lists it, checked against MANIFEST.json at start. */
@@ -91,6 +92,9 @@ export interface DataList {
   /** The demo's scenes (ADR 0023 §4, core/scenes.ts): what it shows, listed on the month screen; none where the list
    * names none, or they aren't a good scenes file (said in the console, never in the way). */
   scenes?: ScenesFile;
+  /** What was going on (ADR 0027 §6, core/events.ts): the events the build's story names; none where it names none,
+   * or they aren't good events (said in the console, never in the way). */
+  events?: FlowEvent[];
   /** The pages of this site that share a flow with this one (ADR 0026 §6), by the flow's id, each with its address
    * from this page: a flow this one reads that has a page of its own, or a flow that reads this one (named, since this
    * page's document doesn't know it). A held day decided on one is carried to the other, and each links to the other.
@@ -107,6 +111,15 @@ const pagesOf = (v: unknown): Record<string, { href: string; name?: string }> | 
   if (!isRecord(v)) return undefined;
   const out = Object.fromEntries(Object.entries(v).flatMap(([id, x]) => (isRecord(x) && typeof x.href === 'string' && x.href ? [[id, { href: x.href, ...(typeof x.name === 'string' && x.name ? { name: x.name } : {}) }] as const] : [])));
   return Object.keys(out).length ? out : undefined;
+};
+
+/** The data list's events, where they are good events. */
+const eventsOf = (v: unknown): FlowEvent[] => {
+  if (!Array.isArray(v) || !v.length) return [];
+  const wrong = eventsProblems(v);
+  if (!wrong.length) return v as FlowEvent[];
+  console.warn(`smaltfl: the data list's events aren't shown: ${wrong.join('; ')}`);
+  return [];
 };
 
 /** The data list's scenes, where they are a good scenes file. */
@@ -201,6 +214,7 @@ export function readDataList(raw: unknown): DataList {
       format: 2, ...(typeof index.month === 'string' ? { month: index.month } : {}), ...(typeof index.built === 'string' ? { built: index.built } : {}), data, flow, flows, estates, catalogue, sources, histories, samples, ranges, ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), loadSource, daily, judged,
       ...(postureOf(index.posture) ? { posture: postureOf(index.posture)! } : {}),
       ...(scenesOf(index.scenes) ? { scenes: scenesOf(index.scenes)! } : {}),
+      ...(eventsOf(index.events).length ? { events: eventsOf(index.events) } : {}),
       ...(pagesOf(index.pages) ? { pages: pagesOf(index.pages)! } : {}),
       loads, donors: loadSource ? sources[loadSource]!.donors ?? [] : [], files,
     };

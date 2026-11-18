@@ -16,7 +16,9 @@ import { canonicalJSON } from '../core/canonical.js';
 import type { ChangeSet, ContractDef, FlowDocument, GroupDef, NotebookOutline, OutlineCell, ProfileDef, RuleEdit, StepDef } from '../core/document.js';
 import { applyEdit, changesOn, inForce, resolve as resolveRules, ruleParts, rulesHash, rulesInForce, versionRules, withRuleParts, type RuleParts } from '../core/inforce.js';
 import { diffSaid, ruleVersions, rulesDiff, versionKey, versionOn, type RuleVersion } from '../core/ruleversions.js';
-import { comingOn, dayAfter, dayBefore, LANE_NAMES, livesOf, registerOf, sinceOf, type Entry as RegisterEntry, type Life } from '../core/register.js';
+import { comingOn, dayAfter, dayBefore, defaultKind, KIND_NAMES, KIND_NOT_GIVEN, KINDS_ASKED, LANE_NAMES, livesOf, registerOf, sinceOf, type Entry as RegisterEntry, type Life } from '../core/register.js';
+import { covers as eventCovers, eventDay, EVENT_KINDS, EVENT_KIND_NAMES, eventTense, latestEvents, type EventKind, type FlowEvent } from '../core/events.js';
+import type { ChangeKind, ChangeNote } from '../core/document.js';
 import { flowOf, givesOf, GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, usedName, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
 import { notebookSectionId } from '../core/notebook.js';
 import { baseOf, carriedSaid, decidedElsewhere, givesWay, leadingHere, notCarriedSaid, originOf, pageOf, proofOf, type CarriedFrom, type CarryAbout, type Leading, type OtherRecord } from '../core/carry.js';
@@ -55,7 +57,7 @@ import type { EditorSchema, SchemaColumn } from 'smaltkit/editor';
 import type { GridRow } from 'smaltkit/grid';
 import { derivedAbout, derivedFails, derivedKeys, derivedWhy, donorsOf, filledRows, pinDonor, repairOf, stageRepair, type Listed, type Remedies } from './fills.js';
 import { followsCause as followsFrom, ACT_VERB, CELL_KINDS, CELL_NAMES, HEALTH_HEAD, STRIP_KEY, approx, axisShare, recentSpan, cardWords, changeLabel, compact, countLabel, countRange, fallSteps, gateHead, overLabel, gateLabels, gateOf, partLabel, ruleOrder, ruleUsual, shortWho, splitSentence, splitSteps, saidOf, storyOf, type Cell, type DayStep, type Gate, type HourValues, type Story, type Told, type Upstream } from '../core/story.js';
-import { registerLanes, type LaneGroup, type LaneMark, type LaneRow } from './viz.js';
+import { kindMark, registerLanes, type KindMark, type LaneGroup, type LaneMark, type LaneRow } from './viz.js';
 import { dayBars, matchBars, scoreSpark, scoreTrend, type BarDay, type ScorePoint, rowFlow, differenceMeter, fileTwins, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, chain, composition, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
 import { sha256Hex } from '../core/hash.js';
 import { LEVEL_NAME, leaderSaid, postureTree, scoreSaid, trendSaid, unitCounts, type PostureNode } from '../core/posture.js';
@@ -3150,7 +3152,7 @@ function testDays(c: Pick<ChangeSet, 'from'>): number[] {
  * published, no name moves, nothing is recorded. What it finds is said on the flow's sheet: the days that would have
  * paused, those that would have been published, and how many come out the same. It informs: the change stands either way.
  */
-async function testChange(c: ChangeSet, flow: string): Promise<void> {
+async function testChange(c: ChangeSet, flow: string | null): Promise<void> {
   if (!state.engine || state.running || testing || !mayRun()) return;
   const ks = testDays(c);
   const back = loads.at;
@@ -3161,7 +3163,8 @@ async function testChange(c: ChangeSet, flow: string): Promise<void> {
     for (const k of ks) {
       const day = loads.list[k]!.day;
       setStatus(`Testing the change on ${dayLabel(day)}, ${testing.done + 1} of ${ks.length}: nothing is published.`, false);
-      if (state.section === flowCard(flow)) renderFlowSheet(flow);
+      if (flow === null) renderRulesTime();
+      else if (state.section === flowCard(flow)) renderFlowSheet(flow);
       // The files of the version readers got, and the rules its day had, with the change.
       const all = versionsOfLoad(k);
       const plain = all.filter((v) => !v.restated);
@@ -3189,7 +3192,8 @@ async function testChange(c: ChangeSet, flow: string): Promise<void> {
     // The day that was on screen again, with its own files and its own rules.
     if (loads.list[back]) await runLoad(back);
     setStatus(tested.has(c.id) ? testSaid(tested.get(c.id)!.what, tested.get(c.id)!.count, dayLabel) : 'The test didn’t finish.', !tested.has(c.id));
-    openSection(flowCard(flow));
+    if (flow === null) renderRulesTime();
+    else openSection(flowCard(flow));
   }
 }
 
@@ -4223,7 +4227,7 @@ const changeId = () => `c-${Date.now().toString(36)}-${(++changeSeq).toString(36
  * reason given, kept with the change set; `words` what the record says of it, when not the edit's own words; `redraw`
  * what is drawn again in place of the sheet and the Ontology page.
  */
-async function editRules(edit: RuleEdit | readonly RuleEdit[], opts: { why?: string; words?: string; redraw?: () => void } = {}): Promise<boolean> {
+async function editRules(edit: RuleEdit | readonly RuleEdit[], opts: { why?: string; words?: string; redraw?: () => void; kind?: ChangeKind; given?: WhyGiven } = {}): Promise<boolean> {
   const { why = '', words, redraw } = opts;
   // Several edits are one change set (a proposal's bands, Q-139): recorded once, said once.
   const edits = 'op' in edit ? [edit] : [...edit];
@@ -4250,9 +4254,18 @@ async function editRules(edit: RuleEdit | readonly RuleEdit[], opts: { why?: str
     setStatus(pinned, true);
     return false;
   }
+  // Why (ADR 0027 §2, Q-256): a kind and a reason on every change. A form that asked for them gives them; any other
+  // change is asked now, and closed without an answer it isn't made.
+  const kind = opts.kind ?? defaultKind(edits);
+  const given: WhyGiven | null = opts.given ?? (why.trim() ? { why: why.trim(), kind } : await askWhy(words ?? saids.join('; '), kind));
+  if (!given) return false;
+  if (state.running) {
+    setStatus('The flow is running. Change the rule again when the run has ended.', true);
+    return false;
+  }
   const from = fromDay();
   const { days } = reachedDays(from);
-  ruleChanges = [...ruleChanges, { id: changeId(), from, recorded: new Date().toISOString(), by: state.viewer, why, edits }];
+  ruleChanges = [...ruleChanges, { id: changeId(), from, recorded: new Date().toISOString(), by: state.viewer, why: given.why, kind: given.kind, ...(given.note ? { note: given.note } : {}), ...(given.decided ? { decided: given.decided } : {}), ...(given.because ? { because: given.because } : {}), edits }];
   const moved = resolveDoc(resolvedFor.day, resolvedFor.asOf, true) && rulesSaid(state.doc) !== rulesSaid(withRuleParts(state.doc, ruleBase));
   const said = `${words ?? saids.join('; ')}, in force from ${dayLabel(from)}`;
   await flowEdited(said);
@@ -4595,6 +4608,178 @@ function rulesLine(day: string, prev: string | null): HTMLElement | null {
     ...coming.map((c) => h('span', { class: 'dh-rules-coming', 'data-change': c.id }, saidThatDay(c) ? ' · said this day, from ' : ' · coming ', h('button', { type: 'button', class: 'linkish', onclick: () => openChange(c.id) }, `${dayShort(c.from)}: ${changeSaid(c)} ›`))));
 }
 
+// ------------------------------------------------------------------ why a change is made (ADR 0027 §2, slice 2)
+
+/** What a change says of itself beside its edits (ADR 0027 §2): a kind and a reason, both required, and what more its
+ * author gives: who chose it and when, what led to it, the thinking behind it. */
+interface WhyGiven { why: string; kind: ChangeKind; note?: ChangeNote; decided?: { by: string; on?: string }; because?: { event: string } }
+
+/** A kind's own mark, beside its words: never colour alone. */
+const kindEl = (kind: ChangeKind | null) => svgNode(kindMark((kind ?? 'none') as KindMark, 12));
+let whyForms = 0;
+
+/**
+ * The fields that say why (ADR 0027 §2, Q-256 to Q-258): the kind, one of four, with the one the edit usually is
+ * picked; one line of why; and, folded, who decided and when, what led to it, and the note in four parts. `read`
+ * gives what was written, or what is missing, in words.
+ */
+function whyFields(kind: ChangeKind): { el: HTMLElement; read: () => WhyGiven | string; focus: () => void } {
+  const name = `wy-kind-${++whyForms}`;
+  const first = KINDS_ASKED.includes(kind) ? kind : 'business';
+  const radios = KINDS_ASKED.map((k) => {
+    const input = h('input', { type: 'radio', name, value: k, ...(k === first ? { checked: 'checked' } : {}) }) as HTMLInputElement;
+    return { k, input, label: h('label', { class: 'wy-kind', 'data-kind': k }, input, kindEl(k), ` ${KIND_NAMES[k]}`) };
+  });
+  const why = h('textarea', { class: 'wy-reason', rows: '2', 'aria-label': 'Why', placeholder: 'Why, in a sentence: the record keeps it.' }) as HTMLTextAreaElement;
+  const field = (cls: string, label: string, type = 'text', placeholder = '') => {
+    const input = h('input', { class: cls, type, 'aria-label': label, ...(placeholder ? { placeholder } : {}) }) as HTMLInputElement;
+    return { input, row: h('div', { class: 'of-field' }, h('label', {}, label), input) };
+  };
+  const by = field('wy-by', 'Decided by', 'text', 'Who chose it, where that isn’t you');
+  const on = field('wy-on', 'Decided on', 'date');
+  const events = flowEvents();
+  const because = h('select', { class: 'wy-because', 'aria-label': 'Because of' }, h('option', { value: '' }, 'nothing written down'), ...events.map((e) => h('option', { value: e.id }, e.name))) as HTMLSelectElement;
+  const saw = field('wy-saw', 'What we saw');
+  const chose = field('wy-chose', 'What we chose');
+  const down = field('wy-down', 'What we turned down');
+  const expect = field('wy-expect', 'What we expect');
+  const again = field('wy-again', 'Look again on', 'date');
+  const el = h('div', { class: 'wy' },
+    h('div', { class: 'of-field wy-kinds', role: 'radiogroup', 'aria-label': 'What kind of change' }, h('label', {}, 'Kind'), h('div', { class: 'wy-kind-list' }, ...radios.map((r) => r.label))),
+    h('div', { class: 'of-field' }, h('label', {}, 'Why'), why),
+    h('details', { class: 'wy-more' }, h('summary', {}, 'Who decided, what led to it, the thinking'),
+      by.row, on.row, h('div', { class: 'of-field' }, h('label', {}, 'Because of'), because), saw.row, chose.row, down.row, expect.row, again.row));
+  const read = (): WhyGiven | string => {
+    if (!why.value.trim()) return 'A change needs a reason: one line of why.';
+    const said = (x: { input: HTMLInputElement }) => x.input.value.trim();
+    const note: ChangeNote = { ...(said(saw) ? { saw: said(saw) } : {}), ...(said(chose) ? { chose: said(chose) } : {}), ...(said(down) ? { turnedDown: said(down) } : {}), ...(said(expect) ? { expect: said(expect) } : {}), ...(said(again) ? { lookAgain: said(again) } : {}) };
+    if (said(on) && !said(by)) return 'Say who decided it, with the day.';
+    return {
+      why: why.value.trim(),
+      kind: radios.find((r) => r.input.checked)?.k ?? first,
+      ...(Object.keys(note).length ? { note } : {}),
+      ...(said(by) ? { decided: { by: said(by), ...(said(on) ? { on: said(on) } : {}) } } : {}),
+      ...(because.value ? { because: { event: because.value } } : {}),
+    };
+  };
+  return { el, read, focus: () => why.focus() };
+}
+
+/** Ask why a change is made (ADR 0027 §2, Q-256), on a sheet of its own: what it is, from which day, and the fields
+ * that say why. Null where it is closed without an answer: the change isn't made. */
+function askWhy(what: string, kind: ChangeKind): Promise<WhyGiven | null> {
+  return new Promise((resolve) => {
+    const f = whyFields(kind);
+    const err = h('p', { class: 'of-err', role: 'alert', hidden: 'hidden' });
+    const go = h('button', { type: 'button', class: 'btn small primary wy-go' }, 'Record the change') as HTMLButtonElement;
+    let answered = false;
+    go.addEventListener('click', () => {
+      const g = f.read();
+      if (typeof g === 'string') {
+        err.textContent = g;
+        err.hidden = false;
+        return;
+      }
+      answered = true;
+      document.querySelector('.vf-detail-wrap')?.remove();
+      resolve(g);
+    });
+    openDetail(what, 'ok', [h('p', { class: 'vf-one wy-from' }, `In force from ${dayLabel(fromDay())}. The record keeps who, when and why.`), f.el, err, h('div', { class: 'of-acts' }, go)]);
+    const wrap = document.querySelector('.vf-detail-wrap');
+    const host = wrap?.parentElement;
+    if (!wrap || !host) return resolve(null);
+    wrap.classList.add('wy-wrap');
+    // Closed without an answer (its close button, the page behind it, Escape): nothing changes.
+    const gone = new MutationObserver(() => {
+      if (wrap.isConnected) return;
+      gone.disconnect();
+      if (!answered) resolve(null);
+    });
+    gone.observe(host, { childList: true });
+    f.focus();
+  });
+}
+
+// ------------------------------------------------------------------ events (ADR 0027 §6, slice 2)
+
+/** The flow's events as known at the moment the month is read at: the build's story's, and those written here, which
+ * the record keeps (an entry of kind `event`; written again under its id, an event is changed or taken back). */
+function flowEvents(): FlowEvent[] {
+  const written = allEntries().flatMap((e) => (e.kind === 'event' && e.about && typeof (e.about as { id?: unknown }).id === 'string' ? [e.about as unknown as FlowEvent] : []));
+  return latestEvents([...(dataList?.events ?? []), ...written], monthView.at);
+}
+
+/** An event's days in words: "Mon 25 to Sun 31", "Tue 12", "from Mon 11". */
+const eventSpan = (e: Pick<FlowEvent, 'from' | 'until'>): string => (e.until === undefined ? `from ${dayShort(e.from)}` : e.until === e.from ? dayShort(e.from) : `${dayShort(e.from)} to ${dayShort(e.until)}`);
+
+/** Write an event down (ADR 0027 §6): kept in the record, shown at once. */
+async function writeEvent(e: FlowEvent): Promise<void> {
+  if (!ledger) return void setStatus('The record isn’t open: the event can’t be kept.', true);
+  await ledger.append('event', state.viewer, e as unknown as JSONValue, e.note ?? null);
+  setStatus(e.withdrawn ? `${e.name}: taken back. Recorded.` : `${e.name}, ${eventSpan(e)}: written down. Recorded.`, false);
+  renderRulesTime();
+  renderLoads();
+  if (location.hash.startsWith('#month') || !$('view-month').hidden) renderMonth();
+  renderRecord();
+}
+
+/** The form that writes an event down, or changes one written here: its name, its days, its kind, what it is about
+ * and a note. */
+function eventForm(was?: FlowEvent): void {
+  const days = [...new Set(loads.list.map((l) => l.day.slice(0, 10)))].sort();
+  const name = h('input', { class: 'ev-name', type: 'text', 'aria-label': 'What was going on', value: was?.name ?? '', placeholder: 'A change freeze, a migration, a reorganisation' }) as HTMLInputElement;
+  const from = h('input', { class: 'ev-from', type: 'date', 'aria-label': 'From', value: was?.from ?? (resolvedFor.day ?? days.at(-1) ?? '') }) as HTMLInputElement;
+  const until = h('input', { class: 'ev-until', type: 'date', 'aria-label': 'Until', value: was?.until ?? '' }) as HTMLInputElement;
+  const kind = h('select', { class: 'ev-kind', 'aria-label': 'Kind' }, ...EVENT_KINDS.map((k) => h('option', { value: k, ...(k === (was?.kind ?? 'other') ? { selected: 'selected' } : {}) }, EVENT_KIND_NAMES[k]))) as HTMLSelectElement;
+  const sources = Object.keys(dataList?.sources ?? {}).sort();
+  const about = h('select', { class: 'ev-about', 'aria-label': 'About' }, h('option', { value: '' }, 'the whole flow'), ...sources.map((id) => h('option', { value: id, ...(was?.about?.[0] === id ? { selected: 'selected' } : {}) }, id))) as HTMLSelectElement;
+  const note = h('textarea', { class: 'ev-note', rows: '2', 'aria-label': 'A note', placeholder: 'What was going on, in a sentence or two' }, was?.note ?? '') as HTMLTextAreaElement;
+  const err = h('p', { class: 'of-err', role: 'alert', hidden: 'hidden' });
+  const go = h('button', { type: 'button', class: 'btn small primary ev-go' }, was ? 'Record the change' : 'Write it down') as HTMLButtonElement;
+  const bad = (m: string) => {
+    err.textContent = m;
+    err.hidden = false;
+  };
+  go.addEventListener('click', () => {
+    if (!name.value.trim()) return bad('Say what was going on.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from.value)) return bad('Say its first day.');
+    if (until.value && until.value < from.value) return bad('Its last day is on or after its first.');
+    go.disabled = true;
+    const id = was?.id ?? `${name.value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'event'}-${Date.now().toString(36)}`;
+    const e: FlowEvent = { id, name: name.value.trim(), from: from.value, ...(until.value ? { until: until.value } : {}), kind: kind.value as EventKind, ...(about.value ? { about: [about.value] } : {}), ...(note.value.trim() ? { note: note.value.trim() } : {}), recorded: new Date().toISOString(), by: state.viewer };
+    void writeEvent(e).then(() => document.querySelector('.vf-detail-wrap')?.remove());
+  });
+  const takeBack = was ? h('button', { type: 'button', class: 'btn small ev-back', onclick: () => void writeEvent({ ...was, recorded: new Date().toISOString(), by: state.viewer, withdrawn: true }).then(() => document.querySelector('.vf-detail-wrap')?.remove()) }, 'Take it back') : null;
+  openDetail(was ? was.name : 'What was going on', 'ok', [
+    h('p', { class: 'vf-one' }, 'An event is context for reading the days: a freeze, a migration, a reorganisation. It explains the data and changes no rule.'),
+    h('div', { class: 'of-field' }, h('label', {}, 'What'), name),
+    h('div', { class: 'of-field' }, h('label', {}, 'From'), from),
+    h('div', { class: 'of-field' }, h('label', {}, 'Until'), until),
+    h('div', { class: 'of-field' }, h('label', {}, 'Kind'), kind),
+    h('div', { class: 'of-field' }, h('label', {}, 'About'), about),
+    h('div', { class: 'of-field' }, h('label', {}, 'Note'), note),
+    err, h('div', { class: 'of-acts' }, go, takeBack)]);
+  name.focus();
+}
+
+/** The events going on on a day, on its head (ADR 0027 §9): each with which day of it this is. Null where none is. */
+function eventsLine(day: string): HTMLElement | null {
+  const on = flowEvents().filter((e) => eventCovers(e, day));
+  if (!on.length) return null;
+  return h('p', { class: 'dh-events' }, h('span', { class: 'dh-rules-k' }, 'Going on'), ' ', ...on.flatMap((e, k) => {
+    const d = eventDay(e, day);
+    return [k ? ' · ' : '', h('button', { type: 'button', class: 'linkish', 'data-event': e.id, onclick: () => openEvent(e.id) }, `${e.name}${d && d.of !== null && d.of > 1 ? `, day ${d.n} of ${d.of}` : ''} ›`)];
+  }));
+}
+
+/** An event asked for from elsewhere: shown in the register once the Ontology view has drawn its head. */
+let pendingEvent: string | null = null;
+function openEvent(id: string): void {
+  pendingEvent = id;
+  if (location.hash === '#ontology') showChange();
+  else location.hash = '#ontology';
+}
+
 // ------------------------------------------------------------------ the register (ADR 0027 §9, slice 1)
 
 /** The day the register is read from: the last day that has arrived, as known at the moment the month is read at. */
@@ -4639,10 +4824,11 @@ function openChange(id: string): void {
   else location.hash = '#ontology';
 }
 function showChange(): void {
-  if (!pendingChange) return;
-  const item = document.querySelector<HTMLElement>(`#rules-time .rg-item[data-change="${CSS.escape(pendingChange)}"]`);
+  const item = pendingChange ? document.querySelector<HTMLElement>(`#rules-time .rg-item[data-change="${CSS.escape(pendingChange)}"]`)
+    : pendingEvent ? document.querySelector<HTMLElement>(`#rules-time .rg-item[data-event="${CSS.escape(pendingEvent)}"]`) : null;
   if (!item) return;
   pendingChange = null;
+  pendingEvent = null;
   for (const x of document.querySelectorAll('#rules-time .rg-item.at')) x.classList.remove('at');
   item.classList.add('at');
   item.scrollIntoView({ block: 'center' });
@@ -4653,6 +4839,14 @@ function changeMarks(days: readonly string[]): { day: string; label: string; cha
   if (!ruleChanges.length) return [];
   const have = new Set(days.map((d) => d.slice(0, 10)));
   return registerNow().entries.filter((e) => e.tense !== 'coming' && have.has(e.change.from)).map((e) => ({ day: e.change.from, label: `${dayShort(e.change.from)}: ${changeSaid(e.change)}`, change: e.change.id })).reverse();
+}
+
+/** The events that touch `days`, for a chart's bands (ADR 0027 §6): each over its days, one that goes on to the last day. */
+function eventBands(days: readonly string[]): { from: string; until: string; label: string; id: string }[] {
+  const first = days[0]?.slice(0, 10);
+  const last = days.at(-1)?.slice(0, 10);
+  if (!first || !last) return [];
+  return flowEvents().filter((e) => e.from <= last && (e.until === undefined || e.until >= first)).map((e) => ({ from: e.from, until: e.until ?? last, label: `${e.name}, ${eventSpan(e)}`, id: e.id }));
 }
 
 /** The lanes' rows of what people decided: a mark on each day decided, kept back or restated, as the month says it. */
@@ -4675,40 +4869,79 @@ function decidedMarks(): LaneMark[] {
  * entry in the list. Read as known at the moment the month is read at.
  */
 function registerPart(): HTMLElement | null {
-  if (!ruleChanges.length) return null;
+  const events = flowEvents();
+  if (!ruleChanges.length && !events.length && !isOwner()) return null;
   const reg = registerNow();
   const applied = new Set(resolvedSets ? resolvedSets.split('\n') : []);
   const day = resolvedFor.day;
+  const owner = isOwner();
+  const eventName = new Map(events.map((e) => [e.id, e.name]));
   const where = (c: ChangeSet) => (applied.has(c.id) ? 'in force on the day on screen' : day && c.from > day ? 'from a later day than the one on screen' : 'made after the version on screen ran');
   const item = (e: RegisterEntry) => {
     const c = e.change;
     const reached = e.how === 'back' ? reachedBy(c) : [];
-    return h('li', { class: `rg-item rg-${e.tense === 'in force' ? 'on' : e.tense}${applied.has(c.id) ? ' on-screen' : ''}`, 'data-change': c.id },
+    const led = c.because?.event ? eventName.get(c.because.event) : undefined;
+    const n = c.note;
+    const parts: [string, string | undefined][] = n ? [['What we saw', n.saw], ['What we chose', n.chose], ['What we turned down', n.turnedDown], ['What we expect', n.expect], ['Look again', n.lookAgain ? dayLabel(n.lookAgain) : undefined]] : [];
+    const noted = parts.filter((x): x is [string, string] => !!x[1]);
+    const trial = tested.get(c.id);
+    const trying = testing?.id === c.id;
+    return h('li', { class: `rg-item rg-${e.tense === 'in force' ? 'on' : e.tense}${applied.has(c.id) ? ' on-screen' : ''}`, 'data-change': c.id, 'data-kind': e.kind ?? 'none' },
+      h('span', { class: 'rg-kind' }, kindEl(e.kind), e.kind ? KIND_NAMES[e.kind] : KIND_NOT_GIVEN),
       h('span', { class: 'rg-when' }, entryWhen(e)),
       h('span', { class: 'rg-what' }, changeSaid(c)),
       h('span', { class: 'rg-why' }, c.why ? `“${c.why}” ` : 'No reason given · ', h('span', { class: 'rg-by' }, personName(c.by))),
+      c.decided ? h('span', { class: 'rg-led' }, `Decided by ${c.decided.by}${c.decided.on ? ` on ${dayShort(c.decided.on)}` : ''}`) : null,
+      led ? h('button', { type: 'button', class: 'linkish rg-because', 'data-event': c.because!.event!, onclick: () => openEvent(c.because!.event!) }, `Because of: ${led} ›`) : null,
+      noted.length ? h('details', { class: 'rg-note' }, h('summary', {}, 'The thinking'), h('dl', {}, ...noted.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)]))) : null,
+      // The day its author asked to look again has come (ADR 0027 §2): said until someone changes it or its note.
+      n?.lookAgain && n.lookAgain <= reg.today ? h('span', { class: 'rg-again' }, `Due for another look since ${dayLabel(n.lookAgain)}`) : null,
+      // What it would have done, or did, on the days before it (ADR 0027 §2, Q-259): tried as what-if runs.
+      trial ? h('span', { class: 'rg-trial' }, testSaid(trial.what, trial.count, dayShort))
+        : trying ? h('span', { class: 'rg-trial' }, h('span', { class: 'mini-wait' }), ` Trying it on ${testing!.of === 1 ? 'the day before' : `the ${testing!.of} days before`}: ${testing!.done} done.`)
+        : owner && monthView.at === null && testDays(c).length && mayRun() ? h('button', { type: 'button', class: 'linkish rg-try', ...(state.running || testing ? { disabled: 'disabled' } : {}), onclick: () => void testChange(c, null) }, `Try it on the ${plural(testDays(c).length, 'recorded day')} before it ›`) : null,
       h('span', { class: 'rg-facts' }, [where(c), reached.length ? `recorded after ${plural(reached.length, 'day')} it reaches had run: ${daysSaid(reached)}` : ''].filter(Boolean).join(' · ')));
   };
+  const eventItem = (e: FlowEvent) => {
+    const tense = eventTense(e, reg.today);
+    const mine = !(dataList?.events ?? []).some((x) => x.id === e.id);
+    return h('li', { class: `rg-item rg-ev rg-${tense === 'going on' ? 'on' : tense === 'over' ? 'ended' : 'coming'}`, 'data-event': e.id },
+      h('span', { class: 'rg-kind' }, `Going on · ${EVENT_KIND_NAMES[e.kind]}`),
+      h('span', { class: 'rg-when' }, `${eventSpan(e)} · written ${dayShort(e.recorded.slice(0, 10))}${e.about?.length ? ` · about ${e.about.join(', ')}` : ''}`),
+      h('span', { class: 'rg-what' }, e.name),
+      h('span', { class: 'rg-why' }, e.note ? `“${e.note}” ` : '', h('span', { class: 'rg-by' }, personName(e.by))),
+      owner && mine && monthView.at === null ? h('button', { type: 'button', class: 'linkish rg-ev-edit', onclick: () => eventForm(e) }, 'Change it ›') : null);
+  };
   const monthName = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-  const groups: { name: string; entries: RegisterEntry[] }[] = [];
-  for (const e of reg.entries) {
-    const name = e.tense === 'coming' ? 'Coming' : monthName(e.change.from.slice(0, 7));
-    const g = groups.at(-1)?.name === name ? groups.at(-1)! : (groups.push({ name, entries: [] }), groups.at(-1)!);
-    g.entries.push(e);
+  // One list: what is coming on top, the soonest first; then by month, newest first, a change before an event of its day.
+  type Thing = { from: string; coming: boolean; el: () => HTMLElement };
+  const things: Thing[] = [
+    ...reg.entries.map((e): Thing => ({ from: e.change.from, coming: e.tense === 'coming', el: () => item(e) })),
+    ...events.map((e): Thing => ({ from: e.from, coming: eventTense(e, reg.today) === 'coming', el: () => eventItem(e) })),
+  ];
+  const ordered = [...things.filter((t) => t.coming).sort((a, b) => a.from.localeCompare(b.from)), ...things.map((t, i) => ({ t, i })).filter(({ t }) => !t.coming).sort((a, b) => b.t.from.localeCompare(a.t.from) || a.i - b.i).map(({ t }) => t)];
+  const groups: { name: string; things: Thing[] }[] = [];
+  for (const t of ordered) {
+    const name = t.coming ? 'Coming' : monthName(t.from.slice(0, 7));
+    const g = groups.at(-1)?.name === name ? groups.at(-1)! : (groups.push({ name, things: [] }), groups.at(-1)!);
+    g.things.push(t);
   }
-  const list = h('div', { class: 'rg-list' }, ...groups.flatMap((g) => [h('p', { class: 'rg-tense' }, g.name), h('ol', { class: 'rg-items' }, ...g.entries.map(item))]),
-    reg.later ? h('p', { class: 'rg-later' }, `${plural(reg.later, 'more change')} ${reg.later === 1 ? 'was' : 'were'} recorded after the moment this is read at.`) : '');
+  const list = h('div', { class: 'rg-list' }, ...groups.flatMap((g) => [h('p', { class: 'rg-tense' }, g.name), h('ol', { class: 'rg-items' }, ...g.things.map((t) => t.el()))]),
+    !things.length ? h('p', { class: 'rg-later' }, 'No change to the rules yet, and nothing written down as going on.') : '',
+    reg.later ? h('p', { class: 'rg-later' }, `${plural(reg.later, 'more change')} ${reg.later === 1 ? 'was' : 'were'} recorded after the moment this is read at.`) : '',
+    owner && monthView.at === null ? h('p', { class: 'rg-acts' }, h('button', { type: 'button', class: 'btn small rg-write', onclick: () => eventForm() }, 'Write down what was going on ›')) : '');
   // The lanes, from tablet width (the stylesheet shows them): the data's days, and on to a week past the last change coming.
   const dataDays = [...new Set(loads.list.map((l) => l.day.slice(0, 10)))].sort();
   const lanes = h('div', { class: 'rg-lanes' });
-  if (dataDays.length) {
-    const lastFrom = reg.entries.map((e) => e.change.from).sort().at(-1) ?? dataDays.at(-1)!;
+  if (dataDays.length && things.length) {
+    const lastFrom = [...reg.entries.map((e) => e.change.from), ...events.map((e) => e.from)].sort().at(-1) ?? dataDays.at(-1)!;
     let end = dataDays.at(-1)!;
     if (lastFrom > end) for (let k = 0, d = lastFrom; k < 7; k++, d = dayAfter(d)) end = d;
     const days: string[] = [];
     for (let d = dataDays[0]!; d <= end && days.length < 400; d = dayAfter(d)) days.push(d);
-    const byId = new Map(reg.entries.map((e) => [e.change.id, e]));
+    const firstDay = days[0]!;
     const lastDay = days.at(-1)!;
+    const byId = new Map(reg.entries.map((e) => [e.change.id, e]));
     const rowOf = (l: Life): LaneRow => ({
       label: `${l.subject.dataset ? `${l.subject.dataset} · ` : ''}${l.subject.what}`,
       spans: [
@@ -4724,18 +4957,36 @@ function registerPart(): HTMLElement | null {
           return until >= e.change.from ? [{ from: e.change.from, until, kind: 'then' as const, change: m.change, title: `The runs of these days were judged without it: it was recorded ${dayLabel(m.day)}` }] : [];
         }),
       ],
-      marks: l.said.map((m) => ({ day: m.day, kind: 'said' as const, change: m.change, title: `Said ${dayShort(m.day)}` })),
+      marks: [
+        ...l.said.map((m) => ({ day: m.day, kind: 'said' as const, change: m.change, title: `Said ${dayShort(m.day)}` })),
+        // Its kind's mark on the day it took effect.
+        ...l.said.flatMap((m) => {
+          const e = byId.get(m.change);
+          return e ? [{ day: e.change.from, kind: (m.kind ?? 'none') as KindMark, change: m.change, title: `${m.kind ? KIND_NAMES[m.kind] : KIND_NOT_GIVEN}, from ${dayShort(e.change.from)}` }] : [];
+        }),
+      ],
     });
     const lives = livesOf(reg.entries, days, reg.today);
-    const laneGroups: LaneGroup[] = (['is', 'check'] as const).map((lane) => ({ name: LANE_NAMES[lane], rows: lives.filter((l) => l.subject.lane === lane).map(rowOf) })).filter((g) => g.rows.length);
+    const laneGroups: LaneGroup[] = [];
+    // What was going on (ADR 0027 §6): a row an event, a bar over its days.
+    if (events.length) laneGroups.push({ name: 'Going on', rows: events.map((e) => ({ label: e.name, spans: [{ from: e.from < firstDay ? firstDay : e.from, until: e.until === undefined || e.until > lastDay ? lastDay : e.until, kind: 'event' as const, event: e.id, title: `${e.name}, ${eventSpan(e)}${e.note ? `: ${e.note}` : ''}` }].filter((sp) => sp.from <= sp.until), marks: [] })) });
+    for (const lane of ['is', 'check'] as const) {
+      const rows = lives.filter((l) => l.subject.lane === lane).map(rowOf);
+      if (rows.length) laneGroups.push({ name: LANE_NAMES[lane], rows });
+    }
     const decided = decidedMarks();
     if (decided.length) laneGroups.push({ name: 'What we decided', rows: [{ label: 'Days decided', spans: [], marks: decided }] });
     const wide = document.getElementById('rules-time')?.clientWidth ?? 0;
-    lanes.append(svgNode(registerLanes({ days, today: reg.today, pick: day, groups: laneGroups, w: Math.min(1180, Math.max(640, (wide || 744) - 24)), aria: `The ontology’s changes over ${plural(days.length, 'day')}: ${reg.entries.map((e) => `${changeSaid(e.change)}, ${entryWhen(e)}`).join('; ')}` })));
-    lanes.append(h('p', { class: 'rg-key' }, 'A bar: in force. Dashed: as shipped. Hatched: coming. A ring: the day it was said. A dashed line under a bar: those days’ runs were judged without it, until it was recorded. A diamond: a day decided; filled, kept back or restated.'));
+    lanes.append(svgNode(registerLanes({ days, today: reg.today, pick: day, groups: laneGroups, w: Math.min(1180, Math.max(640, (wide || 744) - 24)), aria: `The ontology over ${plural(days.length, 'day')}: ${[...events.map((e) => `${e.name}, ${eventSpan(e)}`), ...reg.entries.map((e) => `${changeSaid(e.change)}, ${entryWhen(e)}`)].join('; ')}` })));
+    lanes.append(h('p', { class: 'rg-key' }, 'A bar: in force, or going on. Dashed: as shipped. Hatched: coming. A ring: the day it was said. ',
+      ...KINDS_ASKED.flatMap((k) => [kindEl(k), ` ${KIND_NAMES[k].toLowerCase()}. `]),
+      'A dashed line under a bar: those days’ runs were judged without it, until it was recorded. A diamond with no fill: a day decided; in red, kept back or restated.'));
     lanes.addEventListener('click', (ev) => {
-      const id = (ev.target as Element | null)?.closest?.('[data-change]')?.getAttribute('data-change');
-      if (id) openChange(id);
+      const el = (ev.target as Element | null)?.closest?.('[data-change], [data-event]');
+      const change = el?.getAttribute('data-change');
+      const event = el?.getAttribute('data-event');
+      if (change) openChange(change);
+      else if (event) openEvent(event);
     });
   }
   return h('div', { class: 'rg', 'data-today': reg.today }, lanes, list);
@@ -4749,7 +5000,7 @@ function renderRulesTime(): void {
   const box = document.getElementById('rules-time');
   if (!box) return;
   const owner = isOwner();
-  if (!ruleChanges.length && !owner) {
+  if (!ruleChanges.length && !owner && !flowEvents().length) {
     box.hidden = true;
     box.replaceChildren();
     return;
@@ -11974,8 +12225,11 @@ function ruleForm(file: string, column: string, title: string, columns: readonly
     const kept = rulesOf(r.doc.ontology, file).find((x) => (was ? x.id === was.id : !had.has(x.id)));
     if (!kept) return;
     save.disabled = true;
-    form.remove();
-    void editRules({ op: 'setRule', rule: kept });
+    // The form stays as it was typed until the change is made: closed without a reason (ADR 0027 §2), nothing is lost.
+    void editRules({ op: 'setRule', rule: kept }).then((done) => {
+      if (done) form.remove();
+      else save.disabled = false;
+    });
   });
   return form;
 }
@@ -13900,7 +14154,7 @@ async function makeWhatIfTheDays(reason: string): Promise<void> {
   makingWhatIf = false;
   let cs: ChangeSet | null = null;
   if (m.rules) {
-    cs = { id: changeId(), from: day, until: day, recorded: new Date().toISOString(), by: state.viewer, why: reason.trim(), edits: [{ op: 'useVersion', changes: [...w.rules] }] };
+    cs = { id: changeId(), from: day, until: day, recorded: new Date().toISOString(), by: state.viewer, why: reason.trim(), kind: 'corrected', edits: [{ op: 'useVersion', changes: [...w.rules] }] };
     ruleChanges = [...ruleChanges, cs];
     await flowEdited(`${dayLabel(day)} takes ${ruleVersionSaid(w.rules)} for that day only, from a what-if`);
   }
@@ -14176,7 +14430,7 @@ async function mapColumnOnDay(k: number, source: string, m: ColumnMap, reason: s
   const of = got ? (got.about as unknown as RunAbout) : null;
   if (!of?.manifest) return void setStatus('The day’s run isn’t in the record: there is nothing to run again under the new name.', true);
   mappingColumn = null;
-  const cs: ChangeSet = { id: changeId(), from: day, recorded: new Date().toISOString(), by: state.viewer, why: reason.trim(), edits: [{ op: 'mapColumn', file: source, column: m.to, from: m.from }] };
+  const cs: ChangeSet = { id: changeId(), from: day, recorded: new Date().toISOString(), by: state.viewer, why: reason.trim(), kind: 'source', edits: [{ op: 'mapColumn', file: source, column: m.to, from: m.from }] };
   ruleChanges = [...ruleChanges, cs];
   await flowEdited(`Read ${source}’s ${m.from} as ${m.to} from ${dayShort(day)} on`);
   // The recorded days it reaches, from the held day on (Q-206): each run again under it, latest first so the held day is
@@ -15074,8 +15328,9 @@ function renderMonth(): void {
       failingNow ? h('p', { class: 'mo-score-checks' }, `${fmtInt(failingNow.failing)} of ${fmtInt(failingNow.evidence)} checks failing${failingThen && read.days > 1 ? ` (${countSaid(failingNow.failing - failingThen.failing)} since ${named(read.first.day)})` : ''} · coverage ${lastMark?.coverage?.toFixed(1) ?? '–'}%: ${fmtInt(failingNow.evidence)} of ${fmtInt(failingNow.applying)} checks have evidence.`) : null,
       post.about ? h('p', { class: 'mo-score-about' }, post.about) : null,
       points.filter((p) => p.score !== null).length >= 2
-        ? svgNode(scoreTrend({ days, points, w: W >= 1766 ? Math.max(320, Math.round((W - 24) / 3.5) - 34) : Math.min(1600, Math.max(280, W - 34)), aria: `${post.title}: the group’s score and coverage on each day published. ${readSaid(read, named)}`, gap: 'not published', marks: changeMarks(days), ...(several ? { focus: { from: monthDays[0]!, to: monthDays.at(-1)! } } : {}) }))
+        ? svgNode(scoreTrend({ days, points, w: W >= 1766 ? Math.max(320, Math.round((W - 24) / 3.5) - 34) : Math.min(1600, Math.max(280, W - 34)), aria: `${post.title}: the group’s score and coverage on each day published. ${readSaid(read, named)}`, gap: 'not published', marks: changeMarks(days), bands: eventBands(days), ...(several ? { focus: { from: monthDays[0]!, to: monthDays.at(-1)! } } : {}) }))
         : null,
+      eventBands(monthDays).length ? h('div', { class: 'mo-changes mo-going' }, h('p', { class: 'mo-sub' }, '▭ What was going on'), h('ul', { class: 'mo-change-list' }, ...eventBands(monthDays).map((b) => h('li', {}, h('button', { type: 'button', class: 'linkish', 'data-event': b.id, onclick: () => openEvent(b.id) }, `${b.label} ›`))))) : null,
       changeMarks(monthDays).length ? h('div', { class: 'mo-changes' }, h('p', { class: 'mo-sub' }, '◆ Where the rules changed'), h('ul', { class: 'mo-change-list' }, ...changeMarks(monthDays).map((m) => h('li', {}, h('button', { type: 'button', class: 'linkish', 'data-change': m.change, onclick: () => openChange(m.change) }, `${m.label} ›`))))) : null,
       movers.length ? h('div', { class: 'mo-movers' },
         h('p', { class: 'mo-sub' }, `What moved it: applications failing each control, ${named(read.first.day)} to ${named(read.last.day)}`),
@@ -15167,6 +15422,7 @@ function renderLoads(): void {
     (now ? lifecycleOf(now.day) : null) ?? '',
     (now ? recordLine(now.day) : null) ?? '',
     (now ? rulesLine(now.day, prev) : null) ?? '',
+    (now ? eventsLine(now.day) : null) ?? '',
     (loads.at >= 0 ? restateLine(loads.at) : null) ?? '',
     (loads.at >= 0 ? versionsPart(loads.at) : null) ?? '',
     (loads.at >= 0 ? comparePart(loads.at) : null) ?? '',
