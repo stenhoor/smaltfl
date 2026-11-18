@@ -40,7 +40,9 @@ detail, how to check it and what is left are in [where the work stands](../HANDO
   renamed on Fri Mar 22), and three days at the gate ([ADR 0027](../adr/0027-the-ontology-over-time) §4): Method is a
   closed column, magic links arrive on Sat Mar 23 and codes by text message on Sun Mar 24, each waiting for someone
   to declare it, publish without it or not publish. **Add a source ›**, above its canvas, is where a file of your
-  own is described and added, or a dataset described before its data (§5).
+  own is described and added, or a dataset described before its data (§5). On any of them the Ontology view's
+  **Kinds and relations** is where a kind of thing, a relation, what a row is and a dependency are added, changed
+  and ended from a day, and a column's card is where its meaning is reworded or redefined (§3).
 
 ## Depends on
 

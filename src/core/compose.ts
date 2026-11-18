@@ -22,7 +22,7 @@
  */
 import type { TypeScriptKit } from 'smaltnb/format';
 import { canonicalJSON } from './canonical.js';
-import { validateDocument, type FlowDocument, type FlowPart, type NotebookDef, type ParameterDef, type PublishDef } from './document.js';
+import { validateDocument, type ChangeSet, type FlowDocument, type FlowPart, type NotebookDef, type ParameterDef, type PublishDef } from './document.js';
 import { syncRuleCells } from './gatecell.js';
 import { expandNotebooks, joinPath, loadNotebooks, type ExpandOptions, type NotebookRef } from './notebook.js';
 import type { Ontology } from './ontology.js';
@@ -304,7 +304,14 @@ async function withEstates(at: string, doc: FlowDocument, estates: readonly RawE
     ...estates.map((e) => ({ name: `${e.estate.name}’s ontology`, ontology: takeEstate(e.estate, datasets, overridden, gated) })),
     { name: doc.name, ontology: doc.ontology },
   ])!;
-  return { ...doc, ontology: { ...ontology, estate: from } };
+  // The estates' own change sets (ADR 0027 §3, Q-265), each named as its estate's, before the flow's own: every flow
+  // that imports an estate follows its changes from their days, and each takes what applies to it (an edit about a kind
+  // or a dataset the flow hasn't taken is passed over where the rules of a day are made, inforce.ts).
+  const estateChanges: ChangeSet[] = estates.flatMap((e) => (e.estate.changes ?? []).map((c) => ({ ...c, estate: e.estate.name })));
+  const ownChanges = doc.changes ?? [];
+  const twice = estateChanges.find((c, i) => estateChanges.findIndex((x) => x.id === c.id) !== i) ?? estateChanges.find((c) => ownChanges.some((x) => x.id === c.id));
+  if (twice) fail(at, `two change sets are called ${twice.id}: one of them is ${twice.estate}’s ontology’s`);
+  return { ...doc, ontology: { ...ontology, estate: from }, ...(estateChanges.length ? { changes: [...estateChanges, ...ownChanges] } : {}) };
 }
 
 /**

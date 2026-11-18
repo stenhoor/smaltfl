@@ -527,38 +527,35 @@
   "tab": "Quality"
  },
  {
-  "name": "names-form",
-  "what": "Control estate, Wed Mar 6, as the owner: the WAF file's WAF mode card with its quiet Edit tapped: a small form in place of the card's body (the name, what it means, a label for each of its three values, Save and Cancel), with the file's own name for the column said under the name field (it never changes), where the column is used (its check passes it on, ADR 0022 §2), and one line that a change is recorded and takes effect from the next run, for the file and the step that passes it on",
-  "day": "Wed 6",
-  "view": "ontology",
-  "viewFirst": true,
-  "clicks": [
-   ".of-item[data-file=\"waf\"] .of-row",
-   ".of-item.open .of-col[data-column=\"mode\"] .of-edit"
-  ],
-  "waitFor": ".of-item.open .of-form .of-where[data-known]",
-  "full": true,
-  "expect": {
-   "text": [
-    "The file writes it as mode. That stays.",
-    "What it means",
-    "A label for each value",
-    "A drawing names each value by its label; beside the value, a label is shown where it says more than the value itself.",
-    "Where it’s used: waf_checked passes it on.",
-    "For waf, and waf_checked, which passes it on. A change is recorded, and takes effect from the next run.",
-    "Save",
-    "Cancel"
-   ],
-   "count": {
-    ".of-form": 1,
-    ".of-form input": 4,
-    ".of-form textarea": 1,
-    ".of-item.open .of-col.editing": 1,
-    ".of-item.open .of-col .of-edit": 4,
-    "#flow-edits": 0
-   }
-  }
- },
+    "name": "names-form",
+    "what": "Control estate, Wed Mar 6, as the owner: the WAF file's WAF mode card with its quiet Edit tapped: a small form in place of the card's body (the name, what it means, a label for each of its three values, Save and Cancel), with the file's own name for the column said under the name field (it never changes), where the column is used (its check passes it on, ADR 0022 §2), and one line that a change is recorded and takes effect from the next run, for the file and the step that passes it on",
+    "day": "Wed 6",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [".of-item[data-file=\"waf\"] .of-row", ".of-item.open .of-col[data-column=\"mode\"] .of-edit"],
+    "waitFor": ".of-item.open .of-form .of-where[data-known]",
+    "full": true,
+    "expect": {
+      "text": [
+        "The file writes it as mode. That stays.",
+        "What it means",
+        "A label for each value",
+        "A drawing names each value by its label; beside the value, a label is shown where it says more than the value itself.",
+        "Where it’s used: waf_checked passes it on.",
+        "For waf, and waf_checked, which passes it on. A change is recorded, and takes effect from the next run.",
+        "Save",
+        "Cancel"
+      ],
+      "count": {
+        ".of-form": 1,
+        ".of-form textarea": 1,
+        ".of-item.open .of-col.editing": 1,
+        ".of-item.open .of-col .of-edit": 4,
+        "#flow-edits": 0,
+        ".of-form input[type=\"text\"]": 4
+      }
+    }
+  },
  {
   "name": "names-rename",
   "what": "Control estate, as the owner: the TLS file's Status renamed to Result and its value fail labelled Broken, saved (the WAF's open form closes with its section): the card's head says Result with the file's own name, status, beside it; its bar and its rules say Broken; and above the files a strip says one change is kept in this browser, what it was, that it takes effect from the next run, and offers the way back to the flow as shipped. The status line says what was recorded; the rules in force say names and labels were edited here, no longer as shipped",
@@ -752,6 +749,305 @@
   }
  },
  {
+    "name": "meaning-ask",
+    "what": "Control estate, as the owner, the flow as shipped again (ADR 0027 §3, Q-251): the inventory's Criticality card with its Edit tapped and what it means typed over. The form asks which it is: reworded, which says the same thing better, on every day; or redefined, which means something else from a day. Reworded is ticked, as a name or a label has always been saved",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      ".of-item[data-file=\"apps\"] .of-row",
+      ".of-item.open .of-col[data-column=\"criticality\"] .of-edit",
+      [".of-form textarea[id$=\"-mean\"]", "How quickly the application must be back after an outage"]
+    ],
+    "waitFor": ".of-item.open .of-form .of-where[data-known]",
+    "element": ".of-item.open .of-form",
+    "expect": {
+      "textIn": {
+        ".of-item.open .of-form": [
+          "The same meaning, or another?",
+          "Reworded. It says the same thing better: every day reads it so, and the record keeps the old wording.",
+          "Redefined. It means something else from a day: the days before keep the meaning they were made under."
+        ]
+      },
+      "count": {
+        ".of-form .of-how:not([hidden])": 1,
+        ".of-form .of-how input[value=\"reworded\"]:checked": 1,
+        ".of-form .of-dated:not([hidden])": 0
+      }
+    }
+  },
+ {
+    "name": "meaning-redefined",
+    "what": "Redefined, ticked: the form asks what every dated change is asked, the day it takes effect from, its kind and its reason. Given and saved, the meaning is redefined from the next day to arrive, a dated change of its own on the register. On the day on screen the card still says what Criticality has meant, and under it what it will mean and from when, a tap from the change; no recorded day moves",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      ".of-form .of-how-opt[data-how=\"redefined\"] input",
+      [".of-form .of-dated .wy-reason", "The resilience programme rates applications by recovery time from April"],
+      ".of-form .of-save"
+    ],
+    "waitFor": ".of-item.open .of-col[data-column=\"criticality\"] .of-redefined",
+    "element": ".of-item.open .of-col[data-column=\"criticality\"]",
+    "expect": {
+      "status": "^Redefined Criticality: “How critical the application is to the business” → “How quickly the application must be back after an outage”, in force from Mon Apr 1\\. Recorded\\. No recorded day moves\\.$",
+      "textIn": {
+        ".of-item.open .of-col[data-column=\"criticality\"]": [
+          "How critical the application is to the business",
+          "To be redefined.",
+          "From Mon Apr 1 ›",
+          "it means: “How quickly the application must be back after an outage”"
+        ]
+      },
+      "count": {
+        ".of-form": 0,
+        "#rules-time .rg-item[data-change]": 1,
+        "#rules-time .rg-item.rg-coming": 1
+      }
+    }
+  },
+ {
+    "name": "kinds-own",
+    "what": "Kinds and relations on the control estate (ADR 0027 §3), on Fri Mar 1, the day the page loaded on again: one kind of thing, the application, and no relation. It is this flow's own, so its line has Change and End; the map is one box",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": ["#rules-time .kd-all > summary"],
+    "element": "#rules-time .kd",
+    "expect": {
+      "textIn": {
+        "#rules-time .kd": [
+          "Kinds and relations",
+          "1 kind of thing, 0 relations on Fri Mar 1",
+          "Application · one row of apps, by app_id",
+          "as shipped",
+          "Each of them, since when, and the way to change or end one",
+          "Add a kind ›",
+          "Add a relation ›"
+        ]
+      },
+      "count": {
+        "#rules-time .kd-kind": 1,
+        "#rules-time .kd-link": 0,
+        "#rules-time .kd-change": 1,
+        "#rules-time .kd-end": 1,
+        "#rules-time .kd-whose": 0,
+        "#rules-time .kd-map .km-kind": 1
+      }
+    }
+  },
+ {
+    "name": "kinds-add-kind",
+    "what": "Add a kind: the business unit, one row of the table the flow publishes by unit, told apart by its name. A dated change with its kind and reason: it is the ontology's from the next day to arrive, listed until then as still to come, with the day it begins",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      "#rules-time .kd-add-kind",
+      [".kf-name", "Business unit"],
+      [".kf-dataset", "by_unit"],
+      [".kf-key", "business_unit"],
+      [".kf-title", "business_unit"],
+      [".kf-about", "A part of the business that owns applications"],
+      [".kf-form .wy-reason", "The board reads posture by business unit: a unit is a thing of its own, not a column of the inventory"],
+      ".kf-go"
+    ],
+    "waitFor": "#rules-time .kd-kind.kd-coming",
+    "element": "#rules-time .kd",
+    "expect": {
+      "status": "^Added the kind Business unit: one row of by_unit, by business_unit, in force from Mon Apr 1\\. Recorded\\.",
+      "textIn": {
+        "#rules-time .kd": [
+          "1 kind of thing, 0 relations on Fri Mar 1 · 1 still to come",
+          "Business unit · one row of by_unit, by business_unit",
+          "from Mon Apr 1 ›"
+        ]
+      },
+      "count": {
+        "#rules-time .kd-kind": 2,
+        "#rules-time .kd-kind.kd-coming": 1,
+        ".vf-detail .kf-form": 0
+      }
+    }
+  },
+ {
+    "name": "kinds-add-link",
+    "what": "Add a relation, between the application and the kind still to come: an application belongs to the business unit its inventory row names. It begins the day the kind does",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      "#rules-time .kd-add-link",
+      [".lf-name", "Belongs to"],
+      [".lf-from", "application"],
+      [".lf-from-col", "business_unit"],
+      [".lf-to", "business_unit"],
+      [".lf-to-col", "business_unit"],
+      [".lf-form .wy-reason", "Posture rolls up by the unit an application belongs to"],
+      ".lf-go"
+    ],
+    "waitFor": "#rules-time .kd-link.kd-coming",
+    "element": "#rules-time .kd",
+    "expect": {
+      "status": "^Added the relation Belongs to: Application to Business unit, on business_unit, in force from Mon Apr 1\\. Recorded\\.",
+      "textIn": {
+        "#rules-time .kd": ["2 still to come", "Belongs to · Application to Business unit, on business_unit"]
+      },
+      "count": {
+        "#rules-time .kd-link.kd-coming": 1,
+        ".vf-detail .lf-form": 0
+      }
+    }
+  },
+ {
+    "name": "kinds-coming-map",
+    "what": "Two dates compared, the day on screen against the day the changes begin: in words, the kind and the relation that are new and what Criticality will mean; on the map, the new kind's box and the relation's line hatched, still to come",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      ["#rules-time .kd-pick-a", "2024-03-06"],
+      ["#rules-time .kd-pick-b", "2024-04-01"]
+    ],
+    "element": "#rules-time .kd-compare",
+    "expect": {
+      "textIn": {
+        "#rules-time .kd-compare": [
+          "New kind Business unit: one row of by_unit, by business_unit",
+          "New relation Belongs to: Application to Business unit, on business_unit",
+          "What Criticality means: “How critical the application is to the business",
+          "→ “How quickly the application must be back after an outage",
+          "hatched: still to come"
+        ]
+      },
+      "count": {
+        "#rules-time .kd-diff li": 3,
+        "#rules-time .kd-map .km-kind": 2,
+        "#rules-time .kd-map .km-kind.km-added.km-coming": 1,
+        "#rules-time .kd-map .km-lt.km-added": 1
+      }
+    }
+  },
+ {
+    "name": "kinds-cant-end",
+    "what": "End, on the application: nothing is deleted, a thing ends from a day with what follows it. A kind that relations and rows entries still name can't end, and the form says so",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      "#rules-time .kd-kind[data-kind=\"application\"] .kd-end",
+      [".ef-form .wy-reason", "Trying it"],
+      ".ef-go"
+    ],
+    "expect": {
+      "pageText": [
+        "Nothing is deleted. From its day it is no longer in force; past days still read it as it was, and the ontology keeps that it ended, with what follows it.",
+        "Application can’t end yet: a relation or a rows entry still names it, or its file would no longer say what one row is."
+      ],
+      "count": {
+        ".vf-detail .ef-form": 1,
+        ".vf-detail .ef-err:not([hidden])": 1
+      }
+    }
+  },
+ {
+    "name": "kinds-end-link",
+    "what": "End, on the relation still to come, from the week after it begins, with nothing after it: its line says the day it begins and the day it ends, each a tap from its change",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      "#rules-time .kd-link[data-link=\"belongs_to\"] .kd-end",
+      [".ef-form .rf-when", "day"],
+      [".ef-form .rf-day", "2024-04-08"],
+      [".ef-form .wy-reason", "The inventory names the unit itself from the second week"],
+      ".ef-go"
+    ],
+    "waitFor": "#rules-time .kd-link[data-link=\"belongs_to\"] .kd-ends",
+    "element": "#rules-time .kd",
+    "expect": {
+      "status": "^Ended the relation Belongs to, in force from Mon Apr 8\\. Recorded\\.",
+      "textIn": {
+        "#rules-time .kd-link[data-link=\"belongs_to\"]": ["from Mon Apr 1 ›", "ends Mon Apr 8 ›"]
+      },
+      "count": {
+        "#rules-time .kd-link.kd-coming": 1,
+        ".vf-detail .ef-form": 0
+      }
+    }
+  },
+ {
+    "name": "rows-change",
+    "what": "What a row is, changed (ADR 0027 §3): the TLS file's rows are applications reachable from the internet; from April, the critical and high ones only. The condition is read on the inventory, and the gate counts by it from that day",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      ".of-item[data-file=\"tls\"] .of-row",
+      ".of-item.open .of-own .of-dated-change",
+      [".wf-form .cf-row:nth-child(2) .wf-col", "criticality"],
+      [".wf-form .cf-row:nth-child(2) .wf-vals", "critical, high"],
+      [".wf-form .rf-when", "next"],
+      [".wf-form .wy-reason", "TLS is checked on the critical and high applications first"],
+      ".wf-go"
+    ],
+    "waitFor": "body:not(:has(.vf-detail .wf-form))",
+    "expect": {
+      "status": "^Changed what a row of tls is: Application, where internet_facing yes, and criticality critical or high, in force from Mon Apr 1\\. Recorded\\. No recorded day moves\\.$",
+      "count": {
+        ".vf-detail .wf-form": 0
+      }
+    }
+  },
+ {
+    "name": "needs-add",
+    "what": "A dependency, added on the WAF's file: a firewall in blocking mode passes the control, or holds an exception. Written once, in the ontology, from its day; a row that says otherwise is a contradiction the gate counts. The register then lists the six changes still to come, each with its kind and reason, the soonest first, a day outside the month said with its month",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      ".of-item[data-file=\"waf\"] .of-row",
+      ".of-item.open .of-own .of-add-needs",
+      [".nf-name", "Blocking passes"],
+      [".nf-about", "A firewall in blocking mode passes the control, or holds an exception"],
+      [".nf-form .cf-row:nth-child(1) .nf-when-col", "mode"],
+      [".nf-form .cf-row:nth-child(1) .nf-when-vals", "block"],
+      [".nf-form .cf-row:nth-child(1) .nf-then-col", "status"],
+      [".nf-form .cf-row:nth-child(1) .nf-then-vals", "pass, exception"],
+      [".nf-form .wy-reason", "A blocking firewall that fails is a wrong row, not a finding"],
+      ".nf-go"
+    ],
+    "waitFor": "body:not(:has(.vf-detail .nf-form))",
+    "expect": {
+      "status": "^Added the dependency blocking_passes on waf: A firewall in blocking mode passes the control, or holds an exception, in force from Mon Apr 1\\. Recorded\\.",
+      "count": {
+        ".vf-detail .nf-form": 0,
+        "#rules-time .rg-item[data-change]": 6,
+        "#rules-time .rg-item.rg-coming": 6
+      },
+      "textIn": {
+        "#rules-time .rg-list": [
+          "Coming",
+          "From Mon Apr 1 ·",
+          "From Mon Apr 8 ·",
+          "Redefined Criticality",
+          "Added the kind Business unit",
+          "Added the relation Belongs to",
+          "Ended the relation Belongs to",
+          "Changed what a row of tls is",
+          "Added the dependency blocking_passes"
+        ]
+      }
+    },
+    "element": "#rules-time .rg-list"
+  },
+ {
+    "name": "kinds-back",
+    "what": "Back to the flow as shipped, tapped twice: every dated change made here is taken away and recorded, and the ontology is as it was shipped. The TLS file is opened again, as the stops after expect it",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": ["#flow-edits .fe-back", "#flow-edits .fe-back", ".of-item[data-file=\"tls\"] .of-row"],
+    "waitFor": ".of-item[data-file=\"tls\"].open .of-draw .colline",
+    "expect": {
+      "status": "^The flow is as it was shipped again: 6 changes taken away\\. Recorded; the next run uses it\\.$",
+      "count": {
+        "#flow-edits": 0,
+        "#rules-time .kd-coming": 0,
+        "#rules-time .rg-item[data-change]": 0
+      }
+    }
+  },
+ {
   "name": "mar12-flow-dark",
   "what": "Control estate, Tue Mar 12: the Flow view, dark",
   "day": "Tue 12",
@@ -795,29 +1091,27 @@
   }
  },
  {
-  "name": "names-form-dark",
-  "what": "Control estate, Tue Mar 12 (held), dark: the WAF file's WAF mode card with its Edit tapped (the file is open from the stop before): the form's fields, hints and buttons, and since a day waits for a decision, the line that it is judged again when it next runs",
-  "day": "Tue 12",
-  "scheme": "dark",
-  "view": "ontology",
-  "viewFirst": true,
-  "clicks": [
-   ".of-item.open .of-col[data-column=\"mode\"] .of-edit"
-  ],
-  "waitFor": ".of-item.open .of-form .of-where[data-known]",
-  "full": true,
-  "expect": {
-   "text": [
-    "The file writes it as mode. That stays.",
-    "Where it’s used: waf_checked passes it on.",
-    "For waf, and waf_checked, which passes it on. A change is recorded, and takes effect from the next run. A day waiting for a decision is judged again when it next runs."
-   ],
-   "count": {
-    ".of-form": 1,
-    ".of-form input": 4
-   }
-  }
- },
+    "name": "names-form-dark",
+    "what": "Control estate, Tue Mar 12 (held), dark: the WAF file's WAF mode card with its Edit tapped (the file is open from the stop before): the form's fields, hints and buttons, and since a day waits for a decision, the line that it is judged again when it next runs",
+    "day": "Tue 12",
+    "scheme": "dark",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [".of-item.open .of-col[data-column=\"mode\"] .of-edit"],
+    "waitFor": ".of-item.open .of-form .of-where[data-known]",
+    "full": true,
+    "expect": {
+      "text": [
+        "The file writes it as mode. That stays.",
+        "Where it’s used: waf_checked passes it on.",
+        "For waf, and waf_checked, which passes it on. A change is recorded, and takes effect from the next run. A day waiting for a decision is judged again when it next runs."
+      ],
+      "count": {
+        ".of-form": 1,
+        ".of-form input[type=\"text\"]": 4
+      }
+    }
+  },
  {
   "name": "names-rename-dark",
   "what": "Control estate, dark: the WAF mode renamed to Mode and saved from the open form: the strip above the files (one change, what it was, the way back), and the card's head with the new name; no name beside it, since mode is Mode again",

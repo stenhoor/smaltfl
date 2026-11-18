@@ -9,7 +9,7 @@ import { calendarProblems, EVERIES, isEvery, type CalendarDef, type Every } from
 import type { AcceptedBand, ColumnChange, RuleInput } from './flowedit.js';
 import { CHECK_MODES, CHECK_NAMES, gateProblems, type CheckMode, type CheckName, type GateDef } from './gates.js';
 import { awaitedIssues } from './described.js';
-import { marksVerdicts, NEEDS_FIELDS, ROWS_FIELDS, type AwaitedDataset, type Ontology } from './ontology.js';
+import { ENDED_KINDS, FOLLOWED, marksVerdicts, NEEDS_FIELDS, ROWS_FIELDS, type AwaitedDataset, type Ended, type LinkType, type NeedsDef, type ObjectType, type Ontology, type RowsDef } from './ontology.js';
 import { checkStepOf, FIX_KINDS, rulesIssues } from './rules.js';
 import { DECIDE, DECIDE_OPTIONS, type Policies } from './policy.js';
 import type { ParamType, ParamValue } from './sqltext.js';
@@ -231,9 +231,41 @@ export type RuleEdit =
   | { op: 'leaveOut'; file: string; rule: string; key: string }
   /** A dataset described before its data exists (ADR 0027 §5, Q-255, "Describe it first"): the ontology has its
    * description from the day, in place of an earlier one of the same dataset, and it waits for data. */
-  | { op: 'describeAhead'; dataset: AwaitedDataset };
+  | { op: 'describeAhead'; dataset: AwaitedDataset }
+  /** A kind of thing, added or changed (ADR 0027 §3, Q-250): the ontology's object type of that id, from the day. */
+  | { op: 'setType'; type: ObjectType }
+  /** A relation between two kinds, added or changed (Q-250): the ontology's link of that id. */
+  | { op: 'setLink'; link: LinkType }
+  /** What a dataset's rows are, said or changed (Q-250, ADR 0015 §1): its rows entry. */
+  | { op: 'setRows'; rows: RowsDef }
+  /** A dependency between columns or datasets, added or changed (Q-250, Q-119): the needs rule of that id. */
+  | { op: 'setNeeds'; needs: NeedsDef }
+  /** A meaning redefined (Q-251): the column means something else from the day, for the datasets named (every dataset,
+   * where none is). A rewording is no dated change: it is the name's own, at once (Q-198). */
+  | { op: 'redefine'; column: string; datasets?: string[]; change: { description: string; title?: string; values?: Record<string, string> } }
+  /** A thing of the ontology ended, with what follows it (Q-264): no longer in force from the day, and kept as ended. */
+  | { op: 'end'; ended: Ended };
 
-export const EDIT_OPS = ['setRule', 'removeRule', 'switchRule', 'nameColumn', 'acceptBand', 'setCheck', 'useVersion', 'mapColumn', 'declareValues', 'declareKey', 'declareEntry', 'leaveOut', 'describeAhead'] as const;
+export const EDIT_OPS = ['setRule', 'removeRule', 'switchRule', 'nameColumn', 'acceptBand', 'setCheck', 'useVersion', 'mapColumn', 'declareValues', 'declareKey', 'declareEntry', 'leaveOut', 'describeAhead', 'setType', 'setLink', 'setRows', 'setNeeds', 'redefine', 'end'] as const;
+
+/** What is wrong with a record that a thing ended, each as a path under it and a sentence; none, and it is one. */
+export function endedIssues(x: unknown): [path: string, message: string][] {
+  if (!isRecord(x)) return [['', 'what ended: { what, id, of?, then? }']];
+  const out: [string, string][] = [];
+  if (!(ENDED_KINDS as readonly unknown[]).includes(x.what)) out.push(['.what', `what ended: one of ${ENDED_KINDS.join(', ')}`]);
+  if (typeof x.id !== 'string' || x.id === '') out.push(['.id', 'the thing that ended: its id, a rows entry’s dataset, an entry’s key, or a described dataset’s name']);
+  if (x.what === 'entry' && (!isRecord(x.of) || typeof x.of.file !== 'string' || x.of.file === '' || typeof x.of.rule !== 'string' || x.of.rule === '')) out.push(['.of', 'the list an entry was of: { file, rule }']);
+  if (x.what !== 'entry' && x.of !== undefined) out.push(['.of', 'only an entry is of a list']);
+  if (x.then !== undefined) {
+    const t = x.then;
+    const by = isRecord(t) && Array.isArray(t.by) && t.by.every((b: unknown) => typeof b === 'string' && b !== '') ? (t.by as string[]) : null;
+    if (!isRecord(t) || !(FOLLOWED as readonly unknown[]).includes(t.how) || !by) out.push(['.then', `what follows it: { how: ${FOLLOWED.join(', ')}; by: [ … ] }`]);
+    else if (t.how === 'split' ? by.length < 2 : by.length !== 1) out.push(['.then.by', t.how === 'split' ? 'a thing splits into two or more' : 'one thing follows it']);
+    else if (new Set(by).size !== by.length || by.includes(String(x.id))) out.push(['.then.by', 'what follows it: each once, and never the thing itself']);
+  }
+  for (const k of Object.keys(x)) if (!['what', 'id', 'of', 'then'].includes(k)) out.push([`.${k}`, 'not a setting of a thing that ended: what, id, of, then']);
+  return out;
+}
 
 /**
  * A dated change set (ADR 0021 §5, Q-184): edits of the rules people set, in force from a business day, as known from
@@ -290,9 +322,12 @@ export interface ChangeSet {
   decided?: { by: string; on?: string };
   /** What led to it: an event by its id, or a decision by its number in the record. */
   because?: { event?: string; decision?: number };
+  /** The estate whose ontology's change it is (ADR 0027 §3, Q-265), by its name: brought in with the estate's ontology
+   * when the flow is read, and followed by every flow that imports it. None on a flow's own change. */
+  estate?: string;
 }
 
-const CHANGE_FIELDS = ['id', 'from', 'until', 'recorded', 'by', 'why', 'edits', 'kind', 'note', 'decided', 'because'];
+const CHANGE_FIELDS = ['id', 'from', 'until', 'recorded', 'by', 'why', 'edits', 'kind', 'note', 'decided', 'because', 'estate'];
 
 export const REACHES = ['sources', 'downstream'] as const;
 export type Reach = (typeof REACHES)[number];
@@ -1124,6 +1159,37 @@ function validateChanges(doc: Record<string, unknown>, add: (path: string, messa
         case 'describeAhead':
           for (const [path, message] of awaitedIssues(e.dataset)) add(`${ea}.dataset${path}`, message);
           return;
+        case 'setType': {
+          const t = e.type;
+          need('type', isRecord(t) && text(t.id) && text(t.name) && text(t.dataset) && Array.isArray(t.key) && t.key.length > 0 && t.key.every((k: unknown) => text(k)) && text(t.title), 'the kind: { id, name, dataset, key, title }');
+          return;
+        }
+        case 'setLink': {
+          const l = e.link;
+          const on = isRecord(l) && Array.isArray(l.on) && l.on.length > 0 && l.on.every((x: unknown) => Array.isArray(x) && x.length === 2 && text(x[0]) && text(x[1]));
+          need('link', isRecord(l) && text(l.id) && text(l.name) && text(l.from) && text(l.to) && on, 'the relation: { id, name, from, to, on: [[column of from, column of to], …] }');
+          return;
+        }
+        case 'setRows': {
+          const r = e.rows;
+          need('rows', isRecord(r) && text(r.dataset) && text(r.of) && Object.keys(r).every((k) => (ROWS_FIELDS as readonly string[]).includes(k)), `what a dataset’s rows are: { ${ROWS_FIELDS.join(', ')} }`);
+          return;
+        }
+        case 'setNeeds': {
+          const n = e.needs;
+          need('needs', isRecord(n) && text(n.id) && Array.isArray(n.datasets) && n.datasets.length > 0 && n.datasets.every((d: unknown) => text(d)) && isRecord(n.when) && isRecord(n.then) && Object.keys(n).every((k) => (NEEDS_FIELDS as readonly string[]).includes(k)), `the dependency: { ${NEEDS_FIELDS.join(', ')} }`);
+          return;
+        }
+        case 'redefine': {
+          need('column', text(e.column), 'the column whose meaning it is');
+          need('datasets', e.datasets === undefined || (Array.isArray(e.datasets) && e.datasets.length > 0 && e.datasets.every((d: unknown) => text(d))), 'the datasets it is the meaning for; absent, for every dataset');
+          const ch = e.change;
+          need('change', isRecord(ch) && text(ch.description) && (ch.title === undefined || text(ch.title)) && (ch.values === undefined || (isRecord(ch.values) && Object.values(ch.values).every((v) => typeof v === 'string'))), 'what it means now: { description, title?, values? }');
+          return;
+        }
+        case 'end':
+          for (const [path, message] of endedIssues(e.ended)) add(`${ea}.ended${path}`, message);
+          return;
       }
     });
   });
@@ -1627,6 +1693,30 @@ function validateExtras(doc: Record<string, unknown>, ids: Map<string, string>, 
         else for (const [f, list] of Object.entries(o.aside)) {
           if (!sourceIds.includes(f.toLowerCase())) add(`$.ontology.aside.${f}`, `no source ${f}: a column is set aside in a file`);
           if (!Array.isArray(list) || list.length === 0 || list.some((x) => typeof x !== 'string' || x === '') || new Set(list.map((x) => String(x).toLowerCase())).size !== list.length) add(`$.ontology.aside.${f}`, 'its columns set aside, each once; absent when there are none');
+        }
+      }
+      // What has ended (ADR 0027 §2, Q-264): each thing once, well formed; and nothing in force that is said to have ended.
+      if (o.ended !== undefined) {
+        if (doc.smaltfl !== 5) add('$.ontology.ended', 'a thing that ended is a format-5 document’s (the ontology first)');
+        else if (!Array.isArray(o.ended) || o.ended.length === 0) add('$.ontology.ended', 'what has ended: a list of one or more; absent when nothing has');
+        else {
+          const seen = new Set<string>();
+          o.ended.forEach((x: unknown, i: number) => {
+            for (const [path, message] of endedIssues(x)) add(`$.ontology.ended[${i}]${path}`, message);
+            if (!isRecord(x)) return;
+            const key = `${String(x.what)}|${isRecord(x.of) ? `${String(x.of.file).toLowerCase()}|${String(x.of.rule)}|` : ''}${String(x.id).toLowerCase()}`;
+            if (seen.has(key)) add(`$.ontology.ended[${i}]`, `${String(x.id)} is said to have ended twice`);
+            seen.add(key);
+            const listOf = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+            const inForce = x.what === 'type' ? listOf(o.objectTypes).some((t: unknown) => isRecord(t) && t.id === x.id)
+              : x.what === 'link' ? listOf(o.linkTypes).some((l: unknown) => isRecord(l) && l.id === x.id)
+              : x.what === 'rows' ? (Array.isArray(o.rows) ? o.rows : []).some((r: unknown) => isRecord(r) && String(r.dataset).toLowerCase() === String(x.id).toLowerCase())
+              : x.what === 'needs' ? (Array.isArray(o.needs) ? o.needs : []).some((n: unknown) => isRecord(n) && n.id === x.id)
+              : x.what === 'awaited' ? (Array.isArray(o.awaited) ? o.awaited : []).some((a: unknown) => isRecord(a) && String(a.id).toLowerCase() === String(x.id).toLowerCase())
+              : x.what === 'entry' && isRecord(x.of) ? listOf(o.rules).some((r: unknown) => isRecord(r) && r.id === (x.of as Record<string, unknown>).rule && String(r.file).toLowerCase() === String((x.of as Record<string, unknown>).file).toLowerCase() && listOf(r.entries).some((e: unknown) => Array.isArray(e) && e[0] === x.id))
+              : false;
+            if (inForce) add(`$.ontology.ended[${i}]`, `${String(x.id)} is in force and said to have ended: it is one or the other`);
+          });
         }
       }
       // The datasets described before their data exists (ADR 0027 §5, Q-255): each once, and well formed. One whose

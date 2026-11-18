@@ -252,8 +252,9 @@ apart from the record, and **Compare** puts any two versions of a day side by si
   tour's two months: its thirteen files and Inventory's, its own month and record. A paused day decided here or on the
   tour is carried to the other ([how](./app#a-flow-that-reads-flows)).
 - **[Larkspur's planted month](/larkspur/){target="_self"}**: the same group with trouble planted at every layer, the
-  month ADR 0020's answer key was built against: the posture over the whole month, the rules changed twice, a
-  back-dated change restating two days. [Its walk](./larkspur) goes day by day.
+  month ADR 0020's answer key was built against: the posture over the whole month, the rules changed four times
+  (one of them the estate's own, a relation added from the Monday of the reorganisation), a back-dated change
+  restating two days. [Its walk](./larkspur) goes day by day.
 - **[The control estate](/estate/){target="_self"}**: the month the gates were built against (ADR 0014), 600
   applications and twelve controls, kept as a regression. [Its walk](./estate).
 - **[The sign-in log](/signins/){target="_self"}**: a year of generated sign-ins, the shared ontology's rules and

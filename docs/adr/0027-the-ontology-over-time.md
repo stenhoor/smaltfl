@@ -639,6 +639,101 @@ and waits for what the file opens.
   change set made before kinds were asked for can't be given one in the app.
 - **The lanes** draw a described dataset as any thing: not dotted while it waits.
 
+### Slice 5: kinds, relations and meanings over time (2026-11-18)
+
+What there is, and what it means, change by dated changes with reasons, as the rules do (§3). §12 expected the rules
+in force and the estate's hash each to gain a version here. Neither did, as with slices 3 and 4: no encoding
+changed. The rules in force (`rules/1`) hash the ontology whole, so a kind, a relation, a meaning and the record of
+what ended are in it as written; an estate's ontology (`estate/0`) is hashed whole, its own change sets with it; and
+a document that has none of them hashes as it did, so every vector stands (Q-297, the maintainers' to confirm). For
+the ontology `{ objectTypes: [{ id: application, name: Application, dataset: apps, key: [app_id], title: name }],
+linkTypes: [], actionTypes: [], ended: [{ what: link, id: led_by, then: { how: replaced, by: [acted_for_by] } }] }`,
+no gates and no switches, the hash is `cf08339f9fc9aa7ed5592c5e58ab57f13b1ff0a0fee262ea42ee4e5b8ab411b6`
+(`test/kinds.test.ts`).
+
+**Six dated edits** (`document.ts` `RuleEdit`, replayed by `inforce.ts` through `flowedit.ts`): `setType` (a kind of
+thing: its name, the dataset whose rows are one each, its key, the column people call one by), `setLink` (a relation
+between two kinds, on the columns that match), `setRows` (what one row of a dataset is: a kind, by which column, for
+the ones a condition selects), `setNeeds` (a dependency between columns), `redefine` (what a column means, for the
+datasets it is said for) and `end`. Each says what it did in words (*Added the kind Business unit: one row of
+by_unit, by business_unit*; *Changed the kind Application: its key app_id → app_id and env*). An edit that would
+leave a document the flow can't be read as changes nothing and says nothing, so a change set written for one flow
+passes over another that hasn't the datasets it is about.
+
+**Nothing is deleted** (Q-264). `end` takes a thing out of force from its day and writes that it ended in
+`ontology.ended`: what it was, and what follows it, *replaced by* one, *merged into* one or *split into* two or
+more, each of its own sort and in force. A kind ends once no relation and no rows entry names it and its file still
+says what one row is. An entry of a closed list or column leaves its rule, so a row that carries it stops at the
+gate from then, and the gate says the ontology ended it, with what follows. What a row is, a dependency, and a
+dataset described ahead that still waits for its data end with nothing after them; one that has its data stays, the
+record of what was asked for. Set, declared or described again, a thing is one again and the record that it ended
+goes. A format-5 document holds each ended thing once, and never one that is in force too.
+
+**A meaning is reworded or redefined** (Q-251). The names form on a column's card asks which it is, once what the
+column means or a value's label is edited. *Reworded* is saved as before: at once, for every day, the record keeping
+the old wording. *Redefined* is a dated change with its kind and its reason: one `redefine` for each meaning the
+ontology keeps for the column in the file and in the datasets that pass it on (`redefineEdits`), so a meaning shared
+by several datasets is redefined for all of them, and the form says where it reaches. Its name stays a label and is
+saved at once. The card says since when it has meant what it says, and what it will mean from when where a
+redefinition is still to come. A column an estate describes isn't offered the choice: the estate redefines it, in
+its own change sets, and a flow's own handling of it changes at once with its reason, as ADR 0026 §8 left it.
+
+**The shared ontology has its own change sets** (Q-265). An estate's ontology document carries `changes`, each a
+change set of the six edits above but never a flow's rules, a closed list's entry or a dataset described ahead
+(`ESTATE_OPS`). Reading a flow brings them in before the flow's own, each marked with the estate's name
+(`ChangeSet.estate`), and every flow that imports the estate follows from the change's first day, each taking what
+applies to it. A change set of the estate's and one of the flow's under one name are refused. The estate's hash
+moves with a change set, and with it every importing flow's. On the register the entry says whose it is, and a flow
+tries it on its own recorded days as it tries any change that is coming. Larkspur's estate says one: from Mon 11,
+the Monday of the reorganisation, *Acted for by* is a relation of its own between an organisational unit and a
+person, said on Fri 8 by the security lead.
+
+**On the Ontology view** (`kindsPart`), under the versions of the rules:
+
+- **The map first** (Q-269; `ontologyMap`, `kindsMap`): a box a kind of thing, a line a relation, in the ontology's
+  order. Between the two dates compared, only what differs is marked, by a sign as well as a colour: `+` new, `×`
+  ended, `~` changed, hatched where it is still to come.
+- **Two dates compared** (`datedDiff`): any two days, the first day against the day on screen unless others are
+  picked, as known at the moment the view reads at; a change's first day is offered where it lies ahead of the
+  month. Each line is one thing, before and after, with the change that made it: its kind's mark and its day, a tap
+  from the change. A closed list says the entries that were declared or are no longer in it, not the whole rule
+  twice.
+- **Each kind and relation** behind a bar, open or shut as the reader left it: what it is, since when and by which
+  change, whose it is where an estate says it, and, where a change is recorded for a later day, the day it begins or
+  ends. The owner changes or ends one that is the flow's own, and adds a kind or a relation; the forms name what is
+  still to come as well as what is in force, so a relation may be added between a kind that begins the same day.
+- **What a row is, and a dependency**, on the file's own checks: *Change* and *End* on the line of one the ontology
+  writes, *Say what a row is ›* and *Add a dependency ›* under them, in a flow with gates. Each line says since when.
+- **A closed list's entries** each have *End ›*, and the ones that ended are listed with what follows them.
+- **A dataset described ahead** that still waits is described again or ended from its line (slice 4 left both here).
+
+Every one of these is `editRules`'s: a change set from the day *Edits take effect from* says, with a kind and a
+reason. An edit about a thing still to come changes nothing on the day on screen, so it is checked on its own first
+day, under the rules as known now.
+
+**Mended on the way.** The build's recorder judged a fill's donor under the rules of the donor's own day, and the
+derived run under the rules of the day it fills: the two were one flow only while no rule changed between them. The
+estate's relation begins on Mon 11, the day the tour fills the backups from Sun 10, and the fill was refused (*the
+claim was told under another flow than the run's*). The donor is judged under the rules of the day it fills, as the
+page has always told it. A tick box or a radio in a form was sized as a text field wherever no rule said otherwise.
+
+**What it leaves.**
+
+- **Charts aren't marked or joined.** A redefinition is on the register and on the card; the charts built on the
+  column aren't marked from its day, and a series isn't followed through to what replaced it. Both are slice 6's.
+- **An estate's ontology is changed in its file.** The app shows an estate's change sets, says whose they are and
+  tries them; it writes none, and changes no kind, relation, rows entry or dependency an estate says.
+- **The forms are plain.** A condition is columns and their values, joined by *and*. A dependency read across two
+  datasets keeps its other side as written. What a row is and a dependency are edited on a file, not on a dataset
+  the flow makes.
+- **No cascade.** A kind that a relation or a rows entry names doesn't end until they do; the form says so.
+- **A change still to come isn't taken back.** A later change says otherwise, and both stay on the register.
+- **The gate's word for an ended entry** is tested as words (`endedArrivalSaid`); on screen it was checked by hand,
+  since no demo's story ends an entry.
+- **The map** is a grid in the ontology's order, not laid out by its relations, and shows no rule and no reason.
+- **Agreement** where something ends (Q-277) is slice 8's.
+- **The lanes** name what follows an ended thing by its id.
+
 ## Consequences
 
 - **A flow can stop for a reason it never could:** the data is ahead of the ontology. That is the point of the gate,
@@ -719,6 +814,24 @@ Proposed with slice 4, as built:
   written, marked as an override with that as its reason.
 - **Q-296:** a flow in an older format is brought up by its owner in the app: what one row of a file is may be said
   with a noun, and it is saved as format 5 once nothing it would be asked is left.
+
+Proposed with slice 5, as built:
+
+- **Q-297:** no hash tag gains a version for kinds, relations, meanings or what ended. The rules in force hash the
+  ontology whole, and an estate's ontology is hashed whole with its change sets, so each is in the hash as written.
+- **Q-298:** an estate's change sets hold the ontology's own edits (a kind, a relation, what a row is, a dependency, a
+  meaning, the end of one of them) and nothing a flow decides: no rule, no closed list's entry, no dataset described
+  ahead. They come in before the flow's own, marked with the estate's name.
+- **Q-299:** a thing ends only when nothing in force names it: no cascade. An ended entry leaves its closed list, so
+  its rows stop at the gate from that day, and the gate says it was ended and what follows it.
+- **Q-300:** a redefinition made from a column's card redefines the meaning wherever the ontology says it: every
+  dataset a shared meaning names, and each copy passed on. A reworded meaning stays the file's own.
+- **Q-301:** a dated edit about a thing still to come is taken, checked on its own first day under the rules as known
+  now, since it changes nothing on the day on screen.
+- **Q-302:** a description written ahead ends only while it waits for its data. With its data it stays in the
+  ontology, described from one day and evidenced from another.
+- **Q-303:** the recorder judges a fill's donor under the rules of the day it fills, as the page does. A story's days
+  where a rule changes between a donor's day and the day it fills are recorded so from now on.
 
 ## The questions
 

@@ -109,7 +109,7 @@ describe('a recorded story', () => {
     expect(storyProblems(bad, { principals: ['owner', 'ciso'] })).toEqual([
       'change 1.from: the business day it takes effect from: YYYY-MM-DD',
       'change 1.edits: its edits: a list of one or more',
-      'change 2.when: not a field of a change set (id, from, until, recorded, by, why, edits, kind, note, decided, because)',
+      'change 2.when: not a field of a change set (id, from, until, recorded, by, why, edits, kind, note, decided, because, estate)',
       'change 2.id: change set band is listed twice',
       'change 2.edits[0].mode: hold, warn, off',
       'change 1: it was recorded at a UTC time',

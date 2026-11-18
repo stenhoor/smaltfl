@@ -95,8 +95,11 @@ describe('a read flow’s own document, with the changes made to it', () => {
   it('holds the change sets about a file or step it has or reads, and no other', async () => {
     const [feeds, hr, inventory] = await Promise.all([own('feeds'), own('hr'), own('inventory')]);
     const changes = [change('c1', [band]), change('c2', [rename]), change('c3', [check])];
-    expect(withOwnChanges(feeds, changes).changes!.map((c) => c.id)).toEqual(['c1', 'c2']);
-    expect(withOwnChanges(inventory, changes).changes!.map((c) => c.id)).toEqual(['c2']);
+    // Beside the estate's own change set, which every flow that imports the estate has (ADR 0027 §3).
+    const made = (d: FlowDocument) => (d.changes ?? []).filter((c) => c.estate === undefined).map((c) => c.id);
+    expect(feeds.changes!.map((c) => [c.id, c.estate])).toEqual([['acting-leader', 'Larkspur estate']]);
+    expect(made(withOwnChanges(feeds, changes))).toEqual(['c1', 'c2']);
+    expect(made(withOwnChanges(inventory, changes))).toEqual(['c2']);
     // Nothing is about HR: its document is the one given.
     expect(withOwnChanges(hr, changes)).toBe(hr);
     // One it holds already isn't added twice.
@@ -110,7 +113,7 @@ describe('a read flow’s own document, with the changes made to it', () => {
     const { doc: next, owns: after } = await attributeChanges(doc, owns, [change('c1', [band])]);
     const moved = next.flows!.filter((f, k) => f.hash !== doc.flows![k]!.hash).map((f) => f.id);
     expect(moved.sort()).toEqual(['applications', 'feeds']);
-    expect(next.changes!.map((c) => c.id)).toEqual(['c1']);
+    expect(next.changes!.filter((c) => c.estate === undefined).map((c) => c.id)).toEqual(['c1']);
     // Each part is named by the hash its own document has now.
     for (let k = 0; k < after.length; k++) expect(next.flows![k]!.hash, next.flows![k]!.id).toBe(await flowHash(after[k]!));
     // The band is in force from its day in the flow's own document as in the reading one.
@@ -149,7 +152,7 @@ describe('a name edited in the reading flow, made again where it belongs', () =>
     const only = ownWithEdits(inventory, [op], [c], (d) => d === 'cmdb_apps');
     expect(propertyOf(only.ontology, 'cmdb_apps', 'tier')?.override).toEqual({ reason: 'The register’s tiers' });
     expect(propertyOf(only.ontology, 'cmdb_apps_checked', 'tier')?.override).toBeUndefined();
-    expect(only.changes!.map((x) => x.id)).toEqual(['c2']);
+    expect(only.changes!.filter((x) => x.estate === undefined).map((x) => x.id)).toEqual(['c2']);
   });
 });
 

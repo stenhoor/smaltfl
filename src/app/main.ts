@@ -15,7 +15,7 @@ const calendarNow = (): Calendar => history?.calendar ?? US_NYC_1;
 import { canonicalJSON } from '../core/canonical.js';
 import type { ChangeSet, ContractDef, FlowDocument, GroupDef, NotebookOutline, OutlineCell, ProfileDef, RuleEdit, StepDef } from '../core/document.js';
 import { applyEdit, changesOn, inForce, resolve as resolveRules, ruleParts, rulesHash, rulesInForce, versionRules, withRuleParts, type RuleParts } from '../core/inforce.js';
-import { diffSaid, ruleVersions, rulesDiff, versionKey, versionOn, type RuleVersion } from '../core/ruleversions.js';
+import { datedDiff, diffSaid, ontologyMap, ruleVersions, rulesDiff, versionKey, versionOn, type RuleVersion } from '../core/ruleversions.js';
 import { comingOn, dayAfter, dayBefore, defaultKind, KIND_NAMES, KIND_NOT_GIVEN, KINDS_ASKED, LANE_NAMES, livesOf, registerOf, sinceOf, type Entry as RegisterEntry, type Life } from '../core/register.js';
 import { covers as eventCovers, eventDay, EVENT_KINDS, EVENT_KIND_NAMES, eventTense, EXCUSABLE, EXCUSABLE_SAID, excusesFor, latestEvents, type ClaimExcuse, type EventKind, type Excusable, type Excuse, type FlowEvent } from '../core/events.js';
 import type { ChangeKind, ChangeNote } from '../core/document.js';
@@ -57,14 +57,14 @@ import type { EditorSchema, SchemaColumn } from 'smaltkit/editor';
 import type { GridRow } from 'smaltkit/grid';
 import { derivedAbout, derivedFails, derivedKeys, derivedWhy, donorsOf, filledRows, pinDonor, repairOf, stageRepair, type Listed, type Remedies } from './fills.js';
 import { followsCause as followsFrom, ACT_VERB, CELL_KINDS, CELL_NAMES, HEALTH_HEAD, STRIP_KEY, approx, axisShare, recentSpan, cardWords, changeLabel, compact, countLabel, countRange, fallSteps, gateHead, overLabel, gateLabels, gateOf, partLabel, ruleOrder, ruleUsual, shortWho, splitSentence, splitSteps, saidOf, storyOf, type Cell, type DayStep, type Gate, type HourValues, type Story, type Told, type Upstream } from '../core/story.js';
-import { kindMark, registerLanes, type KindMark, type LaneGroup, type LaneMark, type LaneRow } from './viz.js';
+import { kindMark, kindsMap, registerLanes, type KindMark, type LaneGroup, type LaneMark, type LaneRow } from './viz.js';
 import { dayBars, matchBars, scoreSpark, scoreTrend, type BarDay, type ScorePoint, rowFlow, differenceMeter, fileTwins, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, chain, composition, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
 import { sha256Hex } from '../core/hash.js';
 import { LEVEL_NAME, leaderSaid, postureTree, scoreSaid, trendSaid, unitCounts, type PostureNode } from '../core/posture.js';
-import { counted, glossOf, meaningBeyond, meaningOf, nounOf as ontologyNoun, propertyOf, readAsOf, saysMore, type AwaitedDataset, type Edit, type Noun, type PropertyType } from '../core/ontology.js';
+import { counted, glossOf, meaningBeyond, meaningOf, nounOf as ontologyNoun, propertyOf, readAsOf, saysMore, type AwaitedDataset, type Condition, type Edit, type Ended, type EndedKind, type LinkType, type NeedsDef, type Noun, type ObjectType, type PropertyType, type RowsDef } from '../core/ontology.js';
 import { columnChangeSaid, columnsHold, csvColumn, csvHeader, readAsIn, type ColumnMap } from '../core/columns.js';
 import { columnUses, joinImpactSaid, joinMatch, usesSaid, type ColumnUses, type JoinUse, type ParseSql } from '../core/uses.js';
-import { estateSaid, handlingSaid, ontologyPage, originSaid, typesShown, type ColumnCard, type FileSection, type Handling, type OntologyPage, type Rule } from '../core/ontologypage.js';
+import { endedArrivalSaid, endedEntry, endedInWords, entryCalled, estateSaid, handlingSaid, ontologyPage, originSaid, redefinable, redefinedWhere, redefineEdits, typesShown, type ColumnCard, type FileSection, type Handling, type OntologyPage, type Rule } from '../core/ontologypage.js';
 import { MAX_CODES, proposalsOf, shareRange, valueCandidates, watchedFile, type Proposal } from '../core/proposals.js';
 import { applyBand, asShipped, keptOf as keptFlow, nameColumn, nameColumnThrough, restoreKept, setAside as setColumnAside, setRule, type FlowEdit, type NameOp, type RuleInput } from '../core/flowedit.js';
 import { awaitedIssues, awaitedOf, isAside, undescribed, undescribedSaid } from '../core/described.js';
@@ -3350,11 +3350,16 @@ function columnFacts(c: FileRead['columns'][number], rows: number): string {
 
 /** The datasets described ahead of their data (ADR 0027 §5, Q-255), as known now, each with the change that described
  * it (none: the flow shipped with it) and whether a source of its name is in the flow. */
-function awaitedNow(): { dataset: AwaitedDataset; change: ChangeSet | null; bound: boolean }[] {
-  const out = new Map<string, { dataset: AwaitedDataset; change: ChangeSet | null }>();
-  for (const a of awaitedOf(ruleBase.ontology)) out.set(a.id.toLowerCase(), { dataset: a, change: null });
+function awaitedNow(): { dataset: AwaitedDataset; change: ChangeSet | null; bound: boolean; ended: ChangeSet | null }[] {
+  const out = new Map<string, { dataset: AwaitedDataset; change: ChangeSet | null; ended: ChangeSet | null }>();
+  for (const a of awaitedOf(ruleBase.ontology)) out.set(a.id.toLowerCase(), { dataset: a, change: null, ended: null });
   for (const c of [...ruleChanges].sort((x, y) => Date.parse(x.recorded) - Date.parse(y.recorded))) {
-    for (const e of c.edits) if (e.op === 'describeAhead') out.set(e.dataset.id.toLowerCase(), { dataset: e.dataset, change: c });
+    for (const e of c.edits) {
+      if (e.op === 'describeAhead') out.set(e.dataset.id.toLowerCase(), { dataset: e.dataset, change: c, ended: null });
+      // A description that ended (ADR 0027 §2): kept, with the change that ended it; described again, it is one again.
+      const had = e.op === 'end' && e.ended.what === 'awaited' ? out.get(e.ended.id.toLowerCase()) : undefined;
+      if (had) had.ended = c;
+    }
   }
   const have = new Set([...state.doc.sources, ...state.doc.steps].map((x) => x.id.toLowerCase()));
   return [...out.values()].map((x) => ({ ...x, bound: have.has(x.dataset.id.toLowerCase()) }));
@@ -3387,7 +3392,7 @@ function filePicker(label: string, cls: string, then: (file: PickedFile) => void
 function openSource(): void {
   const owner = isOwner();
   const err = h('p', { class: 'of-err src-err', role: 'alert', hidden: true });
-  const waiting = awaitedNow().filter((a) => !a.bound);
+  const waiting = awaitedNow().filter((a) => !a.bound && !a.ended);
   const added = sourcesAdded(state.doc);
   const doors = owner
     ? h('div', { class: 'src-doors' },
@@ -3599,38 +3604,40 @@ function sourceForm(file: PickedFile, awaited: AwaitedDataset | null): void {
  * one row is, its key and its columns, each with what it holds. A dated change of the ontology, with its reason: in
  * force from its day, and waiting for data until a file is bound to it.
  */
-function describeForm(): void {
+function describeForm(had: AwaitedDataset | null = null): void {
   const uid = `df-${++sourceForms}`;
   const field = (cls: string, label: string, more: Record<string, string> = {}) => {
     const input = h('input', { type: 'text', id: `${uid}-${cls}`, class: cls, autocomplete: 'off', ...more }) as HTMLInputElement;
     return { input, row: h('div', { class: 'of-field' }, h('label', { for: input.id }, label), input) };
   };
-  const called = field('df-called', 'What people call it', { maxlength: '60', placeholder: 'SBOM inventory' });
-  const name = field('df-name', 'Its name in the flow', { maxlength: '40', autocapitalize: 'none', spellcheck: 'false', placeholder: 'sbom_inventory' });
-  const about = field('df-about', 'What it is', { maxlength: '160', placeholder: 'In a line (optional)' });
-  const one = field('df-one', 'One row is one', { maxlength: '40', placeholder: 'component list' });
-  const many = field('df-many', 'Many are', { maxlength: '40', placeholder: 'component lists' });
+  // Described again (ADR 0027 §3): the form opens on what it has. Its name in the flow is what it is known by, and stays.
+  const called = field('df-called', 'What people call it', { maxlength: '60', placeholder: 'SBOM inventory', value: had?.name ?? '' });
+  const name = field('df-name', 'Its name in the flow', { maxlength: '40', autocapitalize: 'none', spellcheck: 'false', placeholder: 'sbom_inventory', value: had?.id ?? '', ...(had ? { readonly: 'readonly' } : {}) });
+  const about = field('df-about', 'What it is', { maxlength: '160', placeholder: 'In a line (optional)', value: had?.description ?? '' });
+  const one = field('df-one', 'One row is one', { maxlength: '40', placeholder: 'component list', value: had?.row.one ?? '' });
+  const many = field('df-many', 'Many are', { maxlength: '40', placeholder: 'component lists', value: had?.row.many ?? '' });
   // Its name follows what it is called until someone types one.
-  let named = false;
+  let named = had !== null;
   name.input.addEventListener('input', () => (named = true));
   called.input.addEventListener('input', () => {
     if (!named) name.input.value = called.input.value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').replace(/^(\d)/, 'd_$1').slice(0, 40);
   });
   const rows = h('div', { class: 'df-cols' });
-  const row = () => {
-    const column = h('input', { type: 'text', class: 'df-col-name', maxlength: '60', autocapitalize: 'none', spellcheck: 'false', 'aria-label': 'The column', placeholder: 'column' }) as HTMLInputElement;
-    const holds = h('input', { type: 'text', class: 'df-col-desc', maxlength: '200', 'aria-label': 'What it holds', placeholder: 'What it holds' }) as HTMLInputElement;
-    const key = h('input', { type: 'checkbox', class: 'df-col-key' }) as HTMLInputElement;
+  const row = (c?: { column: string; description: string; key: boolean }) => {
+    const column = h('input', { type: 'text', class: 'df-col-name', maxlength: '60', autocapitalize: 'none', spellcheck: 'false', 'aria-label': 'The column', placeholder: 'column', value: c?.column ?? '' }) as HTMLInputElement;
+    const holds = h('input', { type: 'text', class: 'df-col-desc', maxlength: '200', 'aria-label': 'What it holds', placeholder: 'What it holds', value: c?.description ?? '' }) as HTMLInputElement;
+    const key = h('input', { type: 'checkbox', class: 'df-col-key', ...(c?.key ? { checked: 'checked' } : {}) }) as HTMLInputElement;
     const el: HTMLElement = h('div', { class: 'df-col' }, column, holds, h('label', { class: 'sf-mark' }, key, ' key'),
       h('button', { type: 'button', class: 'linkish df-col-off', 'aria-label': 'Take this column out', onclick: () => {
         if (rows.querySelectorAll('.df-col').length > 1) el.remove();
       } }, 'Remove'));
     return el;
   };
-  rows.append(row(), row());
-  const why = whyFields('described');
+  if (had) rows.append(...had.columns.map((c) => row({ column: c.column, description: c.description, key: had.key.some((k) => k.toLowerCase() === c.column.toLowerCase()) })));
+  else rows.append(row(), row());
+  const why = whyFields(had ? 'business' : 'described');
   const err = h('p', { class: 'of-err df-err', role: 'alert', hidden: true });
-  const go = h('button', { type: 'submit', class: 'btn primary df-go' }, 'Describe it') as HTMLButtonElement;
+  const go = h('button', { type: 'submit', class: 'btn primary df-go' }, had ? 'Describe it again' : 'Describe it') as HTMLButtonElement;
   const form = h('form', { class: 'of-form df-form', 'aria-label': 'Describe a dataset ahead of its data', novalidate: true },
     called.row, name.row, about.row,
     h('div', { class: 'sf-row' }, one.row, many.row),
@@ -3666,7 +3673,7 @@ function describeForm(): void {
     if (issue) return fail(`${DESCRIBE_FIELD[issue[0].split('[')[0]!.replace(/^\./, '')] ?? 'It'} needs ${issue[1]}.`);
     const taken = [...state.doc.sources, ...state.doc.steps].some((x) => x.id.toLowerCase() === dataset.id.toLowerCase());
     if (taken) return fail(`${dataset.id} is a dataset of the flow already: it has its data.`);
-    if (awaitedNow().some((a) => a.dataset.id.toLowerCase() === dataset.id.toLowerCase())) return fail(`${dataset.id} is described ahead already: it waits for data.`);
+    if (!had && awaitedNow().some((a) => !a.ended && a.dataset.id.toLowerCase() === dataset.id.toLowerCase())) return fail(`${dataset.id} is described ahead already: it waits for data.`);
     if (state.doc.smaltfl !== 5) return fail('Describing ahead of the data is a format-5 flow’s: this one isn’t asked to put the ontology first.');
     const given = why.read();
     if (typeof given === 'string') {
@@ -3676,11 +3683,11 @@ function describeForm(): void {
     go.disabled = true;
     err.hidden = true;
     void editRules({ op: 'describeAhead', dataset }, { given }).then((done) => {
-      if (!done) return fail('It couldn’t be written: the rules didn’t change.');
+      if (!done) return fail(had ? 'Nothing of its description changes.' : 'It couldn’t be written: the rules didn’t change.');
       document.querySelector('.vf-detail-wrap')?.remove();
     });
   });
-  openDetail('Describe a dataset', 'ok', [
+  openDetail(had ? `Describe ${had.name} again` : 'Describe a dataset', 'ok', [
     h('p', { class: 'vf-one' }, 'Say what the business needs before any file exists. It waits for data until a file is bound to it: a file’s columns are then read as these, whatever the file calls them.'),
     form,
   ]);
@@ -3698,24 +3705,567 @@ function awaitedPart(): HTMLElement | null {
   if (!all.length) return null;
   const owner = isOwner();
   const day = (viewedDay() ?? shownDay())?.slice(0, 10) ?? null;
+  const waits = all.filter((a) => !a.bound && !(a.ended && (day === null || a.ended.from <= day)));
   return h('section', { class: 'aw', 'aria-label': 'Described ahead of their data' },
-    h('p', { class: 'aw-head' }, h('b', {}, 'Described ahead of their data'), ` · ${all.filter((a) => !a.bound).length ? `${plural(all.filter((a) => !a.bound).length, 'dataset')} waiting for data` : 'each has its data by now'}`),
+    h('p', { class: 'aw-head' }, h('b', {}, 'Described ahead of their data'), ` · ${waits.length ? `${plural(waits.length, 'dataset')} waiting for data` : all.some((a) => a.bound) ? 'each has its data by now' : 'none waits for data'}${all.length - waits.length - all.filter((a) => a.bound).length > 0 ? ` · ${all.length - waits.length - all.filter((a) => a.bound).length} ended` : ''}`),
     ...all.map((a) => {
       const d = a.dataset;
       const coming = !!a.change && day !== null && a.change.from > day;
+      // A description that ended (§2): kept, with the day it ended from; nothing binds to it. One whose end is
+      // recorded for a later day still waits, and says the day.
+      const over = !!a.ended && (day === null || a.ended.from <= day);
+      if (a.ended && over && !a.bound) return h('article', { class: 'aw-item ended', 'data-awaited': d.id },
+        h('p', { class: 'aw-name' }, h('b', {}, d.name), ' ', h('code', {}, d.id), h('span', { class: 'aw-state ended' }, 'ended')),
+        h('p', { class: 'aw-row' }, `It was one row ${withArticle(d.row.one)}, by ${listed(d.key)}, and never had its data. `,
+          h('button', { type: 'button', class: 'linkish aw-since', onclick: () => openChange(a.ended!.id) }, `Ended from ${dayLabel(a.ended.from)} ›`)));
       return h('article', { class: `aw-item${a.bound ? ' bound' : ' waiting'}${coming ? ' coming' : ''}`, 'data-awaited': d.id },
         h('p', { class: 'aw-name' }, h('b', {}, d.name), ' ', h('code', {}, d.id), h('span', { class: `aw-state ${a.bound ? 'bound' : 'waiting'}` }, a.bound ? 'has its data' : 'waiting for data')),
         d.description ? h('p', { class: 'aw-desc' }, d.description) : null,
         h('p', { class: 'aw-row' }, `One row is ${withArticle(d.row.one)}, by ${listed(d.key)}.`,
           a.change ? ' ' : ' Shipped with the flow.',
-          a.change ? h('button', { type: 'button', class: 'linkish aw-since', onclick: () => openChange(a.change!.id) }, `${coming ? 'Coming' : 'Described'} from ${dayLabel(a.change.from)} ›`) : null),
+          a.change ? h('button', { type: 'button', class: 'linkish aw-since', onclick: () => openChange(a.change!.id) }, `${coming ? 'Coming' : 'Described'} from ${dayLabel(a.change.from)} ›`) : null,
+          a.ended && !a.bound ? h('button', { type: 'button', class: 'linkish aw-ends', onclick: () => openChange(a.ended!.id) }, ` Ends from ${dayLabel(a.ended.from)} ›`) : null),
         h('details', { class: 'aw-cols' }, h('summary', {}, `Its ${plural(d.columns.length, 'column')}`),
           h('dl', { class: 'aw-dl' }, ...d.columns.flatMap((c) => [h('dt', {}, h('code', {}, c.column), d.key.some((k) => k.toLowerCase() === c.column.toLowerCase()) ? h('span', { class: 'sf-iskey' }, 'key') : null), h('dd', {}, c.description)]))),
         a.bound
           ? h('p', { class: 'aw-bound' }, 'A source of its name is in the flow. ', h('button', { type: 'button', class: 'linkish aw-open', onclick: () => openTab(d.id, 'data') }, 'Open it ›'))
-          : owner ? h('p', { class: 'aw-bind' }, 'No file is bound to it yet: every day says so, and nothing reads it. ', h('button', { type: 'button', class: 'btn small aw-go', onclick: openSource }, 'Bind a file ›'))
+          : owner ? h('p', { class: 'aw-bind' }, 'No file is bound to it yet: every day says so, and nothing reads it. ', h('button', { type: 'button', class: 'btn small aw-go', onclick: openSource }, 'Bind a file ›'),
+              // Described again, or ended, while it waits (§3, §2): each a dated change with its reason.
+              state.doc.smaltfl === 5 ? h('span', { class: 'aw-acts' },
+                h('button', { type: 'button', class: 'linkish aw-change', onclick: () => describeForm(d) }, 'Change ›'),
+                a.ended ? null : h('button', { type: 'button', class: 'linkish aw-end', onclick: () => endForm('awaited', d.id, `the description of ${d.name}`) }, 'End ›')) : null)
             : h('p', { class: 'aw-bind' }, 'No file is bound to it yet. Binding one is the owner’s.'));
     }));
+}
+
+// ------------------------------------------------------------------ kinds, relations and meanings over time (ADR 0027 §3)
+
+// The ontology's kinds of thing and its relations, on the Ontology view's head: what is in force on the day on screen,
+// each since when and by which change; for the owner, the forms that add, change and end one, each a dated change with
+// a kind and a reason; and two dates compared, in words and as a map (§9, Q-269).
+
+/** Since when a thing of the ontology has stood, by its subject on the register: a link to the change that made it so. */
+function sinceOfKey(key: string): HTMLElement | null {
+  if (!ruleChanges.length) return null;
+  const reg = registerNow();
+  const e = sinceOf(reg.entries, key, resolvedFor.day ?? reg.today);
+  return e ? h('button', { type: 'button', class: 'linkish kd-since', 'data-change': e.change.id, onclick: () => openChange(e.change.id) }, `since ${dayNear(e.change.from)} ›`) : null;
+}
+
+/** The day the Ontology view reads the rules on: the day on screen, or the register's today. */
+const ontologyDay = (): string => (resolvedFor.day ?? registerNow().today).slice(0, 10);
+/**
+ * The rules in force on a day as known at a moment, kept while the flow on screen, its rules and its change sets
+ * stand: the Ontology view reads several days at each draw (two dates compared, what is still to come), and making a
+ * day's rules replays every change set.
+ */
+const forceKept = new Map<string, FlowDocument>();
+const diffKept = new Map<string, ReturnType<typeof datedDiff>>();
+let forceKeptFor: { doc: FlowDocument; base: typeof ruleBase; changes: typeof ruleChanges } | null = null;
+function keptStill(): void {
+  if (forceKeptFor && forceKeptFor.doc === state.doc && forceKeptFor.base === ruleBase && forceKeptFor.changes === ruleChanges) return;
+  forceKept.clear();
+  diffKept.clear();
+  forceKeptFor = { doc: state.doc, base: ruleBase, changes: ruleChanges };
+}
+function inForceKept(day: string, asOf: string | null): FlowDocument {
+  keptStill();
+  const key = `${day}|${asOf ?? ''}`;
+  let doc = forceKept.get(key);
+  if (!doc) forceKept.set(key, (doc = inForce(baseDoc(), day, asOf)));
+  return doc;
+}
+function datedDiffKept(a: string, b: string, asOf: string | null): ReturnType<typeof datedDiff> {
+  keptStill();
+  const key = `${a}|${b}|${asOf ?? ''}`;
+  let diff = diffKept.get(key);
+  if (!diff) diffKept.set(key, (diff = datedDiff(baseDoc(), a, b, asOf)));
+  return diff;
+}
+
+/**
+ * The kinds and relations still to come (Q-259): those a recorded change brings from a day after the day on screen,
+ * as known at the moment the view reads at, each as it is on the first day it is in force. Read on the first day of
+ * every later change, so a thing that begins and ends before the last of them is listed too.
+ */
+let comingKept: { key: string; kinds: ObjectType[]; links: LinkType[] } | null = null;
+function ontologyComing(): { kinds: ObjectType[]; links: LinkType[] } {
+  const day = ontologyDay();
+  const key = `${day}|${keptEpoch}|${ruleChanges.map((c) => c.id).join(',')}|${monthView.at ?? ''}`;
+  if (comingKept?.key === key) return comingKept;
+  const on = state.doc.ontology;
+  const kinds: ObjectType[] = [];
+  const links: LinkType[] = [];
+  for (const from of [...new Set(ruleChanges.map((c) => c.from))].filter((d) => d > day).sort()) {
+    const o = inForceKept(from, monthView.at).ontology;
+    for (const t of o?.objectTypes ?? []) if (!on?.objectTypes.some((x) => x.id === t.id) && !kinds.some((x) => x.id === t.id)) kinds.push(t);
+    for (const l of o?.linkTypes ?? []) if (!on?.linkTypes.some((x) => x.id === l.id) && !links.some((x) => x.id === l.id)) links.push(l);
+  }
+  comingKept = { key, kinds, links };
+  return comingKept;
+}
+/** The kinds and the relations a form may name: those in force on the day on screen, then those still to come. */
+const kindsKnown = (): ObjectType[] => [...(state.doc.ontology?.objectTypes ?? []), ...ontologyComing().kinds];
+const linksKnown = (): LinkType[] => [...(state.doc.ontology?.linkTypes ?? []), ...ontologyComing().links];
+/** A day named beside the day on screen: by its weekday and date within the same month, with its month beyond it. */
+const dayNear = (day: string): string => (day.slice(0, 7) === ontologyDay().slice(0, 7) ? dayShort(day) : dayLabel(day));
+/**
+ * The change still to come for a thing of the ontology, by its subject on the register: the first, after the day on
+ * screen, that sets it (or, with `ending`, that ends it). A link to the change, said by its first day.
+ */
+function comingOfKey(key: string, ending = false): HTMLElement | null {
+  if (!ruleChanges.length) return null;
+  const day = ontologyDay();
+  const k = key.toLowerCase();
+  const e = registerNow().entries
+    .filter((x) => x.change.from > day && x.edits.some((y) => y.subject.key === k && y.said !== null && (y.edit.op === 'end') === ending))
+    .sort((a, b) => a.change.from.localeCompare(b.change.from) || Date.parse(a.change.recorded) - Date.parse(b.change.recorded))[0];
+  return e ? h('button', { type: 'button', class: `linkish ${ending ? 'kd-ends' : 'kd-from'}`, 'data-change': e.change.id, onclick: () => openChange(e.change.id) }, `${ending ? 'ends' : 'from'} ${dayNear(e.change.from)} ›`) : null;
+}
+
+/** Whether an estate's ontology says what a dataset's rows are, or a dependency: the estate's to change. */
+const estateRows = (dataset: string): string | null => estates.find((e) => (e.rows ?? []).some((r) => r.dataset.toLowerCase() === dataset.toLowerCase()))?.name ?? null;
+const estateNeeds = (id: string): string | null => estates.find((e) => (e.needs ?? []).some((n) => n.id === id))?.name ?? null;
+/** Whether an estate's ontology the flow imports says a kind or a relation: the estate's to change, in its own file. */
+const estateKind = (id: string): string | null => estates.find((e) => (e.objectTypes ?? []).some((t) => t.id === id))?.name ?? null;
+const estateLink = (id: string): string | null => estates.find((e) => (e.linkTypes ?? []).some((l) => l.id === id) || (e.changes ?? []).some((c) => c.edits.some((x) => x.op === 'setLink' && x.link.id === id)))?.name ?? null;
+
+/** The two days the Ontology view compares; none picked: the first day against the day on screen. */
+const kindsView: { a: string | null; b: string | null } = { a: null, b: null };
+
+/** An id for a new kind or relation from what it is called: lower case, letters, digits and underscores. */
+const idFrom = (name: string, taken: readonly string[]): string => {
+  const base = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'thing';
+  let id = /^[a-z]/.test(base) ? base : `k_${base}`;
+  for (let n = 2; taken.includes(id); n++) id = `${base}_${n}`;
+  return id;
+};
+
+/**
+ * The kinds of thing and the relations (ADR 0027 §3, Q-250): those in force on the day on screen, each with what it
+ * is, since when, and whose it is; those that ended, with what follows them; and two dates compared.
+ */
+function kindsPart(): HTMLElement | null {
+  const o = state.doc.ontology;
+  const kinds = (o?.objectTypes ?? []).filter((t) => visible(t.dataset));
+  const shown = new Set(kinds.map((t) => t.id));
+  const links = (o?.linkTypes ?? []).filter((l) => shown.has(l.from) && shown.has(l.to));
+  const ended = (o?.ended ?? []).filter((e) => e.what === 'type' || e.what === 'link');
+  const may = isOwner() && state.doc.smaltfl === 5;
+  // The days two dates are picked from: the days of the month, and the first day of each change, which may lie ahead.
+  const days = [...new Set([...loads.list.map((l) => l.day.slice(0, 10)), ...ruleChanges.map((c) => c.from)])].sort();
+  // What a recorded change brings from a later day (Q-259: coming), and what one ends.
+  const ahead = ontologyComing();
+  const comingKinds = ahead.kinds.filter((t) => visible(t.dataset));
+  const known = new Set([...shown, ...comingKinds.map((t) => t.id)]);
+  const comingLinks = ahead.links.filter((l) => known.has(l.from) && known.has(l.to));
+  if (!kinds.length && !links.length && !ended.length && !comingKinds.length && !(may && !!state.doc.notebooks)) return null;
+  const typeName = (id: string) => kindsKnown().find((t) => t.id === id)?.name ?? id;
+  const whose = (name: string | null) => (name ? h('span', { class: 'kd-whose' }, `${name}’s`) : null);
+  const acts = (what: 'type' | 'link', id: string, name: string, mine: boolean) => (may && mine
+    ? h('span', { class: 'kd-acts' },
+        h('button', { type: 'button', class: 'linkish kd-change', 'aria-label': `Change ${name}`, onclick: () => (what === 'type' ? kindForm(kindsKnown().find((t) => t.id === id)!) : linkForm(linksKnown().find((l) => l.id === id)!)) }, 'Change ›'),
+        h('button', { type: 'button', class: 'linkish kd-end', 'aria-label': `End ${name}`, onclick: () => endForm(what, id, name) }, 'End ›'))
+    : null);
+  // A thing in force says since when and, where a recorded change ends it later, from which day; one still to come
+  // says the day it begins.
+  const when = (key: string, coming: boolean, estate: string | null) => h('span', { class: 'kd-when' },
+    coming ? (comingOfKey(key) ?? 'coming') : (sinceOfKey(key) ?? 'as shipped'), comingOfKey(key, true), whose(estate));
+  const kindRow = (t: ObjectType, coming: boolean) => h('li', { class: `kd-item kd-kind${coming ? ' kd-coming' : ''}`, 'data-kind': t.id },
+    h('span', { class: 'kd-what' }, h('b', {}, t.name), ` · one row of ${t.dataset}, by ${listed(t.key)}`),
+    when(`type:${t.id}`, coming, estateKind(t.id)),
+    acts('type', t.id, t.name, !estateKind(t.id)));
+  const linkRow = (l: LinkType, coming: boolean) => h('li', { class: `kd-item kd-link${coming ? ' kd-coming' : ''}`, 'data-link': l.id },
+    h('span', { class: 'kd-what' }, h('b', {}, l.name), ` · ${linkWords(l)}`),
+    when(`link:${l.id}`, coming, estateLink(l.id)),
+    acts('link', l.id, l.name, !estateLink(l.id)));
+  const kindRows = [...kinds.map((t) => kindRow(t, false)), ...comingKinds.map((t) => kindRow(t, true))];
+  const linkRows = [...links.map((l) => linkRow(l, false)), ...comingLinks.map((l) => linkRow(l, true))];
+  const comingCount = comingKinds.length + comingLinks.length;
+  const endedRows = ended.map((e) => h('li', { class: 'kd-item kd-ended', 'data-ended': `${e.what}:${e.id}` },
+    h('span', { class: 'kd-what' }, h('b', {}, endedCalled(e.what, e.id)), ` · ${e.what === 'type' ? 'a kind of thing' : 'a relation'}, ended${e.then ? `: ${e.then.how === 'replaced' ? 'replaced by' : e.then.how === 'merged' ? 'merged into' : 'split into'} ${listed(e.then.by.map((x) => (e.what === 'type' ? typeName(x) : (o?.linkTypes.find((l) => l.id === x)?.name ?? x))))}` : ''}`),
+    h('span', { class: 'kd-when' }, sinceOfKey(`${e.what}:${e.id}`) ?? '')));
+  const on = resolvedFor.day ? ` on ${dayLabel(resolvedFor.day)}` : '';
+  const rows = kindRows.length + linkRows.length + ended.length;
+  // Whether any of them is the flow's own to change or end: an estate's are the estate's, in its own change sets.
+  const own = [...kinds, ...comingKinds].some((t) => !estateKind(t.id)) || [...links, ...comingLinks].some((l) => !estateLink(l.id));
+  // The picture first (ADR 0012): the map, with what differs between two dates; then each thing by name behind a bar,
+  // open or shut as the reader left it.
+  const all = rows ? h('details', { class: 'fold kd-all', ...(kindsOpen() ? { open: 'open' } : {}) },
+    h('summary', {}, `Each of them, since when${may && own ? ', and the way to change or end one' : ''}`),
+    h('ul', { class: 'kd-list' }, ...kindRows, ...linkRows, ...endedRows)) as HTMLDetailsElement : null;
+  all?.addEventListener('toggle', () => {
+    try {
+      localStorage.setItem(KINDS_KEY, all.open ? '1' : '0');
+    } catch {
+      // No storage: the bar opens shut next time.
+    }
+  });
+  return h('section', { class: 'kd', 'aria-label': 'Kinds and relations' },
+    h('p', { class: 'kd-head' }, h('b', {}, 'Kinds and relations'), ` · ${plural(kinds.length, 'kind')} of thing, ${plural(links.length, 'relation')}${on}${comingCount ? ` · ${comingCount} still to come` : ''}`),
+    rows ? datesCompared(days) : h('p', { class: 'foot' }, 'The ontology names no kind of thing yet: a file’s rows are said by its noun alone.'),
+    all,
+    may ? h('p', { class: 'kd-add' },
+      h('button', { type: 'button', class: 'btn small kd-add-kind', onclick: () => kindForm(null) }, 'Add a kind ›'),
+      known.size >= 1 ? h('button', { type: 'button', class: 'btn small kd-add-link', onclick: () => linkForm(null) }, 'Add a relation ›') : null) : null);
+}
+/**
+ * What a kind or a relation that ended was called: the ontology on screen has it no longer, so its name is read from
+ * the flow as shipped, or from the last change that set it.
+ */
+function endedCalled(what: EndedKind, id: string): string {
+  const shipped = what === 'type' ? ruleBase.ontology?.objectTypes.find((t) => t.id === id)?.name : ruleBase.ontology?.linkTypes.find((l) => l.id === id)?.name;
+  let name = shipped;
+  for (const c of [...ruleChanges].sort((x, y) => Date.parse(x.recorded) - Date.parse(y.recorded))) {
+    for (const e of c.edits) {
+      if (what === 'type' && e.op === 'setType' && e.type.id === id) name = e.type.name;
+      if (what === 'link' && e.op === 'setLink' && e.link.id === id) name = e.link.name;
+    }
+  }
+  return name ?? id;
+}
+/** Whether the list of kinds and relations is open, as the reader left it in this browser. */
+const KINDS_KEY = 'smaltfl-kinds-open';
+function kindsOpen(): boolean {
+  try {
+    return localStorage.getItem(KINDS_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+/** A relation in words, its kinds named as the ontology names them, on screen or still to come. */
+const linkWords = (l: { from: string; to: string; on: readonly (readonly [string, string])[] }): string => {
+  const name = (id: string) => kindsKnown().find((t) => t.id === id)?.name ?? id;
+  return `${name(l.from)} to ${name(l.to)}, on ${l.on.map(([a, b]) => (a.toLowerCase() === b.toLowerCase() ? a : `${a} = ${b}`)).join(' and ')}`;
+};
+
+/**
+ * Two dates compared (ADR 0027 §9, Q-269): what the ontology was on one day against another, as known at the moment
+ * the view reads at. In words, each line one thing, before and after; and as a map of the kinds and relations, only
+ * what differs coloured, what is still to come hatched.
+ */
+function datesCompared(days: readonly string[]): HTMLElement {
+  const screen = resolvedFor.day?.slice(0, 10) ?? null;
+  // With no change recorded, or one day alone, there is nothing to compare: the map of the ontology as it stands.
+  const comparing = days.length > 1 && ruleChanges.length > 0;
+  const b = !comparing ? (screen ?? days.at(-1) ?? registerNow().today) : kindsView.b && days.includes(kindsView.b) ? kindsView.b : screen && days.includes(screen) ? screen : days.at(-1)!;
+  const a = !comparing ? b : kindsView.a && days.includes(kindsView.a) ? kindsView.a : days[0]!;
+  const asOf = monthView.at;
+  const docA = inForceKept(a, asOf);
+  const docB = inForceKept(b, asOf);
+  // Each thing that differs, with the change that made it: its day and its kind (§9).
+  const diffs = a === b ? [] : datedDiffKept(a, b, asOf);
+  // What is still to come: in the later day's ontology, and not yet in today's.
+  const today = registerNow().today;
+  const now = inForceKept(today, asOf).ontology;
+  const m = ontologyMap(docA.ontology, docB.ontology);
+  const coming = b > today;
+  const kinds = m.kinds.filter((k) => { const t = (docB.ontology ?? docA.ontology)?.objectTypes.find((x) => x.id === k.id) ?? docA.ontology?.objectTypes.find((x) => x.id === k.id); return !t || visible(t.dataset); })
+    .map((k) => ({ ...k, coming: coming && k.state === 'added' && !now?.objectTypes.some((t) => t.id === k.id) }));
+  const links = m.links.filter((l) => kinds.some((k) => k.id === l.from) && kinds.some((k) => k.id === l.to))
+    .map((l) => ({ ...l, coming: coming && l.state === 'added' && !now?.linkTypes.some((x) => x.id === l.id) }));
+  const pick = (which: 'a' | 'b', value: string) => h('select', { class: `kd-pick kd-pick-${which}`, 'aria-label': which === 'a' ? 'Compare this day' : 'with this day', onchange: (e: Event) => {
+    kindsView[which] = (e.target as HTMLSelectElement).value;
+    renderRulesTime();
+  } }, ...days.map((d) => h('option', { value: d, ...(d === value ? { selected: 'selected' } : {}) }, dayLabel(d))));
+  const wide = (document.getElementById('rules-time')?.clientWidth ?? 0) >= 640;
+  const moved = kinds.some((k) => k.state !== 'same') || links.some((l) => l.state !== 'same');
+  const map = kinds.length
+    ? h('div', { class: 'kd-map' }, svgNode(kindsMap({ kinds, links, w: wide ? 640 : 340, aria: `The kinds and relations on ${dayLabel(b)} against ${dayLabel(a)}: ${moved ? [...kinds, ...links].filter((x) => x.state !== 'same').map((x) => `${x.name} ${x.state === 'added' ? (x.coming ? 'coming' : 'new') : x.state}`).join(', ') : 'the same on both'}` })),
+        h('p', { class: 'kd-legend' }, comparing ? `+ new · × ended · ~ changed${coming ? ' · hatched: still to come' : ''}. ` : '', 'A box a kind of thing, a line a relation.'))
+    : null;
+  if (!comparing) return h('div', { class: 'kd-compare kd-alone' }, map);
+  return h('div', { class: 'kd-compare' },
+    h('p', { class: 'kd-cmp-head' }, h('b', {}, 'Two dates compared'), ' ', pick('a', a), ' with ', pick('b', b), asOf ? ` · as known on the end of ${dayLabel(asOf.slice(0, 10))}` : ' · as known now'),
+    a === b ? h('p', { class: 'rt-where' }, 'The same day.')
+      : diffs.length ? h('ul', { class: 'kd-diff' }, ...diffs.map(({ diff: d, change: c }) => h('li', { 'data-diff': d.kind, ...(c ? { 'data-change': c.id } : {}) },
+        h('span', { class: 'kd-said' }, diffSaid(d, docB.ontology)),
+        c ? h('button', { type: 'button', class: 'linkish kd-by', 'data-change': c.id, 'aria-label': `${c.kind ? KIND_NAMES[c.kind] : KIND_NOT_GIVEN}, from ${dayLabel(c.from)}: the change`, onclick: () => openChange(c.id) }, kindEl(c.kind ?? null), ` ${dayNear(c.from)} ›`) : null)))
+      : h('p', { class: 'rt-where kd-same' }, 'The same ontology and the same rules on both days.'),
+    map);
+}
+
+let kindForms = 0;
+/** The fields every dated change of a kind or a relation ends with: when it takes effect, its kind and its reason. */
+function datedTail(go: HTMLButtonElement, err: HTMLElement): { why: ReturnType<typeof whyFields>; nodes: HTMLElement[] } {
+  const why = whyFields('business');
+  return { why, nodes: [fromBar(), why.el, err, h('div', { class: 'of-acts' }, go, h('button', { type: 'button', class: 'btn quiet', onclick: () => document.querySelector('.vf-detail-wrap')?.remove() }, 'Cancel'))] };
+}
+/** Send one dated edit of the ontology with what its form gave; says why where it can't be written. */
+function sendKindEdit(edit: RuleEdit, why: ReturnType<typeof whyFields>, fail: (said: string) => void, go: HTMLButtonElement, cant: string): void {
+  if (!applyEdit(state.doc, edit) && !applyEdit(docKnownNow(fromDay()), edit)) return fail(cant);
+  const given = why.read();
+  if (typeof given === 'string') {
+    why.focus();
+    return fail(given);
+  }
+  go.disabled = true;
+  void editRules(edit, { given }).then((done) => {
+    if (!done) return fail(cant);
+    document.querySelector('.vf-detail-wrap')?.remove();
+  });
+}
+
+/**
+ * A kind of thing, added or changed (ADR 0027 §3, Q-250): what it is called, the dataset whose rows are one each of
+ * it, the columns that tell one from another, and the column people call one by. A dated change, with its reason.
+ */
+function kindForm(had: ObjectType | null): void {
+  const uid = `kf-${++kindForms}`;
+  const o = state.doc.ontology;
+  const datasets = [...state.doc.sources.map((x) => x.id), ...state.doc.steps.filter((x) => x.dataset !== undefined).map((x) => x.id)].filter((d) => visible(d));
+  const field = (cls: string, label: string, value: string, more: Record<string, string> = {}) => {
+    const input = h('input', { type: 'text', id: `${uid}-${cls}`, class: cls, value, autocomplete: 'off', ...more }) as HTMLInputElement;
+    return { input, row: h('div', { class: 'of-field' }, h('label', { for: input.id }, label), input) };
+  };
+  const name = field('kf-name', 'What it is called', had?.name ?? '', { maxlength: '60', placeholder: 'Vendor' });
+  const dataset = h('select', { class: 'kf-dataset', id: `${uid}-dataset`, 'aria-label': 'The dataset whose rows are one each' }, ...datasets.map((d) => h('option', { value: d, ...(d === had?.dataset ? { selected: 'selected' } : {}) }, d))) as HTMLSelectElement;
+  const key = field('kf-key', 'Its key', had?.key.join(', ') ?? '', { maxlength: '120', autocapitalize: 'none', spellcheck: 'false', placeholder: 'vendor_id' });
+  const title = field('kf-title', 'The column people call one by', had?.title ?? '', { maxlength: '60', autocapitalize: 'none', spellcheck: 'false', placeholder: 'name' });
+  const about = field('kf-about', 'What it is', had?.description ?? '', { maxlength: '200', placeholder: 'In a line (optional)' });
+  const err = h('p', { class: 'of-err kf-err', role: 'alert', hidden: true });
+  const go = h('button', { type: 'submit', class: 'btn primary sf-go kf-go' }, had ? 'Change the kind' : 'Add the kind') as HTMLButtonElement;
+  const tail = datedTail(go, err);
+  const form = h('form', { class: 'of-form sf-form kf-form', 'aria-label': had ? `Change the kind ${had.name}` : 'Add a kind of thing', novalidate: true },
+    name.row,
+    h('div', { class: 'of-field' }, h('label', { for: dataset.id }, 'One row of'), dataset, h('p', { class: 'of-hint' }, 'The dataset whose rows are one each of it.')),
+    key.row, h('p', { class: 'of-hint' }, 'The columns that tell one from another, with commas between.'),
+    title.row, about.row,
+    ...tail.nodes);
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fail = (said: string) => {
+      err.textContent = said;
+      err.hidden = false;
+      go.disabled = false;
+    };
+    const keys = key.input.value.split(',').map((k) => k.trim()).filter(Boolean);
+    if (!name.input.value.trim()) return fail('Say what the kind is called.');
+    if (!keys.length) return fail('Say which columns tell one from another: its key.');
+    const type: ObjectType = { id: had?.id ?? idFrom(name.input.value, kindsKnown().map((t) => t.id)), name: name.input.value.trim(), dataset: dataset.value, key: keys, title: title.input.value.trim() || keys[0]!, ...(about.input.value.trim() ? { description: about.input.value.trim() } : {}) };
+    err.hidden = true;
+    sendKindEdit({ op: 'setType', type }, tail.why, fail, go, had ? 'Nothing of the kind changes.' : 'That isn’t a kind the flow can have: its rows are a dataset of the flow.');
+  });
+  openDetail(had ? `Change ${had.name}` : 'Add a kind of thing', 'ok', [
+    h('p', { class: 'vf-one' }, 'A kind of thing is the ontology’s: what one row of a dataset is, and what relations and rows entries name. Added or changed, it is in force from its day, and past days read it as it was.'),
+    form,
+  ]);
+}
+
+/**
+ * A relation between two kinds, added or changed (Q-250): its name, the kind it is from and the kind it is to, and the
+ * columns that match. A dated change, with its reason.
+ */
+function linkForm(had: LinkType | null): void {
+  const uid = `lf-${++kindForms}`;
+  // Between two kinds the ontology has, or will have by the day the relation begins.
+  const kinds = kindsKnown();
+  const name = h('input', { type: 'text', id: `${uid}-name`, class: 'lf-name', value: had?.name ?? '', maxlength: '60', autocomplete: 'off', placeholder: 'Acted for by' }) as HTMLInputElement;
+  const end = (cls: string, picked: string | undefined) => h('select', { class: cls, 'aria-label': cls === 'lf-from' ? 'From the kind' : 'To the kind' }, ...kinds.map((t) => h('option', { value: t.id, ...(t.id === picked ? { selected: 'selected' } : {}) }, t.name))) as HTMLSelectElement;
+  const from = end('lf-from', had?.from);
+  const to = end('lf-to', had?.to ?? kinds[1]?.id);
+  const col = (cls: string, value: string, label: string) => h('input', { type: 'text', class: cls, value, maxlength: '60', autocapitalize: 'none', spellcheck: 'false', autocomplete: 'off', 'aria-label': label, placeholder: label }) as HTMLInputElement;
+  const fromCol = col('lf-from-col', had?.on[0]?.[0] ?? '', 'its column');
+  const toCol = col('lf-to-col', had?.on[0]?.[1] ?? '', 'the column it matches');
+  const err = h('p', { class: 'of-err lf-err', role: 'alert', hidden: true });
+  const go = h('button', { type: 'submit', class: 'btn primary sf-go lf-go' }, had ? 'Change the relation' : 'Add the relation') as HTMLButtonElement;
+  const tail = datedTail(go, err);
+  const form = h('form', { class: 'of-form sf-form lf-form', 'aria-label': had ? `Change the relation ${had.name}` : 'Add a relation', novalidate: true },
+    h('div', { class: 'of-field' }, h('label', { for: name.id }, 'What it is called'), name),
+    h('div', { class: 'sf-row' },
+      h('div', { class: 'of-field' }, h('label', {}, 'From'), from, fromCol),
+      h('div', { class: 'of-field' }, h('label', {}, 'To'), to, toCol)),
+    h('p', { class: 'of-hint' }, 'A row of the first names one of the second where the two columns hold the same value.'),
+    ...tail.nodes);
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fail = (said: string) => {
+      err.textContent = said;
+      err.hidden = false;
+      go.disabled = false;
+    };
+    if (!name.value.trim()) return fail('Say what the relation is called.');
+    if (!fromCol.value.trim() || !toCol.value.trim()) return fail('Say the column on each side whose values match.');
+    const link: LinkType = { id: had?.id ?? idFrom(name.value, linksKnown().map((l) => l.id)), name: name.value.trim(), from: from.value, to: to.value, on: [[fromCol.value.trim(), toCol.value.trim()]], ...(had?.cardinality ? { cardinality: had.cardinality } : {}) };
+    err.hidden = true;
+    sendKindEdit({ op: 'setLink', link }, tail.why, fail, go, had ? 'Nothing of the relation changes.' : 'That isn’t a relation the ontology can have: both its kinds are the ontology’s.');
+  });
+  openDetail(had ? `Change ${had.name}` : 'Add a relation', 'ok', [
+    h('p', { class: 'vf-one' }, 'A relation says how one kind of thing names another. Added or changed, it is in force from its day, and past days read the ontology as it was.'),
+    kinds.length ? form : h('p', { class: 'foot' }, 'A relation is between two kinds of thing: add a kind first.'),
+  ]);
+}
+
+/**
+ * A kind or a relation ended (ADR 0027 §2, Q-264): from a day, with a reason, and with what follows it where anything
+ * does. Nothing is deleted: past days still read it, and the ontology keeps that it ended.
+ */
+function endForm(what: EndedKind, id: string, called: string, of?: { file: string; rule: string }): void {
+  const uid = `ef-${++kindForms}`;
+  // What may follow it is of its own sort: a kind for a kind, a relation for a relation, an entry of the same list for
+  // an entry. What a row is and a dependency end with nothing after them.
+  const rule = what === 'entry' && of ? (state.doc.ontology?.rules ?? []).find((r) => r.file.toLowerCase() === of.file.toLowerCase() && r.id === of.rule) : undefined;
+  const others = what === 'type' ? kindsKnown().filter((t) => t.id !== id).map((t) => ({ id: t.id, name: t.name }))
+    : what === 'link' ? linksKnown().filter((l) => l.id !== id).map((l) => ({ id: l.id, name: l.name }))
+    : rule ? (rule.entries ?? []).map((e) => e[0] ?? '').filter((k) => k !== id).map((k) => ({ id: k, name: gateKey(rule, k) }))
+    : what === 'awaited' ? awaitedNow().filter((a) => !a.bound && !a.ended && a.dataset.id.toLowerCase() !== id.toLowerCase()).map((a) => ({ id: a.dataset.id, name: a.dataset.name }))
+    : [];
+  const how = (value: string, label: string, on = false) => h('label', { class: 'sf-mark ef-how', 'data-how': value }, h('input', { type: 'radio', name: `${uid}-how`, value, ...(on ? { checked: 'checked' } : {}) }), ` ${label}`);
+  const pick = (cls: string) => h('select', { class: cls, 'aria-label': 'What follows it' }, h('option', { value: '' }, 'pick one'), ...others.map((x) => h('option', { value: x.id }, x.name))) as HTMLSelectElement;
+  const first = pick('ef-by');
+  const second = pick('ef-by2');
+  const follows = h('div', { class: 'ef-follows', hidden: true }, first, second);
+  const err = h('p', { class: 'of-err ef-err', role: 'alert', hidden: true });
+  const go = h('button', { type: 'submit', class: 'btn primary sf-go ef-go' }, `End ${called}`) as HTMLButtonElement;
+  const tail = datedTail(go, err);
+  const form = h('form', { class: 'of-form sf-form ef-form', 'aria-label': `End ${called}`, novalidate: true },
+    h('fieldset', { class: 'of-vals ef-hows' }, h('legend', {}, 'What follows it'),
+      how('', 'Nothing: it ends', true),
+      ...(others.length ? [how('replaced', 'Replaced by another'), how('merged', 'Merged into another')] : []),
+      ...(others.length > 1 ? [how('split', 'Split into two')] : []),
+      follows),
+    ...tail.nodes);
+  const chosen = () => form.querySelector<HTMLInputElement>(`input[name="${uid}-how"]:checked`)?.value ?? '';
+  form.addEventListener('change', () => {
+    follows.hidden = chosen() === '';
+    second.hidden = chosen() !== 'split';
+  });
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fail = (said: string) => {
+      err.textContent = said;
+      err.hidden = false;
+      go.disabled = false;
+    };
+    const h2 = chosen();
+    const by = h2 === 'split' ? [first.value, second.value] : [first.value];
+    if (h2 && (by.some((x) => !x) || new Set(by).size !== by.length)) return fail(h2 === 'split' ? 'Pick the two it is split into.' : 'Pick what follows it.');
+    const ended: Ended = { what, id, ...(what === 'entry' && of ? { of } : {}), ...(h2 ? { then: { how: h2 as 'replaced' | 'merged' | 'split', by } } : {}) };
+    err.hidden = true;
+    sendKindEdit({ op: 'end', ended }, tail.why, fail, go,
+      what === 'type' ? `${called} can’t end yet: a relation or a rows entry still names it, or its file would no longer say what one row is.`
+        : what === 'rows' ? `${called} can’t end so: its file would no longer say what one row is.`
+        : what === 'awaited' ? `${called} can’t end so: it has its data by now, and stays as the record of what was asked for.`
+        : `${called} can’t be ended so.`);
+  });
+  openDetail(`End ${called}`, 'ok', [
+    h('p', { class: 'vf-one' }, what === 'entry'
+      ? 'Nothing is deleted. From its day the ontology no longer has it, so a row that carries it stops at the gate; past days still read it as it was, and the ontology keeps that it ended, with what follows it.'
+      : 'Nothing is deleted. From its day it is no longer in force; past days still read it as it was, and the ontology keeps that it ended, with what follows it.'),
+    form,
+  ]);
+}
+
+/** A condition as the fields of a form hold it: a column, and the values it may hold, with commas between. */
+const conditionRows = (c: Condition | undefined, more = 1): [string, string][] => [...Object.entries(c ?? {}).map(([k, v]): [string, string] => [k, (Array.isArray(v) ? v : [v]).join(', ')]), ...Array.from({ length: more }, (): [string, string] => ['', ''])];
+/** The fields back as a condition: a column left empty is no condition; one value alone is written alone. */
+function conditionOfRows(rows: readonly { column: HTMLInputElement; values: HTMLInputElement }[]): Condition | string {
+  const out: Record<string, string | string[]> = {};
+  for (const r of rows) {
+    const column = r.column.value.trim();
+    const values = r.values.value.split(',').map((v) => v.trim()).filter(Boolean);
+    if (!column && !values.length) continue;
+    if (!column) return 'A condition names its column.';
+    if (!values.length) return `Say what ${column} holds, with commas between values.`;
+    if (Object.hasOwn(out, column)) return `${column} is named twice.`;
+    out[column] = values.length === 1 ? values[0]! : values;
+  }
+  return out;
+}
+/** A condition's rows of fields: "where [column] is [values]". */
+function conditionFields(cls: string, c: Condition | undefined, columnSaid: string, valuesSaid: string): { rows: { column: HTMLInputElement; values: HTMLInputElement }[]; el: HTMLElement } {
+  const input = (kind: string, value: string, label: string) => h('input', { type: 'text', class: `${cls}-${kind}`, value, maxlength: '120', autocapitalize: 'none', spellcheck: 'false', autocomplete: 'off', 'aria-label': label, placeholder: label }) as HTMLInputElement;
+  const rows = conditionRows(c).map(([k, v]) => ({ column: input('col', k, columnSaid), values: input('vals', v, valuesSaid) }));
+  return { rows, el: h('div', { class: 'cf-rows' }, ...rows.map((r) => h('div', { class: 'cf-row' }, r.column, h('span', { class: 'cf-is' }, 'is'), r.values))) };
+}
+
+/**
+ * What a dataset's rows are, said or changed (ADR 0027 §3, Q-250; ADR 0015 §1): the kind of thing one row is, the
+ * column that names it, and which of them the dataset has rows for, as a condition on the kind's own list. A dated
+ * change, with its reason; it is a written check of a gated flow, so a flow without a gate is told so.
+ */
+function rowsForm(dataset: string, had: RowsDef | null): void {
+  const uid = `wf-${++kindForms}`;
+  const kinds = kindsKnown().filter((t) => t.dataset.toLowerCase() !== dataset.toLowerCase());
+  const of = h('select', { class: 'wf-of', id: `${uid}-of`, 'aria-label': 'The kind of thing one row is' }, ...kinds.map((t) => h('option', { value: t.id, ...(t.id === had?.of ? { selected: 'selected' } : {}) }, t.name))) as HTMLSelectElement;
+  const key = h('input', { type: 'text', id: `${uid}-key`, class: 'wf-key', value: had?.key ?? '', maxlength: '60', autocapitalize: 'none', spellcheck: 'false', autocomplete: 'off', placeholder: kinds.find((t) => t.id === (had?.of ?? kinds[0]?.id))?.key[0] ?? 'its key' }) as HTMLInputElement;
+  const where = conditionFields('wf', had?.where, 'a column', 'its values');
+  const loose = h('input', { type: 'checkbox', class: 'wf-loose', ...(had?.ids === 'loose' ? { checked: 'checked' } : {}) }) as HTMLInputElement;
+  const err = h('p', { class: 'of-err wf-err', role: 'alert', hidden: true });
+  const go = h('button', { type: 'submit', class: 'btn primary sf-go wf-go' }, had ? 'Change what a row is' : 'Say what a row is') as HTMLButtonElement;
+  const tail = datedTail(go, err);
+  const form = h('form', { class: 'of-form sf-form wf-form', 'aria-label': `What one row of ${dataset} is`, novalidate: true },
+    h('div', { class: 'of-field' }, h('label', { for: of.id }, `One row of ${dataset} is`), of),
+    h('div', { class: 'of-field' }, h('label', { for: key.id }, 'Named by the column'), key, h('p', { class: 'of-hint' }, 'The column of this dataset that holds the thing’s key. Left empty, it is the key’s own name.')),
+    h('fieldset', { class: 'of-vals wf-where' }, h('legend', {}, 'For the ones where'), where.el,
+      h('p', { class: 'of-hint' }, 'Read on the kind’s own list: this dataset has a row for each of those, and no others. Left empty, it has one for every one.')),
+    h('label', { class: 'sf-mark' }, loose, ' An id is the same whatever its case and the spaces around it'),
+    ...tail.nodes);
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fail = (said: string) => {
+      err.textContent = said;
+      err.hidden = false;
+      go.disabled = false;
+    };
+    if (!of.value) return fail('Pick the kind of thing one row is: add a kind first.');
+    const cond = conditionOfRows(where.rows);
+    if (typeof cond === 'string') return fail(cond);
+    const rows: RowsDef = { dataset, of: of.value, ...(key.value.trim() ? { key: key.value.trim() } : {}), ...(Object.keys(cond).length ? { where: cond } : {}), ...(loose.checked ? { ids: 'loose' as const } : {}) };
+    err.hidden = true;
+    sendKindEdit({ op: 'setRows', rows }, tail.why, fail, go, had ? 'Nothing of what a row is changes.' : `That can’t be said of ${dataset}: its rows are judged by a gate, and the column and the condition are the kind’s own.`);
+  });
+  openDetail(had ? `What a row of ${dataset} is` : `Say what a row of ${dataset} is`, 'ok', [
+    h('p', { class: 'vf-one' }, 'What one row is, is the ontology’s: the kind of thing, and which of them the dataset has rows for. The gate checks it: a row for one it shouldn’t have, or none for one it should, is counted. Said or changed, it is in force from its day.'),
+    kinds.length ? form : h('p', { class: 'foot' }, 'A row is one of a kind of thing: add the kind first.'),
+  ]);
+}
+
+/**
+ * A dependency between columns, added or changed (ADR 0027 §3, Q-250; Q-119): where a row matches one condition it
+ * must match another, in each dataset the rule names. A dated change, with its reason.
+ */
+function needsForm(dataset: string, had: NeedsDef | null): void {
+  const uid = `nf-${++kindForms}`;
+  const called = h('input', { type: 'text', id: `${uid}-name`, class: 'nf-name', value: '', maxlength: '40', autocomplete: 'off', placeholder: 'Rotation needs encryption' }) as HTMLInputElement;
+  const about = h('input', { type: 'text', id: `${uid}-about`, class: 'nf-about', value: had?.description ?? '', maxlength: '200', autocomplete: 'off', placeholder: 'Key rotation needs encryption at rest: passing one while failing the other is a contradiction' }) as HTMLInputElement;
+  const datasets = h('input', { type: 'text', id: `${uid}-datasets`, class: 'nf-datasets', value: (had?.datasets ?? [dataset]).join(', '), maxlength: '200', autocapitalize: 'none', spellcheck: 'false', autocomplete: 'off' }) as HTMLInputElement;
+  const when = conditionFields('nf-when', had?.when, 'a column', 'its values');
+  const then = conditionFields('nf-then', had?.then, 'a column', 'the values it may hold');
+  const err = h('p', { class: 'of-err nf-err', role: 'alert', hidden: true });
+  const go = h('button', { type: 'submit', class: 'btn primary sf-go nf-go' }, had ? 'Change the dependency' : 'Add the dependency') as HTMLButtonElement;
+  const tail = datedTail(go, err);
+  const form = h('form', { class: 'of-form sf-form nf-form', 'aria-label': had ? `Change the dependency ${had.id}` : 'Add a dependency', novalidate: true },
+    had ? null : h('div', { class: 'of-field' }, h('label', { for: called.id }, 'What it is called'), called, h('p', { class: 'of-hint' }, 'A few words: the ontology keeps it by this name.')),
+    h('div', { class: 'of-field' }, h('label', { for: about.id }, 'Why it holds'), about),
+    h('div', { class: 'of-field' }, h('label', { for: datasets.id }, 'In the datasets'), datasets, h('p', { class: 'of-hint' }, 'Each dataset it is checked in, with commas between.')),
+    h('fieldset', { class: 'of-vals nf-whens' }, h('legend', {}, had?.from ? `Where, in ${had.from}` : 'Where'), when.el),
+    h('fieldset', { class: 'of-vals nf-thens' }, h('legend', {}, 'Then'), then.el,
+      h('p', { class: 'of-hint' }, 'A row that matches the first and not the second is a contradiction, counted by the gate.')),
+    ...tail.nodes);
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fail = (said: string) => {
+      err.textContent = said;
+      err.hidden = false;
+      go.disabled = false;
+    };
+    const w = conditionOfRows(when.rows);
+    if (typeof w === 'string') return fail(w);
+    const t = conditionOfRows(then.rows);
+    if (typeof t === 'string') return fail(t);
+    if (!Object.keys(w).length || !Object.keys(t).length) return fail('A dependency says where, and then what must hold.');
+    const names = datasets.value.split(',').map((d) => d.trim()).filter(Boolean);
+    if (!names.length) return fail('Say which datasets it is checked in.');
+    if (!had && !called.value.trim()) return fail('Say what it is called, in a few words.');
+    const needs: NeedsDef = { id: had?.id ?? idFrom(called.value, (state.doc.ontology?.needs ?? []).map((n) => n.id)), datasets: names, ...(had?.from !== undefined ? { from: had.from } : {}), ...(had?.key !== undefined ? { key: had.key } : {}), when: w, then: t, ...(about.value.trim() ? { description: about.value.trim() } : {}) };
+    err.hidden = true;
+    sendKindEdit({ op: 'setNeeds', needs }, tail.why, fail, go, had ? 'Nothing of the dependency changes.' : 'That isn’t a dependency the flow can have: it is checked in datasets of the flow that a gate judges.');
+  });
+  openDetail(had ? `Change the dependency ${had.id}` : 'Add a dependency', 'ok', [
+    h('p', { class: 'vf-one' }, 'A dependency is written once, in the ontology: where a row matches one condition it must match another. Added or changed, it is in force from its day, and past days were judged as it stood.'),
+    form,
+  ]);
 }
 
 // ------------------------------------------------------------------ a change followed, said and tested (ADR 0026 §7)
@@ -4845,14 +5395,21 @@ async function editRules(edit: RuleEdit | readonly RuleEdit[], opts: { why?: str
     setStatus('The flow is running. Change the rule again when the run has ended.', true);
     return false;
   }
-  let doc = state.doc;
-  const saids: string[] = [];
-  for (const e of edits) {
-    const r = applyEdit(doc, e);
-    if (!r) continue;
-    doc = r.doc;
-    saids.push(r.said);
-  }
+  const replay = (on: FlowDocument): string[] => {
+    let doc = on;
+    const out: string[] = [];
+    for (const e of edits) {
+      const r = applyEdit(doc, e);
+      if (!r) continue;
+      doc = r.doc;
+      out.push(r.said);
+    }
+    return out;
+  };
+  let saids = replay(state.doc);
+  // An edit about a thing still to come (a relation between a kind that begins on a later day, ADR 0027 §3) changes
+  // nothing on the day on screen: it is checked on its own first day, under the rules as known now.
+  if (!saids.length && ruleChanges.length) saids = replay(docKnownNow(fromDay()));
   if (!saids.length) return false;
   // A flow some flow reads only as it is (a pin, ADR 0026 §7) isn't changed from here.
   const pinned = pinProblem(state.doc, changeFlows(state.doc, { edits }), flowName);
@@ -5463,7 +6020,9 @@ function registerNow(): { entries: RegisterEntry[]; later: number; today: string
 /** A change set's days in words, and how it was said: "From Mon 18 · said Fri 15, 3 days ahead". */
 function entryWhen(e: RegisterEntry): string {
   const c = e.change;
-  const span = c.until ? (c.until === c.from ? `${dayShort(c.from)} only` : `${dayShort(c.from)} to ${dayShort(c.until)}`) : `From ${dayShort(c.from)}`;
+  // What is coming has no month's heading over it: a day outside the month on screen is said with its month.
+  const dayOf = (d: string) => (e.tense === 'coming' ? dayNear(d) : dayShort(d));
+  const span = c.until ? (c.until === c.from ? `${dayOf(c.from)} only` : `${dayOf(c.from)} to ${dayOf(c.until)}`) : `From ${dayOf(c.from)}`;
   // A change made here on a demo's days is recorded by this browser's clock, long after them: said by its date alone.
   const near = Math.abs(e.lead) <= 92;
   const said = e.how === 'ahead' ? (near ? `said ${dayShort(e.recordedDay)}, ${plural(e.lead, 'day')} ahead` : `said ${dayLabel(e.recordedDay)}`)
@@ -5564,8 +6123,10 @@ function registerPart(): HTMLElement | null {
     const noted = parts.filter((x): x is [string, string] => !!x[1]);
     const trial = tested.get(c.id);
     const trying = testing?.id === c.id;
-    return h('li', { class: `rg-item rg-${e.tense === 'in force' ? 'on' : e.tense}${applied.has(c.id) ? ' on-screen' : ''}`, 'data-change': c.id, 'data-kind': e.kind ?? 'none' },
+    return h('li', { class: `rg-item rg-${e.tense === 'in force' ? 'on' : e.tense}${applied.has(c.id) ? ' on-screen' : ''}`, 'data-change': c.id, 'data-kind': e.kind ?? 'none', ...(c.estate ? { 'data-estate': c.estate } : {}) },
       h('span', { class: 'rg-kind' }, kindEl(e.kind), e.kind ? KIND_NAMES[e.kind] : KIND_NOT_GIVEN),
+      // An estate's own change (ADR 0027 §3, Q-265): every flow that imports the estate follows it, from its day.
+      c.estate ? h('span', { class: 'rg-estate' }, `${c.estate}’s ontology: every flow that imports it follows`) : null,
       h('span', { class: 'rg-when' }, entryWhen(e)),
       h('span', { class: 'rg-what' }, changeSaid(c)),
       h('span', { class: 'rg-why' }, c.why ? `“${c.why}” ` : 'No reason given · ', h('span', { class: 'rg-by' }, personName(c.by))),
@@ -5789,6 +6350,7 @@ function renderRulesTime(): void {
     awaitedPart() ?? '',
     registerPart() ?? '',
     ruleVersionsPart() ?? '',
+    kindsPart() ?? '',
     owner ? fromBar() : '');
   showChange();
 }
@@ -12913,11 +13475,39 @@ function ruleSubjectKeys(r: Rule): string[] {
   const column = b !== undefined ? a : null;
   const last = b ?? a ?? '';
   const value = last.includes('=') ? last.slice(last.indexOf('=') + 1) : null;
+  if (r.kind === 'covers' || r.kind === 'rows') return [`rows:${file}`];
+  if (r.kind === 'needs') return r.needs !== undefined ? [`needs:${r.needs}`] : [];
   if (r.kind === 'set' && value !== null) return [`rule:${file}:${value}`];
   if (r.kind === 'band' && column && value !== null) return [`band:${file}:${column}:${value}`];
   if (r.kind === 'values' && column) return [`values:${file}:${column}`];
   if (r.kind === 'key') return [`key:${file}`];
   return [];
+}
+
+/**
+ * Since when a column has meant what its card says, where a change redefined it (ADR 0027 §3, Q-251): the last recorded
+ * of the redefinitions in force on the day on screen that reach the dataset, with a link to the change. Null where the
+ * meaning stands as shipped, or was only reworded.
+ */
+function meaningSince(file: string, column: string): HTMLElement | null {
+  if (!ruleChanges.length) return null;
+  const reg = registerNow();
+  const day = (resolvedFor.day ?? reg.today).slice(0, 10);
+  const about = (x: RuleEdit) => x.op === 'redefine' && x.column.toLowerCase() === column.toLowerCase() && (x.datasets === undefined || x.datasets.some((d) => d.toLowerCase() === file.toLowerCase()));
+  const e = reg.entries
+    .filter((x) => x.change.from <= day && (x.change.until === undefined || day <= x.change.until) && x.edits.some((y) => y.said !== null && about(y.edit)))
+    .sort((a, b) => Date.parse(a.change.recorded) - Date.parse(b.change.recorded))
+    .at(-1);
+  // The redefinition still to come, where one is recorded: the first after the day on screen, with what it will mean.
+  const next = reg.entries
+    .filter((x) => x.change.from > day && x.edits.some((y) => y.said !== null && about(y.edit)))
+    .sort((a, b) => a.change.from.localeCompare(b.change.from) || Date.parse(a.change.recorded) - Date.parse(b.change.recorded))[0];
+  if (!e && !next) return null;
+  const link = (x: RegisterEntry, said: string) => h('button', { type: 'button', class: 'linkish of-since', 'data-change': x.change.id, onclick: () => openChange(x.change.id) }, `${said} ${dayNear(x.change.from)} ›`);
+  const will = next?.edits.map((y) => y.edit).find(about);
+  return h('div', { class: 'of-redefs' },
+    e ? h('p', { class: 'of-redefined', 'data-change': e.change.id }, h('b', {}, 'Redefined. '), 'It has meant this ', link(e, 'since'), e.change.why ? ` “${e.change.why}”` : '') : null,
+    next && will?.op === 'redefine' ? h('p', { class: 'of-redefined of-coming', 'data-change': next.change.id }, h('b', {}, 'To be redefined. '), link(next, 'From'), ` it means: “${will.change.description}”`) : null);
 }
 
 /** Since when a rule has stood, and by which change (ADR 0027 §9), where a change set made it: a link to the change. */
@@ -13121,12 +13711,26 @@ function closedEntries(r: OntologyRule): HTMLElement {
   };
   const entries = r.entries ?? [];
   const waiting = new Set(waitingNow(latest()).filter((w) => w.rule.id === r.id && w.rule.file === r.file).flatMap((w) => w.keys));
-  return h('details', { class: 'whole of-entries', 'data-rule': r.id },
-    h('summary', {}, `The ${plural(entries.length, list ? 'entry' : 'value', list ? 'entries' : 'values')} the ontology has${r.leftOut?.length ? ` · ${r.leftOut.length} left out` : ''}${waiting.size ? ` · ${waiting.size} waiting for data` : ''}`),
+  // An entry ends from a day, with what follows it (ADR 0027 §2, Q-264): nothing is deleted, and the list keeps that it
+  // ended. The owner's to do, in a flow of format 5.
+  const may = isOwner() && state.doc.smaltfl === 5;
+  const ended = (state.doc.ontology?.ended ?? []).filter((x) => x.what === 'entry' && x.of?.rule === r.id && x.of.file.toLowerCase() === r.file.toLowerCase());
+  const endOf = (key: string) => (may ? h('button', { type: 'button', class: 'linkish of-entry-end', 'aria-label': `End ${gateKey(r, key)}`, onclick: () => endForm('entry', key, gateKey(r, key), { file: r.file, rule: r.id }) }, 'End ›') : null);
+  // Open or shut as the reader left it, while the page is: a change made from the list is seen in it.
+  const openKey = `${r.file.toLowerCase()}|${r.id}`;
+  const box = h('details', { class: 'whole of-entries', 'data-rule': r.id, ...(entriesOpen.has(openKey) ? { open: 'open' } : {}) },
+    h('summary', {}, `The ${plural(entries.length, list ? 'entry' : 'value', list ? 'entries' : 'values')} the ontology has${r.leftOut?.length ? ` · ${r.leftOut.length} left out` : ''}${waiting.size ? ` · ${waiting.size} waiting for data` : ''}${ended.length ? ` · ${ended.length} ended` : ''}`),
     h('ul', { class: 'of-entry-list' },
-      ...entries.map((e) => h('li', { class: `of-entry${waiting.has(e[0] ?? '') ? ' waiting' : ''}`, 'data-key': e[0] ?? '' }, h('b', {}, gateKey(r, e[0] ?? '')), list ? h('span', { class: 'of-entry-defs' }, gateDefines(r, e)) : null, waiting.has(e[0] ?? '') ? h('span', { class: 'of-entry-wait' }, 'waiting for data: no row of the file carries it') : null, since(e[0] ?? ''))),
-      ...(r.leftOut ?? []).map((key) => h('li', { class: 'of-entry left', 'data-key': key }, h('b', {}, gateKey(r, key)), h('span', { class: 'of-entry-defs' }, 'left out until it is declared'), since(key)))));
+      ...entries.map((e) => h('li', { class: `of-entry${waiting.has(e[0] ?? '') ? ' waiting' : ''}`, 'data-key': e[0] ?? '' }, h('b', {}, gateKey(r, e[0] ?? '')), list ? h('span', { class: 'of-entry-defs' }, gateDefines(r, e)) : null, waiting.has(e[0] ?? '') ? h('span', { class: 'of-entry-wait' }, 'waiting for data: no row of the file carries it') : null, since(e[0] ?? ''), comingOfKey(`entry:${r.file}:${r.id}:${e[0] ?? ''}`, true), endOf(e[0] ?? ''))),
+      ...(r.leftOut ?? []).map((key) => h('li', { class: 'of-entry left', 'data-key': key }, h('b', {}, gateKey(r, key)), h('span', { class: 'of-entry-defs' }, 'left out until it is declared'), since(key))),
+      ...ended.map((x) => h('li', { class: 'of-entry ended', 'data-key': x.id }, h('b', {}, gateKey(r, x.id)), h('span', { class: 'of-entry-defs' }, endedSaid(r, x)), since(x.id))))) as HTMLDetailsElement;
+  box.addEventListener('toggle', () => (box.open ? entriesOpen.add(openKey) : entriesOpen.delete(openKey)));
+  return box;
 }
+/** The closed lists whose entries are open on the Ontology page, by file and rule. */
+const entriesOpen = new Set<string>();
+/** An entry that ended, in a few words: with what follows it, each named as the ontology names it. */
+const endedSaid = (r: OntologyRule, x: Ended): string => endedInWords(x, (k) => entryCalled(state.doc.ontology, r, k));
 
 /** A column's values in the load on screen, at the top of its card: the drawing its file's Columns tab has for it
  * (`columnShape`), and how full it is. A key (every value different) and free text (names, hosts: no value on more
@@ -13181,11 +13785,50 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
     where.textContent = said ? `Where it’s used: ${said}` : 'No step uses it.';
     where.dataset.known = '1';
     forWhom.textContent = scope(u.carried.slice(1));
+    carried = u.carried.slice(1);
+    syncHow();
   });
+  // What a column or a value means, edited (ADR 0027 §3, Q-251): the app asks which it is. Reworded says the same thing
+  // better, on every day, and the record keeps the old wording; redefined means something else from a day, a dated
+  // change with its kind and its reason. Asked once the meaning or a label is edited, where the column has a meaning
+  // to redefine: one an estate describes is the estate's to redefine, in its own change sets.
+  const canRedefine = !estate && redefinable(state.doc, f.id, c.name);
+  const howName = `${uid}-how`;
+  const reworded = h('input', { type: 'radio', name: howName, value: 'reworded', checked: 'checked' }) as HTMLInputElement;
+  const redefined = h('input', { type: 'radio', name: howName, value: 'redefined' }) as HTMLInputElement;
+  const dated = h('div', { class: 'of-dated', hidden: true });
+  let whyDated: ReturnType<typeof whyFields> | null = null;
+  const reach = h('p', { class: 'of-hint of-reach' });
+  const howBox = canRedefine ? h('fieldset', { class: 'of-vals of-how', hidden: true }, h('legend', {}, 'The same meaning, or another?'),
+    h('label', { class: 'of-how-opt', 'data-how': 'reworded' }, reworded, h('span', {}, h('b', {}, 'Reworded. '), 'It says the same thing better: every day reads it so, and the record keeps the old wording.')),
+    h('label', { class: 'of-how-opt', 'data-how': 'redefined' }, redefined, h('span', {}, h('b', {}, 'Redefined. '), 'It means something else from a day: the days before keep the meaning they were made under.')),
+    dated) : null;
+  const labelWas = (value: string) => (saysMore(had.get(value), value) ? had.get(value)! : '');
+  const meaningEdited = () => mean.value.trim() !== (c.description ?? '').trim() || labels.some((x) => x.input.value.trim() !== labelWas(x.value));
+  /** The meaning as the form has it, for a redefinition: the words, and each label that changed. */
+  const meaningNow = () => {
+    const values = Object.fromEntries(labels.filter((x) => x.input.value.trim() !== labelWas(x.value)).map((x) => [x.value, x.input.value.trim() || x.value]));
+    return { description: mean.value.trim(), ...(Object.keys(values).length ? { values } : {}) };
+  };
+  let carried: readonly string[] = [];
+  const redefining = () => !!howBox && !howBox.hidden && redefined.checked;
+  const syncHow = () => {
+    if (!howBox) return;
+    howBox.hidden = !meaningEdited();
+    const on = redefining();
+    if (on && !whyDated) {
+      whyDated = whyFields('business');
+      dated.append(fromBar(), whyDated.el, reach);
+    }
+    dated.hidden = !on;
+    if (on) reach.textContent = `Redefined for ${redefinedWhere(redefineEdits(state.doc, f.id, c.name, carried, meaningNow()))}. Its name is a label, and changes at once.`;
+    forWhom.hidden = on;
+  };
   const form = h('form', { class: 'of-form', 'aria-label': `Edit ${c.title} in ${f.id}`, novalidate: true },
     h('div', { class: 'of-field' }, h('label', { for: name.id }, 'Name'), name,
       h('p', { class: 'of-hint' }, 'The file writes it as ', h('code', {}, ...breakable(c.name)), '. That stays.')),
     h('div', { class: 'of-field' }, h('label', { for: mean.id }, 'What it means'), mean),
+    howBox,
     why && estate ? h('div', { class: 'of-field of-why' }, h('label', { for: why.id }, 'Why it’s handled its own way here'), why,
       h('p', { class: 'of-hint' }, `${estate.estate.name}’s ontology describes this column. A change here is ${possessive(whose)} own handling of it in ${f.id}: noted on this page with its reason, and part of the flow’s hash.`)) : null,
     labels.length ? h('fieldset', { class: 'of-vals' }, h('legend', {}, labels.length === 1 ? 'A label for its value' : 'A label for each value'),
@@ -13196,6 +13839,8 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
     forWhom,
     err,
     h('div', { class: 'of-acts' }, save, h('button', { type: 'button', class: 'btn quiet', onclick: close }, 'Cancel')));
+  form.addEventListener('input', syncHow);
+  form.addEventListener('change', syncHow);
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     void (async () => {
@@ -13206,9 +13851,32 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
         err.hidden = false;
         return;
       }
-      const names = { title: name.value, description: mean.value, values: Object.fromEntries(labels.map((x) => [x.value, x.input.value])) };
+      // Redefined (Q-251): the meaning and the labels go into a dated change with its kind and reason, asked for before
+      // anything is written; the name alone is saved here, at once, as a label is (Q-198).
+      const dating = redefining();
+      const given = dating ? whyDated!.read() : null;
+      if (typeof given === 'string') {
+        err.textContent = given;
+        err.hidden = false;
+        whyDated!.focus();
+        return;
+      }
+      const meaning = dating ? meaningNow() : null;
+      const names = dating ? { title: name.value } : { title: name.value, description: mean.value, values: Object.fromEntries(labels.map((x) => [x.value, x.input.value])) };
       const change = { ...names, ...(why ? { override: why.value } : {}) };
       const through = (await usesReady(f.id, c.name))?.carried.slice(1) ?? [];
+      /** The dated part: the meaning redefined from the day the bar says, for every dataset the meaning is said for. */
+      const redefine = async (): Promise<boolean> => {
+        const edits = redefineEdits(state.doc, f.id, c.name, through, meaning!);
+        const back = () => void renderOntology().then(() => requestAnimationFrame(() => Array.from(document.querySelectorAll<HTMLElement>('#ontology-files .of-item.open .of-col')).find((el) => el.dataset.column === c.name)?.scrollIntoView({ block: 'nearest' })));
+        const done = edits.length > 0 && (await editRules(edits, { given: given as WhyGiven, redraw: () => { if (state.selected) void renderSheet(); back(); } }));
+        if (!done) {
+          err.textContent = 'Its meaning can’t be redefined so: nothing about it changed, or the flow can’t be changed from here.';
+          err.hidden = false;
+          save.disabled = false;
+        }
+        return done;
+      };
       // The estate's column changed with no reason given, on a card that isn't the flow's own handling yet: asked for.
       if (why && !c.own && !why.value.trim() && nameColumnThrough(state.doc, f.id, c.name, names, through).said) {
         err.textContent = `Say why ${whose} handles it its own way: the reason is noted with the change.`;
@@ -13217,7 +13885,7 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
         return;
       }
       const { doc, said } = nameColumnThrough(state.doc, f.id, c.name, change, through, described);
-      if (!said) return close();
+      if (!said) return dating ? void (await redefine()) : close();
       const pinned = pinnedSaid([f.id, ...through]);
       if (pinned) {
         err.textContent = pinned;
@@ -13236,6 +13904,12 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
       ruleBase = ruleParts(nameColumnThrough(withRuleParts(state.doc, ruleBase), f.id, c.name, change, through, described).doc);
       resolveDoc(resolvedFor.day, resolvedFor.asOf, true);
       setStatus(`${closed(said)} Recorded; the next run uses it.`, false);
+      if (dating) {
+        // The name first, recorded, then the meaning's dated change on the document as renamed.
+        await flowEdited(said, { file: f.id, column: c.name, change, through });
+        requestCanvas();
+        return void (await redefine());
+      }
       void flowEdited(said, { file: f.id, column: c.name, change, through });
       requestCanvas();
       if (state.selected) void renderSheet();
@@ -13285,6 +13959,27 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
     at.after(form);
     form.querySelector<HTMLElement>('select')?.focus();
   };
+  // What a row is and a dependency (ADR 0027 §3, Q-250): the ontology's, changed and ended by dated changes with their
+  // reasons, where they are this flow's to change: a gated flow of format 5, and no estate's ontology says them.
+  const dated = owner && state.doc.smaltfl === 5 && Object.keys(state.doc.gates ?? {}).length > 0;
+  const rowsEntry = (state.doc.ontology?.rows ?? []).find((x) => x.dataset.toLowerCase() === f.id.toLowerCase()) ?? null;
+  const twoActs = (changeSaid: string, change: () => void, endSaid: string, end: () => void) => h('span', { class: 'of-rule-acts' },
+    h('button', { type: 'button', class: 'of-act of-dated-change', 'aria-label': changeSaid, onclick: change }, 'Change'),
+    h('button', { type: 'button', class: 'of-act of-dated-end', 'aria-label': endSaid, onclick: end }, 'End'));
+  const ownActs = (r: Rule): HTMLElement | null => {
+    if (!dated || r.origin.how !== 'set' || r.origin.in !== 'ontology') return null;
+    if (r.kind === 'covers' && rowsEntry && !estateRows(f.id)) return twoActs(`Change what a row of ${f.id} is`, () => rowsForm(f.id, rowsEntry), `End what a row of ${f.id} is`, () => endForm('rows', f.id, `what a row of ${f.id} is`));
+    const needs = r.kind === 'needs' && r.needs !== undefined ? (state.doc.ontology?.needs ?? []).find((n) => n.id === r.needs) : undefined;
+    if (needs && !estateNeeds(needs.id)) return twoActs(`Change the dependency ${needs.id}`, () => needsForm(f.id, needs), `End the dependency ${needs.id}`, () => endForm('needs', needs.id, `the dependency ${needs.id}`));
+    return null;
+  };
+  const ownAdds = (): HTMLElement | null => {
+    if (!dated || !isBronze(f.id)) return null;
+    const isList = (state.doc.ontology?.objectTypes ?? []).some((t) => t.dataset.toLowerCase() === f.id.toLowerCase());
+    return h('p', { class: 'of-own-adds' },
+      !rowsEntry && !isList && kindsKnown().length ? h('button', { type: 'button', class: 'btn quiet of-add-rows', onclick: () => rowsForm(f.id, null) }, 'Say what a row is ›') : null,
+      h('button', { type: 'button', class: 'btn quiet of-add-needs', onclick: () => needsForm(f.id, null) }, 'Add a dependency ›'));
+  };
   /** A rule people set, on its line: change it in place, or take it away (asked twice). */
   const setActs = (c: ColumnCard, r: OntologyRule): HTMLElement => {
     const remove = h('button', { type: 'button', class: 'of-act', 'aria-label': `Remove the check: ${ruleSaid(state.doc.ontology, r)}` }, 'Remove');
@@ -13317,6 +14012,7 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
       h('div', { class: 'of-col-head' }, h('div', { class: 'of-col-names' }, h('h4', {}, c.title), c.asWritten ? h('code', {}, ...breakable(c.asWritten)) : null, p?.unit ? h('span', { class: 'unit' }, p.unit) : null), edit),
       slot,
       c.description ? h('p', { class: 'of-mean' }, c.description) : h('p', { class: 'of-none' }, 'Not described yet.'),
+      meaningSince(f.id, c.name),
       // A flow's own handling of the column (ADR 0026 §8): here, with its reason and what the estate says in its place;
       // and in other datasets, noted on every other card of the column.
       c.own ? h('div', { class: 'of-handled', 'data-flow': c.own.flow.id },
@@ -13361,7 +14057,9 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
       f.inventory ? h('p', { class: 'of-inv' }, `${f.inventory.said}.`) : null,
       f.readBy?.length ? readByLine(f.readBy) : null,
       sharedNote(f.id)),
-    h('section', { class: 'of-part of-own' }, h('h3', { class: 'of-h' }, `This ${thing}’s checks`), ruleList(f.rules, 'No checks of its own yet.')),
+    h('section', { class: 'of-part of-own' }, h('h3', { class: 'of-h' }, `This ${thing}’s checks`),
+      f.rules.length ? h('ul', { class: 'of-rules' }, ...f.rules.map((r) => ruleLine(r, undefined, ownActs(r), thing))) : h('p', { class: 'of-none' }, 'No checks of its own yet.'),
+      ownAdds()),
     h('section', { class: 'of-part' }, h('h3', { class: 'of-h' }, cards.length ? `Columns · ${cards.length}` : 'Columns'), wait, cards.length ? h('div', { class: 'of-cols' }, ...cards) : null),
     // A column the file added, described as the file's own, which the flow doesn't read (ADR 0022 §2, Q-204).
     // The columns set aside (ADR 0027 §4): named, so that every column the file has is described or set aside.
@@ -15551,6 +16249,15 @@ const gateKey = (rule: OntologyRule, key: string): string => {
   const word = meaningBeyond(propertyOf(state.doc.ontology, rule.file, rule.column), key);
   return word ? `${word} (${key})` : key;
 };
+/**
+ * Where what arrived is an entry the ontology ended (ADR 0027 §2, Q-264), the gate says so: it isn't new, it was taken
+ * out from a day, with what follows it.
+ */
+function endedAtGate(rule: OntologyRule, key: string): string {
+  if (!endedEntry(state.doc.ontology, rule, key)) return '';
+  const e = ruleChanges.length ? sinceOf(registerNow().entries, `entry:${rule.file}:${rule.id}:${key}`.toLowerCase(), ontologyDay()) : null;
+  return ` ${endedArrivalSaid(state.doc.ontology, rule, key, e ? dayNear(e.change.from) : undefined)}`;
+}
 const gateDefines = (rule: OntologyRule, entry: readonly string[]): string => (rule.defines ?? []).map((d, i) => `${gateTitle(rule.file, d)} ${entry[i + 1] || 'blank'}`).join(' · ');
 /** What an arrival is, in a line: new to the ontology, or not as the ontology has it, by each column that differs. */
 function arrivalSaid(rule: OntologyRule, entry: readonly string[], changed: boolean): string {
@@ -15674,7 +16381,7 @@ function gatePart(k: number): HTMLElement | null {
     return h('div', { class: 'cm-source held gt-stop', 'data-file': rule.file, 'data-rule': rule.id },
       h('p', { class: 'cm-said' }, h('b', {}, `${rule.file}: `), `${isList(rule) ? plural(stop.arrivals.length + stop.more, 'entry', 'entries') : plural(stop.arrivals.length + stop.more, 'value', 'values')} the ontology doesn’t have.`),
       h('ul', { class: 'gt-arrivals' }, ...stop.arrivals.map(([entry, n, changed], i) => h('li', { class: 'gt-arrival', 'data-key': entry[0] ?? '', 'data-how': changed ? 'changed' : 'new' },
-        stop.arrivals.length > 1 && may && !forming ? ticks[i]! : '', h('span', {}, `${arrivalSaid(rule, entry, changed)}. ${plural(n, 'row carries', 'rows carry')} it.`)))),
+        stop.arrivals.length > 1 && may && !forming ? ticks[i]! : '', h('span', {}, `${arrivalSaid(rule, entry, changed)}. ${plural(n, 'row carries', 'rows carry')} it.${endedAtGate(rule, entry[0] ?? '')}`)))),
       stop.more ? h('p', { class: 'foot' }, `And ${plural(stop.more, 'more')}, not named: that many at once is more likely a file gone wrong than the business changing.`) : '',
       stop.reaches.length ? h('p', { class: 'gt-waits' }, waits(stop.reaches)) : '',
       forming ? formFor(stop, forming.entries)

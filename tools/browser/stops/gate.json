@@ -288,5 +288,27 @@
         "#loads .dh-gate": 0
       }
     }
+  },
+ {
+    "name": "gate-entry-ended",
+    "what": "An entry of a closed column ends from a day (ADR 0027 §2, Q-264): API keys are merged into single sign-on from the next day to arrive, with a reason. Nothing is deleted: the ontology keeps that it ended and what follows it, and from that day a row that carries it stops at the gate. Until then the entry's line says the day it ends. The list of Method's values is open as the reader left it",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      ".of-item.open .of-entry[data-key=\"api_key\"] .of-entry-end",
+      ".ef-how[data-how=\"merged\"] input",
+      [".ef-by", "sso"],
+      [".ef-form .wy-reason", "Service accounts sign in through single sign-on from Tuesday"],
+      ".ef-go"
+    ],
+    "waitFor": ".of-item.open .of-entry[data-key=\"api_key\"] .kd-ends",
+    "full": true,
+    "expect": {
+      "status": "^Ended .*api_key.* in auth: merged into Single sign-on \\(sso\\), in force from Tue Mar 26\\. Recorded\\.",
+      "count": {
+        ".of-item.open .of-entry[data-key=\"api_key\"] .kd-ends": 1,
+        ".vf-detail .ef-form": 0
+      }
+    }
   }
 ]

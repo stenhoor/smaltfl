@@ -266,6 +266,38 @@ It asks someone who may publish a day, and the owner where it takes other rules.
 
 Edits are kept across a reload and listed with **Back to the flow as shipped**.
 
+### The ontology over time {#over-time}
+
+The ontology comes first, and every change to it is a dated record
+([ADR 0027](../adr/0027-the-ontology-over-time)). The head of the Ontology view is its **register**: on a phone a
+list, what is coming on top and then the months, newest first; from tablet width, lanes over the days, one row a
+thing's life. Each entry says its kind (the business changed, a setting re-tuned, a mistake corrected, the source
+changed), the day it is in force from and the day it was said, what it did, why in its author's words, and who
+decided. Every change made in the app asks for a kind and a reason. **What was going on** is written down beside the
+rules as events, which are context and no rule; an event may say what it excuses of the learned checks.
+
+- **Since when.** A rule, a kind, a relation and a redefined meaning each say since when they have stood, a tap from
+  the change that made them so.
+- **At the gate.** A list or a column the ontology closes lets in only what it has declared. What arrives that it
+  doesn't have stops what the file reaches, and the day's head offers three decisions: declare it from the day,
+  publish without it, or don't publish.
+- **Kinds and relations.** A map first: a box a kind of thing, a line a relation. **Two dates compared** picks any
+  two days and says each thing that differs, before and after, with the change that made it; on the map only what
+  differs is marked (`+` new, `×` ended, `~` changed, hatched where it is still to come). Behind a bar, each kind and
+  relation says what it is, since when, and whose it is where an estate's ontology says it. The owner adds, changes
+  and ends one that is the flow's own, each a dated change.
+- **What a row is, and a dependency,** are changed and ended the same way, from the line of a file's own checks.
+- **A meaning.** Edit what a column or a value means and the form asks which it is: **reworded** says the same thing
+  better, on every day, and the record keeps the old wording; **redefined** means something else from a day, with a
+  kind and a reason, and the days before keep the meaning they were made under. A name stays a label and changes at
+  once. A column an estate describes is the estate's to redefine.
+- **Nothing is deleted.** A thing ends from a day and the ontology keeps that it ended, with what follows it:
+  replaced by, merged into or split into. A kind ends once nothing names it. An ended entry of a closed list stops at
+  the gate from that day, and the gate says so.
+- **An estate's own changes.** An estate's ontology carries its own dated changes, and every flow that imports it
+  follows from the change's day. The register says whose the change is, and the flow can try it on its own recorded
+  days. Larkspur's estate adds one relation, *Acted for by*, from Mon Mar 11.
+
 ## The record and verify
 
 The **Record** view lists every run made in your browser with its manifest. **Verify** checks a run at three levels, up

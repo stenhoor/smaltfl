@@ -161,12 +161,17 @@ versions.)
 | Sat 23 to Mon 25, Thu 28 | Still waiting for you: the DR exercises from Sat 23, and Thu 28's loop in the organisation. ‖ |
 | Sat 16, Sun 17 | On Mon 25 the findings' values check was set back to hold the day, back-dated to Fri 1: the scanner hadn't logged in that weekend, and the posture read far fewer findings than there were. Every day already run ran again under it; these two would now be held, and the security lead restated them as not published. The other 23 came out the same, and were noted. |
 
-The rules changed three times ([ADR 0021](../adr/0021-time) §5): on Fri 15 the WAF band was tightened to a tenth from
-Mon 18, which reached no day already run; on Mon 25 the back-dated change above; and on Wed 27 the new control was
-declared from that day. The **Ontology** view lists the five versions of the rules this makes, each with where and
-when it was in force, and compares any two. Its head is the register: each change with its kind, its reason and who
-decided, what was going on (the push, the reinstall, the reorganisation, the freeze), and, from tablet width, the
-same as lanes over the month.
+The rules changed four times ([ADR 0021](../adr/0021-time) §5): on Fri 8 the estate's ontology said that, from the
+Monday of the reorganisation, Mon 11, who acts for a unit is a relation of its own, *Acted for by*; on Fri 15 the WAF
+band was tightened to a tenth from Mon 18; on Mon 25 the back-dated change above; and on Wed 27 the new control was
+declared from that day. The first is the estate's own change, in `examples/larkspur/ontology.json`
+([ADR 0027](../adr/0027-the-ontology-over-time) §3): every flow that imports the estate's ontology follows it from
+that day, and the register says whose it is. The **Ontology** view lists the seven versions of the rules this
+makes, each with where and when it was in force, and compares any two. Its head is the register: each change with its
+kind, its reason and who decided, what was going on (the push, the reinstall, the reorganisation, the freeze), and,
+from tablet width, the same as lanes over the month. Under the versions, **Kinds and relations** draws the estate's
+five kinds of thing and six relations as a map, and compares any two days: between Fri 1 and Thu 21, *Acted for by*
+is new and the WAF's band moved.
 
 **What if… ›** on a day runs it again on any of its files under any of those versions, apart from the record. On Sat 16,
 under the rules as shipped, it would have passed, where readers got it restated and held. On Thu 21, on the TLS file

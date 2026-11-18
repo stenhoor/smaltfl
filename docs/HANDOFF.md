@@ -226,7 +226,7 @@ Results on 2026-11-09, at `e42d9ec` on data `0ca4dd1`:
 ## What is not done
 
 **Now: [ADR 0027](adr/0027-the-ontology-over-time.md), the ontology over time** (designed 2026-11-18, the maintainer's
-answers Q-247 to Q-279; slices 1 to 4 of ten are built, its §"As built"). The maintainer asked for a temporal
+answers Q-247 to Q-279; slices 1 to 5 of ten are built, its §"As built"). The maintainer asked for a temporal
 ontology: how the ontology changes over time, why certain things apply on certain dates, what was going on and what
 was decided then, shown visually and carried with the data so that analysis is always aware of its context. The
 research is [research/temporal-ontology.md](research/temporal-ontology.md): temporal data models, ontologies and
@@ -251,7 +251,7 @@ smaltfl already dates; (2) reasons, kinds and events; (3) the gate, and document
 kinds, relations and meanings over time, and the shared ontology's own changes; (6) reading across a change; (7)
 context that travels; (8) who decides; (9) who hears, and the auditor; (10) the demo's new scene. Q-280 to Q-285 are
 the choices the answers leave open, proposed for the maintainers to confirm as each is built; Q-286 to Q-291 are the
-ones slice 3 made as it was built, and Q-292 to Q-296 slice 4's.
+ones slice 3 made as it was built, Q-292 to Q-296 slice 4's, and Q-297 to Q-303 slice 5's.
 
 Built so far:
 
@@ -278,9 +278,25 @@ Built so far:
   source taken off); Larkspur's Ontology view lists the SBOM inventory, described ahead from Wed 27
   (`npm run regress -- versions`).
 
-What comes next is slice 5: kinds, relations and meanings over time (dated edits for types, links, rows entries and
-dependencies; a meaning reworded or redefined; things ended with what follows), the estate's own change sets, the
-map and the comparison between two dates.
+- **Slice 5, kinds, relations and meanings over time:** six dated edits beside the rules' (`setType`, `setLink`,
+  `setRows`, `setNeeds`, `redefine`, `end`), each a change set with a kind and a reason. Nothing is deleted: a thing
+  ends from a day and the ontology keeps that it ended, with what follows it (`ontology.ended`). A meaning edited on
+  a column's card is reworded (at once, every day) or redefined (from a day). An estate's ontology carries its own
+  change sets, which every flow that imports it follows: Larkspur's adds the relation *Acted for by* from Mon 11.
+  On the Ontology view: the kinds and relations as a map, two dates compared (each line with the change that made
+  it), each thing since when and whose, and the forms that add, change and end a kind, a relation, what a row is, a
+  dependency, an entry of a closed list and a dataset described ahead. The build's recorder now judges a fill's donor
+  under the rules of the day it fills (Q-303), which the tour's fill of Mon Mar 11 needs since the estate's relation
+  begins that day. How to check it: `test/kinds.test.ts`, `test/estate-ontology.test.ts`, the tour's answer key
+  (`npm run test:tour`, which runs that fill through the recorder), `npm run regress -- versions` on Larkspur (the
+  map, the list, the estate's change, two dates, a description written ahead ended), `npm run regress -- estate` on
+  the control estate (a meaning redefined, a kind and a relation added and ended, what a row is changed, a dependency
+  added, then back to the flow as shipped) and `npm run regress -- gate` on the sign-ins (an entry of a closed column
+  ended, merged into another).
+
+What comes next is slice 6: reading across a change (each change's own step, the cuts on a chart, the adjusted line,
+a declared change taken as the new level). It is where a redefinition marks the charts built on its column and a
+series is followed through to what replaced it, both left by slice 5.
 
 **Built: [ADR 0026](adr/0026-flows-in-flows.md), flows in flows** (2026-11-17, the maintainer's answers Q-231 to
 Q-245: every slice of its §12, and both steps of slice 5). The maintainer asked for flows that are parts of other flows: build one, read it from many, stack them, change
@@ -626,7 +642,7 @@ recorded Fri 15; the findings' values check back to hold the day from Fri 1, rec
 every run under its day's rules as known then and runs the 25 days the back-dated change reaches again, and the
 security lead restates Sat 16 and Sun 17 (the scan that didn't log in) as not published, the other 23 noted the same.
 A day published by a decision keeps it when restated where nothing new holds it (Q-200, the maintainers' to confirm).
-The Ontology view lists the versions of the rules (four on Larkspur), marks the one on screen, now and as known on, and
+The Ontology view lists the versions of the rules (four on Larkspur then; seven since ADR 0027's slice 5), marks the one on screen, now and as known on, and
 compares any two (`tools/browser/stops/versions.json`). Slice 5, what-if runs, is built (2026-11-14): *What if… ›* on
 a day runs it on any of its files under any version of the rules, marked as a what-if in its manifest and held so
 nothing of it is published, never recorded, on screen until *Back to the day*, compared with what readers got, and says

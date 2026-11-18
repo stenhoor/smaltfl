@@ -66,6 +66,27 @@ export function subjectOf(edit: RuleEdit): Subject {
     // A dataset described before its data exists (ADR 0027 §5): one thing from the day it was described.
     case 'describeAhead':
       return subject(`awaited:${edit.dataset.id}`, edit.dataset.id, 'is', 'described ahead of its data');
+    // Kinds, relations, what a row is, dependencies and meanings (ADR 0027 §3): each one thing over the days.
+    case 'setType':
+      return subject(`type:${edit.type.id}`, edit.type.dataset, 'is', `${edit.type.name}, a kind of thing`);
+    case 'setLink':
+      return subject(`link:${edit.link.id}`, '', 'is', `${edit.link.name}, a relation`);
+    case 'setRows':
+      return subject(`rows:${edit.rows.dataset}`, edit.rows.dataset, 'is', 'what one row is');
+    case 'setNeeds':
+      return subject(`needs:${edit.needs.id}`, edit.needs.datasets[0] ?? '', 'check', `the dependency ${edit.needs.id}`);
+    case 'redefine':
+      return subject(`meaning:${(edit.datasets ?? []).join(',')}:${edit.column}`, edit.datasets?.length === 1 ? edit.datasets[0]! : '', 'is', `${edit.column}, what it means`);
+    // A thing that ended is the thing itself, on its own row: its life stops there.
+    case 'end': {
+      const e = edit.ended;
+      if (e.what === 'type') return subject(`type:${e.id}`, '', 'is', `${e.id}, a kind of thing`);
+      if (e.what === 'link') return subject(`link:${e.id}`, '', 'is', `${e.id}, a relation`);
+      if (e.what === 'rows') return subject(`rows:${e.id}`, e.id, 'is', 'what one row is');
+      if (e.what === 'needs') return subject(`needs:${e.id}`, '', 'check', `the dependency ${e.id}`);
+      if (e.what === 'awaited') return subject(`awaited:${e.id}`, e.id, 'is', 'described ahead of its data');
+      return subject(`entry:${e.of?.file ?? ''}:${e.of?.rule ?? ''}:${e.id}`, e.of?.file ?? '', 'is', `${e.id}, an entry`);
+    }
     case 'useVersion':
       return subject('version', '', 'check', 'the rules, a version taken whole');
   }
@@ -98,6 +119,15 @@ export function shortOf(edit: RuleEdit): string {
       return 'left out';
     case 'describeAhead':
       return 'described';
+    case 'setType':
+    case 'setLink':
+    case 'setRows':
+    case 'setNeeds':
+      return 'set';
+    case 'redefine':
+      return 'redefined';
+    case 'end':
+      return edit.ended.then ? `ended, ${edit.ended.then.how === 'replaced' ? 'replaced by' : edit.ended.then.how === 'merged' ? 'merged into' : 'split into'} ${edit.ended.then.by.join(', ')}` : 'ended';
     case 'useVersion':
       return 'a version';
   }
@@ -223,7 +253,10 @@ export function registerOf(doc: Pick<FlowDocument, 'changes'> & Partial<FlowDocu
   const known = all.filter((c) => at === null || Date.parse(c.recorded) <= at);
   const entries = known.map((c): Entry => {
     const each = replay(doc, c);
-    const edits = c.edits.map((edit, i): EntryEdit => ({ edit, subject: subjectOf(edit), said: each[i] ?? null, short: shortOf(edit) }));
+    // A kind, a relation, what a row is or a dependency that the change adds is "added"; one it alters is "set".
+    const short = (edit: RuleEdit, said: string | null): string =>
+      (edit.op === 'setType' || edit.op === 'setLink' || edit.op === 'setRows' || edit.op === 'setNeeds') && said !== null && (said.startsWith('Added ') || said.startsWith('Said ')) ? 'added' : shortOf(edit);
+    const edits = c.edits.map((edit, i): EntryEdit => ({ edit, subject: subjectOf(edit), said: each[i] ?? null, short: short(edit, each[i] ?? null) }));
     const recordedDay = new Date(Date.parse(c.recorded)).toISOString().slice(0, 10);
     const lead = dayNumber(c.from) - dayNumber(recordedDay);
     return {
@@ -276,8 +309,11 @@ export function livesOf(entries: readonly Entry[], days: readonly string[], toda
   for (const entry of inOrder)
     for (const e of entry.edits) {
       // An entry of a closed list the ontology didn't have (ADR 0027 §4) begins with the change that first names it:
-      // nothing of it was shipped. One whose defining columns a change moved stood before, as shipped.
-      const row = bySubject.get(e.subject.key) ?? { subject: e.subject, begins: (e.edit.op === 'declareEntry' && !(e.said ?? '').startsWith('Changed ')) || e.edit.op === 'leaveOut' || e.edit.op === 'describeAhead', touches: [] };
+      // nothing of it was shipped. One whose defining columns a change moved stood before, as shipped. So with a kind
+      // of thing, a relation, what a row is and a dependency (§3): added by a change, its life begins there.
+      const said = e.said ?? '';
+      const added = (e.edit.op === 'setType' || e.edit.op === 'setLink' || e.edit.op === 'setNeeds') ? said.startsWith('Added ') : e.edit.op === 'setRows' && said.startsWith('Said ');
+      const row = bySubject.get(e.subject.key) ?? { subject: e.subject, begins: (e.edit.op === 'declareEntry' && !said.startsWith('Changed ')) || e.edit.op === 'leaveOut' || e.edit.op === 'describeAhead' || added, touches: [] };
       // Two edits of one thing in one change set: the last says what it was left as.
       const had = row.touches.findIndex((x) => x.entry === entry);
       if (had >= 0) row.touches[had] = { entry, short: e.short };

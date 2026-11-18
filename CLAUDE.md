@@ -636,6 +636,25 @@ release (smaltty ADR 0030).
   `saveAsFormat5` on `firstLine`. `mergeOntologies` carries `aside` and `awaited`. tour.cjs: a stop's `then` (taps
   after a file was chosen) and `upload`'s third entry. `test/newsource.test.ts`, `test/files.test.ts`,
   `tools/browser/stops/doors.json` on the sign-ins; Larkspur's story describes the SBOM inventory ahead (`versions.json`).
+  Slice 5, kinds, relations and meanings over time (§3; no hash tag moves, `rules/1` hashes the ontology whole): six
+  dated edits (`RuleEdit` ops `setType`, `setLink`, `setRows`, `setNeeds`, `redefine`, `end`; `flowedit.ts` `setType`,
+  `setLink`, `setRows`, `setNeeds`, `redefine`, `endThing`, each saying nothing where the document couldn't be read
+  after it, `kept`); what ended is kept (`ontology.ended`, `Ended`, `ENDED_KINDS`: a kind, a relation, a rows entry, a
+  dependency, a closed list's entry, a dataset described ahead that still waits; `FOLLOWED`; `endedIssues`); an
+  estate's own change sets (`EstateOntology.changes`, `ESTATE_OPS`, brought in by `withEstates` before the flow's own,
+  each marked `ChangeSet.estate`; Larkspur's `acting-leader` adds the relation *Acted for by* from Mon 11); the
+  register's subjects for them (`type:`, `link:`, `rows:`, `needs:`, `meaning:`, `awaited:`; a thing a change adds
+  begins there). Outside the key: `ruleversions.ts` (`RuleDiff`'s kinds for them, `diffSaid`, a closed list's entries
+  said by what was declared, `ontologyMap`, `datedDiff` and `diffKey`: each difference with the change that made it)
+  and `ontologypage.ts` (`redefinable`, `redefineEdits`, `redefinedWhere`, `Rule.needs`, `endedEntry`,
+  `endedArrivalSaid`, `entryCalled`). The app: `kindsPart` on the Ontology view (the map first, viz.ts `kindsMap`;
+  `datesCompared`; each thing behind a bar, since when, whose, `comingOfKey`, `ontologyComing`, `kindsKnown`), the
+  forms `kindForm`, `linkForm`, `rowsForm`, `needsForm`, `endForm` (any ended kind) through `sendKindEdit` and
+  `datedTail`; `editRules` checks an edit that changes nothing on screen on its own first day; the names form's
+  *reworded or redefined* (`columnForm`, `meaningSince`); a closed list's entry ended and listed (`closedEntries`,
+  `endedAtGate`); a description written ahead changed or ended (`describeForm(had)`, `awaitedNow`'s `ended`). The
+  recorder judges a fill's donor under the rules of the day it fills (Q-303). `test/kinds.test.ts`; stops in
+  `versions.json` (Larkspur), `estate.json` (the control estate) and `gate.json` (the sign-ins).
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -752,9 +771,10 @@ release (smaltty ADR 0030).
   declared); every change is a dated record with a kind and a reason; events are context written by people, and may
   say what they excuse; a day is read under what was in force and carries that context. In the slices of its §11:
   slice 1 (the register on screen), slice 2 (reasons, kinds and events), slice 3 (the gate, what an event excuses,
-  document format 5) and slice 4 (the two doors) are built (its §"As built", which says what each leaves); slice 5,
-  kinds, relations and meanings over time, is next. Its Q-280 to Q-285 are proposed, for the maintainers to confirm
-  as each is built, and Q-286 to Q-296 are the choices slices 3 and 4 made as they were built.
+  document format 5), slice 4 (the two doors) and slice 5 (kinds, relations and meanings over time, with the shared
+  ontology's own change sets) are built (its §"As built", which says what each leaves); slice 6, reading across a
+  change, is next. Its Q-280 to Q-285 are proposed, for the maintainers to confirm as each is built, and Q-286 to
+  Q-303 are the choices slices 3, 4 and 5 made as they were built.
 
 ## Rules for this repository
 

@@ -234,6 +234,30 @@ export interface AwaitedColumn {
   description: string;
 }
 
+/** What of the ontology may end (ADR 0027 §2, Q-264): a kind of thing, a relation, what a dataset's rows are, a
+ * dependency, an entry of a closed list or column, a dataset described ahead that still waits for its data. */
+export const ENDED_KINDS = ['type', 'link', 'rows', 'needs', 'entry', 'awaited'] as const;
+export type EndedKind = (typeof ENDED_KINDS)[number];
+/** How a thing that ended goes on: replaced by one, merged into one, or split into several. */
+export const FOLLOWED = ['replaced', 'merged', 'split'] as const;
+export type FollowedHow = (typeof FOLLOWED)[number];
+
+/**
+ * A thing of the ontology that ended (ADR 0027 §2, Q-264: nothing is deleted). From the day its change says, the thing
+ * is no longer in force; it is kept here, with what follows it where anything does, so a later day can say what it
+ * was and a series can be followed through to its successor. Past days still read it as it was.
+ */
+export interface Ended {
+  what: EndedKind;
+  /** A kind's, a relation's or a dependency's id; the dataset of a rows entry; an entry's key; a described dataset's
+   * name. */
+  id: string;
+  /** For an entry: the file and the closed rule it was an entry of. */
+  of?: { file: string; rule: string };
+  /** What follows it, each named as the thing itself is (an id, a dataset, a key). */
+  then?: { how: FollowedHow; by: string[] };
+}
+
 /** An awaited dataset's settings, and a column's: any other is refused by name. */
 export const AWAITED_FIELDS = ['id', 'name', 'description', 'row', 'key', 'columns'] as const;
 export const AWAITED_COLUMN_FIELDS = ['column', 'title', 'description'] as const;
@@ -271,6 +295,8 @@ export interface Ontology {
   /** The datasets described before their data exists (ADR 0027 §5, Q-255, format 5): each waits for data until a source
    * of its name is in the flow, and stays here after, the record of what was asked for. */
   awaited?: AwaitedDataset[];
+  /** What has ended (ADR 0027 §2, Q-264, format 5): each thing no longer in force, with what follows it. */
+  ended?: Ended[];
   /** The share of a day's rows a learned check's alert must move to hold the day where its check only warns (Q-132,
    * Q-207), by dataset (a source or a watched step): it wins over the flow's (`publish.overwhelming`), which wins over
    * a quarter. */

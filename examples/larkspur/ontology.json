@@ -1767,5 +1767,19 @@
         "posture_wide"
       ]
     }
+  ],
+  "changes": [
+    {
+      "id": "acting-leader",
+      "from": "2024-03-11",
+      "recorded": "2024-03-08T14:00:00Z",
+      "by": "ciso",
+      "why": "With the reorganisation several posts stand vacant for a while: who acts for a unit is a relation of its own from Monday, so an owner chain can be read through whoever acts",
+      "kind": "business",
+      "decided": { "by": "Sloane Marsden", "on": "2024-03-08" },
+      "edits": [
+        { "op": "setLink", "link": { "id": "acted_for_by", "name": "Acted for by", "from": "org_unit", "to": "person", "on": [["acting_leader_id", "person_id"]], "cardinality": "many-to-one" } }
+      ]
+    }
   ]
 }

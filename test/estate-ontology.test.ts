@@ -5,9 +5,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { composeFlow, type FlowFiles } from '../src/core/compose.js';
-import { validateDocument } from '../src/core/document.js';
+import { validateDocument, type FlowDocument } from '../src/core/document.js';
+import { resolve, rulesHash } from '../src/core/inforce.js';
 import { propertyOf, rowsOf } from '../src/core/ontology.js';
-import { flowHash } from '../src/core/plan.js';
+import { flowHash, translate } from '../src/core/plan.js';
 import { asEstate, estateHash, estateSays, isEstate, overrideProblems, SharedOntologyError, takeEstate, type EstateOntology } from '../src/core/shared.js';
 import { loadFlowDir, ts } from './helpers/notebooks.js';
 
@@ -306,5 +307,25 @@ describe('Larkspur’s ontology, the estate’s', () => {
     // Everywhere else it is as the estate says it.
     expect(propertyOf(top.ontology, 'cmdb_apps', 'owner_team_id')).toEqual({ column: 'owner_team_id', title: 'Owning team', description: 'The team accountable for the application' });
     expect(top.ontology!.properties!.filter((p) => p.override)).toHaveLength(1);
+  });
+
+  it('changes the estate’s ontology once in March, and every flow follows from that day: who acts for a unit, a relation from Mon 11', async () => {
+    const top = await loadFlowDir(dir);
+    // Said on Fri 8 for Mon 11, by the estate: the change is the estate's in every flow that imports it.
+    expect(top.changes!.map((c) => [c.id, c.estate, c.from, c.recorded])).toEqual([['acting-leader', 'Larkspur estate', '2024-03-11', '2024-03-08T14:00:00Z']]);
+    const links = (d: FlowDocument, day: string, asOf?: string) => resolve(d, day, asOf).doc.ontology!.linkTypes.map((l) => l.id);
+    expect(links(top, '2024-03-10')).toEqual(['owned_by', 'reports_into', 'led_by', 'managed_by', 'runs_on']);
+    expect(links(top, '2024-03-11')).toEqual(['owned_by', 'reports_into', 'led_by', 'managed_by', 'runs_on', 'acted_for_by']);
+    // As known on the morning it was written down, Mon 11 was still read without it.
+    expect(links(top, '2024-03-11', '2024-03-08T09:00:00Z')).toEqual(['owned_by', 'reports_into', 'led_by', 'managed_by', 'runs_on']);
+    // HR has the units and the people: the relation is its too. The feeds have neither, and are as they were.
+    const hr = await loadFlowDir(new URL('hr/', dir));
+    expect(links(hr, '2024-03-11')).toEqual(['reports_into', 'led_by', 'managed_by', 'acted_for_by']);
+    const feeds = await loadFlowDir(new URL('feeds/', dir));
+    expect(feeds.changes!.map((c) => c.id)).toEqual(['acting-leader']);
+    expect(await rulesHash(resolve(feeds, '2024-03-11').doc)).toBe(await rulesHash(resolve(feeds, '2024-03-10').doc));
+    expect(await rulesHash(resolve(hr, '2024-03-11').doc)).not.toBe(await rulesHash(resolve(hr, '2024-03-10').doc));
+    // A relation is no step: the day's plan is the plan it was before the relation was known.
+    expect((await translate(top, { day: '2024-03-11' })).nodes).toEqual((await translate(top, { day: '2024-03-11' }, { asOf: '2024-03-08T09:00:00Z' })).nodes);
   });
 });

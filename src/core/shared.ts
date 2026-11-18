@@ -11,7 +11,7 @@
  * The flow document a run hashes is the one read, with the shared file's content in it: a change to the shared file is
  * a change to every flow that imports it, recorded as such. Pure: the caller reads the files.
  */
-import type { FlowDocument } from './document.js';
+import type { ChangeSet, FlowDocument } from './document.js';
 import { hashOf } from './hash.js';
 import type { ActionType, LinkType, NeedsDef, Noun, ObjectType, Ontology, PropertyType, Reference, RowsDef } from './ontology.js';
 import type { FixKind, OntologyRule } from './rules.js';
@@ -150,7 +150,15 @@ export interface EstateOntology {
   rows?: RowsDef[];
   needs?: NeedsDef[];
   overwhelming?: Record<string, number>;
+  /** The estate's own change sets (ADR 0027 §3, Q-265): its kinds, relations, what a row is, dependencies and meanings
+   * changed from a day, each with its kind and its reason. Every flow that imports the estate follows from the
+   * change's day: reading a flow brings them in with the estate's ontology, and each takes what applies to it. */
+  changes?: ChangeSet[];
 }
+
+/** What an estate's own change set may edit: what the estate's ontology says. A rule of a file, a band accepted, a
+ * check's mode, a column read by another name and an entry of a closed list are a flow's. */
+export const ESTATE_OPS = ['setType', 'setLink', 'setRows', 'setNeeds', 'redefine', 'end'] as const;
 
 /** Where a flow's estate parts came from, as the flow keeps it: the estate's name, the path the flow gives it by, and
  * its hash (`estate/0`), the same in every flow that imports it. */
@@ -160,7 +168,7 @@ export interface EstateFrom {
   hash: string;
 }
 
-const ESTATE_PARTS = ['smaltflOntology', 'name', 'description', 'objectTypes', 'linkTypes', 'actionTypes', 'properties', 'references', 'nouns', 'rows', 'needs', 'overwhelming'] as const;
+const ESTATE_PARTS = ['smaltflOntology', 'name', 'description', 'objectTypes', 'linkTypes', 'actionTypes', 'properties', 'references', 'nouns', 'rows', 'needs', 'overwhelming', 'changes'] as const;
 
 /** Whether a document read from an `ontology.import` path is an estate's ontology (and not one starting file's). */
 export const isEstate = (value: unknown): boolean => isRecord(value) && value.smaltflOntology === 2;
@@ -173,6 +181,21 @@ export function asEstate(value: unknown, path: string): EstateOntology {
   for (const k of ['objectTypes', 'linkTypes', 'actionTypes', 'properties', 'references', 'rows', 'needs'] as const) if (value[k] !== undefined && !Array.isArray(value[k])) throw new SharedOntologyError(`${path}: ${k} is a list`);
   for (const k of ['nouns', 'overwhelming'] as const) if (value[k] !== undefined && !isRecord(value[k])) throw new SharedOntologyError(`${path}: ${k} is a map, by dataset`);
   if (Array.isArray(value.properties) && value.properties.some((p) => isRecord(p) && 'override' in p)) throw new SharedOntologyError(`${path}: an override is a flow's, of what the estate says: the estate's ontology has none`);
+  // Its own change sets (ADR 0027 §3): what each says is the document's to check once a flow has taken it; here, that
+  // each edit is of what an estate's ontology says.
+  if (value.changes !== undefined) {
+    if (!Array.isArray(value.changes)) throw new SharedOntologyError(`${path}: changes is a list of change sets`);
+    for (const c of value.changes) {
+      if (!isRecord(c) || typeof c.id !== 'string' || !Array.isArray(c.edits)) throw new SharedOntologyError(`${path}: a change set is { id, from, recorded, by, why, kind, edits }`);
+      if ('estate' in c) throw new SharedOntologyError(`${path}: ${c.id} names an estate: a change set of an estate's ontology is its own`);
+      for (const e of c.edits) {
+        const op = isRecord(e) ? String(e.op) : '';
+        if (!(ESTATE_OPS as readonly string[]).includes(op)) throw new SharedOntologyError(`${path}: ${c.id} has an edit ${op || 'with no op'}: an estate's ontology changes its kinds, relations, what a row is, dependencies and meanings (${ESTATE_OPS.join(', ')})`);
+        if (op === 'end' && isRecord(e) && isRecord(e.ended) && e.ended.what === 'entry') throw new SharedOntologyError(`${path}: ${c.id} ends an entry of a closed list: a list is closed by a flow, on its own file`);
+        if (op === 'end' && isRecord(e) && isRecord(e.ended) && e.ended.what === 'awaited') throw new SharedOntologyError(`${path}: ${c.id} ends a dataset described ahead of its data: a flow describes one, and ends it`);
+      }
+    }
+  }
   return value as unknown as EstateOntology;
 }
 

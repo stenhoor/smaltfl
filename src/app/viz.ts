@@ -2158,3 +2158,96 @@ export function registerLanes(o: { days: readonly string[]; today: string; pick?
   }
   return `${s}</svg>`;
 }
+
+/** A kind of thing on the map of two dates: how it stands between them, and whether it is still to come. */
+export interface MapBox { id: string; name: string; state: 'same' | 'added' | 'ended' | 'changed'; coming?: boolean }
+/** A relation on the map: from one kind to another. */
+export interface MapLine { id: string; name: string; from: string; to: string; state: 'same' | 'added' | 'ended' | 'changed'; coming?: boolean }
+
+/** The mark a kind or a relation carries where the two dates differ, so the difference is never colour alone. */
+const MAP_MARK = { same: '', added: '+ ', ended: '× ', changed: '~ ' } as const;
+
+/**
+ * The kinds and relations between two dates as a map (ADR 0027 §9, Q-269): kinds as boxes, relations as lines. Only
+ * what differs is coloured, each with its own mark (+ new, × gone, ~ changed), and what is still to come is hatched.
+ * Kinds are few, so they sit on a grid, two across on a phone and three from tablet width; a relation of a kind with
+ * itself is a loop over its box. A still picture: nothing plays.
+ */
+export function kindsMap(o: { kinds: readonly MapBox[]; links: readonly MapLine[]; w?: number; aria: string }): string {
+  const w = o.w ?? 340;
+  const cols = Math.max(1, Math.min(o.kinds.length, w >= 600 ? 3 : 2));
+  const gap = w >= 600 ? 56 : 26;
+  const bw = Math.floor((w - gap * (cols - 1) - 2) / cols);
+  const bh = 34;
+  const rowGap = 58;
+  const top = 30;
+  const rows = Math.max(1, Math.ceil(o.kinds.length / cols));
+  const at = new Map(o.kinds.map((k, i) => [k.id, { x: 1 + (i % cols) * (bw + gap), y: top + Math.floor(i / cols) * (bh + rowGap) }] as const));
+  const fit = (text: string, px: number, per = 6.1) => (text.length * per <= px ? text : `${text.slice(0, Math.max(1, Math.floor(px / per) - 1))}…`);
+  // The relations first, under the boxes: a line between two kinds, a loop for a kind with itself. Two between the same
+  // pair, or two loops on one kind, are set apart so each name can be read; one between two kinds of a row with a box
+  // between them goes under the row, so it crosses no box.
+  const seen = new Map<string, number>();
+  let lines = '';
+  // Each name steps away from one already written where the two would overlap: up from above a row, down from under one.
+  const placed: { x0: number; x1: number; y: number }[] = [];
+  const labels: { cls: string; x: number; y: number; text: string }[] = [];
+  const place = (text: string, x: number, y: number, step: number, cls: string) => {
+    const half = (text.length * 6.1) / 2 + 3;
+    let yy = y;
+    for (let k = 0; k < 5 && placed.some((q) => Math.abs(q.y - yy) < 11 && q.x0 < x + half && x - half < q.x1); k++) yy += step;
+    placed.push({ x0: x - half, x1: x + half, y: yy });
+    labels.push({ cls, x, y: yy, text });
+  };
+  for (const l of o.links) {
+    const a = at.get(l.from);
+    const b = at.get(l.to);
+    if (!a || !b) continue;
+    const pair = [l.from, l.to].sort().join('|');
+    const nth = seen.get(pair) ?? 0;
+    seen.set(pair, nth + 1);
+    const cls = `km-line km-${l.state}${l.coming ? ' km-coming' : ''}`;
+    const name = `${MAP_MARK[l.state]}${l.name}`;
+    const title = `<title>${esc(`${l.name}: ${l.state === 'same' ? 'the same on both' : l.state === 'added' ? (l.coming ? 'coming' : 'new') : l.state === 'ended' ? 'ended' : 'changed'}`)}</title>`;
+    if (l.from === l.to) {
+      const cx = a.x + bw / 2 + (nth ? 34 * (nth % 2 ? 1 : -1) * Math.ceil(nth / 2) : 0);
+      lines += `<path class="${cls}" data-link="${esc(l.id)}" d="M${f1(cx - 16)} ${a.y}C${f1(cx - 16)} ${a.y - 20} ${f1(cx + 16)} ${a.y - 20} ${f1(cx + 16)} ${a.y}">${title}</path>`;
+      place(fit(name, bw), cx, a.y - 18, -12, `km-lt km-${l.state}`);
+      continue;
+    }
+    const ax = a.x + bw / 2;
+    const ay = a.y + bh / 2;
+    const bx = b.x + bw / 2;
+    const by = b.y + bh / 2;
+    const off = nth * 13;
+    const apart = Math.round(Math.abs(a.x - b.x) / (bw + gap));
+    if (a.y === b.y && apart > 1) {
+      const dip = a.y + bh + 16 + nth * 10;
+      lines += `<path class="${cls}" data-link="${esc(l.id)}" d="M${f1(ax)} ${a.y + bh}C${f1(ax)} ${dip + 6} ${f1(bx)} ${dip + 6} ${f1(bx)} ${b.y + bh}">${title}</path>`;
+      place(fit(name, apart * (bw + gap) - 20), (ax + bx) / 2, dip + 13, 12, `km-lt km-${l.state}`);
+      continue;
+    }
+    lines += `<line class="${cls}" data-link="${esc(l.id)}" x1="${f1(ax)}" y1="${f1(ay + off)}" x2="${f1(bx)}" y2="${f1(by + off)}">${title}</line>`;
+    // Its name where the line is clear of both boxes: between two rows, or in the gap between two columns.
+    if (a.y === b.y) place(fit(name, bw + gap), (ax + bx) / 2, ay - bh / 2 - 5 - off, -12, `km-lt km-${l.state}`);
+    else place(fit(name, w / cols + gap), (ax + bx) / 2, (ay + by) / 2 + 3 + off, 12, `km-lt km-${l.state}`);
+  }
+  // Room for the names that stepped up over the first row or down under the last.
+  const up = Math.max(0, 11 - Math.min(11, ...labels.map((t) => t.y)));
+  const h = Math.max(top + rows * bh + (rows - 1) * rowGap + 14, ...labels.map((t) => t.y + 8)) + up;
+  let s = open(w, h, o.aria);
+  s += '<defs><pattern id="km-hatch" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect class="rg-hatch-bg" width="6" height="6"/><line class="rg-hatch-line" x1="0" y1="0" x2="0" y2="6"/></pattern></defs>';
+  s += `<g${up ? ` transform="translate(0 ${f1(up)})"` : ''}>${lines}`;
+  for (const k of o.kinds) {
+    const p = at.get(k.id)!;
+    s += `<g class="km-kind km-${k.state}${k.coming ? ' km-coming' : ''}" data-kind="${esc(k.id)}"><title>${esc(`${k.name}: ${k.state === 'same' ? 'the same on both' : k.state === 'added' ? (k.coming ? 'coming' : 'new') : k.state === 'ended' ? 'ended' : 'changed'}`)}</title>`
+      + `<rect class="km-box" x="${p.x}" y="${p.y}" width="${bw}" height="${bh}" rx="6"${k.coming ? ' style="fill:url(#km-hatch)"' : ''}/>`
+      + `<text class="km-name" x="${f1(p.x + bw / 2)}" y="${p.y + 21}" text-anchor="middle">${esc(fit(`${MAP_MARK[k.state]}${k.name}`, bw - 10, 6.6))}</text></g>`;
+  }
+  // Each name on a ground of its own, so a line that passes behind it is broken by it and never strikes it through.
+  const named = labels.map((t) => {
+    const half = (t.text.length * 6.1) / 2 + 3;
+    return `<rect class="km-lbg" x="${f1(t.x - half)}" y="${f1(t.y - 10)}" width="${f1(half * 2)}" height="13" rx="2"/><text class="${t.cls}" x="${f1(t.x)}" y="${f1(t.y)}" text-anchor="middle">${esc(t.text)}</text>`;
+  });
+  return `${s}${named.join('')}</g></svg>`;
+}

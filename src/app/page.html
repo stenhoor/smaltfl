@@ -1187,6 +1187,24 @@ svg.viz.kind-mark { display: inline-block; vertical-align: -1.5px; margin-right:
 .viz .rg-on { fill: var(--smalt-wash); stroke: var(--smalt); stroke-width: 1; }
 .viz .rg-next { fill: url(#rg-hatch); stroke: var(--smalt); stroke-width: 1.1; stroke-dasharray: 4 3; }
 .viz .rg-then { fill: none; stroke: var(--smalt); stroke-width: 1; stroke-dasharray: 3 3; }
+/* The map of kinds and relations between two dates (ADR 0027 §9): only what differs is coloured, each with its mark. */
+.viz .km-box { fill: var(--surface); stroke: var(--muted); stroke-width: 1; }
+.viz .km-name { font-size: 12.5px; font-weight: 600; fill: var(--ink); }
+.viz .km-line { stroke: var(--muted); stroke-width: 1.2; fill: none; }
+.viz .km-lt { font-size: 11px; fill: var(--ink-2); }
+/* The ground a relation's name sits on: the surface the Ontology view's head is drawn on. */
+.viz .km-lbg { fill: var(--surface); stroke: none; }
+.viz .km-added .km-box { stroke: var(--smalt); stroke-width: 2; fill: var(--smalt-wash); }
+.viz .km-line.km-added { stroke: var(--smalt); stroke-width: 2.2; }
+.viz .km-lt.km-added { fill: var(--smalt); font-weight: 600; }
+.viz .km-ended .km-box { stroke: var(--bad); stroke-width: 1.6; stroke-dasharray: 4 3; }
+.viz .km-ended .km-name { fill: var(--bad); text-decoration: line-through; }
+.viz .km-line.km-ended { stroke: var(--bad); stroke-width: 1.8; stroke-dasharray: 4 3; }
+.viz .km-lt.km-ended { fill: var(--bad); font-weight: 600; }
+.viz .km-changed .km-box { stroke: var(--warn); stroke-width: 2; }
+.viz .km-line.km-changed { stroke: var(--warn); stroke-width: 2.2; }
+.viz .km-lt.km-changed { fill: var(--warn); font-weight: 600; }
+.viz .km-line.km-coming { stroke-dasharray: 2 4; }
 .viz .rg-hatch-bg { fill: var(--surface); }
 .viz .rg-hatch-line { stroke: var(--smalt); stroke-width: 1.6; opacity: 0.4; }
 .viz .rg-said { fill: var(--surface); stroke: var(--smalt); stroke-width: 1.5; }
@@ -1213,7 +1231,9 @@ svg.viz.kind-mark { display: inline-block; vertical-align: -1.5px; margin-right:
 .rt-known-l, .rt-cmp-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0; min-width: 0; font-size: 13px; font-weight: 600; color: var(--ink-2); }
 .rt-known, .rt-pick { min-height: 44px; max-width: 100%; min-width: 0; border: 1px solid var(--muted); border-radius: 8px; padding: 6px 8px; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; }
 .rt-compare { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 8px 10px; border-radius: 8px; background: var(--sunk); min-width: 0; }
-.rt-diff { display: grid; gap: 4px; margin: 0; padding-left: 20px; font-size: 13px; overflow-wrap: anywhere; }
+.rt-diff, .kd-diff { display: grid; gap: 4px; margin: 0; padding-left: 20px; font-size: 13px; overflow-wrap: anywhere; }
+.kd-diff .kd-by { margin-left: 8px; white-space: nowrap; }
+.kd-diff .kd-by svg { vertical-align: -1px; }
 .rf-bar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--sunk); min-width: 0; }
 .rf-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; font-size: 13px; font-weight: 600; color: var(--ink-2); }
 .rf-k { flex: 0 0 auto; }
@@ -1231,6 +1251,8 @@ svg.viz.kind-mark { display: inline-block; vertical-align: -1.5px; margin-right:
 .of-form label, .of-form legend { padding: 0; font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
 .of-form input, .of-form textarea { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--muted); border-radius: 8px; padding: 9px 10px; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.35; }
 .of-form textarea { min-height: 88px; }
+/* A tick box or a radio in a form is its own size, never a text field's. */
+.of-form input[type="checkbox"], .of-form input[type="radio"] { width: auto; min-height: 0; padding: 0; flex: none; margin: 0; }
 .of-vals { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 0; padding: 0; border: 0; min-width: 0; }
 .of-val { display: grid; grid-template-columns: minmax(0, 36%) minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; }
 .of-val label code { font-family: var(--mono); font-size: 12.5px; font-weight: 400; color: var(--ink); overflow-wrap: anywhere; }
@@ -2561,6 +2583,56 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .rt-up-acts:empty { display: none; }
 .rt-up-acts .btn { min-height: 36px; }
 .of-acts .btn.sf-go, .of-acts .btn.df-go { background: var(--smalt); border-color: var(--smalt); color: var(--surface); font-weight: 600; }
+/* Kinds and relations over time, on the Ontology view (ADR 0027 §3, §9): what is in force, what ended, two dates compared. */
+.kd { display: grid; gap: 8px; min-width: 0; }
+.kd-head, .kd-cmp-head { margin: 0; font-size: 14px; color: var(--muted); overflow-wrap: anywhere; }
+.kd-head b, .kd-cmp-head b { color: var(--ink); }
+.kd-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; min-width: 0; }
+.kd-item { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 13.5px; min-width: 0; overflow-wrap: anywhere; }
+.kd-item.kd-link { border-left: 3px solid var(--muted); border-radius: 0 8px 8px 0; }
+.kd-item.kd-ended { border-style: dashed; color: var(--ink-2); }
+.kd-item.kd-ended b { text-decoration: line-through; }
+.kd-when { font-size: 12.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; }
+.kd-whose { padding: 0 6px; border: 1px solid var(--line); border-radius: 999px; font-size: 11.5px; color: var(--ink-2); white-space: nowrap; }
+.kd-acts { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.kd .linkish { background: none; border: 0; padding: 0; min-height: 28px; color: var(--smalt); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; text-align: left; }
+.kd-all > summary { flex-wrap: nowrap; align-items: flex-start; gap: 8px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.kd-all > summary::before { flex: none; align-self: flex-start; margin-top: 5px; }
+.kd-all[open] > summary { margin-bottom: 2px; }
+.viz .km-coming .km-box { stroke-dasharray: 3 3; }
+.kd-add { margin: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.kd-add .btn { min-height: 36px; }
+.kd-compare { display: grid; gap: 8px; min-width: 0; }
+.kd-cmp-head select { max-width: 100%; min-height: 36px; border: 1px solid var(--muted); border-radius: 8px; padding: 4px 6px; background: var(--bg); color: var(--ink); font: inherit; font-size: 13px; }
+.kd-map { min-width: 0; overflow-x: auto; }
+.kd-map .viz { max-width: 100%; height: auto; }
+.kd-legend { margin: 0; font-size: 12px; color: var(--muted); }
+.lf-form .of-field select, .kf-form select, .ef-form select { box-sizing: border-box; width: 100%; }
+.ef-follows { display: grid; gap: 6px; }
+/* A meaning reworded or redefined (ADR 0027 §3, Q-251): asked in the names form once the meaning is edited. */
+.of-how[hidden], .of-dated[hidden] { display: none; }
+.of-form label.of-how-opt { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 8px; min-height: 32px; padding: 4px 0; font-size: 13px; font-weight: 400; color: var(--ink); }
+.of-how-opt input { margin-top: 3px; }
+.of-dated { display: grid; gap: 10px; margin-top: 6px; min-width: 0; }
+.of-redefs { display: grid; gap: 2px; min-width: 0; }
+.of-redefined { margin: 4px 0 0; font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.kd-item.kd-coming .kd-what { color: var(--ink-2); }
+.kd-item.kd-coming { border-left: 2px dashed var(--line-2, var(--line)); padding-left: 8px; }
+.ef-follows[hidden] { display: none; }
+/* A condition in a form: a column, and the values it may hold. */
+.cf-rows { display: grid; gap: 6px; min-width: 0; }
+.cf-row { display: grid; grid-template-columns: minmax(0, 2fr) auto minmax(0, 3fr); gap: 6px; align-items: center; min-width: 0; }
+.cf-is { font-size: 13px; color: var(--muted); }
+.of-own-adds { margin: 6px 0 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.aw-acts { display: inline-flex; flex-wrap: wrap; gap: 4px 14px; margin-left: 10px; }
+.aw-item.ended { border-style: dashed; }
+.aw-item.ended .aw-name b { text-decoration: line-through; color: var(--ink-2); }
+.of-entry.ended b { text-decoration: line-through; color: var(--ink-2); }
+.of-entry .of-entry-end { margin-left: 8px; }
+.rg-estate { margin: 0; font-size: 12px; font-weight: 600; color: var(--ink-2); }
+@media (min-width: 820px) {
+  .kd-item { grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline; }
+}
 /* Described ahead of their data, on the Ontology view. */
 .aw { display: grid; gap: 8px; min-width: 0; }
 .aw-head { margin: 0; font-size: 14px; color: var(--muted); }

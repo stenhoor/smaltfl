@@ -37,6 +37,20 @@ export function editTargets(edit: RuleEdit): string[] {
     // A dataset described ahead of its data is no file or step yet: the change is the flow's that wrote it.
     case 'describeAhead':
       return [];
+    // A kind is about the dataset its rows are; what a row is and a dependency, about theirs. A relation and a meaning
+    // for every dataset are the ontology's own: the flow's that wrote them.
+    case 'setType':
+      return [edit.type.dataset];
+    case 'setRows':
+      return [edit.rows.dataset];
+    case 'setNeeds':
+      return [...edit.needs.datasets];
+    case 'redefine':
+      return [...(edit.datasets ?? [])];
+    case 'setLink':
+      return [];
+    case 'end':
+      return edit.ended.what === 'entry' && edit.ended.of ? [edit.ended.of.file] : edit.ended.what === 'rows' ? [edit.ended.id] : [];
   }
 }
 

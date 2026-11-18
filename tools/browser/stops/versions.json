@@ -12,18 +12,24 @@
   },
   {
     "name": "register-marks",
-    "what": "The month's score is marked where the rules changed (ADR 0027 §7, slice 1): a diamond on Mon 18, where the WAF's band took effect, on Fri 1, the day the values check's correction reaches back to, and on Wed 27, the day the catalogue's fifteenth control was declared; each change named under the chart, a link to it",
+    "what": "The month's score is marked where the rules changed (ADR 0027 §7, slice 1): a diamond on Mon 18, where the WAF's band took effect, on Fri 1, the day the values check's correction reaches back to, on Mon 11, where the estate's ontology added a relation of its own (slice 5), and on Wed 27, the day the catalogue's fifteenth control was declared; each change named under the chart, a link to it",
     "view": "month",
     "element": "#view-month .mo-changes",
     "expect": {
-      "text": ["WHERE THE RULES CHANGED", "Fri 1:", "Mon 18: Accepted a new band in waf", "Wed 27: Declared sbom in control_catalog"],
+      "text": [
+        "WHERE THE RULES CHANGED",
+        "Fri 1:",
+        "Mon 11: Added the relation Acted for by",
+        "Mon 18: Accepted a new band in waf",
+        "Wed 27: Declared sbom in control_catalog"
+      ],
       "textIn": {
         "#view-month .mo-going": ["What was going on", "Quarter-end change freeze, Mon 25 to Sun 31"]
       },
       "count": {
-        "#view-month .mo-changes [data-change]": 3,
+        "#view-month .mo-changes [data-change]": 4,
         "#view-month .viz .ev-band": 6,
-        "#view-month .viz .chg-mark": 3,
+        "#view-month .viz .chg-mark": 4,
         "#view-month .mo-going [data-event]": 6
       }
     }
@@ -57,29 +63,29 @@
   },
   {
     "name": "versions-list",
-    "what": "The Ontology view on Thu Mar 21 (ADR 0021 §5): the three change sets, then the five versions of the rules (as shipped, the band, the values check alone before Mon 18, both from Mon 18, and the catalogue's fifteenth control with them from Wed 27), each with its hash, where and when it was in force and its recorded runs; the one on screen (the band: Thu 21's version readers got ran on Fri 22, before the back-dated change) and the one as known now (both) marked; the one on screen compared with the one before it",
+    "what": "The Ontology view on Thu Mar 21 (ADR 0021 §5): the four change sets, then the seven versions of the rules (as shipped; the estate's relation from Mon 11; the band with it from Mon 18; the values check alone before Mon 11, then with each of the others; and the catalogue's fifteenth control with them all from Wed 27), each with its hash, where and when it was in force and its recorded runs; the one on screen (the relation and the band: Thu 21's version readers got ran on Fri 22, before the back-dated change) and the one as known now (with the values check) marked; the one on screen compared with the one before it",
     "day": "Thu 21",
     "view": "ontology",
     "element": "#rules-time",
     "expect": {
       "pageText": [
         "The rules in force on Thu Mar 21",
-        "3 change sets",
-        "5 versions of the rules",
+        "4 change sets",
+        "7 versions of the rules",
         "The rules as shipped",
-        "On Thu Mar 21: Version 2 on screen, as the day’s version ran; Version 4 as known now.",
+        "On Thu Mar 21: Version 3 on screen, as the day’s version ran; Version 6 as known now.",
         "Compare",
         "Band for Status Fail in waf: 0%–15% → 0%–10%"
       ],
       "count": {
-        "#rules-time .rt-ver": 5,
+        "#rules-time .rt-ver": 7,
         "#rules-time .rt-ver.on": 1
       }
     }
   },
   {
     "name": "register-list",
-    "what": "The Ontology view's head as a register (ADR 0027 §9, slice 1): the three change sets as entries, newest first, each with its days and how it was said (the catalogue's new control declared on its day, Wed 27; the band said on Fri 15 for Mon 18, three days ahead; the values check recorded on Mon 25 and back-dated to Fri 1), what it did, why in its author's words, and the days it reached that had already run",
+    "what": "The Ontology view's head as a register (ADR 0027 §9, slice 1): the four change sets as entries, newest first, each with its days and how it was said (the catalogue's new control declared on its day, Wed 27; the band said on Fri 15 for Mon 18, three days ahead; the estate's own change, a relation added from Mon 11 and said on Fri 8, marked as the estate's ontology's, which every flow that imports it follows; the values check recorded on Mon 25 and back-dated to Fri 1), what it did, why in its author's words, and the days it reached that had already run",
     "day": "Thu 21",
     "view": "ontology",
     "viewFirst": true,
@@ -92,19 +98,23 @@
         "From Mon 18 · said Fri 15, 3 days ahead",
         "Accepted a new band in waf",
         "monitor mode, the security lead wants a WAF failing more than a tenth",
+        "Larkspur estate’s ontology: every flow that imports it follows",
+        "From Mon 11 · said Fri 8, 3 days ahead",
+        "Added the relation Acted for by: Organisational unit to Person, on acting_leader_id = person_id",
         "From Fri 1 · recorded Mon 25, back-dated 24 days",
         "recorded after"
       ],
       "count": {
-        "#rules-time .rg-item[data-change]": 3,
+        "#rules-time .rg-item[data-change]": 4,
         "#rules-time .rg-item[data-event]": 6,
-        "#rules-time .rg-item.rg-coming": 0
+        "#rules-time .rg-item.rg-coming": 0,
+        "#rules-time .rg-item[data-estate]": 1
       }
     }
   },
   {
     "name": "register-kinds",
-    "what": "Each change says its kind with the kind's own mark, who decided it and when, and what led to it (ADR 0027 §2, slice 2): the band and the catalogue's new control, the business changing, each decided by the security lead (the band on Thu 14 because of the WAF's day in monitor mode); the values check, a mistake corrected. The thinking opens under it: what was seen, chosen and turned down, what is expected, when to look again",
+    "what": "Each change says its kind with the kind's own mark, who decided it and when, and what led to it (ADR 0027 §2, slice 2): the band, the estate's relation and the catalogue's new control, the business changing, each decided by the security lead (the band on Thu 14 because of the WAF's day in monitor mode); the values check, a mistake corrected. The thinking opens under it: what was seen, chosen and turned down, what is expected, when to look again",
     "day": "Thu 21",
     "view": "ontology",
     "viewFirst": true,
@@ -120,10 +130,11 @@
           "Look again"
         ],
         "#rules-time .rg-item[data-change=\"findings-values-hold\"]": ["A mistake corrected", "Because of: Scanner scn-dc-west without its login"],
-        "#rules-time .rg-item[data-change=\"sbom-declared\"]": ["The business changed", "Decided by Sloane Marsden on Tue 26"]
+        "#rules-time .rg-item[data-change=\"sbom-declared\"]": ["The business changed", "Decided by Sloane Marsden on Tue 26"],
+        "#rules-time .rg-item[data-change=\"acting-leader\"]": ["The business changed", "Decided by Sloane Marsden on Fri 8"]
       },
       "count": {
-        "#rules-time .rg-item[data-kind=\"business\"]": 2,
+        "#rules-time .rg-item[data-kind=\"business\"]": 3,
         "#rules-time .rg-item[data-kind=\"corrected\"]": 1,
         "#rules-time .rg-note": 2
       }
@@ -131,7 +142,7 @@
   },
   {
     "name": "register-lanes",
-    "what": "From tablet width the same entries are lanes over the days: each row one thing's life, dashed while it stood as shipped, a bar while a change is in force (the SBOM inventory's, described ahead of its data, begins on Wed 27 with the control it will evidence), a ring on the day the change was said, a dashed line under the back-dated change over the days whose runs were judged without it, and the days decided, kept back or restated beneath",
+    "what": "From tablet width the same entries are lanes over the days: each row one thing's life, dashed while it stood as shipped, a bar while a change is in force (the SBOM inventory's, described ahead of its data, begins on Wed 27 with the control it will evidence; the estate's relation, Acted for by, begins on Mon 11: a thing a change adds has no days before it), a ring on the day the change was said, a dashed line under the back-dated change over the days whose runs were judged without it, and the days decided, kept back or restated beneath",
     "day": "Thu 21",
     "view": "ontology",
     "viewFirst": true,
@@ -139,9 +150,9 @@
     "element": "#rules-time .rg-lanes",
     "expect": {
       "count": {
-        "#rules-time .rg-lanes .rg-on": 4,
+        "#rules-time .rg-lanes .rg-on": 5,
         "#rules-time .rg-lanes .rg-was": 1,
-        "#rules-time .rg-lanes .rg-said": 4,
+        "#rules-time .rg-lanes .rg-said": 5,
         "#rules-time .rg-lanes .rg-then": 1,
         "#rules-time .rg-lanes .rg-decided": 8,
         "#rules-time .rg-lanes .rg-back": 5
@@ -159,7 +170,7 @@
     "expect": {
       "count": {
         "#rules-time .rg-lanes .rg-event": 6,
-        "#rules-time .rg-lanes .rg-kind": 4
+        "#rules-time .rg-lanes .rg-kind": 5
       }
     }
   },
@@ -289,34 +300,142 @@
     }
   },
   {
+    "name": "kinds-map",
+    "day": "Thu 21",
+    "what": "Kinds and relations (ADR 0027 §3, §9, slice 5): the ontology's kinds of thing and the relations between them, the picture first: a box a kind, a line a relation, with what differs between two dates, the first day of the month against the day on screen unless others are picked. Between Fri 1 and Thu 21 the estate's own change added the relation Acted for by, drawn new, and the WAF's band moved, said in words above the map; each thing by name stays behind its bar",
+    "view": "ontology",
+    "viewFirst": true,
+    "element": "#rules-time .kd",
+    "expect": {
+      "textIn": {
+        "#rules-time .kd": [
+          "Kinds and relations",
+          "5 kinds of thing, 6 relations on Thu Mar 21",
+          "Two dates compared",
+          "as known now",
+          "Band for Status Fail in waf: 0%–15% → 0%–10%",
+          "New relation Acted for by: Organisational unit to Person, on acting_leader_id = person_id",
+          "+ new · × ended · ~ changed. A box a kind of thing, a line a relation.",
+          "Each of them, since when"
+        ]
+      },
+      "count": {
+        "#rules-time .kd-map .km-kind": 5,
+        "#rules-time .kd-map .km-kind.km-added": 0,
+        "#rules-time .kd-diff li": 2,
+        "#rules-time .kd-all[open]": 0,
+        "#rules-time .kd-map .km-lt": 6,
+        "#rules-time .kd-map .km-lt.km-added": 1
+      }
+    }
+  },
+  {
+    "name": "kinds-estate-change",
+    "day": "Thu 21",
+    "what": "The bar opened: each kind of thing with the dataset whose rows are one each and its key, each relation with the kinds it is between and the columns that match, since when, and whose it is. All eleven are the estate's, so this flow has no Change and no End on them. Acted for by has stood since Mon 11: tapped, the register marks the change that made it, the estate's ontology's own change set (ADR 0027 §3, Q-265), said on Fri 8 for the Monday of the reorganisation, with its kind, its reason and who decided; every flow that imports the estate's ontology follows it from that day",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": ["#rules-time .kd-all > summary", "#rules-time .kd-link[data-link=\"acted_for_by\"] .kd-since"],
+    "element": "#rules-time .rg-item.at",
+    "expect": {
+      "textIn": {
+        "#rules-time .rg-item.at": [
+          "The business changed",
+          "Larkspur estate’s ontology: every flow that imports it follows",
+          "From Mon 11 · said Fri 8, 3 days ahead",
+          "Added the relation Acted for by: Organisational unit to Person, on acting_leader_id = person_id",
+          "who acts for a unit is a relation of its own from Monday",
+          "Decided by Sloane Marsden on Fri 8",
+          "in force on the day on screen"
+        ],
+        "#rules-time .kd-all": [
+          "Organisational unit · one row of hr_org_units, by org_unit_id",
+          "Control · one row of control_catalog, by control_id",
+          "Reports into · Organisational unit to Organisational unit, on parent_id = org_unit_id",
+          "Runs on · Application to Platform, on platform_id",
+          "Acted for by · Organisational unit to Person, on acting_leader_id = person_id",
+          "since Mon 11 ›",
+          "as shipped",
+          "Larkspur estate’s"
+        ]
+      },
+      "count": {
+        "#rules-time .rg-item.at": 1,
+        "#rules-time .rg-item.at[data-estate=\"Larkspur estate\"]": 1,
+        "#rules-time .kd-kind": 5,
+        "#rules-time .kd-link": 6,
+        "#rules-time .kd-whose": 11,
+        "#rules-time .kd-since": 1,
+        "#rules-time .kd-change": 0,
+        "#rules-time .kd-end": 0,
+        "#rules-time .kd-coming": 0,
+        "#rules-time .kd-all[open]": 1
+      }
+    }
+  },
+  {
+    "name": "kinds-ahead",
+    "day": "Thu 21",
+    "what": "Two dates picked: Fri 1 against Wed 27, a day still ahead of the one on screen. Each thing that differs is one line: the catalogue's closed list by the entry that was declared, not the whole rule twice; the band; the relation; and the SBOM inventory, described ahead of its data",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      ["#rules-time .kd-pick-b", "2024-03-27"]
+    ],
+    "element": "#rules-time .kd-compare",
+    "expect": {
+      "textIn": {
+        "#rules-time .kd-compare": [
+          "The closed list Control in control_catalog: sbom declared (14 → 15 entries)",
+          "Band for Status Fail in waf: 0%–15% → 0%–10%",
+          "New relation Acted for by: Organisational unit to Person, on acting_leader_id = person_id",
+          "SBOM inventory described ahead of its data: one row a component list, by app_id"
+        ]
+      },
+      "count": {
+        "#rules-time .kd-diff li": 4,
+        "#rules-time .kd-map .km-lt.km-added": 1
+      }
+    }
+  },
+  {
     "name": "versions-compare",
     "what": "Any two compared: the rules as shipped against the values check alone, the one thing between them",
     "day": "Thu 21",
     "view": "ontology",
     "viewFirst": true,
-    "clicks": [["#rules-time .rt-pick-a", "Version 1"], ["#rules-time .rt-pick-b", "Version 3"]],
+    "clicks": [
+      ["#rules-time .rt-pick-a", "Version 1"],
+      ["#rules-time .rt-pick-b", "Version 4"]
+    ],
     "element": "#rules-time .rt-compare",
     "expect": {
       "text": ["The values check on findings: warn → hold"],
-      "count": { "#rules-time .rt-diff li": 1 }
+      "count": {
+        "#rules-time .rt-diff li": 1
+      }
     }
   },
   {
     "name": "versions-known",
-    "what": "As known on the end of Fri Mar 15: the band was recorded that afternoon, so Thu Mar 21's rules as known then are version 2, the one on screen too; as known now, version 4",
+    "what": "As known on the end of Fri Mar 15: the band was recorded that afternoon, so Thu Mar 21's rules as known then are version 3, the one on screen too; as known now, version 6",
     "day": "Thu 21",
     "view": "ontology",
     "viewFirst": true,
-    "clicks": [["#rules-time .rt-known", "2024-03-15"]],
+    "clicks": [
+      ["#rules-time .rt-known", "2024-03-15"]
+    ],
     "element": "#rules-time .rt-vers",
     "expect": {
       "text": ["as known on the end of Fri Mar 15"],
-      "count": { "#rules-time .rt-mark": 3 }
+      "count": {
+        "#rules-time .rt-mark": 3
+      }
     }
   },
   {
     "name": "register-coming",
-    "what": "As known on the end of Fri Mar 15 the band is coming: said that afternoon for Mon 18, it is on top of the register; the values check's correction, recorded ten days later, and the catalogue's new control, declared on Wed 27, aren't known yet, and the register says two more were recorded after",
+    "what": "As known on the end of Fri Mar 15 the band is coming: said that afternoon for Mon 18, it is on top of the register; the estate's relation, said on Fri 8 for Mon 11, is in force by then; the values check's correction, recorded ten days later, and the catalogue's new control, declared on Wed 27, aren't known yet, and the register says two more were recorded after",
     "day": "Thu 21",
     "view": "ontology",
     "viewFirst": true,
@@ -327,7 +446,7 @@
     "expect": {
       "text": ["COMING", "From Mon 18 · said Fri 15, 3 days ahead", "2 more changes were recorded after the moment this is read at."],
       "count": {
-        "#rules-time .rg-item[data-change]": 1,
+        "#rules-time .rg-item[data-change]": 2,
         "#rules-time .rg-item[data-event]": 4,
         "#rules-time .rg-item.rg-coming": 1
       }
@@ -354,6 +473,31 @@
       },
       "count": {
         "#rules-time .rg-item[data-event]": 7
+      }
+    }
+  },
+  {
+    "name": "described-ended",
+    "what": "A description written ahead ends while it still waits for its data (ADR 0027 §2, §5): the SBOM inventory's, from the next day to arrive, with its reason. Nothing is deleted: on Thu 21 it is still coming from Wed 27, and its line says the day it ends from, a tap from the change",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      "#rules-time .aw-item[data-awaited=\"sbom_inventory\"] .aw-end",
+      [".ef-form .wy-reason", "The build pipeline won’t export it: the control is evidenced by the scanner’s own list"],
+      ".ef-go"
+    ],
+    "waitFor": "#rules-time .aw-item[data-awaited=\"sbom_inventory\"] .aw-ends",
+    "element": "#rules-time .aw",
+    "expect": {
+      "status": "^Ended the description of SBOM inventory, written ahead of its data, in force from Mon Apr 1\\. Recorded\\.",
+      "textIn": {
+        "#rules-time .aw": ["SBOM inventory", "waiting for data", "Coming from Wed Mar 27 ›", "Ends from Mon Apr 1 ›"]
+      },
+      "count": {
+        "#rules-time .aw-item.waiting": 1,
+        "#rules-time .aw-item.ended": 0,
+        "#rules-time .aw-item .aw-end": 0,
+        ".vf-detail .ef-form": 0
       }
     }
   }
