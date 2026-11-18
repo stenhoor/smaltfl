@@ -1,0 +1,292 @@
+[
+ {
+    "name": "gate-held",
+    "what": "The sign-ins, Sat Mar 23 (ADR 0027 §4): Method is a closed column, and the file brings a way of signing in the ontology doesn't have. The day's head says what arrived, by its rows, what waits for it, and the three decisions",
+    "day": "Sat 23",
+    "element": "#loads",
+    "expect": {
+      "state": "held",
+      "text": [
+        "AT THE GATE",
+        "The ontology comes first: what it doesn’t have waits for a person.",
+        "auth: 1 value the ontology doesn’t have.",
+        "magic_link isn’t in the ontology.",
+        "rows carry it.",
+        "3 outputs wait for it: auth_valid, failures_by_country, signins_by_hour. What it doesn’t feed went out as usual.",
+        "Declare it ›",
+        "Publish without it ›",
+        "Don’t publish ›"
+      ],
+      "count": {
+        "#loads .dh-gate": 1,
+        "#loads .gt-arrival[data-key=\"magic_link\"][data-how=\"new\"]": 1,
+        "#loads .gt-tick": 0
+      },
+      "status": "^Sat Mar 23: auth_valid: not in the ontology: method magic_link \\(\\d+ rows\\)"
+    }
+  },
+ {
+  "name": "gate-sheet",
+  "what": "Don't publish opens the decision sheet: what the ontology doesn't have isn't published as it came, so Publish as is is off and the sheet says where it is declared or left out",
+  "day": "Sat 23",
+  "clicks": [
+   "#loads .gt-dont"
+  ],
+  "waitFor": ".vf-detail .vf-gate",
+  "expect": {
+   "pageText": [
+    "Something arrived that the ontology doesn’t have. Declare it or publish without it on the day’s screen; here the day can be kept back."
+   ],
+   "disabled": [
+    ".vf-detail .vf-option[data-option=\"asis\"]"
+   ],
+   "enabled": [
+    ".vf-detail .vf-option[data-option=\"dont\"]"
+   ]
+  }
+ },
+ {
+  "name": "gate-dark",
+  "what": "The same day in the dark scheme: the arrival, its mark and the three decisions",
+  "day": "Sat 23",
+  "scheme": "dark",
+  "element": "#loads .dh-gate",
+  "expect": {
+   "text": [
+    "magic_link isn’t in the ontology."
+   ]
+  }
+ },
+ {
+  "name": "gate-declare-form",
+  "what": "Declare it: on the same screen, what it does (the ontology has the value from Sat 23 on, the day runs again under it and is restated), the kind of change it is, the business changing picked, and the reason it asks for",
+  "day": "Sat 23",
+  "clicks": [
+   "#loads .gt-declare"
+  ],
+  "waitFor": "#loads .gt-form",
+  "element": "#loads .dh-gate",
+  "expect": {
+   "text": [
+    "From Sat 23 on, the ontology has magic_link in auth. Sat 23 runs again under it and is restated: readers get it where it passes. Earlier days are read without it.",
+    "The business changed",
+    "A setting re-tuned",
+    "A mistake corrected",
+    "The source changed",
+    "Declare magic_link",
+    "Cancel"
+   ],
+   "count": {
+    "#loads .gt-form .wy-reason": 1,
+    "#loads .gt-form .wy-kind[data-kind=\"business\"] input:checked": 1
+   }
+  }
+ },
+ {
+  "name": "gate-no-reason",
+  "what": "Without a reason nothing is declared: the form says a change needs one",
+  "day": "Sat 23",
+  "clicks": [
+   "#loads .gt-go"
+  ],
+  "element": "#loads .dh-gate",
+  "expect": {
+   "text": [
+    "A change needs a reason: one line of why."
+   ],
+   "count": {
+    "#loads .gt-form": 1
+   }
+  }
+ },
+ {
+  "name": "gate-declared",
+  "what": "The reason given and the tap: magic_link is the ontology's from Sat 23 on, a dated change of the kind chosen; the days recorded from Sat 23 run again under it and Sat 23 is published; the days codes by text message arrive on wait still",
+  "clicks": [
+   [
+    "#loads .gt-form .wy-reason",
+    "Magic links are offered to every customer from Saturday"
+   ],
+   "#loads .gt-go"
+  ],
+  "waitFor": "#loads .dv[data-version=\"2\"].got",
+  "waitForMs": 180000,
+  "element": "#loads",
+  "expect": {
+   "pageText": [
+    "2 VERSIONS OF THE DAY",
+    "Declared magic_link in auth",
+    "(“Magic links are offered to every customer from Saturday”)"
+   ],
+   "count": {
+    "#loads .dh-gate": 0
+   }
+  }
+ },
+ {
+    "name": "gate-ontology",
+    "what": "The Ontology view after it: the change on the register, with its kind and its reason, and Method's values, magic_link among them, since Sat 23 by that change",
+    "view": "ontology",
+    "viewFirst": true,
+    "click": ".of-item[data-file=\"auth\"] .of-row",
+    "waitFor": ".of-item.open .of-entries",
+    "clicks": [".of-item.open .of-entries summary"],
+    "full": true,
+    "expect": {
+      "text": [
+        "Declared magic_link in auth",
+        "THE BUSINESS CHANGED",
+        "Magic links are offered to every customer from Saturday",
+        "Method is Password, Single sign-on, MFA push, Passkey, API key or magic_link, and nothing the ontology doesn’t have",
+        "The 6 values the ontology has",
+        "since Sat 23 ›"
+      ],
+      "count": {
+        ".of-item.open .of-entry": 6,
+        ".of-item.open .of-entry[data-key=\"magic_link\"] .of-since": 1
+      }
+    }
+  },
+ {
+  "name": "gate-lanes",
+  "what": "From tablet width the register's lanes: magic_link a row of what there is, from Sat 23, and the days something stopped at the gate, a bar on each",
+  "view": "ontology",
+  "devices": [
+   "tablet",
+   "tablet-wide",
+   "desktop",
+   "wide"
+  ],
+  "element": "#rules-time .rg-lanes",
+  "expect": {
+   "textIn": {
+    "#rules-time .rg-lanes": [
+     "WHAT THERE IS, AND WHAT IT MEANS",
+     "magic_link, an entry",
+     "WHAT STOPPED AT THE GATE"
+    ]
+   }
+  }
+ },
+ {
+  "name": "gate-second",
+  "what": "Sun Mar 24, magic links declared: codes by text message arrive, and the day stops for them alone",
+  "day": "Sun 24",
+  "element": "#loads",
+  "expect": {
+   "state": "held",
+   "text": [
+    "AT THE GATE",
+    "sms_code isn’t in the ontology."
+   ],
+   "noText": [
+    "magic_link isn’t in the ontology."
+   ],
+   "count": {
+    "#loads .gt-arrival": 1
+   }
+  }
+ },
+ {
+  "name": "gate-without-form",
+  "what": "Publish without it: what it does (its rows are left out from Sun 24 until it is declared, the day runs again without them and every day says so), and the reason it asks for",
+  "day": "Sun 24",
+  "clicks": [
+   "#loads .gt-without"
+  ],
+  "waitFor": "#loads .gt-form",
+  "element": "#loads .dh-gate",
+  "expect": {
+   "text": [
+    "From Sun 24 on, rows of auth with Method sms_code are left out until it is declared. Sun 24 runs again without them and is restated: readers get it where it passes, and every day says what is left out.",
+    "Publish without sms_code"
+   ],
+   "count": {
+    "#loads .gt-form .gt-reason": 1
+   }
+  }
+ },
+ {
+    "name": "gate-without",
+    "what": "The reason given and the tap: Sun 24 goes out without the rows, and the day's head says what is left out, how many rows today, since when and why, with the way to declare it",
+    "clicks": [
+      ["#loads .gt-form .gt-reason", "Nobody told us about codes by text: left out until the identity team says what they are"],
+      "#loads .gt-go"
+    ],
+    "waitFor": "#loads .dv[data-version=\"3\"].got",
+    "waitForMs": 180000,
+    "element": "#loads",
+    "expect": {
+      "text": [
+        "AT THE GATE",
+        "auth: sms_code left out until declared.",
+        "left out today: what is published counts what the ontology has.",
+        "Since Sun 24, by Owner: Nobody told us about codes by text: left out until the identity team says what they are",
+        "Declare sms_code ›"
+      ],
+      "count": {
+        "#loads .gt-stop": 0,
+        "#loads .gt-left": 1
+      }
+    }
+  },
+ {
+    "name": "gate-left-step",
+    "what": "The check step's story on that day: the rows a decision left out, counted apart from the rows the rules dropped",
+    "card": "auth_valid",
+    "tab": "What happened",
+    "expect": {
+      "text": ["left out until the ontology has"]
+    },
+    "unfold": ["nb-checks"]
+  },
+ {
+  "name": "gate-left-next",
+  "what": "Mon Mar 25: the rows are still left out, and the day says so; it isn't at the gate",
+  "day": "Mon 25",
+  "element": "#loads",
+  "expect": {
+   "text": [
+    "auth: sms_code left out until declared.",
+    "Since Sun 24, by Owner"
+   ],
+   "count": {
+    "#loads .gt-stop": 0,
+    "#loads .gt-left": 1
+   }
+  }
+ },
+ {
+  "name": "gate-declare-left",
+  "what": "Declare sms_code from Mon 25: its entry read from the rows the day left out, and the form to say why",
+  "day": "Mon 25",
+  "clicks": [
+   "#loads .gt-declare-left"
+  ],
+  "waitFor": "#loads .gt-form",
+  "element": "#loads .dh-gate",
+  "expect": {
+   "text": [
+    "From Mon 25 on, the ontology has sms_code in auth. Mon 25 runs again under it and is restated: readers get it where it passes. Earlier days are read without it.",
+    "Declare sms_code"
+   ]
+  }
+ },
+ {
+    "name": "gate-left-declared",
+    "what": "Declared from Mon 25: the day goes out with its rows, nothing is left out from then, and Sun 24 stays as it was published, without them",
+    "clicks": [
+      ["#loads .gt-form .wy-reason", "The identity team: a one-time code by text message, for customers without the app"],
+      "#loads .gt-go"
+    ],
+    "waitFor": "#loads .dv[data-version=\"4\"].got",
+    "waitForMs": 180000,
+    "element": "#loads",
+    "expect": {
+      "pageText": ["Declared sms_code in auth"],
+      "count": {
+        "#loads .dh-gate": 0
+      }
+    }
+  }
+]

@@ -53,6 +53,23 @@
       "decided": { "by": "Sloane Marsden", "on": "2024-03-25" },
       "because": { "event": "scanner-no-login" },
       "edits": [{ "op": "setCheck", "node": "findings", "check": "values", "mode": "hold" }]
+    },
+    {
+      "id": "sbom-declared",
+      "from": "2024-03-27",
+      "recorded": "2024-03-27T09:10:00Z",
+      "by": "owner",
+      "why": "The control board added a software bill of materials for every application we host: the catalogue lists it from today, before any tool reports on it",
+      "kind": "business",
+      "decided": { "by": "Sloane Marsden", "on": "2024-03-26" },
+      "note": {
+        "saw": "The GRC tool's catalogue listed a fifteenth control this morning, and the posture product stopped at the gate",
+        "chose": "Declare it from today, with the weight the board gave it",
+        "turnedDown": "Publishing without it: the board wants its missing evidence counted from the first day",
+        "expect": "Coverage falls by about eight points until a feed is built. The score stays where it is",
+        "lookAgain": "2024-04-30"
+      },
+      "edits": [{ "op": "declareEntry", "file": "control_catalog", "rule": "control_id_closed", "entry": ["sbom", "2", "daily", "*", "*", "*", "*", "cloud;onprem", "active;retiring", "", "", "", "system"] }]
     }
   ],
   "events": [
@@ -63,6 +80,7 @@
     { "id": "change-freeze", "name": "Quarter-end change freeze", "from": "2024-03-25", "until": "2024-03-31", "kind": "freeze", "note": "No production change without the change board's chair. Fixes wait for April", "recorded": "2024-03-22T15:00:00Z", "by": "ciso" }
   ],
   "restatements": [
-    { "changes": ["findings-values-hold"], "at": "2024-03-25T11:15:00Z", "by": "ciso", "reason": "Sat 16 and Sun 17's posture came from a scan that didn't log in, so it read far fewer findings than there were: taken back" }
+    { "changes": ["findings-values-hold"], "at": "2024-03-25T11:15:00Z", "by": "ciso", "reason": "Sat 16 and Sun 17's posture came from a scan that didn't log in, so it read far fewer findings than there were: taken back" },
+    { "changes": ["sbom-declared"], "at": "2024-03-27T09:25:00Z", "by": "ciso", "reason": "The catalogue's new control is the board's, declared from today: Wednesday's posture goes out with it" }
   ]
 }

@@ -28,7 +28,7 @@ import { flowMonthOutcome, flowOff, flowRows, flowRowSaid, onlyFollowed, onlyWai
 import { lookOf, sceneHash, type SceneLook, type ScenesFile } from '../core/scenes.js';
 import { briefOf, briefText, type BriefIn, type BriefOption } from '../core/brief.js';
 import { compareSummary, diffKeyOf, diffOf, type RowDiff } from '../core/compare.js';
-import { createTable, emitBinCounts, emitCheckCounts, emitColumnFacts, emitCopy, emitDiff, emitDistinct, emitFit, emitHourValues, emitDrop, emitDropped, emitExcept, emitFailures, emitJoinMatch, emitKept, emitKeptCell, emitLit, emitLookup, emitRead, emitRuleFailures, emitSample, emitStampCounts, emitUnmatched, emitUnmatchedKeys, emitValueCounts, emitWhere, sameColumns, type EmitContext, type RowPick } from '../core/emit.js';
+import { createTable, emitBinCounts, emitCheckCounts, emitColumnFacts, emitCopy, emitDiff, emitDistinct, emitFit, emitHourValues, emitDrop, emitDropped, emitExcept, emitFailures, emitJoinMatch, emitKept, emitKeptCell, emitLeftOut, emitLit, emitLookup, emitRead, emitRuleFailures, emitSample, emitStampCounts, emitUndeclared, emitUnmatched, emitUnmatchedKeys, emitValueCounts, emitWhere, sameColumns, type EmitContext, type RowPick } from '../core/emit.js';
 import { askOf, cardOf, cardSaid, fitSaid, joinPartners, joinRead, joinSaid, litSaid, matchDays, joinWhy, matchSaid, pickSaid, rowSaid, rowsKeptFrom, samePick, type Bar, type ExploreCard, type JoinPartner } from '../core/explore.js';
 import { effectOf, type Effect } from '../core/effect.js';
 import { daysFrom, HistoryRanges, isHistory, metricKey, QUANTILES, timeOf, type HistoryFile, type Metric } from '../core/history.js';
@@ -75,7 +75,7 @@ import { changeFlows, flowChanges, followersOf, pinProblem, testCount, testSaid,
 import { estateSays, sharedOf, type EstateOntology } from '../core/shared.js';
 import { voice } from '../core/voice.js';
 import { fixesOf, fixOfDonor, type FixKind } from '../core/rules.js';
-import { ACTION_SAID, checkStepOf, RULE_ACTIONS, ruleOn, rulesOf, ruleSaid, type OntologyRule, type OntologyRuleKind, type RuleAction } from '../core/rules.js';
+import { ACTION_SAID, arrivalOf, checkStepOf, entryDiff, isList, leftOutName, RULE_ACTIONS, ruleOn, rulesOf, ruleSaid, type OntologyRule, type OntologyRuleKind, type RuleAction } from '../core/rules.js';
 import { DECIDE, DECIDE_OPTIONS, checkDecision, checkRun, covers, readView, wrapRead, type DecideOption, type DecisionOption, type Principal, type ReadView, type RowRule } from '../core/policy.js';
 import { createIdentity, ontologyHash, policiesHash, signManifest, verifyManifest } from '../core/manifest.js';
 import { shapeOf } from '../core/optimize.js';
@@ -412,7 +412,9 @@ function sayRun(r: RunRecord): void {
   }
   const top = day ? verdictOf(day) : undefined;
   const may = (['asis', 'dont'] as const).some((o) => checkDecision(policies(), state.viewer, o).allowed);
-  const other = pause ? heldElsewhere(r) : null;
+  // Stopped at the gate (ADR 0027 §4): the day is said by what arrived that the ontology doesn't have.
+  const gated = pause ? result.holds.find((x) => (x as Hold).undeclared && sightOf(x.origin) === 'all') : undefined;
+  const other = pause ? (gated ? { origin: gated.origin, said: gated.said } : heldElsewhere(r)) : null;
   const said = day
     ? daySentence({ day, head: other ? `${other.origin}: ${other.said}` : top?.title ?? null, wrong: top?.severity === 'alert' || !!other, pause: pause ? { state: pause.state, readers: readersAsOf(r).day, past: readersAsOf(r).past, standing: standsOn(pause.pause?.decision), may, deciders: deciders(), remedy: pause.remedy, withdrawn: pause.withdrawn, level: pause.pause?.decision?.about.level?.from ?? null, under: levelUnder(pause.pause?.decision) } : null })
     : pause ? `Held${result.holds.every((x) => sightOf(x.origin) === 'all') ? `: ${result.holds[0]!.said}` : ''}` : figures;
@@ -4625,8 +4627,10 @@ let whyForms = 0;
  */
 function whyFields(kind: ChangeKind): { el: HTMLElement; read: () => WhyGiven | string; focus: () => void } {
   const name = `wy-kind-${++whyForms}`;
-  const first = KINDS_ASKED.includes(kind) ? kind : 'business';
-  const radios = KINDS_ASKED.map((k) => {
+  // A first description (closing a list on what it has always held) is offered where the edit is one: it is no change.
+  const asked: readonly ChangeKind[] = kind === 'described' ? ['described', ...KINDS_ASKED] : KINDS_ASKED;
+  const first = asked.includes(kind) ? kind : 'business';
+  const radios = asked.map((k) => {
     const input = h('input', { type: 'radio', name, value: k, ...(k === first ? { checked: 'checked' } : {}) }) as HTMLInputElement;
     return { k, input, label: h('label', { class: 'wy-kind', 'data-kind': k }, input, kindEl(k), ` ${KIND_NAMES[k]}`) };
   });
@@ -4862,6 +4866,28 @@ function decidedMarks(): LaneMark[] {
   });
 }
 
+/** The days something stopped at the gate (ADR 0027 §4), by the file it arrived in: each run the record keeps whose
+ * holds say the ontology didn't have what arrived, as known at the moment the month is read at. */
+function gateMarks(): Map<string, LaneMark[]> {
+  const out = new Map<string, LaneMark[]>();
+  const at = monthView.at ? Date.parse(monthView.at) : null;
+  const seen = new Set<string>();
+  for (const e of allEntries()) {
+    if (e.kind !== 'run' || (at !== null && Date.parse(e.at) > at)) continue;
+    const a = e.about as unknown as { day?: string | null; holds?: Hold[] };
+    const day = typeof a.day === 'string' ? a.day.slice(0, 10) : null;
+    if (!day) continue;
+    for (const hold of a.holds ?? []) {
+      if (!hold.undeclared) continue;
+      const file = (state.doc.ontology?.rules ?? []).find((r) => r.kind === 'closed' && checkStepOf(state.doc, r.file)?.id === hold.origin)?.file ?? hold.origin;
+      if (seen.has(`${file}|${day}`)) continue;
+      seen.add(`${file}|${day}`);
+      out.set(file, [...(out.get(file) ?? []), { day, kind: 'gate', title: `${dayShort(day)}: ${hold.said}` }]);
+    }
+  }
+  return out;
+}
+
 /**
  * The register at the head of the Ontology page (ADR 0027 §9, Q-268): every change set as a list, what is coming on
  * top, then by month, newest first, each with its days, how it was said, what it did, why and by whom; and, from
@@ -4974,13 +5000,16 @@ function registerPart(): HTMLElement | null {
       const rows = lives.filter((l) => l.subject.lane === lane).map(rowOf);
       if (rows.length) laneGroups.push({ name: LANE_NAMES[lane], rows });
     }
+    // What stopped at the gate (ADR 0027 §4): a row a file, a bar on each day the ontology didn't have what it brought.
+    const stopped = gateMarks();
+    if (stopped.size) laneGroups.push({ name: 'What stopped at the gate', rows: [...stopped].map(([file, marks]) => ({ label: file, spans: [], marks })) });
     const decided = decidedMarks();
     if (decided.length) laneGroups.push({ name: 'What we decided', rows: [{ label: 'Days decided', spans: [], marks: decided }] });
     const wide = document.getElementById('rules-time')?.clientWidth ?? 0;
     lanes.append(svgNode(registerLanes({ days, today: reg.today, pick: day, groups: laneGroups, w: Math.min(1180, Math.max(640, (wide || 744) - 24)), aria: `The ontology over ${plural(days.length, 'day')}: ${[...events.map((e) => `${e.name}, ${eventSpan(e)}`), ...reg.entries.map((e) => `${changeSaid(e.change)}, ${entryWhen(e)}`)].join('; ')}` })));
     lanes.append(h('p', { class: 'rg-key' }, 'A bar: in force, or going on. Dashed: as shipped. Hatched: coming. A ring: the day it was said. ',
       ...KINDS_ASKED.flatMap((k) => [kindEl(k), ` ${KIND_NAMES[k].toLowerCase()}. `]),
-      'A dashed line under a bar: those days’ runs were judged without it, until it was recorded. A diamond with no fill: a day decided; in red, kept back or restated.'));
+      'A dashed line under a bar: those days’ runs were judged without it, until it was recorded. A diamond with no fill: a day decided; in red, kept back or restated. An upright bar: a day something stopped at the gate.'));
     lanes.addEventListener('click', (ev) => {
       const el = (ev.target as Element | null)?.closest?.('[data-change], [data-event]');
       const change = el?.getAttribute('data-change');
@@ -9214,6 +9243,10 @@ function decisionSheet(shown0: RunRecord, story: Story | null): void {
   const shown = readersDay(r);
   const later = shown && day && shown > day ? shown : null;
   const can = Object.fromEntries(DECIDE_OPTIONS.map((o) => [o, checkDecision(policies(), state.viewer, o)])) as Record<DecisionOption, ReturnType<typeof checkDecision>>;
+  // At the gate (ADR 0027 §4): what the ontology doesn't have isn't published as it came. It is declared or left out on
+  // the day's screen; here the day is kept back.
+  const atGate = r.result.holds.some((x) => (x as Hold).undeclared);
+  if (atGate) can.asis = { allowed: false, reason: 'the ontology doesn’t have what arrived: it is declared or left out on the day’s screen' };
   const anyone = can.asis.allowed || can.dont.allowed || can.fill.allowed || can.complete.allowed;
   // Someone who may not decide, and doesn't read every row of the source, gets what readers get with nothing of the
   // source, whatever path led here (round 3, #6: the sheet draws and counts the source's rows).
@@ -9413,7 +9446,8 @@ function decisionSheet(shown0: RunRecord, story: Story | null): void {
       receiptBox(l, st, entry.seq, `${(derived ?? r).result.hash.slice(0, 4)} ${(derived ?? r).result.hash.slice(4, 8)}`, l.change && anyone ? () => decisionSheet(r, story) : null, day, l.versions && day ? () => versionsSheet(day) : null));
     headMark.replaceWith(glyphEl(PAUSE_MARK[st], 16));
   };
-  openDetail(t.title, 'ok', [whoseLine(r), status, recEl, ask, rowsEl, replaceRow, why, scopes, foot]);
+  const gateLine = atGate ? h('p', { class: 'vf-whose vf-gate' }, 'Something arrived that the ontology doesn’t have. Declare it or publish without it on the day’s screen; here the day can be kept back.') : null;
+  openDetail(t.title, 'ok', [whoseLine(r), gateLine, status, recEl, ask, rowsEl, replaceRow, why, scopes, foot]);
   document.querySelector('.vf-detail')?.classList.toggle('readonly', !anyone);
   document.querySelector('.vf-detail .vf-dhead h3')?.prepend(headMark);
   sync();
@@ -12112,6 +12146,7 @@ function ruleLine(r: Rule, here?: string, acts?: HTMLElement | null, thing: 'fil
     h('span', { class: 'of-how' }, how),
     sinceLink(r),
     r.unchecked ? h('span', { class: 'of-off' }, `Not checked: ${r.unchecked}`) : null,
+    r.def?.kind === 'closed' ? closedEntries(r.def) : null,
     acts ?? null,
     isBronze(file) ? h('button', { type: 'button', class: 'of-card-link', 'aria-label': `${here ?? r.said}: on ${file}’s card`, onclick: () => openCardCheck(file, r.id) }, st && st !== 'ok' && st !== 'off' ? `${STATE_SAID[st]} today · on the card ›` : 'On the card ›') : null);
 }
@@ -12182,17 +12217,35 @@ function ruleForm(file: string, column: string, title: string, columns: readonly
   const whenField = h('div', { class: 'of-when' }, field('Where', whenColumn), field('has one of', whenValues, 'By commas, as the file writes them.'));
   const err = h('p', { class: 'of-err', role: 'alert', hidden: true });
   const save = h('button', { type: 'submit', class: 'btn of-save' }, was ? 'Save' : 'Add the check');
+  // A closed column or list (ADR 0027 §4): the values the ontology has, or, with columns that define an entry, the
+  // entries the load on screen has. One that stands takes more values here; a list's entries are declared at the gate.
+  const wasClosed = was?.kind === 'closed' ? was : null;
+  const closedValues = h('textarea', { id: `${uid}-closed`, rows: '2', maxlength: '4000', placeholder: 'a, b, c' }, wasClosed ? '' : known.join(', ')) as HTMLTextAreaElement;
+  const defineTicks = others.map((c) => ({ c, input: h('input', { type: 'checkbox', value: c }) as HTMLInputElement }));
+  const closedField = h('div', { class: 'of-closed' },
+    wasClosed
+      ? h('p', { class: 'of-hint' }, isList(wasClosed) ? `The ontology has ${plural(wasClosed.entries?.length ?? 0, 'entry', 'entries')}, each with its ${listed((wasClosed.defines ?? []).map((c) => propertyOf(state.doc.ontology, file, c)?.title ?? c))}. A new or changed entry is declared at the gate, on the day its file brings it.` : `The ontology has ${plural(wasClosed.entries?.length ?? 0, 'value')}: ${(wasClosed.entries ?? []).map((e) => e[0]).slice(0, 12).join(', ')}${(wasClosed.entries?.length ?? 0) > 12 ? ', …' : ''}.`)
+      : null,
+    wasClosed && isList(wasClosed) ? null : field(wasClosed ? `More values ${title} may hold` : `The values the ontology has for ${title}`, closedValues, wasClosed ? 'By commas, as the file writes them. Each is declared from the day below.' : `By commas, as the file writes them. Any other value that arrives stops what ${file} reaches until someone declares it, publishes without it or doesn’t publish.`),
+    wasClosed || !others.length ? null : h('fieldset', { class: 'of-defines' }, h('legend', {}, 'A list of things? Tick what defines one'),
+      h('p', { class: 'of-hint' }, `With any ticked, ${title} is each thing’s key, and the ontology keeps the entries the load on screen has, each with the columns ticked. A changed one stops at the gate as a new one does; a reworded name doesn’t.`),
+      h('div', { class: 'of-define-list' }, ...defineTicks.map((t) => h('label', { class: 'of-define' }, t.input, ` ${propertyOf(state.doc.ontology, file, t.c)?.title ?? t.c}`)))));
+  const actionField = field('A row that breaks it', action, 'Flagged rows are kept and counted; left out, they don’t go on to the next step; a held day waits for a decision.');
   const fit = () => {
     const k = kind.value as OntologyRuleKind;
     valuesField.hidden = k !== 'oneOf' && k !== 'when';
     rangeField.hidden = k !== 'range';
     whenField.hidden = k !== 'when';
+    closedField.hidden = k !== 'closed';
+    // What the ontology doesn't have always waits for a person: a closed rule holds.
+    actionField.hidden = k === 'closed';
   };
+  if (wasClosed) (kind as HTMLSelectElement).disabled = true;
   kind.addEventListener('change', fit);
   const form = h('form', { class: 'of-form of-rule-form', 'aria-label': `${was ? 'Change a rule' : 'Add a rule'} on ${title} in ${file}`, novalidate: true },
     field(`${title} must be`, kind),
-    whenField, valuesField, rangeField,
-    field('A row that breaks it', action, 'Flagged rows are kept and counted; left out, they don’t go on to the next step; a held day waits for a decision.'),
+    whenField, valuesField, rangeField, closedField,
+    actionField,
     h('p', { class: 'of-hint' }, `For ${file} only. On once saved: it is recorded, and enforced from the day below.${anyDayWaits() ? ` ${WAITS_AGAIN}` : ''}`),
     fromBar(),
     err,
@@ -12207,6 +12260,42 @@ function ruleForm(file: string, column: string, title: string, columns: readonly
       return;
     }
     const k = kind.value as OntologyRuleKind;
+    const refuse = (why: string) => {
+      err.textContent = why;
+      err.hidden = false;
+      save.disabled = false;
+    };
+    // A closed rule that stands takes more values: each declared, an edit of its own (a change set dated before another
+    // keeps both).
+    if (wasClosed) {
+      const more = typedList(closedValues.value).filter((v) => !(wasClosed.entries ?? []).some((e) => e[0] === v));
+      if (isList(wasClosed) || !more.length) return refuse(isList(wasClosed) ? 'A list’s entries are declared at the gate, on the day its file brings them.' : 'Type a value the ontology doesn’t have yet.');
+      save.disabled = true;
+      void editRules(more.map((v): RuleEdit => ({ op: 'declareEntry', file, rule: wasClosed.id, entry: [v] }))).then((done) => {
+        if (done) form.remove();
+        else save.disabled = false;
+      });
+      return;
+    }
+    if (k === 'closed') {
+      const defines = defineTicks.filter((t) => t.input.checked).map((t) => t.c);
+      save.disabled = true;
+      void (async () => {
+        // A list's entries are the load's on screen, each with the columns that define it; a column's are as typed.
+        const entries = defines.length ? await entriesOnScreen(file, column, defines) : typedList(closedValues.value).map((v) => [v]);
+        if (typeof entries === 'string') return refuse(entries);
+        const made = setRule(state.doc, { file, column, kind: 'closed', ...(defines.length ? { defines } : {}), entries, action: 'hold' });
+        if ('problem' in made) return refuse(`That rule can’t be kept: ${made.problem}.`);
+        const had = new Set(rulesOf(state.doc.ontology, file).map((x) => x.id));
+        const kept = rulesOf(made.doc.ontology, file).find((x) => !had.has(x.id));
+        if (!kept) return refuse('That rule can’t be kept.');
+        // Closing what the data already holds is its first description, not a change (ADR 0027 §2).
+        const done = await editRules({ op: 'setRule', rule: kept }, { kind: 'described' });
+        if (done) form.remove();
+        else save.disabled = false;
+      })();
+      return;
+    }
     const number = (x: HTMLInputElement) => (x.value.trim() === '' ? undefined : Number(x.value));
     const input: RuleInput = {
       ...(was ? { id: was.id } : {}),
@@ -12235,6 +12324,41 @@ function ruleForm(file: string, column: string, title: string, columns: readonly
   return form;
 }
 const ruleList = (rules: readonly Rule[], none: string): HTMLElement => (rules.length ? h('ul', { class: 'of-rules' }, ...rules.map((r) => ruleLine(r))) : h('p', { class: 'of-none' }, none));
+
+/** How many entries a closed list may take from a load: past this it is no short list of things, and isn't closed. */
+const CLOSED_MOST = 500;
+
+/** A file's entries in the load on screen, each its key and the columns that define it, as the engine writes them: what
+ * closing a list declares. Words where the file can't be read, or holds too many to be a closed list. */
+async function entriesOnScreen(file: string, column: string, defines: readonly string[]): Promise<string[][] | string> {
+  const nv = await nodeView(file, state.viewer);
+  if (typeof nv === 'string' || !state.engine) return `${file} wasn’t read on the day on screen: a list is closed from a day that has its entries.`;
+  const rows = (await state.engine.query(emitUndeclared(nv.read, '1 = 0', column, defines, CLOSED_MOST + 1))).rows;
+  const entries = rows.map((r) => r.slice(0, defines.length + 1).map((v) => (v === null || v === undefined ? '' : String(v)))).filter((e) => e[0] !== '');
+  if (entries.length > CLOSED_MOST) return `${file} has more than ${fmtInt(CLOSED_MOST)} of them: a closed list is a short list of things the business keeps.`;
+  if (new Set(entries.map((e) => e[0])).size !== entries.length) return `${column} isn’t a key in this load: some value is on rows that differ in ${listed([...defines])}.`;
+  return entries.sort((a, b) => (a[0]! < b[0]! ? -1 : a[0]! > b[0]! ? 1 : 0));
+}
+
+/**
+ * The entries a closed list or column has (ADR 0027 §4), under its rule's line: each as the file writes it, what
+ * defines it, and since when where a change declared it; then the keys a decision leaves out, still open.
+ */
+function closedEntries(r: OntologyRule): HTMLElement {
+  const list = isList(r);
+  const reg = ruleChanges.length ? registerNow() : null;
+  const day = resolvedFor.day ?? reg?.today ?? '';
+  const since = (key: string) => {
+    const e = reg ? sinceOf(reg.entries, `entry:${r.file}:${r.id}:${key}`.toLowerCase(), day) : null;
+    return e ? h('button', { type: 'button', class: 'linkish of-since', 'data-change': e.change.id, onclick: () => openChange(e.change.id) }, `since ${dayShort(e.change.from)} ›`) : null;
+  };
+  const entries = r.entries ?? [];
+  return h('details', { class: 'whole of-entries', 'data-rule': r.id },
+    h('summary', {}, `The ${plural(entries.length, list ? 'entry' : 'value', list ? 'entries' : 'values')} the ontology has${r.leftOut?.length ? ` · ${r.leftOut.length} left out` : ''}`),
+    h('ul', { class: 'of-entry-list' },
+      ...entries.map((e) => h('li', { class: 'of-entry', 'data-key': e[0] ?? '' }, h('b', {}, gateKey(r, e[0] ?? '')), list ? h('span', { class: 'of-entry-defs' }, gateDefines(r, e)) : null, since(e[0] ?? ''))),
+      ...(r.leftOut ?? []).map((key) => h('li', { class: 'of-entry left', 'data-key': key }, h('b', {}, gateKey(r, key)), h('span', { class: 'of-entry-defs' }, 'left out until it is declared'), since(key)))));
+}
 
 /** A column's values in the load on screen, at the top of its card: the drawing its file's Columns tab has for it
  * (`columnShape`), and how full it is. A key (every value different) and free text (names, hosts: no value on more
@@ -14434,8 +14558,14 @@ async function mapColumnOnDay(k: number, source: string, m: ColumnMap, reason: s
   const cs: ChangeSet = { id: changeId(), from: day, recorded: new Date().toISOString(), by: state.viewer, why: reason.trim(), kind: 'source', edits: [{ op: 'mapColumn', file: source, column: m.to, from: m.from }] };
   ruleChanges = [...ruleChanges, cs];
   await flowEdited(`Read ${source}’s ${m.from} as ${m.to} from ${dayShort(day)} on`);
-  // The recorded days it reaches, from the held day on (Q-206): each run again under it, latest first so the held day is
-  // left on screen, and one restatement decides them all with the reason, as a back-dated edit's does.
+  await rerunAndRestate(reason.trim());
+}
+
+/**
+ * The recorded days a change just made reaches, from its day on (Q-206): each run again under it, latest first so the
+ * held day is left on screen, and one restatement decides them all with the reason, as a back-dated edit's does.
+ */
+async function rerunAndRestate(reason: string): Promise<void> {
   const p = pendingRestating();
   if (!p) return;
   const ids = p.changes.map((c) => c.id);
@@ -14448,7 +14578,7 @@ async function mapColumnOnDay(k: number, source: string, m: ColumnMap, reason: s
   const done = pendingRestating();
   if (!done || done.days.some((x) => x.k >= 0 && x.got && !x.r)) return;
   const rows = done.days.map((x) => ({ day: x.day, r: x.r }));
-  await restateDays(done, rows.filter((x) => x.r?.changed), [], rows.filter((x) => !x.r?.changed), reason.trim());
+  await restateDays(done, rows.filter((x) => x.r?.changed), [], rows.filter((x) => !x.r?.changed), reason);
 }
 
 /** A column a file added, described in the ontology as the file's own (ADR 0022 §2, Q-204): a name says how people read
@@ -14557,6 +14687,208 @@ function columnsPart(k: number): HTMLElement | null {
       fresh.length && isOwner() ? h('p', { class: 'cm-ask' }, ...fresh.map((col) => h('button', { type: 'button', class: 'linkish cm-add', 'data-column': col, onclick: () => describeNewColumn(n.origin, col, day) }, `Add ${col} to the ontology ›`))) : '');
   });
   return h('section', { class: 'panel dh-columns', 'aria-label': 'Columns that changed' }, h('p', { class: 'eyebrow' }, 'Columns that changed'), ...rows);
+}
+
+// ------------------------------------------------------------------ the gate (ADR 0027 §4, slice 3)
+
+/** What stopped at the gate in a run: a closed rule a row failed, the file it is of, what arrived that the ontology
+ * doesn't have, and the outputs that wait for it. */
+interface GateStop {
+  node: number;
+  step: string;
+  rule: OntologyRule;
+  arrivals: [entry: string[], rows: number, changed: boolean][];
+  more: number;
+  reaches: string[];
+}
+
+/** The rules in force on a day as known now, whatever version of the day is on screen: what is still to decide. */
+let knownNow: { key: string; doc: FlowDocument } | null = null;
+function docKnownNow(day: string | null): FlowDocument {
+  if (!ruleChanges.length) return state.doc;
+  const key = `${day ?? ''}|${keptEpoch}|${ruleChanges.map((c) => c.id).join(',')}`;
+  if (knownNow?.key !== key) knownNow = { key, doc: inForce(baseDoc(), day, null) };
+  return knownNow.doc;
+}
+
+/** A run's stops at the gate, by the closed rules in force on its day as known now: the run on screen may have run
+ * before a decision since, and what the ontology has by now is no longer to decide. */
+function gateStops(r: RunRecord | null | undefined): GateStop[] {
+  if (!r) return [];
+  const now = docKnownNow(dayOfRun(r)?.slice(0, 10) ?? null);
+  return r.result.manifest.nodes.flatMap((n) => (n.closed ?? []).flatMap((c): GateStop[] => {
+    const rule = (now.ontology?.rules ?? []).find((x) => x.kind === 'closed' && x.id === c.rule && checkStepOf(now, x.file)?.id === n.origin);
+    if (!rule) return [];
+    const hold = r.result.holds.find((x) => x.by === 'checks' && x.node === n.node && (x as Hold).undeclared);
+    // A day whose restated run came out the same keeps the version it had: what the rules have, or leave out, by now
+    // isn't at the gate any more.
+    const arrivals = c.arrivals.filter(([entry]) => arrivalOf(rule, entry) !== 'declared' && !(rule.leftOut ?? []).includes(entry[0] ?? ''));
+    return arrivals.length || c.more ? [{ node: n.node, step: n.origin, rule, arrivals, more: c.more, reaches: hold?.reaches ?? [] }] : [];
+  }));
+}
+
+/** The keys a closed rule in force on the day on screen leaves out, with the rows of each run left out today. */
+function leftOutNow(r: RunRecord | null | undefined): { rule: OntologyRule; step: string; keys: string[]; rows: number }[] {
+  if (!r) return [];
+  return (state.doc.ontology?.rules ?? []).flatMap((rule) => {
+    if (rule.kind !== 'closed' || !rule.leftOut?.length) return [];
+    const step = checkStepOf(state.doc, rule.file);
+    if (!step) return [];
+    const counted = r.result.manifest.nodes.find((n) => n.origin === step.id)?.expectations?.rules.find((x) => x.name === leftOutName(rule.id));
+    return counted ? [{ rule, step: step.id, keys: rule.leftOut, rows: counted.failed }] : [];
+  });
+}
+
+/** An entry's key as people call it, and what defines it, in the ontology's words. */
+const gateTitle = (file: string, column: string): string => propertyOf(state.doc.ontology, file, column)?.title ?? column;
+const gateKey = (rule: OntologyRule, key: string): string => {
+  const word = meaningBeyond(propertyOf(state.doc.ontology, rule.file, rule.column), key);
+  return word ? `${word} (${key})` : key;
+};
+const gateDefines = (rule: OntologyRule, entry: readonly string[]): string => (rule.defines ?? []).map((d, i) => `${gateTitle(rule.file, d)} ${entry[i + 1] || 'blank'}`).join(' · ');
+/** What an arrival is, in a line: new to the ontology, or not as the ontology has it, by each column that differs. */
+function arrivalSaid(rule: OntologyRule, entry: readonly string[], changed: boolean): string {
+  const list = isList(rule);
+  if (!changed) return `${gateKey(rule, entry[0] ?? '')} isn’t in the ontology${list ? `: ${gateDefines(rule, entry)}` : ''}`;
+  const diff = entryDiff(rule, entry);
+  return `${gateKey(rule, entry[0] ?? '')} isn’t as the ontology has it: ${diff.map(([c, was, now]) => `${gateTitle(rule.file, c)} ${was || 'blank'} → ${now || 'blank'}`).join(', ')}`;
+}
+
+/** The form open at the gate: which stop, which way, and the arrivals it is for (by key). */
+let gateForm: { step: string; rule: string; how: 'declare' | 'leaveOut'; entries: string[][] } | null = null;
+
+/**
+ * What arrived at the gate decided on the day's screen (ADR 0027 §4, Q-253): **declared**, each entry the ontology's
+ * from the day on, with a kind and a reason, or **left out**, its rows kept out of what goes on until it is declared.
+ * Either is a dated change set from the day; the day runs again under it and one restatement decides it with the
+ * reason, readers getting it where it passes (as a column read by its new name is, ADR 0022 §2).
+ */
+async function decideAtGate(k: number, stop: { step: string; rule: OntologyRule }, entries: readonly (readonly string[])[], how: 'declare' | 'leaveOut', given: WhyGiven): Promise<void> {
+  const l = loads.list[k];
+  if (!l || !ledger || state.running || !entries.length) return;
+  if (!checkDecision(policies(), state.viewer, 'asis').allowed) return void setStatus('What the ontology takes in decides the day: it is for someone who may publish a day.', true);
+  const pinned = pinnedSaid([stop.rule.file]);
+  if (pinned) return void setStatus(pinned, true);
+  const day = l.day.slice(0, 10);
+  const got = gotEntry(k);
+  const of = got ? (got.about as unknown as RunAbout) : null;
+  if (!of?.manifest) return void setStatus('The day’s run isn’t in the record: there is nothing to run again.', true);
+  const file = stop.rule.file;
+  const edits: RuleEdit[] = entries.map((e) => (how === 'declare' ? { op: 'declareEntry', file, rule: stop.rule.id, entry: [...e] } : { op: 'leaveOut', file, rule: stop.rule.id, key: e[0] ?? '' }));
+  const names = listed(entries.map((e) => gateKey(stop.rule, e[0] ?? '')));
+  gateForm = null;
+  const cs: ChangeSet = {
+    id: changeId(), from: day, recorded: new Date().toISOString(), by: state.viewer, why: given.why, kind: how === 'declare' ? given.kind : 'source', edits,
+    ...(given.note ? { note: given.note } : {}), ...(given.decided ? { decided: given.decided } : {}), ...(given.because ? { because: given.because } : {}),
+  };
+  ruleChanges = [...ruleChanges, cs];
+  await flowEdited(how === 'declare' ? `Declared ${names} in ${file} from ${dayShort(day)} on` : `Left ${names} out of ${file} from ${dayShort(day)} until declared`);
+  await rerunAndRestate(given.why);
+}
+
+/** A key left out, declared from the day on screen: its entry read from the rows the day's run left out. */
+async function declareLeftOut(k: number, rule: OntologyRule, step: string, key: string): Promise<void> {
+  const r = latest();
+  if (!r || r.load !== k) return;
+  const insp = await inspect(r);
+  const node = insp.index.get(step.toLowerCase());
+  const n = node === undefined ? undefined : insp.plan.nodes[node];
+  if (!n || n.op !== 'expect') return;
+  const rows = (await state.engine!.query(emitUndeclared(emitRead(insp.plan, n.inputs[0]!, insp.ctx), emitLeftOut(rule.column, [key]), rule.column, rule.defines ?? [], 2))).rows;
+  if (!rows.length) return void setStatus(`No row of ${rule.file} carries ${key} on this day: it is declared from a day that has it.`, true);
+  const entry = rows[0]!.slice(0, (rule.defines?.length ?? 0) + 1).map((v) => (v === null || v === undefined ? '' : String(v)));
+  gateForm = { step, rule: rule.id, how: 'declare', entries: [entry] };
+  renderLoads();
+  document.querySelector<HTMLTextAreaElement>('#loads .dh-gate .wy-reason')?.focus();
+}
+
+/**
+ * The day at the gate (ADR 0027 §4), on its head: each list or column the ontology closes that a file ran ahead of,
+ * what arrived (an entry new to the ontology, or one not as the ontology has it), what waits for it, and, for someone
+ * who may decide, the three decisions: declare it from this day, publish without it, or don't publish. Then what a
+ * decision left out, still open until it is declared. Null where nothing stopped and nothing is left out.
+ */
+function gatePart(k: number): HTMLElement | null {
+  const r = latest();
+  const l = loads.list[k];
+  if (!r || !l || r.load !== k || whatIf?.k === k) return null;
+  const day = l.day.slice(0, 10);
+  const stops = gateStops(r);
+  const left = leftOutNow(r);
+  if (!stops.length && !left.length) return null;
+  const may = checkDecision(policies(), state.viewer, 'asis').allowed;
+  const waits = (outs: readonly string[]) => (outs.length ? `${plural(outs.length, 'output waits', 'outputs wait')} for it: ${outs.slice(0, 3).join(', ')}${outs.length > 3 ? ` and ${outs.length - 3} more` : ''}. What it doesn’t feed went out as usual.` : '');
+  const formFor = (stop: { step: string; rule: OntologyRule }, entries: string[][]): HTMLElement => {
+    const how = gateForm!.how;
+    const rule = stop.rule;
+    const names = listed(entries.map((e) => gateKey(rule, e[0] ?? '')));
+    const f = how === 'declare' ? whyFields('business') : null;
+    const reason = how === 'leaveOut' ? (h('textarea', { class: 'cm-reason gt-reason', rows: '2', 'aria-label': `Why ${names} is left out`, placeholder: 'Why, in a sentence: the record keeps it.' }) as HTMLTextAreaElement) : null;
+    const err = h('p', { class: 'of-err', role: 'alert', hidden: 'hidden' });
+    const go = h('button', { type: 'button', class: 'btn small primary gt-go' }, how === 'declare' ? `Declare ${names}` : `Publish without ${names}`) as HTMLButtonElement;
+    go.addEventListener('click', () => {
+      const given: WhyGiven | string = f ? f.read() : reason!.value.trim() ? { why: reason!.value.trim(), kind: 'source' } : 'Leaving it out needs a reason: one line of why.';
+      if (typeof given === 'string') {
+        err.textContent = given;
+        err.hidden = false;
+        return;
+      }
+      go.disabled = true;
+      void decideAtGate(k, stop, entries, how, given);
+    });
+    const said = how === 'declare'
+      ? `From ${dayShort(day)} on, the ontology has ${names} in ${rule.file}${isList(rule) && entries.length === 1 ? `: ${gateDefines(rule, entries[0]!)}` : ''}. ${dayShort(day)} runs again under it and is restated: readers get it where it passes. Earlier days are read without it.`
+      : `From ${dayShort(day)} on, rows of ${rule.file} with ${gateTitle(rule.file, rule.column)} ${names} are left out until ${entries.length === 1 ? 'it is' : 'they are'} declared. ${dayShort(day)} runs again without them and is restated: readers get it where it passes, and every day says what is left out.`;
+    return h('div', { class: 'cm-form gt-form', role: 'group', 'aria-label': how === 'declare' ? `Declare ${names}` : `Publish without ${names}` },
+      h('p', { class: 'cm-how' }, said),
+      f ? f.el : h('div', { class: 'of-field' }, h('label', {}, 'Why'), reason!),
+      err,
+      h('div', { class: 'wi-acts' }, go, h('button', { type: 'button', class: 'btn small gt-cancel', onclick: () => {
+        gateForm = null;
+        renderLoads();
+      } }, 'Cancel')));
+  };
+  const open = (stop: { step: string; rule: OntologyRule }, how: 'declare' | 'leaveOut', entries: string[][]) => {
+    gateForm = { step: stop.step, rule: stop.rule.id, how, entries };
+    renderLoads();
+    document.querySelector<HTMLTextAreaElement>('#loads .dh-gate .wy-reason, #loads .dh-gate .gt-reason')?.focus();
+  };
+  const rows = stops.map((stop) => {
+    const rule = stop.rule;
+    const forming = gateForm?.step === stop.step && gateForm.rule === rule.id ? gateForm : null;
+    // Several arrivals: each ticked is decided; one alone needs no tick.
+    const ticks = stop.arrivals.map(([entry]) => h('input', { type: 'checkbox', class: 'gt-tick', checked: 'checked', 'aria-label': `Decide ${entry[0]}` }) as HTMLInputElement);
+    const picked = () => stop.arrivals.filter((_, i) => stop.arrivals.length === 1 || ticks[i]!.checked).map(([entry]) => entry);
+    const ask = (how: 'declare' | 'leaveOut', cls: string, label: string) => h('button', { type: 'button', class: `btn small ${cls}`, onclick: () => {
+      const entries = picked();
+      if (!entries.length) return void setStatus('Tick what is decided.', true);
+      open(stop, how, entries);
+    } }, label);
+    return h('div', { class: 'cm-source held gt-stop', 'data-file': rule.file, 'data-rule': rule.id },
+      h('p', { class: 'cm-said' }, h('b', {}, `${rule.file}: `), `${isList(rule) ? plural(stop.arrivals.length + stop.more, 'entry', 'entries') : plural(stop.arrivals.length + stop.more, 'value', 'values')} the ontology doesn’t have.`),
+      h('ul', { class: 'gt-arrivals' }, ...stop.arrivals.map(([entry, n, changed], i) => h('li', { class: 'gt-arrival', 'data-key': entry[0] ?? '', 'data-how': changed ? 'changed' : 'new' },
+        stop.arrivals.length > 1 && may && !forming ? ticks[i]! : '', h('span', {}, `${arrivalSaid(rule, entry, changed)}. ${plural(n, 'row carries', 'rows carry')} it.`)))),
+      stop.more ? h('p', { class: 'foot' }, `And ${plural(stop.more, 'more')}, not named: that many at once is more likely a file gone wrong than the business changing.`) : '',
+      stop.reaches.length ? h('p', { class: 'gt-waits' }, waits(stop.reaches)) : '',
+      forming ? formFor(stop, forming.entries)
+        : may ? h('p', { class: 'cm-ask gt-ask' },
+          ask('declare', 'primary gt-declare', 'Declare it ›'),
+          ask('leaveOut', 'gt-without', 'Publish without it ›'),
+          h('button', { type: 'button', class: 'btn small gt-dont', onclick: () => openDecision(l.day) }, 'Don’t publish ›'))
+        : h('p', { class: 'foot' }, `${deciders()} ${deciders().includes(' and ') || deciders().includes(',') ? 'decide' : 'decides'}: declare it, publish without it, or don’t publish.`));
+  });
+  const open2 = left.map((x) => {
+    const forming = gateForm?.step === x.step && gateForm.rule === x.rule.id && gateForm.how === 'declare' ? gateForm : null;
+    const since = sinceOf(registerNow().entries, `entry:${x.rule.file}:${x.rule.id}:${x.keys[0]}`.toLowerCase(), day);
+    return h('div', { class: 'cm-source gt-left', 'data-file': x.rule.file, 'data-rule': x.rule.id },
+      h('p', { class: 'cm-said' }, h('b', {}, `${x.rule.file}: `), `${listed(x.keys.map((key) => gateKey(x.rule, key)))} left out until declared. ${x.rows ? plural(x.rows, 'row was', 'rows were') : 'No row was'} left out today: what is published counts what the ontology has.`),
+      since ? h('p', { class: 'foot' }, `Since ${dayShort(since.change.from)}, by ${personName(since.change.by)}: ${since.change.why}`) : '',
+      forming ? formFor({ step: x.step, rule: x.rule }, forming.entries)
+        : may ? h('p', { class: 'cm-ask' }, ...x.keys.map((key) => h('button', { type: 'button', class: 'btn small gt-declare-left', 'data-key': key, onclick: () => void declareLeftOut(k, x.rule, x.step, key) }, `Declare ${key} ›`))) : '');
+  });
+  return h('section', { class: 'panel dh-gate', 'aria-label': 'At the gate' }, h('p', { class: 'eyebrow' }, 'At the gate'),
+    stops.length ? h('p', { class: 'gt-lead' }, 'The ontology comes first: what it doesn’t have waits for a person.') : '',
+    ...rows, ...open2);
 }
 
 /**
@@ -15428,6 +15760,7 @@ function renderLoads(): void {
     (loads.at >= 0 ? versionsPart(loads.at) : null) ?? '',
     (loads.at >= 0 ? comparePart(loads.at) : null) ?? '',
     (loads.at >= 0 ? columnsPart(loads.at) : null) ?? '',
+    (loads.at >= 0 ? gatePart(loads.at) : null) ?? '',
     (loads.at >= 0 ? whatIfPart(loads.at) : null) ?? '',
     replacedBy && onVersion ? h('p', { class: 'loads-pause superseded', role: 'status' }, h('b', {}, `Version ${onVersion}, ${onVersion === 1 ? 'as it arrived' : 'sent again'}: replaced by version ${replacedBy.v}`), `${replacedBy.delivery ? `, ${replacedBy.delivery.source} sent again ${whenMin(replacedBy.delivery.arrived, now!.day)}` : replacedBy.made ? `, made the day’s from a what-if ${whenMin(replacedBy.made.at, now!.day)}` : ''}.${gotVersion ? ` Readers got version ${gotVersion}.` : ''} It isn’t decided: the later version is.`) : '',
     h('div', { class: `loads-now${top ? ` sev-${top.severity}` : ''}` },

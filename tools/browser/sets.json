@@ -37,11 +37,12 @@
     "joins": { "app": "estate", "runs": 15 },
     "split": { "app": "estate", "sizes": ["tablet-wide", "desktop", "wide"], "runs": 1 },
     "alone": { "app": "estate", "runs": 3 },
-    "restate": { "app": "signins", "runs": 25 },
-    "rules": { "app": "signins", "runs": 9 },
+    "restate": { "app": "signins", "runs": 28 },
+    "rules": { "app": "signins", "runs": 15 },
     "fixes": { "app": "signins", "runs": 6 },
     "models": { "app": "signins", "runs": 3 },
-    "columns": { "app": "signins", "runs": 3 }
+    "columns": { "app": "signins", "runs": 6 },
+    "gate": { "app": "signins", "runs": 9 }
   },
   "budget": { "engineSeconds": 1330, "seconds": 510, "cores": 4 }
 }

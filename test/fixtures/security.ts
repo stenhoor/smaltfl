@@ -363,9 +363,18 @@ function homeCountry(id: number, dist: Dist): string {
  * classifier's: the rows look different).
  */
 export const DEMO_DAYS = { forest: '2024-03-14', missing: '2024-03-15', shares: '2024-03-18', classifier: '2024-03-19', combo: '2024-03-20' } as const;
-/** The demo's last day, after the month the models judge (ADR 0022 §2): the export calls result results, a column the
- * page tells as renamed, suggests reading as result (its name, type and values), and maps from the day on. */
+/** A day after the month the models judge (ADR 0022 §2): the export calls result results, a column the page tells as
+ * renamed, suggests reading as result (its name, type and values), and maps from the day on. The export is back on
+ * result the day after. */
 export const RENAMED_DAY = '2024-03-22';
+/**
+ * The demo's last days, at the gate (ADR 0027 §4): `method` is a closed column, and the business starts two ways of
+ * signing in the ontology doesn't have. Magic links arrive on Sat Mar 23 and stay; codes by text message arrive on Sun
+ * Mar 24 and stay. Each stops what the file reaches until someone declares it, publishes without it or doesn't publish.
+ */
+export const GATE_DAYS = { method: '2024-03-23', second: '2024-03-24', last: '2024-03-25' } as const;
+const MAGIC = { n: 3_000, hours: [8, 9, 10, 11, 12, 13, 14, 15, 16, 17], dist: { result: { success: 0.97, fail: 0.03 }, method: { magic_link: 1 }, country: { US: 0.6, GB: 0.25, DE: 0.15 }, ua_family: { chrome: 0.5, safari: 0.3, edge: 0.2 } } };
+const SMS = { n: 1_200, hours: [8, 9, 10, 11, 12, 13, 14, 15, 16, 17], dist: { result: { success: 0.95, fail: 0.05 }, method: { sms_code: 1 }, country: { US: 0.7, IN: 0.3 }, ua_family: { okhttp: 0.6, safari: 0.4 } } };
 /** A day on which the export adds a column the flow doesn't read (ADR 0022 §2, Q-204): client_app, noted on the day,
  * which is judged and published as any other. */
 export const ADDED_DAY = '2024-03-07';
@@ -377,7 +386,10 @@ export const SIGNIN_DEMO: SecurityOptions = {
     [DEMO_DAYS.classifier]: { ua_family: { okhttp: 0.55, chrome: 0.15, edge: 0.1, safari: 0.1, outlook: 0.05, firefox: 0.02, other: 0.02, 'python-requests': 0.005, curl: 0.005 } },
   },
   nudges: { [DEMO_DAYS.forest]: { result: { fail: 1.3, locked: 1.5 }, method: { password: 0.82, sso: 1.16, mfa_push: 1.16, passkey: 1.5, api_key: 0.7 } } },
-  extra: { [DEMO_DAYS.combo]: [{ n: 8_000, hours: BUSINESS, dist: { result: { locked: 1 }, method: { api_key: 1 }, country: { US: 1 }, ua_family: { 'python-requests': 1 } } }] },
+  extra: {
+    [DEMO_DAYS.combo]: [{ n: 8_000, hours: BUSINESS, dist: { result: { locked: 1 }, method: { api_key: 1 }, country: { US: 1 }, ua_family: { 'python-requests': 1 } } }],
+    [GATE_DAYS.method]: [MAGIC], [GATE_DAYS.second]: [MAGIC, SMS], [GATE_DAYS.last]: [MAGIC, SMS],
+  },
   renamed: { [RENAMED_DAY]: { result: 'results' } },
   added: { [ADDED_DAY]: { client_app: ['browser', 'mobile_app', 'browser', 'desktop_app'] } },
 };

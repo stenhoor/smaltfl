@@ -303,7 +303,7 @@ describe('the other examples', () => {
     expect(said(column(auth, 'country').rules)).toEqual(['A value never seen in this file before is flagged as wrong', 'Country is never blank: else flag the row and keep it']);
     // No file rule in a flow with no gate: no card lists one.
     expect(auth.columns!.every((c) => c.fileRules.length === 0)).toBe(true);
-    expect(said(column(auth, 'method').rules)).toEqual(['Method is Password, Single sign-on, MFA push, Passkey or API key: else hold the day']);
+    expect(said(column(auth, 'method').rules)).toEqual(['Method is Password, Single sign-on, MFA push, Passkey or API key, and nothing the ontology doesn’t have: else hold the day']);
     expect(said(column(auth, 'latency_ms').rules)).toEqual(['Latency is from 0 to 30,000 ms: else flag the row and keep it']);
     expect(column(auth, 'method').rules[0]).toMatchObject({ id: 'auth/method/set=method_one_of', kind: 'set', origin: { how: 'set', in: 'ontology' }, def: { id: 'method_one_of', action: 'hold' } });
     expect(auth.columns!.flatMap((c) => c.rules).every((r) => r.unchecked === undefined)).toBe(true);

@@ -35,7 +35,7 @@ describe('the sign-in log’s rules', () => {
     expect(rulesOf(doc.ontology, 'auth').map((r) => [r.id, r.action])).toEqual([['method_one_of', 'hold'], ['latency_ms_range', 'flag'], ['country_required', 'flag']]);
     expect(checkStepOf(doc, 'auth')?.id).toBe('auth_valid');
     expect(rulesOf(doc.ontology, 'auth').map((r) => ruleSaid(doc.ontology, r))).toEqual([
-      'Method is Password, Single sign-on, MFA push, Passkey or API key',
+      'Method is Password, Single sign-on, MFA push, Passkey or API key, and nothing the ontology doesn’t have',
       'Latency is from 0 to 30,000 ms',
       'Country is never blank',
     ]);
@@ -50,7 +50,8 @@ describe('the sign-in log’s rules', () => {
       ['known_result', 'drop'], ['in_day', 'drop'], ['has_user', 'warn'],
       ['method_one_of', 'fail'], ['latency_ms_range', 'warn'], ['country_required', 'warn'],
     ]);
-    expect(expect_.rules[3]![1]).toBe(`"method" IS NULL OR CAST("method" AS TEXT) IN ('password', 'sso', 'mfa_push', 'passkey', 'api_key')`);
+    // The method is a closed column (ADR 0027 §4): a blank is no value, and any other waits for a person.
+    expect(expect_.rules[3]![1]).toBe(`"method" IS NULL OR trim(CAST("method" AS TEXT)) = '' OR CAST("method" AS TEXT) IN ('password', 'sso', 'mfa_push', 'passkey', 'api_key')`);
   });
 
   it('leaves a rule switched off out of the plan, and the plan as it was without rules when none is on', async () => {

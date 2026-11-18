@@ -2070,7 +2070,7 @@ export function kindMark(kind: KindMark, size = 12): string {
 
 /** A mark on a day of a row: the day a change was said, the day one of a kind took effect, a decision, or a day taken
  * back or restated. */
-export interface LaneMark { day: string; kind: 'said' | 'decided' | 'back' | KindMark; change?: string | null; title?: string }
+export interface LaneMark { day: string; kind: 'said' | 'decided' | 'back' | 'gate' | KindMark; change?: string | null; title?: string }
 export interface LaneRow { label: string; spans: readonly LaneSpan[]; marks: readonly LaneMark[] }
 export interface LaneGroup { name: string; rows: readonly LaneRow[] }
 
@@ -2142,6 +2142,8 @@ export function registerLanes(o: { days: readonly string[]; today: string; pick?
         const t = m.title ? `<title>${esc(m.title)}</title>` : '';
         if (m.kind === 'said') s += `<circle class="rg-said" cx="${f1(cx)}" cy="${f1(cy)}" r="3.6"${data}>${t}</circle>`;
         else if (m.kind === 'decided' || m.kind === 'back') s += `<path class="rg-${m.kind}" d="M${f1(cx)} ${f1(cy - 5)}L${f1(cx + 4.4)} ${f1(cy)}L${f1(cx)} ${f1(cy + 5)}L${f1(cx - 4.4)} ${f1(cy)}Z"${data}>${t}</path>`;
+        // A day something stopped at the gate (ADR 0027 §4): a bar across the day, as a gate is.
+        else if (m.kind === 'gate') s += `<rect class="rg-gate" x="${f1(cx - 1.75)}" y="${f1(cy - 6)}" width="3.5" height="12" rx="1"${data}>${t}</rect>`;
         // The day a change of a kind took effect: its kind's mark at the start of its bar.
         else s += `<g class="rg-kind" data-kind="${m.kind}"${data}>${t}${kindShape(m.kind, x0(i) + 6.5, cy, 3.6)}</g>`;
       }

@@ -5,7 +5,12 @@
  * document accepts, what the plan carries, the two edits, and runs through the engine that hold, name what arrived,
  * leave rows out and verify.
  */
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { Database } from 'smaltdb/engine';
+import io from '@smaltdb/io';
+import external from '@smaltdb/external';
+import smaltfl from '../src/plugin/index.js';
 import { changesProblems, validateDocument, type ChangeSet, type FlowDocument } from '../src/core/document.js';
 import { emitRuleCheck } from '../src/core/emit.js';
 import { declareEntry, leaveOut, setRule } from '../src/core/flowedit.js';
@@ -13,11 +18,14 @@ import { undeclaredSaid } from '../src/core/hold.js';
 import { applyEdit, resolve } from '../src/core/inforce.js';
 import { expandNotebooks } from '../src/core/notebook.js';
 import { translate, validatePlan, type ClosedPlan } from '../src/core/plan.js';
-import { defaultKind, shortOf, subjectOf } from '../src/core/register.js';
+import { defaultKind, livesOf, registerOf, shortOf, subjectOf } from '../src/core/register.js';
 import { arrivalOf, closedOf, engineRules, entryDiff, isList, newRuleId, ruleSaid, type OntologyRule } from '../src/core/rules.js';
-import { runFlow, verifyRun } from '../src/index.js';
+import { utf8 } from '../src/core/hash.js';
+import { pinFile, runFlow, verifyRun } from '../src/index.js';
+import { pinnedDdl, type DataBindings } from '../examples/sources.js';
+import { csvOf, GATE_DAYS, securityDays, securityRows, SIGNIN_DEMO } from './fixtures/security.js';
 import { openEngine, SMALTDB } from './helpers/engine.js';
-import { ts } from './helpers/notebooks.js';
+import { loadFlowDir, signinsDir, ts } from './helpers/notebooks.js';
 
 const NB = `import { cell, param, sql } from 'smaltnb';
 import { check, publish, source } from 'smaltfl/notebook';
@@ -231,6 +239,21 @@ describe('the edits a decision at the gate makes', () => {
     expect([defaultKind([declared]), defaultKind([left])]).toEqual(['business', 'source']);
   });
 
+  it('draws a new entry’s life from the day it was first named, and a changed one’s from before, as shipped', async () => {
+    const base = await doc();
+    const set = (id: string, from: string, edits: ChangeSet['edits']): ChangeSet => ({ id, from, recorded: `${from}T09:00:00Z`, by: 'ciso', why: 'because', kind: 'business', edits });
+    const withChanges = { ...base, changes: [
+      set('left', '2024-03-04', [{ op: 'leaveOut', file: 'controls', rule: 'control_id_closed', key: 'sbom' }]),
+      set('new', '2024-03-06', [{ op: 'declareEntry', file: 'controls', rule: 'control_id_closed', entry: ['sbom', '2', 'daily'] }]),
+      set('moved', '2024-03-05', [{ op: 'declareEntry', file: 'controls', rule: 'control_id_closed', entry: ['mfa', '2', 'daily'] }]),
+    ] };
+    const days = Array.from({ length: 8 }, (_, i) => `2024-03-0${i + 1}`);
+    const lives = livesOf(registerOf(withChanges, { today: '2024-03-08' }).entries, days, '2024-03-08');
+    const spans = (key: string) => lives.find((l) => l.subject.key === key)!.spans.map((x) => [x.from, x.until, x.short]);
+    expect(spans('entry:controls:control_id_closed:sbom')).toEqual([['2024-03-04', '2024-03-05', 'left out'], ['2024-03-06', '2024-03-08', 'declared']]);
+    expect(spans('entry:controls:control_id_closed:mfa')).toEqual([['2024-03-01', '2024-03-04', 'as shipped'], ['2024-03-05', '2024-03-08', 'declared']]);
+  });
+
   it('sets a closed rule as any rule is set, its entries kept as given', async () => {
     const d = await doc([COLUMN]);
     const r = setRule(d, { file: 'controls', column: 'control_id', kind: 'closed', defines: ['weight'], entries: [['mfa', '3']], action: 'hold' });
@@ -405,5 +428,46 @@ describe('the gate in the engine', () => {
     } finally {
       db.close();
     }
+  });
+});
+
+describe('the sign-in log’s closed column (the demo’s last days)', () => {
+  const data = JSON.parse(readFileSync(new URL('../examples/security-signins.data.json', import.meta.url), 'utf8')) as DataBindings;
+  const runDay = async (day: string, doc: FlowDocument) => {
+    const db = Database.openMemory({ plugins: [io, external, smaltfl] });
+    const b = data.sources.auth!;
+    await pinFile(db, b.file, utf8(csvOf(securityRows(securityDays(SIGNIN_DEMO).find((p) => p.day === day)!, 0.03))));
+    await db.execAsync(pinnedDdl(b));
+    // The checks alone hold here: the day's story isn't told in this test.
+    const r = await runFlow(db, { ...doc, publish: { hold: ['checks'], period: 'day', watch: {} } } as FlowDocument, { smaltdb: SMALTDB, parameters: { day } });
+    db.close();
+    return r;
+  };
+  const arrived = (r: Awaited<ReturnType<typeof runDay>>) => r.manifest.nodes.find((n) => n.origin === 'auth_valid')!.closed?.[0]?.arrivals.map(([entry, , changed]) => [entry[0], changed]);
+
+  it('ships Method closed on its five values, said so', async () => {
+    const doc = await loadFlowDir(signinsDir);
+    expect(closedOf(doc.ontology, 'auth').map((r) => [r.id, r.entries!.map((e) => e[0])])).toEqual([['method_one_of', ['password', 'sso', 'mfa_push', 'passkey', 'api_key']]]);
+  });
+
+  it('stops Sat Mar 23 at the gate for magic links, and Sun Mar 24 for codes by text message once the first is declared', async () => {
+    const doc = await loadFlowDir(signinsDir);
+    const before = await runDay('2024-03-21', doc);
+    expect(before.holds).toEqual([]);
+    const sat = await runDay(GATE_DAYS.method, doc);
+    expect(arrived(sat)).toEqual([['magic_link', false]]);
+    expect(sat.holds.map((h) => [h.origin, h.undeclared, h.said.replace(/\d+ rows/, 'N rows')])).toEqual([['auth_valid', true, 'not in the ontology: method magic_link (N rows)']]);
+    const declared = declareEntry(doc, 'auth', 'method_one_of', ['magic_link'])!.doc;
+    expect((await runDay(GATE_DAYS.method, declared)).holds).toEqual([]);
+    const sun = await runDay(GATE_DAYS.second, declared);
+    expect(arrived(sun)).toEqual([['sms_code', false]]);
+    // Undeclared, both arrive together on the Sunday, the one with the most rows first.
+    expect(arrived(await runDay(GATE_DAYS.second, doc))).toEqual([['magic_link', false], ['sms_code', false]]);
+    // Left out, the last day goes on without its rows.
+    const without = leaveOut(declared, 'auth', 'method_one_of', 'sms_code')!.doc;
+    const last = await runDay(GATE_DAYS.last, without);
+    expect(last.holds).toEqual([]);
+    expect(last.manifest.nodes.find((n) => n.origin === 'auth_valid')!.expectations!.rules.find((x) => x.name === 'method_one_of_left_out')).toMatchObject({ onFail: 'aside' });
+    expect(last.manifest.nodes.find((n) => n.origin === 'auth_valid')!.expectations!.rules.find((x) => x.name === 'method_one_of_left_out')!.failed).toBeGreaterThan(10);
   });
 });

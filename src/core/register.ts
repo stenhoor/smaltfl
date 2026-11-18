@@ -264,11 +264,13 @@ export interface Life {
  * changed, what we check after what there is.
  */
 export function livesOf(entries: readonly Entry[], days: readonly string[], today: string): Life[] {
-  const bySubject = new Map<string, { subject: Subject; touches: { entry: Entry; short: string }[] }>();
+  const bySubject = new Map<string, { subject: Subject; begins: boolean; touches: { entry: Entry; short: string }[] }>();
   const inOrder = [...entries].sort((a, b) => Date.parse(a.change.recorded) - Date.parse(b.change.recorded));
   for (const entry of inOrder)
     for (const e of entry.edits) {
-      const row = bySubject.get(e.subject.key) ?? { subject: e.subject, touches: [] };
+      // An entry of a closed list the ontology didn't have (ADR 0027 §4) begins with the change that first names it:
+      // nothing of it was shipped. One whose defining columns a change moved stood before, as shipped.
+      const row = bySubject.get(e.subject.key) ?? { subject: e.subject, begins: (e.edit.op === 'declareEntry' && !(e.said ?? '').startsWith('Changed ')) || e.edit.op === 'leaveOut', touches: [] };
       // Two edits of one thing in one change set: the last says what it was left as.
       const had = row.touches.findIndex((x) => x.entry === entry);
       if (had >= 0) row.touches[had] = { entry, short: e.short };
@@ -277,11 +279,12 @@ export function livesOf(entries: readonly Entry[], days: readonly string[], toda
     }
   const now = today.slice(0, 10);
   const lives: Life[] = [];
-  for (const { subject: s, touches } of bySubject.values()) {
+  for (const { subject: s, begins, touches } of bySubject.values()) {
     const spans: Span[] = [];
     for (const day of days) {
       const d = day.slice(0, 10);
       const standing = touches.filter(({ entry: { change: c } }) => c.from <= d && (c.until === undefined || d <= c.until)).at(-1) ?? null;
+      if (!standing && begins) continue;
       const id = standing ? standing.entry.change.id : null;
       const last = spans.at(-1);
       if (last && last.change === id && dayAfter(last.until) >= d) last.until = d;

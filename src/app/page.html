@@ -1192,6 +1192,7 @@ svg.viz.kind-mark { display: inline-block; vertical-align: -1.5px; margin-right:
 .viz .rg-said { fill: var(--surface); stroke: var(--smalt); stroke-width: 1.5; }
 .viz .rg-decided { fill: var(--surface); stroke: var(--ink); stroke-width: 1.3; }
 .viz .rg-back { fill: var(--bad); }
+.viz .rg-gate { fill: var(--bad); }
 .viz .rg-now { stroke: var(--ink); stroke-width: 1.4; }
 .viz .rg-now-t { font-family: var(--mono); font-size: 9.5px; fill: var(--ink); }
 @media (min-width: 820px) { .rg-lanes { display: block; } }
@@ -2335,6 +2336,29 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 /* Columns that changed (ADR 0022 §2): what is gone and new in a day's file, and Read X as Y with its reason. */
 .dh-columns { display: grid; gap: 8px; min-width: 0; }
 .dh-columns .eyebrow { margin: 0; }
+/* The gate (ADR 0027 §4): what arrived that the ontology doesn't have, and the three decisions. */
+.dh-gate { display: grid; gap: 8px; min-width: 0; }
+.dh-gate .eyebrow, .gt-lead, .gt-waits { margin: 0; }
+.gt-lead { color: var(--muted); font-size: 14px; }
+.gt-arrivals { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; min-width: 0; }
+.gt-arrival { display: flex; gap: 8px; align-items: flex-start; min-width: 0; padding: 8px 10px; border-left: 3px solid var(--bad); border-radius: 0 6px 6px 0; background: var(--bad-wash, var(--warn-wash)); overflow-wrap: anywhere; }
+.gt-arrival[data-how="changed"] { border-left-color: var(--warn); background: var(--warn-wash); }
+.gt-arrival > span { min-width: 0; }
+.gt-tick { flex: none; width: 20px; height: 20px; margin: 2px 0 0; }
+.gt-waits { overflow-wrap: anywhere; }
+.gt-left .cm-said { overflow-wrap: anywhere; }
+.vf-gate { border-left: 3px solid var(--warn); padding-left: 10px; }
+/* A closed list or column on the Ontology page: its form, and the entries the ontology has. */
+.of-closed { display: grid; gap: 8px; min-width: 0; }
+.of-defines { margin: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
+.of-defines legend { padding: 0 4px; font-weight: 600; }
+.of-define-list { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.of-define { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; }
+.of-entries { grid-column: 1 / -1; min-width: 0; }
+.of-entry-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; min-width: 0; }
+.of-entry { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; min-width: 0; padding: 4px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.of-entry-defs { color: var(--muted); font-size: 14px; min-width: 0; }
+.of-entry.left b { text-decoration: line-through; text-decoration-thickness: 1px; }
 .cm-source { display: grid; gap: 6px; min-width: 0; }
 .cm-source + .cm-source { padding-top: 8px; border-top: 1px solid var(--line); }
 .cm-said { margin: 0; overflow-wrap: anywhere; }
