@@ -1,0 +1,156 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 944 566" role="img" aria-label="Larkspur’s March 2024 and the first week of April as lanes: what was going on, what there is and what it means, what we check, what stopped at the gate and what was decided. Left of today is what applied; right of it is what is coming." width="944" height="566"><style>svg{--bg:#f4f5f8;--surface:#ffffff;--sunk:#eceff5;--ink:#151922;--ink-2:#3f4656;--muted:#5c6375;--line:#d6dbe4;--smalt:#003399;--smalt-wash:#e0e6f3;--teal:#006861;--teal-fill:#00786f;--teal-wash:#dcefed;--ok:#1d6b3a;--warn:#8a5a12;--bad:#a3195b;--bad-wash:#f8e3ec;--row-alt:#f6f7fa;--plum:#6b3fa0;--plum-wash:#ece4f6;}@media (prefers-color-scheme: dark){svg{--bg:#0f131a;--surface:#171c25;--sunk:#1e2430;--ink:#e8ebf1;--ink-2:#c3c9d6;--muted:#98a1b3;--line:#434955;--smalt:#8fa8ff;--smalt-wash:#1d2742;--teal:#4fd1c5;--teal-fill:#2bb3a6;--teal-wash:#14302e;--ok:#67d391;--warn:#e3b55f;--bad:#ff86b5;--bad-wash:#3a1828;--row-alt:#1b212b;--plum:#c4a3f0;--plum-wash:#2a2140;}}
+text{font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;fill:var(--ink)}
+.t-mono{font-family:ui-monospace,'SFMono-Regular',Menlo,monospace}.t-mut{fill:var(--muted)}.t-2{fill:var(--ink-2)}
+.t-lane{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.08em;fill:var(--muted)}
+.grid{stroke:var(--line);stroke-width:1}.wk{fill:var(--sunk)}
+.band-ev{fill:var(--sunk);stroke:var(--ink-2);stroke-width:1}
+.band-rule{fill:var(--smalt-wash);stroke:var(--smalt);stroke-width:1}
+.band-rule-was{fill:none;stroke:var(--smalt);stroke-width:1.2;stroke-dasharray:3 3}
+.band-hold{fill:var(--bad-wash);stroke:var(--bad);stroke-width:1}
+.band-coming{fill:url(#hatch);stroke:var(--smalt);stroke-width:1.2;stroke-dasharray:4 3}
+.band-wait{fill:var(--surface);stroke:var(--smalt);stroke-width:1.3;stroke-dasharray:1.5 3;stroke-linecap:round}
+.tick-ev{fill:var(--ink-2)}.tick-rule{fill:var(--smalt)}.tick-dec{fill:var(--surface);stroke:var(--ink);stroke-width:1.4}.tick-rest{fill:var(--bad)}
+.link{stroke:var(--muted);stroke-width:1;fill:none}.link-dash{stroke:var(--muted);stroke-width:1;fill:none;stroke-dasharray:2 3}
+.now{stroke:var(--ink);stroke-width:1.5}.surface{fill:var(--surface)}.ink{fill:var(--ink)}
+.line-main{stroke:var(--teal-fill);stroke-width:2;fill:none;stroke-linejoin:round;stroke-linecap:round}
+.dot-main{fill:var(--teal-fill);stroke:var(--surface);stroke-width:2}
+.box{fill:var(--surface);stroke:var(--line);stroke-width:1}.box-smalt{fill:var(--smalt-wash);stroke:var(--smalt);stroke-width:1}
+.box-sunk{fill:var(--sunk);stroke:var(--line);stroke-width:1}.box-bad{fill:var(--bad-wash);stroke:var(--bad);stroke-width:1}
+.arrow{stroke:var(--ink-2);stroke-width:1.3;fill:none}.arrowhead{fill:var(--ink-2)}
+</style><rect width="944" height="566" rx="10" style="fill: var(--surface); stroke: var(--line)"/>
+<defs>
+<pattern id="hatch" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect width="6" height="6" style="fill: var(--surface)"/><line x1="0" y1="0" x2="0" y2="6" style="stroke: var(--smalt); stroke-width: 1.6; opacity: .38"/></pattern>
+<marker id="ah3" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" class="arrowhead"/></marker>
+<marker id="ah3s" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" style="fill: var(--smalt)"/></marker>
+</defs>
+<text x="12" y="22" font-size="14" font-weight="600">March 2024</text>
+<text class="t-mut" x="100" y="22" font-size="11.5">every row is one thing’s life</text>
+<rect x="806.4" y="58" width="128.8" height="442" style="fill: var(--row-alt)"/>
+<rect class="wk" x="254.4" y="58" width="18.4" height="442"/>
+<rect class="wk" x="272.8" y="58" width="18.4" height="442"/>
+<rect class="wk" x="383.2" y="58" width="18.4" height="442"/>
+<rect class="wk" x="401.6" y="58" width="18.4" height="442"/>
+<rect class="wk" x="512.0" y="58" width="18.4" height="442"/>
+<rect class="wk" x="530.4" y="58" width="18.4" height="442"/>
+<rect class="wk" x="640.8" y="58" width="18.4" height="442"/>
+<rect class="wk" x="659.2" y="58" width="18.4" height="442"/>
+<rect class="wk" x="769.6" y="58" width="18.4" height="442"/>
+<rect class="wk" x="788.0" y="58" width="18.4" height="442"/>
+<rect class="wk" x="898.4" y="58" width="18.4" height="442"/>
+<rect class="wk" x="916.8" y="58" width="18.4" height="442"/>
+<text class="t-mono t-mut" x="245.2" y="50" font-size="9" text-anchor="middle">1</text>
+<text class="t-mono t-mut" x="263.6" y="50" font-size="9" text-anchor="middle">2</text>
+<text class="t-mono t-mut" x="282.0" y="50" font-size="9" text-anchor="middle">3</text>
+<text class="t-mono t-mut" x="300.4" y="50" font-size="9" text-anchor="middle">4</text>
+<text class="t-mono t-mut" x="318.8" y="50" font-size="9" text-anchor="middle">5</text>
+<text class="t-mono t-mut" x="337.2" y="50" font-size="9" text-anchor="middle">6</text>
+<text class="t-mono t-mut" x="355.6" y="50" font-size="9" text-anchor="middle">7</text>
+<text class="t-mono t-mut" x="374.0" y="50" font-size="9" text-anchor="middle">8</text>
+<text class="t-mono t-mut" x="392.4" y="50" font-size="9" text-anchor="middle">9</text>
+<text class="t-mono t-mut" x="410.8" y="50" font-size="9" text-anchor="middle">10</text>
+<text class="t-mono t-mut" x="429.2" y="50" font-size="9" text-anchor="middle">11</text>
+<text class="t-mono t-mut" x="447.6" y="50" font-size="9" text-anchor="middle">12</text>
+<text class="t-mono t-mut" x="466.0" y="50" font-size="9" text-anchor="middle">13</text>
+<text class="t-mono t-mut" x="484.4" y="50" font-size="9" text-anchor="middle">14</text>
+<text class="t-mono t-mut" x="502.8" y="50" font-size="9" text-anchor="middle">15</text>
+<text class="t-mono t-mut" x="521.2" y="50" font-size="9" text-anchor="middle">16</text>
+<text class="t-mono t-mut" x="539.6" y="50" font-size="9" text-anchor="middle">17</text>
+<text class="t-mono t-mut" x="558.0" y="50" font-size="9" text-anchor="middle">18</text>
+<text class="t-mono t-mut" x="576.4" y="50" font-size="9" text-anchor="middle">19</text>
+<text class="t-mono t-mut" x="594.8" y="50" font-size="9" text-anchor="middle">20</text>
+<text class="t-mono t-mut" x="613.2" y="50" font-size="9" text-anchor="middle">21</text>
+<text class="t-mono t-mut" x="631.6" y="50" font-size="9" text-anchor="middle">22</text>
+<text class="t-mono t-mut" x="650.0" y="50" font-size="9" text-anchor="middle">23</text>
+<text class="t-mono t-mut" x="668.4" y="50" font-size="9" text-anchor="middle">24</text>
+<text class="t-mono t-mut" x="686.8" y="50" font-size="9" text-anchor="middle">25</text>
+<text class="t-mono t-mut" x="705.2" y="50" font-size="9" text-anchor="middle">26</text>
+<text class="t-mono t-mut" x="723.6" y="50" font-size="9" text-anchor="middle">27</text>
+<text class="t-mono t-mut" x="742.0" y="50" font-size="9" text-anchor="middle">28</text>
+<text class="t-mono t-mut" x="760.4" y="50" font-size="9" text-anchor="middle">29</text>
+<text class="t-mono t-mut" x="778.8" y="50" font-size="9" text-anchor="middle">30</text>
+<text class="t-mono t-mut" x="797.2" y="50" font-size="9" text-anchor="middle">31</text>
+<text class="t-mono t-mut" x="815.6" y="50" font-size="9" text-anchor="middle">1</text>
+<text class="t-mono t-mut" x="834.0" y="50" font-size="9" text-anchor="middle">2</text>
+<text class="t-mono t-mut" x="852.4" y="50" font-size="9" text-anchor="middle">3</text>
+<text class="t-mono t-mut" x="870.8" y="50" font-size="9" text-anchor="middle">4</text>
+<text class="t-mono t-mut" x="889.2" y="50" font-size="9" text-anchor="middle">5</text>
+<text class="t-mono t-mut" x="907.6" y="50" font-size="9" text-anchor="middle">6</text>
+<text class="t-mono t-mut" x="926.0" y="50" font-size="9" text-anchor="middle">7</text>
+<line class="grid" x1="236.0" y1="58" x2="935.2" y2="58"/>
+<text class="t-lane" x="810.4" y="34">APRIL · COMING</text>
+<text class="t-lane" x="12" y="76">GOING ON</text>
+<text x="12" y="94.5" font-size="12">Remediation push</text>
+<rect class="band-ev" x="237.5" y="84" width="567.4" height="13" rx="4"><title>A new SVP’s remediation push, all month</title></rect>
+<text x="12" y="116.5" font-size="12">A reorg, noted; then handover</text>
+<rect class="band-ev" x="421.5" y="106" width="254.6" height="13" rx="4"><title>Written down as context. Who moved where is data.</title></rect><text x="441.5" y="115.8" font-size="9.5" class="t-2">two weeks of handover</text>
+<polygon class="tick-ev" points="429.2,107.0 433.7,112.5 429.2,118.0 424.7,112.5"><title>Mon Mar 11: a reorg, written down as context</title></polygon>
+<text x="12" y="138.5" font-size="12">WAF in monitor mode</text>
+<polygon class="tick-ev" points="447.6,129.0 452.1,134.5 447.6,140.0 443.1,134.5"><title>Tue Mar 12, on ing-east-3</title></polygon>
+<text x="12" y="160.5" font-size="12">Scanner without its login</text>
+<rect class="band-ev" x="513.5" y="150" width="33.8" height="13" rx="4"><title>Sat 16 and Sun 17: scn-dc-west found far less</title></rect>
+<path class="link-dash" d="M548.8,156.5 H681.8"/>
+<circle cx="686.8" cy="156.5" r="3.4" class="surface" style="stroke: var(--ink-2); stroke-width: 1.4"><title>Recognised on Mon Mar 25</title></circle>
+<text class="t-mut" x="694.8" y="160" font-size="9.5">seen Mon 25</text>
+<text x="12" y="182.5" font-size="12">Quarter-end change freeze</text>
+<rect class="band-ev" x="679.1" y="172" width="125.8" height="13" rx="4"><title>Mon 25 to Sun 31. It says what it excuses: more overdue fixes. The checks allow for that while it lasts.</title></rect><text x="684.1" y="181.8" font-size="9.5" class="t-2">excuses overdue fixes</text>
+<text class="t-lane" x="12" y="206">WHAT THERE IS, AND WHAT IT MEANS</text>
+<text x="12" y="224.5" font-size="12">The controls we hold to</text>
+<rect class="band-rule" x="237.5" y="214" width="475.4" height="13" rx="4"></rect><text x="243.5" y="223.8" font-size="9.5" class="t-2">14 controls</text>
+<polygon class="band-rule" points="715.9,214 928.7,214 936.7,220.5 928.7,227 715.9,227"><title>From Wed Mar 27 a fifteenth control. The business changed.</title></polygon><text x="731.9" y="223.8" font-size="9.5" class="t-2">15: + SBOM</text>
+<polygon class="tick-rule" points="723.6,215.5 727.6,220.5 723.6,225.5 719.6,220.5"><title>Wed Mar 27: the business changed</title></polygon>
+<text x="12" y="246.5" font-size="12">SBOM’s evidence</text>
+<polygon class="band-wait" points="715.9,236 928.7,236 936.7,242.5 928.7,249 715.9,249"><title>In force from Wed 27. Its evidence feed isn’t bound yet, and every day says so.</title></polygon><text x="722.9" y="245.8" font-size="9.5" class="t-2">described · waiting for data</text>
+<text x="12" y="268.5" font-size="12">exposure = internet</text><text class="t-mut" x="133" y="268.5" font-size="9.5" font-style="italic">sketch</text>
+<rect class="band-rule" x="237.5" y="258" width="567.4" height="13" rx="4"></rect><text x="243.5" y="267.8" font-size="9.5" class="t-2">facing the internet</text>
+<polygon class="band-coming" points="807.9,258 928.7,258 936.7,264.5 928.7,271 807.9,271"><title>Redefined from Mon Apr 1, said on Thu Mar 28</title></polygon><text x="814.9" y="267.8" font-size="9.5" class="">+ partner networks</text>
+<path class="link" d="M746.5,264.5 H806.4"/>
+<circle cx="742.0" cy="264.5" r="3.6" class="surface" style="stroke: var(--smalt); stroke-width: 1.5"><title>Said on Thu Mar 28, for Mon Apr 1</title></circle>
+<text x="12" y="290.5" font-size="12">A new role: control owner</text><text class="t-mut" x="169" y="290.5" font-size="9.5" font-style="italic">sketch</text>
+<polygon class="band-coming" points="807.9,280 928.7,280 936.7,286.5 928.7,293 807.9,293"><title>A new relation between a person and a control, from Mon Apr 1</title></polygon><text x="814.9" y="289.8" font-size="9.5" class="">a person for each control</text>
+<path class="link" d="M746.5,286.5 H806.4"/>
+<circle cx="742.0" cy="286.5" r="3.6" class="surface" style="stroke: var(--smalt); stroke-width: 1.5"><title>Said on Thu Mar 28, for Mon Apr 1</title></circle>
+<text class="t-lane" x="12" y="314">WHAT WE CHECK</text>
+<text x="12" y="332.5" font-size="12">waf · share failing</text>
+<rect class="band-rule-was" x="237.5" y="322" width="309.8" height="13" rx="4"></rect><text x="243.5" y="331.8" font-size="9.5" class="t-2">learned: warns</text>
+<polygon class="band-rule" points="550.3,322 928.7,322 936.7,328.5 928.7,335 550.3,335"></polygon><text x="566.3" y="331.8" font-size="9.5" class="t-2">held above a tenth</text>
+<circle cx="502.8" cy="328.5" r="3.6" class="surface" style="stroke: var(--smalt); stroke-width: 1.5"><title>Recorded Fri Mar 15, to take effect Mon 18: it was coming for three days</title></circle>
+<path class="link" d="M507.3,328.5 H548.8"/>
+<polygon class="tick-rule" points="558.0,323.5 562.0,328.5 558.0,333.5 554.0,328.5"><title>Mon Mar 18: the business changed</title></polygon>
+<text x="12" y="356.5" font-size="12">findings · values check</text><text class="t-mut" x="12" y="368.5" font-size="10">corrected on Mon 25, for the whole month</text>
+<polygon class="band-rule" points="237.5,346 928.7,346 936.7,352.5 928.7,359 237.5,359"></polygon><text x="243.5" y="355.8" font-size="9.5" class="t-2">holds</text>
+<line class="band-rule-was" x1="238.0" y1="365" x2="675.6" y2="365"/>
+<text class="t-mut" x="254.4" y="377" font-size="9.5">as the runs of the time were judged: warned</text>
+<circle cx="686.8" cy="365" r="5.2" class="surface" style="stroke: var(--smalt); stroke-width: 1.5"><title>Recorded Mon Mar 25, back-dated to Fri 1: a mistake corrected</title></circle><circle cx="686.8" cy="365" r="2.1" style="fill: var(--smalt)"/>
+<polygon class="tick-rest" points="521.2,360.6 524.6,365.0 521.2,369.4 517.8,365.0"><title>Restated on Mon 25: Mar 16 taken back</title></polygon>
+<polygon class="tick-rest" points="539.6,360.6 543.0,365.0 539.6,369.4 536.2,365.0"><title>Restated on Mon 25: Mar 17 taken back</title></polygon>
+<text class="t-lane" x="12" y="396">AT THE GATE</text>
+<text x="12" y="414.5" font-size="12">The data ahead of the ontology</text>
+<rect class="band-hold" x="715.9" y="404" width="15.4" height="13" rx="4"><title>Wed Mar 27: the catalogue had a control the ontology didn’t. 9 of 37 outputs waited until it was declared.</title></rect>
+<text class="t-2" x="710.4" y="414" font-size="9.5" text-anchor="end">Wed 27: paused, then declared</text>
+<text class="t-lane" x="12" y="438">WHAT WE DECIDED</text>
+<text x="12" y="456.5" font-size="12">Decisions on held days</text>
+<polygon class="tick-dec" points="300.4,447.0 304.9,452.5 300.4,458.0 295.9,452.5"><title>Mon 4: the empty MFA file kept back, sent again</title></polygon>
+<polygon class="tick-dec" points="337.2,447.0 341.7,452.5 337.2,458.0 332.7,452.5"><title>Wed 6: filled from Tue 5</title></polygon>
+<polygon class="tick-dec" points="447.6,447.0 452.1,452.5 447.6,458.0 443.1,452.5"><title>Tue 12: published as is, because of the WAF in monitor mode</title></polygon>
+<polygon class="tick-dec" points="613.2,447.0 617.7,452.5 613.2,458.0 608.7,452.5"><title>Thu 21: the doubled TLS file replaced</title></polygon>
+<polygon class="tick-dec" points="650.0,447.0 654.5,452.5 650.0,458.0 645.5,452.5"><title>Sat 23: kept back</title></polygon>
+<polygon class="tick-dec" points="668.4,447.0 672.9,452.5 668.4,458.0 663.9,452.5"><title>Sun 24: filled</title></polygon>
+<polygon class="tick-dec" points="723.6,447.0 728.1,452.5 723.6,458.0 719.1,452.5"><title>Wed 27: the new control declared</title></polygon>
+<polygon class="tick-dec" points="742.0,447.0 746.5,452.5 742.0,458.0 737.5,452.5"><title>Thu 28: published as is</title></polygon>
+<polygon class="tick-rest" points="686.8,447.0 691.3,452.5 686.8,458.0 682.3,452.5"><title>Mon 25: Sat 16 and Sun 17 restated, taken back</title></polygon>
+<line class="now" x1="806.4" y1="30" x2="806.4" y2="500"/>
+<rect x="748.4" y="12" width="56" height="17" rx="8.5" class="ink"/>
+<text x="776.4" y="24" font-size="10" text-anchor="middle" style="fill: var(--bg)" font-weight="600">today</text>
+<polygon class="tick-rule" points="18.0,519 22.0,524 18.0,529 14.0,524"></polygon><text class="t-2" x="28" y="528" font-size="10.5">the business changed</text>
+<circle cx="168.0" cy="524" r="5.2" class="surface" style="stroke: var(--smalt); stroke-width: 1.5"></circle><circle cx="168.0" cy="524" r="2.1" style="fill: var(--smalt)"/><text class="t-2" x="178" y="528" font-size="10.5">a mistake corrected</text>
+<circle cx="314" cy="524" r="3.6" class="surface" style="stroke: var(--smalt); stroke-width: 1.5"/><text class="t-2" x="324" y="528" font-size="10.5">the day it was said</text>
+<polygon class="tick-ev" points="450.0,519 454.0,524 450.0,529 446.0,524"></polygon><text class="t-2" x="460" y="528" font-size="10.5">something going on</text>
+<polygon class="tick-dec" points="592.0,519 596.0,524 592.0,529 588.0,524"></polygon><text class="t-2" x="602" y="528" font-size="10.5">a decision</text>
+<polygon class="tick-rest" points="682.0,519.4 685.6,524 682.0,528.6 678.4,524"></polygon><text class="t-2" x="692" y="528" font-size="10.5">a day taken back</text>
+<rect class="band-rule" x="12" y="540" width="22" height="11" rx="3"/><text class="t-2" x="40" y="550" font-size="10.5">in force</text>
+<rect class="band-coming" x="108" y="540" width="22" height="11" rx="3"/><text class="t-2" x="136" y="550" font-size="10.5">coming</text>
+<rect class="band-wait" x="202" y="540" width="22" height="11" rx="3"/><text class="t-2" x="230" y="550" font-size="10.5">described, waiting for data</text>
+<rect class="band-rule-was" x="404" y="540" width="22" height="11" rx="3"/><text class="t-2" x="432" y="550" font-size="10.5">as it was before a change</text>
+<rect class="band-ev" x="598" y="540" width="22" height="11" rx="3"/><text class="t-2" x="626" y="550" font-size="10.5">an event</text>
+<rect class="band-hold" x="702" y="540" width="22" height="11" rx="3"/><text class="t-2" x="730" y="550" font-size="10.5">paused at the gate</text>
+</svg>

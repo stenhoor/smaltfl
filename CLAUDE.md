@@ -692,6 +692,14 @@ release (smaltty ADR 0030).
   slice 5 in two steps (its §"As built", which says what each leaves): the second, a decision carried between a read
   flow's own page and its reader's, once the maintainer had chosen the page (Q-245), with Q-240 to Q-244 confirmed as
   built: ADR 0026 is done. What it leaves first is a flow run on its own and read by another (its §"Not built").
+  **Next:** [ADR 0027](docs/adr/0027-the-ontology-over-time.md), the ontology over time (2026-11-18, the maintainer's
+  answers Q-247 to Q-279, docs/research/temporal-ontology.md): the ontology is the business's rules, meanings and kinds
+  of things, and data that changes stays data; the ontology comes first (a source is made with its description, and an
+  entry of a closed list or a value of a closed column the ontology doesn't have pauses what it reaches until it is
+  declared); every change is a dated record with a kind and a reason; events are context written by people, and may
+  say what they excuse; a day is read under what was in force and carries that context. Nothing of it is built: in the
+  slices of its §11, the first of which (the register on screen) moves no hash. Its Q-280 to Q-285 are proposed, for
+  the maintainers to confirm as each is built.
 
 ## Rules for this repository
 

@@ -14,7 +14,8 @@ bronze layer in [adr/0015-the-bronze-layer.md](adr/0015-the-bronze-layer.md), th
 [adr/0023-the-demo-as-a-tour.md](adr/0023-the-demo-as-a-tour.md), the month at a glance in
 [adr/0024-the-month-at-a-glance.md](adr/0024-the-month-at-a-glance.md), the browser regression in minutes in
 [adr/0025-the-browser-regression-in-minutes.md](adr/0025-the-browser-regression-in-minutes.md), flows in flows in
-[adr/0026-flows-in-flows.md](adr/0026-flows-in-flows.md). The
+[adr/0026-flows-in-flows.md](adr/0026-flows-in-flows.md), the ontology over time in
+[adr/0027-the-ontology-over-time.md](adr/0027-the-ontology-over-time.md). The
 research behind the proposals is in [research/ecosystem-survey.md](research/ecosystem-survey.md).
 
 **Who decides:** the maintainers, together (ADR 0001 §1).
@@ -27,6 +28,62 @@ research behind the proposals is in [research/ecosystem-survey.md](research/ecos
 | Q-29 | The mark: round 3 leans into waves (M12–M18), all curved | **The Twin (M13), with a small chip,** picked and approved by stenhoor on 2026-11-11 (ADR 0016) | decided |
 | Q-41 | How do row rules pass through aggregates? | An aggregated row is visible only when every row behind it is. A dataset whose rows mix what a viewer may and may not see is closed to that viewer, and the app says why and offers the fix (group it by the rule's column): A7 shows this for `airport_times`. v1 applies rules by column name and closes a dataset without the rule's column; exact inheritance waits for bound plans | open |
 | Q-34 | Verified runs and speed: parallel execution can change a floating-point sum in its last digit | Verification is bit-exact: runs pin the engine settings that affect results (no parallel aggregation of floating-point values), and the cost is measured. Revisit if it is large. A fold that changes the order of a floating-point sum is a new result (ADR 0004); order-independent sums in smaltdb would make it free, to discuss with stenhoor | open |
+
+## The ontology over time: the maintainer's answers of 2026-11-18 (ADR 0027)
+
+The maintainer asked for a plan for a temporal ontology: how the ontology of the data changes over time, why certain
+things apply at certain dates, what was going on and what was decided at the time, shown visually and carried with the
+data so that analysis is always aware of its context; *"I want you to interview me and go back and forth on the design
+decisions as much as we need."* The research is [research/temporal-ontology.md](research/temporal-ontology.md). Asked
+through the question prompt in seven rounds, each question with its recommendation first
+([adr/0027-the-ontology-over-time.md](adr/0027-the-ontology-over-time.md)). Nothing of it is built yet.
+
+| ID | Question | The maintainer's answer | Status |
+| --- | --- | --- | --- |
+| Q-247 | Where does the line run between the ontology changing and the data changing? | **The maintainer’s own steer, given while the research ran:** the ontology is the business’s rules, meanings and kinds of things. A new role is an ontology change. People moving, hired or promoted, teams moving, owners changing are data, and stay data. The organisation can be drawn as a graph; it isn’t the ontology | decided 2026-11-18 |
+| Q-248 | A fifteenth control joins Larkspur’s catalogue as a new row in a file. How should the ontology learn of an entry like that? | **The maintainer’s own answer:** *“If a major change is happening the ontology needs to be updated before any new data gets introduced so as part of the creation of a data source the ontology gets created.”* A source is made with its description, through either door: a data engineer brings the data and must describe it, or a business user describes it and must add the data to a flow | decided 2026-11-18 |
+| Q-249 | Should a reorg, a freeze or a remediation push be written down as dated events? | **Yes, written by people.** A span, a kind, what it is about and a note. A decision, a change or a paused day can point at one; days and charts show them. Not suggested by the app | decided 2026-11-18 |
+| Q-250 | Beyond rules, what else is kept over time? | **Kinds and relations** (types, links, what a row is, dependencies) **and the shared ontology.** Not chosen: how steps compute, the calendar and contracts | decided 2026-11-18 |
+| Q-251 | When someone edits what a column or a value means, how is the edit treated? | **The app asks: reworded or redefined.** A rewording applies to every day and the old wording is kept. A redefinition takes effect from a day, with a reason, and marks the charts built on it | decided 2026-11-18 |
+| Q-252 | Which arrivals must be declared in the ontology first? | **All four:** a new data source, a new entry in a defining list, a new value of a closed column, a new column in a known file. A new application or person stays data | decided 2026-11-18 |
+| Q-253 | A file shows something the ontology doesn’t have yet. What happens to that day? | **Pause what it reaches.** Every output built from that file waits until someone declares the entry or refuses it; the rest publish. *(The recommendation was to keep it out and publish the rest.)* | decided 2026-11-18 |
+| Q-254 | What must be confirmed before any step may read a newly added file? | **What one row is, its key, and every column:** each described, or set aside so that it can’t be read. Values, bands and rules can follow | decided 2026-11-18 |
+| Q-255 | A business user describes something before its data exists. What is it until data is bound? | **In force from its date, and shown as waiting for data.** Every day says so until a source is bound in a flow | decided 2026-11-18 |
+| Q-256 | Should a change say what kind of change it is, as well as why? | **A reason and a kind, both required.** The kinds: the business changed; a setting re-tuned; a mistake corrected; the source changed | decided 2026-11-18 |
+| Q-257 | How much of the thinking does a change, a decision or an event hold? | **One line always, and an optional note in four parts:** what we saw, what we chose and turned down, what we expect, when to look again. A link for anything longer | decided 2026-11-18 |
+| Q-258 | Should a change keep who decided it and when, beside who recorded it? | **Decided by and decided on, optional.** Shown and searchable; nothing is computed from them. No third clock | decided 2026-11-18 |
+| Q-259 | How is a change shown before it takes effect? | **As coming, with what it would do:** listed ahead on the timeline and on the days before it starts, tried on the last recorded days | decided 2026-11-18 |
+| Q-260 | How does a chart read across a change of definition? | **The published line, cut where the business changed.** A re-tuned setting or a changed source gets a mark. A correction shows the restated line, with what was first published a tap away | decided 2026-11-18 |
+| Q-261 | Should each change keep its own measured step? | **Yes: its first day is run both ways,** and its trial days. A line with the steps taken out is on offer, labelled | decided 2026-11-18 |
+| Q-262 | Where is a day’s context readable? | **In the app, in notebook cells and published with the product:** marks on everything built from what changed, three read-only tables, and the same tables going out with the data product. Built in that order | decided 2026-11-18 |
+| Q-263 | What do the learned checks do after a declared change? | **They take it as the new level, accepted ahead.** The first day’s data is still judged, through its run the old way | decided 2026-11-18 |
+| Q-264 | What is recorded when something in the ontology ends? | **Ended from a day, with what follows it:** replaced by, merged into or split into. Nothing is deleted | decided 2026-11-18 |
+| Q-265 | How do the flows that import a shared ontology take a change to it? | **All follow from its date,** with a trial in each flow. A flow that must differ handles the column its own way, with a reason | decided 2026-11-18 |
+| Q-266 | In a defining list, is a changed entry also something the ontology must have first? | **Yes, for the columns that define it:** a weight, what it applies to. A reworded name or description doesn’t pause | decided 2026-11-18 |
+| Q-267 | Can an event change how days are judged while it lasts? | **Yes: an event says what it excuses,** and the checks allow for that during its span. *(The recommendation was that a dated rule does that, pointing at the event.)* | decided 2026-11-18 |
+| Q-268 | Which is the main picture of the ontology over time? | **A list on a phone, lanes when wide:** what is coming on top, then newest first; lanes over the days from tablet width | decided 2026-11-18 |
+| Q-269 | Does a map of kinds and relations earn its place? | **Yes, between two dates:** only what differs is coloured. No graph that plays | decided 2026-11-18 |
+| Q-270 | Where does it live in the app? | **Inside the views we have.** The Ontology view’s head becomes the timeline; the Month’s charts carry the cuts and marks; the Day shows its context; *Add a source* above the canvas and *Describe* on the Ontology page | decided 2026-11-18 |
+| Q-271 | What may an event excuse, and what becomes of the excused days? | **What is learned, never a rule someone wrote.** Excused days aren’t learned from as normal. An event written after it began excuses only the days not yet run | decided 2026-11-18 |
+| Q-272 | What does Larkspur’s demo show of this? | **One new scene, and events:** the fifteenth control stops at the gate, is declared with a reason, and the score is cut with its own step. The freeze, the push and the reorg become events | decided 2026-11-18 |
+| Q-273 | What gets built first? | **Show what is already kept:** the timeline, why did this apply, reasons with kinds and notes, events, marks on charts. Then the gate and the two doors; then kinds, relations and meanings; then each change’s own step and the context tables | decided 2026-11-18 |
+| Q-274 | Which flows does ontology first apply to? | **Every flow, from the next document format.** The five demos are brought up to it. An older document runs as today until it is opened and saved | decided 2026-11-18 |
+| Q-275 | Which of three things left out belong in this plan? | **All three, added by the maintainer:** telling people, who may change it, a history for an auditor | decided 2026-11-18 |
+| Q-276 | How far does this plan take roles? | **Roles named now, binding with sharing.** The ontology names who owns each part and who must agree; every change records who made it and who agreed; the audit checks it | decided 2026-11-18 |
+| Q-277 | Which changes need a second person’s agreement? | **Where the business changed,** and anything that ends something. A re-tuned setting, a corrected mistake and a changed source need only their author | decided 2026-11-18 |
+| Q-278 | What forms does the news of a change take? | **Since you last looked; a digest to copy or link; a feed the site publishes.** Named readers for a change wait on sharing | decided 2026-11-18 |
+| Q-279 | What form does a history for an auditor take? | **A page to print, and in the audit bag,** where the offline check holds it to the signed record | decided 2026-11-18 |
+
+The choices those answers leave open, proposed in ADR 0027 for the maintainers to confirm as each is built:
+
+| ID | Question | Proposal | Status |
+| --- | --- | --- | --- |
+| Q-280 | How fine is *as known on*, and where is it kept? | Any moment something was recorded, not only a day’s end; part of a link; asked as one question: with later corrections, or as it was known then | proposed |
+| Q-281 | How is a change’s span written? | From its first day to its last, both in, as `until` is today. No end is shown without making clear that day is in | proposed |
+| Q-282 | Does anything need a new identity? | No. Types and links have ids; a column is known by its name and its datasets. A rename is a label, a redefinition keeps the thing, and what follows a thing is named by id | proposed |
+| Q-283 | Where do events live? | In the flow’s document, or in the estate’s ontology where its flows share one, kept apart from the flow as shipped. What an event excuses is named by a run only where it excuses something on its day | proposed |
+| Q-284 | When is a chart cut? | Only where a change of kind *the business changed* has a step of its own on that series. A change that moved nothing there is a mark | proposed |
+| Q-285 | Where are a closed list’s accepted entries kept? | In the ontology, with the columns that define them. The first description of an existing list is taken from its file as it stands, as the start of its history | proposed |
 
 ## Flows in flows: the maintainer's answers of 2026-11-17 (ADR 0026)
 

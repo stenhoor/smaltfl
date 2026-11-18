@@ -225,6 +225,33 @@ Results on 2026-11-09, at `e42d9ec` on data `0ca4dd1`:
 
 ## What is not done
 
+**Next: [ADR 0027](adr/0027-the-ontology-over-time.md), the ontology over time** (designed 2026-11-18, the
+maintainer's answers Q-247 to Q-279; nothing of it is built). The maintainer asked for a temporal ontology: how the
+ontology changes over time, why certain things apply on certain dates, what was going on and what was decided then,
+shown visually and carried with the data so that analysis is always aware of its context. The research is
+[research/temporal-ontology.md](research/temporal-ontology.md): temporal data models, ontologies and knowledge graphs,
+law, clinical terms and statistics, HR systems, data platforms, how change over time is drawn, and analysis across a
+change of definition, in two passes, the second against the primary pages. The design was settled in the question
+prompt, thirty-three questions in seven rounds. Its shape:
+
+- **The line.** The ontology is the business's rules, meanings and kinds of things. Who and what is where from day to
+  day is data. A reorg or a freeze is context, written down as an event.
+- **Ontology first.** A source is made with its description. A new entry in a closed list, a new value of a closed
+  column or a changed defining column pauses what it reaches until it is declared, from a day, with a kind and a
+  reason.
+- **Every change is a dated record** with a kind (the business changed, a setting re-tuned, a mistake corrected, the
+  source changed), a reason, an optional note, who decided and who agreed. A change said ahead is coming, with what it
+  would have done.
+- **A day is read under what was in force,** and carries its context: marks on charts, three tables any cell can join
+  to, the same tables published with the product. A chart is cut where the business changed, with the change's own
+  step.
+
+In the slices of ADR 0027 §11, the first of which moves no hash: (1) the register on screen, over the rule changes
+smaltfl already dates; (2) reasons, kinds and events; (3) the gate, and document format 5; (4) the two doors; (5)
+kinds, relations and meanings over time, and the shared ontology's own changes; (6) reading across a change; (7)
+context that travels; (8) who decides; (9) who hears, and the auditor; (10) the demo's new scene. Q-280 to Q-285 are
+the choices the answers leave open, proposed for the maintainers to confirm as each is built.
+
 **Built: [ADR 0026](adr/0026-flows-in-flows.md), flows in flows** (2026-11-17, the maintainer's answers Q-231 to
 Q-245: every slice of its §12, and both steps of slice 5). The maintainer asked for flows that are parts of other flows: build one, read it from many, stack them, change
 a bronze flow once and have it reach everything built on it; a card for each flow on its reader's canvas with the day's
