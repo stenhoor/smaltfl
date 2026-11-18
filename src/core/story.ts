@@ -859,7 +859,10 @@ export function storyOf(h: HistoryRanges, day: string, findings: readonly Findin
   // How bad the day is: its cause with what it absorbed (a split with nothing worse is unusual), a held gate, its stories.
   let causeSeverity: Severity = cause && cause.tier === 'cause' ? cause.was : 'ok';
   causeSeverity = worst([causeSeverity, ...absorbed.map((f) => f.was)]);
-  if (split && RANK[causeSeverity] > RANK.warn) causeSeverity = 'warn';
+  // A part of the population gone or surged is unusual at the least, unless an event excuses it (ADR 0027 §6): then
+  // its findings are notes told as expected, and the day is theirs.
+  const splitExcused = [...(cause ? [cause] : []), ...absorbed].some((f) => f.excused);
+  if (split && RANK[causeSeverity] > RANK.warn && !splitExcused) causeSeverity = 'warn';
   if (gate?.held) causeSeverity = 'alert';
   const severity: Severity = o.refused ? 'alert' : worst([causeSeverity, ...standalone.map((f) => f.severity), notes.length ? 'note' : 'ok']);
   // What could be judged (ADR 0010 §1): with no range for the day's rows, it isn't judged, unless something wrong or
@@ -933,6 +936,7 @@ export function storyOf(h: HistoryRanges, day: string, findings: readonly Findin
   const holiday = holidayOf(day, h.calendar);
   const season = seasonOf(day, h.calendar);
   const recurring = holiday || season ? undefined : recurringOf(day, h.calendar)?.name;
+  const excusedFor = findings.find((f) => f.excused)?.excused ?? null;
   const calmHead = holiday ? `Normal for ${shortName(holiday, h.calendar)}` : season ? `Normal for ${shortName(season, h.calendar).replace(/^Holiday season$/, 'the holidays')}` : recurring ? `Normal for ${shortName(recurring, h.calendar)}` : `A normal ${weekdayOf(day)}`;
   const pctShort = (x: number) => `${Math.round(x * 100)}%`;
   // The trips an hour after a fall that runs to the day's end: they fall to a trickle and don't stop (Thu Sep 21, 2023
@@ -1030,6 +1034,9 @@ export function storyOf(h: HistoryRanges, day: string, findings: readonly Findin
     head = 'Not judged yet';
     recovery = null;
   }
+  // A day whose loud findings an event excuses (ADR 0027 §6) is said by the event: as expected, neither normal nor by
+  // the cause the excused findings would have named.
+  if ((state === 'calm' || state === 'notes') && excusedFor) head = `As expected: ${excusedFor.name}`;
   const shownHero: Hero = state === 'calm' || state === 'notes' || state === 'recovery' || state === 'unlearned' ? 'calm' : hero;
 
   // One verb: what can be done about the cause.

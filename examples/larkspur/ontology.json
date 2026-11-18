@@ -768,6 +768,36 @@
       "description": "The kind of platform that provides the control to the applications on it"
     },
     {
+      "column": "applies_exposure",
+      "title": "Applies to exposure",
+      "description": "The exposures the control applies to: internet, partner or internal, several by semicolons, or * for every one"
+    },
+    {
+      "column": "applies_tier",
+      "title": "Applies to tier",
+      "description": "The criticality tiers the control applies to, several by semicolons, or * for every one"
+    },
+    {
+      "column": "applies_data_class",
+      "title": "Applies to data class",
+      "description": "The classes of data the control applies to, several by semicolons, or * for every one"
+    },
+    {
+      "column": "applies_datastore",
+      "title": "Applies to datastore",
+      "description": "Whether the control applies only to applications with a datastore (yes), or to every one (*)"
+    },
+    {
+      "column": "applies_hosting",
+      "title": "Applies to hosting",
+      "description": "The kinds of hosting the control applies to: cloud, on premises or software as a service, several by semicolons, or * for every one"
+    },
+    {
+      "column": "applies_lifecycle",
+      "title": "Applies to lifecycle",
+      "description": "The stages of an application's life the control applies in, several by semicolons"
+    },
+    {
       "column": "allocation",
       "title": "Allocation",
       "description": "Who provides the control: a platform (common), a platform and the application (hybrid), or the application alone (system)",

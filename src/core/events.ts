@@ -8,12 +8,42 @@
  * - `latestEvents`: the events as known at a moment: each by its id as last written by then, one taken back left out.
  * - `eventsOn`: those going on on a day; `eventTense`: coming, going on or over for a day; `eventDay`: which day of it
  *   a day is ("day 3 of 7").
+ *
+ * An event can say what it excuses (§6, Q-267, Q-271): what the checks learned to expect, on a dataset it names. A
+ * rise or a drop in how much arrives, a shift in a column's mix, more blanks, another shape. While it lasts a finding
+ * it excuses is told as expected and doesn't pause the day, and its days are set aside from what those series are
+ * learned from. A rule someone wrote is never excused: only the checks learned from the history can be named.
+ *
+ * - `EXCUSABLE`, `Excuse`: what may be excused, and an event's word for it.
+ * - `excusesFor`: the excuses a dataset's load is told under, as known at a moment: every one of an event about it
+ *   that began on or before the load's day. A claim names them, so a run says what it was excused by.
  */
 
 export const EVENT_KINDS = ['reorg', 'freeze', 'migration', 'incident', 'campaign', 'other'] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 /** A kind in words, as it follows "Kind:". */
 export const EVENT_KIND_NAMES: Record<EventKind, string> = { reorg: 'a reorganisation', freeze: 'a freeze', migration: 'a migration', incident: 'an incident', campaign: 'a campaign', other: 'something else' };
+
+/** The checks an event may excuse (ADR 0027 §6): those learned from the history as a series of its own. `amount`: how
+ * many rows arrive. `shares`: a column's mix. `pairs`: how values go together. `blanks`: how full a column is.
+ * `shape`: a number's or a time's spread. */
+export const EXCUSABLE = ['amount', 'shares', 'pairs', 'blanks', 'shape'] as const;
+export type Excusable = (typeof EXCUSABLE)[number];
+/** Each in a few words, as it follows "It excuses". */
+export const EXCUSABLE_SAID: Record<Excusable, string> = {
+  amount: 'a rise or a drop in how much arrives',
+  shares: 'a shift in the mix of a column',
+  pairs: 'values going together differently',
+  blanks: 'more or fewer blanks',
+  shape: 'a number’s or a time’s spread',
+};
+
+/** What an event excuses: a learned check of a dataset it is about, and, for a check of columns, the one column. */
+export interface Excuse {
+  dataset: string;
+  check: Excusable;
+  column?: string;
+}
 
 export interface FlowEvent {
   /** Its name among the flow's events: writing an event again under its id changes it. */
@@ -33,9 +63,11 @@ export interface FlowEvent {
   by: string;
   /** Written again as taken back: the event is no longer shown from then. */
   withdrawn?: boolean;
+  /** What it excuses while it lasts (ADR 0027 §6): learned checks of the datasets it is about. */
+  excuses?: Excuse[];
 }
 
-const EVENT_FIELDS = ['id', 'name', 'from', 'until', 'kind', 'about', 'note', 'recorded', 'by', 'withdrawn'];
+const EVENT_FIELDS = ['id', 'name', 'from', 'until', 'kind', 'about', 'note', 'recorded', 'by', 'withdrawn', 'excuses'];
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const isDay = (v: unknown): v is string => typeof v === 'string' && DAY.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`));
 const text = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '';
@@ -64,9 +96,74 @@ export function eventsProblems(v: unknown, o: { datasets?: readonly string[] } =
     if (typeof ev.recorded !== 'string' || Number.isNaN(Date.parse(ev.recorded))) out.push(`${at}: when it was written down is an ISO 8601 time`);
     if (!text(ev.by)) out.push(`${at}: it says who wrote it`);
     if (ev.withdrawn !== undefined && typeof ev.withdrawn !== 'boolean') out.push(`${at}: withdrawn is true or false`);
+    if (ev.excuses !== undefined) {
+      if (!Array.isArray(ev.excuses) || ev.excuses.length === 0) out.push(`${at}: what it excuses is a list of { dataset, check, column? }, absent when it excuses nothing`);
+      else {
+        const about = Array.isArray(ev.about) ? (ev.about as unknown[]).filter(text).map((d) => d.toLowerCase()) : [];
+        (ev.excuses as unknown[]).forEach((x, k) => {
+          const xat = `${at}, excuse ${k + 1}`;
+          if (typeof x !== 'object' || x === null || Array.isArray(x)) return void out.push(`${xat}: { dataset, check, column? }`);
+          const ex = x as Record<string, unknown>;
+          for (const key of Object.keys(ex)) if (!['dataset', 'check', 'column'].includes(key)) out.push(`${xat}: ${key} is not a field of an excuse (dataset, check, column)`);
+          if (!text(ex.dataset)) out.push(`${xat}: it names the dataset whose check it excuses`);
+          else if (!about.includes(ex.dataset.toLowerCase())) out.push(`${xat}: ${ex.dataset} isn't a dataset the event is about: an event excuses only what it names`);
+          if (!(EXCUSABLE as readonly unknown[]).includes(ex.check)) out.push(`${xat}: its check is one learned from the history (${EXCUSABLE.join(', ')}): a rule someone wrote is never excused`);
+          if (ex.column !== undefined && !text(ex.column)) out.push(`${xat}: its column is a name`);
+          else if (ex.column !== undefined && ex.check === 'amount') out.push(`${xat}: the amount is the file's, not a column's`);
+        });
+      }
+    }
   });
   return out;
 }
+
+/** An excuse as a claim names it (ADR 0027 §6, §12): the event, its name and days, and what it excuses. */
+export interface ClaimExcuse {
+  event: string;
+  name: string;
+  from: string;
+  until?: string;
+  check: Excusable;
+  column?: string;
+}
+
+const lower = (x: string) => x.toLowerCase();
+
+/**
+ * The excuses a dataset's load of a day is told under, as known at a moment (ADR 0027 §6): every excuse of an event
+ * about the dataset that began on or before the day, in one order. Those whose event covers the day excuse its
+ * findings; the days before it they cover are set aside from learning. An event written after a run excuses nothing
+ * of it: `asOf` is the moment the run is told at.
+ */
+export function excusesFor(events: readonly FlowEvent[], dataset: string, day: string, asOf?: string | null): ClaimExcuse[] {
+  const d = day.slice(0, 10);
+  const out: ClaimExcuse[] = [];
+  for (const e of latestEvents(events, asOf)) {
+    if (e.from > d) continue;
+    for (const x of e.excuses ?? []) {
+      if (lower(x.dataset) !== lower(dataset)) continue;
+      out.push({ event: e.id, name: e.name, from: e.from, ...(e.until !== undefined ? { until: e.until } : {}), check: x.check, ...(x.column !== undefined ? { column: x.column } : {}) });
+    }
+  }
+  const key = (x: ClaimExcuse) => [x.from, x.event, x.check, x.column ?? ''].join('\u0000');
+  return out.sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0));
+}
+
+/** Whether an excuse covers a day: its event was going on. */
+export const excuseCovers = (x: Pick<ClaimExcuse, 'from' | 'until'>, day: string): boolean => covers(x, day);
+
+/** Whether a value is a list of excuses as a claim names them. */
+export function isClaimExcuses(v: unknown): v is ClaimExcuse[] {
+  return Array.isArray(v) && v.length > 0 && v.every((x) => {
+    if (typeof x !== 'object' || x === null || Array.isArray(x)) return false;
+    const e = x as Record<string, unknown>;
+    return text(e.event) && text(e.name) && isDay(e.from) && (e.until === undefined || (isDay(e.until) && e.until >= e.from)) && (EXCUSABLE as readonly unknown[]).includes(e.check) && (e.column === undefined || text(e.column))
+      && Object.keys(e).every((k) => ['event', 'name', 'from', 'until', 'check', 'column'].includes(k));
+  });
+}
+
+/** Excuses as a clean copy keeps them: only their own fields. */
+export const copyExcuses = (xs: readonly ClaimExcuse[]): ClaimExcuse[] => xs.map((x) => ({ event: x.event, name: x.name, from: x.from, ...(x.until !== undefined ? { until: x.until } : {}), check: x.check, ...(x.column !== undefined ? { column: x.column } : {}) }));
 
 /**
  * The events as known at a moment (`asOf`, an ISO time; none: now): each by its id as it was last written by then, one

@@ -262,7 +262,9 @@ describe('a document that says what holds its publication (ADR 0009 §2)', () =>
     expect(documentFormat(visualFlow())).toBe(1);
     expect(validateDocument({ ...holding(PUBLISH), smaltfl: 1 })).toEqual([{ path: '$.smaltfl', message: 'expected 2: a document with a publish block is format 2' }]);
     expect(validateDocument({ ...visualFlow(), smaltfl: 2 })).toEqual([{ path: '$.smaltfl', message: 'expected 1: format 2 is for a document with a publish block' }]);
-    expect(validateDocument({ ...visualFlow(), smaltfl: 5 as never })).toEqual([{ path: '$.smaltfl', message: 'expected 1, 2, 3, 4, the formats this version reads' }]);
+    expect(validateDocument({ ...visualFlow(), smaltfl: 6 as never })).toEqual([{ path: '$.smaltfl', message: 'expected 1, 2, 3, 4, 5, the formats this version reads' }]);
+    // Format 5 is a notebook flow's (ADR 0027 §4): any other document is told its own format, and asked nothing more.
+    expect(validateDocument({ ...visualFlow(), smaltfl: 5 })).toEqual([{ path: '$.smaltfl', message: 'expected 1: format 5 is for a document with notebooks, the ontology first' }]);
     expect(validateDocument({ ...visualFlow(), smaltfl: 4 as never })).toEqual([{ path: '$.smaltfl', message: 'expected 1: format 4 is for a document with notebooks' }]);
   });
 

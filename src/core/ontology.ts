@@ -232,6 +232,9 @@ export interface Ontology {
   /** The fixes a held day of each file may be offered (rules.ts `FIX_KINDS`), by file: what the news, the brief and the
    * decision sheet suggest and offer. A file not listed allows every one. */
   fixes?: Record<string, FixKind[]>;
+  /** The columns of each file that the flow doesn't take (ADR 0027 §4, format 5), by file: named so that every column a
+   * file has is either described or set aside. A column set aside isn't one its source declares, so no step reads it. */
+  aside?: Record<string, string[]>;
   /** The share of a day's rows a learned check's alert must move to hold the day where its check only warns (Q-132,
    * Q-207), by dataset (a source or a watched step): it wins over the flow's (`publish.overwhelming`), which wins over
    * a quarter. */

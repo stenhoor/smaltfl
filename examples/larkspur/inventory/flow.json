@@ -1,5 +1,5 @@
 {
-  "smaltfl": 4,
+  "smaltfl": 5,
   "id": "inventory",
   "name": "Inventory",
   "description": "What the group runs: the applications in the CMDB, the cloud inventory, and the shared platforms with what depends on them. Each daily file is judged as it arrives, and its readable rows are what this flow gives.",

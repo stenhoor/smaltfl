@@ -25,6 +25,7 @@
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ChangeSet } from '../src/core/document.js';
+import type { FlowEvent } from '../src/core/events.js';
 import { checkOf } from '../src/core/gates.js';
 import type { Finding } from '../src/core/news.js';
 import { addDays, LARKSPUR_GOLD, LARKSPUR_PLANTED, LARKSPUR_SILVER } from './fixtures/larkspur.js';
@@ -36,7 +37,10 @@ const G = LARKSPUR_GOLD;
 let w: LarkspurWorld;
 /** The story's declaration of the catalogue's fifteenth control (ADR 0027 §4): the month runs under it from its day, as
  * the build records it, and the day it takes effect from is kept as it first ran, stopped at the gate. */
-const SBOM_DECLARED = (JSON.parse(readFileSync(new URL('../examples/larkspur/story.json', import.meta.url), 'utf8')) as { changes: ChangeSet[] }).changes.find((c) => c.id === 'sbom-declared')!;
+const STORY = JSON.parse(readFileSync(new URL('../examples/larkspur/story.json', import.meta.url), 'utf8')) as { changes: ChangeSet[]; events: FlowEvent[] };
+const SBOM_DECLARED = STORY.changes.find((c) => c.id === 'sbom-declared')!;
+/** The story's events that say what they excuse (ADR 0027 §6): the month runs under them, each from when it was written. */
+const EXCUSING = STORY.events.filter((e) => e.excuses?.length);
 /** Each day's group roll-up and coverage of the vulnerability SLA, read from gold while it is the day's. */
 const gold = new Map<string, { score: number | null; coverage: number | null; vulnAssessed: number; vulnFailing: number }>();
 
@@ -44,6 +48,7 @@ beforeAll(async () => {
   w = await larkspurWorld({
     apps: 650, baseFrom: '2023-09-01', baseTo: '2024-02-29', loadsTo: '2024-03-31',
     changes: [SBOM_DECLARED],
+    events: EXCUSING,
     afterRun: async (db, day, r) => {
       if (!r.published.includes('org_posture') || !r.published.includes('fact_control_status')) return;
       const [score, coverage] = (await db.queryAsync("SELECT score, coverage FROM org_posture WHERE level = 'group'")).rows[0]! as [number | null, number | null];
@@ -127,8 +132,14 @@ describe('bronze: each file judged as it arrives (ADR 0020 §5)', () => {
     // Tue 5: new words from the scanner, which silver normalises.
     expect(unusual(P.capitals, 'findings')).toBe('unusual');
     expect(findingsOf(P.capitals, 'findings').filter((f) => f.kind === 'new').map((f) => f.columns?.[0])).toEqual(expect.arrayContaining(['severity', 'status']));
-    // Sat 9: the reinstall's findings, all new today.
-    expect(unusual(P.reinstall, 'findings')).toBe('unusual');
+    // Sat 9: the reinstall's findings, all new today. The reinstall was planned and written down the day before as an
+    // event that excuses the mix of statuses (ADR 0027 §6): the day is told as expected, and the finding is a note.
+    expect(EXCUSING.map((e) => [e.id, e.from, e.recorded < `${P.reinstall}T00:00`])).toEqual([['agent-reinstall', P.reinstall, true]]);
+    expect(w.claims.get(P.reinstall)!.findings).toMatchObject({ state: 'notes', head: 'As expected: Scanner agents reinstalled on eks-prod-4', excuses: [{ event: 'agent-reinstall', check: 'shares', column: 'status', from: P.reinstall, until: P.reinstall }] });
+    expect(findingsOf(P.reinstall, 'findings').filter((f) => f.excused).map((f) => [f.kind, f.severity, f.columns?.[0]])).toEqual([['share', 'note', 'status']]);
+    // The day after, the statuses are judged as if the reinstall's day hadn't been: set aside, never learned as usual.
+    expect(w.claims.get(addDays(P.reinstall, 1))!.findings).toMatchObject({ excuses: [{ event: 'agent-reinstall' }] });
+    expect(unusual(addDays(P.reinstall, 1), 'findings')).not.toBe('wrong');
     // Sat 16 and Sun 17: the scanner that couldn't log in, above the share of such scans the ontology expects.
     for (const d of [P.credentials, P.credentials2]) {
       expect(unusual(d, 'findings'), d).toBe('unusual');

@@ -1,5 +1,5 @@
 {
-  "smaltfl": 4,
+  "smaltfl": 5,
   "id": "certificates",
   "name": "Certificates",
   "description": "The TLS certificates about to run out: each one that expires within thirty days of the day, and each certificate authority with how many it issued, how many expire soon and how many still offer TLS 1.0. It reads the evidence feeds, and has no file of its own.",

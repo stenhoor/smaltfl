@@ -9,16 +9,20 @@ import { calendarProblems, EVERIES, isEvery, type CalendarDef, type Every } from
 import type { AcceptedBand, ColumnChange, RuleInput } from './flowedit.js';
 import { CHECK_MODES, CHECK_NAMES, gateProblems, type CheckMode, type CheckName, type GateDef } from './gates.js';
 import { marksVerdicts, NEEDS_FIELDS, ROWS_FIELDS, type Ontology } from './ontology.js';
-import { FIX_KINDS, rulesIssues } from './rules.js';
+import { checkStepOf, FIX_KINDS, rulesIssues } from './rules.js';
 import { DECIDE, DECIDE_OPTIONS, type Policies } from './policy.js';
 import type { ParamType, ParamValue } from './sqltext.js';
 import { renameIdentifier, SqlTextError, tokens } from './sqltext.js';
 
 /**
  * The formats this version reads: 1; 2 for a document that says what holds its publication (ADR 0009 §2); 3 for one
- * that says how its days are judged (ADR 0010 §10).
+ * that says how its days are judged (ADR 0010 §10); 4 for one whose steps are its notebooks' cells (ADR 0011); 5 for a
+ * notebook flow that puts the ontology first (ADR 0027 §4, Q-274): every source says what one row is, every change
+ * set says its kind and why, a closed list is enforced by a check step, and the columns of a file the flow doesn't
+ * take are set aside by name (`ontology.aside`). Whether every column a source declares is described is checked
+ * where the columns are known (described.ts `undescribed`). A format-4 document runs as it always did.
  */
-export const DOCUMENT_FORMATS = [1, 2, 3, 4] as const;
+export const DOCUMENT_FORMATS = [1, 2, 3, 4, 5] as const;
 export type DocumentFormat = (typeof DOCUMENT_FORMATS)[number];
 
 /** Whether a watch is given in the general form, as an object of its settings, not as a history's file name. */
@@ -727,7 +731,8 @@ export function validateDocument(doc: unknown): Issue[] {
   const add = (path: string, message: string) => issues.push({ path, message });
   if (!isRecord(doc)) return [{ path: '$', message: 'a flow document is a JSON object' }];
   if (!(DOCUMENT_FORMATS as readonly unknown[]).includes(doc.smaltfl)) add('$.smaltfl', `expected ${DOCUMENT_FORMATS.join(', ')}, the formats this version reads`);
-  else if (doc.smaltfl !== documentFormat(doc)) {
+  else if (doc.smaltfl === 5 && documentFormat(doc) !== 4) add('$.smaltfl', `expected ${documentFormat(doc)}: format 5 is for a document with notebooks, the ontology first`);
+  else if (doc.smaltfl !== documentFormat(doc) && !(doc.smaltfl === 5 && documentFormat(doc) === 4)) {
     const want = documentFormat(doc);
     const three = 'a calendar, a watch given as an object, or a mark that changes verdicts (bad, newValues, after)';
     add('$.smaltfl', want === 4 ? 'expected 4: a document with notebooks is format 4'
@@ -1020,6 +1025,11 @@ function validateChanges(doc: Record<string, unknown>, add: (path: string, messa
     if (typeof cs.by !== 'string') add(`${at}.by`, 'who made it');
     if (typeof cs.why !== 'string') add(`${at}.why`, 'why, in their words (empty where they gave none)');
     if (cs.kind !== undefined && !(CHANGE_KINDS as readonly unknown[]).includes(cs.kind)) add(`${at}.kind`, `one of ${CHANGE_KINDS.join(', ')}`);
+    // Ontology first (format 5, ADR 0027 §2, Q-256): every change says its kind, and why in a line.
+    if (doc.smaltfl === 5) {
+      if (cs.kind === undefined) add(`${at}.kind`, `a format-5 change set says its kind: one of ${CHANGE_KINDS.join(', ')}`);
+      if (typeof cs.why === 'string' && cs.why.trim() === '') add(`${at}.why`, 'a format-5 change set says why, in a line');
+    }
     if (cs.note !== undefined) {
       if (!isRecord(cs.note)) add(`${at}.note`, `the thinking behind it: { ${NOTE_FIELDS.join(', ')} }, each a string`);
       else {
@@ -1602,7 +1612,38 @@ function validateExtras(doc: Record<string, unknown>, ids: Map<string, string>, 
       }
       // Rules set on a file's columns (rules.ts): each a source's own, enforced by its check step.
       if (o.rules !== undefined) for (const [path, message] of rulesIssues(doc, o.rules)) add(path, message);
+      // The columns of a file the flow doesn't take (ADR 0027 §4): set aside by name, a source's own.
+      if (o.aside !== undefined) {
+        const sourceIds = (Array.isArray(doc.sources) ? doc.sources : []).flatMap((x: unknown) => (isRecord(x) && typeof x.id === 'string' ? [x.id.toLowerCase()] : []));
+        if (doc.smaltfl !== 5) add('$.ontology.aside', 'the columns set aside are a format-5 document’s (the ontology first)');
+        else if (!isRecord(o.aside)) add('$.ontology.aside', 'the columns each file has that the flow doesn’t take: { file: [column, …] }');
+        else for (const [f, list] of Object.entries(o.aside)) {
+          if (!sourceIds.includes(f.toLowerCase())) add(`$.ontology.aside.${f}`, `no source ${f}: a column is set aside in a file`);
+          if (!Array.isArray(list) || list.length === 0 || list.some((x) => typeof x !== 'string' || x === '') || new Set(list.map((x) => String(x).toLowerCase())).size !== list.length) add(`$.ontology.aside.${f}`, 'its columns set aside, each once; absent when there are none');
+        }
+      }
     }
+  }
+  // Ontology first (format 5, ADR 0027 §4, Q-254): every source says what one row of it is, by a rows entry, a type
+  // whose objects are its rows, or a noun; and a closed list or column is enforced, by the check step that reads its file.
+  if (doc.smaltfl === 5 && documentFormat(doc) === 4) {
+    const o = isRecord(doc.ontology) ? doc.ontology : {};
+    const lowerOf = (v: unknown) => (typeof v === 'string' ? v.toLowerCase() : '');
+    const said = new Set<string>([
+      ...(Array.isArray(o.rows) ? o.rows : []).flatMap((r: unknown) => (isRecord(r) ? [lowerOf(r.dataset)] : [])),
+      ...(Array.isArray(o.objectTypes) ? o.objectTypes : []).flatMap((t: unknown) => (isRecord(t) ? [lowerOf(t.dataset)] : [])),
+      ...(isRecord(o.nouns) ? Object.keys(o.nouns).map((k) => k.toLowerCase()) : []),
+    ]);
+    // A derived document's donor (ADR 0009 amendment 1) is its source's file of another day: its rows are that source's.
+    const DONOR = '_donor';
+    const rowSaid = (id: string) => said.has(id) || (id.endsWith(DONOR) && said.has(id.slice(0, -DONOR.length)));
+    (Array.isArray(doc.sources) ? doc.sources : []).forEach((x: unknown, i: number) => {
+      if (isRecord(x) && typeof x.id === 'string' && !rowSaid(x.id.toLowerCase())) add(`$.sources[${i}]`, `the ontology doesn’t say what one row of ${x.id} is: a rows entry, a type whose objects are its rows, or a noun (format 5 puts the ontology first)`);
+    });
+    const rulesDoc = { sources: (Array.isArray(doc.sources) ? doc.sources : []) as FlowDocument['sources'], steps: (Array.isArray(doc.steps) ? doc.steps : []) as StepDef[] };
+    (Array.isArray(o.rules) ? o.rules : []).forEach((r: unknown, i: number) => {
+      if (isRecord(r) && r.kind === 'closed' && typeof r.file === 'string' && !checkStepOf(rulesDoc, r.file)) add(`$.ontology.rules[${i}]`, `no check step reads ${r.file}: a closed list is enforced where its file comes into the flow`);
+    });
   }
   const p = doc.policies;
   if (p !== undefined) {

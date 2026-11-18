@@ -14,6 +14,7 @@ import smaltfl from '../../src/plugin/index.js';
 import { canonicalJSON } from '../../src/core/canonical.js';
 import type { ChangeSet, FlowDocument } from '../../src/core/document.js';
 import { resolve } from '../../src/core/inforce.js';
+import { excusesFor, type FlowEvent } from '../../src/core/events.js';
 import { sha256Hex, utf8 } from '../../src/core/hash.js';
 import type { HistoryFile } from '../../src/core/history.js';
 import { flowStory, loadClaim, tailPath, type Claim, type HistoryRef, type StoryClaim2 } from '../../src/core/hold.js';
@@ -56,7 +57,7 @@ export interface LarkspurWorld {
  * A world: the files' histories from `baseFrom` to `baseTo` and the steps' from `stepsFrom` (six weeks before `baseTo`
  * unless said), then every day after `baseTo` to `loadsTo` run as it arrives.
  */
-export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; baseTo: string; loadsTo: string; stepsFrom?: string; warmup?: number; afterRun?: (db: Database, day: string, r: RunResult) => Promise<void>; changes?: readonly ChangeSet[] }): Promise<LarkspurWorld> {
+export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; baseTo: string; loadsTo: string; stepsFrom?: string; warmup?: number; afterRun?: (db: Database, day: string, r: RunResult) => Promise<void>; changes?: readonly ChangeSet[]; events?: readonly FlowEvent[] }): Promise<LarkspurWorld> {
   const shipped = await loadFlowDir(larkspurDir);
   /** The flow under the world's change sets (the story's, ADR 0021 §5): each day runs under the rules in force on it. */
   const dated: FlowDocument = o.changes?.length ? { ...shipped, changes: [...o.changes] } : shipped;
@@ -158,6 +159,8 @@ export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; bas
   /** A day's files run under a document: each file measured and its claim told, the flow run, each step's claim told
    * again. With `keep`, what was measured joins the tails the next day is judged from, and what was told is kept. */
   const runDay = async (day: string, sources: Awaited<ReturnType<typeof pinDay>>, doc: FlowDocument, keep: boolean): Promise<RunResult> => {
+    // What the world's events excuse of each watched dataset (ADR 0027 §6), as known when the day's files arrive.
+    const excusesOf = (w: string) => excusesFor(o.events ?? [], w, day, `${day}T06:00:00.000Z`);
     const claims: Claim[] = [];
     const told: Record<string, StoryClaim2 | null> = {};
     const measured: Record<string, Measures> = {};
@@ -174,13 +177,14 @@ export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; bas
       }
       measured[w] = m;
       await pinFile(db, tailPath(w), utf8(canonicalJSON(tailBefore(tails[w]!, '9999') as unknown as Parameters<typeof canonicalJSON>[0])));
-      const t = await loadClaim({ doc, source: w, flow: plan.flow.hash, base: bases[w]!, baseRef: refs[w]!, tail: tails[w]!, measures: m, settings: s, skip: [], build: 'dev', file: facts[w]! });
+      const excuses = excusesOf(w);
+      const t = await loadClaim({ doc, source: w, flow: plan.flow.hash, base: bases[w]!, baseRef: refs[w]!, tail: tails[w]!, measures: m, settings: s, skip: [], build: 'dev', file: facts[w]!, ...(excuses.length ? { excuses } : {}) });
       told[w] = t?.claim ?? null;
-      if (t) (claims.push(t.claim), (stories[w] = flowStory(t.ranges, day, doc, w, undefined, undefined, facts[w])));
+      if (t) (claims.push(t.claim), (stories[w] = t.story));
     }
     // Each watched step's tail, pinned for the engine to tell its claim from, with what the page says of the record.
     for (const st of steps) await pinFile(db, tailPath(st), utf8(canonicalJSON(tailBefore(tails[st]!, '9999') as unknown as Parameters<typeof canonicalJSON>[0])));
-    const tell = Object.fromEntries(steps.map((st) => [st, { skip: [], levels: [] }]));
+    const tell = Object.fromEntries(steps.map((st) => [st, { skip: [], levels: [], ...(excusesOf(st).length ? { excuses: excusesOf(st) } : {}) }]));
     const r = await runFlow(db, doc, { smaltdb: SMALTDB, parameters: { day }, claims, sources, tell });
     if (!keep) return r;
     for (const w of watched) if (measured[w]) tails[w]!.push(measured[w]!);
@@ -194,7 +198,7 @@ export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; bas
       if (!m) continue;
       const { plan, s } = await settingsOf(day, st, doc);
       measured[st] = m;
-      const t = await loadClaim({ doc, source: st, flow: plan.flow.hash, base: bases[st]!, baseRef: refs[st]!, tail: tails[st]!, measures: m, settings: s, skip: [], levels: [], build: 'dev', upstream: [...upstream] });
+      const t = await loadClaim({ doc, source: st, flow: plan.flow.hash, base: bases[st]!, baseRef: refs[st]!, tail: tails[st]!, measures: m, settings: s, skip: [], levels: [], build: 'dev', upstream: [...upstream], ...(excusesOf(st).length ? { excuses: excusesOf(st) } : {}) });
       told[st] = t?.claim ?? null;
       if (t) {
         stories[st] = t.story;

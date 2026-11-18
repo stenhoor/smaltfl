@@ -15,6 +15,7 @@
  *   decision or by a passing run of the same inputs, and a decision is applied again only to the keys it named.
  */
 import type { GivenRanges } from './ranges.js';
+import { copyExcuses, excuseCovers, isClaimExcuses, type ClaimExcuse } from './events.js';
 import { canonicalJSON } from './canonical.js';
 import { columnChangeSaid } from './columns.js';
 import type { DayState, PauseState } from './days.js';
@@ -22,7 +23,7 @@ import { stepRules } from './rules.js';
 import { isGeneralWatch, sourceOf, type FlowDocument, type HoldKind, type WatchDef } from './document.js';
 import type { Repair } from './fill.js';
 import { dayOfSlot, isEvery, plusDays, type Every } from './calendar.js';
-import { HistoryRanges, rangeSettings, slotSeries, type HistoryFile, type Level, type RangeOptions } from './history.js';
+import { HistoryRanges, rangeSettings, slotSeries, type Aside, type HistoryFile, type Level, type RangeOptions } from './history.js';
 import { appendPeriods, emptyHistory, measuresHash, samePeriod, tailBefore, tailRef, type MeasureSettings, type Measures, type ReconcileCounts, type TailRef } from './measures.js';
 import { rootOf } from './log.js';
 import type { JSONValue, LogEntry } from './log.js';
@@ -104,6 +105,11 @@ export interface StoryClaim2 {
   /** The file it was told of (ADR 0020 §2, Q-172): its sha256, its export time and the last load's file, as the data's
    * list gives them; what `fresh` is judged from. Absent where the page told none: every claim before it reads as it did. */
   file?: FileFacts;
+  /** What it was excused by (ADR 0027 §6, §12): every excuse of an event about the source that began on or before the
+   * load's day, as known when it was told (events.ts `excusesFor`). Those going on excuse its findings; the days before
+   * it they cover are set aside from learning. Absent where no event excuses anything of the source: every other claim
+   * reads as it did. */
+  excuses?: ClaimExcuse[];
 }
 
 /** A watched source's claim, either version: claim/1 under plan/1, claim/2 under plan/2. */
@@ -256,9 +262,11 @@ export type FlowFor = Pick<FlowDocument, 'steps' | 'ontology' | 'publish' | 'cal
  * names): leaving incident days out is one browser's choice, not the flow's. It must have the flow's calendar for the
  * source.
  */
-export function flowStory(h: HistoryRanges, day: string, doc: FlowFor, source: string, upstream?: readonly Upstream[], apart?: { sample: SampleFile; today: readonly (readonly unknown[])[] }, file?: FileFacts): Story {
+export function flowStory(h: HistoryRanges, day: string, doc: FlowFor, source: string, upstream?: readonly Upstream[], apart?: { sample: SampleFile; today: readonly (readonly unknown[])[] }, file?: FileFacts, excuses?: readonly ClaimExcuse[]): Story {
   if (h.skipped > 0) throw new Error("the flow's verdict learns from every day of the history but those the record leaves out: these ranges leave out days one viewer marked");
-  const judge = judgeOf(doc, source);
+  // What the events going on excuse of the day (ADR 0027 §6): the judge tells those findings as expected.
+  const going = (excuses ?? []).filter((x) => excuseCovers(x, day));
+  const judge = going.length ? { ...judgeOf(doc, source), excuses: going.map((x) => ({ event: x.event, name: x.name, check: x.check, ...(x.column !== undefined ? { column: x.column } : {}) })) } : judgeOf(doc, source);
   if (h.calendar.base !== judge.calendar.base) throw new Error(`the flow judges ${source} by the ${judge.calendar.base} calendar: these ranges were made with ${h.calendar.base}`);
   if (canonicalJSON(h.calendar as never) !== canonicalJSON(judge.calendar as never)) throw new Error(`the flow judges ${source} by its own calendar's days: these ranges were made with other days`);
   if (h.settings !== rangeSettings(rangesFor(doc, source))) throw new Error(`the flow judges ${source} by its watch's pattern and re-learning: these ranges were made with other settings`);
@@ -350,10 +358,23 @@ function claimLevels(levels: readonly Level[], day: string): ClaimLevel[] {
  * each day named by its day, as a day's (Q-83), with the days left out of that slot and every level from the day it
  * starts in that series (`levelDay`, Q-84). The page's claim (`loadClaim`) and the audit's telling it again share it.
  */
-export function claimRanges(file: HistoryFile, slot: string, every: Every, o: { doc: FlowFor; source: string; skip: readonly string[]; levels: readonly Level[]; given?: GivenRanges }): HistoryRanges {
+export function claimRanges(file: HistoryFile, slot: string, every: Every, o: { doc: FlowFor; source: string; skip: readonly string[]; levels: readonly Level[]; given?: GivenRanges; excuses?: readonly ClaimExcuse[] }): HistoryRanges {
   const slotted = every !== 'day';
   const own = (d: string) => !slotted || d.slice(10) === slot.slice(10);
-  return new HistoryRanges(slotted ? slotSeries(file, slot) : file, { ...rangesFor(o.doc, o.source), recorded: new Set(o.skip.filter(own).map(dayOfSlot)), levels: o.levels.map((l) => ({ ...l, from: levelDay(l.from, slot) })), ...(o.given && !slotted ? { given: o.given } : {}) });
+  const aside = asideBefore(o.excuses ?? [], dayOfSlot(slot));
+  return new HistoryRanges(slotted ? slotSeries(file, slot) : file, { ...rangesFor(o.doc, o.source), recorded: new Set(o.skip.filter(own).map(dayOfSlot)), levels: o.levels.map((l) => ({ ...l, from: levelDay(l.from, slot) })), ...(o.given && !slotted ? { given: o.given } : {}), ...(aside.length ? { aside } : {}) });
+}
+
+/**
+ * The days excuses set aside from learning before a day (ADR 0027 §6): each excuse's event's days up to the day before,
+ * for the series its check reads. The day itself is judged, never set aside from its own judging.
+ */
+export function asideBefore(excuses: readonly ClaimExcuse[], day: string): Aside[] {
+  const last = plusDays(day.slice(0, 10), -1);
+  return excuses.flatMap((x): Aside[] => {
+    const until = x.until !== undefined && x.until < last ? x.until : last;
+    return x.from <= until ? [{ from: x.from, until, check: x.check, ...(x.column !== undefined ? { column: x.column } : {}) }] : [];
+  });
 }
 
 /**
@@ -415,6 +436,9 @@ export interface LoadClaimInput {
   kept?: readonly (readonly unknown[])[];
   /** The load's file as the data's list gives it (ADR 0020 §2): what `fresh` is judged from, and named in the claim. */
   file?: FileFacts;
+  /** What events excuse of the source, as known when the load is told (ADR 0027 §6, events.ts `excusesFor`): named in
+   * the claim where there is any. */
+  excuses?: readonly ClaimExcuse[];
 }
 
 /**
@@ -445,13 +469,16 @@ export async function loadClaim(o: LoadClaimInput): Promise<{ claim: StoryClaim2
   }
   const skip = [...new Set(o.skip)].filter((d) => d < slot).sort();
   const levels = (o.levels ?? []).filter((l) => l.from < slot);
-  const ranges = claimRanges(file, slot, every, { doc: o.doc, source: o.source, skip, levels, ...(o.given ? { given: o.given } : {}) });
-  const s = flowStory(ranges, dayOfSlot(slot), o.doc, o.source, o.upstream, o.sample && o.kept ? { sample: o.sample, today: o.kept } : undefined, o.file);
+  // The excuses that began on or before the load's day (ADR 0027 §6): one that begins later says nothing of it.
+  const excuses = copyExcuses((o.excuses ?? []).filter((x) => x.from <= dayOfSlot(slot)));
+  const ranges = claimRanges(file, slot, every, { doc: o.doc, source: o.source, skip, levels, ...(o.given ? { given: o.given } : {}), ...(excuses.length ? { excuses } : {}) });
+  const s = flowStory(ranges, dayOfSlot(slot), o.doc, o.source, o.upstream, o.sample && o.kept ? { sample: o.sample, today: o.kept } : undefined, o.file, excuses);
   const claim: StoryClaim2 = {
     by: 'story', v: 2, source: o.source, slot, every, state: s.state, below: belowOf(s), head: s.head, build: o.build, flow: o.flow,
     history: { base: o.baseRef ? { path: o.baseRef.path, sha256: o.baseRef.sha256, bytes: o.baseRef.bytes } : null, tail: tailRef(ms) },
     measured: await measuresHash(o.measures), rows: o.measures.rows, skip, levels: claimLevels(levels, slot),
     ...(o.file ? { file: copyFile(o.file) } : {}),
+    ...(excuses.length ? { excuses } : {}),
   };
   return { claim, ranges, tail: ms, story: s };
 }
@@ -536,6 +563,7 @@ function claim2Problem(c: Record<string, unknown>): string | null {
   if (!isDays(c.skip)) return "doesn't list the days left out";
   if (!isLevels(c.levels)) return "doesn't list its levels: a day, metrics and a decision each";
   if (c.file !== undefined && !isFile(c.file)) return "names a file that isn't a sha256 with, where given, an export time and the last load's slot and sha256";
+  if (c.excuses !== undefined && !isClaimExcuses(c.excuses)) return "names excuses that aren't an event, its days and a learned check each";
   return null;
 }
 
@@ -637,6 +665,7 @@ function judgeClaim2(c: Record<string, unknown>, at: ClaimAt, facts: ClaimFacts)
       history: { base: base ? { path: base.path, sha256: base.sha256, bytes: base.bytes } : null, tail: claim.history.tail ? { size: claim.history.tail.size, root: claim.history.tail.root } : null },
       measured: claim.measured, rows: claim.rows, skip: [...claim.skip], levels: copyLevels(claim.levels),
       ...(claim.file ? { file: copyFile(claim.file) } : {}),
+      ...(claim.excuses ? { excuses: copyExcuses(claim.excuses) } : {}),
     },
   };
 }
@@ -1630,6 +1659,31 @@ export function latestPublished(entries: readonly EntryLike[], period?: string |
   }
   let best: string | null = null;
   for (const p of publishedDays(entries, period)) if (!taken.has(p.seq) && (best === null || p.day > best)) best = p.day;
+  return best;
+}
+
+/**
+ * The latest day readers got, as the record says it (ADR 0021 §5, ADR 0027 §4): the latest day published
+ * (`latestPublished`), with what a restatement since made of a day. A day restated as published where it passes (a
+ * day held at the gate, declared and run again) is what readers got from the restatement on, and a day restated as not
+ * published is taken back. What a page says readers see; the engine's names are `latestPublished`'s.
+ */
+export function latestGot(entries: readonly EntryLike[], period?: string | null): string | null {
+  const taken = new Set<number>();
+  for (const e of entries) {
+    const a = e.about as JSONValue;
+    if (e.kind === 'release' && isRecord(a) && a.outcome === 'applied' && Number.isInteger(a.withdraws)) taken.add(a.withdraws as number).add(e.seq);
+  }
+  const events: { seq: number; day: string; on: boolean }[] = publishedDays(entries, period).filter((p) => !taken.has(p.seq)).map((p) => ({ seq: p.seq, day: p.day, on: true }));
+  for (const e of entries) {
+    const a = e.about as JSONValue;
+    if (e.kind !== 'restate' || !isRecord(a) || !Array.isArray(a.days)) continue;
+    for (const d of a.days) if (isRecord(d) && typeof d.day === 'string' && typeof d.passes === 'boolean') events.push({ seq: e.seq, day: d.day.slice(0, 10), on: d.passes });
+  }
+  const got = new Map<string, boolean>();
+  for (const ev of events.sort((x, y) => x.seq - y.seq)) got.set(ev.day, ev.on);
+  let best: string | null = null;
+  for (const [day, on] of got) if (on && (best === null || day > best)) best = day;
   return best;
 }
 

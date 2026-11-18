@@ -9,6 +9,7 @@
 import { saidOf, type Upstream } from '../core/story.js';
 import { isSample, samplePath, type SampleFile } from '../core/apart.js';
 import type { FlowDocument } from '../core/document.js';
+import { isClaimExcuses } from '../core/events.js';
 import { isHistory, type HistoryFile } from '../core/history.js';
 import { loadClaim, tailPath, type StoryClaim2 } from '../core/hold.js';
 import { giveAhead } from '../core/ahead.js';
@@ -54,6 +55,8 @@ export async function tellClaim(o: TellInput): Promise<{ claim: StoryClaim2; sai
     }
     tail = t.value as Measures[];
   }
+  // What the page said events excuse of the step (ADR 0027 §6): named in the claim, so it is shaped as a claim names it.
+  if (o.tell.excuses !== undefined && !isClaimExcuses(o.tell.excuses)) return { problem: `what the run was told events excuse of ${o.source} isn't a list of an event, its days and a learned check each` };
   // The sample pinned beside the history (ADR 0014 §5): the classifier's reference, with the load's own kept rows.
   const sp = o.kept ? pinnedJSON(samplePath(o.source)) : undefined;
   if (sp && !isSample(sp.value)) return { problem: `${samplePath(o.source)} is pinned but isn't a sample file` };
@@ -62,6 +65,6 @@ export async function tellClaim(o: TellInput): Promise<{ claim: StoryClaim2; sai
   const given = r && h && isRangesFile(r.value) && r.value.history.sha256 === h.sha256 ? { given: { file: r.value, sha256: h.sha256 } } : {};
   // The classifier's answers judged ahead for the first day: taken by their inputs' sha256 alone.
   if (r && isRangesFile(r.value)) giveAhead(r.value.apart);
-  const told = await loadClaim({ ...given, doc: o.doc, source: o.source, flow: o.flow, base, baseRef: h ? { path: o.history, sha256: h.sha256, bytes: h.bytes } : null, tail, measures: o.measures, settings: o.settings, skip: o.tell.skip, levels: o.tell.levels, build: o.build, ...(o.upstream ? { upstream: o.upstream } : {}), ...(sp && o.kept ? { sample: sp.value as SampleFile, kept: o.kept } : {}) });
+  const told = await loadClaim({ ...given, doc: o.doc, source: o.source, flow: o.flow, base, baseRef: h ? { path: o.history, sha256: h.sha256, bytes: h.bytes } : null, tail, measures: o.measures, settings: o.settings, skip: o.tell.skip, levels: o.tell.levels, ...(o.tell.excuses !== undefined ? { excuses: o.tell.excuses } : {}), build: o.build, ...(o.upstream ? { upstream: o.upstream } : {}), ...(sp && o.kept ? { sample: sp.value as SampleFile, kept: o.kept } : {}) });
   return told ? { claim: told.claim, said: saidOf(told.story) } : { problem: `${o.source}'s load can't be judged against its history (its slot is in the base already, or before its last period, with other numbers)` };
 }

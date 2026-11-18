@@ -23,7 +23,8 @@ import { loadFlowDir, signinsDir } from './helpers/notebooks.js';
 
 const data = JSON.parse(readFileSync(new URL('../examples/security-signins.data.json', import.meta.url), 'utf8')) as DataBindings;
 const signins = () => loadFlowDir(signinsDir);
-const change = (id: string, from: string, recorded: string, edits: RuleEdit[], why = ''): ChangeSet => ({ id, from, recorded, by: 'the security lead', why, edits });
+/** A change set as a format-5 flow keeps one (ADR 0027 §2): with its kind, and why in a line. */
+const change = (id: string, from: string, recorded: string, edits: RuleEdit[], why = 'The security lead asked for it'): ChangeSet => ({ id, from, recorded, by: 'the security lead', why, kind: 'business', edits });
 const latency = (max: number): RuleEdit => ({ op: 'setRule', rule: { id: 'latency_ms_range', file: 'auth', column: 'latency_ms', kind: 'range', min: 0, max, action: 'flag' } });
 
 describe('the rules-in-force hash, rules/1', () => {

@@ -181,14 +181,16 @@ export type StoryEvent =
   | { at: string; kind: 'delivery'; day: string; n: number; delivery: Delivery }
   | { at: string; kind: 'decision'; day: string; n: number; decision: StoryDecision }
   | { at: string; kind: 'change'; change: ChangeSet }
-  | { at: string; kind: 'restate'; restatement: StoryRestatement };
+  | { at: string; kind: 'restate'; restatement: StoryRestatement }
+  /** An event written down (ADR 0027 §6): the record keeps it from then, and it excuses only runs after it. */
+  | { at: string; kind: 'event'; event: FlowEvent };
 
 /**
  * The month in time order: each day's first run at its time (`dayAt`), each delivery when it arrived (numbered from 1
  * within its day, in arrival order), each decision when it was taken, each change set when it was recorded, and each
- * restatement when it was decided. At the same moment a day's run comes first, then deliveries, decisions, change sets
- * (in the order the story lists them) and restatements. Times are compared as instants, so two ways of writing one
- * moment are the same moment.
+ * restatement when it was decided, and each event when it was written down. At the same moment a day's run comes
+ * first, then deliveries, decisions, change sets (in the order the story lists them), restatements and events. Times
+ * are compared as instants, so two ways of writing one moment are the same moment.
  */
 export function timelineOf(days: readonly string[], dayAt: (day: string) => string, story: StoryFile | null): StoryEvent[] {
   const out: StoryEvent[] = days.map((day) => ({ at: dayAt(day), kind: 'day', day }));
@@ -198,7 +200,8 @@ export function timelineOf(days: readonly string[], dayAt: (day: string) => stri
   for (const decision of story?.decisions ?? []) out.push({ at: decision.at, kind: 'decision', day: decision.day, n: decision.delivery ?? 0, decision });
   for (const change of story?.changes ?? []) out.push({ at: change.recorded, kind: 'change', change });
   for (const restatement of story?.restatements ?? []) out.push({ at: restatement.at, kind: 'restate', restatement });
-  const rank = { day: 0, delivery: 1, decision: 2, change: 3, restate: 4 } as const;
+  for (const event of story?.events ?? []) out.push({ at: event.recorded, kind: 'event', event });
+  const rank = { day: 0, delivery: 1, decision: 2, change: 3, restate: 4, event: 5 } as const;
   // A stable sort: events of one kind at one moment keep the order they were added in.
   return out.sort((a, b) => Date.parse(a.at) - Date.parse(b.at) || rank[a.kind] - rank[b.kind]);
 }

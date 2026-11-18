@@ -1,5 +1,5 @@
 {
-  "smaltfl": 4,
+  "smaltfl": 5,
   "id": "signins",
   "name": "Sign-ins",
   "description": "Sign-ins at work, a day at a time: each day's authentication events checked, counted by hour and result, and the failures by country, judged against the days before. A synthetic log, generated from a fixed seed (scripts/data/security.ts), with incidents planted: the credential-stuffing burst on Tuesday March 12, 2024 is something wrong, and the day pauses.",

@@ -15,6 +15,7 @@
  */
 import { flowOf, sourceOf, type FlowDocument } from './document.js';
 import { gateChecksOf, gateLayerOf, writtenRules, type CheckName, type Layer } from './gates.js';
+import { asideOf } from './described.js';
 import { marksOn, meaningOf, nounOf, propertyOf, rowsOf, saysMore, type Noun, type ObjectType, type Ontology, type PropertyType } from './ontology.js';
 import { ACTION_SAID, checkStepOf, ruleOn, rulesOf, ruleSaid, type OntologyRule } from './rules.js';
 import { estateSays, type EstateFrom, type EstateOntology } from './shared.js';
@@ -141,6 +142,9 @@ export interface FileSection {
    * from its day, ADR 0022 §2, Q-204): what each is called and holds. Absent where there are none, or the file's columns
    * aren't known. */
   unread?: { name: string; title: string; description?: string }[];
+  /** The columns of the file set aside (ADR 0027 §4, format 5): named as ones the flow doesn't take, so that every
+   * column the file has is either described or set aside. Absent where there are none. */
+  aside?: string[];
   /** How many rules the file has: its own and its columns'. */
   count: number;
   /** A file's: the made datasets with a section of their own that read it, near or far, in the flow's order (Q-144).
@@ -365,6 +369,7 @@ export function ontologyPage(doc: PageDoc, columns: (file: string) => readonly s
       rules,
       columns: cards,
       ...(unread.length ? { unread } : {}),
+      ...(!made && asideOf(o, id).length ? { aside: asideOf(o, id) } : {}),
       count: rules.length + (cards ?? []).reduce((n, c) => n + c.rules.length, 0),
       ...(made ? { made: { layer: gateLayerOf(doc, id), published } } : {}),
     };

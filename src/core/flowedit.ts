@@ -320,6 +320,27 @@ export function setRule(doc: FlowDocument, input: RuleInput, add = false): { doc
   return { doc: next, said: was ? `Changed a rule in ${entry.file}: ${words} (it was: ${ruleSaid(o, was)}, else ${ACTION_SAID[was.action]})` : `Added a rule to ${entry.file}: ${words}` };
 }
 
+// ------------------------------------------------------------------ columns set aside (ADR 0027 §4)
+
+/**
+ * A file's column set aside, or taken in again (ADR 0027 §4, Q-254): named in `ontology.aside` as one the flow doesn't
+ * take, so that every column the file has is either described or set aside. It says how the file is read, as a name
+ * does, so it holds for every day (Q-198). Null `said` where it changes nothing.
+ */
+export function setAside(doc: FlowDocument, file: string, column: string, aside: boolean): { doc: FlowDocument; said: string | null } {
+  const o = ontologyOf(doc);
+  const source = doc.sources.find((x) => lower(x.id) === lower(file))?.id ?? file;
+  const was = Object.entries(o.aside ?? {}).find(([f]) => lower(f) === lower(source));
+  const had = was?.[1] ?? [];
+  const has = had.some((c) => lower(c) === lower(column));
+  if (has === aside) return { doc, said: null };
+  const next = aside ? [...had, column] : had.filter((c) => lower(c) !== lower(column));
+  const rest = Object.fromEntries(Object.entries(o.aside ?? {}).filter(([f]) => lower(f) !== lower(source)));
+  const all = next.length ? { ...rest, [source]: next } : rest;
+  const { aside: _aside, ...bare } = o;
+  return { doc: { ...doc, ontology: Object.keys(all).length ? { ...bare, aside: all } : bare }, said: aside ? `Set ${source}’s column ${column} aside: the flow doesn’t take it` : `Took ${source}’s column ${column} back from aside` };
+}
+
 // ------------------------------------------------------------------ closed lists and columns (ADR 0027 §4)
 
 /** A file's closed rule by its id, and the document's rules with it replaced. */

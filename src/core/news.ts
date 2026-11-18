@@ -16,6 +16,7 @@ import { namedOf, NONE, plusDays, resolveCalendar, specialOf, shortName, type Ca
 import { isGeneralWatch, sourceOf, type FlowDocument } from './document.js';
 import { apartEvidence, type Apart, type SampleFile } from './apart.js';
 import { gated, gateChecksOf, OVERWHELMING, overwhelmingOf, writtenRules, type CheckName, type GateChecks, type NeedsRule, type ReconcileRule } from './gates.js';
+import type { Excusable } from './events.js';
 import { HistoryRanges, lateAt, lateUsual, QUANTILES, type Metric, type ValueHistory } from './history.js';
 import type { NoRange, NormalRange, NormalRanges } from './normal.js';
 import { marksOn, nounOf, partNamed, propertyOf } from './ontology.js';
@@ -68,6 +69,9 @@ export interface Finding {
   unlike?: { score: number; highest: number; days: number; numbers: string[] };
   /** The gate's check it belongs to (ADR 0014 §2), set where the node has a gate. */
   check?: CheckName;
+  /** Told as expected (ADR 0027 §6): an event going on excuses what this check learned to expect. A note, never a
+   * hold; the event by its id and name. */
+  excused?: { event: string; name: string };
   /** A value's written band (ADR 0014 §3, a `band` finding): its low and high share. */
   band?: [number, number];
   /** A due mark's counts (a `due` finding): what was due in the window, what is still missed, the window in days, and
@@ -119,6 +123,9 @@ export const nounFor = (names: Pick<Names, 'noun'>, n?: number): string => names
  * drop-off 15 minutes behind its pickup), so its verdicts don't move.
  */
 export interface JudgeSettings {
+  /** What the events going on excuse of the day's findings (ADR 0027 §6): each a learned check, and a column where it
+   * names one. The caller gives them (events.ts `excusesFor`, those covering the day); a document says nothing of them. */
+  excuses?: readonly { event: string; name: string; check: Excusable; column?: string }[];
   legacy: boolean;
   /** The flow's calendar for this source: none when its watch says `calendar: false`. */
   calendar: Calendar;
@@ -376,6 +383,29 @@ const parse = (key: string): unknown => {
 const atShare = (share: number, usual: number, rows: number, how: string, noun = 'trips') => `${fmtInt(share * rows)} of today’s ${noun} ${how}; about ${fmtInt(usual * rows)} at its usual share.`;
 const listed = (xs: readonly string[]) => (xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
 const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** The finding kinds an excusable check covers (events.ts `EXCUSABLE`): what the history taught, and nothing written. */
+const EXCUSED_KINDS: Record<Excusable, readonly Finding['kind'][]> = {
+  amount: ['volume'],
+  shares: ['share', 'gone'],
+  pairs: ['pair', 'combo'],
+  blanks: ['missing'],
+  shape: ['shape'],
+};
+
+/**
+ * A finding as an event going on excuses it (ADR 0027 §6): one of the kinds its check covers, about its column where
+ * it names one, something wrong or unusual, and not about a value the ontology marks bad. It is told as expected: a
+ * note that holds nothing, with the event.
+ */
+export function excusedBy(f: Finding, excuses: NonNullable<JudgeSettings['excuses']>): Finding {
+  if (f.bad || (f.severity !== 'alert' && f.severity !== 'warn')) return f;
+  const lower = (x: string) => x.toLowerCase();
+  const x = excuses.find((e) => EXCUSED_KINDS[e.check].includes(f.kind) && (e.column === undefined || (f.columns ?? []).some((c) => lower(c) === lower(e.column!))));
+  if (!x) return f;
+  const { overwhelming: _o, ...rest } = f;
+  return { ...rest, severity: 'note', excused: { event: x.event, name: x.name } };
+}
 
 /**
  * A day's findings, most important first; `checks` says whether the flow's checks are the ones the history counted, and
@@ -895,7 +925,10 @@ export function newsOf(h: HistoryRanges, day: string, names: Names, options: { c
   // (a value marked bad excepted); under one that is off, nothing is told; a flow with no gate is judged as it was.
   // A learned check's alert that moved at least the node's threshold of the day's rows holds the day all the same
   // (Q-132): overwhelming, never the forest's or the classifier's.
-  const passed = judge.checks ? out.map((f) => gated(f, judge.checks, { rows, overwhelming: judge.overwhelming ?? OVERWHELMING })).filter((f): f is Finding => f !== null) : out;
+  const gatedOut = judge.checks ? out.map((f) => gated(f, judge.checks, { rows, overwhelming: judge.overwhelming ?? OVERWHELMING })).filter((f): f is Finding => f !== null) : out;
+  // What an event going on excuses (ADR 0027 §6): told as expected, a note, with the event's name. Never a value the
+  // ontology marks bad, and never a check someone wrote: only what the history taught.
+  const passed = judge.excuses?.length ? gatedOut.map((f) => excusedBy(f, judge.excuses!)) : gatedOut;
   // What follows from what (a feed that stopped skews the mix of values, the shapes, what the checks drop) is the
   // story's to tell: storyOf (story.ts) sorts these findings by what the day's cause explains.
   const told = together(passed, rows, names);

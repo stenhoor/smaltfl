@@ -16,7 +16,7 @@
 import type { Database } from 'smaltdb/engine';
 import { canonicalJSON } from '../core/canonical.js';
 import type { EmitContext } from '../core/emit.js';
-import { createTable, emitContractCounts, emitExpectCounts, emitRead, emitReconcileCounts, emitRuleCounts, emitSelect, emitUndeclared, emitUndeclaredCount } from '../core/emit.js';
+import { createTable, emitContractCounts, emitExpectCounts, emitRead, emitReconcileCounts, emitRuleCounts, emitKeysPresent, emitSelect, emitUndeclared, emitUndeclaredCount } from '../core/emit.js';
 import { hex, sha256Hex } from '../core/hash.js';
 import type { KeyEnv } from '../core/keys.js';
 import { nodeKey } from '../core/keys.js';
@@ -921,15 +921,21 @@ export function countClosed(db: Database, plan: FlowPlan, node: number, ctx: Emi
   const input = emitRead(plan, n.inputs[0]!, ctx);
   return closed.flatMap((c): ClosedCounts[] => {
     const check = n.rules.find(([name]) => name === c.rule)?.[1];
-    if (check === undefined || !((counts.rules.find((r) => r.name === c.rule)?.failed ?? 0) > 0)) return [];
+    if (check === undefined) return [];
     const keys = new Set(c.keys);
+    // A closed list's entries no row carries (Q-255): waiting for data. A closed column's values needn't all occur.
+    const present = c.defines.length && c.keys.length ? new Set(engine(n.origin, () => db.query(emitKeysPresent(input, c.key, c.keys)).rows).map((r) => String(r[0]))) : null;
+    const waiting = present ? c.keys.filter((k) => !present.has(k)) : [];
+    const failed = (counts.rules.find((r) => r.name === c.rule)?.failed ?? 0) > 0;
+    if (!failed) return waiting.length ? [{ rule: c.rule, arrivals: [], more: 0, waiting }] : [];
     const rows = engine(n.origin, () => db.query(emitUndeclared(input, check, c.key, c.defines, ARRIVALS_NAMED)).rows);
     const entries = Number(engine(n.origin, () => db.query(emitUndeclaredCount(input, check, c.key, c.defines)).rows[0]![0]));
     const arrivals = rows.map((r): [string[], number, boolean] => {
       const entry = r.slice(0, c.defines.length + 1).map((v) => (v === null || v === undefined ? '' : String(v)));
       return [entry, Number(r[c.defines.length + 1]), keys.has(entry[0]!)];
     });
-    return [{ rule: c.rule, arrivals, more: Math.max(0, entries - arrivals.length) }];
+    // An entry whose defining columns changed has its row, under its key: it isn't waiting.
+    return [{ rule: c.rule, arrivals, more: Math.max(0, entries - arrivals.length), ...(waiting.length ? { waiting } : {}) }];
   });
 }
 

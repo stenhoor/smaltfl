@@ -91,7 +91,7 @@ const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 // steps derived (ADR 0011); a .smaltfl.json as it is.
 const reader = 'node_modules/.cache/smaltfl/flow.mjs';
 await build({ entryPoints: ['scripts/flow.ts'], bundle: true, platform: 'node', format: 'esm', target: 'node20', outfile: reader, logLevel: 'warning' });
-const { readFlow, readWithChanges, readEstates, bindingsPath } = await import(pathToFileURL(reader).href);
+const { readFlow, readWithChanges, readEstates, bindingsPath, undescribedIn } = await import(pathToFileURL(reader).href);
 // The catalogue's reader (scripts/catalogue.ts), bundled the same way: the flows a flow's `catalogue` folder holds.
 const catalogueReader = 'node_modules/.cache/smaltfl/catalogue.mjs';
 await build({ entryPoints: ['scripts/catalogue.ts'], bundle: true, platform: 'node', format: 'esm', target: 'node20', outfile: catalogueReader, logLevel: 'warning' });
@@ -183,6 +183,10 @@ writeFileSync(`${out}/bundles.json`, JSON.stringify(hashed, null, 2) + '\n');
   const bind = variant ? { ...listed, ...(listed.variants?.[variant] ?? missingVariant(variant, listed)) } : listed;
   if (!bind.generate) throw new Error(`${flowPath}'s data list names no generator for its files`);
   const flowDoc = await readFlow(flowPath);
+  // Ontology first (format 5, ADR 0027 §4): a flow whose sources aren't described isn't built. What a row is, and every
+  // column its data's list declares, described or set aside.
+  const lacking = await undescribedIn(flowPath);
+  if (lacking.length) throw new Error(`${flowPath} is format 5, and its ontology doesn't come first yet:\n  ${lacking.join('\n  ')}`);
   // The generated days, histories and samples depend only on the generator, the flow, the runtime and the pins: they
   // are kept by a hash of those (node_modules/.cache/smaltfl/data/<hash>/), so a build after a change to the app alone
   // reuses them, and any change to what makes them makes them again. The generator writes its files' paths into

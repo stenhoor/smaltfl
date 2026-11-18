@@ -374,6 +374,47 @@ export interface RangeOptions {
   /** Ranges computed ahead for the first day after the history (ADR 0019, ranges.ts): taken for that day only where they
    * apply (`givenApplies`), every other range computed as always. */
   given?: GivenRanges;
+  /** Days set aside from learning for some series (ADR 0027 §6): an event excused what a check learned to expect there,
+   * so those days say nothing of what is usual for the series that check reads. */
+  aside?: readonly Aside[];
+}
+
+/**
+ * Days an event excused (ADR 0027 §6), from `from` to `until`, both in: the series a check reads are learned without
+ * them, a column's alone where it names one. `amount`: the rows, and every count that moves with them. `shares`: a
+ * column's values. `pairs`: how values go together. `blanks`: how full a column is. `shape`: a number's or a time's
+ * quantiles and its median.
+ */
+export interface Aside {
+  from: string;
+  until: string;
+  check: 'amount' | 'shares' | 'pairs' | 'blanks' | 'shape';
+  column?: string;
+}
+
+/** Whether days set aside are aside for a metric: the series the excused check reads. */
+function asideOn(a: Aside, m: Metric): boolean {
+  const col = (c: string) => a.column === undefined || a.column.toLowerCase() === c.toLowerCase();
+  switch (a.check) {
+    case 'amount':
+      return m.of === 'trips' || SCALES[m.of] === 'count';
+    case 'shares':
+      return ((m.of === 'value' || m.of === 'count') && col(m.column)) || (m.of === 'combo' && m.pair.split('|').some(col));
+    case 'pairs':
+      return m.of === 'combo' && (a.column === undefined || m.pair.split('|').some(col));
+    case 'blanks':
+      return m.of === 'missing' && col(m.column);
+    case 'shape':
+      return (m.of === 'quantile' || m.of === 'median') && col(m.column);
+  }
+}
+
+/** Each day from one to another, both in. */
+function eachDay(from: string, until: string): string[] {
+  const out: string[] = [];
+  const end = Date.parse(`${until.slice(0, 10)}T00:00:00Z`);
+  for (let t = Date.parse(`${from.slice(0, 10)}T00:00:00Z`); t <= end && out.length < 3660; t += 86_400_000) out.push(new Date(t).toISOString().slice(0, 10));
+  return out;
 }
 
 /**
@@ -388,6 +429,8 @@ export function givenApplies(g: GivenRanges, file: HistoryFile, o: RangeOptions)
   const before = (d: string) => d < f.day;
   if ([...(o.skip ?? [])].some(before) || [...(o.recorded ?? [])].some(before)) return false;
   if ((o.levels ?? []).some((l) => before(l.from))) return false;
+  // Ranges computed ahead know nothing of days an event set aside since.
+  if ((o.aside ?? []).some((a) => before(a.from))) return false;
   return true;
 }
 
@@ -497,7 +540,10 @@ export class HistoryRanges {
       const bad = m.of === 'value' && !!o.bad?.get(m.column.toLowerCase())?.has(String(parseKey(m.value)));
       const general = { ...(o.pattern && o.pattern !== 'weekly' ? { pattern: o.pattern } : {}), ...(o.echoes ? { echoes: true } : {}), ...(o.relearn && !bad ? { relearn: true, held: HELD[m.of] ?? (() => false) } : {}), ...(breaks.length ? { breaks } : {}) };
       const given = this.given && Object.prototype.hasOwnProperty.call(this.given.ranges, key) ? { given: { day: this.given.day, range: this.given.ranges[key]! } } : {};
-      this.made.set(key, s ? new NormalRanges(s, SCALES[m.of], { skip: this.left, calendar: this.calendar, ...general, ...given }) : null);
+      // The days an event excused this series on (ADR 0027 §6) are left out of what it learns from, with the record's.
+      const aside = (o.aside ?? []).filter((a) => asideOn(a, m));
+      const skip = aside.length ? new Set([...this.left, ...aside.flatMap((a) => eachDay(a.from, a.until))]) : this.left;
+      this.made.set(key, s ? new NormalRanges(s, SCALES[m.of], { skip, calendar: this.calendar, ...general, ...given }) : null);
     }
     return this.made.get(key)!;
   }

@@ -72,6 +72,8 @@ import { checkDecision } from '../../src/core/policy.js';
 import { fillStepOf, type ChangeSet } from '../../src/core/document.js';
 import { withRoles } from '../../src/core/deciding.js';
 import { storyProblems, timelineOf, type StoryFile, type StoryFill, type StoryRestatement } from '../../src/core/timeline.js';
+import { excusesFor, type FlowEvent } from '../../src/core/events.js';
+import type { TellFor } from '../../src/core/protocol.js';
 import { donorBinding, pinnedDdl, type Binding, type DataBindings } from '../../examples/sources.js';
 import { readAsOf } from '../../src/core/ontology.js';
 import { csvHeader, readAsIn } from '../../src/core/columns.js';
@@ -347,9 +349,14 @@ async function main(): Promise<void> {
      * told in the engine; recorded at `at`. A day's first run keeps its rows in the samples; a restated run publishes
      * nothing and its measures never reach the history.
      */
-    const runOnce = async (d: Day, at: string, shas: Record<string, string>, opts: { correction?: { of: { run: number; manifest: string }; sources: string[] }; restates?: { of: string; changes: string[] }; sources?: Made['sources'] } = {}): Promise<void> => {
+    const runOnce = async (d: Day, at: string, shas: Record<string, string>, opts: { correction?: { of: { run: number; manifest: string }; sources: string[] }; restates?: { of: string; changes: string[] }; sources?: Made['sources']; eventsAt?: string } = {}): Promise<void> => {
       const { correction, restates } = opts;
       const day = d.slot;
+      // What events excuse of each watched dataset (ADR 0027 §6), as known when the day's files first ran: a day run
+      // again under rules changed since keeps the events its first run knew, so a note written since excuses nothing of it.
+      // The events are the record's own entries so far, which is what the audit holds a claim's excuses to.
+      const written = entries.filter((e) => e.kind === 'event' && (opts.eventsAt === undefined || Date.parse(e.at) < Date.parse(opts.eventsAt))).map((e) => e.about as unknown as FlowEvent);
+      const excusesOf = (w: string) => excusesFor(written, w, day, null);
       const parameters = parametersOf(day);
       // The rules in force on the day as known now (ADR 0021 §5): what the claims are told from and the plan is made of.
       const dayDoc = forDay(flowDoc, parameters, at);
@@ -358,7 +365,7 @@ async function main(): Promise<void> {
       const claims: Claim[] = [];
       const told: Claim[] = [];
       const stories: Record<string, Story> = {};
-      const tell: Record<string, { skip: string[]; levels: ReturnType<typeof levelsOf> }> = {};
+      const tell: Record<string, TellFor> = {};
       const kept = new Map<string, unknown[][]>();
       for (const w of watches) {
         const node = plan.nodes.findIndex((n) => n.origin === w);
@@ -375,7 +382,8 @@ async function main(): Promise<void> {
             pinnedSamples.set(w, sample);
             await pinFile(db, samplePath(w), new TextEncoder().encode(JSON.stringify(sample)));
           }
-          tell[w] = { skip, levels };
+          const excuses = excusesOf(w);
+          tell[w] = { skip, levels, ...(excuses.length ? { excuses } : {}) };
           continue;
         }
         const b = bind.sources[w];
@@ -394,7 +402,8 @@ async function main(): Promise<void> {
           kept.set(w, rows);
         }
         const file = shas[w] ? factsOf(dayDoc, w, d, shas[w]!) : undefined;
-        const t = await loadClaim({ doc: dayDoc, source: w, flow: plan.flow.hash, base: known?.file ?? null, baseRef: known?.ref ?? null, tail, measures: m, settings, skip, levels, build, ...(rows && samples.get(w) ? { sample: samples.get(w)!, kept: rows } : {}), ...(file ? { file } : {}) });
+        const excuses = excusesOf(w);
+        const t = await loadClaim({ doc: dayDoc, source: w, flow: plan.flow.hash, base: known?.file ?? null, baseRef: known?.ref ?? null, tail, measures: m, settings, skip, levels, build, ...(rows && samples.get(w) ? { sample: samples.get(w)!, kept: rows } : {}), ...(file ? { file } : {}), ...(excuses.length ? { excuses } : {}) });
         await pinFile(db, tailPath(w), t?.tail.length ? new TextEncoder().encode(canonicalJSON(t.tail as unknown as Parameters<typeof canonicalJSON>[0])) : null);
         if (t) (claims.push(t.claim), told.push(t.claim), (stories[w] = t.story));
       }
@@ -684,7 +693,7 @@ async function main(): Promise<void> {
         const got = gotOf(day)!;
         const runAt = new Date((t += 1000)).toISOString();
         const shas = await pinDay(got.made.files, runAt, daily, true);
-        await runOnce(got.made.files, runAt, shas, { restates: { of: got.made.manifest, changes: ids }, sources: got.made.sources });
+        await runOnce(got.made.files, runAt, shas, { restates: { of: got.made.manifest, changes: ids }, sources: got.made.sources, eventsAt: got.made.at });
       }
       const rows = reached.map((day) => restatingOf(day, ids)!);
       const changed = rows.filter((x) => x.outcome.changed);
@@ -714,6 +723,14 @@ async function main(): Promise<void> {
         kept: changed.filter((x) => keep.has(x.day)).map((x) => ({ day: x.day, manifest: x.run.manifest })),
         same: rows.filter((x) => !x.outcome.changed).map((x) => ({ day: x.day, manifest: x.run.manifest })),
       }, r.reason);
+      // A day held until now that its restated run publishes (ADR 0027 §4: a day at the gate, declared and run again):
+      // its posture is marked from that run's outputs, as a release's is.
+      for (const x of changed) {
+        if (keep.has(x.day) || !x.outcome.passes) continue;
+        const ran = db.query('SELECT manifest FROM _smaltfl_runs WHERE id = ?', [x.run.run]).rows[0];
+        const outputs = ran ? (JSON.parse(String(ran[0])) as RunManifest).outputs : {};
+        markPosture(x.day, Object.keys(outputs), (n) => outputs[n]?.key);
+      }
       console.log(changed.length ? `${r.by} restated ${changed.filter((x) => !keep.has(x.day)).map((x) => `${x.day} (${x.outcome.passes ? 'published' : 'held'})`).join(', ') || 'no day'}${keep.size ? `, kept ${[...keep].join(', ')}` : ''}; ${rows.length - changed.length} days the same` : `${r.by} signed off ${rows.length} days as the same`);
     };
 
@@ -752,6 +769,10 @@ async function main(): Promise<void> {
         await decideOnce(day, ev.n, at, by, option, reason, fill);
       } else if (ev.kind === 'change') {
         await changeOnce(ev.change, at);
+      } else if (ev.kind === 'event') {
+        // An event written down (ADR 0027 §6): the record keeps it from this moment, as one written in the app is kept,
+        // so what a later run says it was excused by can be held to it.
+        entries.push({ smaltflLog: 1, origin, seq: entries.length, kind: 'event', at, by: { card: null, as: ev.event.by }, about: ev.event as unknown as JSONValue, reason: ev.event.note ?? null, amends: null, nonce: nonce(`event:${ev.event.id}`, entries.length) });
       } else {
         await restateOnce(ev.restatement, at);
       }

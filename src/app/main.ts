@@ -17,7 +17,7 @@ import type { ChangeSet, ContractDef, FlowDocument, GroupDef, NotebookOutline, O
 import { applyEdit, changesOn, inForce, resolve as resolveRules, ruleParts, rulesHash, rulesInForce, versionRules, withRuleParts, type RuleParts } from '../core/inforce.js';
 import { diffSaid, ruleVersions, rulesDiff, versionKey, versionOn, type RuleVersion } from '../core/ruleversions.js';
 import { comingOn, dayAfter, dayBefore, defaultKind, KIND_NAMES, KIND_NOT_GIVEN, KINDS_ASKED, LANE_NAMES, livesOf, registerOf, sinceOf, type Entry as RegisterEntry, type Life } from '../core/register.js';
-import { covers as eventCovers, eventDay, EVENT_KINDS, EVENT_KIND_NAMES, eventTense, latestEvents, type EventKind, type FlowEvent } from '../core/events.js';
+import { covers as eventCovers, eventDay, EVENT_KINDS, EVENT_KIND_NAMES, eventTense, EXCUSABLE, EXCUSABLE_SAID, excusesFor, latestEvents, type ClaimExcuse, type EventKind, type Excusable, type Excuse, type FlowEvent } from '../core/events.js';
 import type { ChangeKind, ChangeNote } from '../core/document.js';
 import { flowOf, givesOf, GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, usedName, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
 import { notebookSectionId } from '../core/notebook.js';
@@ -38,7 +38,7 @@ import { flowNames, isPlaceholder, judgeOf, labelOf, newsOf, shareWords, tableNe
 import { writtenRules, CHECK_MODES, CHECK_NAMES, CHECK_SAID, checkOf, gateChecksOf, gateLayerOf, hasGates, JUDGED, LAYER_SAID, overwhelmingSaid, WRITTEN, type CheckMode, type CheckName, type GateChecks } from '../core/gates.js';
 import { calendarHead, heldLoadLine, dayMid, dayShort, guessWords, judgedWords, lacked, MARK as REMEDY_MARK, noRowsBefore, reachLabel, readersOf as readersHad, readersSee, rowsFrom, shortfall, shownRun, stagedBar, stoppedLine as stoppedWords, toldLine, type DayState, type EpisodeDay, type KeptMark, type PauseState, type RemedyMark } from '../core/days.js';
 import { UNTIL, afterLabel, afterLine, betweenLine, dayPausedLine, daySentence, decidedLines, decisionDrawing, donorPicked, failLine, goShown, heldLine, outputPausedLine, passedLine, pausedChecks, pauseLines, pauseReasons, pickFails, receiptLines, remedyHead, ribbonOf, runFigures, sheetText, versionLines, waitedLabel, checksSeen, filesSeen, findingOf, type RunSight, type AfterPart, type KeptLacks, type RemedySaid, type SheetIn, type SheetPick, type SheetText, type Sight } from '../core/decision.js';
-import { contractSaid, countedChecks, rangesFor, dayClaim, dayState, flowStory, learnedMeasures, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, upstreamSteps, tailPath, type Claim, decisionFor, decisionForLoad, standingForLoad, heldLoadsOf, dayPauseOfLoads, loadDecisions, keysForLoads, loadKey, loadsOf, byLoad, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, latestPublished, publishedDays, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
+import { contractSaid, countedChecks, rangesFor, dayClaim, dayState, flowStory, learnedMeasures, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, upstreamSteps, tailPath, type Claim, decisionFor, decisionForLoad, standingForLoad, heldLoadsOf, dayPauseOfLoads, loadDecisions, keysForLoads, loadKey, loadsOf, byLoad, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, latestGot, latestPublished, publishedDays, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
 import { checkAgainst as againstRecord, endOfDay, isMonthFile, isRestate, knownOn, layered, monthOf, ownHolds, restatedOutcome, runDay, runsByDay, versionsOf, type CellState, type DayState as MonthState, type MonthDay, type MonthFile, type RecordCheck, type RestateAbout, type RunAbout } from '../core/month.js';
 import { againstSaid, againstWay, countSaid, findingsOf, followsFiles, headlineOf, healthOf as monthHealth, healthSaid, HOW_WORD, monthsOf, moversOf, offDays, OUTCOME_WORD, outcomeOf, outcomeSaid, pointsSaid, readSaid, scoreRead, summaryOf, worstFirst, type DayFinding, type DayOutcome, type HealthRow, type Outcome } from '../core/overview.js';
 import { dayVersions, donorIdOf, fillCounts, levelOf as acceptedLevel, levelWays, partLabel as remedyPart, type Offer, type Repair, type Version } from '../core/fill.js';
@@ -66,7 +66,8 @@ import { columnChangeSaid, columnsHold, csvColumn, csvHeader, readAsIn, type Col
 import { columnUses, joinImpactSaid, joinMatch, usesSaid, type ColumnUses, type JoinUse, type ParseSql } from '../core/uses.js';
 import { estateSaid, handlingSaid, ontologyPage, originSaid, typesShown, type ColumnCard, type FileSection, type Handling, type OntologyPage, type Rule } from '../core/ontologypage.js';
 import { MAX_CODES, proposalsOf, shareRange, valueCandidates, watchedFile, type Proposal } from '../core/proposals.js';
-import { applyBand, asShipped, keptOf as keptFlow, nameColumn, nameColumnThrough, restoreKept, setRule, type FlowEdit, type NameOp, type RuleInput } from '../core/flowedit.js';
+import { applyBand, asShipped, keptOf as keptFlow, nameColumn, nameColumnThrough, restoreKept, setAside as setColumnAside, setRule, type FlowEdit, type NameOp, type RuleInput } from '../core/flowedit.js';
+import { isAside, undescribed, undescribedSaid } from '../core/described.js';
 import { ownWithEdits } from '../core/attribute.js';
 import { addFlow, addProblems, takeOff, takeOffProblems, type CatalogueEntry } from '../core/catalogue.js';
 import { mapProblems, USE_NAME, useName, useProblems, type UseSpec } from '../core/reuse.js';
@@ -656,7 +657,7 @@ function keptThen(day: string): string | null {
   const all = allEntries();
   const held = all.find((e) => e.kind === 'run' && (e.about as { outcome?: string; day?: string } | null)?.outcome === 'held' && (e.about as { day?: string }).day === day);
   if (held) {
-    const then = latestPublished(all.filter((e) => e.seq < held.seq), periodOfFlow());
+    const then = latestGot(all.filter((e) => e.seq < held.seq), periodOfFlow());
     if (then && then < day) return then;
   }
   let best: string | null = null;
@@ -677,7 +678,7 @@ function readersMarkOf(r: RunRecord): KeptMark | null {
 
 /** The latest day readers see, as the record says (Q-51, ADR 0022 §1): the latest day published, whatever order the
  * days were published in; a day decided after it keeps its version for itself. */
-const readersLatest = (): string | null => latestPublished(allEntries(), periodOfFlow());
+const readersLatest = (): string | null => latestGot(allEntries(), periodOfFlow());
 
 /**
  * Whether the day after `day` (the next of the flow's loads) has published already, as the record says: a decision
@@ -714,7 +715,7 @@ function readersAsOf(r: RunRecord): { day: string | null; past: boolean } {
   const now = had.past ? pauseOf(r) : null;
   const d = now?.state === 'dont' ? now.pause?.decision : null;
   if (d && day && ledger) {
-    const before = latestPublished(allEntries().filter((e) => e.seq < d.seq && !(runDay(e) !== null && runDay(e)! >= day)), periodOfFlow());
+    const before = latestGot(allEntries().filter((e) => e.seq < d.seq && !(runDay(e) !== null && runDay(e)! >= day)), periodOfFlow());
     return { day: before && before < day ? before : null, past: true };
   }
   return had;
@@ -4706,11 +4707,27 @@ function askWhy(what: string, kind: ChangeKind): Promise<WhyGiven | null> {
 
 // ------------------------------------------------------------------ events (ADR 0027 §6, slice 2)
 
+/** Every event the page has, whenever it was written: the build's story's and the record's. */
+function everyEvent(): FlowEvent[] {
+  const written = allEntries().flatMap((e) => (e.kind === 'event' && e.about && typeof (e.about as { id?: unknown }).id === 'string' ? [e.about as unknown as FlowEvent] : []));
+  return [...(dataList?.events ?? []), ...written];
+}
+
+/**
+ * What events excuse of a dataset's load of a day (ADR 0027 §6), as known when the day's version on screen first ran:
+ * a day the record has is told under the events its run knew, so a note written since excuses nothing of it, and a day
+ * not run yet under every event written so far.
+ */
+function excusesNow(source: string, day: string): ClaimExcuse[] {
+  const k = loads.pinned >= 0 ? loads.pinned : loads.at;
+  const asOf = k >= 0 ? versionAsOf(k, Math.max(1, loads.pinnedVersion)) : null;
+  return excusesFor(everyEvent(), source, day, asOf);
+}
+
 /** The flow's events as known at the moment the month is read at: the build's story's, and those written here, which
  * the record keeps (an entry of kind `event`; written again under its id, an event is changed or taken back). */
 function flowEvents(): FlowEvent[] {
-  const written = allEntries().flatMap((e) => (e.kind === 'event' && e.about && typeof (e.about as { id?: unknown }).id === 'string' ? [e.about as unknown as FlowEvent] : []));
-  return latestEvents([...(dataList?.events ?? []), ...written], monthView.at);
+  return latestEvents(everyEvent(), monthView.at);
 }
 
 /** An event's days in words: "Mon 25 to Sun 31", "Tue 12", "from Mon 11". */
@@ -4735,9 +4752,19 @@ function eventForm(was?: FlowEvent): void {
   const from = h('input', { class: 'ev-from', type: 'date', 'aria-label': 'From', value: was?.from ?? (resolvedFor.day ?? days.at(-1) ?? '') }) as HTMLInputElement;
   const until = h('input', { class: 'ev-until', type: 'date', 'aria-label': 'Until', value: was?.until ?? '' }) as HTMLInputElement;
   const kind = h('select', { class: 'ev-kind', 'aria-label': 'Kind' }, ...EVENT_KINDS.map((k) => h('option', { value: k, ...(k === (was?.kind ?? 'other') ? { selected: 'selected' } : {}) }, EVENT_KIND_NAMES[k]))) as HTMLSelectElement;
-  const sources = Object.keys(dataList?.sources ?? {}).sort();
+  const sources = [...new Set([...Object.keys(dataList?.sources ?? {}), ...Object.keys(state.doc.publish?.watch ?? {})])].sort();
   const about = h('select', { class: 'ev-about', 'aria-label': 'About' }, h('option', { value: '' }, 'the whole flow'), ...sources.map((id) => h('option', { value: id, ...(was?.about?.[0] === id ? { selected: 'selected' } : {}) }, id))) as HTMLSelectElement;
   const note = h('textarea', { class: 'ev-note', rows: '2', 'aria-label': 'A note', placeholder: 'What was going on, in a sentence or two' }, was?.note ?? '') as HTMLTextAreaElement;
+  // What it excuses (ADR 0027 §6): learned checks of the dataset it is about, a column's alone where one is named.
+  const ticks = EXCUSABLE.map((c) => ({ c, input: h('input', { type: 'checkbox', class: 'ev-excuse', value: c, ...(was?.excuses?.some((x) => x.check === c) ? { checked: 'checked' } : {}) }) as HTMLInputElement }));
+  const column = h('input', { class: 'ev-column', type: 'text', 'aria-label': 'Only in this column', value: was?.excuses?.find((x) => x.column)?.column ?? '', placeholder: 'every column' }) as HTMLInputElement;
+  const excusing = h('fieldset', { class: 'of-defines ev-excuses' }, h('legend', {}, 'It excuses'),
+    h('p', { class: 'of-hint' }, 'While it lasts, what these checks learned to expect of the dataset is told as expected and holds nothing, and its days aren’t learned from as usual. A rule someone wrote is never excused, and neither is a day already run.'),
+    h('div', { class: 'of-define-list' }, ...ticks.map((t) => h('label', { class: 'of-define' }, t.input, ` ${EXCUSABLE_SAID[t.c]}`))),
+    h('div', { class: 'of-field' }, h('label', {}, 'Only in this column'), column));
+  const fitExcuses = () => (excusing.hidden = !about.value);
+  about.addEventListener('change', fitExcuses);
+  fitExcuses();
   const err = h('p', { class: 'of-err', role: 'alert', hidden: 'hidden' });
   const go = h('button', { type: 'button', class: 'btn small primary ev-go' }, was ? 'Record the change' : 'Write it down') as HTMLButtonElement;
   const bad = (m: string) => {
@@ -4750,7 +4777,9 @@ function eventForm(was?: FlowEvent): void {
     if (until.value && until.value < from.value) return bad('Its last day is on or after its first.');
     go.disabled = true;
     const id = was?.id ?? `${name.value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'event'}-${Date.now().toString(36)}`;
-    const e: FlowEvent = { id, name: name.value.trim(), from: from.value, ...(until.value ? { until: until.value } : {}), kind: kind.value as EventKind, ...(about.value ? { about: [about.value] } : {}), ...(note.value.trim() ? { note: note.value.trim() } : {}), recorded: new Date().toISOString(), by: state.viewer };
+    const col = column.value.trim();
+    const excuses: Excuse[] = about.value ? ticks.filter((t) => t.input.checked).map((t): Excuse => ({ dataset: about.value, check: t.c as Excusable, ...(col && t.c !== 'amount' ? { column: col } : {}) })) : [];
+    const e: FlowEvent = { id, name: name.value.trim(), from: from.value, ...(until.value ? { until: until.value } : {}), kind: kind.value as EventKind, ...(about.value ? { about: [about.value] } : {}), ...(note.value.trim() ? { note: note.value.trim() } : {}), recorded: new Date().toISOString(), by: state.viewer, ...(excuses.length ? { excuses } : {}) };
     void writeEvent(e).then(() => document.querySelector('.vf-detail-wrap')?.remove());
   });
   const takeBack = was ? h('button', { type: 'button', class: 'btn small ev-back', onclick: () => void writeEvent({ ...was, recorded: new Date().toISOString(), by: state.viewer, withdrawn: true }).then(() => document.querySelector('.vf-detail-wrap')?.remove()) }, 'Take it back') : null;
@@ -4761,9 +4790,29 @@ function eventForm(was?: FlowEvent): void {
     h('div', { class: 'of-field' }, h('label', {}, 'Until'), until),
     h('div', { class: 'of-field' }, h('label', {}, 'Kind'), kind),
     h('div', { class: 'of-field' }, h('label', {}, 'About'), about),
+    excusing,
     h('div', { class: 'of-field' }, h('label', {}, 'Note'), note),
     err, h('div', { class: 'of-acts' }, go, takeBack)]);
   name.focus();
+}
+
+/** The days a run's claim was told as expected under an event (ADR 0027 §6), by the record: each once, in order. */
+function excusedDays(e: Pick<FlowEvent, 'id' | 'name'>): string[] {
+  const days = new Set<string>();
+  for (const x of allEntries()) {
+    if (x.kind !== 'run') continue;
+    const a = x.about as unknown as { day?: string | null; claims?: { head?: string; excuses?: ClaimExcuse[] }[] };
+    if (typeof a.day !== 'string') continue;
+    if ((a.claims ?? []).some((c) => c.excuses?.some((q) => q.event === e.id) && c.head === `As expected: ${e.name}`)) days.add(a.day.slice(0, 10));
+  }
+  return [...days].sort();
+}
+
+/** What an event excuses, in words: "the mix of status and how much arrives, in findings". Empty where nothing. */
+function excusesSaid(e: Pick<FlowEvent, 'excuses'>): string {
+  const by = new Map<string, string[]>();
+  for (const x of e.excuses ?? []) by.set(x.dataset, [...(by.get(x.dataset) ?? []), `${EXCUSABLE_SAID[x.check]}${x.column ? ` (${x.column})` : ''}`]);
+  return [...by].map(([dataset, what]) => `${listed(what)}, in ${dataset}`).join('; ');
 }
 
 /** The events going on on a day, on its head (ADR 0027 §9): each with which day of it this is. Null where none is. */
@@ -4772,7 +4821,7 @@ function eventsLine(day: string): HTMLElement | null {
   if (!on.length) return null;
   return h('p', { class: 'dh-events' }, h('span', { class: 'dh-rules-k' }, 'Going on'), ' ', ...on.flatMap((e, k) => {
     const d = eventDay(e, day);
-    return [k ? ' · ' : '', h('button', { type: 'button', class: 'linkish', 'data-event': e.id, onclick: () => openEvent(e.id) }, `${e.name}${d && d.of !== null && d.of > 1 ? `, day ${d.n} of ${d.of}` : ''} ›`)];
+    return [k ? ' · ' : '', h('button', { type: 'button', class: 'linkish', 'data-event': e.id, onclick: () => openEvent(e.id) }, `${e.name}${d && d.of !== null && d.of > 1 ? `, day ${d.n} of ${d.of}` : ''} ›`), e.excuses?.length ? h('span', { class: 'dh-excuses' }, ` (excuses ${excusesSaid(e)})`) : ''];
   }));
 }
 
@@ -4936,6 +4985,8 @@ function registerPart(): HTMLElement | null {
       h('span', { class: 'rg-when' }, `${eventSpan(e)} · written ${dayShort(e.recorded.slice(0, 10))}${e.about?.length ? ` · about ${e.about.join(', ')}` : ''}`),
       h('span', { class: 'rg-what' }, e.name),
       h('span', { class: 'rg-why' }, e.note ? `“${e.note}” ` : '', h('span', { class: 'rg-by' }, personName(e.by))),
+      // What it excuses (ADR 0027 §6), and the days a run was told as expected under it.
+      e.excuses?.length ? h('span', { class: 'rg-excuses' }, `Excuses ${excusesSaid(e)}. ${excusedDays(e).length ? `Told as expected on ${daysSaid(excusedDays(e))}.` : 'No day has been told as expected under it yet.'}`) : null,
       owner && mine && monthView.at === null ? h('button', { type: 'button', class: 'linkish rg-ev-edit', onclick: () => eventForm(e) }, 'Change it ›') : null);
   };
   const monthName = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
@@ -5022,6 +5073,22 @@ function registerPart(): HTMLElement | null {
 }
 
 /**
+ * Whether the ontology comes first (ADR 0027 §4, §5), at the head of the Ontology view: a format-5 flow says so, with
+ * anything a file still lacks by the columns the data's list declares; a flow in an older format says what it would be
+ * asked for. Null for a flow of no notebooks.
+ */
+function firstLine(): HTMLElement | null {
+  if (state.doc.smaltfl < 4) return null;
+  const declared = (id: string) => dataList?.sources[id]?.columns?.map((c) => c[0]) ?? null;
+  const lacking = undescribed(state.doc, declared);
+  const first = state.doc.smaltfl === 5;
+  return h('p', { class: `rt-first${lacking.length ? ' lacking' : ''}`, 'data-format': String(state.doc.smaltfl) },
+    h('b', {}, first ? 'The ontology comes first. ' : 'Format 4: the ontology isn’t asked to come first. '),
+    !lacking.length ? (first ? 'Every file says what one row is, and every column it has is described or set aside. A change says its kind and why.' : 'Every file says what one row is and every column is described: it could be format 5.')
+      : `${first ? 'Still to say' : 'Format 5 would ask'}: ${lacking.map(undescribedSaid).join('. ')}.`);
+}
+
+/**
  * The rules over time at the head of the Ontology page (ADR 0021 §5): the rules in force on the day on screen, by hash;
  * each change set, its day and where it stands for the day on screen; and, for the owner, when edits take effect.
  */
@@ -5038,6 +5105,7 @@ function renderRulesTime(): void {
   const day = resolvedFor.day;
   box.replaceChildren(
     h('p', { class: 'rt-head' }, h('b', {}, day ? `The rules in force on ${dayLabel(day)}` : 'The rules in force'), ' ', hashCode(rulesHashOf(state.doc), 'rt-hash'), ruleChanges.length ? ` · ${plural(ruleChanges.length, 'change set')}${baseEdited() ? '; names and labels edited here' : ''}` : baseEdited() ? ' · names and labels edited here' : ' · as shipped'),
+    firstLine() ?? '',
     registerPart() ?? '',
     ruleVersionsPart() ?? '',
     owner ? fromBar() : '');
@@ -9891,9 +9959,14 @@ function findingCard(f: Finding, card: string): HTMLElement {
   const after = followsCause(f);
   return h('article', { class: `vf-story ${f.severity}`, id: `finding-${f.key}` },
     h('button', { type: 'button', class: 'vf-story-h', onclick: () => findingDetail(f, card) }, m ? glyphEl(m, 15) : '', h('span', {}, f.title), h('span', { class: 'vf-chev' }, glyphEl('chev', 13))),
+    // Told as expected (ADR 0027 §6): the event that excuses it, a tap from its entry on the register.
+    f.excused ? excusedLine(f.excused) : null,
     vis ? h('button', { type: 'button', class: 'vf-hero', 'aria-label': `${f.title}: open`, onclick: () => findingDetail(f, card) }, vis) : (chipsOf(f) ?? oneLine(f.detail)),
     f.acts.length ? (after ? moreOnly(actionsOf(f, card, null, null, dayWaits(), true)) : actionsOf(f, card, f.acts[0] ?? null)) : null);
 }
+/** An excused finding's line: expected while its event lasts, which holds nothing; the event a tap away. */
+const excusedLine = (x: NonNullable<Finding['excused']>): HTMLElement =>
+  h('p', { class: 'vf-excused' }, glyphEl('note', 13), ' Expected while ', h('button', { type: 'button', class: 'linkish', 'data-event': x.event, onclick: () => openEvent(x.event) }, `${x.name} ›`), ' lasts: it holds nothing, and these days aren’t learned from as usual.');
 /** Verbs behind ⋯ alone, the ⋯ labelled "More", so a lone square doesn't read as a stray control. */
 function moreOnly(acts: HTMLElement): HTMLElement {
   const more = acts.querySelector<HTMLElement>('.vf-more');
@@ -12221,12 +12294,20 @@ function ruleForm(file: string, column: string, title: string, columns: readonly
   // entries the load on screen has. One that stands takes more values here; a list's entries are declared at the gate.
   const wasClosed = was?.kind === 'closed' ? was : null;
   const closedValues = h('textarea', { id: `${uid}-closed`, rows: '2', maxlength: '4000', placeholder: 'a, b, c' }, wasClosed ? '' : known.join(', ')) as HTMLTextAreaElement;
+  // An entry of a closed list declared ahead of its data (Q-255): its key, and what each defining column will hold. It
+  // is in force from the day below and waits for data until the file has it.
+  const aheadKey = h('input', { type: 'text', id: `${uid}-ahead-key`, class: 'of-ahead-key', maxlength: '200' }) as HTMLInputElement;
+  const aheadDefs = (wasClosed?.defines ?? []).map((c) => ({ c, input: h('input', { type: 'text', id: `${uid}-ahead-${c}`, class: 'of-ahead-def', 'data-column': c, maxlength: '400' }) as HTMLInputElement }));
+  const aheadFields = { el: h('fieldset', { class: 'of-defines of-ahead' }, h('legend', {}, 'Declare an entry before its data'),
+    h('p', { class: 'of-hint' }, `The business decided on it, and the file doesn’t have it yet. It is in force from the day below and is shown as waiting for data until a row of ${file} carries it, as declared.`),
+    field(`${title} (its key)`, aheadKey),
+    ...aheadDefs.map((d) => field(propertyOf(state.doc.ontology, file, d.c)?.title ?? d.c, d.input))) };
   const defineTicks = others.map((c) => ({ c, input: h('input', { type: 'checkbox', value: c }) as HTMLInputElement }));
   const closedField = h('div', { class: 'of-closed' },
     wasClosed
-      ? h('p', { class: 'of-hint' }, isList(wasClosed) ? `The ontology has ${plural(wasClosed.entries?.length ?? 0, 'entry', 'entries')}, each with its ${listed((wasClosed.defines ?? []).map((c) => propertyOf(state.doc.ontology, file, c)?.title ?? c))}. A new or changed entry is declared at the gate, on the day its file brings it.` : `The ontology has ${plural(wasClosed.entries?.length ?? 0, 'value')}: ${(wasClosed.entries ?? []).map((e) => e[0]).slice(0, 12).join(', ')}${(wasClosed.entries?.length ?? 0) > 12 ? ', …' : ''}.`)
+      ? h('p', { class: 'of-hint' }, isList(wasClosed) ? `The ontology has ${plural(wasClosed.entries?.length ?? 0, 'entry', 'entries')}, each with its ${listed((wasClosed.defines ?? []).map((c) => propertyOf(state.doc.ontology, file, c)?.title ?? c))}. An entry the file brings is declared at the gate, on its day; one the business has decided on ahead is declared here.` : `The ontology has ${plural(wasClosed.entries?.length ?? 0, 'value')}: ${(wasClosed.entries ?? []).map((e) => e[0]).slice(0, 12).join(', ')}${(wasClosed.entries?.length ?? 0) > 12 ? ', …' : ''}.`)
       : null,
-    wasClosed && isList(wasClosed) ? null : field(wasClosed ? `More values ${title} may hold` : `The values the ontology has for ${title}`, closedValues, wasClosed ? 'By commas, as the file writes them. Each is declared from the day below.' : `By commas, as the file writes them. Any other value that arrives stops what ${file} reaches until someone declares it, publishes without it or doesn’t publish.`),
+    wasClosed && isList(wasClosed) ? aheadFields.el : field(wasClosed ? `More values ${title} may hold` : `The values the ontology has for ${title}`, closedValues, wasClosed ? 'By commas, as the file writes them. Each is declared from the day below.' : `By commas, as the file writes them. Any other value that arrives stops what ${file} reaches until someone declares it, publishes without it or doesn’t publish.`),
     wasClosed || !others.length ? null : h('fieldset', { class: 'of-defines' }, h('legend', {}, 'A list of things? Tick what defines one'),
       h('p', { class: 'of-hint' }, `With any ticked, ${title} is each thing’s key, and the ontology keeps the entries the load on screen has, each with the columns ticked. A changed one stops at the gate as a new one does; a reworded name doesn’t.`),
       h('div', { class: 'of-define-list' }, ...defineTicks.map((t) => h('label', { class: 'of-define' }, t.input, ` ${propertyOf(state.doc.ontology, file, t.c)?.title ?? t.c}`)))));
@@ -12268,10 +12349,12 @@ function ruleForm(file: string, column: string, title: string, columns: readonly
     // A closed rule that stands takes more values: each declared, an edit of its own (a change set dated before another
     // keeps both).
     if (wasClosed) {
-      const more = typedList(closedValues.value).filter((v) => !(wasClosed.entries ?? []).some((e) => e[0] === v));
-      if (isList(wasClosed) || !more.length) return refuse(isList(wasClosed) ? 'A list’s entries are declared at the gate, on the day its file brings them.' : 'Type a value the ontology doesn’t have yet.');
+      const key = aheadKey.value.trim();
+      const more = isList(wasClosed) ? (key ? [[key, ...aheadDefs.map((d) => d.input.value.trim())]] : []) : typedList(closedValues.value).filter((v) => !(wasClosed.entries ?? []).some((e) => e[0] === v)).map((v) => [v]);
+      if (!more.length) return refuse(isList(wasClosed) ? 'Say the entry’s key.' : 'Type a value the ontology doesn’t have yet.');
+      if (isList(wasClosed) && (wasClosed.entries ?? []).some((e) => e[0] === key && e.every((v, k) => v === more[0]![k]))) return refuse(`The ontology has ${key} as typed already.`);
       save.disabled = true;
-      void editRules(more.map((v): RuleEdit => ({ op: 'declareEntry', file, rule: wasClosed.id, entry: [v] }))).then((done) => {
+      void editRules(more.map((entry): RuleEdit => ({ op: 'declareEntry', file, rule: wasClosed.id, entry }))).then((done) => {
         if (done) form.remove();
         else save.disabled = false;
       });
@@ -12353,10 +12436,11 @@ function closedEntries(r: OntologyRule): HTMLElement {
     return e ? h('button', { type: 'button', class: 'linkish of-since', 'data-change': e.change.id, onclick: () => openChange(e.change.id) }, `since ${dayShort(e.change.from)} ›`) : null;
   };
   const entries = r.entries ?? [];
+  const waiting = new Set(waitingNow(latest()).filter((w) => w.rule.id === r.id && w.rule.file === r.file).flatMap((w) => w.keys));
   return h('details', { class: 'whole of-entries', 'data-rule': r.id },
-    h('summary', {}, `The ${plural(entries.length, list ? 'entry' : 'value', list ? 'entries' : 'values')} the ontology has${r.leftOut?.length ? ` · ${r.leftOut.length} left out` : ''}`),
+    h('summary', {}, `The ${plural(entries.length, list ? 'entry' : 'value', list ? 'entries' : 'values')} the ontology has${r.leftOut?.length ? ` · ${r.leftOut.length} left out` : ''}${waiting.size ? ` · ${waiting.size} waiting for data` : ''}`),
     h('ul', { class: 'of-entry-list' },
-      ...entries.map((e) => h('li', { class: 'of-entry', 'data-key': e[0] ?? '' }, h('b', {}, gateKey(r, e[0] ?? '')), list ? h('span', { class: 'of-entry-defs' }, gateDefines(r, e)) : null, since(e[0] ?? ''))),
+      ...entries.map((e) => h('li', { class: `of-entry${waiting.has(e[0] ?? '') ? ' waiting' : ''}`, 'data-key': e[0] ?? '' }, h('b', {}, gateKey(r, e[0] ?? '')), list ? h('span', { class: 'of-entry-defs' }, gateDefines(r, e)) : null, waiting.has(e[0] ?? '') ? h('span', { class: 'of-entry-wait' }, 'waiting for data: no row of the file carries it') : null, since(e[0] ?? ''))),
       ...(r.leftOut ?? []).map((key) => h('li', { class: 'of-entry left', 'data-key': key }, h('b', {}, gateKey(r, key)), h('span', { class: 'of-entry-defs' }, 'left out until it is declared'), since(key)))));
 }
 
@@ -12596,6 +12680,10 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
     h('section', { class: 'of-part of-own' }, h('h3', { class: 'of-h' }, `This ${thing}’s checks`), ruleList(f.rules, 'No checks of its own yet.')),
     h('section', { class: 'of-part' }, h('h3', { class: 'of-h' }, cards.length ? `Columns · ${cards.length}` : 'Columns'), wait, cards.length ? h('div', { class: 'of-cols' }, ...cards) : null),
     // A column the file added, described as the file's own, which the flow doesn't read (ADR 0022 §2, Q-204).
+    // The columns set aside (ADR 0027 §4): named, so that every column the file has is described or set aside.
+    f.aside?.length ? h('section', { class: 'of-part of-aside' }, h('h3', { class: 'of-h' }, `Set aside · ${f.aside.length}`),
+      h('p', { class: 'of-hint' }, 'Columns the file has that the flow doesn’t take: no step reads them.'),
+      h('ul', { class: 'of-unread-list of-aside-list' }, ...f.aside.map((c) => h('li', { 'data-column': c }, h('b', {}, c), owner ? h('button', { type: 'button', class: 'linkish of-aside-back', onclick: () => asideColumn(f.id, c, false) }, ' Take it back ›') : null)))) : null,
     f.unread?.length ? h('section', { class: 'of-part of-unread' }, h('h3', { class: 'of-h' }, `Not read by the flow · ${f.unread.length}`),
       h('ul', { class: 'of-unread-list' }, ...f.unread.map((u) => h('li', { 'data-column': u.name }, h('b', {}, u.title), saysMore(u.name, u.title) ? h('code', {}, u.name) : '', u.description ? `: ${u.description}` : '')))) : null,
     // What the ontology doesn't say yet, proposed from the file's own data (Q-139, Q-213): a file's, not a made dataset's.
@@ -14597,6 +14685,22 @@ function describeNewColumn(source: string, column: string, day: string): void {
   renderLoads();
 }
 
+/** A file's column set aside, or taken back (ADR 0027 §4): the ontology's record that the flow doesn't take it. It
+ * says how the file is read, as a name does, so it holds for every day at once (Q-198), and is recorded. */
+function asideColumn(source: string, column: string, aside: boolean): void {
+  if (!isOwner() || state.running) return;
+  const { said } = setColumnAside(state.doc, source, column, aside);
+  if (!said) return;
+  const pinned = pinnedSaid([source]);
+  if (pinned) return void setStatus(pinned, true);
+  ruleBase = ruleParts(setColumnAside(withRuleParts(state.doc, ruleBase), source, column, aside).doc);
+  resolveDoc(resolvedFor.day, resolvedFor.asOf, true);
+  setStatus(`${said}. Recorded.`, false);
+  void flowEdited(said);
+  renderLoads();
+  if (location.hash === '#ontology') void renderOntology();
+}
+
 /**
  * The day's columns that changed (ADR 0022 §2; Q-109, Q-146, Q-203, Q-204), on its head: each source whose file's
  * columns aren't the declared ones, what is gone and new and which new column reads as a gone one, and, for someone
@@ -14678,13 +14782,18 @@ function columnsPart(k: number): HTMLElement | null {
         } }, `Read ${m.from} as ${m.to} ›`))
         : null;
     });
-    const fresh = !held ? c.added.filter((col) => !propertyOf(state.doc.ontology, n.origin, col)) : [];
+    // A new column is the ontology's to settle (ADR 0027 §4): described, or set aside; until then it is noted, and no
+    // step reads it either way.
+    const fresh = !held ? c.added.filter((col) => !propertyOf(state.doc.ontology, n.origin, col) && !isAside(state.doc.ontology, n.origin, col)) : [];
     return h('div', { class: `cm-source${held ? ' held' : ''}`, 'data-source': n.origin },
       h('p', { class: 'cm-said' }, h('b', {}, `${n.origin}: `), `${columnChangeSaid(c)}.`),
       ...joins,
       ...maps,
       held && !c.maps.length ? h('p', { class: 'foot' }, `Keep the day back or replace the file on the decision sheet; a column read by another name is mapped from a file that has it.`) : '',
-      fresh.length && isOwner() ? h('p', { class: 'cm-ask' }, ...fresh.map((col) => h('button', { type: 'button', class: 'linkish cm-add', 'data-column': col, onclick: () => describeNewColumn(n.origin, col, day) }, `Add ${col} to the ontology ›`))) : '');
+      fresh.length && isOwner() ? h('p', { class: 'cm-ask' }, ...fresh.flatMap((col) => [
+        h('button', { type: 'button', class: 'linkish cm-add', 'data-column': col, onclick: () => describeNewColumn(n.origin, col, day) }, `Add ${col} to the ontology ›`),
+        ...(state.doc.smaltfl === 5 ? [h('button', { type: 'button', class: 'linkish cm-aside', 'data-column': col, onclick: () => asideColumn(n.origin, col, true) }, `Set ${col} aside ›`)] : []),
+      ])) : '');
   });
   return h('section', { class: 'panel dh-columns', 'aria-label': 'Columns that changed' }, h('p', { class: 'eyebrow' }, 'Columns that changed'), ...rows);
 }
@@ -14737,6 +14846,15 @@ function leftOutNow(r: RunRecord | null | undefined): { rule: OntologyRule; step
     const counted = r.result.manifest.nodes.find((n) => n.origin === step.id)?.expectations?.rules.find((x) => x.name === leftOutName(rule.id));
     return counted ? [{ rule, step: step.id, keys: rule.leftOut, rows: counted.failed }] : [];
   });
+}
+
+/** The entries of closed lists that wait for data in a run (Q-255): the ontology has them, and no row of the file does. */
+function waitingNow(r: RunRecord | null | undefined): { rule: OntologyRule; step: string; keys: string[] }[] {
+  if (!r) return [];
+  return r.result.manifest.nodes.flatMap((n) => (n.closed ?? []).flatMap((c) => {
+    const rule = (state.doc.ontology?.rules ?? []).find((x) => x.kind === 'closed' && x.id === c.rule && checkStepOf(state.doc, x.file)?.id === n.origin);
+    return rule && c.waiting?.length ? [{ rule, step: n.origin, keys: c.waiting }] : [];
+  }));
 }
 
 /** An entry's key as people call it, and what defines it, in the ontology's words. */
@@ -14815,7 +14933,8 @@ function gatePart(k: number): HTMLElement | null {
   const day = l.day.slice(0, 10);
   const stops = gateStops(r);
   const left = leftOutNow(r);
-  if (!stops.length && !left.length) return null;
+  const waiting = waitingNow(r);
+  if (!stops.length && !left.length && !waiting.length) return null;
   const may = checkDecision(policies(), state.viewer, 'asis').allowed;
   const waits = (outs: readonly string[]) => (outs.length ? `${plural(outs.length, 'output waits', 'outputs wait')} for it: ${outs.slice(0, 3).join(', ')}${outs.length > 3 ? ` and ${outs.length - 3} more` : ''}. What it doesn’t feed went out as usual.` : '');
   const formFor = (stop: { step: string; rule: OntologyRule }, entries: string[][]): HTMLElement => {
@@ -14886,9 +15005,16 @@ function gatePart(k: number): HTMLElement | null {
       forming ? formFor({ step: x.step, rule: x.rule }, forming.entries)
         : may ? h('p', { class: 'cm-ask' }, ...x.keys.map((key) => h('button', { type: 'button', class: 'btn small gt-declare-left', 'data-key': key, onclick: () => void declareLeftOut(k, x.rule, x.step, key) }, `Declare ${key} ›`))) : '');
   });
+  // Declared before its data (Q-255): in force, and nothing held; every day says so until the file has it.
+  const waitRows = waiting.map((w) => {
+    const since = w.keys.length === 1 ? sinceOf(registerNow().entries, `entry:${w.rule.file}:${w.rule.id}:${w.keys[0]}`.toLowerCase(), day) : null;
+    return h('div', { class: 'cm-source gt-waiting', 'data-file': w.rule.file, 'data-rule': w.rule.id },
+      h('p', { class: 'cm-said' }, h('b', {}, `${w.rule.file}: `), `${listed(w.keys.map((key) => gateKey(w.rule, key)))} ${w.keys.length === 1 ? 'is' : 'are'} in the ontology, and no row of the file carries ${w.keys.length === 1 ? 'it' : 'them'}. Waiting for data: nothing is held.`),
+      since ? h('p', { class: 'foot' }, `Declared from ${dayShort(since.change.from)}, by ${personName(since.change.by)}: ${since.change.why}`) : '');
+  });
   return h('section', { class: 'panel dh-gate', 'aria-label': 'At the gate' }, h('p', { class: 'eyebrow' }, 'At the gate'),
     stops.length ? h('p', { class: 'gt-lead' }, 'The ontology comes first: what it doesn’t have waits for a person.') : '',
-    ...rows, ...open2);
+    ...rows, ...open2, ...waitRows);
 }
 
 /**
@@ -16587,7 +16713,8 @@ async function claimsForRun(engine: Engine, day: string | undefined, parameters:
         pinnedSamples.set(source, sample);
         pins.push(pinFile(engine, samplePath(source), utf8(JSON.stringify(sample))));
       }
-      tell[source] = { skip: recordedSkips(), levels: levelsOf(allEntries(), source) };
+      const excuses = day ? excusesNow(source, day) : [];
+      tell[source] = { skip: recordedSkips(), levels: levelsOf(allEntries(), source), ...(excuses.length ? { excuses } : {}) };
       continue;
     }
     const { b, settings } = prepared[at]!;
@@ -16611,7 +16738,7 @@ async function claimsForRun(engine: Engine, day: string | undefined, parameters:
       keptRows.set(source, mine);
     }
     const file = fileFacts(source, day);
-    const told = await loadClaim({ ...(givens.get(source) ? { given: givens.get(source)! } : {}), doc: state.doc, source, flow: plan.flow.hash, base: ref ? base : null, baseRef: ref, tail: tails.get(source) ?? [], measures: m, settings, skip: recordedSkips(), levels: levelsOf(allEntries(), source), build: BUILD_COMMIT, ...(kept && samples.get(source) ? { sample: samples.get(source)!, kept } : {}), ...(file ? { file } : {}) });
+    const told = await loadClaim({ ...(givens.get(source) ? { given: givens.get(source)! } : {}), doc: state.doc, source, flow: plan.flow.hash, base: ref ? base : null, baseRef: ref, tail: tails.get(source) ?? [], measures: m, settings, skip: recordedSkips(), levels: levelsOf(allEntries(), source), build: BUILD_COMMIT, ...(kept && samples.get(source) ? { sample: samples.get(source)!, kept } : {}), ...(file ? { file } : {}) , ...(day && excusesNow(source, day).length ? { excuses: excusesNow(source, day) } : {}) });
     pins.push(pinFile(engine, tailPath(source), told?.tail.length ? utf8(canonicalJSON(told.tail as unknown as Parameters<typeof canonicalJSON>[0])) : null));
     const key = `${day}|${source}|${flowHistory ? countedChecks(state.doc, flowHistory, source) : false}`;
     claims.set(key, told?.claim ?? null);

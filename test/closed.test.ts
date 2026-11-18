@@ -14,8 +14,9 @@ import smaltfl from '../src/plugin/index.js';
 import { changesProblems, validateDocument, type ChangeSet, type FlowDocument } from '../src/core/document.js';
 import { emitRuleCheck } from '../src/core/emit.js';
 import { declareEntry, leaveOut, setRule } from '../src/core/flowedit.js';
-import { undeclaredSaid } from '../src/core/hold.js';
+import { latestGot, latestPublished, undeclaredSaid } from '../src/core/hold.js';
 import { applyEdit, resolve } from '../src/core/inforce.js';
+import type { JSONValue } from '../src/core/log.js';
 import { expandNotebooks } from '../src/core/notebook.js';
 import { translate, validatePlan, type ClosedPlan } from '../src/core/plan.js';
 import { defaultKind, livesOf, registerOf, shortOf, subjectOf } from '../src/core/register.js';
@@ -277,6 +278,27 @@ describe('what stopped at the gate, said', () => {
   });
 });
 
+describe('the day readers got, once a restatement publishes a day held at the gate', () => {
+  const entry = (seq: number, kind: string, about: JSONValue) => ({ seq, kind, at: `2024-03-27T0${seq}:00:00Z`, by: { card: null, as: 'ciso' }, about, reason: null, amends: null });
+  const run = (seq: number, day: string, outcome: 'ok' | 'held') => entry(seq, 'run', { run: seq, manifest: `m${seq}`, outcome, day, inputs: { flow: 'f', parameters: { day }, nodes: {} } });
+  const restate = (seq: number, days: { day: string; passes: boolean }[]) => entry(seq, 'restate', { changes: ['c'], from: days[0]!.day, days: days.map((d) => ({ ...d, manifest: `r${seq}` })), kept: [], same: [] });
+
+  it('is the day declared and run again, from its restatement on; the names the engine moved stay the day before', () => {
+    const entries = [run(0, '2024-03-22', 'ok'), run(1, '2024-03-27', 'held'), restate(2, [{ day: '2024-03-27', passes: true }])];
+    expect(latestPublished(entries.slice(0, 2), 'day')).toBe('2024-03-22');
+    expect(latestGot(entries.slice(0, 2), 'day')).toBe('2024-03-22');
+    expect(latestGot(entries, 'day')).toBe('2024-03-27');
+    expect(latestPublished(entries, 'day')).toBe('2024-03-22');
+  });
+
+  it('takes back a day restated as not published, and keeps a later day run since', () => {
+    const entries = [run(0, '2024-03-15', 'ok'), run(1, '2024-03-16', 'ok'), restate(2, [{ day: '2024-03-16', passes: false }])];
+    expect(latestGot(entries, 'day')).toBe('2024-03-15');
+    expect(latestGot([...entries, run(3, '2024-03-18', 'ok')], 'day')).toBe('2024-03-18');
+    expect(latestGot([], 'day')).toBeNull();
+  });
+});
+
 describe('the gate in the engine', () => {
   const CONTROLS = "('mfa', 'MFA for admins', 3, 'daily'), ('tls', 'TLS 1.2 or later', 2, 'daily'), ('backup', 'Backups tested', 1, 'weekly')";
   const EVIDENCE = "('a1','mfa','pass'), ('a1','tls','fail'), ('a2','mfa','pass'), ('a2','backup','na')";
@@ -388,6 +410,49 @@ describe('the gate in the engine', () => {
       // The score counts what the ontology has: a1's evidence for sbom finds no control and adds nothing.
       expect(db.query("SELECT weight FROM score WHERE app_id = 'a1'").rows[0]![0]).toBe(5);
       expect((await verifyRun(db, r.run, { smaltdb: SMALTDB, level: 'rerun', manifest: r.hash })).ok).toBe(true);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('says an entry declared before its data is waiting for it, holds nothing, and stops saying so once a row carries it', async () => {
+    const ahead = declareEntry(await doc(), 'controls', 'control_id_closed', ['sbom', '2', 'daily'])!.doc;
+    const db = open();
+    try {
+      const r = await go(db, ahead);
+      expect(r.holds).toEqual([]);
+      expect(r.published).toEqual(['score', 'team_list']);
+      expect(r.manifest.nodes.find((n) => n.origin === 'controls_checked')!.closed).toEqual([{ rule: 'control_id_closed', arrivals: [], more: 0, waiting: ['sbom'] }]);
+      const v = await verifyRun(db, r.run, { smaltdb: SMALTDB, level: 'rerun', manifest: r.hash });
+      expect(v.checks.find((c) => c.check === 'closed')).toMatchObject({ ok: true });
+      expect(v.ok).toBe(true);
+    } finally {
+      db.close();
+    }
+    const there = open({ controls: SBOM });
+    try {
+      const r = await go(there, ahead);
+      expect(r.manifest.nodes.every((n) => n.closed === undefined)).toBe(true);
+    } finally {
+      there.close();
+    }
+    // The file brings it with another weight than the ontology declared: at the gate, changed, and not waiting.
+    const other = open({ controls: SBOM.replace("'Software bill of materials', 2", "'Software bill of materials', 3") });
+    try {
+      const r = await go(other, ahead);
+      expect(r.manifest.nodes.find((n) => n.origin === 'controls_checked')!.closed).toEqual([{ rule: 'control_id_closed', arrivals: [[['sbom', '3', 'daily'], 1, true]], more: 0 }]);
+      expect(r.holds.map((h) => h.said)).toEqual(['not as the ontology has it: control_id sbom (1 row)']);
+    } finally {
+      other.close();
+    }
+  });
+
+  it('asks nothing of a closed column’s values that don’t occur: only a list’s entries wait for data', async () => {
+    const db = open({ evidence: "('a1','mfa','pass'), ('a2','tls','pass')" });
+    try {
+      const r = await go(db, await doc());
+      expect(r.holds).toEqual([]);
+      expect(r.manifest.nodes.find((n) => n.origin === 'evidence_checked')!.closed).toBeUndefined();
     } finally {
       db.close();
     }

@@ -494,6 +494,13 @@ export function emitUndeclared(sql: string, check: string, key: string, defines:
   return `SELECT ${cols.join(', ')}, count(*) FROM (\n${sql}\n) WHERE CASE WHEN (\n${check}\n) THEN 0 ELSE 1 END = 1 GROUP BY ${places} ORDER BY ${cols.length + 1} DESC, ${places} LIMIT ${Math.max(1, Math.floor(limit))}`;
 }
 
+/** The keys among those given that some row of a relation carries: what a closed list's entries are held against to
+ * say which wait for data (ADR 0027 §4, Q-255). */
+export function emitKeysPresent(sql: string, key: string, keys: readonly string[]): string {
+  const k = `CAST(${q(key)} AS TEXT)`;
+  return `SELECT DISTINCT ${k} FROM (\n${sql}\n) WHERE ${k} IN (${keys.map(lit).join(', ')}) ORDER BY 1`;
+}
+
 /** How many entries arrived that a closed rule doesn't have. */
 export function emitUndeclaredCount(sql: string, check: string, key: string, defines: readonly string[]): string {
   const cols = [`CAST(${q(key)} AS TEXT)`, ...defines.map((d) => blankless(q(d)))];

@@ -37,6 +37,10 @@ export interface ClosedCounts {
   rule: string;
   arrivals: [entry: string[], rows: number, changed: boolean][];
   more: number;
+  /** A closed list's entries the ontology has that no row of the file carries (ADR 0027 §4, Q-255): declared before
+   * their data, or gone from it. Waiting for data: said every day, and holds nothing. By key, sorted; absent where
+   * every entry has its row, and for a closed column, whose values needn't all occur. */
+  waiting?: string[];
 }
 
 export interface ManifestNode {
@@ -69,7 +73,8 @@ export interface ManifestNode {
   /** plan/4, a contracted dataset (Q-171): its contract checked by the run over the dataset it built. */
   contract?: ContractCounts;
   /** A check step that enforces a closed list or column (ADR 0027 §4): what arrived that the ontology doesn't have, for
-   * each closed rule a row failed. Absent where none did, so a day with nothing at the gate is recorded as it always was. */
+   * each closed rule a row failed, and the entries of a closed list that wait for data. Absent where neither, so a day
+   * with nothing at the gate is recorded as it always was. */
   closed?: ClosedCounts[];
 }
 

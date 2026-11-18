@@ -455,7 +455,7 @@ export async function translate(given: FlowDocument, values: Readonly<Record<str
   for (const [k, p] of Object.entries(params)) parameters[k] = typeof p.value === 'bigint' ? p.value.toString() : p.value;
   // A format-4 document's plan is plan/3 (ADR 0011 §1, E14), with or without a publish block; with gates, plan/4
   // (ADR 0014 §1), each watch carrying the checks it is judged by.
-  const notebooks = doc.smaltfl === 4;
+  const notebooks = doc.smaltfl >= 4;
   const gates = notebooks && hasGates(doc);
   const plan: FlowPlan = { smaltflPlan: gates ? 4 : notebooks ? 3 : 0, flow: { id: doc.id, hash: await flowHash(doc) }, parameters, nodes, outputs };
   // Without a publish block the plan is what it always was, so every plan/0 hash holds (ADR 0009, E10).

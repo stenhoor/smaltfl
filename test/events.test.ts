@@ -57,7 +57,7 @@ describe('events', () => {
     expect(eventsProblems({})).toEqual(['its events are a list']);
     const bad = eventsProblems([{ ...freeze, until: '2024-03-01', kind: 'holiday', extra: 1 }, { id: '', name: ' ', from: 'Mar 1', kind: 'freeze', recorded: 'then', by: '' }]);
     expect(bad).toEqual([
-      'event 1: extra is not a field of an event (id, name, from, until, kind, about, note, recorded, by, withdrawn)',
+      'event 1: extra is not a field of an event (id, name, from, until, kind, about, note, recorded, by, withdrawn, excuses)',
       'event 1: its last day is YYYY-MM-DD, on or after its first',
       'event 1: its kind is one of reorg, freeze, migration, incident, campaign, other',
       'event 2: it has an id',
@@ -74,7 +74,7 @@ describe('a story’s events', () => {
   it('are checked with the story, by its people and at UTC times', () => {
     const story = JSON.parse(readFileSync('examples/larkspur/story.json', 'utf8'));
     expect(storyProblems(story, { principals: ['owner', 'ciso'] })).toEqual([]);
-    expect(story.events.map((e: FlowEvent) => e.id)).toEqual(['remediation-push', 'reorg-handover', 'waf-monitor-mode', 'scanner-no-login', 'change-freeze']);
+    expect(story.events.map((e: FlowEvent) => e.id)).toEqual(['remediation-push', 'agent-reinstall', 'reorg-handover', 'waf-monitor-mode', 'scanner-no-login', 'change-freeze']);
     const wrong = { ...story, events: [{ ...story.events[0], by: 'someone', recorded: '2024-03-01 09:00' }] };
     expect(storyProblems(wrong, { principals: ['owner', 'ciso'] })).toEqual([
       'event remediation-push: when it was written down is a UTC time, YYYY-MM-DDTHH:MMZ',

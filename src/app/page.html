@@ -2348,6 +2348,16 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .gt-waits { overflow-wrap: anywhere; }
 .gt-left .cm-said { overflow-wrap: anywhere; }
 .vf-gate { border-left: 3px solid var(--warn); padding-left: 10px; }
+/* What an event excuses (ADR 0027 §6): on a finding told as expected, on the day's head and on the register. */
+.vf-excused { margin: 0 0 6px; padding: 6px 10px; border-left: 3px solid var(--smalt); border-radius: 0 6px 6px 0; background: var(--row-alt); font-size: 14px; overflow-wrap: anywhere; }
+.dh-excuses { color: var(--muted); }
+.rg-excuses { grid-column: 1 / -1; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+.ev-excuses[hidden] { display: none; }
+/* Ontology first (format 5): the head's line, and a file's columns set aside. */
+.rt-first { margin: 0; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+.rt-first b { color: var(--ink); }
+.rt-first.lacking { color: var(--ink); border-left: 3px solid var(--warn); padding-left: 10px; }
+.of-aside-list li { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; }
 /* A closed list or column on the Ontology page: its form, and the entries the ontology has. */
 .of-closed { display: grid; gap: 8px; min-width: 0; }
 .of-defines { margin: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
@@ -2359,6 +2369,8 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .of-entry { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; min-width: 0; padding: 4px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
 .of-entry-defs { color: var(--muted); font-size: 14px; min-width: 0; }
 .of-entry.left b { text-decoration: line-through; text-decoration-thickness: 1px; }
+.of-entry-wait { color: var(--warn-ink, var(--ink)); font-size: 14px; border-bottom: 1px dotted var(--muted); }
+.gt-waiting .cm-said { overflow-wrap: anywhere; }
 .cm-source { display: grid; gap: 6px; min-width: 0; }
 .cm-source + .cm-source { padding-top: 8px; border-top: 1px solid var(--line); }
 .cm-said { margin: 0; overflow-wrap: anywhere; }

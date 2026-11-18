@@ -41,7 +41,7 @@ const SETUP = "import { cell, md, param, sql } from 'smaltnb';\nimport { check, 
 describe('the sign-ins example as notebooks (ADR 0011 §1, §5)', () => {
   it('derives the JSON example\'s steps from its two notebooks, the exports as datasets', async () => {
     const doc = await loadFlowDir(signinsDir);
-    expect(doc.smaltfl).toBe(4);
+    expect(doc.smaltfl).toBe(5);
     expect(documentFormat(doc)).toBe(4);
     expect(validateDocument(doc)).toEqual([]);
     const brief = doc.steps.map((s) => [s.id, s.kind, s.inputs, s.dataset?.description]);
