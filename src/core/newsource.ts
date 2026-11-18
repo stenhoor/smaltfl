@@ -19,11 +19,22 @@
  *
  * Pure: no DOM, no engine, no parser. Nothing the data is made from reads this module.
  */
-import type { Binding } from '../../examples/sources.js';
 import { csvRecords, namesClose } from './columns.js';
 import { asideOf, awaitedOf } from './described.js';
 import type { FlowDocument, NotebookDef } from './document.js';
 import { propertyOf, type AwaitedDataset, type Ontology, type PropertyType } from './ontology.js';
+
+/**
+ * A source's binding as the engine reads it: the shape of a data list's (`examples/sources.ts` `Binding`), said here so
+ * that the core reads nothing outside itself and the package builds from `src` alone.
+ */
+export interface SourceBinding {
+  table: string;
+  format: 'parquet' | 'csv';
+  file: string;
+  header?: boolean;
+  columns?: [name: string, type: string][];
+}
 
 const lower = (x: string) => x.toLowerCase();
 /** "A", "A and B", "A, B and C". */
@@ -293,7 +304,7 @@ const tableOf = (doc: Pick<FlowDocument, 'sources'>, id: string): string => {
  * flow takes with their types, by the names the flow gives them. A column set aside isn't declared, so nothing reads
  * it; a column the file names otherwise is declared by the file's name where its table is defined (`readAsOf`).
  */
-export function bindingOfSource(doc: Pick<FlowDocument, 'sources'>, spec: SourceSpec): Binding {
+export function bindingOfSource(doc: Pick<FlowDocument, 'sources'>, spec: SourceSpec): SourceBinding {
   const had = doc.sources.find((s) => lower(s.id) === lower(spec.id));
   return { table: had?.table ?? tableOf(doc, spec.id), format: 'csv', file: fileOfSource(spec.id), header: true, columns: spec.columns.filter((c) => !c.aside).map((c) => [c.column, c.type]) };
 }
