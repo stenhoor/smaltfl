@@ -1,7 +1,8 @@
 /**
  * A later delivery of a day in the record (ADR 0021 §1, §2): it closes the pause of the file it sent again, so the day
  * waits on the correction alone (with several watched sources, only the re-sent file's load), and the history learns the
- * day from the version readers got (core/hold.ts pausesOf, learnedMeasures, skipOf).
+ * day from the version readers got (core/hold.ts pausesOf, learnedMeasures, skipOf). A day a restatement made held is
+ * left out of learning, and a day a restatement published is learned from.
  */
 import { describe, expect, it } from 'vitest';
 import { learnedMeasures, pausesOf, skipOf, type Load } from '../src/core/hold.js';
@@ -85,5 +86,54 @@ describe('a day a restatement made held, not published (ADR 0022 §1)', () => {
     expect(skipOf([first, restated, notPublished, again], 'day')).toEqual([]);
     // A run of the day published before the restatement doesn't.
     expect(skipOf([first, restated, notPublished].map((e, i) => ({ ...e, seq: i })), 'day')).toEqual([day]);
+  });
+});
+
+describe('a day held, then published by a restatement (ADR 0027 §4, Q-291)', () => {
+  const day = '2024-03-27';
+  const catalog: Load = { source: 'control_catalog', slot: day, sha256: 'c'.repeat(64) };
+  const dr: Load = { source: 'dr_exercises', slot: day, sha256: 'd'.repeat(64) };
+  const files = { flow: 'f'.repeat(64), parameters: { day }, files: { control_catalog: catalog.sha256, dr_exercises: dr.sha256 } };
+
+  it('is learned from once the run restated under the rules as changed is no longer stopped by what held it', () => {
+    seq = 0;
+    // Held at the gate by the catalogue alone; declared, run again and restated: published.
+    const first = entry('run', { run: 1, manifest: 'm1', outcome: 'held', day, inputs: files, loads: [catalog, dr], holds: [hold('checks', 'control_catalog_checked', catalog)], waiting: ['auth_valid'], keys: { auth_valid: 'k1' } });
+    const again = entry('run', { run: 2, manifest: 'm2', outcome: 'restated', day, inputs: files, restates: { of: 'm1', changes: ['sbom-declared'] }, holds: [hold('restated', 'run')] });
+    const published = entry('restate', { changes: ['sbom-declared'], from: day, days: [{ day, manifest: 'm2', passes: true }], kept: [], same: [] }, 'The board added the control');
+    expect(skipOf([first], 'day')).toEqual([day]);
+    expect(skipOf([first, again], 'day')).toEqual([day]);
+    expect(skipOf([first, again, published], 'day')).toEqual([]);
+    // The pause itself is as it was: nobody decided it, the restatement says what readers got.
+    expect(pausesOf([first, again, published], 'day').map((p) => p.state)).toEqual(['open']);
+    // A restatement since that leaves the day not published takes it out again.
+    const back = entry('restate', { changes: ['sbom-declared', 'sbom-withdrawn'], from: day, days: [{ day, manifest: 'm3', passes: false }], kept: [], same: [] }, 'Withdrawn');
+    expect(skipOf([first, again, published, back], 'day')).toEqual([day]);
+    // A hold that opens after the restatement is its own: a later file of the day, held, keeps the day out.
+    const later = entry('run', { run: 4, manifest: 'm4', outcome: 'held', day, inputs: { ...files, files: { ...files.files, dr_exercises: 'e'.repeat(64) } }, loads: [catalog, { ...dr, sha256: 'e'.repeat(64) }], correction: { of: 'm1', sources: ['dr_exercises'] }, holds: [hold('correction', 'dr_exercises', { ...dr, sha256: 'e'.repeat(64) })], waiting: ['auth_valid'], keys: { auth_valid: 'k4' } });
+    expect(skipOf([first, again, published, later], 'day')).toEqual([day]);
+  });
+
+  it('stays out for the file the restated run still holds: its decision carried, its data as it was', () => {
+    seq = 0;
+    // Two files held the day; the restated run passes the catalogue and still holds the exercises, which a decision carried.
+    const first = entry('run', { run: 1, manifest: 'm1', outcome: 'held', day, inputs: files, loads: [catalog, dr], holds: [hold('checks', 'control_catalog_checked', catalog), hold('story', 'dr_exercises', dr)], waiting: ['auth_valid'], keys: { auth_valid: 'k1' } });
+    const again = entry('run', { run: 2, manifest: 'm2', outcome: 'restated', day, inputs: files, restates: { of: 'm1', changes: ['sbom-declared'] }, holds: [hold('restated', 'run'), hold('story', 'dr_exercises', dr)] });
+    const published = entry('restate', { changes: ['sbom-declared'], from: day, days: [{ day, manifest: 'm2', passes: true }], kept: [], same: [] }, 'The board added the control');
+    const all = [first, again, published];
+    expect(skipOf(all, 'day')).toEqual([day]);
+    expect(skipOf(all, 'day', 'control_catalog')).toEqual([]);
+    expect(skipOf(all, 'day', 'dr_exercises')).toEqual([day]);
+  });
+
+  it('with one watched dataset, is learned from where the restated run holds nothing of its own', () => {
+    seq = 0;
+    const one = { flow: 'f'.repeat(64), parameters: { day }, files: { auth: 'a'.repeat(64) } };
+    const first = entry('run', { run: 1, manifest: 'm1', outcome: 'held', day, inputs: one, holds: [hold('checks', 'auth_valid')], waiting: ['auth_valid'], keys: { auth_valid: 'k1' } });
+    const passes = entry('run', { run: 2, manifest: 'm2', outcome: 'restated', day, inputs: one, restates: { of: 'm1', changes: ['declared'] }, holds: [hold('restated', 'run')] });
+    const stopped = entry('run', { run: 2, manifest: 'm2', outcome: 'restated', day, inputs: one, restates: { of: 'm1', changes: ['declared'] }, holds: [hold('restated', 'run'), hold('story', 'auth')] });
+    const published = entry('restate', { changes: ['declared'], from: day, days: [{ day, manifest: 'm2', passes: true }], kept: [], same: [] }, 'Declared');
+    expect(skipOf([first, passes, published], 'day')).toEqual([]);
+    expect(skipOf([first, stopped, published], 'day')).toEqual([day]);
   });
 });

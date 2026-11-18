@@ -1521,20 +1521,57 @@ export function learnedMeasures<M extends { source: string; slot: string }>(entr
 /**
  * The days the record leaves out of learning (ADR 0010 §5, C5, Q-80): every day held and not published as is, whether
  * still waiting, not published, filled, or the part that arrived published alone. A day published as is, or passed
- * by a later run of the same inputs, is learned from, as a day published as it arrived is. In order. With several
- * watched sources, a source's slots its loads' pauses leave out (`source`), and every pause of a day otherwise.
+ * by a later run of the same inputs, is learned from, as a day published as it arrived is; so is a day a restatement
+ * published by a run its hold no longer stops (ADR 0027 §4, Q-291). In order. With several watched sources, a source's
+ * slots its loads' pauses leave out (`source`), and every pause of a day otherwise.
  */
 export function skipOf(entries: readonly EntryLike[], period?: string | null, source?: string): string[] {
   const out = new Set<string>();
+  const got = restatedGot(entries);
   for (const p of pausesOf(entries, period)) {
     if (p.day === null || p.state === 'passed' || p.superseded) continue;
     if (p.state === 'decided' && asCame(p.decision?.about.option)) continue;
     // With several watched sources, a load's pause leaves out its slot for its own source alone (ADR 0010 §7).
     if (p.load && source !== undefined && p.load.source.toLowerCase() !== source.toLowerCase()) continue;
+    // A restatement since published the day, by a run this pause's hold no longer stops (ADR 0027 §4): a day held at
+    // the gate, declared and run again is learned from, as a day passed by a later run of the same files is.
+    const g = got.get(p.day);
+    if (g && g.seq > p.opened && (p.load ? !g.holding.has(loadKey(p.load)) : !g.any)) continue;
     out.add(p.day);
   }
   for (const day of restatedHeld(entries, period)) out.add(day);
   return [...out].sort();
+}
+
+/**
+ * The days a restatement published (ADR 0021 §5, ADR 0027 §4), each with the restatement's seq and what its restated
+ * run still held: the loads its own holds name, and whether anything but being a restated run held it. The latest
+ * restatement of a day says it: one that leaves the day not published takes it out again (`restatedHeld` has it).
+ */
+function restatedGot(entries: readonly EntryLike[]): Map<string, { seq: number; holding: Set<string>; any: boolean }> {
+  const got = new Map<string, { seq: number; holding: Set<string>; any: boolean }>();
+  let runs: Map<string, Hold[]> | null = null;
+  for (const e of entries) {
+    const a = e.about as JSONValue;
+    if (e.kind !== 'restate' || !isRecord(a) || !Array.isArray(a.days)) continue;
+    // The restated runs' own holds, by manifest: read once, and only where the record has a restatement.
+    runs ??= new Map(entries.flatMap((r): [string, Hold[]][] => {
+      const ra = r.about as JSONValue;
+      return r.kind === 'run' && isRecord(ra) && typeof ra.manifest === 'string' ? [[ra.manifest, Array.isArray(ra.holds) ? (ra.holds as unknown as Hold[]) : []]] : [];
+    }));
+    for (const d of a.days) {
+      if (!isRecord(d) || typeof d.day !== 'string') continue;
+      // The day as the record names it, which is how a pause names its own.
+      const day = d.day;
+      if (d.passes !== true) {
+        got.delete(day);
+        continue;
+      }
+      const own = (typeof d.manifest === 'string' ? (runs.get(d.manifest) ?? []) : []).filter((h) => h.by !== 'restated' && h.by !== 'correction' && h.by !== 'what-if');
+      got.set(day, { seq: e.seq, holding: new Set(own.flatMap((h) => (isLoad(h.load) ? [loadKey(h.load)] : []))), any: own.length > 0 });
+    }
+  }
+  return got;
 }
 
 /**
