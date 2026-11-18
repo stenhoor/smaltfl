@@ -226,7 +226,7 @@ Results on 2026-11-09, at `e42d9ec` on data `0ca4dd1`:
 ## What is not done
 
 **Now: [ADR 0027](adr/0027-the-ontology-over-time.md), the ontology over time** (designed 2026-11-18, the maintainer's
-answers Q-247 to Q-279; slices 1 to 3 of ten are built, its §"As built"). The maintainer asked for a temporal
+answers Q-247 to Q-279; slices 1 to 4 of ten are built, its §"As built"). The maintainer asked for a temporal
 ontology: how the ontology changes over time, why certain things apply on certain dates, what was going on and what
 was decided then, shown visually and carried with the data so that analysis is always aware of its context. The
 research is [research/temporal-ontology.md](research/temporal-ontology.md): temporal data models, ontologies and
@@ -251,7 +251,7 @@ smaltfl already dates; (2) reasons, kinds and events; (3) the gate, and document
 kinds, relations and meanings over time, and the shared ontology's own changes; (6) reading across a change; (7)
 context that travels; (8) who decides; (9) who hears, and the auditor; (10) the demo's new scene. Q-280 to Q-285 are
 the choices the answers leave open, proposed for the maintainers to confirm as each is built; Q-286 to Q-291 are the
-ones slice 3 made as it was built.
+ones slice 3 made as it was built, and Q-292 to Q-296 slice 4's.
 
 Built so far:
 
@@ -267,8 +267,20 @@ Built so far:
   `test/described.test.ts`, Larkspur's answer key (`npm run test:slow`: Wed 27 at the gate and declared, Sat 9 told
   as expected), and `npm run regress -- gate` on the sign-ins.
 
-What comes next is slice 4, the two doors: *Add a source* (here is the data, then its description) and *Describe*
-(the description first, then the data), and a format-4 flow brought up to format 5 in the app.
+- **Slice 4, the two doors:** *Add a source ›* above the canvas. *Here is the data*: a CSV file picked is read in the
+  browser, its description proposed from what it holds, and nothing is written until what one row is, its key and
+  every column (described or set aside) are confirmed, with a reason; it is then cells of `sources.nb.ts`, its file
+  kept in the browser, and the day runs with it. *Describe it first*: a dataset described ahead of its data
+  (`ontology.awaited`, the dated edit `describeAhead`) waits for data until a file is bound to it, its columns read
+  as the described ones. A format-4 flow is brought up to format 5 by its owner on the Ontology view. How to check
+  it: `test/newsource.test.ts` (through the engine too), `test/described.test.ts`, `test/files.test.ts`, and
+  `npm run regress -- doors` on the sign-ins (a file added, the page loaded again, a dataset described and bound, a
+  source taken off); Larkspur's Ontology view lists the SBOM inventory, described ahead from Wed 27
+  (`npm run regress -- versions`).
+
+What comes next is slice 5: kinds, relations and meanings over time (dated edits for types, links, rows entries and
+dependencies; a meaning reworded or redefined; things ended with what follows), the estate's own change sets, the
+map and the comparison between two dates.
 
 **Built: [ADR 0026](adr/0026-flows-in-flows.md), flows in flows** (2026-11-17, the maintainer's answers Q-231 to
 Q-245: every slice of its §12, and both steps of slice 5). The maintainer asked for flows that are parts of other flows: build one, read it from many, stack them, change

@@ -54,7 +54,10 @@
 //     "press": ["sel", "ArrowLeft"],      optional: after the taps, focus the first match and press each key in order
 //                                         (the month's arrow keys, ADR 0024 §7)
 //     "upload": ["sel", "file"],          optional: after the taps, choose this file (relative to the stops file) in a
-//                                         file input, and wait for the run it starts (Replace the file)
+//                                         file input, and wait for the run it starts (Replace the file); a third
+//                                         entry is what the file opens once read (a form), waited for
+//     "then": ["sel", ...],               optional: taps and typed fields after the file was chosen, as `clicks` are
+//                                         (a form the file opened, filled in and sent)
 //     "waitFor": "sel",                   optional: after the taps, wait until this shows (what a tap draws once the engine answers)
 //     "waitForMs": 240000,                optional: how long waitFor waits (default 30 s): what takes many runs to draw.
 //                                         The page may be at work that long in the stop, where it is more than the
@@ -818,21 +821,25 @@ function tracker() {
           await idle();
         } else problems.push(`${stop.name}: nothing to double-click at ${stop.dblclick}`);
       }
-      for (const step of stop.clicks ?? []) {
-        const [sel, typed] = Array.isArray(step) ? step : [step];
-        const target = p.locator(sel).first();
-        if (!(await target.count())) problems.push(`${stop.name}: nothing to ${typed === undefined ? 'click' : 'type into'} at ${sel}`);
-        else if (typed !== undefined) {
-          if (await target.evaluate((el) => el.tagName === 'SELECT')) await target.selectOption(typed);
-          else await target.fill(typed);
-          await idle();
-        } else {
-          const before = await status();
-          await target.click();
-          await idle();
-          if (!HOOKED && ((await status()).split('|')[0] !== before.split('|')[0] || /Running|Fetching/.test(await status()))) await settledByStatus(before);
+      // Taps and typed fields, in order (a stop's `clicks`, and its `then` after a file was chosen).
+      const taps = async (steps) => {
+        for (const step of steps ?? []) {
+          const [sel, typed] = Array.isArray(step) ? step : [step];
+          const target = p.locator(sel).first();
+          if (!(await target.count())) problems.push(`${stop.name}: nothing to ${typed === undefined ? 'click' : 'type into'} at ${sel}`);
+          else if (typed !== undefined) {
+            if (await target.evaluate((el) => el.tagName === 'SELECT')) await target.selectOption(typed);
+            else await target.fill(typed);
+            await idle();
+          } else {
+            const before = await status();
+            await target.click();
+            await idle();
+            if (!HOOKED && ((await status()).split('|')[0] !== before.split('|')[0] || /Running|Fetching/.test(await status()))) await settledByStatus(before);
+          }
         }
-      }
+      };
+      await taps(stop.clicks);
       // Keys pressed with something focused (the month's calendar: the arrow keys move through its days).
       if (stop.press) {
         const [sel, ...keys] = stop.press;
@@ -848,7 +855,7 @@ function tracker() {
       }
       // A file chosen in a file input (Replace the file), relative to the stops file: the run it starts is waited for.
       if (stop.upload) {
-        const [sel, file] = stop.upload;
+        const [sel, file, shows] = stop.upload;
         const target = p.locator(sel).first();
         if (!(await target.count())) problems.push(`${stop.name}: nothing to choose a file in at ${sel}`);
         else {
@@ -856,8 +863,14 @@ function tracker() {
           await target.setInputFiles(path.resolve(path.dirname(stopsFile), file));
           await idle();
           if (!HOOKED) await settledByStatus(before);
+          // What the file opens once it is read (a form): waited for, so the taps after it find it.
+          if (shows) {
+            await p.waitForSelector(shows, { state: 'visible', timeout: 30000 }).catch(() => problems.push(`${stop.name}: ${shows} never showed after ${file} was chosen`));
+            await idle();
+          }
         }
       }
+      await taps(stop.then);
       if (stop.view && !stop.viewFirst) {
         await go(`#${stop.view}`);
         await idle();

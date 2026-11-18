@@ -2517,6 +2517,73 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .jf-label { font-size: 13px; font-weight: 600; }
 .jf-how, .jf-col { display: flex; align-items: center; gap: 6px; font-size: 13.5px; min-height: 32px; overflow-wrap: anywhere; }
 .jf-cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0 12px; max-height: 190px; overflow: auto; }
+/* The two doors (ADR 0027 §5): Add a source, a file's description confirmed, a dataset described ahead of its data. */
+.src-doors { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-width: 0; }
+.src-door { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); min-width: 0; justify-items: start; }
+.src-door h4 { margin: 0; font-size: 15px; }
+.src-say { margin: 0; font-size: 13.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.src-pick { position: relative; overflow: hidden; min-height: 44px; display: inline-flex; align-items: center; cursor: pointer; }
+.src-pick .src-file { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 0; }
+.src-pick:focus-within { outline: 2px solid var(--smalt); outline-offset: 2px; }
+.cat-made .src-pick { min-height: 36px; }
+.sf-form select, .df-form select { box-sizing: border-box; max-width: 100%; min-height: 44px; border: 1px solid var(--muted); border-radius: 8px; padding: 6px 8px; background: var(--bg); color: var(--ink); font: inherit; font-size: 14px; }
+.sf-form input[type="checkbox"], .df-form input[type="checkbox"], .df-form input[type="radio"] { width: auto; min-height: 0; padding: 0; flex: none; margin: 0; }
+.sf-file, .sf-awaited { margin: 0; font-size: 13.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.sf-file b, .sf-awaited b { color: var(--ink); }
+.sf-hash { font-family: var(--mono); font-size: 12px; }
+.sf-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; min-width: 0; }
+.sf-cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-width: 0; }
+.sf-col { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); min-width: 0; }
+.sf-col.aside { background: var(--sunk); }
+.sf-col.aside .sf-col-head code { text-decoration: line-through; color: var(--muted); }
+.sf-col.unread { border-left: 3px solid var(--warn); }
+.sf-col-head { margin: 0; font-size: 13.5px; overflow-wrap: anywhere; }
+.sf-col-head code { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+.sf-facts { margin: 0; font-size: 12.5px; font-weight: 400; color: var(--muted); overflow-wrap: anywhere; }
+.sf-facts.unread { color: var(--ink); }
+.sf-said { font-weight: 400; color: var(--ink-2); }
+.sf-has { margin: 0; font-size: 13px; color: var(--ink-2); overflow-wrap: anywhere; }
+.sf-iskey { margin-left: 6px; padding: 1px 6px; border: 1px solid var(--line); border-radius: 999px; font-size: 11px; font-weight: 600; color: var(--ink-2); }
+.sf-marks { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.of-form label.sf-mark { display: flex; align-items: center; gap: 6px; min-height: 32px; font-size: 13px; font-weight: 400; color: var(--ink); }
+.sf-read { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; }
+.sf-read select { flex: 1 1 140px; min-width: 0; }
+.sf-close { font-size: 12.5px; font-weight: 600; color: var(--ink); border-left: 3px solid var(--warn); padding-left: 6px; }
+.sf-sub { margin: 4px 0 0; font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+.sf-count { margin: 0; font-size: 13.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.sf-count.lacking { color: var(--ink); border-left: 3px solid var(--warn); padding-left: 10px; }
+.df-cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-width: 0; }
+.df-col { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
+.df-col-add, .df-col-off { justify-self: start; min-height: 32px; }
+.aw .linkish, .sf-form .linkish, .df-form .linkish { background: none; border: 0; padding: 0; min-height: 28px; color: var(--smalt); font: inherit; font-weight: 600; cursor: pointer; text-align: left; }
+.rt-up { display: grid; gap: 6px; min-width: 0; }
+.rt-up-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.rt-up-acts:empty { display: none; }
+.rt-up-acts .btn { min-height: 36px; }
+.of-acts .btn.sf-go, .of-acts .btn.df-go { background: var(--smalt); border-color: var(--smalt); color: var(--surface); font-weight: 600; }
+/* Described ahead of their data, on the Ontology view. */
+.aw { display: grid; gap: 8px; min-width: 0; }
+.aw-head { margin: 0; font-size: 14px; color: var(--muted); }
+.aw-head b { color: var(--ink); }
+.aw-item { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--line); border-left: 3px dotted var(--muted); border-radius: 0 var(--radius) var(--radius) 0; background: var(--surface); min-width: 0; }
+.aw-item.bound { border-left-style: solid; border-left-color: var(--ok, var(--muted)); }
+.aw-item p { margin: 0; font-size: 13.5px; overflow-wrap: anywhere; }
+.aw-name code { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); }
+.aw-state { margin-left: 8px; padding: 1px 7px; border: 1px dotted var(--muted); border-radius: 999px; font-size: 11.5px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.aw-state.bound { border-style: solid; }
+.aw-desc, .aw-row { color: var(--ink-2); }
+.aw-cols summary { font-size: 13px; color: var(--ink-2); cursor: pointer; min-height: 32px; display: flex; align-items: center; }
+.aw-dl { margin: 4px 0 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; font-size: 13px; }
+.aw-dl dt { font-weight: 600; margin-top: 4px; }
+.aw-dl dt code { font-family: var(--mono); font-size: 12.5px; }
+.aw-dl dd { margin: 0; color: var(--ink-2); overflow-wrap: anywhere; }
+.aw-bind .btn { min-height: 36px; }
+@media (min-width: 820px) {
+  .src-doors { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .df-col { grid-template-columns: minmax(120px, 1fr) minmax(0, 2fr) auto auto; align-items: center; }
+  .aw-dl { grid-template-columns: minmax(120px, max-content) minmax(0, 1fr); gap: 4px 14px; }
+  .aw-dl dt { margin-top: 0; }
+}
 /* What changed in a flow (ADR 0026 §7): each change, who made it and when, and what testing it on the days recorded found. */
 .fl-changes { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; min-width: 0; }
 .fl-change { display: grid; gap: 4px; padding: 8px 10px; border-radius: 8px; background: var(--sunk); min-width: 0; }

@@ -1,9 +1,9 @@
 # ADR 0027: The ontology over time
 
 - **Status:** accepted, 2026-11-18: the maintainer's answers to Q-247 to Q-279, asked through the question prompt in
-  seven rounds once the research was in. It is built in the slices of §11: the first three are (§"As built"). The choices the
-  answers leave open are proposed here (Q-280 to Q-285), for the maintainers to confirm as each is built, and those a
-  slice made as it was built after them (Q-286 to Q-291, slice 3).
+  seven rounds once the research was in. It is built in the slices of §11: the first four are (§"As built"). The
+  choices the answers leave open are proposed here (Q-280 to Q-285), for the maintainers to confirm as each is built,
+  and those a slice made as it was built after them (Q-286 to Q-291, slice 3; Q-292 to Q-296, slice 4).
 - **Date:** 2026-11-18
 - **Builds on:**
   - [ADR 0006](0006-integrity.md): the record and the audit bag, which keep every change and decision this ADR adds.
@@ -561,6 +561,84 @@ was). Before, its pause stood open for good and the days after learned nothing f
   readers got; a day declared at the gate is drawn from its own run.
 - A decision on the sheet still can't point at an event. A declaration at the gate can.
 
+### Slice 4: the two doors (2026-11-18)
+
+A source and its description are made together, through either door (§5). No hash tag gains a version: a
+description written ahead is a field of the ontology, written only where a flow has one, and the rules in force
+(`rules/1`) hash it as they hash the rest of the ontology. For the ontology `{ objectTypes: [], linkTypes: [],
+actionTypes: [], awaited: [{ id: sbom_inventory, name: SBOM inventory, row: { one: component list, many: component
+lists }, key: [app_id], columns: [{ column: app_id, description: The application it is of }] }] }`, no gates and no
+switches, the hash is `330a5021ffbb273c8c0b49b3f37003ec327340169a28a9e9eeb13fa4714576f4` (`test/described.test.ts`).
+
+**Here is the data** (`src/core/newsource.ts`, pure, outside what the data's cache is keyed by). Above the canvas,
+*Add a source ›* opens the two doors. A CSV file picked is read whole in the browser and sent nowhere (`readFile`):
+its columns as the file names them, each typed from every value it has (whole numbers, numbers, text; a number
+written with leading zeros is a code), with its blanks, how many values differ and the commonest. Its description
+is proposed from that (`proposeSource`): the dataset named after the file, one row named after the dataset, and the
+key the first column that tells every row apart, an id before a code. Nothing is described for the person.
+
+- **Three things are confirmed** before any step may read it (Q-254; `sourceProblems`): what one row is, by which
+  key, and every column either described or set aside. A column the ontology has a meaning for already needs no
+  words. The form counts down what is left, says how many rows share their key with a row before them, and writes
+  nothing until nothing is left, and a reason is given.
+- **It is written as cells** (`withSource`), as a join made in the app is (ADR 0026 §10): in `sources.nb.ts`, a
+  notebook of the flow's own, the source's cell, a check step that asks every row for its key and warns of one
+  without, and that step published. In the ontology: what one row is (a kind of thing of its own; in a flow with
+  gates, a rows entry of a kind the ontology has, by the one column that holds its key), its noun, each column's
+  meaning as the file's own, and the columns set aside. A meaning an estate shares stays the estate's: the file's
+  own entry is written only to read the column under the file's other name, marked as the override it is.
+- **The file is kept in the browser** (`src/app/files.ts`, a database of its own beside the record), by the flow
+  and its sha256, and pinned in the engine as every file is: the engine hashes it again, the run records it, and
+  the source's sheet says who added it. The flow as kept is restored with its sources and their files; where a
+  file isn't in the browser any more, what was kept of the flow is dropped and the page says so.
+- **It is taken off again** from the same sheet where no step but its own check reads it, and a source whose own
+  step stops its first run is taken off at once. The record keeps both.
+
+**Describe it first** (Q-255). A dataset the business needs is described before any file exists:
+`ontology.awaited`, each entry its name, what one row is, its key and its columns, each with what it holds. It is
+written by a dated edit, `describeAhead`, in a change set with a kind (a first description, unless its author says
+otherwise) and a reason, so it is in force from its day and is a row of the register from then. It **waits for
+data** until a source of its name is in the flow: the Ontology view lists it under *Described ahead of their data*,
+with since when, its columns and *Bind a file ›*.
+
+- **Binding a file** maps the file's columns onto the described ones (`matchAwaited`): the column of the same name,
+  else the one whose name is close, which a person confirms (*a close name: confirm it*). A column under another
+  name is read as the described one, as a renamed column is (ADR 0022 §2). A described column the file has nothing
+  for stops the binding; the file's other columns are described or set aside as any are. The source is then added
+  as above, under the described name.
+- **The description stays** once its data is there: described from one day, evidenced from another, both on
+  screen.
+- Larkspur's story describes the SBOM inventory ahead, in the decision that declares the fifteenth control: the
+  feed the control will be evidenced by, from Wed 27, waiting for data.
+
+**A flow in an older format is brought up in the app** (Q-274, left by slice 3). For its owner the Ontology view's
+first line says what format 5 would ask, with the way to say it: what one row of a file is (its noun, `withRowSaid`),
+each column on its card. Once nothing is asked, *Save it as format 5 ›* does, recorded as a change of the flow.
+
+**Mended on the way.** A flow that reads flows or imports an estate's ontology lost its own columns set aside when
+it was read (`mergeOntologies` carried a list of parts, and slice 3 had added one without it); it carries them
+now, and the datasets described ahead. The day's head listed a column the ontology sets aside as a new column
+every day; it is no news now. The tour (`tools/browser/tour.cjs`) taps and types after a file was chosen (`then`),
+and waits for what the file opens.
+
+**What it leaves.**
+
+- **An added source isn't judged.** It has no watch, so no history and no learned check: its check step warns of a
+  row without a key, and that is all. Setting a watch from the app comes with the checks that need a history.
+- **One file for every day.** A source added here is a fixed file, read again on each day's run, not a daily feed
+  with its own days; a CSV file with a header, in UTF-8, 64 MB at most.
+- **The file is the browser's.** It isn't in the audit bag, and a run can't be re-derived after its source was
+  taken off: its file check fails, which is true.
+- **Adding a source isn't a dated change** (Q-292). It is the flow as kept, for every day run from then, as a join
+  or a flow added from the catalogue is; the record keeps it with its reason, and it isn't a row of the register.
+- **A description written ahead isn't ended or reworded from the app.** The edit replaces an earlier description
+  of the same dataset; ending one is slice 5's.
+- **The estate's ontology carries none.** A dataset is described ahead by a flow.
+- **A kind the ontology has** is offered only in a flow with gates, which is where a rows entry is kept (ADR 0015).
+- **Bringing a flow up** was checked by hand on the controls posture: no demo of the regression is format 4. A
+  change set made before kinds were asked for can't be given one in the app.
+- **The lanes** draw a described dataset as any thing: not dotted while it waits.
+
 ## Consequences
 
 - **A flow can stop for a reason it never could:** the data is ahead of the ontology. That is the point of the gate,
@@ -626,6 +704,21 @@ Proposed with slice 3, as built:
 - **Q-291:** a day a restatement publishes is the day readers see from then, by the record, and a day the history
   learns from, unless the run restated still holds the file its pause was about. The engine's names follow releases
   only, as ADR 0021 §5 left them.
+
+Proposed with slice 4, as built:
+
+- **Q-292:** adding a source isn't a dated change. It is the flow as kept, for every day run from then, as a join or a
+  flow added from the catalogue is, recorded with its reason. A description written ahead of its data is a dated
+  change, with a kind and a reason, and stays in the ontology once its file is bound.
+- **Q-293:** a source added in the app is its cell, a check step that warns of a row without its key, and that step
+  published; its description is a kind of thing of its own (or, in a flow with gates, a rows entry of a kind the
+  ontology has), a noun, each column's meaning as the file's own, and the columns set aside. It isn't watched.
+- **Q-294:** the file is kept in the browser, by the flow and its hash, beside the record and not in it. A flow kept
+  with a source whose file is gone is the shipped one again, and the page says so.
+- **Q-295:** a meaning an estate shares isn't said again for an added file. Only a name the file gives the column is
+  written, marked as an override with that as its reason.
+- **Q-296:** a flow in an older format is brought up by its owner in the app: what one row of a file is may be said
+  with a noun, and it is saved as format 5 once nothing it would be asked is left.
 
 ## The questions
 

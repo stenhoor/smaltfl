@@ -157,7 +157,7 @@ versions.)
 | Mon 18 | HR sent the extract again with the teams under their new department, published. ↻2 |
 | Thu 21 | Sent again with half its repeats out, still wrong, kept back; then sent again, every certificate once, published. ↻3 |
 | Tue 26 | Kept back while the scanner team looks for the missing business unit. ⊠ |
-| Wed 27 | At 09:10 the software bill of materials was declared in the catalogue from that day, with its reason (the control board added it), and the day ran again under it; at 09:25 the security lead restated it, published. ↻2 |
+| Wed 27 | At 09:10 the software bill of materials was declared in the catalogue from that day, with its reason (the control board added it), and the day ran again under it; at 09:25 the security lead restated it, published. The same decision describes the feed the control will be evidenced by, the SBOM inventory, ahead of its data ([ADR 0027](../adr/0027-the-ontology-over-time) §5): the Ontology view lists it as waiting for data. ↻2 |
 | Sat 23 to Mon 25, Thu 28 | Still waiting for you: the DR exercises from Sat 23, and Thu 28's loop in the organisation. ‖ |
 | Sat 16, Sun 17 | On Mon 25 the findings' values check was set back to hold the day, back-dated to Fri 1: the scanner hadn't logged in that weekend, and the posture read far fewer findings than there were. Every day already run ran again under it; these two would now be held, and the security lead restated them as not published. The other 23 came out the same, and were noted. |
 

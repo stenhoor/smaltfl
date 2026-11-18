@@ -88,9 +88,24 @@ The owner can build on the flow from the page ([ADR 0026](../adr/0026-flows-in-f
   rows are kept and the columns to take, and name it. The form writes the join as a cell of `joins.nb.ts`, a notebook
   of the flow's own, and the day runs again: the new dataset has a card, and opens on its Explore tab. The cell is
   read back by the same parser that reads a flow's folder, so a join made here is a join written in the flow.
+- **Add a source ›**, above the canvas of any flow written as notebooks ([ADR 0027](../adr/0027-the-ontology-over-time)
+  §5): a source and its description are made together, through either of two doors.
+  - *Here is the data.* Pick a CSV file with a header. It is read in the browser and sent nowhere. The form proposes
+    its name, what one row is and its key, and lists every column with what its values read as. Before anything is
+    written you confirm what one row is, by which key, and every column: described in your words, or set aside (the
+    flow then doesn't take it, and nothing can read it). A column the ontology has a meaning for already needs no
+    words. With a reason, **Add it to the flow** writes the source as cells of `sources.nb.ts`, a notebook of the
+    flow's own, with a check step that warns of a row without its key; the file is kept in this browser, and the day
+    runs again with it.
+  - *Describe it first.* Say what the business needs before any file exists: its name, what one row is, its columns
+    and its key, with a reason. It is the ontology's from its day and **waits for data**: the Ontology page lists it
+    under *Described ahead of their data*. **Bind a file ›** then maps a file's columns onto the described ones: a
+    column under another name is read as the described one, a close name is yours to confirm, and the file's other
+    columns are described or set aside.
+  - A source added here is listed in the same sheet, with **Take it off**, where no step but its own check reads it.
 - Each is recorded in words, kept in this browser with every other edit, and listed under **Made here** in the
-  catalogue's sheet, with the way to take it back. *Back to the flow as shipped*, on the Ontology page, takes them all
-  away.
+  catalogue's sheet (a source, in *Add a source*), with the way to take it back. *Back to the flow as shipped*, on the
+  Ontology page, takes them all away.
 - A flow that reads no other and ships no catalogue has the join form all the same. Once a join is made, **Add a
   flow ›** is above its canvas too, and says the build ships no flow to add.
 

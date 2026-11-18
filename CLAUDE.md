@@ -621,7 +621,21 @@ release (smaltty ADR 0030).
   flow but `examples/controls/`. Larkspur's catalogue is closed (the story declares the SBOM control on Wed 27 and
   plans the agents' reinstall of Sat 9 as an event that excuses); the sign-ins' Method is closed, its month to Mon 25
   (`GATE_DAYS`). `test/closed.test.ts`, `test/excuse.test.ts`, `test/described.test.ts`,
-  `tools/browser/stops/gate.json`.
+  `tools/browser/stops/gate.json`. Slice 4, the two doors (§5): `src/core/newsource.ts` (pure, outside the key):
+  `readFile` (a CSV file read whole: each column's type from every value, blanks, distinct, commonest), `proposeSource`,
+  `sourceProblems` and `columnsLacking` (what is still to confirm: what one row is, its key, every column described or
+  set aside), `withSource` (the source, its description, and in `SOURCES_NOTEBOOK` its cell, a check step that warns of
+  a row without its key, published; `shared` leaves an estate's meanings to the estate), `bindingOfSource`,
+  `withoutSource`, `sourcesAdded`, `sourceReaders`; a dataset described ahead of its data (`ontology.awaited`,
+  `AwaitedDataset`, `awaitedOf`, `awaitedIssues` in described.ts; the dated edit `describeAhead`; `matchAwaited`,
+  `specOfAwaited`, `awaitedProblems`, `waitingForData`); `withRowSaid` (a format-4 flow's file says what one row is).
+  `src/app/files.ts` (`FileStore`: the files added here, in a database of their own). The app: *Add a source ›* in
+  `renderBuildBar`, `openSource`, `pickFile`, `sourceForm`, `addSource`, `takeOffSource`, `describeForm`, `awaitedNow`,
+  `awaitedPart` (the Ontology view's *Described ahead of their data*), `addedSources`/`restoreAdded`/`pinAdded`
+  (bindings and files kept in the browser, restored and pinned at start; `bindingOf` reads them), `rowForm` and
+  `saveAsFormat5` on `firstLine`. `mergeOntologies` carries `aside` and `awaited`. tour.cjs: a stop's `then` (taps
+  after a file was chosen) and `upload`'s third entry. `test/newsource.test.ts`, `test/files.test.ts`,
+  `tools/browser/stops/doors.json` on the sign-ins; Larkspur's story describes the SBOM inventory ahead (`versions.json`).
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -737,10 +751,10 @@ release (smaltty ADR 0030).
   entry of a closed list or a value of a closed column the ontology doesn't have pauses what it reaches until it is
   declared); every change is a dated record with a kind and a reason; events are context written by people, and may
   say what they excuse; a day is read under what was in force and carries that context. In the slices of its §11:
-  slice 1 (the register on screen), slice 2 (reasons, kinds and events) and slice 3 (the gate, what an event excuses,
-  document format 5) are built (its §"As built", which says what each leaves); slice 4, the two doors, is next. Its
-  Q-280 to Q-285 are proposed, for the maintainers to confirm as each is built, and Q-286 to Q-291 are the choices
-  slice 3 made as it was built.
+  slice 1 (the register on screen), slice 2 (reasons, kinds and events), slice 3 (the gate, what an event excuses,
+  document format 5) and slice 4 (the two doors) are built (its §"As built", which says what each leaves); slice 5,
+  kinds, relations and meanings over time, is next. Its Q-280 to Q-285 are proposed, for the maintainers to confirm
+  as each is built, and Q-286 to Q-296 are the choices slices 3 and 4 made as they were built.
 
 ## Rules for this repository
 

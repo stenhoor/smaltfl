@@ -131,7 +131,7 @@
   },
   {
     "name": "register-lanes",
-    "what": "From tablet width the same entries are lanes over the days: each row one thing's life, dashed while it stood as shipped, a bar while a change is in force, a ring on the day the change was said, a dashed line under the back-dated change over the days whose runs were judged without it, and the days decided, kept back or restated beneath",
+    "what": "From tablet width the same entries are lanes over the days: each row one thing's life, dashed while it stood as shipped, a bar while a change is in force (the SBOM inventory's, described ahead of its data, begins on Wed 27 with the control it will evidence), a ring on the day the change was said, a dashed line under the back-dated change over the days whose runs were judged without it, and the days decided, kept back or restated beneath",
     "day": "Thu 21",
     "view": "ontology",
     "viewFirst": true,
@@ -139,9 +139,9 @@
     "element": "#rules-time .rg-lanes",
     "expect": {
       "count": {
-        "#rules-time .rg-lanes .rg-on": 3,
+        "#rules-time .rg-lanes .rg-on": 4,
         "#rules-time .rg-lanes .rg-was": 1,
-        "#rules-time .rg-lanes .rg-said": 3,
+        "#rules-time .rg-lanes .rg-said": 4,
         "#rules-time .rg-lanes .rg-then": 1,
         "#rules-time .rg-lanes .rg-decided": 8,
         "#rules-time .rg-lanes .rg-back": 5
@@ -159,7 +159,7 @@
     "expect": {
       "count": {
         "#rules-time .rg-lanes .rg-event": 6,
-        "#rules-time .rg-lanes .rg-kind": 3
+        "#rules-time .rg-lanes .rg-kind": 4
       }
     }
   },
@@ -225,6 +225,30 @@
       "count": {
         "#rules-time .rt-first[data-format=\"5\"]": 1,
         "#rules-time .rt-first.lacking": 0
+      }
+    }
+  },
+  {
+    "name": "described-ahead",
+    "what": "The Ontology view on Thu Mar 21 (ADR 0027 §5, Q-255): the SBOM inventory, the feed the catalogue's fifteenth control will be evidenced by, is described ahead of its data by the decision that declares the control, from Wed 27. On this day it is coming, and it waits for data: no file is bound to it, and nothing reads it",
+    "day": "Thu 21",
+    "view": "ontology",
+    "viewFirst": true,
+    "element": "#rules-time .aw",
+    "expect": {
+      "text": [
+        "Described ahead of their data",
+        "1 dataset waiting for data",
+        "SBOM inventory",
+        "sbom_inventory",
+        "waiting for data",
+        "One row is a component list, by app_id.",
+        "Coming from Wed Mar 27 ›",
+        "No file is bound to it yet: every day says so, and nothing reads it."
+      ],
+      "count": {
+        "#rules-time .aw-item.waiting.coming": 1,
+        "#rules-time .aw-item.bound": 0
       }
     }
   },

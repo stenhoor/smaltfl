@@ -42,7 +42,8 @@
     "fixes": { "app": "signins", "runs": 6 },
     "models": { "app": "signins", "runs": 3 },
     "columns": { "app": "signins", "runs": 6 },
-    "gate": { "app": "signins", "runs": 9 }
+    "gate": { "app": "signins", "runs": 9 },
+    "doors": { "app": "signins", "runs": 6 }
   },
   "budget": { "engineSeconds": 1330, "seconds": 510, "cores": 4 }
 }

@@ -1,0 +1,563 @@
+[
+  {
+    "name": "doors-bar",
+    "what": "The sign-ins, Tue Mar 5 (ADR 0027 §5): a flow written as notebooks takes a source. Above the canvas, Add a source, where there was no bar: this build ships no catalogue of flows",
+    "day": "Tue 5",
+    "element": "#build-bar",
+    "expect": {
+      "textIn": {
+        "#build-bar": [
+          "Add a source ›"
+        ]
+      },
+      "count": {
+        "#build-bar .build-source": 1,
+        "#build-bar .build-add": 0,
+        "#build-bar .build-made": 0
+      }
+    }
+  },
+  {
+    "name": "doors-open",
+    "what": "Add a source: a source and its description are made together, through either door. Here is the data picks a file; Describe it first says what the business needs before any file exists",
+    "day": "Tue 5",
+    "clicks": [
+      "#build-bar .build-source"
+    ],
+    "waitFor": ".vf-detail .src-doors",
+    "expect": {
+      "pageText": [
+        "A source and its description are made together: the ontology comes first. Before any step may read a file it says what one row is, by which key, and every column is described or set aside.",
+        "Here is the data",
+        "It is read in this browser and sent nowhere.",
+        "Describe it first",
+        "It is in the ontology from its day and waits for data until a file is bound to it."
+      ],
+      "count": {
+        ".vf-detail .src-door": 2,
+        ".vf-detail .src-waiting": 0,
+        ".vf-detail .src-added": 0
+      }
+    }
+  },
+  {
+    "name": "doors-file",
+    "what": "A file picked: read here, its description proposed from what it holds. The dataset named after the file, one row named after the dataset, the key the id that tells every row apart, each column with what its values read as. A country is a meaning the ontology has already; the other six are the adder's to describe or set aside",
+    "day": "Tue 5",
+    "clicks": [
+      "#build-bar .build-source"
+    ],
+    "upload": [
+      ".vf-detail .src-file-data",
+      "files/vendors.csv",
+      ".vf-detail .sf-form"
+    ],
+    "expect": {
+      "pageText": [
+        "vendors.csv",
+        "5 rows, 7 columns",
+        "never the same twice",
+        "e.g. v-001, v-002, v-003",
+        "whole numbers",
+        "The ontology has it: Country",
+        "6 columns still to describe or set aside; one row is one vendor, by vendor_id."
+      ],
+      "count": {
+        ".vf-detail .sf-col": 7,
+        ".vf-detail .sf-col .sf-key:checked": 1,
+        ".vf-detail .sf-count.lacking": 1
+      }
+    }
+  },
+  {
+    "name": "doors-dark",
+    "what": "The same form in the dark scheme",
+    "day": "Tue 5",
+    "scheme": "dark",
+    "clicks": [
+      "#build-bar .build-source"
+    ],
+    "upload": [
+      ".vf-detail .src-file-data",
+      "files/vendors.csv",
+      ".vf-detail .sf-form"
+    ],
+    "expect": {
+      "count": {
+        ".vf-detail .sf-col": 7
+      }
+    }
+  },
+  {
+    "name": "doors-lacking",
+    "what": "Nothing is written while a column is neither described nor set aside: the form says which",
+    "day": "Tue 5",
+    "clicks": [
+      "#build-bar .build-source"
+    ],
+    "upload": [
+      ".vf-detail .src-file-data",
+      "files/vendors.csv",
+      ".vf-detail .sf-form"
+    ],
+    "then": [
+      ".vf-detail .sf-go"
+    ],
+    "expect": {
+      "pageText": [
+        "vendor_id, name, tier, Risk Score, contract_no and notes are neither described nor set aside."
+      ],
+      "count": {
+        ".vf-detail .sf-form": 1,
+        ".vf-detail .sf-err:not([hidden])": 1
+      }
+    }
+  },
+  {
+    "name": "doors-confirmed",
+    "what": "Each column described in the adder's words, the two the flow doesn't take set aside: nothing is left to confirm, and the form says what one row is. A source is added with its reason: without one, nothing is written",
+    "day": "Tue 5",
+    "clicks": [
+      "#build-bar .build-source"
+    ],
+    "upload": [
+      ".vf-detail .src-file-data",
+      "files/vendors.csv",
+      ".vf-detail .sf-form"
+    ],
+    "then": [
+      [
+        ".vf-detail .sf-about",
+        "The vendors we buy from, as procurement lists them"
+      ],
+      [
+        ".vf-detail .sf-col[data-column=\"vendor_id\"] .sf-desc",
+        "The vendor’s id in procurement"
+      ],
+      [
+        ".vf-detail .sf-col[data-column=\"name\"] .sf-desc",
+        "What the vendor is called"
+      ],
+      [
+        ".vf-detail .sf-col[data-column=\"tier\"] .sf-desc",
+        "How much we depend on it: 1 the most"
+      ],
+      [
+        ".vf-detail .sf-col[data-column=\"Risk Score\"] .sf-desc",
+        "Procurement’s score, 0 to 10"
+      ],
+      ".vf-detail .sf-col[data-column=\"contract_no\"] .sf-aside",
+      ".vf-detail .sf-col[data-column=\"notes\"] .sf-aside",
+      ".vf-detail .sf-go"
+    ],
+    "expect": {
+      "pageText": [
+        "Every column is described or set aside; one row is one vendor, by vendor_id.",
+        "Adding a source needs a reason: one line of why."
+      ],
+      "count": {
+        ".vf-detail .sf-col.aside": 2,
+        ".vf-detail .sf-count.lacking": 0,
+        ".vf-detail .sf-form": 1
+      }
+    }
+  },
+  {
+    "name": "doors-added",
+    "what": "The reason given and the tap: the file is kept in this browser, the source written as cells of sources.nb.ts with its description in the ontology, and the day run again with it. Its card opens on its rows, the columns the flow takes; the two set aside are no news on the day's head",
+    "day": "Tue 5",
+    "clicks": [
+      "#build-bar .build-source"
+    ],
+    "upload": [
+      ".vf-detail .src-file-data",
+      "files/vendors.csv",
+      ".vf-detail .sf-form"
+    ],
+    "then": [
+      [
+        ".vf-detail .sf-about",
+        "The vendors we buy from, as procurement lists them"
+      ],
+      [
+        ".vf-detail .sf-col[data-column=\"vendor_id\"] .sf-desc",
+        "The vendor’s id in procurement"
+      ],
+      [
+        ".vf-detail .sf-col[data-column=\"name\"] .sf-desc",
+        "What the vendor is called"
+      ],
+      [
+        ".vf-detail .sf-col[data-column=\"tier\"] .sf-desc",
+        "How much we depend on it: 1 the most"
+      ],
+      [
+        ".vf-detail .sf-col[data-column=\"Risk Score\"] .sf-desc",
+        "Procurement’s score, 0 to 10"
+      ],
+      ".vf-detail .sf-col[data-column=\"contract_no\"] .sf-aside",
+      ".vf-detail .sf-col[data-column=\"notes\"] .sf-aside",
+      [
+        ".vf-detail .sf-why",
+        "Procurement sends it monthly: sign-ins by a vendor’s staff are read against it"
+      ],
+      ".vf-detail .sf-go"
+    ],
+    "waitFor": "body:has(#run:not([disabled])) #build-bar .build-made",
+    "waitForMs": 120000,
+    "expect": {
+      "pageText": [
+        "Acme Hosting",
+        "Elm Identity"
+      ],
+      "textIn": {
+        "#build-bar": [
+          "1 thing made here"
+        ]
+      },
+      "noPageText": [
+        "Renewed, twice"
+      ],
+      "count": {
+        "#loads .dh-columns": 0
+      }
+    }
+  },
+  {
+    "name": "doors-ontology",
+    "what": "The Ontology view after it: what was made here says the source added, with its reason, and the first line still says the ontology comes first: every file says what one row is, and every column is described or set aside",
+    "view": "ontology",
+    "viewFirst": true,
+    "full": true,
+    "expect": {
+      "pageText": [
+        "Added vendors: one row is a vendor, by vendor_id; 5 columns described and 2 set aside",
+        "Procurement sends it monthly: sign-ins by a vendor’s staff are read against it",
+        "The ontology comes first. Every file says what one row is, and every column it has is described or set aside."
+      ],
+      "count": {
+        "#rules-time .rt-first.lacking": 0
+      }
+    }
+  },
+  {
+    "name": "doors-reload",
+    "what": "The page loaded again: the flow as kept in this browser has the source, its file comes from this browser's own store, and the day runs with it as before",
+    "reload": true,
+    "day": "Tue 5",
+    "card": "vendors",
+    "tab": "Data",
+    "unfold": [
+      "nb-sources"
+    ],
+    "expect": {
+      "pageText": [
+        "Acme Hosting"
+      ],
+      "textIn": {
+        "#build-bar": [
+          "1 thing made here"
+        ]
+      }
+    }
+  },
+  {
+    "name": "doors-describe-form",
+    "what": "Describe it first: what the business needs, said before any file exists. Its name follows what it is called; every column says what it holds; the key is ticked; its kind is a first description, and it asks why",
+    "day": "Tue 5",
+    "clicks": [
+      "#build-bar .build-source",
+      ".vf-detail .src-describe",
+      [
+        ".vf-detail .df-called",
+        "Risk register"
+      ],
+      [
+        ".vf-detail .df-about",
+        "The risks the audit committee tracks, one a row"
+      ],
+      [
+        ".vf-detail .df-one",
+        "risk"
+      ],
+      [
+        ".vf-detail .df-many",
+        "risks"
+      ],
+      [
+        ".vf-detail .df-col:nth-child(1) .df-col-name",
+        "risk_id"
+      ],
+      [
+        ".vf-detail .df-col:nth-child(1) .df-col-desc",
+        "The risk’s id in the register"
+      ],
+      ".vf-detail .df-col:nth-child(1) .df-col-key",
+      [
+        ".vf-detail .df-col:nth-child(2) .df-col-name",
+        "owner"
+      ],
+      [
+        ".vf-detail .df-col:nth-child(2) .df-col-desc",
+        "The team that owns it"
+      ],
+      ".vf-detail .df-col-add",
+      [
+        ".vf-detail .df-col:nth-child(3) .df-col-name",
+        "rating"
+      ]
+    ],
+    "expect": {
+      "pageText": [
+        "Say what the business needs before any file exists.",
+        "Every column says what it holds. Tick the columns that tell one row from another: its key.",
+        "First described",
+        "It is the ontology’s from its day and waits for data: nothing reads it until a file is bound to it, from Add a source."
+      ],
+      "count": {
+        ".vf-detail .df-col": 3,
+        ".vf-detail .df-form .wy-kind[data-kind=\"described\"] input:checked": 1
+      }
+    }
+  },
+  {
+    "name": "doors-describe-lacking",
+    "what": "A described dataset describes every column: the third has no words yet, and nothing is written",
+    "day": "Tue 5",
+    "clicks": [
+      "#build-bar .build-source",
+      ".vf-detail .src-describe",
+      [
+        ".vf-detail .df-called",
+        "Risk register"
+      ],
+      [
+        ".vf-detail .df-about",
+        "The risks the audit committee tracks, one a row"
+      ],
+      [
+        ".vf-detail .df-one",
+        "risk"
+      ],
+      [
+        ".vf-detail .df-many",
+        "risks"
+      ],
+      [
+        ".vf-detail .df-col:nth-child(1) .df-col-name",
+        "risk_id"
+      ],
+      [
+        ".vf-detail .df-col:nth-child(1) .df-col-desc",
+        "The risk’s id in the register"
+      ],
+      ".vf-detail .df-col:nth-child(1) .df-col-key",
+      [
+        ".vf-detail .df-col:nth-child(2) .df-col-name",
+        "owner"
+      ],
+      [
+        ".vf-detail .df-col:nth-child(2) .df-col-desc",
+        "The team that owns it"
+      ],
+      ".vf-detail .df-col-add",
+      [
+        ".vf-detail .df-col:nth-child(3) .df-col-name",
+        "rating"
+      ],
+      ".vf-detail .df-go"
+    ],
+    "expect": {
+      "pageText": [
+        "A column needs what rating holds: a described dataset describes every column."
+      ],
+      "count": {
+        ".vf-detail .df-form": 1
+      }
+    }
+  },
+  {
+    "name": "doors-described",
+    "what": "The column described and the reason given: the description is the ontology's from the next day to arrive, a dated change of the kind first described, and it waits for data. The Ontology view lists it, with since when",
+    "clicks": [
+      "#build-bar .build-source",
+      ".vf-detail .src-describe",
+      [
+        ".vf-detail .df-called",
+        "Risk register"
+      ],
+      [
+        ".vf-detail .df-about",
+        "The risks the audit committee tracks, one a row"
+      ],
+      [
+        ".vf-detail .df-one",
+        "risk"
+      ],
+      [
+        ".vf-detail .df-many",
+        "risks"
+      ],
+      [
+        ".vf-detail .df-col:nth-child(1) .df-col-name",
+        "risk_id"
+      ],
+      [
+        ".vf-detail .df-col:nth-child(1) .df-col-desc",
+        "The risk’s id in the register"
+      ],
+      ".vf-detail .df-col:nth-child(1) .df-col-key",
+      [
+        ".vf-detail .df-col:nth-child(2) .df-col-name",
+        "owner"
+      ],
+      [
+        ".vf-detail .df-col:nth-child(2) .df-col-desc",
+        "The team that owns it"
+      ],
+      ".vf-detail .df-col-add",
+      [
+        ".vf-detail .df-col:nth-child(3) .df-col-name",
+        "rating"
+      ],
+      [
+        ".vf-detail .df-col:nth-child(3) .df-col-desc",
+        "How bad it would be, 1 to 5"
+      ],
+      [
+        ".vf-detail .df-form .wy-reason",
+        "The audit committee wants its risks beside the sign-ins from April"
+      ],
+      ".vf-detail .df-go"
+    ],
+    "view": "ontology",
+    "waitFor": "#rules-time .aw-item[data-awaited=\"risk_register\"]",
+    "element": "#rules-time .aw",
+    "expect": {
+      "text": [
+        "Described ahead of their data",
+        "1 dataset waiting for data",
+        "Risk register",
+        "waiting for data",
+        "One row is a risk, by risk_id.",
+        "No file is bound to it yet: every day says so, and nothing reads it."
+      ],
+      "pageText": [
+        "Described risk_register ahead of its data: one row is a risk, by risk_id; 3 columns",
+        "The audit committee wants its risks beside the sign-ins from April"
+      ],
+      "count": {
+        "#rules-time .aw-item.waiting": 1,
+        "#rules-time .rg-item[data-kind=\"described\"]": 1
+      }
+    }
+  },
+  {
+    "name": "doors-bind-form",
+    "what": "Bind a file: its columns are read as the described ones. RiskID is a close name for risk_id, which a person confirms; owner and rating are there by name; the file's comment is its own, to describe or set aside",
+    "clicks": [
+      "#build-bar .build-source"
+    ],
+    "upload": [
+      ".vf-detail .src-file-bind",
+      "files/risks.csv",
+      ".vf-detail .sf-form"
+    ],
+    "expect": {
+      "pageText": [
+        "risks.csv",
+        "3 rows, 4 columns",
+        "Risk register was described ahead of its data: one row is a risk, by risk_id.",
+        "As described: 3 columns",
+        "a close name: confirm it",
+        "The file’s other column: describe or set aside",
+        "1 column still to describe or set aside; one row is one risk, by risk_id."
+      ],
+      "count": {
+        ".vf-detail .sf-described": 3,
+        ".vf-detail .sf-close": 1,
+        ".vf-detail .sf-col:not(.sf-described)": 1
+      }
+    }
+  },
+  {
+    "name": "doors-bound",
+    "what": "The comment set aside and the reason given: the file is bound, the dataset has its data, and the day runs with it. RiskID is read as risk_id, as the description names it",
+    "day": "Tue 5",
+    "clicks": [
+      "#build-bar .build-source"
+    ],
+    "upload": [
+      ".vf-detail .src-file-bind",
+      "files/risks.csv",
+      ".vf-detail .sf-form"
+    ],
+    "then": [
+      ".vf-detail .sf-col[data-column=\"comment\"] .sf-aside",
+      [
+        ".vf-detail .sf-why",
+        "The committee’s first export, sent by its secretary"
+      ],
+      ".vf-detail .sf-go"
+    ],
+    "waitFor": "body:has(#run:not([disabled])) #sheet:not([hidden])",
+    "waitForMs": 120000,
+    "expect": {
+      "pageText": [
+        "R-01",
+        "Identity team"
+      ],
+      "textIn": {
+        "#build-bar": [
+          "2 things made here"
+        ]
+      },
+      "noPageText": [
+        "Accepted until June"
+      ],
+      "count": {
+        "#loads .dh-columns": 0
+      }
+    }
+  },
+  {
+    "name": "doors-has-data",
+    "what": "The Ontology view: the description stays, the record of what was asked for, and says the dataset has its data by now",
+    "view": "ontology",
+    "viewFirst": true,
+    "element": "#rules-time .aw",
+    "expect": {
+      "text": [
+        "each has its data by now",
+        "has its data",
+        "A source of its name is in the flow."
+      ],
+      "count": {
+        "#rules-time .aw-item.bound": 1,
+        "#rules-time .aw-item.waiting": 0
+      }
+    }
+  },
+  {
+    "name": "doors-off",
+    "what": "Add a source lists what was added here, each with the way to take it off. The vendors are taken off: their cells, their description and their file go, the day runs again without them, and the record keeps both",
+    "day": "Tue 5",
+    "clicks": [
+      "#build-bar .build-source",
+      ".vf-detail .src-added li[data-source=\"vendors\"] .cat-off"
+    ],
+    "waitFor": "body:has(#run:not([disabled])) #build-bar .build-made",
+    "waitForMs": 120000,
+    "element": "#build-bar",
+    "expect": {
+      "textIn": {
+        "#build-bar": [
+          "1 thing made here"
+        ]
+      },
+      "count": {
+        "g.card[data-card=\"vendors\"]": 0
+      }
+    }
+  }
+]

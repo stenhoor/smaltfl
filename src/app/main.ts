@@ -61,17 +61,22 @@ import { kindMark, registerLanes, type KindMark, type LaneGroup, type LaneMark, 
 import { dayBars, matchBars, scoreSpark, scoreTrend, type BarDay, type ScorePoint, rowFlow, differenceMeter, fileTwins, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, chain, composition, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
 import { sha256Hex } from '../core/hash.js';
 import { LEVEL_NAME, leaderSaid, postureTree, scoreSaid, trendSaid, unitCounts, type PostureNode } from '../core/posture.js';
-import { counted, glossOf, meaningBeyond, meaningOf, nounOf as ontologyNoun, propertyOf, readAsOf, saysMore, type Edit, type Noun, type PropertyType } from '../core/ontology.js';
+import { counted, glossOf, meaningBeyond, meaningOf, nounOf as ontologyNoun, propertyOf, readAsOf, saysMore, type AwaitedDataset, type Edit, type Noun, type PropertyType } from '../core/ontology.js';
 import { columnChangeSaid, columnsHold, csvColumn, csvHeader, readAsIn, type ColumnMap } from '../core/columns.js';
 import { columnUses, joinImpactSaid, joinMatch, usesSaid, type ColumnUses, type JoinUse, type ParseSql } from '../core/uses.js';
 import { estateSaid, handlingSaid, ontologyPage, originSaid, typesShown, type ColumnCard, type FileSection, type Handling, type OntologyPage, type Rule } from '../core/ontologypage.js';
 import { MAX_CODES, proposalsOf, shareRange, valueCandidates, watchedFile, type Proposal } from '../core/proposals.js';
 import { applyBand, asShipped, keptOf as keptFlow, nameColumn, nameColumnThrough, restoreKept, setAside as setColumnAside, setRule, type FlowEdit, type NameOp, type RuleInput } from '../core/flowedit.js';
-import { isAside, undescribed, undescribedSaid } from '../core/described.js';
+import { awaitedIssues, awaitedOf, isAside, undescribed, undescribedSaid } from '../core/described.js';
 import { ownWithEdits } from '../core/attribute.js';
 import { addFlow, addProblems, takeOff, takeOffProblems, type CatalogueEntry } from '../core/catalogue.js';
 import { mapProblems, USE_NAME, useName, useProblems, type UseSpec } from '../core/reuse.js';
 import { JOINS_NOTEBOOK, joinProblems, joinSaid as joinWritten, joinsOf, withJoin, withoutJoin, type JoinSpec } from '../core/joincell.js';
+import {
+  awaitedProblems, bindingOfSource, checkedOf, columnsLacking, describedAlready, keyRepeats, matchAwaited, proposeSource, readFile, sourceProblems, sourceReaders, sourceSaid, sourcesAdded, SOURCES_NOTEBOOK, specOfAwaited,
+  rowProblems, withoutSource, withRowSaid, withSource, type FileRead, type SourceColumn, type SourceSpec,
+} from '../core/newsource.js';
+import { fileKey, FileStore } from './files.js';
 import { changeFlows, flowChanges, followersOf, pinProblem, testCount, testSaid, type DayTest, type TestCount } from '../core/follow.js';
 import { estateSays, sharedOf, type EstateOntology } from '../core/shared.js';
 import { voice } from '../core/voice.js';
@@ -749,12 +754,12 @@ const nodeOf = (id: string): ManifestNode | undefined => latest()?.result.manife
 
 const KIND: Record<string, string> = { sql: 'SQL', filter: 'FILTER', formula: 'FORMULAS', select: 'SELECT', join: 'JOIN', aggregate: 'AGGREGATE', expectations: 'CHECKS' };
 
-/** A source's binding (ADR 0010 §9): from the data list the page opened. */
+/** A source's binding (ADR 0010 §9): from the data list the page opened, or its own where it was added here (ADR 0027 §5). */
 const bindingOf = (id: string): Binding | undefined => {
   const src = state.doc.sources.find((x) => x.id === id);
   if (!src) return undefined;
   const all: Record<string, Binding> = dataList?.sources ?? {};
-  return all[src.id] ?? Object.values(all).find((b) => b.table === src.table);
+  return all[src.id] ?? Object.values(all).find((b) => b.table === src.table) ?? addedSources.get(src.id)?.binding;
 };
 /** The file an input reads, where the app knows it: its binding's. */
 const inputFile = (id: string) => bindingOf(id);
@@ -3000,12 +3005,15 @@ function openCatalogue(): void {
 function renderBuildBar(): void {
   const bar = document.getElementById('build-bar');
   if (!bar) return;
-  const made = (state.doc.flows ?? []).filter((f) => addedHere(f.id)).length + joinsOf(state.doc).length;
-  const show = levelAt() === null && !!state.doc.notebooks && ((dataList?.catalogue.length ?? 0) > 0 || made > 0);
+  const flows = (state.doc.flows ?? []).filter((f) => addedHere(f.id)).length + joinsOf(state.doc).length;
+  const made = flows + sourcesAdded(state.doc).length;
+  // A flow written as notebooks takes a source (ADR 0027 §5); a flow, where the build ships a catalogue or one was made.
+  const show = levelAt() === null && !!state.doc.notebooks;
   bar.hidden = !show;
   if (!show) return void bar.replaceChildren();
   bar.replaceChildren(
-    h('button', { type: 'button', class: 'btn small build-add', onclick: openCatalogue }, 'Add a flow ›'),
+    ...((dataList?.catalogue.length ?? 0) > 0 || flows > 0 ? [h('button', { type: 'button', class: 'btn small build-add', onclick: openCatalogue }, 'Add a flow ›')] : []),
+    h('button', { type: 'button', class: 'btn small build-source', onclick: openSource }, 'Add a source ›'),
     ...(made ? [h('span', { class: 'build-made' }, `${plural(made, 'thing')} made here`)] : []));
 }
 
@@ -3113,6 +3121,601 @@ function joinForm(left: string, partner: { dataset: string; own: string; key: st
   });
   openDetail(`Join ${left}`, 'ok', [others.length ? form : h('p', { class: 'foot' }, 'There is no other dataset here to join it with.')]);
   if (others.length) void drawRight();
+}
+
+// ------------------------------------------------------------------ the two doors (ADR 0027 §5)
+
+// A source and its description are made together. *Here is the data*: someone picks a file; it is read here, its
+// description proposed from what it holds, and no step may read it until what one row is and every column are
+// confirmed. *Describe it first*: someone says what the business needs; it is in the ontology from its day and waits
+// for data until a file is bound to it. Either way the source is written as cells of a notebook of the flow's own
+// (`sources.nb.ts`), its file is kept in this browser, and the day runs again with it.
+
+/** A source added here: the binding it is read by and the file it reads, by its hash, as this browser keeps them. */
+interface AddedSource {
+  binding: Binding;
+  sha256: string;
+  /** The file's name as it was picked, and its size. */
+  name: string;
+  bytes: number;
+  at: string;
+  by: string;
+}
+const addedSources = new Map<string, AddedSource>();
+/** Each added source's file, in hand: what is pinned for it. */
+const addedBytes = new Map<string, Uint8Array>();
+let fileStoreOpen: Promise<FileStore> | null = null;
+const fileStore = (): Promise<FileStore> => (fileStoreOpen ??= FileStore.open());
+const addedKey = (): string => `${flowKey()}:sources`;
+/** The largest file read here: a browser holds it whole, as bytes and as text. */
+const FILE_MOST = 64 * 1024 * 1024;
+
+function saveAdded(): void {
+  try {
+    if (addedSources.size) localStorage.setItem(addedKey(), JSON.stringify(Object.fromEntries(addedSources)));
+    else localStorage.removeItem(addedKey());
+  } catch {
+    // Storage off or full: the sources last as long as the page, as the flow's other edits do.
+  }
+}
+
+/**
+ * The sources the flow as kept here added, restored with it: each one's binding, and its file from this browser. A
+ * source whose file isn't here any more can't be read, and a flow can't run with a source nothing binds: what the
+ * browser kept of the flow is dropped, as it is when the flow itself is another, and the page says so.
+ */
+async function restoreAdded(): Promise<void> {
+  const ids = sourcesAdded(state.doc).filter((id) => !dataList?.sources[id]);
+  let saved: Record<string, AddedSource> = {};
+  try {
+    saved = (JSON.parse(localStorage.getItem(addedKey()) ?? '{}') ?? {}) as Record<string, AddedSource>;
+  } catch {
+    // Unreadable: none of them is here.
+  }
+  // What was added to a flow this browser no longer keeps so (another build's, or the flow as shipped again) goes.
+  const gone = Object.entries(saved).filter(([id]) => !ids.includes(id));
+  if (!ids.length && !gone.length) return;
+  const store = await fileStore();
+  for (const [, a] of gone) if (!ids.some((id) => saved[id]?.sha256 === a.sha256)) await store.delete(fileKey(shippedDoc.id, a.sha256));
+  if (!ids.length) return void saveAdded();
+  const missing: string[] = [];
+  for (const id of ids) {
+    const a = saved[id];
+    const f = a ? await store.get(fileKey(shippedDoc.id, a.sha256)) : null;
+    if (!a || !f) missing.push(id);
+    else {
+      addedSources.set(id, a);
+      addedBytes.set(id, f.bytes);
+    }
+  }
+  if (!missing.length) return void (gone.length ? saveAdded() : undefined);
+  const n = flowEdits.length;
+  [state.doc, flowEdits] = [structuredClone(shippedDoc), []];
+  addedSources.clear();
+  addedBytes.clear();
+  forgetFlow();
+  saveAdded();
+  const why = `the file of ${listed(missing)}, added here, isn’t in this browser any more`;
+  flowDropped = { edits: n, why };
+  // The record last saw the flow with them: the next run's flow entry says why it is the shipped one again.
+  flowReason = `${n ? `${plural(n, 'change')} kept in this browser ${n === 1 ? 'was' : 'were'}` : 'What this browser kept of the flow was'} dropped: ${why}`;
+}
+
+/** A source added here, pinned in the engine and its table defined: its file as this browser holds it, hashed again by
+ * the engine and read as `smaltfl:<file>`, a column the file names otherwise declared by the file's name. */
+async function pinAdded(engine: Engine, id: string, doc: FlowDocument): Promise<void> {
+  const a = addedSources.get(id);
+  const bytes = addedBytes.get(id);
+  if (!a || !bytes) return;
+  await pinFiles(engine, [{ name: a.binding.file, bytes, sha256: a.sha256 }]);
+  pinnedNow.set(a.binding.file, a.sha256);
+  const header = csvHeader(new TextDecoder().decode(bytes.subarray(0, 1 << 16)));
+  pinnedHeaders.set(id, header);
+  const readAs = readAsIn(readAsOf(doc.ontology, id), header);
+  await engine.exec([`DROP EXTERNAL TABLE IF EXISTS ${quoteIdent(a.binding.table)}`, pinnedDdl(a.binding, readAs)].join(';\n'));
+  tableReadAs.set(id, JSON.stringify(readAs));
+  pulledIn(id, a.name, a.sha256, `added here by ${personName(a.by)}`);
+}
+
+/** A source added here out of what this browser keeps: its binding, its table, and its file where no other source
+ * added here reads the same one. */
+async function dropAdded(id: string): Promise<void> {
+  const a = addedSources.get(id);
+  addedSources.delete(id);
+  addedBytes.delete(id);
+  tableReadAs.delete(id);
+  pinnedHeaders.delete(id);
+  ingested.delete(id);
+  saveAdded();
+  if (!a) return;
+  pinnedNow.delete(a.binding.file);
+  await state.engine?.exec(`DROP EXTERNAL TABLE IF EXISTS ${quoteIdent(a.binding.table)}`).catch(() => undefined);
+  if (![...addedSources.values()].some((x) => x.sha256 === a.sha256)) await (await fileStore()).delete(fileKey(shippedDoc.id, a.sha256));
+}
+
+/** After the flow is the shipped one again, or another: what was added here and is no source of it any more goes. */
+async function dropAddedGone(): Promise<void> {
+  for (const id of [...addedSources.keys()]) if (!state.doc.sources.some((x) => x.id === id)) await dropAdded(id);
+}
+
+/**
+ * Add a source (ADR 0027 §5): the file kept in this browser and pinned in the engine, the source written into the flow
+ * with its description, recorded with its reason, and the day run again with it. A source whose own step stops its
+ * first run here is taken off again, and the record keeps both.
+ */
+async function addSource(spec: SourceSpec, file: PickedFile, why: string, fail: (why: string) => void): Promise<boolean> {
+  if (!isOwner()) return false;
+  if (state.running) return void fail('The flow is running. Add the source when the run has ended.'), false;
+  const engine = state.engine;
+  if (!engine) return void fail('The engine isn’t ready yet: try again in a moment.'), false;
+  const base = baseDoc();
+  const problems = sourceProblems(base, spec);
+  if (problems.length) return void fail(`${problems[0]}.`), false;
+  const derive = await loadDerive();
+  if (!derive) return void fail('The notebook parser couldn’t be loaded, so the cells can’t be read back: nothing was written.'), false;
+  let next: FlowDocument;
+  try {
+    next = await derive(withSource(base, spec, (c) => !!estateSays(estates, spec.id, c)));
+  } catch (err) {
+    return void fail(`The cells don’t read as steps: ${message(err)}`), false;
+  }
+  const issue = validateDocument(next)[0];
+  if (issue) return void fail(`That can’t be written: ${issue.message}.`), false;
+  addedSources.set(spec.id, { binding: bindingOfSource(base, spec), sha256: file.sha256, name: file.name, bytes: file.bytes.length, at: new Date().toISOString(), by: state.viewer });
+  addedBytes.set(spec.id, file.bytes);
+  try {
+    await (await fileStore()).put(fileKey(shippedDoc.id, file.sha256), file.name, file.bytes);
+    await pinAdded(engine, spec.id, next);
+  } catch (err) {
+    await dropAdded(spec.id);
+    return void fail(`The engine couldn’t take the file: ${message(err)}`), false;
+  }
+  saveAdded();
+  document.querySelector('.vf-detail-wrap')?.remove();
+  const said = sourceSaid(spec);
+  setStatus(`${said}. Written as cells of ${SOURCES_NOTEBOOK}, and recorded; the day runs again with it.`, false);
+  await builtInto(next, `${said} (“${why}”)`);
+  const stopped = stoppedAt([spec.id, checkedOf(spec.id)]);
+  if (stopped !== null) {
+    try {
+      await builtInto(await derive(withoutSource(baseDoc(), spec.id)), `Took ${spec.id} off again: its first run stopped (${stopped})`);
+      await dropAdded(spec.id);
+      setStatus(`${spec.id} couldn’t be run. ${stopped}. It was taken off again, and the flow runs as it did.`, true);
+    } catch (err) {
+      setStatus(`${spec.id} couldn’t be run, and couldn’t be taken off again: ${message(err)}`, true);
+    }
+    return true;
+  }
+  renderRulesTime();
+  if (!state.failed) openTab(spec.id, 'data');
+  return true;
+}
+
+/** Take a source added here off again: where no step of the flow reads it but its own check. */
+async function takeOffSource(id: string): Promise<void> {
+  if (!isOwner()) return;
+  if (state.running) return void setStatus('The flow is running. Take the source off when the run has ended.', true);
+  const base = baseDoc();
+  const readers = sourceReaders(base, id);
+  if (readers.length) return void setStatus(`${id} stays: ${listed(readers)} ${readers.length === 1 ? 'reads' : 'read'} it.`, true);
+  const derive = await loadDerive();
+  if (!derive) return void setStatus('The notebook parser couldn’t be loaded: nothing was changed.', true);
+  try {
+    const next = await derive(withoutSource(base, id));
+    document.querySelector('.vf-detail-wrap')?.remove();
+    if (state.selected === id || state.selected === checkedOf(id)) select(null);
+    const said = `Took the source ${id} off`;
+    setStatus(`${said}. Recorded.`, false);
+    await builtInto(next, said);
+    await dropAdded(id);
+    renderRulesTime();
+  } catch (err) {
+    setStatus(`${id} couldn’t be taken off: ${message(err)}`, true);
+  }
+}
+
+/** A file someone picked, read here: its bytes, their hash, and the table they read as. */
+interface PickedFile {
+  name: string;
+  bytes: Uint8Array<ArrayBuffer>;
+  sha256: string;
+  text: string;
+  read: FileRead;
+}
+
+/** Read a picked file (ADR 0027 §5): whole, in this browser, nothing sent anywhere. Says why where it can't be read. */
+async function pickFile(file: File): Promise<PickedFile | string> {
+  if (file.size > FILE_MOST) return `${file.name} is ${bytesSaid(file.size)}: a file added here is read whole in the browser, ${bytesSaid(FILE_MOST)} at most.`;
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (!bytes.length) return `${file.name} is empty.`;
+  let text: string;
+  try {
+    text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return `${file.name} isn’t text in UTF-8: a file added here is a CSV file with a header.`;
+  }
+  const read = readFile(text);
+  if (read.problems.length) return `${file.name} can’t be read as a table: ${read.problems[0]}.`;
+  return { name: file.name, bytes, sha256: await sha256Hex(bytes), text, read };
+}
+
+/** A file's column as the form says it: what its values read as, its blanks, how many differ, and a few of them. */
+function columnFacts(c: FileRead['columns'][number], rows: number): string {
+  const type = c.type === 'INTEGER' ? 'whole numbers' : c.type === 'REAL' ? 'numbers' : 'text';
+  const differ = c.unique ? 'never the same twice' : c.distinct > c.values.length && !c.values.length ? 'more than 1,000 values' : plural(c.distinct, 'value');
+  const blank = c.blank ? (c.blank === rows ? 'always blank' : `${fmtInt(c.blank)} blank`) : null;
+  const some = c.values.slice(0, 3).map(([v]) => (v.length > 24 ? `${v.slice(0, 23)}…` : v).replace(/\s+/g, ' '));
+  return [type, differ, blank, some.length ? `e.g. ${some.join(', ')}` : null].filter(Boolean).join(' · ');
+}
+
+/** The datasets described ahead of their data (ADR 0027 §5, Q-255), as known now, each with the change that described
+ * it (none: the flow shipped with it) and whether a source of its name is in the flow. */
+function awaitedNow(): { dataset: AwaitedDataset; change: ChangeSet | null; bound: boolean }[] {
+  const out = new Map<string, { dataset: AwaitedDataset; change: ChangeSet | null }>();
+  for (const a of awaitedOf(ruleBase.ontology)) out.set(a.id.toLowerCase(), { dataset: a, change: null });
+  for (const c of [...ruleChanges].sort((x, y) => Date.parse(x.recorded) - Date.parse(y.recorded))) {
+    for (const e of c.edits) if (e.op === 'describeAhead') out.set(e.dataset.id.toLowerCase(), { dataset: e.dataset, change: c });
+  }
+  const have = new Set([...state.doc.sources, ...state.doc.steps].map((x) => x.id.toLowerCase()));
+  return [...out.values()].map((x) => ({ ...x, bound: have.has(x.dataset.id.toLowerCase()) }));
+}
+
+/** A file input behind a button: picked, the file is read and `then` given it; a file that can't be read says why. */
+function filePicker(label: string, cls: string, then: (file: PickedFile) => void, err: HTMLElement): HTMLElement {
+  const input = h('input', { type: 'file', class: `src-file ${cls}`, accept: '.csv,text/csv,text/plain', 'aria-label': label }) as HTMLInputElement;
+  input.addEventListener('change', () => {
+    const f = input.files?.[0];
+    if (!f) return;
+    err.hidden = true;
+    void pickFile(f).then((picked) => {
+      input.value = '';
+      if (typeof picked === 'string') {
+        err.textContent = picked;
+        err.hidden = false;
+        return;
+      }
+      then(picked);
+    });
+  });
+  return h('label', { class: 'btn small primary src-pick' }, label, input);
+}
+
+/**
+ * Add a source (ADR 0027 §5): the two doors, the datasets described ahead that wait for data, each with the way to
+ * bind a file to it, and the sources added here, each with the way to take it off.
+ */
+function openSource(): void {
+  const owner = isOwner();
+  const err = h('p', { class: 'of-err src-err', role: 'alert', hidden: true });
+  const waiting = awaitedNow().filter((a) => !a.bound);
+  const added = sourcesAdded(state.doc);
+  const doors = owner
+    ? h('div', { class: 'src-doors' },
+        h('article', { class: 'src-door', 'data-door': 'data' },
+          h('h4', {}, 'Here is the data'),
+          h('p', { class: 'src-say' }, 'Pick a CSV file with a header. It is read in this browser and sent nowhere. Its description is proposed from what it holds, and you confirm what one row is and every column before anything reads it.'),
+          filePicker('Pick a file ›', 'src-file-data', (file) => sourceForm(file, null), err)),
+        h('article', { class: 'src-door', 'data-door': 'describe' },
+          h('h4', {}, 'Describe it first'),
+          h('p', { class: 'src-say' }, 'Say what the business needs before any file exists: what one row is, its key and its columns. It is in the ontology from its day and waits for data until a file is bound to it.'),
+          h('button', { type: 'button', class: 'btn small primary src-describe', onclick: () => describeForm() }, 'Describe a dataset ›')))
+    : h('p', { class: 'foot' }, 'Adding a source is the owner’s: it is part of the flow.');
+  const wait = waiting.length
+    ? block('Waiting for data',
+        h('ul', { class: 'cat-made src-waiting' }, ...waiting.map((a) => h('li', { 'data-awaited': a.dataset.id },
+          h('span', {}, h('b', {}, a.dataset.name), ` · ${a.dataset.id}: one row is ${withArticle(a.dataset.row.one)}, by ${listed(a.dataset.key)}; ${plural(a.dataset.columns.length, 'column')}${a.change ? `, described from ${dayLabel(a.change.from)}` : ''}`),
+          owner ? filePicker('Bind a file ›', 'src-file-bind', (file) => sourceForm(file, a.dataset), err) : null))))
+    : null;
+  const made = added.length
+    ? block('Added here',
+        h('ul', { class: 'cat-made src-added' }, ...added.map((id) => {
+          const a = addedSources.get(id);
+          return h('li', { 'data-source': id },
+            h('span', {}, h('b', {}, id), a ? ` · ${a.name}, ${bytesSaid(a.bytes)}, added by ${personName(a.by)}` : ' · a source added here'),
+            owner ? h('button', { type: 'button', class: 'linkish cat-off', onclick: () => void takeOffSource(id) }, 'Take it off') : null);
+        })),
+        h('p', { class: 'foot' }, 'Each is part of the flow as kept in this browser, with its file, and recorded. Back to the flow as shipped, on the Ontology page, takes them all away.'))
+    : null;
+  openDetail('Add a source', 'ok', [
+    h('p', { class: 'vf-one' }, 'A source and its description are made together: the ontology comes first. Before any step may read a file it says what one row is, by which key, and every column is described or set aside.'),
+    doors, err, wait, made,
+  ]);
+}
+
+/** "a vendor", "an application": one of them, with its article. */
+const withArticle = (one: string): string => `${/^[aeiou]/i.test(one.trim()) ? 'an' : 'a'} ${one.trim()}`;
+
+let sourceForms = 0;
+
+/**
+ * A file's description, confirmed (ADR 0027 §5, Q-254): what it will be called, what one row is and by which key, and
+ * every column described or set aside. Proposed from the file's own data; for a dataset described ahead, filled in
+ * from its description, each described column read from the file's column of its name or a close one, which a person
+ * confirms. Nothing is written until nothing is left to confirm.
+ */
+function sourceForm(file: PickedFile, awaited: AwaitedDataset | null): void {
+  const uid = `sf-${++sourceForms}`;
+  const base = baseDoc();
+  const read = file.read;
+  const byName = new Map(read.columns.map((c) => [c.name.toLowerCase(), c] as const));
+  // What was typed for each of the file's columns, kept while the mapping changes under it.
+  const typed = new Map<string, { description?: string; aside?: boolean }>();
+  const map: Record<string, string | null> = awaited ? Object.fromEntries(matchAwaited(awaited, read).map((m) => [m.column, m.from])) : {};
+  const close = new Set(awaited ? matchAwaited(awaited, read).filter((m) => m.by === 'close').map((m) => m.column) : []);
+  let spec: SourceSpec = awaited ? specOfAwaited(awaited, read, map) : proposeSource(base, file.name, read);
+  const gated = Object.keys(base.gates ?? {}).length > 0;
+  const kinds = gated && !awaited ? (base.ontology?.objectTypes ?? []) : [];
+
+  const field = (cls: string, label: string, value: string, more: Record<string, string> = {}) => {
+    const input = h('input', { type: 'text', id: `${uid}-${cls}`, class: cls, value, autocomplete: 'off', ...more }) as HTMLInputElement;
+    return { input, row: h('div', { class: 'of-field' }, h('label', { for: input.id }, label), input) };
+  };
+  const name = field('sf-name', 'Its name in the flow', spec.id, { maxlength: '40', autocapitalize: 'none', spellcheck: 'false', ...(awaited ? { disabled: 'disabled' } : {}) });
+  const about = field('sf-about', 'What it is', spec.description, { maxlength: '160', placeholder: 'What the file is, in a line (optional)' });
+  const one = field('sf-one', 'One row is one', spec.row.one, { maxlength: '40', ...(awaited ? { disabled: 'disabled' } : {}) });
+  const many = field('sf-many', 'Many are', spec.row.many, { maxlength: '40', ...(awaited ? { disabled: 'disabled' } : {}) });
+  const kind = h('select', { class: 'sf-kind', id: `${uid}-kind`, 'aria-label': 'What kind of thing a row is' },
+    h('option', { value: '' }, 'a kind of their own'), ...kinds.map((t) => h('option', { value: t.id }, `${t.name}, which the ontology has (by ${listed(t.key)})`))) as HTMLSelectElement;
+  const cols = h('div', { class: 'sf-cols' });
+  const count = h('p', { class: 'sf-count', role: 'status' });
+  const why = h('textarea', { class: 'sf-why', id: `${uid}-why`, rows: '2', 'aria-label': 'Why it is added', placeholder: 'Why, in a sentence: the record keeps it.' }) as HTMLTextAreaElement;
+  const err = h('p', { class: 'of-err sf-err', role: 'alert', hidden: true });
+  const go = h('button', { type: 'submit', class: 'btn primary sf-go' }, awaited ? 'Bind it to the flow' : 'Add it to the flow') as HTMLButtonElement;
+
+  /** The spec as the form stands: what was typed laid over what the file and the description give. */
+  const current = (): SourceSpec => {
+    const fresh = awaited ? specOfAwaited(awaited, read, map) : spec;
+    const described = new Set(awaited ? awaited.columns.map((c) => c.column.toLowerCase()) : []);
+    return {
+      ...fresh,
+      id: awaited ? awaited.id : name.input.value.trim(),
+      description: about.input.value.trim(),
+      row: awaited ? fresh.row : { one: one.input.value.trim(), many: many.input.value.trim() },
+      ...(kind.value ? { of: kind.value } : {}),
+      key: awaited ? fresh.key : spec.key,
+      columns: fresh.columns.map((c): SourceColumn => {
+        if (described.has(c.column.toLowerCase())) return c;
+        const t = typed.get((c.fromFile ?? c.column).toLowerCase());
+        return { ...c, ...(t?.description?.trim() ? { description: t.description.trim() } : {}), ...(t?.aside ? { aside: true } : {}) };
+      }),
+    };
+  };
+
+  const said = () => {
+    const now = current();
+    const lacking = columnsLacking(base.ontology, now);
+    const missing = awaited ? awaited.columns.filter((c) => !map[c.column]).length : 0;
+    const repeats = now.key.length && !awaited ? keyRepeats(file.text, now.key) : awaited ? keyRepeats(file.text, now.key.map((k) => map[k] ?? k)) : 0;
+    const parts = [
+      missing ? `${plural(missing, 'described column')} ${missing === 1 ? 'has' : 'have'} no column of the file to be read from` : null,
+      lacking.length ? `${plural(lacking.length, 'column')} still to describe or set aside` : 'Every column is described or set aside',
+      !now.key.length ? 'no key yet' : repeats ? `${plural(repeats, 'row')} of the file ${repeats === 1 ? 'shares' : 'share'} ${repeats === 1 ? 'its' : 'their'} key with a row before: one row isn’t one ${now.row.one || 'thing'} by ${listed(now.key)}` : `one row is one ${now.row.one || 'thing'}, by ${listed(now.key)}`,
+    ].filter(Boolean);
+    count.textContent = `${parts.join('; ')}.`;
+    count.classList.toggle('lacking', lacking.length > 0 || missing > 0 || !now.key.length || repeats > 0);
+    count.dataset.lacking = String(lacking.length);
+  };
+
+  const drawCols = () => {
+    const now = current();
+    const describedCol = (c: SourceColumn) => awaited?.columns.find((x) => x.column.toLowerCase() === c.column.toLowerCase());
+    // A dataset described ahead: each described column, with the file's column it is read from.
+    const mapped = awaited
+      ? awaited.columns.map((d) => {
+          const pick = h('select', { class: 'sf-from', 'aria-label': `The file’s column read as ${d.column}` },
+            h('option', { value: '' }, 'none of the file’s'), ...read.columns.map((c) => h('option', { value: c.name, ...(map[d.column]?.toLowerCase() === c.name.toLowerCase() ? { selected: 'selected' } : {}) }, c.name))) as HTMLSelectElement;
+          pick.addEventListener('change', () => {
+            map[d.column] = pick.value || null;
+            close.delete(d.column);
+            drawCols();
+          });
+          const from = map[d.column] ? byName.get(map[d.column]!.toLowerCase()) : undefined;
+          return h('div', { class: `sf-col sf-described${map[d.column] ? '' : ' unread'}`, 'data-column': d.column },
+            h('p', { class: 'sf-col-head' }, h('code', {}, d.column), awaited.key.some((k) => k.toLowerCase() === d.column.toLowerCase()) ? h('span', { class: 'sf-iskey' }, 'key') : null, h('span', { class: 'sf-said' }, ` ${d.description}`)),
+            h('div', { class: 'sf-read' }, h('span', {}, 'read from'), pick, close.has(d.column) ? h('span', { class: 'sf-close' }, 'a close name: confirm it') : null),
+            from ? h('p', { class: 'sf-facts' }, columnFacts(from, read.rows)) : h('p', { class: 'sf-facts unread' }, 'The file has no column for it yet: pick the one it is read from.'));
+        })
+      : [];
+    const rest = now.columns.filter((c) => !describedCol(c)).map((c) => {
+      const fileName = c.fromFile ?? c.column;
+      const f = byName.get(fileName.toLowerCase())!;
+      const has = describedAlready(base.ontology, now.id, c.column);
+      const t = typed.get(fileName.toLowerCase()) ?? {};
+      const isKey = now.key.some((k) => k.toLowerCase() === c.column.toLowerCase());
+      const desc = h('input', { type: 'text', class: 'sf-desc', maxlength: '200', 'aria-label': `What ${c.column} holds`, placeholder: has ? 'Its own words here (optional)' : 'What it holds', value: t.description ?? '', ...(t.aside ? { disabled: 'disabled' } : {}) }) as HTMLInputElement;
+      desc.addEventListener('input', () => {
+        typed.set(fileName.toLowerCase(), { ...typed.get(fileName.toLowerCase()), description: desc.value });
+        said();
+      });
+      const aside = h('input', { type: 'checkbox', class: 'sf-aside', ...(t.aside ? { checked: 'checked' } : {}) }) as HTMLInputElement;
+      aside.addEventListener('change', () => {
+        typed.set(fileName.toLowerCase(), { ...typed.get(fileName.toLowerCase()), aside: aside.checked });
+        if (aside.checked) spec = { ...spec, key: spec.key.filter((k) => k.toLowerCase() !== c.column.toLowerCase()) };
+        drawCols();
+      });
+      const key = h('input', { type: 'checkbox', class: 'sf-key', ...(isKey ? { checked: 'checked' } : {}), ...(awaited || t.aside ? { disabled: 'disabled' } : {}) }) as HTMLInputElement;
+      key.addEventListener('change', () => {
+        spec = { ...spec, key: key.checked ? [...spec.key, c.column] : spec.key.filter((k) => k.toLowerCase() !== c.column.toLowerCase()) };
+        said();
+      });
+      return h('div', { class: `sf-col${t.aside ? ' aside' : ''}`, 'data-column': c.column },
+        h('p', { class: 'sf-col-head' }, h('code', {}, c.column), h('span', { class: 'sf-facts' }, ` ${columnFacts(f, read.rows)}`)),
+        has && !t.aside ? h('p', { class: 'sf-has' }, 'The ontology has it: ', h('b', {}, has.title), ` · ${has.description}`) : null,
+        // A meaning the estate shares is the estate's to say: a file's own handling is written on its card, with its reason.
+        has && estateSays(estates, now.id, c.column) ? null : desc,
+        h('div', { class: 'sf-marks' },
+          awaited ? null : h('label', { class: 'sf-mark' }, key, ' part of its key'),
+          h('label', { class: 'sf-mark' }, aside, ' set aside: the flow doesn’t take it')));
+    });
+    cols.replaceChildren(
+      ...(awaited ? [h('p', { class: 'sf-sub' }, `As described: ${plural(awaited.columns.length, 'column')}`), ...mapped, ...(rest.length ? [h('p', { class: 'sf-sub' }, `The file’s other ${rest.length === 1 ? 'column' : `${rest.length} columns`}: describe or set aside`)] : [])] : []),
+      ...rest);
+    said();
+  };
+
+  name.input.addEventListener('change', () => {
+    spec = { ...spec, id: name.input.value.trim() };
+    drawCols();
+  });
+  for (const x of [one.input, many.input]) x.addEventListener('input', said);
+  kind.addEventListener('change', said);
+  const form = h('form', { class: 'of-form sf-form', 'aria-label': awaited ? `Bind ${file.name} to ${awaited.name}` : `Describe ${file.name}`, novalidate: true },
+    h('p', { class: 'sf-file' }, h('b', {}, file.name), ` · ${plural(read.rows, 'row')}, ${plural(read.columns.length, 'column')}, ${bytesSaid(file.bytes.length)} · `, hashCode(Promise.resolve(file.sha256), 'sf-hash')),
+    awaited ? h('p', { class: 'sf-awaited' }, h('b', {}, awaited.name), ` was described ahead of its data: one row is ${withArticle(awaited.row.one)}, by ${listed(awaited.key)}. The file is read as it: a column under another name is read as the described one.`) : null,
+    name.row,
+    about.row,
+    h('div', { class: 'sf-row' }, one.row, many.row),
+    kinds.length ? h('div', { class: 'of-field' }, h('label', { for: kind.id }, 'Its rows are'), kind, h('p', { class: 'of-hint' }, 'A kind the ontology has already is told by the one column that holds its key.')) : null,
+    h('fieldset', { class: 'of-vals sf-columns' }, h('legend', {}, awaited ? 'Its columns' : `Its ${plural(read.columns.length, 'column')}`), cols),
+    count,
+    h('div', { class: 'of-field' }, h('label', { for: why.id }, 'Why'), why),
+    h('p', { class: 'of-hint sf-writes' }, `Written as cells of ${SOURCES_NOTEBOOK}, a notebook of this flow, with a check step that asks every row for its key, and published as checked. The file is kept in this browser; the record keeps its hash.`),
+    err,
+    h('div', { class: 'of-acts' }, go, h('button', { type: 'button', class: 'btn quiet sf-cancel', onclick: () => document.querySelector('.vf-detail-wrap')?.remove() }, 'Cancel')));
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fail = (said: string) => {
+      err.textContent = said;
+      err.hidden = false;
+      go.disabled = false;
+    };
+    const now = current();
+    const problems = [...(awaited ? awaitedProblems(awaited, map) : []), ...sourceProblems(baseDoc(), now)];
+    if (problems.length) return fail(`${problems[0]}.`);
+    if (!why.value.trim()) {
+      why.focus();
+      return fail('Adding a source needs a reason: one line of why.');
+    }
+    go.disabled = true;
+    err.hidden = true;
+    void addSource(now, file, why.value.trim(), fail);
+  });
+  openDetail(awaited ? `Bind a file to ${awaited.name}` : 'Describe the file', 'ok', [form]);
+  drawCols();
+}
+
+/**
+ * Describe it first (ADR 0027 §5, Q-255): a dataset the business needs, said before any file exists. Its name, what
+ * one row is, its key and its columns, each with what it holds. A dated change of the ontology, with its reason: in
+ * force from its day, and waiting for data until a file is bound to it.
+ */
+function describeForm(): void {
+  const uid = `df-${++sourceForms}`;
+  const field = (cls: string, label: string, more: Record<string, string> = {}) => {
+    const input = h('input', { type: 'text', id: `${uid}-${cls}`, class: cls, autocomplete: 'off', ...more }) as HTMLInputElement;
+    return { input, row: h('div', { class: 'of-field' }, h('label', { for: input.id }, label), input) };
+  };
+  const called = field('df-called', 'What people call it', { maxlength: '60', placeholder: 'SBOM inventory' });
+  const name = field('df-name', 'Its name in the flow', { maxlength: '40', autocapitalize: 'none', spellcheck: 'false', placeholder: 'sbom_inventory' });
+  const about = field('df-about', 'What it is', { maxlength: '160', placeholder: 'In a line (optional)' });
+  const one = field('df-one', 'One row is one', { maxlength: '40', placeholder: 'component list' });
+  const many = field('df-many', 'Many are', { maxlength: '40', placeholder: 'component lists' });
+  // Its name follows what it is called until someone types one.
+  let named = false;
+  name.input.addEventListener('input', () => (named = true));
+  called.input.addEventListener('input', () => {
+    if (!named) name.input.value = called.input.value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').replace(/^(\d)/, 'd_$1').slice(0, 40);
+  });
+  const rows = h('div', { class: 'df-cols' });
+  const row = () => {
+    const column = h('input', { type: 'text', class: 'df-col-name', maxlength: '60', autocapitalize: 'none', spellcheck: 'false', 'aria-label': 'The column', placeholder: 'column' }) as HTMLInputElement;
+    const holds = h('input', { type: 'text', class: 'df-col-desc', maxlength: '200', 'aria-label': 'What it holds', placeholder: 'What it holds' }) as HTMLInputElement;
+    const key = h('input', { type: 'checkbox', class: 'df-col-key' }) as HTMLInputElement;
+    const el: HTMLElement = h('div', { class: 'df-col' }, column, holds, h('label', { class: 'sf-mark' }, key, ' key'),
+      h('button', { type: 'button', class: 'linkish df-col-off', 'aria-label': 'Take this column out', onclick: () => {
+        if (rows.querySelectorAll('.df-col').length > 1) el.remove();
+      } }, 'Remove'));
+    return el;
+  };
+  rows.append(row(), row());
+  const why = whyFields('described');
+  const err = h('p', { class: 'of-err df-err', role: 'alert', hidden: true });
+  const go = h('button', { type: 'submit', class: 'btn primary df-go' }, 'Describe it') as HTMLButtonElement;
+  const form = h('form', { class: 'of-form df-form', 'aria-label': 'Describe a dataset ahead of its data', novalidate: true },
+    called.row, name.row, about.row,
+    h('div', { class: 'sf-row' }, one.row, many.row),
+    h('fieldset', { class: 'of-vals df-columns' }, h('legend', {}, 'Its columns'), rows,
+      h('button', { type: 'button', class: 'linkish df-col-add', onclick: () => rows.append(row()) }, '+ Add a column'),
+      h('p', { class: 'of-hint' }, 'Every column says what it holds. Tick the columns that tell one row from another: its key.')),
+    fromBar(),
+    why.el,
+    h('p', { class: 'of-hint df-writes' }, 'It is the ontology’s from its day and waits for data: nothing reads it until a file is bound to it, from Add a source.'),
+    err,
+    h('div', { class: 'of-acts' }, go, h('button', { type: 'button', class: 'btn quiet df-cancel', onclick: () => document.querySelector('.vf-detail-wrap')?.remove() }, 'Cancel')));
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fail = (said: string) => {
+      err.textContent = said;
+      err.hidden = false;
+      go.disabled = false;
+    };
+    const cols = Array.from(rows.querySelectorAll<HTMLElement>('.df-col')).map((el) => ({
+      column: el.querySelector<HTMLInputElement>('.df-col-name')!.value.trim(),
+      description: el.querySelector<HTMLInputElement>('.df-col-desc')!.value.trim(),
+      key: el.querySelector<HTMLInputElement>('.df-col-key')!.checked,
+    })).filter((c) => c.column || c.description);
+    const dataset: AwaitedDataset = {
+      id: name.input.value.trim(),
+      name: called.input.value.trim(),
+      ...(about.input.value.trim() ? { description: about.input.value.trim() } : {}),
+      row: { one: one.input.value.trim(), many: many.input.value.trim() },
+      key: cols.filter((c) => c.key).map((c) => c.column),
+      columns: cols.map((c) => ({ column: c.column, description: c.description })),
+    };
+    const issue = awaitedIssues(dataset)[0];
+    if (issue) return fail(`${DESCRIBE_FIELD[issue[0].split('[')[0]!.replace(/^\./, '')] ?? 'It'} needs ${issue[1]}.`);
+    const taken = [...state.doc.sources, ...state.doc.steps].some((x) => x.id.toLowerCase() === dataset.id.toLowerCase());
+    if (taken) return fail(`${dataset.id} is a dataset of the flow already: it has its data.`);
+    if (awaitedNow().some((a) => a.dataset.id.toLowerCase() === dataset.id.toLowerCase())) return fail(`${dataset.id} is described ahead already: it waits for data.`);
+    if (state.doc.smaltfl !== 5) return fail('Describing ahead of the data is a format-5 flow’s: this one isn’t asked to put the ontology first.');
+    const given = why.read();
+    if (typeof given === 'string') {
+      why.focus();
+      return fail(given);
+    }
+    go.disabled = true;
+    err.hidden = true;
+    void editRules({ op: 'describeAhead', dataset }, { given }).then((done) => {
+      if (!done) return fail('It couldn’t be written: the rules didn’t change.');
+      document.querySelector('.vf-detail-wrap')?.remove();
+    });
+  });
+  openDetail('Describe a dataset', 'ok', [
+    h('p', { class: 'vf-one' }, 'Say what the business needs before any file exists. It waits for data until a file is bound to it: a file’s columns are then read as these, whatever the file calls them.'),
+    form,
+  ]);
+}
+/** What each part of a description ahead is called on the form, for what it still lacks. */
+const DESCRIBE_FIELD: Record<string, string> = { id: 'Its name', name: 'What people call it', row: 'One row', key: 'Its key', columns: 'A column', description: 'What it is' };
+
+/**
+ * The datasets described ahead of their data, on the Ontology view (ADR 0027 §5, Q-255): each with what one row is,
+ * its columns in words, since when and by which change, and whether it still waits for data or a source of its name is
+ * in the flow by now. Null where the flow describes none.
+ */
+function awaitedPart(): HTMLElement | null {
+  const all = awaitedNow();
+  if (!all.length) return null;
+  const owner = isOwner();
+  const day = (viewedDay() ?? shownDay())?.slice(0, 10) ?? null;
+  return h('section', { class: 'aw', 'aria-label': 'Described ahead of their data' },
+    h('p', { class: 'aw-head' }, h('b', {}, 'Described ahead of their data'), ` · ${all.filter((a) => !a.bound).length ? `${plural(all.filter((a) => !a.bound).length, 'dataset')} waiting for data` : 'each has its data by now'}`),
+    ...all.map((a) => {
+      const d = a.dataset;
+      const coming = !!a.change && day !== null && a.change.from > day;
+      return h('article', { class: `aw-item${a.bound ? ' bound' : ' waiting'}${coming ? ' coming' : ''}`, 'data-awaited': d.id },
+        h('p', { class: 'aw-name' }, h('b', {}, d.name), ' ', h('code', {}, d.id), h('span', { class: `aw-state ${a.bound ? 'bound' : 'waiting'}` }, a.bound ? 'has its data' : 'waiting for data')),
+        d.description ? h('p', { class: 'aw-desc' }, d.description) : null,
+        h('p', { class: 'aw-row' }, `One row is ${withArticle(d.row.one)}, by ${listed(d.key)}.`,
+          a.change ? ' ' : ' Shipped with the flow.',
+          a.change ? h('button', { type: 'button', class: 'linkish aw-since', onclick: () => openChange(a.change!.id) }, `${coming ? 'Coming' : 'Described'} from ${dayLabel(a.change.from)} ›`) : null),
+        h('details', { class: 'aw-cols' }, h('summary', {}, `Its ${plural(d.columns.length, 'column')}`),
+          h('dl', { class: 'aw-dl' }, ...d.columns.flatMap((c) => [h('dt', {}, h('code', {}, c.column), d.key.some((k) => k.toLowerCase() === c.column.toLowerCase()) ? h('span', { class: 'sf-iskey' }, 'key') : null), h('dd', {}, c.description)]))),
+        a.bound
+          ? h('p', { class: 'aw-bound' }, 'A source of its name is in the flow. ', h('button', { type: 'button', class: 'linkish aw-open', onclick: () => openTab(d.id, 'data') }, 'Open it ›'))
+          : owner ? h('p', { class: 'aw-bind' }, 'No file is bound to it yet: every day says so, and nothing reads it. ', h('button', { type: 'button', class: 'btn small aw-go', onclick: openSource }, 'Bind a file ›'))
+            : h('p', { class: 'aw-bind' }, 'No file is bound to it yet. Binding one is the owner’s.'));
+    }));
 }
 
 // ------------------------------------------------------------------ a change followed, said and tested (ADR 0026 §7)
@@ -5079,13 +5682,90 @@ function registerPart(): HTMLElement | null {
  */
 function firstLine(): HTMLElement | null {
   if (state.doc.smaltfl < 4) return null;
-  const declared = (id: string) => dataList?.sources[id]?.columns?.map((c) => c[0]) ?? null;
+  const declared = (id: string) => bindingOf(id)?.columns?.map((c) => c[0]) ?? null;
   const lacking = undescribed(state.doc, declared);
   const first = state.doc.smaltfl === 5;
-  return h('p', { class: `rt-first${lacking.length ? ' lacking' : ''}`, 'data-format': String(state.doc.smaltfl) },
+  const line = h('p', { class: `rt-first${lacking.length ? ' lacking' : ''}`, 'data-format': String(state.doc.smaltfl) },
     h('b', {}, first ? 'The ontology comes first. ' : 'Format 4: the ontology isn’t asked to come first. '),
     !lacking.length ? (first ? 'Every file says what one row is, and every column it has is described or set aside. A change says its kind and why.' : 'Every file says what one row is and every column is described: it could be format 5.')
       : `${first ? 'Still to say' : 'Format 5 would ask'}: ${lacking.map(undescribedSaid).join('. ')}.`);
+  // A flow in an older format is brought up here (Q-274): the owner says what is asked, then saves it as format 5.
+  if (first || !isOwner()) return line;
+  const rows = lacking.filter((u) => u.row);
+  // What the document itself would still be refused for as format 5, beside what a row is (said above, file by file).
+  const other = lacking.length ? [] : validateDocument({ ...baseDoc(), smaltfl: 5 } as FlowDocument).map((i) => i.message);
+  return h('div', { class: 'rt-up' }, line,
+    h('div', { class: 'rt-up-acts' },
+      ...rows.map((u) => h('button', { type: 'button', class: 'btn small rt-row', 'data-source': u.source, onclick: () => rowForm(u.source) }, `Say what one row of ${u.source} is ›`)),
+      !lacking.length && !other.length ? h('button', { type: 'button', class: 'btn small primary rt-save5', onclick: () => saveAsFormat5() }, 'Save it as format 5 ›') : null),
+    lacking.some((u) => u.columns.length) ? h('p', { class: 'of-hint rt-up-how' }, 'A column is described on its card below: its name, then what it holds.') : null,
+    other.length ? h('p', { class: 'of-hint rt-up-how' }, `Format 5 would also ask: ${other[0]}.`) : null);
+}
+
+/**
+ * What one row of a file is, said (ADR 0027 §4, Q-274): its noun, for a flow in an older format being brought up. A
+ * name, as a column's is: it holds for every day, is recorded with its reason, and nothing is run again.
+ */
+function rowForm(source: string): void {
+  const uid = `rw-${++sourceForms}`;
+  const field = (cls: string, label: string, placeholder: string) => {
+    const input = h('input', { type: 'text', id: `${uid}-${cls}`, class: cls, maxlength: '40', autocomplete: 'off', placeholder }) as HTMLInputElement;
+    return { input, row: h('div', { class: 'of-field' }, h('label', { for: input.id }, label), input) };
+  };
+  const one = field('rw-one', 'One row is one', 'application');
+  const many = field('rw-many', 'Many are', 'applications');
+  const why = h('textarea', { class: 'rw-why', id: `${uid}-why`, rows: '2', 'aria-label': 'Why', placeholder: 'Why, in a sentence: the record keeps it.' }) as HTMLTextAreaElement;
+  const err = h('p', { class: 'of-err rw-err', role: 'alert', hidden: true });
+  const go = h('button', { type: 'submit', class: 'btn primary sf-go rw-go' }, 'Say so') as HTMLButtonElement;
+  const form = h('form', { class: 'of-form sf-form rw-form', 'aria-label': `What one row of ${source} is`, novalidate: true },
+    h('div', { class: 'sf-row' }, one.row, many.row),
+    h('p', { class: 'of-hint' }, `A word or two each, as a count reads: “1,204 ${many.input.placeholder}”. Its key, where the file has one, is declared from its data on its card.`),
+    h('div', { class: 'of-field' }, h('label', { for: why.id }, 'Why'), why),
+    err,
+    h('div', { class: 'of-acts' }, go, h('button', { type: 'button', class: 'btn quiet', onclick: () => document.querySelector('.vf-detail-wrap')?.remove() }, 'Cancel')));
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fail = (said: string) => {
+      err.textContent = said;
+      err.hidden = false;
+    };
+    const row = { one: one.input.value, many: many.input.value };
+    const problem = rowProblems(baseDoc(), source, row)[0];
+    if (problem) return fail(`${problem}.`);
+    if (!why.value.trim()) return fail('It needs a reason: one line of why.');
+    if (state.running) return fail('The flow is running. Say it when the run has ended.');
+    const next = withRowSaid(baseDoc(), source, row);
+    const issue = validateDocument(next)[0];
+    if (issue) return fail(`That can’t be written: ${issue.message}.`);
+    document.querySelector('.vf-detail-wrap')?.remove();
+    takeRules(next);
+    const said = `Said what one row of ${source} is: ${withArticle(row.one)} (“${why.value.trim()}”)`;
+    void flowEdited(said).then(() => {
+      setStatus(`${said}. Recorded.`, false);
+      void renderOntology();
+    });
+  });
+  openDetail(`One row of ${source}`, 'ok', [h('p', { class: 'vf-one' }, 'The ontology says what one row of every file is before anything reads it. A name for it is enough: a kind of thing, with its key, can follow.'), form]);
+}
+
+/**
+ * A flow in an older format saved as format 5 (ADR 0027 §4, Q-274), once nothing it is asked is left: the ontology
+ * comes first from here on. Every file says what one row is, every column is described, and every change from now says
+ * its kind and why. Recorded as a change of the flow; the next run is the flow's as saved.
+ */
+async function saveAsFormat5(): Promise<void> {
+  if (!isOwner()) return;
+  if (state.running) return void setStatus('The flow is running. Save it when the run has ended.', true);
+  const next = { ...baseDoc(), smaltfl: 5 } as FlowDocument;
+  const declared = (id: string) => bindingOf(id)?.columns?.map((c) => c[0]) ?? null;
+  const lacking = undescribed(next, declared);
+  const issue = lacking.length ? undescribedSaid(lacking[0]!) : validateDocument(next)[0]?.message;
+  if (issue) return void setStatus(`It can’t be format 5 yet: ${issue}.`, true);
+  takeRules(next);
+  const said = 'Saved as format 5: the ontology comes first';
+  await flowEdited(said);
+  setStatus(`${said}. Every file says what one row is and every column is described; a change now says its kind and why. Recorded.`, false);
+  void renderOntology();
 }
 
 /**
@@ -5106,6 +5786,7 @@ function renderRulesTime(): void {
   box.replaceChildren(
     h('p', { class: 'rt-head' }, h('b', {}, day ? `The rules in force on ${dayLabel(day)}` : 'The rules in force'), ' ', hashCode(rulesHashOf(state.doc), 'rt-hash'), ruleChanges.length ? ` · ${plural(ruleChanges.length, 'change set')}${baseEdited() ? '; names and labels edited here' : ''}` : baseEdited() ? ' · names and labels edited here' : ' · as shipped'),
     firstLine() ?? '',
+    awaitedPart() ?? '',
     registerPart() ?? '',
     ruleVersionsPart() ?? '',
     owner ? fromBar() : '');
@@ -5389,6 +6070,9 @@ async function backToShipped(): Promise<void> {
   storyCache.clear();
   planKindCache.doc = null;
   state.issues = [];
+  // What was added here goes with it: each source's binding and its file.
+  await dropAddedGone();
+  renderBuildBar();
   await recordFlowChange(`Back to the flow as shipped: ${n ? `${plural(n, 'change')} taken away` : 'every change taken away'}`, doc);
   setStatus(`The flow is as it was shipped again${n ? `: ${plural(n, 'change')} taken away` : ''}. Recorded; the next run uses it.`, false);
   requestCanvas();
@@ -7068,7 +7752,7 @@ function provenancePart(id: string): HTMLElement | null {
     h('summary', {}, h('span', { class: 'pv-t' }, 'Where this table came from'), h('span', { class: 'pv-s' }, `kept with run ${runName(meta.run)}’s signed record`)),
     h('dl', { class: 'pv-facts' },
       ...row('Pulled in', meta.ingest ? whenSaid(meta.ingest.at) : h('span', { class: 'foot' }, 'not recorded: the run wasn’t told where the file came from')),
-      ...(meta.ingest ? row('From', code(meta.ingest.path), meta.ingest.from ? h('span', { class: 'foot' }, ` · made by ${meta.ingest.from}`) : null) : []),
+      ...(meta.ingest ? row('From', code(meta.ingest.path), meta.ingest.from ? h('span', { class: 'foot' }, /^(uploaded|added) /.test(meta.ingest.from) ? ` · ${meta.ingest.from}` : ` · made by ${meta.ingest.from}`) : null) : []),
       ...(meta.file ? row('The file', code(`sha256 ${shortHash(meta.file.sha256)}…`, meta.file.sha256), h('span', { class: 'foot' }, ` · ${bytesSaid(meta.file.bytes)}${meta.rows !== undefined ? ` · ${plural(meta.rows, 'row')}` : ''}`)) : []),
       ...row('Code', 'smaltfl ', commitEl(meta.commit)),
       ...row('Ontology', meta.ontology ? code(`${shortHash(meta.ontology)}…`, meta.ontology) : h('span', { class: 'foot' }, 'not recorded'), h('span', { class: 'foot' }, ' · flow '), code(`${shortHash(meta.flow)}…`, meta.flow))),
@@ -14717,8 +15401,11 @@ function columnsPart(k: number): HTMLElement | null {
   const changed = r.result.manifest.nodes.filter((n) => n.columns);
   if (!changed.length) return null;
   const may = checkDecision(policies(), state.viewer, 'asis').allowed;
-  const rows = changed.map((n) => {
-    const c = n.columns!;
+  const rows = changed.flatMap((n) => {
+    // A column the ontology sets aside is one the file is known to have and the flow doesn't take (ADR 0027 §4): it is
+    // no news on any day. A file whose only change is such columns says nothing here.
+    const c = { ...n.columns!, added: n.columns!.added.filter((col) => !isAside(state.doc.ontology, n.origin, col)) };
+    if (!columnsHold(c) && !c.added.length) return [];
     const held = columnsHold(c);
     // Each gone column a join reads (Q-205): the joins and what is built from them, and today's matches on the other
     // side where a new column reads as it.
@@ -14784,8 +15471,8 @@ function columnsPart(k: number): HTMLElement | null {
     });
     // A new column is the ontology's to settle (ADR 0027 §4): described, or set aside; until then it is noted, and no
     // step reads it either way.
-    const fresh = !held ? c.added.filter((col) => !propertyOf(state.doc.ontology, n.origin, col) && !isAside(state.doc.ontology, n.origin, col)) : [];
-    return h('div', { class: `cm-source${held ? ' held' : ''}`, 'data-source': n.origin },
+    const fresh = !held ? c.added.filter((col) => !propertyOf(state.doc.ontology, n.origin, col)) : [];
+    return [h('div', { class: `cm-source${held ? ' held' : ''}`, 'data-source': n.origin },
       h('p', { class: 'cm-said' }, h('b', {}, `${n.origin}: `), `${columnChangeSaid(c)}.`),
       ...joins,
       ...maps,
@@ -14793,8 +15480,9 @@ function columnsPart(k: number): HTMLElement | null {
       fresh.length && isOwner() ? h('p', { class: 'cm-ask' }, ...fresh.flatMap((col) => [
         h('button', { type: 'button', class: 'linkish cm-add', 'data-column': col, onclick: () => describeNewColumn(n.origin, col, day) }, `Add ${col} to the ontology ›`),
         ...(state.doc.smaltfl === 5 ? [h('button', { type: 'button', class: 'linkish cm-aside', 'data-column': col, onclick: () => asideColumn(n.origin, col, true) }, `Set ${col} aside ›`)] : []),
-      ])) : '');
+      ])) : '')];
   });
+  if (!rows.length) return null;
   return h('section', { class: 'panel dh-columns', 'aria-label': 'Columns that changed' }, h('p', { class: 'eyebrow' }, 'Columns that changed'), ...rows);
 }
 
@@ -19391,6 +20079,8 @@ async function start(): Promise<void> {
   mark('flow.json');
   shippedHash = await flowHash(shippedDoc);
   loadFlow();
+  // The sources added here (ADR 0027 §5), with their files from this browser: without one, what was kept is dropped.
+  await restoreAdded();
   // The rules before any change set, and the change sets, kept apart from the document on screen (ADR 0021 §5).
   takeRules(state.doc);
   if (staleUses) saveFlow();
@@ -19558,6 +20248,17 @@ async function start(): Promise<void> {
       tablesDdl.push(pinnedDdl(b));
       if (id === list.loadSource && first) loads.bytes.set(k0, bytes);
       else if (day) loads.others.set(k0, { ...(loads.others.get(k0) ?? {}), [`${id}:${want.sha256}`]: bytes });
+    }
+    // The sources added here (ADR 0027 §5): each one's file as this browser keeps it, pinned with the day's, its table
+    // defined with theirs; a column the file names otherwise is declared by that name before the first run
+    // (`defineTablesFor`).
+    for (const [id, a] of addedSources) {
+      const bytes = addedBytes.get(id);
+      if (!bytes || !state.doc.sources.some((x) => x.id === id)) continue;
+      pulledIn(id, a.name, a.sha256, `added here by ${personName(a.by)}`);
+      dayFiles.push({ name: a.binding.file, bytes, sha256: a.sha256 });
+      tablesDdl.push(pinnedDdl(a.binding));
+      pinnedHeaders.set(id, csvHeader(new TextDecoder().decode(bytes.subarray(0, 1 << 16))));
     }
     // In one round trip each (a call that holds the engine's lock waits for the one before it to be answered): every
     // file, then every table over them, in one statement list.

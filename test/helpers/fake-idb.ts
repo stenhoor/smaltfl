@@ -1,5 +1,6 @@
 /**
- * Just enough of IndexedDB for the record (src/app/record.ts) in Node: object stores with key paths, put, get, getAll
+ * Just enough of IndexedDB for the record (src/app/record.ts) and the files added in the app (src/app/files.ts) in
+ * Node: object stores with key paths, put, get, delete, getAll
  * with a key range and a cursor over the keys in order, and a transaction that completes on a later task, as a
  * browser's does. Values are kept as given (a browser would clone them). Install it, open the record, and uninstall it
  * after.
@@ -48,6 +49,12 @@ export function installFakeIndexedDB(): () => void {
                   (r.onsuccess as () => void)?.();
                 });
                 return r;
+              },
+              delete(key: Key) {
+                later(() => {
+                  s.rows.delete(JSON.stringify(key));
+                  later(() => (tx.oncomplete as () => void)?.());
+                });
               },
               // The keys in order, one a step: `continue(key)` goes on to the first key at or after it.
               openKeyCursor() {

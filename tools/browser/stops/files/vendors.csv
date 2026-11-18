@@ -1,0 +1,7 @@
+vendor_id,name,country,tier,Risk Score,contract_no,notes
+v-001,Acme Hosting,US,1,7.5,00412,"Renewed, twice"
+v-002,Birch Data,DE,2,3,00413,
+v-003,Cedar Mail,US,2,4.25,00414,"Two lines
+of notes"
+v-004,Dune Pay,GB,1,9,00415,
+v-005,Elm Identity,FR,1,6,00416,Single sign-on
