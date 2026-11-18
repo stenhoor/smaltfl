@@ -947,6 +947,63 @@ describe('a unit’s score over the month (scoreTrend, scoreSpark; ADR 0020 §6)
     expect(scoreTrend({ days: many, points: pts, aria: 'x', w: 900 }).match(/class="pt"/g)).toHaveLength(60);
   });
 
+  it('cuts a line where a change of the business moved it by itself, flagged with the change’s own step (ADR 0027 §7)', () => {
+    const four = ['2024-03-25', '2024-03-26', '2024-03-27', '2024-03-28'];
+    const pts = [{ day: four[0]!, score: 93, coverage: 99 }, { day: four[1]!, score: 93.1, coverage: 99.1 }, { day: four[2]!, score: 92.7, coverage: 90.8 }, { day: four[3]!, score: 92.3, coverage: 90.8 }];
+    const lines = (svg: string, cls: string) => svg.match(new RegExp(`<line class="${cls}" `, 'g'))?.length ?? 0;
+    const plain = scoreTrend({ days: four, points: pts, aria: 'x' });
+    expect(lines(plain, 'line')).toBe(3);
+    expect(lines(plain, 'line cov')).toBe(3);
+    expect(plain).not.toContain('step-cut');
+    expect(plain).not.toContain('steps taken out');
+    // Coverage cut on Wed 27: its line isn't joined across the cut, the score's is; one rule, one flag naming the line.
+    const cut = { day: '2024-03-27', series: 'coverage' as const, step: -8.3, label: 'Wed 27: SBOM declared; coverage by −8.3, from 99.1 to 90.8' };
+    const svg = scoreTrend({ days: four, points: pts, aria: 'x', cuts: [cut] });
+    expect(lines(svg, 'line cov')).toBe(2);
+    expect(lines(svg, 'line')).toBe(3);
+    expect(lines(svg, 'step-cut')).toBe(1);
+    expect(svg).toContain('<title>Wed 27: SBOM declared; coverage by −8.3, from 99.1 to 90.8</title>');
+    expect(svg.match(/class="step-flag"[^>]*>([^<]*)</)![1]).toBe('coverage −8.3 by the change');
+    // A change that cut both lines: both unjoined there, one rule, a flag a line.
+    const both = scoreTrend({ days: four, points: pts, aria: 'x', cuts: [{ ...cut, series: 'score', step: -0.4, label: 'the score' }, cut] });
+    expect(lines(both, 'line')).toBe(2);
+    expect(lines(both, 'line cov')).toBe(2);
+    expect(lines(both, 'step-cut')).toBe(1);
+    expect([...both.matchAll(/class="step-flag"[^>]*>([^<]*)</g)].map((m) => m[1])).toEqual(['score −0.4 by the change', 'coverage −8.3 by the change']);
+    // A cut on a day the chart doesn't show is none.
+    expect(scoreTrend({ days: four, points: pts, aria: 'x', cuts: [{ ...cut, day: '2024-04-02' }] })).not.toContain('step-cut');
+    // The flag stands right of its rule where it fits before the chart's edge, and left of it where it wouldn't: a
+    // cut near the end of a month, at any width.
+    const march = Array.from({ length: 31 }, (_, i) => `2024-03-${String(i + 1).padStart(2, '0')}`);
+    const all = march.map((day) => ({ day, score: 93, coverage: day >= '2024-03-27' ? 90.8 : 99.1 }));
+    for (const w of [324, 752, 1100, 1340]) {
+      const late = scoreTrend({ days: march, points: all, aria: 'x', w, cuts: [cut] });
+      const flag = /class="step-flag" x="([\d.]+)"[^>]*text-anchor="(end|start)">([^<]*)</.exec(late)!;
+      const at = Number(flag[1]);
+      const wide = flag[3]!.length * 6;
+      expect(flag[2] === 'start' ? at + wide : at).toBeLessThanOrEqual(w);
+      expect(flag[2] === 'end' ? at - wide : at).toBeGreaterThanOrEqual(0);
+    }
+    expect(/text-anchor="(end|start)"/.exec(scoreTrend({ days: march, points: all, aria: 'x', w: 752, cuts: [{ ...cut, day: '2024-03-05' }] }).split('step-flag')[1]!)![1]).toBe('start');
+  });
+
+  it('draws the lines with the steps taken out beside the published ones, only where a line was cut (Q-261)', () => {
+    const four = ['2024-03-25', '2024-03-26', '2024-03-27', '2024-03-28'];
+    const pts = [{ day: four[0]!, score: 93, coverage: 99 }, { day: four[1]!, score: 93.1, coverage: 99.1 }, { day: four[2]!, score: 92.7, coverage: 90.8 }, { day: four[3]!, score: 92.3, coverage: 90.8 }];
+    const cut = { day: '2024-03-27', series: 'coverage' as const, step: -8.3, label: 'x' };
+    const adjusted = pts.map((p) => ({ ...p, coverage: p.day >= '2024-03-27' ? p.coverage + 8.3 : p.coverage }));
+    const svg = scoreTrend({ days: four, points: pts, aria: 'x', cuts: [cut], adjusted });
+    // From the last day before the cut on: two dotted segments for coverage, none for the score, which wasn't cut.
+    expect(svg.match(/<line class="line cov adj" /g)).toHaveLength(2);
+    expect(svg).not.toContain('<line class="line adj" ');
+    expect(svg).toContain('steps taken out');
+    // The published lines are still there, as published.
+    expect(svg.match(/<line class="line cov" /g)).toHaveLength(2);
+    expect(svg.match(/<line class="line" /g)).toHaveLength(3);
+    // With no cut, the adjusted points draw nothing.
+    expect(scoreTrend({ days: four, points: pts, aria: 'x', adjusted })).not.toContain(' adj"');
+  });
+
   it('draws nothing but its frame with no day published, and a spark only with one', () => {
     expect(scoreTrend({ days, points: [], aria: 'x' }).match(/class="pt"/g)).toBeNull();
     expect(scoreSpark({ days, points: [], aria: 'x' })).toBe('');

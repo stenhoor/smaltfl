@@ -72,7 +72,7 @@ export interface StoryClaim {
 }
 
 /** An accepted level as a claim names it (C6): the day it starts, the metrics it names, and the decide entry that
- * accepted it, by its seq. */
+ * accepted it, by its seq; or, for the level a declared change's own step gave (ADR 0027 §7, Q-263), the step's entry. */
 export interface ClaimLevel {
   from: string;
   metrics: string[];
@@ -1620,6 +1620,14 @@ export function levelsOf(entries: readonly EntryLike[], source: string): ClaimLe
   const out: ClaimLevel[] = [];
   for (const e of entries) {
     const a = e.about as JSONValue;
+    // A declared change's own step (ADR 0027 §7, Q-263): the series it moved are at a new level from its first day,
+    // accepted ahead by the declaration; the step's entry stands where an Accept's would.
+    if (e.kind === 'step' && isRecord(a) && typeof a.day === 'string' && Array.isArray(a.levels)) {
+      for (const l of a.levels) {
+        if (isRecord(l) && typeof l.source === 'string' && l.source.toLowerCase() === source.toLowerCase() && Array.isArray(l.metrics) && l.metrics.length) out.push({ from: a.day, metrics: l.metrics.map(String), decision: e.seq });
+      }
+      continue;
+    }
     if (e.kind !== 'decide' || !isDecide(a) || a.option !== 'accept' || a.under !== undefined || amended.has(e.seq) || !applied.has(e.seq)) continue;
     if (a.level!.source.toLowerCase() !== source.toLowerCase()) continue;
     out.push({ from: a.level!.from, metrics: [...a.level!.metrics], decision: e.seq });
@@ -1637,7 +1645,8 @@ export function levelsOf(entries: readonly EntryLike[], source: string): ClaimLe
  */
 export function levelFor(entries: readonly EntryLike[], source: string, day: string, offAt: ReadonlyMap<string, boolean> | ((from: string) => ReadonlyMap<string, boolean>), ways: (from: string) => ReadonlyMap<string, boolean>, only = true): Decided | null {
   if (!only) return null;
-  const levels = levelsOf(entries, source).filter((l) => l.from < day);
+  // An Accept's level: one a declared change's step gave (Q-263) is learned from, and decides no later day.
+  const levels = levelsOf(entries, source).filter((l) => l.from < day && entries.some((x) => x.seq === l.decision && x.kind === 'decide'));
   const latest = levels.at(-1);
   if (!latest) return null;
   // What is off on the day, told against the level's own day when the caller can (fill.ts levelWays with `then`).

@@ -1178,6 +1178,30 @@ svg.viz.kind-mark { display: inline-block; vertical-align: -1.5px; margin-right:
 .mo-change-list { margin: 2px 0 0; padding: 0; list-style: none; display: grid; gap: 2px; }
 .viz .chg { stroke: var(--smalt); stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.7; }
 .viz .chg-mark { fill: var(--smalt); }
+/* A cut (ADR 0027 §7): the line isn't joined across a change of the business that moved it; its own step is flagged. */
+.viz .step-cut { stroke: var(--smalt); stroke-width: 1.6; }
+.viz .step-flag { font-size: 10.5px; font-weight: 600; fill: var(--smalt); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; }
+.viz .line.adj { stroke: var(--ink-2); stroke-width: 1.4; stroke-dasharray: 1.5 3; stroke-linecap: round; }
+.viz .line.cov.adj { stroke: var(--muted); stroke-width: 1.2; }
+.viz .adj-key { fill: var(--muted); }
+.mo-adjust { margin: 4px 0 0; }
+.rg-step { font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.rg-step b { color: var(--ink); }
+.rg-step-none { font-style: normal; }
+.rg-both { margin: 4px 0 0; }
+.rg-both summary { cursor: pointer; color: var(--smalt); font-weight: 600; min-height: 28px; display: flex; align-items: center; }
+.rg-both-more, .rg-both .foot { margin: 4px 0 0; font-size: 12.5px; }
+.rg-both-outs { margin: 4px 0 0; padding-left: 18px; display: grid; gap: 2px; font-size: 12.5px; }
+.rg-both-outs b { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.rg-figures, .fl-figures { font-weight: 400; }
+.mo-f-declared { color: var(--ink-2); }
+.mo-step { color: var(--ink-2); }
+.dh-rules-step { color: var(--ink-2); }
+.mo-step b { color: var(--ink); }
+.mo-corrected li { overflow-wrap: anywhere; }
+.verdict.declared .v-line { overflow-wrap: anywhere; }
+.mo-f .linkish, .verdict.declared .linkish, .declared-since .linkish, .redefined-on .linkish, .dh-rules-step .linkish { display: inline; background: none; border: 0; padding: 0; color: var(--smalt); font: inherit; font-weight: 600; cursor: pointer; text-align: left; overflow-wrap: anywhere; }
+.declared-since { margin: 0 0 8px; overflow-wrap: anywhere; }
 .viz .rg-wk { fill: var(--sunk); opacity: 0.55; }
 .viz .rg-pick { fill: var(--smalt-wash); opacity: 0.6; }
 .viz .rg-lane { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.08em; fill: var(--muted); }
@@ -1729,6 +1753,8 @@ svg.viz { display: block; overflow: visible; max-width: 100%; height: auto; }
 /* A new level accepted (ADR 0010 §12): a step in the ink, never a severity's colour. */
 .g-level { fill: none; stroke: var(--ink-2); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; } .g-levdot { fill: var(--ink-2); }
 .g-corr { fill: none; stroke: var(--ink-2); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.g-changed { fill: var(--smalt); }
+.redefined-on, .followed-on { margin: 6px 0 0; overflow-wrap: anywhere; }
 .vf-option:disabled .g-level, .viz.off .g-level { stroke: var(--muted); } .vf-option:disabled .g-levdot, .viz.off .g-levdot { fill: var(--muted); }
 .vf-option:disabled .g-pub, .viz.off .g-pub { stroke: var(--muted); }
 .viz .cut-t { stroke: var(--ink-2); stroke-width: 1.2; }

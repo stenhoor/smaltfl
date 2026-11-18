@@ -734,6 +734,127 @@ page has always told it. A tick box or a radio in a form was sized as a text fie
 - **Agreement** where something ends (Q-277) is slice 8's.
 - **The lanes** name what follows an ended thing by its id.
 
+### Slice 6: reading across a change (2026-11-18)
+
+A change keeps its own step, a chart is cut where the business changed, and a declared change is the new level for
+the checks (§7). No hash moves: a step is a record entry of its own, beside its change, and the run it is measured by
+is a what-if, which is no part of the record.
+
+**The step** (Q-261; `src/core/step.ts`, the recorder's `stepOnce`). The first day a change of kind *the business
+changed* is in force is run both ways by the build: as it is published, under the rules with the change, and as a
+what-if on the same files under the rules as they were, judged by the same history. *As they were* (`asItWas`) is the
+flow without the change set and, where the change declares entries of a closed list, with those entries left out for
+that day: under an ontology that doesn't have an entry the day stops at the gate, and a held day measures nothing, so
+the day is read as it would have gone out, without the arrival (Q-305). The two runs are compared measure by measure
+(`stepMeasures`): the product's score, its coverage and the checks behind them, the applications failing each control,
+and every output's rows. What differs is the change's own, and the record keeps it as an entry of kind `step`: the
+change, the day, the two runs, the measures that moved with both figures, how many were read, what was left out. The
+what-if's manifest is kept with the month's, so the day can be read both ways from the two.
+
+Only a change of kind *the business changed* is run both ways (Q-304): its step is what a chart is cut by and what
+the checks learn from. A re-tuned setting and a changed source are marks whatever they moved, a first description
+changes no day, and a correction has its restatement, which says what each day it reaches comes to. A change
+that leaves a flow's rules as they were (an estate's change about what another of its flows has) isn't that flow's to
+measure, and has no step there.
+
+**On Larkspur.** The story has three such changes, and the record says of each what it alone did. The relation *Acted
+for by* (Mon 11) and the WAF rule's band (Mon 18) moved none of the 56 measures read. The catalogue's fifteenth
+control (Wed 27) moved six: coverage by −8.3 points, from 99.1 to 90.8, the checks that apply by +1,994 (19,320 to
+21,314), and the rows of four tables with them. It didn't move the score: the new control has no evidence yet, and a
+check with no evidence isn't in the score. The score's own fall that week, from 93.1 on Fri 22 to 92.7 on Wed 27, is
+the data's.
+
+**Charts** (Q-260, Q-284; `src/core/across.ts` `cutsOf`, `adjusted`; viz.ts `scoreTrend`'s `cuts` and `adjusted`). The
+month's trend draws what was published each day, and each of its two lines is cut by the changes that moved it:
+
+- **Cut** on the first day of a change of the business whose own step moved that line: the line isn't joined across
+  it, a solid rule stands there, and a flag says the line and the step (*coverage −8.3 by the change*). Under the
+  chart, *Where a line is cut* names the change with its figures, a tap from its entry, and says that the two sides
+  of a cut aren't one trend. On Larkspur the coverage is cut on Wed 27 and the score isn't.
+- **Marked** (the diamonds of slice 1) for every change in force, each now with its own step in words: what it moved
+  of the score and the coverage, that it moved neither with how much else it did, or that it moved nothing.
+- **With the steps taken out**, on request: each cut line drawn again, dotted, shifted back by the steps of the
+  changes that cut it, from the last day before the first cut, beside the published line and labelled as adjusted.
+- **Corrected since** lists the days a restatement took back and those published again with another score, each with
+  what it first published and a link to the day, where its versions are. The recorder keeps what a day first
+  published beside what it publishes later (`PostureMark.first`).
+- **An event's band** says what the event excuses.
+- **A chart built on a column** is marked from the day the column's meaning was redefined (§3, `redefinedOn`): a
+  finding's day by day, and the day's lead cause's, has a diamond on that day and a line that names the change. **A
+  value that ended** is followed through (§2, `followedThrough`): under its day by day, what it was replaced by,
+  merged into or split into, from which day, and under its successor's, what that carries since.
+
+**The checks** (Q-263). The watched series a change moved are found from the same two runs (`declaredLevels`). Each
+watched step is told both ways, and every series its history keeps is read on the day both ways (`seriesIn`,
+`toldDay`: its rows, each column's blanks and spread, each coded value's share, each pair's cell). A series is the
+change's own where the two runs give it another value, where that value stands outside what the days before give it
+under the change, and where nothing was told of it under the rules as they were. A series with the same value both
+ways is the day's data, whatever the day's story says of it; so is one the old way told as off, though the change
+moved it further. The step's entry keeps them as that dataset's new level from the change's first day, with what the
+day's data said the old way.
+
+- **From the day after**, the learned checks on those series learn from the change's first day on, as they do from an
+  accepted level (`levelsOf` reads the step's entry; a claim names it as the level it learned from, and the audit
+  re-tells the claim with it). On Larkspur, `effective` rose 11% with the new control, and 36 of its series are at a
+  new level from Wed 27: its rows, the mix of `status`, `reason` and `raw_status`, the blanks of four columns, and
+  how those columns go together. Thu 28 to Sun 31 are judged from there, and are calm. No other watched dataset has a
+  level from it, and the other two changes gave none.
+- **The first day** is judged the old way. Its run under the change says what the change moved, and the record keeps
+  that as told; the month reads the dataset's day as the run as it was judged it (`asDeclared`), for the runs of the
+  day on the files the step was measured on. So the change's own step is no finding of its first day: the day picked
+  lists it under *What a declared change accounts for*, a tap from the change, and trouble the old way saw too stays
+  a finding. The dataset's own News says the same first, then what its checks said; on later days it says which
+  level its checks learn from, and since when.
+- **A file's own finding stays a finding.** The catalogue's mappings file grew with the new control whatever the
+  ontology said: it is told unusual both ways, so it is the day's data, and nobody's level until someone accepts it.
+
+**Before it starts** (Q-261). A coming change tried on the recorded days (slice 2's trial) gives the same figures:
+each trial day's what-if under the change is compared with what the day published, and the trial says what the change
+alone would have moved, on how many of the days, with the last day's figures; or that it would have moved none.
+
+**On the register and the day.** A change's entry says its own step: the day, what the change alone moved (the
+trend's lines first, then the measures that moved most), that it didn't move the score where the flow has one, what
+was left out as it was, and the series it is the new level of. *The day both ways* opens to the outputs that differ
+between the two runs, with their rows each way. The day's head says, on a change's first day, that it was run both
+ways and what the change alone moved, a tap from the entry.
+
+**Checked by** `test/step.test.ts` (the rules as they were, the two runs compared, the series a change moved, a first
+day read the old way, a trial's figures, a redefinition's mark, a value followed through, and a day run both ways
+through the engine), `test/viz.test.ts` (the cuts and the adjusted lines), the tour's answer key on the data made
+again, and the browser regression on Larkspur: `month` (the cut and the adjusted line, the day picked, the day's head
+and `effective`'s News on Wed 27 and Thu 28), `versions` (each entry's step) and `follow` (the day's head on the WAF
+band's first day, a trial's figures). The month set opens one more day for it, Wed 27: in all 35 sets, 243 runs,
+1,315 of the 1,330 engine seconds.
+
+**Found on the way, and left.** The brief of a day a restatement published still says its outputs wait: the run on
+screen is the restated run, which the browser's engine holds until it is released, and a restatement moves no name
+there (ADR 0021 §5). The day's head and the month say it was published.
+
+**What it leaves.**
+
+- **A change made in the app isn't run both ways.** The build measures a recorded change; one made here has no step,
+  so no cut and no level, and its entry says so, with how to see the day as it was (*What if… ›* under the rules
+  before it). Measuring it is one more run a change, which the browser regression's budget would pay on every stop
+  that makes one (Q-311).
+- **A first day held by its own change's step waits for a person.** The step names what is the change's own, and
+  *Publish as is* or *Accept* is one tap; the declaration isn't yet taken as that decision. No demo holds on one.
+- **A later day held at a declared level** waits for a person too: only an Accept carries to a later day.
+- **The audit doesn't re-derive a step.** It holds every claim to the level it names; it doesn't run the day as it
+  was again.
+- **Only the month's trend is cut.** The posture dashboard's own trends and a unit's sparkline aren't; a finding's
+  day by day is marked for a redefinition, not cut; a value followed through is said in words, and the two series
+  aren't drawn as one line.
+- **A trial's figures** read the product's score and coverage only on a trial day that was published, and not the
+  applications failing each control.
+- **Nothing in the demos redefines a column or ends a value on a day already run**, so the mark and the
+  follow-through are tested as functions and were looked at by hand, on the sign-ins: Method redefined and API keys
+  merged into single sign-on from Mon 18, the day single sign-on's records rose 70%. No stop walks it, since each such
+  change runs the days it reaches again.
+- **The day's status line and the dataset's card** still say what its run was told on a declared change's first day.
+  The note under the News's head says whose it is, and the brief's status reads *as declared*.
+- **A file's series is never a declared level.** Data that changes with the business is data: it is told, and
+  accepted by a person.
+
 ## Consequences
 
 - **A flow can stop for a reason it never could:** the data is ahead of the ontology. That is the point of the gate,
@@ -832,6 +953,26 @@ Proposed with slice 5, as built:
   ontology, described from one day and evidenced from another.
 - **Q-303:** the recorder judges a fill's donor under the rules of the day it fills, as the page does. A story's days
   where a rule changes between a donor's day and the day it fills are recorded so from now on.
+
+Proposed with slice 6, as built:
+
+- **Q-304:** only a change of kind *the business changed* is run both ways. A re-tuned setting and a changed source
+  are marks whatever they moved, a first description changes no day, and a correction has its restatement.
+- **Q-305:** *as it was*, for a change that declares an entry of a closed list, is the day without the entry (*publish
+  without it*), not the day held at the gate: a held day measures nothing.
+- **Q-306:** a step reads what the flow publishes: the product's score, coverage and checks, the applications failing
+  each control, each output's rows. A line of the trend is cut by its own step: the score's by a step in the score,
+  the coverage's by a step in the coverage.
+- **Q-307:** a step is an entry of the record, of kind `step`, written by the build beside its change. The what-if
+  it names is no recorded run; its manifest is kept with the month's. No hash moves.
+- **Q-308:** the series a change moved are those of a watched step that the two runs give another value, that stand
+  outside what was usual under the change, and that the old way told nothing of. They are a level from the change's
+  first day, learned from like an accepted one. A file's own series is the same both ways, and never one.
+- **Q-309:** the record keeps what each run was told. The first day of a declared change is read the old way by the
+  month, for the runs of the day on the files the step was measured on.
+- **Q-310:** a day published again with another score keeps what it first published beside it.
+- **Q-311:** the app doesn't run a change made here both ways. To be decided with the regression's budget: on request
+  from the change's entry, or at once when the change's first day has already run.
 
 ## The questions
 

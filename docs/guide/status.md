@@ -32,6 +32,9 @@ detail, how to check it and what is left are in [where the work stands](../HANDO
   files; a paused day decided there or on the tour is carried to the other ([ADR 0026](../adr/0026-flows-in-flows) §6).
 - [Larkspur's planted month](/larkspur/){target="_self"}: the same group, six months of history and a planted March at
   every layer, bronze to gold; ADR 0020's answer key, the posture over the month and the rules changed over time.
+  Its trend is read across a change ([ADR 0027](../adr/0027-the-ontology-over-time) §7): the build ran the first day
+  of each change of the business both ways, the coverage is cut on Wed Mar 27 where the catalogue's new control moved
+  it by 8.3 points, and the checks learn from the new level from the day after.
 - [The control estate](/estate/){target="_self"}: 600 applications, twelve controls, a year of history and a planted
   March; the answer key the gates were built against, kept as a regression, and a day whose TLS file renames the
   column every control is joined on.

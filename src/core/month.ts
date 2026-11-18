@@ -29,6 +29,9 @@ export interface PostureMark {
   checks?: { applying: number; evidence: number; failing: number };
   /** The applications failing each control, by the control's id; a control nothing fails isn't listed. */
   failing?: Record<string, number>;
+  /** What the day first published, where a later version of it (a file sent again, a restatement) published another
+   * score or coverage (ADR 0027 §7, Q-260): the line shows the day as corrected, and this is a tap away. */
+  first?: { score: number | null; coverage: number | null };
 }
 
 /** The recorded month: the build's entries, each run's manifest by hash, the story's now, and the product's scores. */

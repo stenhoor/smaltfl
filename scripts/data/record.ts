@@ -59,11 +59,14 @@ import { canonicalJSON } from '../../src/core/canonical.js';
 import { periodOf, watchHistory } from '../../src/core/document.js';
 import { gateChecksOf } from '../../src/core/gates.js';
 import { isHistory, type HistoryFile } from '../../src/core/history.js';
-import { byLoad, heldLoadsOf, heldOutputs, inputsOf, keysForLoads, learnedMeasures, levelsOf, loadClaim, loadDecisions, loadKey, loadsOf, skipOf, stagedKeys, tailPath, type Claim, type DecideAbout, type HistoryRef, type Hold, type Inputs, type ReleaseAbout } from '../../src/core/hold.js';
+import { byLoad, claimRanges, flowStory, heldLoadsOf, heldOutputs, inputsOf, isClaim2, keysForLoads, learnedMeasures, levelsOf, loadClaim, loadDecisions, loadKey, loadsOf, skipOf, stagedKeys, tailPath, type Claim, type DecideAbout, type HistoryRef, type Hold, type Inputs, type ReleaseAbout } from '../../src/core/hold.js';
 import { donorIdOf, levelOf, missingFor, repairDocument, type Repair } from '../../src/core/fill.js';
 import type { Story } from '../../src/core/story.js';
 import { entryLeaf, type JSONValue, type LogEntry } from '../../src/core/log.js';
-import { settingsFor, tailBefore, type Measures } from '../../src/core/measures.js';
+import { appendPeriods, settingsFor, tailBefore, type Measures } from '../../src/core/measures.js';
+import { asItWas, declaredLevels, STEP_KIND, stepMeasures, toldDay, type StepAbout, type StepMarks, type ToldDay } from '../../src/core/step.js';
+import { inForce, ruleParts } from '../../src/core/inforce.js';
+import { dayOfSlot } from '../../src/core/calendar.js';
 import { MONTH_FORMAT, restatedOutcome, restatedRuns, type MonthFile, type PostureMark, type RestateAbout } from '../../src/core/month.js';
 import type { FileFacts } from '../../src/core/news.js';
 import { isPublish2, type FlowPlan } from '../../src/core/plan.js';
@@ -122,6 +125,12 @@ interface Made {
    * from, and runs again with (ADR 0023 §5). */
   claims: Claim[];
   stories: Record<string, Story>;
+  /** Every claim the run was judged by, the engine's own of its watched steps among them, and what it measured: what a
+   * change's own step tells both ways (ADR 0027 §7). */
+  told: Claim[];
+  measures: Measures[];
+  /** The moment the events it was excused by were read at; none: every event written before it ran. */
+  excusedAt?: string;
 }
 
 const arg = (args: string[], k: string) => {
@@ -302,15 +311,33 @@ async function main(): Promise<void> {
     // roll-up, the names staying on the later day (Q-51, ADR 0022 §1).
     const markPosture = (day: string, published: readonly string[], keyOf: (name: string) => string | undefined) => {
       const units = bind.posture?.units;
+      if (!units || !published.includes(units)) return;
+      const mark = postureOf(keyOf, true);
+      if (!mark) return;
+      // A day published again with another score (a file sent again, a restatement) keeps what was first published
+      // beside it (ADR 0027 §7, Q-260): a chart shows the line as corrected, with the first a tap away.
+      const had = posture[day];
+      const first = had ? (had.first ?? (had.score !== mark.score || had.coverage !== mark.coverage ? { score: had.score, coverage: had.coverage } : undefined)) : undefined;
+      posture[day] = first ? { ...mark, first } : mark;
+    };
+    /** A run's marks, read from its own versions by key, published or not: what a change's own step compares (§7). */
+    const postureOf = (keyOf: (name: string) => string | undefined, named = false): PostureMark | null => {
+      const units = bind.posture?.units;
       const org = bind.posture?.org;
-      if (!units || !org || !published.includes(units)) return;
+      if (!units || !org) return null;
       const table = (name: string) => {
         const key = keyOf(name);
         const found = key ? db.query('SELECT tbl FROM _smaltfl_versions WHERE key = ?', [key]).rows[0] : undefined;
         return found ? `"${String(found[0])}"` : name;
       };
-      const row = db.query(`SELECT p.score, p.coverage FROM ${table(units)} p JOIN ${table(org)} o ON o.org_unit_id = p.org_unit_id WHERE o.level = 'group' AND o.parent_id IS NULL`).rows[0];
-      if (!row) return;
+      let row: unknown[] | undefined;
+      try {
+        row = db.query(`SELECT p.score, p.coverage FROM ${table(units)} p JOIN ${table(org)} o ON o.org_unit_id = p.org_unit_id WHERE o.level = 'group' AND o.parent_id IS NULL`).rows[0];
+      } catch {
+        // A run that built no roll-up (a refused file): no marks.
+        return null;
+      }
+      if (!row) return null;
       const mark: PostureMark = { score: row[0] === null ? null : Number(row[0]), coverage: row[1] === null ? null : Number(row[1]) };
       // What the score is a share of that day, and the applications failing each control (ADR 0024 §6), from the
       // product's scorecards: what the month says moved the score between two days. A product whose scorecards don't
@@ -329,16 +356,16 @@ async function main(): Promise<void> {
           // Scorecards of another shape: the score and its coverage alone.
         }
       }
-      posture[day] = mark;
       // The controls' names, as the product last published them, where the data list says which dataset names them.
-      const named = bind.posture?.controls;
-      if (named) {
+      const names = named ? bind.posture?.controls : undefined;
+      if (names) {
         try {
-          for (const [id, name] of db.query(`SELECT control_id, name FROM ${table(named)}`).rows) if (id !== null && name !== null) controls[String(id)] = String(name);
+          for (const [id, name] of db.query(`SELECT control_id, name FROM ${table(names)}`).rows) if (id !== null && name !== null) controls[String(id)] = String(name);
         } catch {
           // No such dataset in this run: the ids stand for themselves.
         }
       }
+      return mark;
     };
 
     /**
@@ -349,17 +376,21 @@ async function main(): Promise<void> {
      * told in the engine; recorded at `at`. A day's first run keeps its rows in the samples; a restated run publishes
      * nothing and its measures never reach the history.
      */
-    const runOnce = async (d: Day, at: string, shas: Record<string, string>, opts: { correction?: { of: { run: number; manifest: string }; sources: string[] }; restates?: { of: string; changes: string[] }; sources?: Made['sources']; eventsAt?: string } = {}): Promise<void> => {
-      const { correction, restates } = opts;
+    /**
+     * A day's watched files measured and their claims told, and what the engine is given to tell its watched steps by,
+     * under the rules of `under` (the flow, or the flow as it was before a change, §7) in force on the day as known at
+     * `at`. What a run of the day is made with.
+     */
+    const tellDay = async (d: Day, at: string, shas: Record<string, string>, under: FlowDocument, eventsAt?: string) => {
       const day = d.slot;
       // What events excuse of each watched dataset (ADR 0027 §6), as known when the day's files first ran: a day run
       // again under rules changed since keeps the events its first run knew, so a note written since excuses nothing of it.
       // The events are the record's own entries so far, which is what the audit holds a claim's excuses to.
-      const written = entries.filter((e) => e.kind === 'event' && (opts.eventsAt === undefined || Date.parse(e.at) < Date.parse(opts.eventsAt))).map((e) => e.about as unknown as FlowEvent);
+      const written = entries.filter((e) => e.kind === 'event' && (eventsAt === undefined || Date.parse(e.at) < Date.parse(eventsAt))).map((e) => e.about as unknown as FlowEvent);
       const excusesOf = (w: string) => excusesFor(written, w, day, null);
       const parameters = parametersOf(day);
       // The rules in force on the day as known now (ADR 0021 §5): what the claims are told from and the plan is made of.
-      const dayDoc = forDay(flowDoc, parameters, at);
+      const dayDoc = forDay(under, parameters, at);
       const plan = await translate(dayDoc, parameters);
       const skip = skipOf(entries, period);
       const claims: Claim[] = [];
@@ -407,6 +438,13 @@ async function main(): Promise<void> {
         await pinFile(db, tailPath(w), t?.tail.length ? new TextEncoder().encode(canonicalJSON(t.tail as unknown as Parameters<typeof canonicalJSON>[0])) : null);
         if (t) (claims.push(t.claim), told.push(t.claim), (stories[w] = t.story));
       }
+      return { parameters, dayDoc, claims, told, stories, tell, kept };
+    };
+
+    const runOnce = async (d: Day, at: string, shas: Record<string, string>, opts: { correction?: { of: { run: number; manifest: string }; sources: string[] }; restates?: { of: string; changes: string[] }; sources?: Made['sources']; eventsAt?: string } = {}): Promise<void> => {
+      const { correction, restates } = opts;
+      const day = d.slot;
+      const { parameters, claims, told, stories, tell, kept } = await tellDay(d, at, shas, flowDoc, opts.eventsAt);
       let entry: LogEntry;
       const read = { ...(opts.sources ?? sources) };
       try {
@@ -449,7 +487,7 @@ async function main(): Promise<void> {
           reason: null, amends: null, nonce: nonce(day, entries.length),
         };
         const contents = Object.fromEntries(Object.entries(r.manifest.outputs).map(([n, o]) => [n, o.content]));
-        made.set(day, [...(made.get(day) ?? []), { run: r.run, manifest: r.hash, inputs, holds: r.holds, keys, at, ok: !held, contents, files: d, sources: read, ...(restates ? { restates } : {}), claims: [...claims], stories }]);
+        made.set(day, [...(made.get(day) ?? []), { run: r.run, manifest: r.hash, inputs, holds: r.holds, keys, at, ok: !held, contents, files: d, sources: read, ...(restates ? { restates } : {}), claims: [...claims], stories, told: [...told, ...(r.told ?? [])], measures: [...(r.measures ?? [])], ...(opts.eventsAt !== undefined ? { excusedAt: opts.eventsAt } : {}) }]);
         if (!restates) markPosture(day, r.published, (n) => r.manifest.outputs[n]?.key);
         const said = [...new Set(r.holds.filter((h) => h.by !== 'restated').map((h) => `${h.by === 'checks' ? '' : `${h.by}:`}${h.origin}`))];
         console.log(`${day}${correction ? ` (${correction.sources.join(', ')} sent again)` : restates ? ' (again, under rules changed since)' : ''}: ${said.length ? `held (${said.join(', ')})` : held ? 'restated' : 'ok'}, ${((Date.now() - t0) / 1000).toFixed(0)} s`);
@@ -633,6 +671,95 @@ async function main(): Promise<void> {
       markPosture(day, out.published, (n) => outputs[n]?.key);
     };
 
+    // ---------------------------------------------------------------- a change's own step (ADR 0027 §7)
+
+    /** The changes whose own step was measured: each once, on its first day's first run under it. */
+    const stepped = new Set<string>();
+    /** A watched step as its claim was told, from the run's own measures of it: its story, and each series it keeps
+     * read on its day against the days before. */
+    const toldOf = (docDay: FlowDocument, claim: Claim, own: Measures | undefined): ToldDay | null => {
+      const known = bases.get(claim.source);
+      if (!own || !known || !isClaim2(claim)) return null;
+      try {
+        const file = appendPeriods(known.file, [...tailBefore(tailOf(claim.source), claim.slot), own]);
+        const ranges = claimRanges(file, claim.slot, claim.every, { doc: docDay, source: claim.source, skip: claim.skip, levels: claim.levels, ...(claim.excuses ? { excuses: claim.excuses } : {}) });
+        const day = dayOfSlot(claim.slot);
+        return toldDay(flowStory(ranges, day, docDay, claim.source, undefined, undefined, claim.file, claim.excuses), ranges, day);
+      } catch {
+        return null;
+      }
+    };
+    /** What a run published, as a step reads it: the product's marks from its own versions, and each output's rows. */
+    const marksOf = (m: RunManifest): StepMarks => {
+      const p = postureOf((n) => m.outputs[n]?.key);
+      const rows = Object.fromEntries(Object.keys(m.outputs).flatMap((n) => {
+        const count = m.nodes.find((x) => x.origin === n)?.rows;
+        return count === undefined ? [] : [[n, count]];
+      }));
+      return { ...(p ? { score: p.score, coverage: p.coverage, ...(p.checks ? { checks: p.checks } : {}), ...(p.failing ? { failing: p.failing } : {}) } : {}), rows };
+    };
+
+    /**
+     * A change's own step (Q-261): the first day a change of kind *the business changed* is in force, run both ways. The
+     * day's latest run is under the change; the day is run again as a what-if under the rules as they were (`asItWas`:
+     * the change set gone, the entries it declares left out), judged by the same history. What differs in each published
+     * measure is the change's own, kept in the record beside it; and the watched steps' series it moved are at a new
+     * level from that day (Q-263), which the days after learn from. A what-if is never recorded: the entry names it.
+     */
+    const stepOnce = async (c: ChangeSet, at: string): Promise<void> => {
+      if (c.kind !== 'business' || stepped.has(c.id)) return;
+      const withIt = made.get(c.from)?.at(-1);
+      const withManifest = withIt ? manifests[withIt.manifest] : undefined;
+      if (!withIt || !withManifest) return;
+      stepped.add(c.id);
+      const was = asItWas(flowDoc, c);
+      // A change that leaves this flow's rules as they were (an estate's, about what another of its flows has) isn't
+      // this flow's to measure: there is nothing to run both ways.
+      const rulesOn = (d: FlowDocument) => canonicalJSON(ruleParts(inForce(d, c.from, at)) as unknown as Parameters<typeof canonicalJSON>[0]);
+      if (rulesOn(flowDoc) === rulesOn(was.doc)) {
+        console.log(`${c.id}: no step of its own here: the rules in force on ${c.from} are the same without it`);
+        return;
+      }
+      const saved = new Map(pinnedNow);
+      try {
+        const shas = await pinDay(withIt.files, at, daily, true);
+        const { parameters, dayDoc, claims, tell } = await tellDay(withIt.files, at, shas, was.doc, withIt.excusedAt);
+        await defineTables(dayDoc);
+        const r = await runFlow(db, was.doc, { smaltdb: SMALTDB, parameters, data: null, asOf: at, ...(claims.length ? { claims } : {}), ...(Object.keys(tell).length ? { tell } : {}), sources: withIt.sources, whatIf: true });
+        // The run as it was is no entry of the record (a what-if never is); its manifest is kept, so the day can be
+        // read both ways from the two.
+        manifests[r.hash] = r.manifest;
+        const { moved, measured } = stepMeasures(marksOf(r.manifest), marksOf(withManifest));
+        // Each watched step told both ways: what is off under the change and not as it was is the change's own.
+        const stories = (docDay: FlowDocument, told: readonly Claim[], measures: readonly Measures[]) =>
+          Object.fromEntries(told.filter((x) => !isSource(x.source)).flatMap((x) => {
+            const day = toldOf(docDay, x, measures.find((m) => m.source === x.source));
+            return day ? [[x.source, day]] : [];
+          }));
+        const levels = declaredLevels(stories(forDay(flowDoc, parameters, withIt.at), withIt.told, withIt.measures), stories(dayDoc, r.told ?? [], r.measures ?? []));
+        const about: StepAbout = {
+          change: c.id, day: c.from, with: { run: withIt.run, manifest: withIt.manifest }, without: { run: r.run, manifest: r.hash }, moved, measured,
+          ...(was.leftOut.length ? { leftOut: was.leftOut } : {}), ...(levels.length ? { levels } : {}),
+        };
+        entries.push({ smaltflLog: 1, origin, seq: entries.length, kind: STEP_KIND, at, by: { card: null, as: 'build' }, about: about as unknown as JSONValue, reason: null, amends: null, nonce: nonce(`step:${c.id}`, entries.length) });
+        const score = moved.find((m) => m.measure === 'score');
+        console.log(`${c.id}: its own step on ${c.from}: ${moved.length} of ${measured} measures moved${score && score.without !== null && score.with !== null ? `, the score ${score.without.toFixed(2)} → ${score.with.toFixed(2)}` : ''}${levels.length ? `; a new level for ${levels.map((l) => `${l.source} (${l.metrics.length} series: ${l.metrics.slice(0, 6).join(', ')}${l.metrics.length > 6 ? ', …' : ''})`).join(', ')}` : ''}`);
+      } catch (e) {
+        console.log(`${c.id}: its own step on ${c.from} wasn't measured: ${e instanceof Error ? e.message : String(e)}`);
+      } finally {
+        // What was pinned before is put back, so the month goes on as it was.
+        for (const [id, file] of saved) {
+          if (pinnedNow.get(id) === file) continue;
+          const b = bind.sources[id];
+          if (!b) continue;
+          const bytes = new Uint8Array(readFileSync(file));
+          await pinFile(db, b.file, bytes, sha256(bytes));
+          pinnedNow.set(id, file);
+          if (/^(csv|tsv)$/i.test((b as Binding).format)) headers.set(id, csvHeader(new TextDecoder().decode(bytes.subarray(0, 1 << 16))));
+        }
+      }
+    };
+
     // ---------------------------------------------------------------- the rules over time (ADR 0021 §5)
 
     /**
@@ -701,6 +828,8 @@ async function main(): Promise<void> {
       const rows = reached.map((day) => restatingOf(day, ids)!);
       const changed = rows.filter((x) => x.outcome.changed);
       console.log(`${c.id}: ${changed.length ? `${changed.map((x) => x.day).join(', ')} would change` : `no day's outcome would change (${rows.length} the same)`}, waiting for the restatement`);
+      // Its first day, run again under it just now, is run as it was too: the change's own step (ADR 0027 §7).
+      for (const x of pending) if (reached.includes(x.from)) await stepOnce(x, new Date((t += 1000)).toISOString());
     };
 
     /**
@@ -751,6 +880,11 @@ async function main(): Promise<void> {
         filesNow.set(ev.day, d);
         await runOnce(d, at, shas);
         for (const [id, sha] of Object.entries(shas)) last[id] = { slot: ev.day, sha256: sha };
+        // The day a change said ahead takes effect (ADR 0027 §7): run again as it was, for the change's own step.
+        let stepAt = Date.parse(at);
+        for (const c of flowDoc.changes ?? []) {
+          if (c.from === ev.day && Date.parse(c.recorded) <= Date.parse(at)) await stepOnce(c, new Date((stepAt += 1000)).toISOString());
+        }
       } else if (ev.kind === 'delivery') {
         // A later delivery (ADR 0021 §2): the day's files with the one sent again in its place, run as a correction of the
         // day's latest run, held until a decision.

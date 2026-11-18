@@ -297,6 +297,24 @@ rules as events, which are context and no rule; an event may say what it excuses
 - **An estate's own changes.** An estate's ontology carries its own dated changes, and every flow that imports it
   follows from the change's day. The register says whose the change is, and the flow can try it on its own recorded
   days. Larkspur's estate adds one relation, *Acted for by*, from Mon Mar 11.
+- **A change's own step.** The build runs the first day of a change of the business both ways: as it was published,
+  and as a what-if on the same files under the rules as they were. What differs is the change's own, and its entry
+  says it: *Run both ways, the change alone moved coverage by −8.3, from 99.1 to 90.8*, or that it moved nothing.
+  *The day both ways* opens to the outputs that differ between the two runs. A coming change tried on the recorded
+  days gives the same figures before it starts. A change made in the app isn't measured yet; its entry says so.
+- **Charts across a change.** The month's trend shows what was published each day. A line is **cut** where a change
+  of the business moved it by itself, with a rule on that day and a flag that says the step: the two sides aren't one
+  trend. Every other change is a mark. *With the steps taken out ›* draws the cut lines again, dotted and labelled as
+  adjusted, beside the published ones. *Corrected since* lists the days a correction replaced, each with what it
+  first published. An event's band says what the event excuses.
+- **The checks after a declared change.** The series a change moved are at a new level from its first day, and the
+  learned checks learn from it from the day after. The first day's data is judged the old way: the month lists what
+  the change accounts for apart from the day's findings, and a dataset's own News says first that what follows is the
+  change's own step. A file's own finding stays a finding: data that changes with the business is told, and
+  accepted by a person.
+- **A column through its changes.** A finding's day by day carries a diamond on the day its column's meaning was
+  redefined, with the change a tap away. A value that ended is followed through: what it was replaced by, merged into
+  or split into, and from which day.
 
 ## The record and verify
 

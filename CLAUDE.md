@@ -655,6 +655,27 @@ release (smaltty ADR 0030).
   `endedAtGate`); a description written ahead changed or ended (`describeForm(had)`, `awaitedNow`'s `ended`). The
   recorder judges a fill's donor under the rules of the day it fills (Q-303). `test/kinds.test.ts`; stops in
   `versions.json` (Larkspur), `estate.json` (the control estate) and `gate.json` (the sign-ins).
+  Slice 6, reading across a change (§7; no hash moves). `src/core/step.ts` (in what the data's cache is keyed by: the
+  recorder reads it): a change's own step, the first day of a change of kind `business` run both ways (`StepAbout`,
+  the record's entry of kind `step`, `STEP_KIND`, `isStep`, `stepsOf`; `asItWas`: the flow without the change set, each
+  entry it declares left out for that day; `StepMarks`, `stepMeasures`: score, coverage, `checks:*`, `failing:<control>`,
+  `rows:<output>`; `seriesIn`, `toldDay`, `ToldDay`, `declaredLevels`, `StepLevel`: each series of a watched step that
+  the two runs give another value, that stands outside what was usual under the change and that the old way told
+  nothing of, with what the day's data said the old way). `scripts/data/record.ts`: `tellDay`, `postureOf`, `marksOf`,
+  `toldOf`, `stepOnce` (a what-if under `asItWas`, its manifest kept with the month's; none where the rules in force
+  are the same without the change), a day's first-published mark
+  (`PostureMark.first`, month.ts). `hold.ts` `levelsOf` reads a step's levels as levels from its day (a claim names
+  the step's entry; `levelFor` carries only an Accept). `src/core/across.ts` (pure, outside the key: what a page
+  reads): `stepIn`, `moveSaid`, `cutsOf`, `adjusted`, `asDeclared` (a declared dataset's first day read as the run as
+  it was judged it, for runs on the files the step was measured on), `declaredOf`, `declaredOn`, `trialMoves`,
+  `redefinedOn`, `followedThrough`. viz.ts `scoreTrend`'s `cuts` (`ScoreCut`, a line each) and `adjusted`, the mark
+  `changed`. The app: `stepsNow`, `stepLine` (the register's entry, *The day both ways*), `stepOnTrend`, `trendCuts`,
+  `trendAdjusted`, `monthView.adjusted`, the month's *Where a line is cut* and *Corrected since*, `readEntries`
+  (the record as the month reads it), `dayDeclared`, `declaredNote`, `declaredPart` (a watched dataset's News),
+  `levelSeries`, the day head's `.dh-rules-step`, `marksOfRun`, `marksOfRecorded`, `trialFigures` (a trial's figures,
+  in `testChange`), `acrossColumn` (the redefinition marks and `followedPart`, `rawValue`, in `findingDetail` and
+  `causeDetail`), the brief's status *as declared*. `test/step.test.ts`,
+  `test/viz.test.ts`; stops in `month.json`, `versions.json` and `follow.json` (Larkspur).
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -671,7 +692,8 @@ release (smaltty ADR 0030).
   Evidence feeds' page), each demo's cost of a run, `budget.engineSeconds` over their sum; a set that makes more runs,
   a stops file not listed, or a sum over the budget fails the regression. CI's `demos` and `browser` jobs run it.
   Amended on 2026-11-17 for ADR 0026's eleven sets (its §"Amended"; the budget raised with the maintainer's
-  agreement, Q-246): 33 sets on five demos, 215 runs, 1,292 of 1,330 engine seconds; the tour finds a set's opening
+  agreement, Q-246): 33 sets on five demos, 215 runs, 1,292 of 1,330 engine seconds then, and with ADR 0027's sets
+  and stops 35 sets, 243 runs, 1,315 of 1,330; the tour finds a set's opening
   day by the list's `slot`.
 - **State of the work:** [docs/HANDOFF.md](docs/HANDOFF.md) says what is built, how to check it and what is left, in
   priority order. Read it before starting. **What comes next:** [ADR 0011](docs/adr/0011-notebooks-as-the-step-surface.md),
@@ -771,10 +793,11 @@ release (smaltty ADR 0030).
   declared); every change is a dated record with a kind and a reason; events are context written by people, and may
   say what they excuse; a day is read under what was in force and carries that context. In the slices of its §11:
   slice 1 (the register on screen), slice 2 (reasons, kinds and events), slice 3 (the gate, what an event excuses,
-  document format 5), slice 4 (the two doors) and slice 5 (kinds, relations and meanings over time, with the shared
-  ontology's own change sets) are built (its §"As built", which says what each leaves); slice 6, reading across a
-  change, is next. Its Q-280 to Q-285 are proposed, for the maintainers to confirm as each is built, and Q-286 to
-  Q-303 are the choices slices 3, 4 and 5 made as they were built.
+  document format 5), slice 4 (the two doors), slice 5 (kinds, relations and meanings over time, with the shared
+  ontology's own change sets) and slice 6 (reading across a change: each change's own step, the cuts, the adjusted
+  line, a declared change as the new level) are built (its §"As built", which says what each leaves); slice 7,
+  context that travels, is next. Its Q-280 to Q-285 are proposed, for the maintainers to confirm as each is built, and Q-286
+  to Q-311 are the choices slices 3, 4, 5 and 6 made as they were built.
 
 ## Rules for this repository
 

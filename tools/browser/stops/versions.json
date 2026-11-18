@@ -85,7 +85,7 @@
   },
   {
     "name": "register-list",
-    "what": "The Ontology view's head as a register (ADR 0027 §9, slice 1): the four change sets as entries, newest first, each with its days and how it was said (the catalogue's new control declared on its day, Wed 27; the band said on Fri 15 for Mon 18, three days ahead; the estate's own change, a relation added from Mon 11 and said on Fri 8, marked as the estate's ontology's, which every flow that imports it follows; the values check recorded on Mon 25 and back-dated to Fri 1), what it did, why in its author's words, and the days it reached that had already run",
+    "what": "The Ontology view's head as a register (ADR 0027 §9, slice 1): the four change sets as entries, newest first, each with its days and how it was said (the catalogue's new control declared on its day, Wed 27; the band said on Fri 15 for Mon 18, three days ahead; the estate's own change, a relation added from Mon 11 and said on Fri 8, marked as the estate's ontology's, which every flow that imports it follows; the values check recorded on Mon 25 and back-dated to Fri 1), what it did, why in its author's words, and the days it reached that had already run; each change of the business says its own step (ADR 0027 §7, Q-261): the control's first day run both ways, what it alone moved, what was left out as it was, the dataset it is the new level of, and the day both ways",
     "day": "Thu 21",
     "view": "ontology",
     "viewFirst": true,
@@ -108,7 +108,21 @@
         "#rules-time .rg-item[data-change]": 4,
         "#rules-time .rg-item[data-event]": 6,
         "#rules-time .rg-item.rg-coming": 0,
-        "#rules-time .rg-item[data-estate]": 1
+        "#rules-time .rg-item[data-estate]": 1,
+        "#rules-time .rg-step": 3,
+        "#rules-time .rg-item[data-change=\"findings-values-hold\"] .rg-step": 0
+      },
+      "textIn": {
+        "#rules-time .rg-item[data-change=\"sbom-declared\"] .rg-step": [
+          "Its own step, Wed 27.",
+          "Run both ways, the change alone moved coverage by −8.3, from 99.1 to 90.8; checks that apply +1,994 (19,320 → 21,314); the output coverage +1,994 rows (19,320 → 21,314), and 3 other measures, of 56 measures read.",
+          "It didn’t move the score.",
+          "As it was, sbom was left out.",
+          "A new level from that day for effective: the checks learn from it.",
+          "The day both ways: 6 of 37 outputs differ"
+        ],
+        "#rules-time .rg-item[data-change=\"waf-band-tenth\"] .rg-step": ["Its own step, Mon 18.", "Run both ways, it moved none of 56 measures."],
+        "#rules-time .rg-item[data-change=\"acting-leader\"] .rg-step": ["Its own step, Mon 11.", "Run both ways, it moved none of 56 measures."]
       }
     }
   },

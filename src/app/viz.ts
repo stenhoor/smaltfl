@@ -16,7 +16,7 @@
 
 import type { DrawCause, ReaderRows } from '../core/decision.js';
 
-export type Mark = 'alert' | 'warn' | 'note' | 'held' | 'flag' | 'closed' | 'decided' | 'explained' | 'info' | 'chev' | 'more' | 'seal' | 'ack' | 'publish' | 'keep' | 'unlearned' | 'fill' | 'part' | 'level' | 'lock' | 'corrected';
+export type Mark = 'alert' | 'warn' | 'note' | 'held' | 'flag' | 'closed' | 'decided' | 'explained' | 'info' | 'chev' | 'more' | 'seal' | 'ack' | 'publish' | 'keep' | 'unlearned' | 'fill' | 'part' | 'level' | 'lock' | 'corrected' | 'changed';
 
 export const esc = (s: unknown): string => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const sum = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0);
@@ -65,6 +65,10 @@ export function glyph(kind: Mark, size = 16): string {
     // ink, never a severity's colour; its count of versions is said beside it.
     case 'corrected':
       return `<svg ${a}><path class="g-corr" d="M13.1 9.2A5.2 5.2 0 1 1 11.6 4.3"/><path class="g-corr" d="M12.4 1.6v3.3H9.1"/></svg>`;
+    // A day a meaning or a rule changed from (ADR 0027 §3, §7): the diamond a chart's change marks are, in the brand's
+    // blue, never a severity's colour; the words beside it say what changed.
+    case 'changed':
+      return `<svg ${a}><path class="g-changed" d="M8 2.2l4.6 5.8L8 13.8L3.4 8z"/></svg>`;
     case 'explained':
       return `<svg ${a}><path class="g-arrow" d="M4 2.5v6.5h8M9.2 6.2L12 9l-2.8 2.8"/></svg>`;
     case 'note':
@@ -1847,16 +1851,28 @@ export interface ScorePoint {
   coverage: number | null;
 }
 
+/** A place the trend is cut (ADR 0027 §7, Q-260): a change's first day, the line it cuts and the change's own step on it. */
+export interface ScoreCut {
+  day: string;
+  series: 'score' | 'coverage';
+  step: number;
+  label: string;
+}
+
 /**
  * A unit's score over the month's days (ADR 0020 §6, Q-178: a steady change is a trend, the product view's to show),
  * its coverage beside it as a lighter line: each day published a point, a day not run or not published a gap crossed
  * by a dashed line (the missing-data convention), the axis zoomed to the values and printed at its ends, the last
  * score labelled.
  */
-export function scoreTrend(o: { days: readonly string[]; points: readonly ScorePoint[]; w?: number; h?: number; aria: string; gap?: string; focus?: { from: string; to: string }; marks?: readonly { day: string; label: string }[]; bands?: readonly { from: string; until: string; label: string }[] }): string {
+export function scoreTrend(o: { days: readonly string[]; points: readonly ScorePoint[]; w?: number; h?: number; aria: string; gap?: string; focus?: { from: string; to: string }; marks?: readonly { day: string; label: string }[]; bands?: readonly { from: string; until: string; label: string }[]; cuts?: readonly ScoreCut[]; adjusted?: readonly ScorePoint[] }): string {
   const w = o.w ?? 334;
   const h = o.h ?? 132;
   const at = new Map(o.points.map((p) => [p.day, p]));
+  // Where a line is cut (ADR 0027 §7, Q-260): the first day of a change of kind the business changed whose own step
+  // moved that line. It isn't joined across it: the two sides aren't one trend.
+  const cutAt = (o.cuts ?? []).map((c) => ({ ...c, i: o.days.findIndex((d) => d.slice(0, 10) === c.day.slice(0, 10)) })).filter((c) => c.i >= 0);
+  const cutsOn = (series: ScoreCut['series']) => cutAt.filter((c) => c.series === series);
   const known = o.days.map((d, i) => ({ i, p: at.get(d) })).filter((x): x is { i: number; p: ScorePoint } => !!x.p && x.p.score !== null);
   const vals = known.flatMap(({ p }) => [p.score!, ...(p.coverage !== null ? [p.coverage] : [])]);
   const lo = vals.length ? Math.max(0, Math.floor((Math.min(...vals) - 4) / 5) * 5) : 0;
@@ -1869,6 +1885,9 @@ export function scoreTrend(o: { days: readonly string[]; points: readonly ScoreP
   const y = (v: number) => base - ((v - lo) / Math.max(1, hi - lo)) * (base - top);
   let s = open(w, h, o.aria);
   s += `<text x="${gx}" y="10" class="key">— score</text><text x="${gx + 64}" y="10" class="key lbl-m">— coverage</text><text x="${gx + 146}" y="10" class="key lbl-m">┄ ${esc(o.gap ?? 'not run')}</text>`;
+  // The adjusted lines' key: beside the others where the chart is wide enough for all four, else under the plot, between
+  // the first and the last day's labels.
+  if (o.adjusted) s += w >= 430 ? `<text x="${w - 4}" y="10" text-anchor="end" class="key adj-key">··· steps taken out</text>` : `<text x="${f1((gx + w - 4) / 2)}" y="${h - 2}" text-anchor="middle" class="key adj-key">··· steps taken out</text>`;
   s += `<line class="base" x1="${gx}" x2="${w - 4}" y1="${f1(base)}" y2="${f1(base)}"/><line class="hair" x1="${gx}" x2="${w - 4}" y1="${f1(top)}" y2="${f1(top)}"/>`;
   s += `<text x="0" y="${f1(top + 4)}" class="lbl-m">${hi}</text><text x="0" y="${f1(base + 4)}" class="lbl-m">${lo}</text>`;
   // The month on show, where the days span more than one (ADR 0024 §6): a wash behind its days and a rule under them on
@@ -1882,12 +1901,15 @@ export function scoreTrend(o: { days: readonly string[]; points: readonly ScoreP
       s += `<rect class="focus" x="${f1(x0)}" y="${f1(top)}" width="${f1(x1 - x0)}" height="${f1(base - top)}"/><line class="focus-rule" x1="${f1(x0)}" x2="${f1(x1)}" y1="${f1(base + 1.5)}" y2="${f1(base + 1.5)}"/>`;
     }
   }
-  const series = (pick: (p: ScorePoint) => number | null, cls: string) => {
+  const series = (pick: (p: ScorePoint) => number | null, cls: string, which: ScoreCut['series']) => {
     let out = '';
     const pts = known.map(({ i, p }) => ({ i, v: pick(p) })).filter((q): q is { i: number; v: number } => q.v !== null);
+    const cuts = cutsOn(which);
     for (let k = 1; k < pts.length; k++) {
       const a = pts[k - 1]!;
       const b = pts[k]!;
+      // Cut: no line from the last day before a cut to the first day from it on.
+      if (cuts.some((c) => a.i < c.i && c.i <= b.i)) continue;
       out += `<line class="${b.i - a.i > 1 ? `${cls} gap` : cls}" x1="${f1(x(a.i))}" y1="${f1(y(a.v))}" x2="${f1(x(b.i))}" y2="${f1(y(b.v))}"/>`;
     }
     return { out, pts };
@@ -1906,9 +1928,39 @@ export function scoreTrend(o: { days: readonly string[]; points: readonly ScoreP
     if (i < 0) continue;
     s += `<line class="chg" x1="${f1(x(i))}" x2="${f1(x(i))}" y1="${f1(top)}" y2="${f1(base)}"/><path class="chg-mark" d="M${f1(x(i))} ${f1(top - 5)}l4 4.5l-4 4.5l-4 -4.5z"><title>${esc(m.label)}</title></path>`;
   }
-  const cov = series((p) => p.coverage, 'line cov');
-  const score = series((p) => p.score, 'line');
-  s += cov.out + score.out;
+  // A cut (Q-260, Q-284): a solid rule through the plot on the change's first day, flagged with its own step on each
+  // line it cuts, one flag under another where it cuts both.
+  const cutDays = [...new Set(cutAt.map((c) => c.i))].sort((a, b) => a - b);
+  for (const i of cutDays) {
+    const here = cutAt.filter((c) => c.i === i);
+    const said = here.map((c) => `${c.series} ${c.step > 0 ? '+' : c.step < 0 ? '−' : ''}${Math.abs(c.step).toFixed(1)} by the change`);
+    // The flags stand right of the rule where the widest fits before the chart's edge, else left of it.
+    const right = x(i) + 8 + Math.max(...said.map((t) => t.length)) * 6 > w;
+    s += `<line class="step-cut" x1="${f1(x(i))}" x2="${f1(x(i))}" y1="${f1(top)}" y2="${f1(base)}"><title>${esc(here.map((c) => c.label).join('; '))}</title></line>`;
+    said.forEach((t, k) => {
+      s += `<text class="step-flag" x="${f1(x(i) + (right ? -5 : 5))}" y="${f1(base - 5 - (here.length - 1 - k) * 11)}" text-anchor="${right ? 'end' : 'start'}">${esc(t)}</text>`;
+    });
+  }
+  const cov = series((p) => p.coverage, 'line cov', 'coverage');
+  const score = series((p) => p.score, 'line', 'score');
+  s += cov.out;
+  // The published lines with the steps taken out (Q-261): beside them, dotted, never in their place. Each from the last
+  // day before its first cut: before that it is the published line itself.
+  const adjLine = (which: ScoreCut['series'], cls: string) => {
+    const cuts = cutsOn(which);
+    if (!o.adjusted || !cuts.length) return '';
+    const adj = new Map(o.adjusted.map((p) => [p.day, which === 'score' ? p.score : p.coverage]));
+    const pts = o.days.map((d, i) => ({ i, v: adj.get(d) ?? null })).filter((q): q is { i: number; v: number } => q.v !== null);
+    const first = Math.min(...cuts.map((c) => c.i));
+    const from = pts.filter((q) => q.i < first).at(-1);
+    const chain = from ? [from, ...pts.filter((q) => q.i >= first)] : pts.filter((q) => q.i >= first);
+    let out = '';
+    for (let k = 1; k < chain.length; k++) out += `<line class="${cls}" x1="${f1(x(chain[k - 1]!.i))}" y1="${f1(y(chain[k - 1]!.v))}" x2="${f1(x(chain[k]!.i))}" y2="${f1(y(chain[k]!.v))}"/>`;
+    return out;
+  };
+  s += adjLine('coverage', 'line cov adj');
+  s += adjLine('score', 'line adj');
+  s += score.out;
   // A point a day where the days have room for one; else the line alone, with its last point (a phone's sixty days
   // would be one smear of dots).
   const last = score.pts.at(-1);

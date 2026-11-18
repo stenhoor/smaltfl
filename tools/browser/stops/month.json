@@ -194,7 +194,7 @@
   },
   {
     "name": "month-gate",
-    "what": "Wed Mar 27 picked on the month (ADR 0027 §4): the catalogue's fifteenth control stopped the posture product at the gate, eleven outputs waiting; it was declared that morning with its reason, the day ran again under it and was restated, published, and its score is on the trend",
+    "what": "Wed Mar 27 picked on the month (ADR 0027 §4): the catalogue's fifteenth control stopped the posture product at the gate, eleven outputs waiting; it was declared that morning with its reason, the day ran again under it and was restated, published, and its score is on the trend; the 11% more results effective had that day are the declared control's own step (ADR 0027 §7, Q-263): no finding of the day, listed under what a declared change accounts for, while the mappings file's own rise stays one",
     "view": "month",
     "viewFirst": true,
     "click": "#view-month .mo-d[data-day=\"2024-03-27\"]",
@@ -211,7 +211,95 @@
         "SCORE 92.7"
       ],
       "count": {
-        "#view-month .mo-sum.oc-decided": 1
+        "#view-month .mo-sum.oc-decided": 1,
+        "#view-month .mo-declared li": 1
+      },
+      "textIn": {
+        "#view-month .mo-declared": [
+          "effective",
+          "As declared:",
+          "Declared sbom in control_catalog",
+          "Its own step, and the new level from this day; the day’s data, judged as it was, had nothing to say."
+        ],
+        "#view-month .mo-sum": ["control_requirements", "More mappings: 60 (+5%)"]
+      },
+      "noTextIn": {
+        "#view-month .mo-sum": ["More results"]
+      }
+    }
+  },
+  {
+    "name": "month-cut",
+    "what": "The month's trend read across a change (ADR 0027 §7, Q-260, Q-284): the coverage is cut on Wed Mar 27, where the catalogue's fifteenth control moved it by itself, flagged with the change's own step; the score, which the control didn't move, is only marked; each change of the business says its own step beside its mark, and the two days a correction took back are listed with what they first published",
+    "view": "month",
+    "viewFirst": true,
+    "element": "#view-month .mo-trend",
+    "expect": {
+      "textIn": {
+        "#view-month .mo-cuts": [
+          "Where a line is cut",
+          "Wed 27: Declared sbom in control_catalog",
+          "coverage by −8.3, from 99.1 to 90.8",
+          "The change alone moved it: its first day was run both ways. The two sides of a cut aren’t one trend.",
+          "With the steps taken out ›"
+        ],
+        "#view-month .mo-trend svg .step-flag": ["coverage −8.3 by the change"],
+        "#view-month .mo-step[data-step=\"sbom-declared\"]": ["its own step: coverage by −8.3, from 99.1 to 90.8; the score not at all"],
+        "#view-month .mo-step[data-step=\"waf-band-tenth\"]": ["its own step: none of 56 measures moved"],
+        "#view-month .mo-step[data-step=\"acting-leader\"]": ["its own step: none of 56 measures moved"],
+        "#view-month .mo-corrected": [
+          "Corrected since",
+          "Sat 16 ›",
+          "first published 92.5; taken back since, so no point on the line",
+          "Sun 17 ›",
+          "first published 92.7"
+        ]
+      },
+      "count": {
+        "#view-month .mo-cut": 1,
+        "#view-month .mo-cut[data-series=\"coverage\"]": 1,
+        "#view-month .mo-trend svg .step-flag": 1,
+        "#view-month .mo-step[data-step]": 3,
+        "#view-month .mo-corrected li": 2,
+        "#view-month .mo-adjusted-said": 0
+      }
+    }
+  },
+  {
+    "name": "month-adjusted",
+    "what": "With the steps taken out (Q-261): the coverage drawn again from the cut on, dotted, shifted back by the change's own step, beside the published line and said to be adjusted; nobody published it",
+    "view": "month",
+    "viewFirst": true,
+    "click": "#view-month .mo-adjust-btn",
+    "element": "#view-month .mo-trend",
+    "expect": {
+      "textIn": {
+        "#view-month .mo-cuts": ["As published alone ›", "The dotted line is the coverage with each change’s own step taken out: adjusted, nobody published it."],
+        "#view-month .mo-trend svg": ["steps taken out"]
+      },
+      "count": {
+        "#view-month .mo-adjusted-said": 1,
+        "#view-month .mo-adjust-btn[aria-pressed=\"true\"]": 1
+      }
+    }
+  },
+  {
+    "name": "month-published",
+    "what": "And back: the trend as published alone",
+    "view": "month",
+    "viewFirst": true,
+    "click": "#view-month .mo-adjust-btn",
+    "element": "#view-month .mo-trend",
+    "expect": {
+      "textIn": {
+        "#view-month .mo-cuts": ["With the steps taken out ›"]
+      },
+      "noTextIn": {
+        "#view-month .mo-trend svg": ["steps taken out"]
+      },
+      "count": {
+        "#view-month .mo-adjusted-said": 0,
+        "#view-month .mo-adjust-btn[aria-pressed=\"false\"]": 1
       }
     }
   },
@@ -259,6 +347,47 @@
     }
   },
   {
+    "name": "day-wed27",
+    "what": "Wed Mar 27, the first day of the catalogue's fifteenth control (ADR 0027 §7): the day's head says the change was run both ways and what it alone moved, a tap from its entry",
+    "day": "Wed 27",
+    "element": "#loads",
+    "expect": {
+      "textIn": {
+        "#loads .dh-rules-step[data-step=\"sbom-declared\"]": ["run both ways:", "the change alone moved coverage by −8.3, from 99.1 to 90.8 ›"]
+      },
+      "count": {
+        "#loads .dh-rules-step": 1
+      }
+    }
+  },
+  {
+    "name": "day-wed27-effective",
+    "what": "The same day on effective's own News (Q-263): what its checks say is the change's own step, said first with the series it moved; the day's data, judged as it was, had nothing to say, and the checks learn from the new level from this day; and the brief's status is as declared, not investigating",
+    "day": "Wed 27",
+    "card": "effective",
+    "tab": "News",
+    "full": true,
+    "unfold": ["nb-posture"],
+    "expect": {
+      "textIn": {
+        "#sheet .verdict.declared": [
+          "as declared",
+          "The change’s own step",
+          "Declared sbom in control_catalog",
+          "This is its first day, run both ways: the change alone moved how many rows it has; the mix of",
+          "The day’s data, judged as it was, had nothing to say. The checks learn from the new level from this day."
+        ],
+        "#sheet": ["More results: 21,314 (+11%)"],
+        "#sheet .brief-status": ["as declared"]
+      },
+      "count": {
+        "#sheet .verdict.declared": 1,
+        "#sheet .declared-since": 0,
+        "#sheet .brief-status.expected": 1
+      }
+    }
+  },
+  {
     "name": "day-thu28",
     "what": "Thu Mar 28 by its link: the org chain loops, and the day still waits for the visitor",
     "day": "Thu 28",
@@ -266,6 +395,32 @@
     "expect": {
       "state": "held",
       "text": ["Thu Mar 28", "Held: org_chain", "waiting on a decision", "Run here: the same datasets and holds as the record"]
+    }
+  },
+  {
+    "name": "day-thu28-effective",
+    "what": "The day after: effective is judged from the level the control declared on Wed 27, says so on its News, and has nothing to report",
+    "day": "Thu 28",
+    "card": "effective",
+    "tab": "News",
+    "full": true,
+    "unfold": ["nb-posture"],
+    "expect": {
+      "textIn": {
+        "#sheet .declared-since": [
+          "Judged from the level declared on Wed 27:",
+          "Declared sbom in control_catalog",
+          "Its checks learn from that day on: how many rows it has; the mix of"
+        ]
+      },
+      "noTextIn": {
+        "#sheet": ["More results"]
+      },
+      "count": {
+        "#sheet .declared-since": 1,
+        "#sheet .verdict.declared": 0
+      },
+      "text": ["A normal Thursday"]
     }
   },
   {

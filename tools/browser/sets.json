@@ -21,7 +21,7 @@
     "use": { "app": "tour", "runs": 8 },
     "voice": { "app": "tour", "runs": 3 },
     "carry": { "app": "tour", "runs": 7, "with": { "feeds": 8 } },
-    "month": { "app": "larkspur", "runs": 7 },
+    "month": { "app": "larkspur", "runs": 8 },
     "versions": { "app": "larkspur", "runs": 4 },
     "decide": { "app": "larkspur", "runs": 7 },
     "larkspur": { "app": "larkspur", "runs": 8 },

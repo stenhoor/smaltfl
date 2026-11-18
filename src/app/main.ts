@@ -16,6 +16,8 @@ import { canonicalJSON } from '../core/canonical.js';
 import type { ChangeSet, ContractDef, FlowDocument, GroupDef, NotebookOutline, OutlineCell, ProfileDef, RuleEdit, StepDef } from '../core/document.js';
 import { applyEdit, changesOn, inForce, resolve as resolveRules, ruleParts, rulesHash, rulesInForce, versionRules, withRuleParts, type RuleParts } from '../core/inforce.js';
 import { datedDiff, diffSaid, ontologyMap, ruleVersions, rulesDiff, versionKey, versionOn, type RuleVersion } from '../core/ruleversions.js';
+import { adjusted, asDeclared, cutsOf, declaredOf, declaredOn, followedThrough, moveSaid, redefinedOn, trialMoves, type TrialMove } from '../core/across.js';
+import { stepMeasures, stepsOf, type StepAbout, type StepMarks, type StepMeasure } from '../core/step.js';
 import { comingOn, dayAfter, dayBefore, defaultKind, KIND_NAMES, KIND_NOT_GIVEN, KINDS_ASKED, LANE_NAMES, livesOf, registerOf, sinceOf, type Entry as RegisterEntry, type Life } from '../core/register.js';
 import { covers as eventCovers, eventDay, EVENT_KINDS, EVENT_KIND_NAMES, eventTense, EXCUSABLE, EXCUSABLE_SAID, excusesFor, latestEvents, type ClaimExcuse, type EventKind, type Excusable, type Excuse, type FlowEvent } from '../core/events.js';
 import type { ChangeKind, ChangeNote } from '../core/document.js';
@@ -58,7 +60,7 @@ import type { GridRow } from 'smaltkit/grid';
 import { derivedAbout, derivedFails, derivedKeys, derivedWhy, donorsOf, filledRows, pinDonor, repairOf, stageRepair, type Listed, type Remedies } from './fills.js';
 import { followsCause as followsFrom, ACT_VERB, CELL_KINDS, CELL_NAMES, HEALTH_HEAD, STRIP_KEY, approx, axisShare, recentSpan, cardWords, changeLabel, compact, countLabel, countRange, fallSteps, gateHead, overLabel, gateLabels, gateOf, partLabel, ruleOrder, ruleUsual, shortWho, splitSentence, splitSteps, saidOf, storyOf, type Cell, type DayStep, type Gate, type HourValues, type Story, type Told, type Upstream } from '../core/story.js';
 import { kindMark, kindsMap, registerLanes, type KindMark, type LaneGroup, type LaneMark, type LaneRow } from './viz.js';
-import { dayBars, matchBars, scoreSpark, scoreTrend, type BarDay, type ScorePoint, rowFlow, differenceMeter, fileTwins, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, chain, composition, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
+import { dayBars, matchBars, scoreSpark, scoreTrend, type BarDay, type ScoreCut, type ScorePoint, rowFlow, differenceMeter, fileTwins, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, chain, composition, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
 import { sha256Hex } from '../core/hash.js';
 import { LEVEL_NAME, leaderSaid, postureTree, scoreSaid, trendSaid, unitCounts, type PostureNode } from '../core/posture.js';
 import { counted, glossOf, meaningBeyond, meaningOf, nounOf as ontologyNoun, propertyOf, readAsOf, saysMore, type AwaitedDataset, type Condition, type Edit, type Ended, type EndedKind, type LinkType, type NeedsDef, type Noun, type ObjectType, type PropertyType, type RowsDef } from '../core/ontology.js';
@@ -81,7 +83,7 @@ import { changeFlows, flowChanges, followersOf, pinProblem, testCount, testSaid,
 import { estateSays, sharedOf, type EstateOntology } from '../core/shared.js';
 import { voice } from '../core/voice.js';
 import { fixesOf, fixOfDonor, type FixKind } from '../core/rules.js';
-import { ACTION_SAID, arrivalOf, checkStepOf, entryDiff, isList, leftOutName, RULE_ACTIONS, ruleOn, rulesOf, ruleSaid, type OntologyRule, type OntologyRuleKind, type RuleAction } from '../core/rules.js';
+import { ACTION_SAID, arrivalOf, checkStepOf, closedOf, entryDiff, isList, leftOutName, RULE_ACTIONS, ruleOn, rulesOf, ruleSaid, type OntologyRule, type OntologyRuleKind, type RuleAction } from '../core/rules.js';
 import { DECIDE, DECIDE_OPTIONS, checkDecision, checkRun, covers, readView, wrapRead, type DecideOption, type DecisionOption, type Principal, type ReadView, type RowRule } from '../core/policy.js';
 import { createIdentity, ontologyHash, policiesHash, signManifest, verifyManifest } from '../core/manifest.js';
 import { shapeOf } from '../core/optimize.js';
@@ -4293,13 +4295,76 @@ function partChanged(id: string): boolean {
 /** How many recorded days a change is tested on: the last before it takes effect. */
 const TEST_DAYS = 14;
 /** What each change's test found, by its id, while the page is open: a test informs, and is no part of the record. */
-const tested = new Map<string, { count: TestCount; what: string }>();
+const tested = new Map<string, { count: TestCount; what: string; moves: { moves: TrialMove[]; read: number } }>();
 /** The test under way: the change, and how far it is. */
 let testing: { id: string; done: number; of: number } | null = null;
 
 /** The recorded days a change would be tested on: the last days before it takes effect that the record has a run of. */
 function testDays(c: Pick<ChangeSet, 'from'>): number[] {
   return loads.list.map((l, k) => ({ k, day: l.day.slice(0, 10) })).filter((x) => x.day < c.from && runsOfVersions(x.k).length > 0).map((x) => x.k).slice(-TEST_DAYS);
+}
+
+/** Each output's rows, as a run's manifest counts them: what a step reads of a flow with no product. */
+const rowsOfManifest = (m: RunResult['manifest']): Record<string, number> =>
+  Object.fromEntries(Object.keys(m.outputs).flatMap((n) => {
+    const rows = m.nodes.find((x) => x.origin === n)?.rows;
+    return rows === undefined ? [] : [[n, rows]];
+  }));
+/**
+ * What a run here published or would publish, as a change's own step reads it (ADR 0027 §7): each output's rows from
+ * its manifest and, where the data list names a posture product, the group's score and coverage and the checks behind
+ * them, read from the run's own versions by key, published or not (a what-if publishes nothing).
+ */
+async function marksOfRun(run: RunRecord): Promise<StepMarks> {
+  const m = run.result.manifest;
+  const marks: StepMarks = { rows: rowsOfManifest(m) };
+  const p = dataList?.posture;
+  const engine = state.engine;
+  if (!p || !engine) return marks;
+  try {
+    const keys = [p.units, p.org, p.apps].map((n) => m.outputs[n]?.key).filter((k): k is string => !!k);
+    if (keys.length < 2) return marks;
+    const tables = new Map<string, string>();
+    for (const [key, tbl] of (await engine.query(`SELECT key, tbl FROM _smaltfl_versions WHERE key IN (${keys.map((k) => literal(k, 'text')).join(', ')})`)).rows) tables.set(String(key), String(tbl));
+    const table = (name: string) => {
+      const t = tables.get(m.outputs[name]?.key ?? '');
+      return t ? `"${t}"` : null;
+    };
+    const units = table(p.units);
+    const org = table(p.org);
+    if (!units || !org) return marks;
+    const row = (await engine.query(`SELECT p.score, p.coverage FROM ${units} p JOIN ${org} o ON o.org_unit_id = p.org_unit_id WHERE o.level = 'group' AND o.parent_id IS NULL`)).rows[0];
+    if (!row) return marks;
+    marks.score = row[0] === null ? null : Number(row[0]);
+    marks.coverage = row[1] === null ? null : Number(row[1]);
+    const apps = table(p.apps);
+    const sums = apps ? (await engine.query(`SELECT sum(applying), sum(with_evidence), sum(failing) FROM ${apps}`)).rows[0] : undefined;
+    if (sums && sums[0] !== null) marks.checks = { applying: Number(sums[0]), evidence: Number(sums[1] ?? 0), failing: Number(sums[2] ?? 0) };
+  } catch {
+    // Scorecards of another shape, or a run that built no roll-up: its outputs' rows alone.
+  }
+  return marks;
+}
+/** What the version readers got of a recorded day published, as a step reads it: its manifest's rows, and the
+ * product's marks where the month keeps them for the day. Null where the record has no manifest of it. */
+function marksOfRecorded(day: string, manifest: string | undefined): StepMarks | null {
+  const m = manifest ? manifestOf(manifest) : null;
+  if (!m) return null;
+  const mark = takenBackDays(null).has(day) ? undefined : recorded?.posture?.[day];
+  return { rows: rowsOfManifest(m), ...(mark ? { score: mark.score, coverage: mark.coverage, ...(mark.checks ? { checks: mark.checks } : {}) } : {}) };
+}
+/**
+ * What a change alone would have moved on the days it was tried on (ADR 0027 §7, Q-261), after the test's own sentence:
+ * the measures it moved, on how many of the days read, with the last day's figures; or that it moved none.
+ */
+function trialFigures(t: { moves: TrialMove[]; read: number } | undefined, dayOf: (day: string) => string): string {
+  if (!t || !t.read) return '';
+  const those = t.read === 1 ? 'that day' : `those ${t.read} days`;
+  if (!t.moves.length) return ` On ${those} the change alone would have moved none of the published measures.`;
+  const as = (m: TrialMove): StepMeasure => ({ measure: m.measure, without: m.last.without, with: m.last.with });
+  const order = movedInOrder(t.moves.map(as)).map((x) => t.moves.find((m) => m.measure === x.measure)!);
+  const shown = order.slice(0, 2);
+  return ` The change alone would have moved ${shown.map((m) => `${measureNamed(m.measure)} on ${m.days === t.read ? (t.read === 1 ? 'it' : 'each of them') : `${m.days} of ${those}`} (${movedSaid(as(m))} on ${dayOf(m.last.day)})`).join('; ')}${order.length > 2 ? `, and ${plural(order.length - 2, 'other measure')}` : ''}.`;
 }
 
 /**
@@ -4313,7 +4378,7 @@ async function testChange(c: ChangeSet, flow: string | null): Promise<void> {
   const ks = testDays(c);
   const back = loads.at;
   const what = `the changed ${listed(changeFlows(state.doc, c).map(flowName))}`;
-  const days: DayTest[] = [];
+  const days: (DayTest & { moved?: StepMeasure[]; measured?: number })[] = [];
   testing = { id: c.id, done: 0, of: ks.length };
   try {
     for (const k of ks) {
@@ -4338,16 +4403,26 @@ async function testChange(c: ChangeSet, flow: string | null): Promise<void> {
       const ran = whatIf?.k === k ? whatIf.run : null;
       const now = held(ran?.result.holds);
       const before = new Set(was.map((x) => x.origin));
-      days.push({ day: day.slice(0, 10), was: was.length ? 'held' : 'published', now: !ran ? 'failed' : now.length ? 'held' : 'published', holds: [...new Set(now.map((x) => x.origin).filter((o) => !before.has(o)))] });
+      // The same figures a change's own step gives, before it starts (ADR 0027 §7, Q-261): what the day published
+      // against what it would have under the change. The product's marks only where both sides have them.
+      const then = marksOfRecorded(day, recorded?.manifest === undefined ? undefined : String(recorded.manifest));
+      let figures: { moved: StepMeasure[]; measured: number } | null = null;
+      if (ran && then) {
+        const under = await marksOfRun(ran);
+        const both = then.score !== undefined && under.score !== undefined;
+        const side = (x: StepMarks): StepMarks => (both ? x : { rows: x.rows });
+        figures = stepMeasures(side(then), side(under));
+      }
+      days.push({ day: day.slice(0, 10), was: was.length ? 'held' : 'published', now: !ran ? 'failed' : now.length ? 'held' : 'published', holds: [...new Set(now.map((x) => x.origin).filter((o) => !before.has(o)))], ...(figures ?? {}) });
       closeWhatIf(true);
       testing.done++;
     }
-    tested.set(c.id, { count: testCount(days), what });
+    tested.set(c.id, { count: testCount(days), what, moves: trialMoves(days) });
   } finally {
     testing = null;
     // The day that was on screen again, with its own files and its own rules.
     if (loads.list[back]) await runLoad(back);
-    setStatus(tested.has(c.id) ? testSaid(tested.get(c.id)!.what, tested.get(c.id)!.count, dayLabel) : 'The test didn’t finish.', !tested.has(c.id));
+    setStatus(tested.has(c.id) ? `${testSaid(tested.get(c.id)!.what, tested.get(c.id)!.count, dayLabel)}${trialFigures(tested.get(c.id)!.moves, dayLabel)}` : 'The test didn’t finish.', !tested.has(c.id));
     if (flow === null) renderRulesTime();
     else openSection(flowCard(flow));
   }
@@ -4378,7 +4453,7 @@ function flowChangedPart(id: string): HTMLElement | null {
     return h('li', { class: `fl-change${x.bearing === 'follows' ? ' fl-follows' : ''}`, 'data-change': c.id },
       h('p', { class: 'fl-change-what' }, h('b', {}, `From ${dayLabel(c.from)}${c.until ? ` to ${dayLabel(c.until)}` : ''}`), x.bearing === 'follows' ? ` · it follows ${listed(x.of.map(flowName))}` : '', `: ${changeSaid(c)}`),
       h('p', { class: 'fl-change-who' }, `${shippedChange(c.id) ? 'Recorded' : 'Made here'} ${at(c.recorded)} by ${personName(c.by)}${c.why ? `: “${c.why}”` : ''} · ${stands(c)}`),
-      got ? h('p', { class: 'fl-tested', role: 'status' }, testSaid(got.what, got.count, dayLabel)) : null,
+      got ? h('p', { class: 'fl-tested', role: 'status' }, testSaid(got.what, got.count, dayLabel), h('span', { class: 'fl-figures' }, trialFigures(got.moves, dayLabel))) : null,
       differ.length ? h('ul', { class: 'fl-tested-days' }, ...differ.map((t) => h('li', {}, h('a', { href: `#day/${t.day}` }, dayLabel(t.day)), t.now === 'failed' ? ': the run would have failed' : t.now === 'held' ? `: would have paused${t.holds.length ? `, held by ${listed(t.holds)}` : ''}` : ': would have been published'))) : null,
       busy ? h('p', { class: 'fl-testing', role: 'status' }, `Testing: ${testing!.done} of ${testing!.of} days run.`)
         : mayRun() && days.length ? h('button', { type: 'button', class: 'btn small fl-test', disabled: state.running || !!testing, onclick: () => void testChange(c, id) }, got ? 'Test again ›' : `Test on the ${days.length === 1 ? 'day' : `${days.length} days`} before it ›`)
@@ -5766,8 +5841,17 @@ function rulesLine(day: string, prev: string | null): HTMLElement | null {
   // earlier than the saying (a rule said that afternoon): it is said as said that day, not as known to the run.
   const coming = ruleChanges.length ? comingOn({ changes: ruleChanges }, day, monthView.at) : [];
   const saidThatDay = (c: ChangeSet) => new Date(Date.parse(c.recorded)).toISOString().slice(0, 10) === day.slice(0, 10);
+  // A change whose first day this is was run both ways (ADR 0027 §7): its own step, a tap from the change.
+  const steps = stepsNow();
+  const stepped = since.map((a) => a.change).filter((c) => steps.get(c.id)?.day === day.slice(0, 10));
   return h('p', { class: 'dh-rules' }, h('span', { class: 'dh-rules-k' }, 'Rules in force'), ' ', hashCode(rulesHashOf(state.doc), 'dh-hash'),
     since.length ? h('span', { class: 'dh-rules-new' }, ` · new on this day: ${since.flatMap((a) => a.said).join('; ')}`) : ruleChanges.length ? '' : h('span', { class: 'dh-rules-new' }, baseEdited() ? ' · names and labels edited here' : ' · as shipped'),
+    ...stepped.map((c) => {
+      const step = steps.get(c.id)!;
+      const on = TREND_SERIES.filter((m) => moveSaid(step, m));
+      return h('span', { class: 'dh-rules-step', 'data-step': c.id }, ' · run both ways: ', h('button', { type: 'button', class: 'linkish', onclick: () => openChange(c.id) },
+        `${on.length ? `the change alone moved ${on.map((m) => `${m === 'score' ? 'the score' : m} ${moveSaid(step, m)}`).join(' and ')}` : step.moved.length ? `the change alone moved ${plural(step.moved.length, 'measure')} of ${step.measured}, none of them the score` : `the change moved none of ${plural(step.measured, 'measure')}`} ›`));
+    }),
     ...coming.map((c) => h('span', { class: 'dh-rules-coming', 'data-change': c.id }, saidThatDay(c) ? ' · said this day, from ' : ' · coming ', h('button', { type: 'button', class: 'linkish', onclick: () => openChange(c.id) }, `${dayShort(c.from)}: ${changeSaid(c)} ›`))));
 }
 
@@ -6049,7 +6133,171 @@ function showChange(): void {
   item.scrollIntoView({ block: 'center' });
 }
 
-/** The days a change to the rules took effect among `days`, for a chart's marks (ADR 0027 §7): each with what changed. */
+/**
+ * Each change's own step (ADR 0027 §7, Q-261), as the record keeps it and as known at the moment the month is read at:
+ * its first day run both ways, and what the change alone moved.
+ */
+function stepsNow(): Map<string, StepAbout & { seq: number }> {
+  const at = monthView.at ? Date.parse(monthView.at) : null;
+  return stepsOf(allEntries().filter((e) => at === null || Date.parse(e.at) <= at));
+}
+/** The trend's two lines, as a step's measures name them. */
+const TREND_SERIES = ['score', 'coverage'] as const;
+/**
+ * A change's own step on the trend's two lines, in words: what it moved of the score and the coverage, that it moved
+ * neither with how much else it did, or that it moved nothing. Empty for a change that wasn't run both ways.
+ */
+function stepOnTrend(change: string): string {
+  const step = stepsNow().get(change);
+  if (!step) return '';
+  const on = TREND_SERIES.filter((m) => moveSaid(step, m));
+  if (on.length) return `its own step: ${on.map((m) => `${m === 'score' ? 'the score' : m} ${moveSaid(step, m)}`).join('; ')}${on.length === 1 ? `; ${on[0] === 'score' ? 'coverage' : 'the score'} not at all` : ''}`;
+  return step.moved.length ? `its own step: nothing on the score or coverage, ${plural(step.moved.length, 'other measure')} of ${step.measured}` : `its own step: none of ${plural(step.measured, 'measure')} moved`;
+}
+/**
+ * The note beside a watched dataset on the first day of a declared change whose own step moved its series (ADR 0027 §7,
+ * Q-263): what its run said there is the change's own, accepted ahead by the declaration, and the checks learn from the
+ * new level from that day. A tap from the change.
+ */
+function declaredNote(source: string, day: string): HTMLElement | null {
+  const d = declaredOn(stepsNow(), source, day);
+  const change = d ? ruleChanges.find((c) => c.id === d.change) : undefined;
+  return change ? h('span', { class: 'mo-f-declared', 'data-change': change.id }, ' The rest of what its run said is as declared: ', h('button', { type: 'button', class: 'linkish', onclick: () => openChange(change.id) }, `${changeSaid(change)} ›`), ' The change’s own step, and the new level from this day.') : null;
+}
+
+/**
+ * The series a level names, as people read them, by what they are of: how many rows there are, the mix of each
+ * column whose values it names, the blanks and the spread of others, and how the columns go together. A level names
+ * series one by one, and a change that adds a tenth more rows moves dozens: they are said by column.
+ */
+function levelSeries(metrics: readonly string[]): string {
+  const cols = (kind: RegExp) => [...new Set(metrics.flatMap((m) => {
+    const got = kind.exec(m);
+    return got ? [got[1]!] : [];
+  }))];
+  const few = (xs: string[]) => `${listed(xs.slice(0, 4))}${xs.length > 4 ? ` and ${xs.length - 4} more` : ''}`;
+  const mix = cols(/^(?:value|count):([^=]+)=/);
+  const blank = cols(/^missing:(.+)$/);
+  const spread = cols(/^(?:quantile|median):([^@]+)/);
+  const pairs = metrics.some((m) => m.startsWith('combo:'));
+  const parts = [
+    ...(metrics.includes('trips') ? ['how many rows it has'] : []),
+    ...(mix.length ? [`the mix of ${few(mix)}`] : []),
+    ...(blank.length ? [`the blanks of ${few(blank)}`] : []),
+    ...(spread.length ? [`the spread of ${few(spread)}`] : []),
+    ...(pairs ? ['how its columns go together'] : []),
+  ];
+  return parts.length ? parts.join('; ') : plural(metrics.length, 'series');
+}
+/**
+ * A declared change on a watched dataset's own News (ADR 0027 §7, Q-263). On the change's first day: what its checks
+ * say below is the change's own step, the day's data was judged as it was, and the new level starts here. On a later
+ * day: that its checks learn from the level the change declared, and since when. Null where no change's step moved it.
+ */
+function declaredPart(id: string, day: string): HTMLElement | null {
+  const steps = stepsNow();
+  const first = declaredOn(steps, id, day);
+  if (first) {
+    const change = ruleChanges.find((c) => c.id === first.change);
+    if (!change) return null;
+    const was = first.level.was;
+    const old = !was ? '' : was.state === 'unusual' || was.state === 'wrong' ? ` The day’s data, judged as it was, had this to say: ${was.head}` : ' The day’s data, judged as it was, had nothing to say.';
+    return h('div', { class: 'verdict note declared', 'data-change': change.id },
+      h('p', { class: 'v-day' }, `${dayLabel(day)} · as declared`),
+      h('h3', { class: 'v-head' }, glyphEl('explained', 16), ' The change’s own step'),
+      h('p', { class: 'v-line' }, h('button', { type: 'button', class: 'linkish', onclick: () => openChange(change.id) }, `${changeSaid(change)} ›`), ` This is its first day, run both ways: the change alone moved ${levelSeries(first.level.metrics)}.${old} The checks learn from the new level from this day.`));
+  }
+  const d = day.slice(0, 10);
+  const since = [...steps.values()].filter((st) => st.day < d && st.levels?.some((l) => l.source.toLowerCase() === id.toLowerCase())).sort((a, b) => (a.day < b.day ? 1 : -1))[0];
+  const change = since ? ruleChanges.find((c) => c.id === since.change) : undefined;
+  if (!since || !change) return null;
+  const level = since.levels!.find((l) => l.source.toLowerCase() === id.toLowerCase())!;
+  return h('p', { class: 'foot declared-since', 'data-change': change.id }, `Judged from the level declared on ${dayShort(since.day)}: `, h('button', { type: 'button', class: 'linkish', onclick: () => openChange(change.id) }, `${changeSaid(change)} ›`), ` Its checks learn from that day on: ${levelSeries(level.metrics)}.`);
+}
+
+/** A measure a step moved, as people read it: the product's score, the checks behind it, a control, an output's rows. */
+function measureNamed(measure: string): string {
+  if (measure === 'score') return 'the score';
+  if (measure === 'coverage') return 'coverage';
+  if (measure === 'checks:applying') return 'checks that apply';
+  if (measure === 'checks:evidence') return 'checks with evidence';
+  if (measure === 'checks:failing') return 'checks failing';
+  if (measure.startsWith('failing:')) return `applications failing ${recorded?.controls?.[measure.slice(8)] ?? measure.slice(8)}`;
+  if (measure.startsWith('rows:')) return `the output ${measure.slice(5)}`;
+  return measure;
+}
+/** A measure's move in words: a score or a share to a decimal, a count whole: "+1,994 (19,320 → 21,314)". */
+function movedSaid(m: Pick<StepMeasure, 'measure' | 'without' | 'with'>): string {
+  if (m.without === null || m.with === null) return m.with === null ? 'no longer built' : 'built where it wasn’t';
+  if (m.measure === 'score' || m.measure === 'coverage') return moveSaid({ moved: [m as StepMeasure] }, m.measure);
+  const d = Math.round(m.with - m.without);
+  return `${d > 0 ? '+' : d < 0 ? '−' : ''}${fmtInt(Math.abs(d))}${m.measure.startsWith('rows:') ? (Math.abs(d) === 1 ? ' row' : ' rows') : ''} (${fmtInt(m.without)} → ${fmtInt(m.with)})`;
+}
+/** Measures in the order people read them: the trend's lines, the checks behind them, each control, then the outputs by
+ * how far they moved. */
+function movedInOrder(moved: readonly StepMeasure[]): StepMeasure[] {
+  const rank = (m: StepMeasure) => (m.measure === 'score' ? 0 : m.measure === 'coverage' ? 1 : m.measure.startsWith('checks:') ? 2 : m.measure.startsWith('failing:') ? 3 : 4);
+  const size = (m: StepMeasure) => (m.without === null || m.with === null ? Infinity : Math.abs(m.with - m.without));
+  return [...moved].sort((x, y) => rank(x) - rank(y) || size(y) - size(x) || (x.measure < y.measure ? -1 : 1));
+}
+/**
+ * A change's own step on its register entry (ADR 0027 §7, Q-261): the day it was run both ways, what the change alone
+ * moved (the trend's lines first, then the measures that moved most, the rest a tap away), what was left out as it was,
+ * the series it is the new level of (Q-263), and the day's outputs both ways from the two runs' manifests. For a change
+ * of the business made here, whose first day has run, that it wasn't measured and how to see the day as it was. Null
+ * for any other change that wasn't run both ways.
+ */
+function stepLine(c: ChangeSet): HTMLElement | null {
+  const step = stepsNow().get(c.id);
+  if (!step) {
+    const ran = loads.list.some((l, k) => l.day.slice(0, 10) === c.from && runsOfVersions(k).length > 0);
+    if (c.kind !== 'business' || shippedChange(c.id) || !ran) return null;
+    return h('span', { class: 'rg-step rg-step-none', 'data-step': c.id }, h('b', {}, 'Its own step isn’t measured. '), `The build runs a recorded change’s first day both ways; one made here isn’t yet. On ${dayShort(c.from)}, What if… › under the rules before it shows the day as it was.`);
+  }
+  const moved = movedInOrder(step.moved);
+  const shown = moved.slice(0, 3);
+  const rest = moved.slice(3);
+  const hasScore = recorded?.posture !== undefined && Object.keys(recorded.posture).length > 0;
+  const levels = step.levels ?? [];
+  const left = step.leftOut?.flatMap((x) => x.keys) ?? [];
+  const a = manifestOf(step.without.manifest);
+  const b = manifestOf(step.with.manifest);
+  const both = a && b ? compareSummary(a, b) : null;
+  const differ = both ? both.outputs.filter((o) => o.changed) : [];
+  return h('span', { class: 'rg-step', 'data-step': c.id },
+    h('b', {}, `Its own step, ${dayShort(step.day)}. `),
+    step.moved.length
+      ? `Run both ways, the change alone moved ${shown.map((m) => `${measureNamed(m.measure)} ${movedSaid(m)}`).join('; ')}${rest.length ? `, and ${plural(rest.length, 'other measure')}` : ''}, of ${plural(step.measured, 'measure')} read.${hasScore && !step.moved.some((m) => m.measure === 'score') ? ' It didn’t move the score.' : ''}`
+      : `Run both ways, it moved none of ${plural(step.measured, 'measure')}.`,
+    left.length ? ` As it was, ${listed(left)} ${left.length === 1 ? 'was' : 'were'} left out.` : '',
+    levels.length ? ` A new level from that day for ${listed(levels.map((l) => l.source))}: the checks learn from it.` : '',
+    both && (differ.length || rest.length) ? h('details', { class: 'fold rg-both' },
+      h('summary', {}, `The day both ways: ${differ.length ? `${fmtInt(differ.length)} of ${fmtInt(both.outputs.length)} outputs differ` : 'no output differs'}`),
+      rest.length ? h('p', { class: 'rg-both-more' }, `Also moved: ${rest.map((m) => `${measureNamed(m.measure)} ${movedSaid(m)}`).join('; ')}.`) : null,
+      differ.length ? h('ul', { class: 'rg-both-outs' }, ...differ.map((o) => h('li', { 'data-output': o.name }, h('b', {}, o.name), ` ${o.a ? fmtInt(o.a.rows) : 'not built'} → ${o.b ? fmtInt(o.b.rows) : 'not built'} rows`))) : null,
+      h('p', { class: 'foot' }, 'As it was, then with the change: the same files, run under the rules without it and with it.')) : null);
+}
+
+/**
+ * Where the trend's lines are cut (Q-260, Q-284): each change of the business whose own step moved the score or the
+ * coverage, among the days shown, with the line it cuts.
+ */
+function trendCuts(days: readonly string[]): (ScoreCut & { change: string })[] {
+  if (!ruleChanges.length) return [];
+  const have = new Set(days.map((d) => d.slice(0, 10)));
+  const steps = stepsNow();
+  const known = registerNow().entries.map((e) => e.change);
+  return TREND_SERIES.flatMap((series) => cutsOf(known, steps, series).filter((c) => have.has(c.day)).map((c) => ({ ...c, series, label: `${dayShort(c.day)}: ${changeSaid(known.find((x) => x.id === c.change)!)}; ${series === 'score' ? 'the score' : series} ${moveSaid(steps.get(c.change), series)}` })))
+    .sort((x, y) => (x.day < y.day ? -1 : x.day > y.day ? 1 : x.series === 'score' ? -1 : 1));
+}
+/** The trend's points with the steps taken out (Q-261): each line shifted back by the steps of the changes that cut it. */
+function trendAdjusted(points: readonly ScorePoint[], cuts: readonly (ScoreCut & { change: string })[]): ScorePoint[] {
+  const of = (series: ScoreCut['series']) => cuts.filter((c) => c.series === series);
+  const score = adjusted(points.map((p) => ({ day: p.day, value: p.score })), of('score'));
+  const coverage = adjusted(points.map((p) => ({ day: p.day, value: p.coverage })), of('coverage'));
+  return points.map((p, i) => ({ day: p.day, score: score[i]!.value, coverage: coverage[i]!.value }));
+}
+
 function changeMarks(days: readonly string[]): { day: string; label: string; change: string }[] {
   if (!ruleChanges.length) return [];
   const have = new Set(days.map((d) => d.slice(0, 10)));
@@ -6061,7 +6309,8 @@ function eventBands(days: readonly string[]): { from: string; until: string; lab
   const first = days[0]?.slice(0, 10);
   const last = days.at(-1)?.slice(0, 10);
   if (!first || !last) return [];
-  return flowEvents().filter((e) => e.from <= last && (e.until === undefined || e.until >= first)).map((e) => ({ from: e.from, until: e.until ?? last, label: `${e.name}, ${eventSpan(e)}`, id: e.id }));
+  // Each with what it excuses (ADR 0027 §7): a band over a chart says what the checks were told to expect under it.
+  return flowEvents().filter((e) => e.from <= last && (e.until === undefined || e.until >= first)).map((e) => ({ from: e.from, until: e.until ?? last, label: `${e.name}, ${eventSpan(e)}${e.excuses?.length ? `; excuses ${excusesSaid(e)}` : ''}`, id: e.id }));
 }
 
 /** The lanes' rows of what people decided: a mark on each day decided, kept back or restated, as the month says it. */
@@ -6132,11 +6381,12 @@ function registerPart(): HTMLElement | null {
       h('span', { class: 'rg-why' }, c.why ? `“${c.why}” ` : 'No reason given · ', h('span', { class: 'rg-by' }, personName(c.by))),
       c.decided ? h('span', { class: 'rg-led' }, `Decided by ${c.decided.by}${c.decided.on ? ` on ${dayShort(c.decided.on)}` : ''}`) : null,
       led ? h('button', { type: 'button', class: 'linkish rg-because', 'data-event': c.because!.event!, onclick: () => openEvent(c.because!.event!) }, `Because of: ${led} ›`) : null,
+      stepLine(c),
       noted.length ? h('details', { class: 'rg-note' }, h('summary', {}, 'The thinking'), h('dl', {}, ...noted.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)]))) : null,
       // The day its author asked to look again has come (ADR 0027 §2): said until someone changes it or its note.
       n?.lookAgain && n.lookAgain <= reg.today ? h('span', { class: 'rg-again' }, `Due for another look since ${dayLabel(n.lookAgain)}`) : null,
       // What it would have done, or did, on the days before it (ADR 0027 §2, Q-259): tried as what-if runs.
-      trial ? h('span', { class: 'rg-trial' }, testSaid(trial.what, trial.count, dayShort))
+      trial ? h('span', { class: 'rg-trial' }, testSaid(trial.what, trial.count, dayShort), h('span', { class: 'rg-figures' }, trialFigures(trial.moves, dayShort)))
         : trying ? h('span', { class: 'rg-trial' }, h('span', { class: 'mini-wait' }), ` Trying it on ${testing!.of === 1 ? 'the day before' : `the ${testing!.of} days before`}: ${testing!.done} done.`)
         : owner && monthView.at === null && testDays(c).length && mayRun() ? h('button', { type: 'button', class: 'linkish rg-try', ...(state.running || testing ? { disabled: 'disabled' } : {}), onclick: () => void testChange(c, null) }, `Try it on the ${plural(testDays(c).length, 'recorded day')} before it ›`) : null,
       h('span', { class: 'rg-facts' }, [where(c), reached.length ? `recorded after ${plural(reached.length, 'day')} it reaches had run: ${daysSaid(reached)}` : ''].filter(Boolean).join(' · ')));
@@ -9398,7 +9648,9 @@ function causeDetail(story: Story, card: string): void {
   if (sp && story.amount) {
     const part = stripOf({ of: 'count', column: sp.column, value: sp.value }, day, 28, story.severity);
     const at = part.at(-1);
-    if (part.length) body.push(block(`${sp.name}, day by day`, svgNode(dayStrip({ days: part, h: 88, labels: stripLabels(part), key: STRIP_KEY, more: { same: sameDays(day) }, unit: '/day', aria: `${sp.name} records day by day for four weeks to ${dayLabel(day)}, each against its own usual range${at?.v !== null && at?.v !== undefined ? `: ${fmtInt(at.v)} on ${dayLabel(day)}${at.low !== null && at.high !== null ? `, where ${fmtInt(at.low)} to ${fmtInt(at.high)} is usual` : ''}` : ''}.` }))));
+    // Marked where the column's meaning was redefined, and the value followed through an ending (ADR 0027 §2, §3).
+    const across = acrossColumn(dataOf(card), sp.column, sp.value, part);
+    if (part.length) body.push(block(`${sp.name}, day by day`, svgNode(dayStrip({ days: across.days, h: 88, labels: stripLabels(part), key: STRIP_KEY, more: { same: sameDays(day), ...(Object.keys(across.marks).length ? { marks: across.marks } : {}) }, unit: '/day', aria: `${sp.name} records day by day for four weeks to ${dayLabel(day)}, each against its own usual range${at?.v !== null && at?.v !== undefined ? `: ${fmtInt(at.v)} on ${dayLabel(day)}${at.low !== null && at.high !== null ? `, where ${fmtInt(at.low)} to ${fmtInt(at.high)} is usual` : ''}` : ''}${across.said}.` })), ...across.notes));
     // Its column's shares, usual and today, only when the part's own count moved: a part that held reads as a share
     // that surged when the rest fell (Thu Sep 21, 2023: Flex Fare 3.9% → 11.1% on its usual 4,657 trips). Its count is
     // on its segment, beside its share.
@@ -9690,6 +9942,63 @@ function compositionOf(column: string, day: string, moved?: string, names?: [str
   }));
 }
 
+/**
+ * A chart built on a column, read across the column's changes (ADR 0027 §2, §3): its days marked where the column's
+ * meaning was redefined for the dataset (Q-251), the key's word for the mark, what the chart's words add, and the
+ * lines under it: each redefinition with its change a tap away, and the value followed through an ending (Q-264).
+ */
+function acrossColumn(dataset: string, column: string | undefined, value: string | undefined, days: readonly StripDay[]): { days: StripDay[]; marks: Partial<Record<VizMark, string>>; said: string; notes: (HTMLElement | null)[] } {
+  if (!column) return { days: [...days], marks: {}, said: '', notes: [] };
+  const redefs = redefinedOn(registerNow().entries.filter((e) => e.tense !== 'coming').map((e) => e.change), dataset, column).filter((r) => days.some((d) => d.day.slice(0, 10) === r.day));
+  const marked = redefs.length ? days.map((d) => (redefs.some((r) => r.day === d.day.slice(0, 10)) ? { ...d, marks: [...(d.marks ?? (d.mark ? [d.mark] : [])), 'changed' as const] } : d)) : [...days];
+  const notes: (HTMLElement | null)[] = redefs.map((r) => {
+    const c = ruleChanges.find((x) => x.id === r.change);
+    return c ? h('p', { class: 'foot redefined-on', 'data-change': c.id }, glyphEl('changed', 13), ` What ${column} means was redefined from ${dayShort(r.day)}: `, h('button', { type: 'button', class: 'linkish', onclick: () => openChange(c.id) }, `${c.why} ›`), ' The days either side of the mark don’t mean the same.') : null;
+  });
+  // A finding names its value as the history keys it (JSON): the ontology's entries are the values themselves.
+  if (value !== undefined) notes.push(followedPart(dataset, column, rawValue(value)));
+  return { days: marked, marks: redefs.length ? { changed: 'redefined' } : {}, said: redefs.length ? `; what ${column} means was redefined from ${listed(redefs.map((r) => dayShort(r.day)))}` : '', notes };
+}
+
+/** A value as written, from the key the history keeps it under (its JSON): `"passkey"` is passkey, `null` is null. */
+const rawValue = (key: string): string => {
+  try {
+    const v = JSON.parse(key) as unknown;
+    return v === null ? 'null' : typeof v === 'string' ? v : String(v);
+  } catch {
+    return key;
+  }
+};
+
+/**
+ * A value of a closed list or column followed through an ending (ADR 0027 §2, Q-264), under its day by day: that it
+ * ended and what follows it, with the day; or what it carries since another value ended into it. Its series goes on in
+ * what follows. Null where no ending touches the value.
+ */
+function followedPart(dataset: string, column: string, value: string): HTMLElement | null {
+  // A file's own step (its checks, its fill) is told of the file's values: the file's closed rules are its own.
+  const file = sourceIds().has(dataset) ? dataset : (ownFiles().get(dataset.toLowerCase()) ?? dataset);
+  const doc = docKnownNow(viewedDay()?.slice(0, 10) ?? fromDay());
+  const rules = closedOf(doc.ontology, file).filter((r) => r.column.toLowerCase() === column.toLowerCase());
+  const got = rules.length ? followedThrough(doc.ontology, file, rules.map((r) => r.id), value) : null;
+  if (!got) return null;
+  const rule = rules[0]!;
+  const called = (k: string) => entryCalled(doc.ontology, rule, k);
+  // The day an entry ended: the first day of the change that ended it.
+  const endedFrom = (key: string) => ruleChanges.find((c) => c.edits.some((e) => e.op === 'end' && e.ended.what === 'entry' && e.ended.id === key && e.ended.of?.rule !== undefined && rules.some((r) => r.id === e.ended.of!.rule)))?.from;
+  const how = (h0: 'replaced' | 'merged' | 'split') => (h0 === 'replaced' ? 'replaced by' : h0 === 'merged' ? 'merged into' : 'split into');
+  const parts: string[] = [];
+  if (got.ended) {
+    const from = endedFrom(value);
+    parts.push(`${called(value)} ended${from ? ` from ${dayShort(from)}` : ''}${got.ended.then ? `: ${how(got.ended.then.how)} ${listed(got.ended.then.by.map(called))}. Its series goes on there.` : ', with nothing after it.'}`);
+  }
+  for (const c of got.carries) {
+    const from = endedFrom(c.key);
+    parts.push(`${from ? `From ${dayShort(from)} this` : 'This'} carries ${called(c.key)}, ${c.how === 'replaced' ? 'which it replaced' : c.how === 'merged' ? 'merged into it' : 'split into it and others'}: before then ${called(c.key)} was counted on its own.`);
+  }
+  return h('p', { class: 'foot followed-on', 'data-value': value }, glyphEl('changed', 13), ` ${parts.join(' ')}`);
+}
+
 /** What a tap on a finding opens: its visual, its day by day, one sentence, its verbs. */
 function findingDetail(f: Finding, card: string): void {
   const day = newsDay();
@@ -9703,7 +10012,12 @@ function findingDetail(f: Finding, card: string): void {
     const axis = scale === 'share' ? axisShare : scale === 'count' ? (v: number) => compact(v) : undefined;
     const recent = axis ? recentSpan(days, axis) : null;
     const most = Math.max(...days.flatMap((d) => [d.high ?? 0, d.v ?? 0]));
-    if (days.length) body.push(block('Day by day', svgNode(dayStrip({ days, labels: stripLabels(days), key: STRIP_KEY, more: { same: sameDays(day) }, zero: true, ...(axis ? { axis } : {}), aria: `${f.title}, day by day for four weeks${axis ? `, from 0 to ${axis(most)} at most` : ''}${recent ? `; ${recent}` : ''}.` })), recent ? h('p', { class: 'vf-sub' }, recent) : null));
+    // A chart built on a column is marked from the day its meaning was redefined, and its value followed through an
+    // ending (ADR 0027 §2, §3).
+    const across = acrossColumn(dataOf(card), (f.metric as { column?: string }).column ?? f.columns?.[0], f.values?.[0] === undefined ? undefined : String(f.values[0]), days);
+    if (days.length) body.push(block('Day by day', svgNode(dayStrip({ days: across.days, labels: stripLabels(days), key: STRIP_KEY, more: { same: sameDays(day), ...(Object.keys(across.marks).length ? { marks: across.marks } : {}) }, zero: true, ...(axis ? { axis } : {}), aria: `${f.title}, day by day for four weeks${axis ? `, from 0 to ${axis(most)} at most` : ''}${recent ? `; ${recent}` : ''}${across.said}.` })),
+      ...across.notes,
+      recent ? h('p', { class: 'vf-sub' }, recent) : null));
   }
   if (day && f.columns?.[0] && (f.kind === 'share' || f.kind === 'gone' || f.kind === 'new') && history?.file.values?.[f.columns[0]]?.counts) body.push(block(`${NEWS_NAMES.column(f.columns[0])}, usual and today`, compositionOf(f.columns[0], day, f.values?.[0])));
   body.push(oneLine(f.detail));
@@ -9896,6 +10210,9 @@ function causeCard(story: Story, card: string): HTMLElement {
   return h('section', { class: `vf-card ${story.state}${paused ? ' paused' : ''}${brief ? ' brief' : ''}`, ...(anchor ? { id: `finding-${anchor.key}` } : {}) },
     h('div', { class: 'vf-headrow' }, h('h3', { class: 'vf-head', role: 'status', 'aria-live': 'polite' }, story.state === 'unlearned' ? glyphEl('unlearned', 18) : m && !calm ? glyphEl(m, 18) : '', ...head)),
     gloss,
+    // A declared change's own step on this dataset's series (ADR 0027 §7, Q-263), said under the head: on the change's
+    // first day what follows is the change's own; after it, which level its checks learn from.
+    src && (card === src || card === profiles().find((p) => p.of === src)?.id) ? declaredPart(src, story.day) : null,
     story.chip ? h('button', { type: 'button', class: 'vf-chip-btn', 'aria-label': `${story.chip}${ep ? `: ${ep.trend.map((d) => `${WEEKDAY_NAMES[dateOf(d.day).getUTCDay()]!.slice(0, 3)} ${Math.round((d.trips / Math.max(1, d.expected)) * 100)}% of a usual day`).join(', ')}${ep.short ? `; about ${rowsSaid(ep.short.estimate)} short so far` : ''}` : ''}. Open the episode’s days.`, onclick: () => episodeSheet(story) },
       chipIcon(story, days), story.chip, glyphEl('chev', 13)) : null,
     told ? h('p', { class: 'vf-told' }, glyphEl('ack', 14), told) : null,
@@ -10069,8 +10386,12 @@ function briefSections(story: Story, card: string): { top: HTMLElement[]; body: 
       // No storage: this once.
     }
   };
-  const statusWord = b.status === 'no action' ? 'no action needed' : b.status;
-  const status = h('p', { class: `brief-status ${b.status.replace(/\s+/g, '-')}` }, h('span', { class: 'pill' }, statusWord), h('span', { class: 'brief-day' }, dayMid(day)));
+  // A day whose news is a declared change's own step, with nothing paused and nothing the old way found (ADR 0027 §7,
+  // Q-263), isn't under investigation: it is as declared.
+  const dec = declaredOn(stepsNow(), loadSource() ?? '', day);
+  const declaredOnly = !!dec && b.status === 'investigating' && !input.pause && !!dec.level.was && dec.level.was.state !== 'unusual' && dec.level.was.state !== 'wrong';
+  const statusWord = declaredOnly ? 'as declared' : b.status === 'no action' ? 'no action needed' : b.status;
+  const status = h('p', { class: `brief-status ${declaredOnly ? 'expected' : b.status.replace(/\s+/g, '-')}` }, h('span', { class: 'pill' }, statusWord), h('span', { class: 'brief-day' }, dayMid(day)));
   const sit = h('p', { class: `brief-sit${b.edited ? ' edited' : ''}` }, b.situation);
   const area = h('textarea', { class: 'brief-edit', rows: '3', hidden: true, 'aria-label': 'The situation, in your words' });
   area.value = b.situation;
@@ -11079,6 +11400,9 @@ async function newsTab(card: string, id: string, who: string): Promise<HTMLEleme
   }
   // A watched step the views don't follow tells its own day (ADR 0014 §2): its verdict and what it follows.
   const ownStory = !state.failed && storyDay ? watchedStory(dataOf(card), storyDay) : null;
+  // A declared change's own step on its series (ADR 0027 §7, Q-263): said first, so what follows reads as the change's.
+  const declared = !state.failed && storyDay && watchedSteps().includes(dataOf(card)) ? declaredPart(dataOf(card), storyDay) : null;
+  if (declared) box.append(declared);
   if (ownStory && ownStory.state !== 'calm' && ownStory.state !== 'unlearned') box.append(...watchedNews(ownStory, !!mine));
   // A day paused with no story to tell it (the history doesn't have the day, or there is none): what held it, what
   // waits, and Decide (ADR 0009 §3: a source not judged is held, and a person decides).
@@ -11795,6 +12119,21 @@ function allEntries(): RecordEntry[] {
     layerCache.size = size;
   }
   return layerCache.list;
+}
+/**
+ * The record as the month reads its days (ADR 0027 §7, Q-263): on the first day of a declared change, a watched dataset
+ * whose series the change's own step moved says what the day's data said the old way, and names the change
+ * (core/across.ts `asDeclared`). What a run was told stays in the record; this is how its day is read once the step is
+ * known. The same list while the record is the same.
+ */
+const declaredKept: { of: RecordEntry[] | null; read: RecordEntry[] } = { of: null, read: [] };
+function readEntries(): RecordEntry[] {
+  const all = allEntries();
+  if (declaredKept.of !== all) {
+    declaredKept.of = all;
+    declaredKept.read = asDeclared(all);
+  }
+  return declaredKept.read;
 }
 /** An entry by its number: the recorded month's below zero, this browser's from zero. */
 const entryOf = (seq: number | null | undefined): RecordEntry | undefined => (seq === null || seq === undefined ? undefined : seq < 0 ? recordedEntries[seq + recordedEntries.length] : ledger?.entries[seq]);
@@ -14741,6 +15080,8 @@ function loadSummary(): string {
  * (its panel, beside the calendar), the moment it is read as known on (null: now), the outcome its counts filter the
  * calendar and the list by, the folded rows opened under its files and steps, and whether the demo's scenes are open. */
 const monthView = { month: null as string | null, pick: null as string | null, at: null as string | null, filter: 'all' as MonthFilter, open: new Set<string>(), scenes: false,
+  /** The score drawn with the steps taken out beside the published line (ADR 0027 §7, Q-261). */
+  adjusted: false,
   /** The flows entered (ADR 0026 §5): the month on show is the last one's own; none, the page's flow's, of everything. */
   flow: [] as string[] };
 /** What the month's counts filter by (ADR 0024 §2): every day, or the days of one outcome. */
@@ -16560,7 +16901,7 @@ const CELL_WORD: Record<CellState, string> = { refused: 'its file was refused', 
  * right still says what was wrong with it.
  */
 function dayFindings(day: string, at: string | null): DayFinding[] {
-  const runs = runsByDay(knownOn(allEntries(), at)).get(day) ?? [];
+  const runs = runsByDay(knownOn(readEntries(), at)).get(day) ?? [];
   // The cause before the symptom (ADR 0013 §5): within what held the day, and within what was unusual, a file's finding
   // leads a step's, which often only follows it.
   const rank = (x: DayFinding) => (x.level === 'held' ? 0 : x.level === 'unusual' ? 2 : 4) + (kindOf(x.origin) === 'file' ? 0 : 1);
@@ -16577,9 +16918,26 @@ function dayFindings(day: string, at: string | null): DayFinding[] {
  * `dayFindings` reads) headed "As expected: …", each with its event's name. No finding: nothing here marks the day.
  */
 function dayExpected(day: string, at: string | null): { origin: string; event: string }[] {
-  const runs = runsByDay(knownOn(allEntries(), at)).get(day) ?? [];
+  const runs = runsByDay(knownOn(readEntries(), at)).get(day) ?? [];
   const told = runs.find((e) => findingsOf(e.about as unknown as RunAbout).some((x) => x.level !== 'unjudged')) ?? runs[0];
   return told ? expectedOf(told.about as unknown as RunAbout) : [];
+}
+
+/**
+ * What a declared change accounts for on a day (ADR 0027 §7, Q-263), as known on a moment: the watched datasets whose
+ * series the change's own step moved, among the day's runs on the files the step was measured on. No finding: the
+ * day's data was judged the old way, and what the change added is the new level from this day.
+ */
+function dayDeclared(day: string, at: string | null): { origin: string; change: ChangeSet }[] {
+  const runs = runsByDay(knownOn(readEntries(), at)).get(day) ?? [];
+  const out: { origin: string; change: ChangeSet }[] = [];
+  for (const e of runs) {
+    for (const d of declaredOf(e.about as unknown as RunAbout)) {
+      const change = ruleChanges.find((c) => c.id === d.change);
+      if (change && !out.some((x) => x.origin.toLowerCase() === d.origin.toLowerCase())) out.push({ origin: d.origin, change });
+    }
+  }
+  return out;
 }
 
 /** A finding's words as the viewer may read them: what a dataset closed to them was told isn't said. */
@@ -16729,7 +17087,8 @@ function renderMonth(): void {
   const days = daysShown();
   const months = monthsOf(days);
   const at = monthView.at;
-  const entries = allEntries();
+  // The record as the month reads its days: a declared change's own step is no finding of its first day (ADR 0027 §7).
+  const entries = readEntries();
   const month = monthOf(days, entries, { at, judged: loadSource() });
   const facts = new Map(month.map((d) => [d.day, calendarDay(d)]));
   // A flow's own month (ADR 0026 §5): the month of the flow entered and of the flows it reads, by what their files and
@@ -16948,6 +17307,9 @@ function renderMonth(): void {
     const unj = found.filter((x) => x.level === 'unjudged');
     // What an event someone wrote down explains (ADR 0027 §6): said under the findings, a finding of nothing.
     const asExpected = dayExpected(pd.day, at).filter((x) => !scope || scope.has(x.origin.toLowerCase()));
+    // What a declared change accounts for (ADR 0027 §7, Q-263): the series its own step moved, no finding of the day.
+    // One the old way found trouble in too is a finding above, and says there that the rest is the change's.
+    const asDeclaredHere = dayDeclared(pd.day, at).filter((x) => (!scope || scope.has(x.origin.toLowerCase())) && !found.some((f) => f.origin.toLowerCase() === x.origin.toLowerCase()));
     // What it held back: the outputs that waited behind the run that first held the day.
     const firstHeld = dayRuns.find((e) => (e.about as unknown as RunAbout).outcome === 'held' && findingsOf(e.about as unknown as RunAbout).some((x) => x.level === 'held' && (!scope || scope.has(x.origin.toLowerCase()))));
     // In a flow's own month, what the flows in its scope give: the rest waits in another flow's month.
@@ -16967,7 +17329,9 @@ function renderMonth(): void {
     const finding = (x: DayFinding) => h('li', { class: `mo-f lv-${x.level}` },
       x.level === 'held' ? glyphEl('held', 13) : x.level === 'unusual' ? glyphEl('warn', 13) : glyphEl('unlearned', 13),
       // Where the flow reads flows, whose it is (ADR 0026 §5): the day names the flow whose file or step said it.
-      h('span', { class: 'mo-f-what' }, h('code', { class: 'mo-f-of' }, x.origin), h('span', { class: 'mo-f-kind' }, ` ${fileOf.has(x.origin.toLowerCase()) ? `step on ${fileOf.get(x.origin.toLowerCase())}` : kindOf(x.origin)}${state.doc.flows?.length ? ` in ${flowName(flowOf(state.doc, x.origin)?.id ?? '')}` : ''}`), h('span', { class: 'mo-f-said' }, ` ${findingSaid(x)}`)));
+      h('span', { class: 'mo-f-what' }, h('code', { class: 'mo-f-of' }, x.origin), h('span', { class: 'mo-f-kind' }, ` ${fileOf.has(x.origin.toLowerCase()) ? `step on ${fileOf.get(x.origin.toLowerCase())}` : kindOf(x.origin)}${state.doc.flows?.length ? ` in ${flowName(flowOf(state.doc, x.origin)?.id ?? '')}` : ''}`), h('span', { class: 'mo-f-said' }, ` ${findingSaid(x)}`),
+        // What the old way found too stays a finding; the rest of what its run said is a declared change's own step.
+        x.level === 'unusual' ? declaredNote(x.origin, pd.day) : null));
     const group = (title: string, xs: readonly DayFinding[]) => (xs.length ? [h('p', { class: 'mo-sub' }, title), h('ul', { class: 'mo-fs' }, ...xs.slice(0, 6).map(finding), xs.length > 6 ? h('li', { class: 'mo-f more' }, `and ${xs.length - 6} more`) : null)] : []);
     // The score that day against the day published before it, and what moved (ADR 0024 §6).
     const mk = markOf(pd.day);
@@ -17005,6 +17369,14 @@ function renderMonth(): void {
         h('span', { class: 'mo-f-what' }, h('code', { class: 'mo-f-of' }, x.origin), h('span', { class: 'mo-f-kind' }, ` ${kindOf(x.origin)}${state.doc.flows?.length ? ` in ${flowName(flowOf(state.doc, x.origin)?.id ?? '')}` : ''}`),
           h('span', { class: 'mo-f-said' }, ` ${isOwner() || visible(x.origin) ? `${AS_EXPECTED}${x.event}` : 'closed to you'}`)))),
         asExpected.length > 6 ? h('li', { class: 'mo-f more' }, `and ${asExpected.length - 6} more`) : null) : null,
+      asDeclaredHere.length ? h('p', { class: 'mo-sub' }, 'What a declared change accounts for') : null,
+      asDeclaredHere.length ? h('ul', { class: 'mo-fs mo-declared' }, ...asDeclaredHere.slice(0, 6).map((x) => h('li', { class: 'mo-f lv-expected', 'data-of': x.origin, 'data-change': x.change.id },
+        glyphEl('explained', 13),
+        h('span', { class: 'mo-f-what' }, h('code', { class: 'mo-f-of' }, x.origin), h('span', { class: 'mo-f-kind' }, ` ${kindOf(x.origin)}${state.doc.flows?.length ? ` in ${flowName(flowOf(state.doc, x.origin)?.id ?? '')}` : ''}`),
+          isOwner() || visible(x.origin)
+            ? h('span', { class: 'mo-f-said' }, ' As declared: ', h('button', { type: 'button', class: 'linkish', 'data-change': x.change.id, onclick: () => openChange(x.change.id) }, `${changeSaid(x.change)} ›`), ' Its own step, and the new level from this day; the day’s data, judged as it was, had nothing to say.')
+            : h('span', { class: 'mo-f-said' }, ' closed to you')))),
+        asDeclaredHere.length > 6 ? h('li', { class: 'mo-f more' }, `and ${asDeclaredHere.length - 6} more`) : null) : null,
       waitingOut.length ? h('p', { class: 'mo-reach' }, h('span', { class: 'mo-sub-k' }, po.outcome === 'waiting' ? 'What waits ' : 'What it held back '), `${waitingOut.length}${outputs ? ` of ${outputs}` : ''} outputs: ${waitingOut.slice(0, 3).join(', ')}${waitingOut.length > 3 ? ` and ${waitingOut.length - 3} more` : ''}.`) : null,
       elsewhere ? h('p', { class: 'mo-sum-hl mo-elsewhere' }, `Nothing of ${flowName(mine!)}${readsHereN ? ' or of the flows it reads' : ''} held it. The day as a whole: ${outcomeSaid(whole.outcome, whole.how).replace(/^./, (c) => c.toLowerCase())}, by another flow.`) : null,
       events.length ? h('p', { class: 'mo-sub' }, elsewhere ? 'What happened to the day' : 'What happened') : null,
@@ -17192,6 +17564,12 @@ function renderMonth(): void {
     const gaps = monthDays.filter((d) => !['notRun', 'notArrived'].includes(byDay.get(d)!.outcome) && (!marks || markOf(d)?.score === undefined || markOf(d)?.score === null));
     const failingNow = lastMark?.checks;
     const failingThen = firstMark?.checks;
+    const cuts = trendCuts(days);
+    const cutSaid = cuts.length ? ` ${[...new Set(cuts.map((c) => c.series))].map((sr) => `${sr === 'score' ? 'The score' : 'Coverage'} is cut on ${cuts.filter((c) => c.series === sr).map((c) => named(c.day)).join(' and ')}`).join('; ')}, where a change of the business moved it by itself.` : '';
+    // What a correction replaced (Q-260): the days a restatement took back, and those published again with another
+    // score. The line shows the month as corrected; what was first published is a tap away, on the day.
+    const firstOf = (d: string) => marks?.[d]?.first;
+    const corrected = monthDays.filter((d) => (!at || endOfDay(d) <= at) && ((takenBack.has(d) && marks?.[d]?.score != null) || (!takenBack.has(d) && firstOf(d) !== undefined)));
     scorePart = h('section', { class: 'panel mo-trend', 'aria-label': `${post.title}: the group’s score` },
       h('p', { class: 'eyebrow' }, `${post.title} · the group’s score on each day published`),
       h('div', { class: 'mo-score-top' },
@@ -17200,10 +17578,33 @@ function renderMonth(): void {
       failingNow ? h('p', { class: 'mo-score-checks' }, `${fmtInt(failingNow.failing)} of ${fmtInt(failingNow.evidence)} checks failing${failingThen && read.days > 1 ? ` (${countSaid(failingNow.failing - failingThen.failing)} since ${named(read.first.day)})` : ''} · coverage ${lastMark?.coverage?.toFixed(1) ?? '–'}%: ${fmtInt(failingNow.evidence)} of ${fmtInt(failingNow.applying)} checks have evidence.`) : null,
       post.about ? h('p', { class: 'mo-score-about' }, post.about) : null,
       points.filter((p) => p.score !== null).length >= 2
-        ? svgNode(scoreTrend({ days, points, w: W >= 1766 ? Math.max(320, Math.round((W - 24) / 3.5) - 34) : Math.min(1600, Math.max(280, W - 34)), aria: `${post.title}: the group’s score and coverage on each day published. ${readSaid(read, named)}`, gap: 'not published', marks: changeMarks(days), bands: eventBands(days), ...(several ? { focus: { from: monthDays[0]!, to: monthDays.at(-1)! } } : {}) }))
+        ? svgNode(scoreTrend({ days, points, w: W >= 1766 ? Math.max(320, Math.round((W - 24) / 3.5) - 34) : Math.min(1600, Math.max(280, W - 34)), aria: `${post.title}: the group’s score and coverage on each day published. ${readSaid(read, named)}${cutSaid}`, gap: 'not published', marks: changeMarks(days), bands: eventBands(days), cuts,
+            ...(monthView.adjusted && cuts.length ? { adjusted: trendAdjusted(points, cuts) } : {}),
+            ...(several ? { focus: { from: monthDays[0]!, to: monthDays.at(-1)! } } : {}) }))
         : null,
+      // A cut (ADR 0027 §7): where a change of the business moved a line by itself, the line isn't joined, and the
+      // change's own step is said; the lines with the steps taken out are on offer, beside the published ones.
+      cuts.length ? h('div', { class: 'mo-changes mo-cuts' },
+        h('p', { class: 'mo-sub' }, '│ Where a line is cut'),
+        h('ul', { class: 'mo-change-list' }, ...cuts.map((c) => h('li', { class: 'mo-cut', 'data-cut': c.change, 'data-series': c.series }, h('button', { type: 'button', class: 'linkish', onclick: () => openChange(c.change) }, `${c.label} ›`)))),
+        h('p', { class: 'mo-step' }, 'The change alone moved it: its first day was run both ways. The two sides of a cut aren’t one trend.'),
+        h('p', { class: 'mo-adjust' }, h('button', { type: 'button', class: 'btn small mo-adjust-btn', 'aria-pressed': String(monthView.adjusted), onclick: () => {
+          monthView.adjusted = !monthView.adjusted;
+          renderMonth();
+        } }, monthView.adjusted ? 'As published alone ›' : 'With the steps taken out ›'),
+        monthView.adjusted ? h('span', { class: 'mo-step mo-adjusted-said' }, ` The dotted ${cuts.some((c) => c.series === 'score') && cuts.some((c) => c.series === 'coverage') ? 'lines are the score and the coverage' : `line is the ${cuts[0]!.series}`} with each change’s own step taken out: adjusted, nobody published it.`) : null)) : null,
+      corrected.length ? h('div', { class: 'mo-changes mo-corrected' },
+        h('p', { class: 'mo-sub' }, '↻ Corrected since'),
+        h('ul', { class: 'mo-change-list' }, ...corrected.map((d) => {
+          const m = marks![d]!;
+          const first = takenBack.has(d) ? { score: m.score, coverage: m.coverage } : m.first!;
+          const now = takenBack.has(d) ? null : m;
+          return h('li', { 'data-day': d }, h('a', { class: 'linkish', href: `${dayHash(d)}${inSuffix}` }, `${named(d)} ›`),
+            ` first published ${first.score === null ? 'no score' : first.score.toFixed(1)}; ${now ? `now ${now.score === null ? 'no score' : now.score.toFixed(1)}` : 'taken back since, so no point on the line'}`);
+        })),
+        h('p', { class: 'mo-step' }, 'The line shows each day as corrected. A day’s versions are on its own screen.')) : null,
       eventBands(monthDays).length ? h('div', { class: 'mo-changes mo-going' }, h('p', { class: 'mo-sub' }, '▭ What was going on'), h('ul', { class: 'mo-change-list' }, ...eventBands(monthDays).map((b) => h('li', {}, h('button', { type: 'button', class: 'linkish', 'data-event': b.id, onclick: () => openEvent(b.id) }, `${b.label} ›`))))) : null,
-      changeMarks(monthDays).length ? h('div', { class: 'mo-changes' }, h('p', { class: 'mo-sub' }, '◆ Where the rules changed'), h('ul', { class: 'mo-change-list' }, ...changeMarks(monthDays).map((m) => h('li', {}, h('button', { type: 'button', class: 'linkish', 'data-change': m.change, onclick: () => openChange(m.change) }, `${m.label} ›`))))) : null,
+      changeMarks(monthDays).length ? h('div', { class: 'mo-changes' }, h('p', { class: 'mo-sub' }, '◆ Where the rules changed'), h('ul', { class: 'mo-change-list' }, ...changeMarks(monthDays).map((m) => h('li', {}, h('button', { type: 'button', class: 'linkish', 'data-change': m.change, onclick: () => openChange(m.change) }, `${m.label} ›`), stepOnTrend(m.change) ? h('span', { class: 'mo-step', 'data-step': m.change }, ` · ${stepOnTrend(m.change)}`) : null)))) : null,
       movers.length ? h('div', { class: 'mo-movers' },
         h('p', { class: 'mo-sub' }, `What moved it: applications failing each control, ${named(read.first.day)} to ${named(read.last.day)}`),
         h('ul', { class: 'mo-mover-list' }, ...movers.map((m) => h('li', { class: `mo-mover ${m.delta > 0 ? 'up' : 'down'}` }, h('span', { class: 'mo-mover-name' }, controlName(m.id)), h('span', { class: 'mo-mover-n' }, `${fmtInt(m.from)} → ${fmtInt(m.to)}`), h('b', { class: 'mo-mover-d' }, countSaid(m.delta)))))) : null,
@@ -17233,7 +17634,7 @@ function renderMonth(): void {
  * tools (tools/browser/tour.cjs reaches a day by its label, and reads it as the strip's was read). */
 (window as unknown as { __smaltflMonth?: () => Record<string, string> }).__smaltflMonth = () => {
   const days = daysShown();
-  return Object.fromEntries(monthOf(days, allEntries(), { at: monthView.at, judged: loadSource() }).map((d) => [d.day, calendarDay(d).label]));
+  return Object.fromEntries(monthOf(days, readEntries(), { at: monthView.at, judged: loadSource() }).map((d) => [d.day, calendarDay(d).label]));
 };
 
 /**

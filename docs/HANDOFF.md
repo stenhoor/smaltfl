@@ -226,7 +226,7 @@ Results on 2026-11-09, at `e42d9ec` on data `0ca4dd1`:
 ## What is not done
 
 **Now: [ADR 0027](adr/0027-the-ontology-over-time.md), the ontology over time** (designed 2026-11-18, the maintainer's
-answers Q-247 to Q-279; slices 1 to 5 of ten are built, its §"As built"). The maintainer asked for a temporal
+answers Q-247 to Q-279; slices 1 to 6 of ten are built, its §"As built"). The maintainer asked for a temporal
 ontology: how the ontology changes over time, why certain things apply on certain dates, what was going on and what
 was decided then, shown visually and carried with the data so that analysis is always aware of its context. The
 research is [research/temporal-ontology.md](research/temporal-ontology.md): temporal data models, ontologies and
@@ -251,7 +251,7 @@ smaltfl already dates; (2) reasons, kinds and events; (3) the gate, and document
 kinds, relations and meanings over time, and the shared ontology's own changes; (6) reading across a change; (7)
 context that travels; (8) who decides; (9) who hears, and the auditor; (10) the demo's new scene. Q-280 to Q-285 are
 the choices the answers leave open, proposed for the maintainers to confirm as each is built; Q-286 to Q-291 are the
-ones slice 3 made as it was built, Q-292 to Q-296 slice 4's, and Q-297 to Q-303 slice 5's.
+ones slice 3 made as it was built, Q-292 to Q-296 slice 4's, Q-297 to Q-303 slice 5's, and Q-304 to Q-311 slice 6's.
 
 Built so far:
 
@@ -294,9 +294,34 @@ Built so far:
   added, then back to the flow as shipped) and `npm run regress -- gate` on the sign-ins (an entry of a closed column
   ended, merged into another).
 
-What comes next is slice 6: reading across a change (each change's own step, the cuts on a chart, the adjusted line,
-a declared change taken as the new level). It is where a redefinition marks the charts built on its column and a
-series is followed through to what replaced it, both left by slice 5.
+- **Slice 6, reading across a change:** the build runs the first day of each change of kind *the business changed*
+  both ways (as published, and as a what-if under the rules as they were) and the record keeps what the change alone
+  moved as an entry of kind `step` (`src/core/step.ts`, the recorder's `stepOnce`). The month's trend is cut where a
+  step moved one of its lines, flagged with the step, with the lines with the steps taken out on request, the days a
+  correction replaced listed with what they first published, and each change's own step said beside its mark
+  (`src/core/across.ts`, viz.ts `scoreTrend`). The watched series a change moved are a level from its first day,
+  which the learned checks learn from; the first day itself is read as the day's data was judged the old way, and
+  the month says what the change accounts for. A coming change's trial gives the same figures. A finding's day by
+  day is marked where its column was redefined, and a value that ended is followed through to what replaced it. On
+  Larkspur: the catalogue's fifteenth control (Wed 27) cut the coverage by 8.3 points and left the score where it
+  was; the other two changes moved nothing. How to check it: `test/step.test.ts` (a day run both ways through the
+  engine), `test/viz.test.ts` (the cuts and the adjusted lines), the tour's answer key on data made again
+  (`npm run test:tour`, whose month the recorder steps through), and `npm run regress -- month versions follow` on
+  Larkspur (the cut and the adjusted line, the day picked, the day's head and a dataset's News on a change's first
+  day and the day after, each entry's step, a trial's figures). The recorded steps themselves are in each demo's
+  `data/month.json`, as entries of kind `step`.
+
+What comes next is slice 7: context that travels (three read-only tables any cell can join to, then published with
+the product). Slice 6 left the app measuring no step of a change made in it (Q-311), and a first day held by its own
+change's step waiting for a person. Found on the way, and left: the brief of a day a restatement published (Larkspur's
+Wed 27, on the dataset the views follow) still says its outputs wait, since the run on screen is the restated run,
+which the browser's engine holds; the day's head and the month say it was published. And the offline audit doesn't
+hold a bag whose run was held at a check step that reads several watched files: the run names the step's hold once a
+load it reads (ADR 0010 §7), and `checksHolds` in `src/core/audit.ts` counts it once (*the checks it says held it
+aren't what its manifest's counts hold*). To see it: on Larkspur's planted month open Thu Mar 28, export for audit,
+`node scripts/audit.mjs check` the bag. Mon 18 and Thu 21 are such days too; the integrity stops audit others. With
+`--history`, the audit also can't tell a page's claims again on a recorded month: the tail, the days left out and
+the levels they name are the build's entries, which the bag doesn't carry.
 
 **Built: [ADR 0026](adr/0026-flows-in-flows.md), flows in flows** (2026-11-17, the maintainer's answers Q-231 to
 Q-245: every slice of its §12, and both steps of slice 5). The maintainer asked for flows that are parts of other flows: build one, read it from many, stack them, change

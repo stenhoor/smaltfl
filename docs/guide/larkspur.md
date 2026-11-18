@@ -173,6 +173,16 @@ from tablet width, the same as lanes over the month. Under the versions, **Kinds
 five kinds of thing and six relations as a map, and compares any two days: between Fri 1 and Thu 21, *Acted for by*
 is new and the WAF's band moved.
 
+Three of those changes are the business changing, and the build ran the first day of each both ways
+([ADR 0027](../adr/0027-the-ontology-over-time) §7): as it was published, and on the same files under the rules as
+they were. Each entry of the register says what the change alone moved. The relation and the WAF band moved none of
+the 56 measures read. The new control moved the coverage by −8.3 points, from 99.1 to 90.8, and the checks that apply
+from 19,320 to 21,314; it left the score where it was, since a control with no evidence yet isn't in the score. So the
+month's trend **cuts the coverage on Wed 27**, flagged with the step, and *With the steps taken out ›* draws it on
+at 99. The 11% more results `effective` had that day are the change's own: the day picked lists them under *What a
+declared change accounts for*, and the dataset's checks learn from the new level from Thu 28. The mappings file grew
+too, whatever the ontology said: that is the day's data, and stays a finding.
+
 **What if… ›** on a day runs it again on any of its files under any of those versions, apart from the record. On Sat 16,
 under the rules as shipped, it would have passed, where readers got it restated and held. On Thu 21, on the TLS file
 as it first arrived, it would be held where the repeats reach gold. **Make this the day's ›** makes a what-if the day's
