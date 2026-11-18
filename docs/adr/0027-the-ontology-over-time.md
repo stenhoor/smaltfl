@@ -360,6 +360,47 @@ that these exist; each slice that builds one records its encoding and vectors he
 | The context tables | Outputs of the run, hashed like any dataset | Slice 7 |
 | Owners and agreement | The ontology; the change set; the audit | Slice 8 |
 
+## As built
+
+### Slice 1: the register on screen (2026-11-18)
+
+Built over the rule changes smaltfl already dates (ADR 0021 §5). Nothing a run is judged by changes, no document
+changes, and no hash moves.
+
+- **The core,** `src/core/register.ts`, pure and outside what the data's cache is keyed by. `subjectOf` says what an
+  edit is about, as one key for every edit of the same thing, with the lane it is drawn in: what we check (a rule, a
+  check's mode, a band) or what there is and what it means (a name, a column read under another name, a column's
+  values, a key). `registerOf` makes every change set known at a moment an entry: what each edit did in words, as known
+  when it was made; its tense for the day read from (coming, in force, ended); how it was said (ahead of its first day,
+  on it, or after it, back-dated); what is coming on top, then newest first. `livesOf` turns the entries into rows, one
+  a thing, with the spans of what applied to it over a run of days. `sinceOf` gives the change a thing has stood by
+  since, on a day. `comingOn` gives the changes that were coming on a day. `test/register.test.ts`.
+- **The drawing,** in `src/app/viz.ts`: `registerLanes`, each row one thing's life (a dashed outline as shipped, a bar in
+  force, hatched while coming, a ring on the day a change was said, a dashed line under a back-dated change over the
+  days whose runs were judged without it, a diamond a day decided, a filled one a day kept back or restated, today a
+  line, the day on screen a wash), and `scoreTrend`'s `marks`.
+- **The Ontology view's head** (`registerPart`, in `renderRulesTime`): the change sets as a list, what is coming on
+  top, then by month, each with its days and how it was said, what it did, why and by whom, where it stands for the
+  day on screen, and the days it reached that had already run. From 820 px the same entries are lanes above the list.
+  A bar or a ring opens its entry (`openChange`). It is read as known at the moment the month is read at, so as known
+  on Fri Mar 15 the WAF's band is coming and the correction of Mon 25 isn't listed.
+- **Since when, by which change,** on a rule's line of the Ontology page (`sinceLink`, `ruleSubjectKeys`): a rule
+  people set, a band, a column's values and a file's key say it where a change set made them, and open the change.
+- **The day's head** says what was on its way that day (`rulesLine`, `comingOn`): *coming Mon 18*, or *said this day,
+  from Mon 18* where the change was said after the day's own run.
+- **The month's score** is marked where the rules changed (`changeMarks`), each change named under the chart as a
+  link to its entry.
+- **Checked:** `npm run check`, 108 files and 1,524 tests. In the browser, on Larkspur and the sign-ins: the sets
+  `versions` (five new stops), `follow` (one), `restate` and `rules`, each replayed on a phone and its layout checked
+  at tablet, tablet sideways, desktop and wide. The new stops sit beside days their sets already open, so the
+  regression's budget is as it was.
+
+**What it leaves.** The chain behind a change stops at the change itself: who, when, why, the days it reached. The
+event and the decision that led to it are linked in slice 2. A check's mode set on a gate (`setCheck`) is in the
+register and the lanes; its line on a card's Quality tab doesn't say since when yet. The lanes carry no filter. A
+rule's "since" line is as known when the Ontology view was drawn: picking another moment in *As known on* redraws the
+head, and the rule lines follow at the next visit.
+
 ## Consequences
 
 - **A flow can stop for a reason it never could:** the data is ahead of the ontology. That is the point of the gate,

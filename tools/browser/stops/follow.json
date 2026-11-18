@@ -22,6 +22,16 @@
     }
   },
   {
+    "name": "register-day-coming",
+    "what": "The day's head says what was on its way (ADR 0027 §9, slice 1): on Fri Mar 15 the WAF's band, said that afternoon after the day's own run, in force from Mon 18",
+    "day": "Fri 15",
+    "element": "#loads .dh-rules",
+    "expect": {
+      "text": ["said this day, from Mon 18: Accepted a new band in waf"],
+      "count": { "#loads .dh-rules-coming": 1 }
+    }
+  },
+  {
     "name": "follow-card",
     "what": "Larkspur's month, Mon Mar 18, the day the WAF's band takes effect (ADR 0026 §7): the change is Evidence feeds', whose file it is about, and its card says CHANGED; Applications, which only follows it, says what it gives",
     "day": "Mon 18",

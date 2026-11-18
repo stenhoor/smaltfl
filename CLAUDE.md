@@ -583,6 +583,16 @@ release (smaltty ADR 0030).
   read, the site's pages), `notCarried` said in `whoseLine`, `carriedOf` and `takenBy` on the receipt, `namePage`, `pagePeople`.
   `test/carry.test.ts`, `test/record-others.test.ts` (on `test/helpers/fake-idb.ts`);
   `tools/browser/stops/carry.json` on the two apps served from one origin (tour.cjs's `page`).
+- The ontology over time (ADR 0027, docs/research/temporal-ontology.md): the ontology first, every change a dated
+  record with a kind and a reason, events as context, a day read under what was in force. Slice 1, the register on
+  screen, over the rule changes already dated (no hash moves): `src/core/register.ts` (pure, outside the data's cache
+  key): `subjectOf` and `shortOf` (what an edit is about, by key and lane, and what it leaves a thing as), `registerOf`
+  (each change set an `Entry`: what it did, its `Tense` for the day read from, `How` it was said, as known at a
+  moment), `livesOf` (rows, one a thing: its `Span`s over the days), `sinceOf`, `comingOn`, `howSaid`. viz.ts
+  `registerLanes` and `scoreTrend`'s `marks`. In the app: `registerPart` at the Ontology view's head (a list on a
+  phone, lanes from 820 px; `registerNow`, `registerToday`, `entryWhen`, `decidedMarks`, `openChange`), `sinceLink`
+  on a rule's line (`ruleSubjectKeys`), what was coming on the day's head (`rulesLine`), `changeMarks` on the month's
+  score; `test/register.test.ts`, stops in `versions.json` and `follow.json`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).

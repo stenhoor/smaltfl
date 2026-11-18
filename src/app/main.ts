@@ -16,6 +16,7 @@ import { canonicalJSON } from '../core/canonical.js';
 import type { ChangeSet, ContractDef, FlowDocument, GroupDef, NotebookOutline, OutlineCell, ProfileDef, RuleEdit, StepDef } from '../core/document.js';
 import { applyEdit, changesOn, inForce, resolve as resolveRules, ruleParts, rulesHash, rulesInForce, versionRules, withRuleParts, type RuleParts } from '../core/inforce.js';
 import { diffSaid, ruleVersions, rulesDiff, versionKey, versionOn, type RuleVersion } from '../core/ruleversions.js';
+import { comingOn, dayAfter, dayBefore, LANE_NAMES, livesOf, registerOf, sinceOf, type Entry as RegisterEntry, type Life } from '../core/register.js';
 import { flowOf, givesOf, GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, usedName, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
 import { notebookSectionId } from '../core/notebook.js';
 import { baseOf, carriedSaid, decidedElsewhere, givesWay, leadingHere, notCarriedSaid, originOf, pageOf, proofOf, type CarriedFrom, type CarryAbout, type Leading, type OtherRecord } from '../core/carry.js';
@@ -54,6 +55,7 @@ import type { EditorSchema, SchemaColumn } from 'smaltkit/editor';
 import type { GridRow } from 'smaltkit/grid';
 import { derivedAbout, derivedFails, derivedKeys, derivedWhy, donorsOf, filledRows, pinDonor, repairOf, stageRepair, type Listed, type Remedies } from './fills.js';
 import { followsCause as followsFrom, ACT_VERB, CELL_KINDS, CELL_NAMES, HEALTH_HEAD, STRIP_KEY, approx, axisShare, recentSpan, cardWords, changeLabel, compact, countLabel, countRange, fallSteps, gateHead, overLabel, gateLabels, gateOf, partLabel, ruleOrder, ruleUsual, shortWho, splitSentence, splitSteps, saidOf, storyOf, type Cell, type DayStep, type Gate, type HourValues, type Story, type Told, type Upstream } from '../core/story.js';
+import { registerLanes, type LaneGroup, type LaneMark, type LaneRow } from './viz.js';
 import { dayBars, matchBars, scoreSpark, scoreTrend, type BarDay, type ScorePoint, rowFlow, differenceMeter, fileTwins, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, chain, composition, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
 import { sha256Hex } from '../core/hash.js';
 import { LEVEL_NAME, leaderSaid, postureTree, scoreSaid, trendSaid, unitCounts, type PostureNode } from '../core/posture.js';
@@ -4584,8 +4586,159 @@ function rulesLine(day: string, prev: string | null): HTMLElement | null {
   const since = ruleChanges.length ? resolveRules(baseDoc(), day.slice(0, 10), resolvedFor.asOf).applied.filter((a) => a.said.length && a.change.from <= day && (prev === null || a.change.from > prev.slice(0, 10))) : [];
   // A what-if's rules are a version picked for it (ADR 0021 §4), not the day's.
   if (whatIf?.run && loads.list[whatIf.k]?.day.slice(0, 10) === day.slice(0, 10)) return h('p', { class: 'dh-rules' }, h('span', { class: 'dh-rules-k' }, 'Rules of the what-if'), ' ', hashCode(rulesHashOf(state.doc), 'dh-hash'));
+  // What was on its way that day (ADR 0027 §9): said by its end, in force from a later day. The day's own run may be
+  // earlier than the saying (a rule said that afternoon): it is said as said that day, not as known to the run.
+  const coming = ruleChanges.length ? comingOn({ changes: ruleChanges }, day, monthView.at) : [];
+  const saidThatDay = (c: ChangeSet) => new Date(Date.parse(c.recorded)).toISOString().slice(0, 10) === day.slice(0, 10);
   return h('p', { class: 'dh-rules' }, h('span', { class: 'dh-rules-k' }, 'Rules in force'), ' ', hashCode(rulesHashOf(state.doc), 'dh-hash'),
-    since.length ? h('span', { class: 'dh-rules-new' }, ` · new on this day: ${since.flatMap((a) => a.said).join('; ')}`) : ruleChanges.length ? '' : h('span', { class: 'dh-rules-new' }, baseEdited() ? ' · names and labels edited here' : ' · as shipped'));
+    since.length ? h('span', { class: 'dh-rules-new' }, ` · new on this day: ${since.flatMap((a) => a.said).join('; ')}`) : ruleChanges.length ? '' : h('span', { class: 'dh-rules-new' }, baseEdited() ? ' · names and labels edited here' : ' · as shipped'),
+    ...coming.map((c) => h('span', { class: 'dh-rules-coming', 'data-change': c.id }, saidThatDay(c) ? ' · said this day, from ' : ' · coming ', h('button', { type: 'button', class: 'linkish', onclick: () => openChange(c.id) }, `${dayShort(c.from)}: ${changeSaid(c)} ›`))));
+}
+
+// ------------------------------------------------------------------ the register (ADR 0027 §9, slice 1)
+
+/** The day the register is read from: the last day that has arrived, as known at the moment the month is read at. */
+let todayKept: { key: string; day: string } | null = null;
+function registerToday(): string {
+  const days = daysShown();
+  const entries = allEntries();
+  const key = `${entries.length}|${monthView.at ?? ''}|${days.length}|${days.at(-1) ?? ''}`;
+  if (todayKept?.key !== key) {
+    const known = [...monthOf(days, entries, { at: monthView.at, judged: loadSource() })].reverse().find((d) => d.state !== 'notRun' && d.state !== 'notArrived')?.day;
+    todayKept = { key, day: (known ?? days.at(-1) ?? new Date().toISOString()).slice(0, 10) };
+  }
+  return todayKept.day;
+}
+
+/** The register's entries as known at the moment the month is read at, kept while nothing they are made from moves. */
+let registerKept: { key: string; entries: RegisterEntry[]; later: number; today: string } | null = null;
+function registerNow(): { entries: RegisterEntry[]; later: number; today: string } {
+  const today = registerToday();
+  const key = `${keptEpoch}|${ruleChanges.map((c) => c.id).join(',')}|${monthView.at ?? ''}|${today}`;
+  if (registerKept?.key !== key) registerKept = { key, ...registerOf(baseDoc(), { today, asOf: monthView.at }), today };
+  return registerKept;
+}
+
+/** A change set's days in words, and how it was said: "From Mon 18 · said Fri 15, 3 days ahead". */
+function entryWhen(e: RegisterEntry): string {
+  const c = e.change;
+  const span = c.until ? (c.until === c.from ? `${dayShort(c.from)} only` : `${dayShort(c.from)} to ${dayShort(c.until)}`) : `From ${dayShort(c.from)}`;
+  // A change made here on a demo's days is recorded by this browser's clock, long after them: said by its date alone.
+  const near = Math.abs(e.lead) <= 92;
+  const said = e.how === 'ahead' ? (near ? `said ${dayShort(e.recordedDay)}, ${plural(e.lead, 'day')} ahead` : `said ${dayLabel(e.recordedDay)}`)
+    : e.how === 'back' ? (near ? `recorded ${dayShort(e.recordedDay)}, back-dated ${plural(-e.lead, 'day')}` : `recorded ${dayLabel(e.recordedDay)}, after its first day`)
+    : 'recorded on its day';
+  return `${span} · ${said}`;
+}
+
+/** The change a link asked for, shown once the Ontology view has drawn its head. */
+let pendingChange: string | null = null;
+function openChange(id: string): void {
+  pendingChange = id;
+  if (location.hash === '#ontology') showChange();
+  else location.hash = '#ontology';
+}
+function showChange(): void {
+  if (!pendingChange) return;
+  const item = document.querySelector<HTMLElement>(`#rules-time .rg-item[data-change="${CSS.escape(pendingChange)}"]`);
+  if (!item) return;
+  pendingChange = null;
+  for (const x of document.querySelectorAll('#rules-time .rg-item.at')) x.classList.remove('at');
+  item.classList.add('at');
+  item.scrollIntoView({ block: 'center' });
+}
+
+/** The days a change to the rules took effect among `days`, for a chart's marks (ADR 0027 §7): each with what changed. */
+function changeMarks(days: readonly string[]): { day: string; label: string; change: string }[] {
+  if (!ruleChanges.length) return [];
+  const have = new Set(days.map((d) => d.slice(0, 10)));
+  return registerNow().entries.filter((e) => e.tense !== 'coming' && have.has(e.change.from)).map((e) => ({ day: e.change.from, label: `${dayShort(e.change.from)}: ${changeSaid(e.change)}`, change: e.change.id })).reverse();
+}
+
+/** The lanes' rows of what people decided: a mark on each day decided, kept back or restated, as the month says it. */
+function decidedMarks(): LaneMark[] {
+  const seen = new Set<string>();
+  return monthOf(daysShown(), allEntries(), { at: monthView.at, judged: loadSource() }).flatMap((d): LaneMark[] => {
+    const day = d.day.slice(0, 10);
+    const o = outcomeOf(calendarDay(d));
+    if ((o.outcome !== 'decided' && o.outcome !== 'kept') || seen.has(day)) return [];
+    seen.add(day);
+    const back = o.outcome === 'kept' || o.how === 'restated';
+    return [{ day, kind: back ? 'back' : 'decided', title: `${dayShort(day)}: ${o.outcome === 'kept' ? 'kept back' : (o.how ? HOW_WORD[o.how] : 'decided')}` }];
+  });
+}
+
+/**
+ * The register at the head of the Ontology page (ADR 0027 §9, Q-268): every change set as a list, what is coming on
+ * top, then by month, newest first, each with its days, how it was said, what it did, why and by whom; and, from
+ * tablet width, the same as lanes over the days, each row one thing's life. A bar or a ring of the lanes opens its
+ * entry in the list. Read as known at the moment the month is read at.
+ */
+function registerPart(): HTMLElement | null {
+  if (!ruleChanges.length) return null;
+  const reg = registerNow();
+  const applied = new Set(resolvedSets ? resolvedSets.split('\n') : []);
+  const day = resolvedFor.day;
+  const where = (c: ChangeSet) => (applied.has(c.id) ? 'in force on the day on screen' : day && c.from > day ? 'from a later day than the one on screen' : 'made after the version on screen ran');
+  const item = (e: RegisterEntry) => {
+    const c = e.change;
+    const reached = e.how === 'back' ? reachedBy(c) : [];
+    return h('li', { class: `rg-item rg-${e.tense === 'in force' ? 'on' : e.tense}${applied.has(c.id) ? ' on-screen' : ''}`, 'data-change': c.id },
+      h('span', { class: 'rg-when' }, entryWhen(e)),
+      h('span', { class: 'rg-what' }, changeSaid(c)),
+      h('span', { class: 'rg-why' }, c.why ? `“${c.why}” ` : 'No reason given · ', h('span', { class: 'rg-by' }, personName(c.by))),
+      h('span', { class: 'rg-facts' }, [where(c), reached.length ? `recorded after ${plural(reached.length, 'day')} it reaches had run: ${daysSaid(reached)}` : ''].filter(Boolean).join(' · ')));
+  };
+  const monthName = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const groups: { name: string; entries: RegisterEntry[] }[] = [];
+  for (const e of reg.entries) {
+    const name = e.tense === 'coming' ? 'Coming' : monthName(e.change.from.slice(0, 7));
+    const g = groups.at(-1)?.name === name ? groups.at(-1)! : (groups.push({ name, entries: [] }), groups.at(-1)!);
+    g.entries.push(e);
+  }
+  const list = h('div', { class: 'rg-list' }, ...groups.flatMap((g) => [h('p', { class: 'rg-tense' }, g.name), h('ol', { class: 'rg-items' }, ...g.entries.map(item))]),
+    reg.later ? h('p', { class: 'rg-later' }, `${plural(reg.later, 'more change')} ${reg.later === 1 ? 'was' : 'were'} recorded after the moment this is read at.`) : '');
+  // The lanes, from tablet width (the stylesheet shows them): the data's days, and on to a week past the last change coming.
+  const dataDays = [...new Set(loads.list.map((l) => l.day.slice(0, 10)))].sort();
+  const lanes = h('div', { class: 'rg-lanes' });
+  if (dataDays.length) {
+    const lastFrom = reg.entries.map((e) => e.change.from).sort().at(-1) ?? dataDays.at(-1)!;
+    let end = dataDays.at(-1)!;
+    if (lastFrom > end) for (let k = 0, d = lastFrom; k < 7; k++, d = dayAfter(d)) end = d;
+    const days: string[] = [];
+    for (let d = dataDays[0]!; d <= end && days.length < 400; d = dayAfter(d)) days.push(d);
+    const byId = new Map(reg.entries.map((e) => [e.change.id, e]));
+    const lastDay = days.at(-1)!;
+    const rowOf = (l: Life): LaneRow => ({
+      label: `${l.subject.dataset ? `${l.subject.dataset} · ` : ''}${l.subject.what}`,
+      spans: [
+        ...l.spans.map((sp) => {
+          const e = sp.change ? byId.get(sp.change) : undefined;
+          return { from: sp.from, until: sp.until, kind: sp.change === null ? ('was' as const) : sp.coming ? ('next' as const) : ('on' as const), short: sp.short, change: sp.change, title: e ? `${changeSaid(e.change)} · ${entryWhen(e)}` : 'As shipped' };
+        }),
+        // The other clock: the days of a back-dated change whose runs were judged without it, until it was recorded.
+        ...l.said.flatMap((m) => {
+          const e = byId.get(m.change);
+          if (!e || m.how !== 'back') return [];
+          const until = [dayBefore(m.day), e.change.until ?? lastDay, lastDay].sort()[0]!;
+          return until >= e.change.from ? [{ from: e.change.from, until, kind: 'then' as const, change: m.change, title: `The runs of these days were judged without it: it was recorded ${dayLabel(m.day)}` }] : [];
+        }),
+      ],
+      marks: l.said.map((m) => ({ day: m.day, kind: 'said' as const, change: m.change, title: `Said ${dayShort(m.day)}` })),
+    });
+    const lives = livesOf(reg.entries, days, reg.today);
+    const laneGroups: LaneGroup[] = (['is', 'check'] as const).map((lane) => ({ name: LANE_NAMES[lane], rows: lives.filter((l) => l.subject.lane === lane).map(rowOf) })).filter((g) => g.rows.length);
+    const decided = decidedMarks();
+    if (decided.length) laneGroups.push({ name: 'What we decided', rows: [{ label: 'Days decided', spans: [], marks: decided }] });
+    const wide = document.getElementById('rules-time')?.clientWidth ?? 0;
+    lanes.append(svgNode(registerLanes({ days, today: reg.today, pick: day, groups: laneGroups, w: Math.min(1180, Math.max(640, (wide || 744) - 24)), aria: `The ontology’s changes over ${plural(days.length, 'day')}: ${reg.entries.map((e) => `${changeSaid(e.change)}, ${entryWhen(e)}`).join('; ')}` })));
+    lanes.append(h('p', { class: 'rg-key' }, 'A bar: in force. Dashed: as shipped. Hatched: coming. A ring: the day it was said. A dashed line under a bar: those days’ runs were judged without it, until it was recorded. A diamond: a day decided; filled, kept back or restated.'));
+    lanes.addEventListener('click', (ev) => {
+      const id = (ev.target as Element | null)?.closest?.('[data-change]')?.getAttribute('data-change');
+      if (id) openChange(id);
+    });
+  }
+  return h('div', { class: 'rg', 'data-today': reg.today }, lanes, list);
 }
 
 /**
@@ -4603,15 +4756,12 @@ function renderRulesTime(): void {
   }
   box.hidden = false;
   const day = resolvedFor.day;
-  const applied = new Set(resolvedSets ? resolvedSets.split('\n') : []);
-  const where = (c: ChangeSet) => (applied.has(c.id) ? 'in force on the day on screen' : day && c.from > day ? 'from a later day' : 'made after the version on screen ran');
   box.replaceChildren(
     h('p', { class: 'rt-head' }, h('b', {}, day ? `The rules in force on ${dayLabel(day)}` : 'The rules in force'), ' ', hashCode(rulesHashOf(state.doc), 'rt-hash'), ruleChanges.length ? ` · ${plural(ruleChanges.length, 'change set')}${baseEdited() ? '; names and labels edited here' : ''}` : baseEdited() ? ' · names and labels edited here' : ' · as shipped'),
-    ruleChanges.length ? h('ol', { class: 'rt-list' }, ...ruleChanges.map((c) => h('li', { class: `rt-item${applied.has(c.id) ? ' on' : ''}`, 'data-change': c.id },
-      h('span', { class: 'rt-from' }, `From ${dayLabel(c.from)}`), ' ', changeSaid(c),
-      h('span', { class: 'rt-where' }, ` · ${where(c)} · recorded ${new Date(c.recorded).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} by ${personName(c.by)}${c.why ? `: “${c.why}”` : ''}`)))) : '',
+    registerPart() ?? '',
     ruleVersionsPart() ?? '',
     owner ? fromBar() : '');
+  showChange();
 }
 
 // ------------------------------------------------------------------ the versions of the rules (ADR 0021 §5)
@@ -11709,10 +11859,36 @@ function ruleLine(r: Rule, here?: string, acts?: HTMLElement | null, thing: 'fil
   return h('li', { class: `of-rule${r.unchecked ? ' unchecked' : ''}${here !== undefined ? ' of-files' : ''}${st ? ` st-${st}` : ''}`, 'data-rule': r.id },
     h('span', { class: 'of-said' }, st && st !== 'off' ? h('span', { class: 'of-state', 'aria-label': STATE_SAID[st] }, stateMark(st, 13)) : null, here ?? r.said),
     h('span', { class: 'of-how' }, how),
+    sinceLink(r),
     r.unchecked ? h('span', { class: 'of-off' }, `Not checked: ${r.unchecked}`) : null,
     acts ?? null,
     isBronze(file) ? h('button', { type: 'button', class: 'of-card-link', 'aria-label': `${here ?? r.said}: on ${file}’s card`, onclick: () => openCardCheck(file, r.id) }, st && st !== 'ok' && st !== 'off' ? `${STATE_SAID[st]} today · on the card ›` : 'On the card ›') : null);
 }
+/** The register's keys for a rule of the Ontology page: a rule people set, a band, a column's values, a file's key. */
+function ruleSubjectKeys(r: Rule): string[] {
+  const [file, a, b] = r.id.split('/');
+  const column = b !== undefined ? a : null;
+  const last = b ?? a ?? '';
+  const value = last.includes('=') ? last.slice(last.indexOf('=') + 1) : null;
+  if (r.kind === 'set' && value !== null) return [`rule:${file}:${value}`];
+  if (r.kind === 'band' && column && value !== null) return [`band:${file}:${column}:${value}`];
+  if (r.kind === 'values' && column) return [`values:${file}:${column}`];
+  if (r.kind === 'key') return [`key:${file}`];
+  return [];
+}
+
+/** Since when a rule has stood, and by which change (ADR 0027 §9), where a change set made it: a link to the change. */
+function sinceLink(r: Rule): HTMLElement | null {
+  if (!ruleChanges.length) return null;
+  const reg = registerNow();
+  const day = resolvedFor.day ?? reg.today;
+  for (const key of ruleSubjectKeys(r)) {
+    const e = sinceOf(reg.entries, key, day);
+    if (e) return h('button', { type: 'button', class: 'linkish of-since', 'data-change': e.change.id, onclick: () => openChange(e.change.id) }, `Since ${dayShort(e.change.from)} · ${e.how === 'ahead' ? `said ${dayShort(e.recordedDay)}` : e.how === 'back' ? `recorded ${dayShort(e.recordedDay)}` : 'changed that day'} ›`);
+  }
+  return null;
+}
+
 /** Each check's state today, by its id, for the files on the Ontology page: what their cards' Quality tabs say. */
 const ontologyStates = new Map<string, CheckState>();
 /** A file's verdict on its row of the Files panel: something wrong or unusual today, said after its checks. */
@@ -14898,8 +15074,9 @@ function renderMonth(): void {
       failingNow ? h('p', { class: 'mo-score-checks' }, `${fmtInt(failingNow.failing)} of ${fmtInt(failingNow.evidence)} checks failing${failingThen && read.days > 1 ? ` (${countSaid(failingNow.failing - failingThen.failing)} since ${named(read.first.day)})` : ''} · coverage ${lastMark?.coverage?.toFixed(1) ?? '–'}%: ${fmtInt(failingNow.evidence)} of ${fmtInt(failingNow.applying)} checks have evidence.`) : null,
       post.about ? h('p', { class: 'mo-score-about' }, post.about) : null,
       points.filter((p) => p.score !== null).length >= 2
-        ? svgNode(scoreTrend({ days, points, w: W >= 1766 ? Math.max(320, Math.round((W - 24) / 3.5) - 34) : Math.min(1600, Math.max(280, W - 34)), aria: `${post.title}: the group’s score and coverage on each day published. ${readSaid(read, named)}`, gap: 'not published', ...(several ? { focus: { from: monthDays[0]!, to: monthDays.at(-1)! } } : {}) }))
+        ? svgNode(scoreTrend({ days, points, w: W >= 1766 ? Math.max(320, Math.round((W - 24) / 3.5) - 34) : Math.min(1600, Math.max(280, W - 34)), aria: `${post.title}: the group’s score and coverage on each day published. ${readSaid(read, named)}`, gap: 'not published', marks: changeMarks(days), ...(several ? { focus: { from: monthDays[0]!, to: monthDays.at(-1)! } } : {}) }))
         : null,
+      changeMarks(monthDays).length ? h('div', { class: 'mo-changes' }, h('p', { class: 'mo-sub' }, '◆ Where the rules changed'), h('ul', { class: 'mo-change-list' }, ...changeMarks(monthDays).map((m) => h('li', {}, h('button', { type: 'button', class: 'linkish', 'data-change': m.change, onclick: () => openChange(m.change) }, `${m.label} ›`))))) : null,
       movers.length ? h('div', { class: 'mo-movers' },
         h('p', { class: 'mo-sub' }, `What moved it: applications failing each control, ${named(read.first.day)} to ${named(read.last.day)}`),
         h('ul', { class: 'mo-mover-list' }, ...movers.map((m) => h('li', { class: `mo-mover ${m.delta > 0 ? 'up' : 'down'}` }, h('span', { class: 'mo-mover-name' }, controlName(m.id)), h('span', { class: 'mo-mover-n' }, `${fmtInt(m.from)} → ${fmtInt(m.to)}`), h('b', { class: 'mo-mover-d' }, countSaid(m.delta)))))) : null,

@@ -1853,7 +1853,7 @@ export interface ScorePoint {
  * by a dashed line (the missing-data convention), the axis zoomed to the values and printed at its ends, the last
  * score labelled.
  */
-export function scoreTrend(o: { days: readonly string[]; points: readonly ScorePoint[]; w?: number; h?: number; aria: string; gap?: string; focus?: { from: string; to: string } }): string {
+export function scoreTrend(o: { days: readonly string[]; points: readonly ScorePoint[]; w?: number; h?: number; aria: string; gap?: string; focus?: { from: string; to: string }; marks?: readonly { day: string; label: string }[] }): string {
   const w = o.w ?? 334;
   const h = o.h ?? 132;
   const at = new Map(o.points.map((p) => [p.day, p]));
@@ -1892,6 +1892,12 @@ export function scoreTrend(o: { days: readonly string[]; points: readonly ScoreP
     }
     return { out, pts };
   };
+  // Where the rules changed (ADR 0027 §7): a diamond at the top of the plot and a dashed line through it, under the lines.
+  for (const m of o.marks ?? []) {
+    const i = o.days.findIndex((d) => d.slice(0, 10) === m.day.slice(0, 10));
+    if (i < 0) continue;
+    s += `<line class="chg" x1="${f1(x(i))}" x2="${f1(x(i))}" y1="${f1(top)}" y2="${f1(base)}"/><path class="chg-mark" d="M${f1(x(i))} ${f1(top - 5)}l4 4.5l-4 4.5l-4 -4.5z"><title>${esc(m.label)}</title></path>`;
+  }
   const cov = series((p) => p.coverage, 'line cov');
   const score = series((p) => p.score, 'line');
   s += cov.out + score.out;
@@ -2026,5 +2032,93 @@ export function matchBars(o: { days: readonly MatchBar[]; w?: number; h?: number
     s += `<rect class="mb${i === last ? ' mb-last' : ''}" x="${f1(gx + i * cw + gap / 2)}" y="${f1(base - hgt)}" width="${f1(Math.max(1.5, cw - gap))}" height="${f1(hgt)}" rx="${cw >= 7 ? 1.5 : 0.5}">${d.title ? `<title>${esc(d.title)}</title>` : ''}</rect>`;
   });
   if (o.days.length) s += `<text x="${gx}" y="${H - 1}" class="lbl-m">${esc(day(o.days[0]!.day))}</text><text x="${w}" y="${H - 1}" text-anchor="end" class="lbl-m">${esc(day(o.days.at(-1)!.day))}</text>`;
+  return `${s}</svg>`;
+}
+
+// ------------------------------------------------------------------ the register as lanes (ADR 0027 §9)
+
+/** A run of days in a lane's row: as it was before any change, in force by a change, or coming. */
+export interface LaneSpan { from: string; until: string; kind: 'was' | 'on' | 'next' | 'then'; short?: string; change?: string | null; title?: string }
+/** A mark on a day of a row: the day a change was said, a decision, or a day taken back or restated. */
+export interface LaneMark { day: string; kind: 'said' | 'decided' | 'back'; change?: string | null; title?: string }
+export interface LaneRow { label: string; spans: readonly LaneSpan[]; marks: readonly LaneMark[] }
+export interface LaneGroup { name: string; rows: readonly LaneRow[] }
+
+/**
+ * The register as lanes over the days (ADR 0027 §9, Q-268): each row one thing's life. A dashed outline while it
+ * stood as shipped, a bar while a change is in force, hatched while one is coming; a dashed line under a bar over the
+ * days whose runs were judged without a change recorded later (`then`: the other clock); a ring on the day a change
+ * was said, a diamond a decision, a filled one a day taken back. Today is a line, the day on screen a wash, weekends
+ * a tint. A bar and a ring carry their change (`data-change`), so the page can open it.
+ */
+export function registerLanes(o: { days: readonly string[]; today: string; pick?: string | null; groups: readonly LaneGroup[]; w?: number; aria: string }): string {
+  const w = o.w ?? 720;
+  // The labels' column: as wide as the longest label needs, within a third of the drawing.
+  const longest = Math.max(0, ...o.groups.flatMap((g) => g.rows.map((r) => r.label.length)));
+  const lx = Math.round(Math.min(w * 0.34, Math.max(132, longest * 6 + 12)));
+  const right = w - 6;
+  const n = Math.max(1, o.days.length);
+  const dw = (right - lx) / n;
+  const index = new Map(o.days.map((d, i) => [d, i]));
+  const x0 = (i: number) => lx + i * dw;
+  const rowH = 20;
+  const top = 30;
+  const rows = o.groups.reduce((sum, g) => sum + g.rows.length, 0);
+  const h = top + o.groups.length * 17 + rows * rowH + 8;
+  const dow = (d: string) => new Date(`${d}T00:00:00Z`).getUTCDay();
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  let s = open(w, h, o.aria);
+  s += '<defs><pattern id="rg-hatch" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect class="rg-hatch-bg" width="6" height="6"/><line class="rg-hatch-line" x1="0" y1="0" x2="0" y2="6"/></pattern></defs>';
+  // The days: weekends tinted, the day on screen washed, a number where there is room (every day, or Mondays).
+  o.days.forEach((d, i) => {
+    if (dow(d) === 0 || dow(d) === 6) s += `<rect class="rg-wk" x="${f1(x0(i))}" y="${top - 4}" width="${f1(dw)}" height="${h - top}"/>`;
+    if (o.pick && d === o.pick.slice(0, 10)) s += `<rect class="rg-pick" x="${f1(x0(i))}" y="${top - 4}" width="${f1(dw)}" height="${h - top}"/>`;
+    const first = i === 0 || d.slice(5, 7) !== o.days[i - 1]!.slice(5, 7);
+    if (first) s += `<text class="tick" x="${f1(x0(i) + 1)}" y="9">${MONTHS[Number(d.slice(5, 7)) - 1]}</text>`;
+    if (dw >= 13 || dow(d) === 1) s += `<text class="tick" x="${f1(x0(i) + dw / 2)}" y="21" text-anchor="middle">${Number(d.slice(8, 10))}</text>`;
+  });
+  s += `<line class="hair" x1="${lx}" x2="${right}" y1="${top - 4}" y2="${top - 4}"/>`;
+  const fit = (text: string, px: number, per = 5.6) => (text.length * per <= px ? text : px < per * 4 ? '' : `${text.slice(0, Math.max(1, Math.floor(px / per) - 1))}…`);
+  let y = top;
+  for (const g of o.groups) {
+    s += `<text class="rg-lane" x="0" y="${y + 9}">${esc(g.name.toUpperCase())}</text>`;
+    y += 17;
+    for (const r of g.rows) {
+      s += `<text class="lbl-m rg-label" x="0" y="${y + 13}">${esc(fit(r.label, lx - 8, 6))}<title>${esc(r.label)}</title></text>`;
+      for (const sp of r.spans) {
+        const a = index.get(sp.from.slice(0, 10));
+        const b = index.get(sp.until.slice(0, 10));
+        if (a === undefined || b === undefined) continue;
+        const xa = x0(a) + 1;
+        const wd = Math.max(2, x0(b) + dw - 1 - xa);
+        const data = sp.change ? ` data-change="${esc(sp.change)}"` : '';
+        if (sp.kind === 'then') {
+          // A slim dashed box, not a line: a line has no height, and what has none isn't counted as showing.
+          s += `<rect class="rg-then" x="${f1(xa + 1)}" y="${f1(y + 16.6)}" width="${f1(Math.max(2, wd - 2))}" height="2.4" rx="1.2"${data}>${sp.title ? `<title>${esc(sp.title)}</title>` : ''}</rect>`;
+          continue;
+        }
+        s += `<rect class="rg-${sp.kind}" x="${f1(xa)}" y="${y + 4}" width="${f1(wd)}" height="11" rx="3.5"${data}>${sp.title ? `<title>${esc(sp.title)}</title>` : ''}</rect>`;
+        const text = sp.short ? fit(sp.short, wd - 8, 5.2) : '';
+        if (text) s += `<text class="rg-short" x="${f1(xa + 5)}" y="${y + 12.6}">${esc(text)}</text>`;
+      }
+      for (const m of r.marks) {
+        const i = index.get(m.day.slice(0, 10));
+        if (i === undefined) continue;
+        const cx = x0(i) + dw / 2;
+        const cy = y + 9.5;
+        const data = m.change ? ` data-change="${esc(m.change)}"` : '';
+        const t = m.title ? `<title>${esc(m.title)}</title>` : '';
+        if (m.kind === 'said') s += `<circle class="rg-said" cx="${f1(cx)}" cy="${f1(cy)}" r="3.6"${data}>${t}</circle>`;
+        else s += `<path class="rg-${m.kind}" d="M${f1(cx)} ${f1(cy - 5)}L${f1(cx + 4.4)} ${f1(cy)}L${f1(cx)} ${f1(cy + 5)}L${f1(cx - 4.4)} ${f1(cy)}Z"${data}>${t}</path>`;
+      }
+      y += rowH;
+    }
+  }
+  // Today: the last day that has arrived. What is right of it is coming.
+  const ti = index.get(o.today.slice(0, 10));
+  if (ti !== undefined && ti < o.days.length - 1) {
+    const tx = x0(ti) + dw;
+    s += `<line class="rg-now" x1="${f1(tx)}" x2="${f1(tx)}" y1="12" y2="${h - 4}"/><text class="rg-now-t" x="${f1(tx - 4)}" y="9" text-anchor="end">today</text>`;
+  }
   return `${s}</svg>`;
 }

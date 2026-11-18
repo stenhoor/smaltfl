@@ -11,6 +11,23 @@
     }
   },
   {
+    "name": "register-marks",
+    "what": "The month's score is marked where the rules changed (ADR 0027 §7, slice 1): a diamond on Mon 18, where the WAF's band took effect, and on Fri 1, the day the values check's correction reaches back to; each change named under the chart, a link to it",
+    "view": "month",
+    "element": "#view-month .mo-changes",
+    "expect": {
+      "text": [
+        "WHERE THE RULES CHANGED",
+        "Fri 1:",
+        "Mon 18: Accepted a new band in waf"
+      ],
+      "count": {
+        "#view-month .mo-changes [data-change]": 2,
+        "#view-month .viz .chg-mark": 2
+      }
+    }
+  },
+  {
     "name": "versions-day",
     "what": "Sat Mar 16's screen: its two versions, the files as they arrived (published then) and the day run again under the rules changed since, held by the logged-in band and restated by the security lead with the reason; the one readers got marked",
     "day": "Sat 16",
@@ -57,6 +74,74 @@
     }
   },
   {
+    "name": "register-list",
+    "what": "The Ontology view's head as a register (ADR 0027 §9, slice 1): the two change sets as entries, newest first, each with its days and how it was said (the band said on Fri 15 for Mon 18, three days ahead; the values check recorded on Mon 25 and back-dated to Fri 1), what it did, why in its author's words, and the days it reached that had already run",
+    "day": "Thu 21",
+    "view": "ontology",
+    "viewFirst": true,
+    "element": "#rules-time .rg-list",
+    "expect": {
+      "text": [
+        "MARCH 2024",
+        "From Mon 18 · said Fri 15, 3 days ahead",
+        "Accepted a new band in waf",
+        "monitor mode, the security lead wants a WAF failing more than a tenth",
+        "From Fri 1 · recorded Mon 25, back-dated 24 days",
+        "recorded after"
+      ],
+      "count": {
+        "#rules-time .rg-item": 2,
+        "#rules-time .rg-item.rg-coming": 0
+      }
+    }
+  },
+  {
+    "name": "register-lanes",
+    "what": "From tablet width the same entries are lanes over the days: each row one thing's life, dashed while it stood as shipped, a bar while a change is in force, a ring on the day the change was said, a dashed line under the back-dated change over the days whose runs were judged without it, and the days decided, kept back or restated beneath",
+    "day": "Thu 21",
+    "view": "ontology",
+    "viewFirst": true,
+    "devices": [
+      "tablet",
+      "tablet-wide",
+      "desktop",
+      "wide"
+    ],
+    "element": "#rules-time .rg-lanes",
+    "expect": {
+      "count": {
+        "#rules-time .rg-lanes .rg-on": 2,
+        "#rules-time .rg-lanes .rg-was": 1,
+        "#rules-time .rg-lanes .rg-said": 2,
+        "#rules-time .rg-lanes .rg-then": 1,
+        "#rules-time .rg-lanes .rg-decided": 8,
+        "#rules-time .rg-lanes .rg-back": 4
+      }
+    }
+  },
+  {
+    "name": "register-since",
+    "what": "A rule says since when it has stood and by which change (ADR 0027 §9): in waf's section the band says since Mon 18, said Fri 15; tapping it marks the change in the register",
+    "day": "Thu 21",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      "#view-ontology .of-item[data-file=\"waf\"]",
+      "#view-ontology .of-since"
+    ],
+    "element": "#rules-time .rg-item.at",
+    "expect": {
+      "text": [
+        "From Mon 18 · said Fri 15, 3 days ahead",
+        "Accepted a new band in waf"
+      ],
+      "count": {
+        "#view-ontology .of-since": 1,
+        "#rules-time .rg-item.at": 1
+      }
+    }
+  },
+  {
     "name": "versions-compare",
     "what": "Any two compared: the rules as shipped against the values check alone, the one thing between them",
     "day": "Thu 21",
@@ -80,6 +165,31 @@
     "expect": {
       "text": ["as known on the end of Fri Mar 15"],
       "count": { "#rules-time .rt-mark": 3 }
+    }
+  },
+  {
+    "name": "register-coming",
+    "what": "As known on the end of Fri Mar 15 the band is coming: said that afternoon for Mon 18, it is on top of the register; the values check's correction, recorded ten days later, isn't known yet, and the register says one more was recorded after",
+    "day": "Thu 21",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      [
+        "#rules-time .rt-known",
+        "2024-03-15"
+      ]
+    ],
+    "element": "#rules-time .rg-list",
+    "expect": {
+      "text": [
+        "COMING",
+        "From Mon 18 · said Fri 15, 3 days ahead",
+        "1 more change was recorded after the moment this is read at."
+      ],
+      "count": {
+        "#rules-time .rg-item": 1,
+        "#rules-time .rg-item.rg-coming": 1
+      }
     }
   }
 ]
