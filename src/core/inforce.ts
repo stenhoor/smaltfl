@@ -17,7 +17,7 @@
  */
 import { canonicalJSON } from './canonical.js';
 import { periodOf, type CellRef, type ChangeSet, type FlowDocument, type NotebookDef, type NotebookOutline, type RuleEdit, type StepDef } from './document.js';
-import { applyBand, declareKey, declareValues, mapColumn, nameColumn, removeRule, setRule, switchRule } from './flowedit.js';
+import { applyBand, declareEntry, declareKey, declareValues, leaveOut, mapColumn, nameColumn, removeRule, setRule, switchRule } from './flowedit.js';
 import { toggleCheck } from './gatecell.js';
 import { gateChecksOf, type GateDef } from './gates.js';
 import { hashOf } from './hash.js';
@@ -55,6 +55,10 @@ function edited(doc: FlowDocument, edit: RuleEdit): { doc: FlowDocument; said: s
       return declareValues(doc, edit.file, edit.column, edit.values);
     case 'declareKey':
       return declareKey(doc, edit.file, edit.column);
+    case 'declareEntry':
+      return declareEntry(doc, edit.file, edit.rule, edit.entry);
+    case 'leaveOut':
+      return leaveOut(doc, edit.file, edit.rule, edit.key);
   }
 }
 

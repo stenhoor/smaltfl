@@ -25,6 +25,8 @@ export function editTargets(edit: RuleEdit): string[] {
     case 'mapColumn':
     case 'declareValues':
     case 'declareKey':
+    case 'declareEntry':
+    case 'leaveOut':
       return [edit.file];
     case 'acceptBand':
       return [edit.source];

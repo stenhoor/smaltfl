@@ -118,11 +118,15 @@ export function stepStory(f: StepFacts): StepStory {
     } else if (f.op === 'expect' && f.expect) {
       const e = f.expect;
       if (e.dropped) lost.push({ why: 'broke a rule', rows: e.dropped });
+      // Rows a decision leaves out until the ontology has their entry (ADR 0027 §4): no rule dropped them.
+      const aside = e.rules.filter((r) => r.onFail === 'aside').reduce((a, r) => a + r.failed, 0);
+      if (aside) lost.push({ why: 'left out until the ontology has its entry', rows: aside });
       // A rule that stops the day (onFail 'fail'): its rows are kept, and the step fails, which holds what reads it.
       stops = e.rules.filter((r) => r.onFail === 'fail' && r.failed > 0).map((r) => ({ name: r.name, rows: r.failed }));
       const stopped = stops.length ? `${list(stops.map((r) => `${n(r.rows)} of ${rows(inn)} broke ${r.name}`))}, ${stops.length === 1 ? 'a rule that stops' : 'rules that stop'} the day: they were kept, and the step failed.` : null;
       head = e.dropped ? `${n(e.dropped)} of ${rows(inn)} broke a rule and were left out (${pct(e.dropped / Math.max(1, inn))}${e.maxDropped !== null ? `; the limit is ${pct(e.maxDropped)}` : ''}).${stopped ? ` ${stopped}` : ''}` : stopped ?? `Every one of ${rows(inn)} kept the rules.`;
       if (e.flagged) head += ` ${n(e.flagged)} were flagged and kept.`;
+      if (aside) head += ` ${n(aside)} ${aside === 1 ? 'was' : 'were'} left out until the ontology has ${aside === 1 ? 'its' : 'their'} entry, by a decision.`;
     } else if (out < inn && (f.op === 'filter' || f.op === 'fill' || (f.op === 'sql' && sqlDoes(f.sql ?? '').where && !sqlDoes(f.sql ?? '').joins && !sqlDoes(f.sql ?? '').union))) {
       lost.push({ why: f.op === 'filter' ? `the condition isn’t true` : 'left out by the query', rows: inn - out });
       head = `${rows(out)} of ${n(inn)} kept; ${n(inn - out)} (${pct((inn - out) / Math.max(1, inn))}) left out${f.op === 'filter' ? ` where ${f.filter?.where ?? 'its condition'} isn’t true` : ''}.`;

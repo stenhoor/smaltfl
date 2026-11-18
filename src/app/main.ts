@@ -12155,6 +12155,7 @@ const KIND_SAID: Record<OntologyRuleKind, string> = {
   oneOf: 'One of some values',
   range: 'A number in a range',
   when: 'One of some values, where another column has one of its own',
+  closed: 'Only what the ontology has: anything new waits for a person',
 };
 /** Values typed as a list: by commas or new lines, each trimmed, each once. */
 const typedList = (text: string): string[] => [...new Set(text.split(/[,\n]/).map((v) => v.trim()).filter((v) => v !== ''))];

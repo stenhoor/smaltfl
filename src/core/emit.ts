@@ -59,7 +59,11 @@ export function emitExpectCounts(plan: FlowPlan, node: number, ctx: EmitContext)
 export function emitRuleCounts(sql: string, rules: readonly (readonly [name: string, check: string, onFail: string])[]): string {
   const failures = rules.map(([, check]) => `coalesce(sum(CASE WHEN (\n${check}\n) THEN 0 ELSE 1 END), 0)`);
   const drops = rules.filter(([, , onFail]) => onFail === 'drop').map(([, check]) => `(\n${check}\n)`);
-  const dropped = drops.length ? `coalesce(sum(CASE WHEN ${drops.join(' AND ')} THEN 0 ELSE 1 END), 0)` : '0';
+  // A row a decision leaves out (`aside`, ADR 0027 §4) isn't one the rules dropped: it is counted by its own rule, and
+  // the dropped rows are those a drop rule fails among the rows left in.
+  const asides = rules.filter(([, , onFail]) => onFail === 'aside').map(([, check]) => `(\n${check}\n)`);
+  const fails = `CASE WHEN ${drops.join(' AND ')} THEN 0 ELSE 1 END`;
+  const dropped = drops.length ? `coalesce(sum(${asides.length ? `CASE WHEN ${asides.join(' AND ')} THEN ${fails} ELSE 0 END` : fails}), 0)` : '0';
   return `SELECT count(*), ${[...failures, dropped].join(', ')} FROM (\n${sql}\n)`;
 }
 
@@ -166,8 +170,9 @@ export function shiftSql(col: string, days: number, type: ColumnType): string {
   return `(date(substr(${col}, 1, 10), '${days > 0 ? '+' : ''}${days} days') || substr(${col}, 11))`;
 }
 
+/** The checks a row passes to be kept: every drop rule's, and every rule's that leaves rows out by a decision (`aside`). */
 function dropChecks(node: ExpectNode): string[] {
-  return node.rules.filter(([, , onFail]) => onFail === 'drop').map(([, check]) => `(\n${check}\n)`);
+  return node.rules.filter(([, , onFail]) => onFail === 'drop' || onFail === 'aside').map(([, check]) => `(\n${check}\n)`);
 }
 
 /**
@@ -248,7 +253,7 @@ export function emitRuleFailures(plan: FlowPlan, node: number, rule: number, ctx
  */
 export function emitDropped(plan: FlowPlan, node: number, flags: readonly number[], ctx: EmitContext): string {
   const n = plan.nodes[node] as ExpectNode;
-  const drops = n.rules.flatMap((r, k) => (r[2] === 'drop' ? [k] : []));
+  const drops = n.rules.flatMap((r, k) => (r[2] === 'drop' || r[2] === 'aside' ? [k] : []));
   const marks = flags.map((k) => `, CASE WHEN (\n${n.rules[k]![1]}\n) THEN 0 ELSE 1 END AS ${q(`_smaltfl_fail_${k}`)}`).join('');
   const all = drops.map((k) => `(\n${n.rules[k]![1]}\n)`).join(' AND ') || 'TRUE';
   return `SELECT *${marks} FROM (\n${emitRead(plan, n.inputs[0]!, ctx)}\n) WHERE CASE WHEN ${all} THEN 0 ELSE 1 END = 1`;
@@ -433,7 +438,7 @@ export function emitMatch(match: readonly (readonly [column: string, values: rea
  * whose other column holds one of its values. Values compare as text, as a file writes them, so a code read as a number
  * still matches; a range compares as a number.
  */
-export function emitRuleCheck(rule: { column: string; kind: 'required' | 'oneOf' | 'range' | 'when'; values?: readonly string[]; min?: number; max?: number; when?: { column: string; values: readonly string[] } }): string {
+export function emitRuleCheck(rule: { column: string; kind: 'required' | 'oneOf' | 'range' | 'when' | 'closed'; values?: readonly string[]; min?: number; max?: number; when?: { column: string; values: readonly string[] }; defines?: readonly string[]; entries?: readonly (readonly string[])[]; leftOut?: readonly string[] }): string {
   const c = q(rule.column);
   const text = (col: string) => `CAST(${col} AS TEXT)`;
   const among = (col: string, vs: readonly string[] = []) => `${text(col)} IN (${vs.map(lit).join(', ')})`;
@@ -454,7 +459,45 @@ export function emitRuleCheck(rule: { column: string; kind: 'required' | 'oneOf'
       const w = q(rule.when!.column);
       return `${w} IS NULL OR NOT (${among(w, rule.when!.values)}) OR (${c} IS NOT NULL AND ${among(c, rule.values)})`;
     }
+    // A closed list or column (ADR 0027 §4): the row's entry is one the ontology has, its key and each column that
+    // defines it as declared (a blank defining column is ''). A blank key is no entry, and a key left out by a decision
+    // is no arrival: its rows are kept out by `emitLeftOut`.
+    case 'closed': {
+      const defines = rule.defines ?? [];
+      const entries = rule.entries ?? [];
+      const declared = entries.length === 0 ? null
+        : defines.length === 0 ? among(c, entries.map((e) => e[0] ?? ''))
+        : entries.map((e) => `(${text(c)} = ${lit(e[0] ?? '')}${defines.map((d, k) => ` AND ${blankless(q(d))} = ${lit(e[k + 1] ?? '')}`).join('')})`).join(' OR ');
+      const out = rule.leftOut?.length ? among(c, rule.leftOut) : null;
+      return [`${c} IS NULL`, `trim(${text(c)}) = ''`, ...(out ? [out] : []), ...(declared ? [declared] : [])].join(' OR ');
+    }
   }
+}
+
+/** A column as text, a blank as '': how a closed list's defining columns are compared and named. */
+const blankless = (col: string): string => `coalesce(CAST(${col} AS TEXT), '')`;
+
+/** The check that keeps a closed rule's left-out keys out of what goes on (rules.ts `leftOutName`): true for a row to keep. */
+export function emitLeftOut(column: string, leftOut: readonly string[]): string {
+  const c = q(column);
+  return `${c} IS NULL OR CAST(${c} AS TEXT) NOT IN (${leftOut.map(lit).join(', ')})`;
+}
+
+/**
+ * What arrived that a closed rule doesn't have (ADR 0027 §4): the rows failing its check, grouped by the entry they
+ * carry (the key, then each defining column, as text), each with its rows; the most rows first, then by the entry, and
+ * no more than `limit` of them. `emitUndeclaredCount` counts the entries themselves.
+ */
+export function emitUndeclared(sql: string, check: string, key: string, defines: readonly string[], limit: number): string {
+  const cols = [`CAST(${q(key)} AS TEXT)`, ...defines.map((d) => blankless(q(d)))];
+  const places = cols.map((_, k) => k + 1).join(', ');
+  return `SELECT ${cols.join(', ')}, count(*) FROM (\n${sql}\n) WHERE CASE WHEN (\n${check}\n) THEN 0 ELSE 1 END = 1 GROUP BY ${places} ORDER BY ${cols.length + 1} DESC, ${places} LIMIT ${Math.max(1, Math.floor(limit))}`;
+}
+
+/** How many entries arrived that a closed rule doesn't have. */
+export function emitUndeclaredCount(sql: string, check: string, key: string, defines: readonly string[]): string {
+  const cols = [`CAST(${q(key)} AS TEXT)`, ...defines.map((d) => blankless(q(d)))];
+  return `SELECT count(*) FROM (SELECT ${cols.join(', ')} FROM (\n${sql}\n) WHERE CASE WHEN (\n${check}\n) THEN 0 ELSE 1 END = 1 GROUP BY ${cols.map((_, k) => k + 1).join(', ')})`;
 }
 
 /** An id as a loose check compares it (`ids: 'loose'`, Q-176): whatever its case and the spaces around it. */

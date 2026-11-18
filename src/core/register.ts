@@ -58,6 +58,11 @@ export function subjectOf(edit: RuleEdit): Subject {
       return subject(`values:${edit.file}:${edit.column}`, edit.file, 'is', `${edit.column}, its values`);
     case 'declareKey':
       return subject(`key:${edit.file}`, edit.file, 'is', 'its key');
+    // An entry of a closed list or a value of a closed column (ADR 0027 §4): one thing, left out and declared.
+    case 'declareEntry':
+      return subject(`entry:${edit.file}:${edit.rule}:${edit.entry[0] ?? ''}`, edit.file, 'is', `${edit.entry[0] ?? ''}, an entry`);
+    case 'leaveOut':
+      return subject(`entry:${edit.file}:${edit.rule}:${edit.key}`, edit.file, 'is', `${edit.key}, an entry`);
     case 'useVersion':
       return subject('version', '', 'check', 'the rules, a version taken whole');
   }
@@ -84,6 +89,10 @@ export function shortOf(edit: RuleEdit): string {
       return `${edit.values.length} ${edit.values.length === 1 ? 'value' : 'values'}`;
     case 'declareKey':
       return `key ${edit.column}`;
+    case 'declareEntry':
+      return 'declared';
+    case 'leaveOut':
+      return 'left out';
     case 'useVersion':
       return 'a version';
   }
@@ -106,13 +115,14 @@ export const KINDS_ASKED: readonly ChangeKind[] = ['business', 'retuned', 'corre
 export const kindOf = (c: Pick<ChangeSet, 'kind'>): ChangeKind | null => c.kind ?? null;
 
 /**
- * The kind a set of edits is unless its author says otherwise: a column read under the file's new name is the source
- * changing; an accepted band is a setting re-tuned; values and a key declared from the data are a first description;
+ * The kind a set of edits is unless its author says otherwise: a column read under the file's new name, or a key left
+ * out until it is declared, is the source changing; an accepted band is a setting re-tuned; values and a key declared from the data are a first description;
  * a version's rules taken whole put right what a day ran under; anything else is the business changing.
  */
 export function defaultKind(edits: readonly RuleEdit[]): ChangeKind {
   const ops = new Set(edits.map((e) => e.op));
-  if (ops.size && [...ops].every((op) => op === 'mapColumn')) return 'source';
+  // A key left out until it is declared is the file ahead of the ontology: its meaning hasn't changed.
+  if (ops.size && [...ops].every((op) => op === 'mapColumn' || op === 'leaveOut')) return 'source';
   if ([...ops].every((op) => op === 'declareValues' || op === 'declareKey' || op === 'acceptBand') && (ops.has('declareValues') || ops.has('declareKey'))) return 'described';
   if (ops.size && [...ops].every((op) => op === 'acceptBand')) return 'retuned';
   if (ops.size && [...ops].every((op) => op === 'useVersion')) return 'corrected';

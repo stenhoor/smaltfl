@@ -74,10 +74,10 @@ describe('what the document accepts', () => {
 
   it('refuses a rule that isn’t one, by name', async () => {
     const doc = await signins();
-    expect(issues(withRules(doc, [rule({ kind: 'nope' })]))).toEqual(['$.ontology.rules[0].kind: required, oneOf, range, when']);
+    expect(issues(withRules(doc, [rule({ kind: 'nope' })]))).toEqual(['$.ontology.rules[0].kind: required, oneOf, range, when, closed']);
     expect(issues(withRules(doc, [rule({ file: 'nowhere' })]))).toEqual(['$.ontology.rules[0].file: no source nowhere: a rule is a file’s own']);
     expect(issues(withRules(doc, [rule({ action: 'shout' })]))).toEqual(['$.ontology.rules[0].action: flag, drop, hold: what a row that breaks it does']);
-    expect(issues(withRules(doc, [rule({ colour: 'red' })]))).toEqual(["$.ontology.rules[0].colour: colour isn't a rule's setting (id, file, column, kind, values, min, max, when, action): refused rather than ignored"]);
+    expect(issues(withRules(doc, [rule({ colour: 'red' })]))).toEqual(["$.ontology.rules[0].colour: colour isn't a rule's setting (id, file, column, kind, values, min, max, when, defines, entries, leftOut, action): refused rather than ignored"]);
     expect(issues(withRules(doc, [rule({ id: '1st' })]))).toEqual(['$.ontology.rules[0].id: a name of letters, digits and underscores, starting with a letter']);
     expect(issues(withRules(doc, [rule({ off: true })]))).toEqual(["$.ontology.rules[0].off: a rule is switched in the check cell that enforces its file (ontology: { name: 'off' }), not in the ontology"]);
   });

@@ -223,7 +223,7 @@ export interface VerifyCheck {
    * (Q-171); flows: each flow the run names is the document's, its own document kept with the run hashes to the hash
    * it is named by, and the run's document holds it unchanged (ADR 0026 §2).
    */
-  check: 'stored' | 'rerun' | 'expectations' | 'coherent' | 'key' | 'published' | 'previous' | 'accounting' | 'flow' | 'flows' | 'file' | 'held' | 'repair' | 'gate' | 'contract';
+  check: 'stored' | 'rerun' | 'expectations' | 'coherent' | 'key' | 'published' | 'previous' | 'accounting' | 'flow' | 'flows' | 'file' | 'held' | 'repair' | 'gate' | 'contract' | 'closed';
   ok: boolean;
   expected?: string;
   actual?: string | null;

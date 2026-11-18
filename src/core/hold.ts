@@ -26,10 +26,10 @@ import { HistoryRanges, rangeSettings, slotSeries, type HistoryFile, type Level,
 import { appendPeriods, emptyHistory, measuresHash, samePeriod, tailBefore, tailRef, type MeasureSettings, type Measures, type ReconcileCounts, type TailRef } from './measures.js';
 import { rootOf } from './log.js';
 import type { JSONValue, LogEntry } from './log.js';
-import type { ContractCounts, ExpectationResult, RunManifest } from './manifest.js';
+import type { ClosedCounts, ContractCounts, ExpectationResult, RunManifest } from './manifest.js';
 import type { SampleFile } from './apart.js';
 import { flowNames, judgeOf, newsOf, type FileFacts } from './news.js';
-import { isPublish2, watchesOf, type ExpectNode, type FlowPlan, type WatchPlan } from './plan.js';
+import { isPublish2, watchesOf, type ClosedPlan, type ExpectNode, type FlowPlan, type WatchPlan } from './plan.js';
 import { DECIDE_OPTIONS, type DecisionOption } from './policy.js';
 import { storyOf, type Story, type Upstream } from './story.js';
 
@@ -152,6 +152,9 @@ export interface Hold {
   /** A check that reads several watched loads (a join of two sources), held once for each of them: which one is off its
    * failing doesn't say, so each is held and decided by its load (`spare` keeps those new in the run). */
   shared?: true;
+  /** A check step stopped at the gate (ADR 0027 §4): an entry of a closed list, or a value of a closed column, arrived
+   * that the ontology doesn't have. What it reaches waits until a person declares it, leaves it out or doesn't publish. */
+  undeclared?: true;
 }
 
 /**
@@ -727,6 +730,36 @@ export function tripped(n: Pick<ExpectNode, 'maxDropped'>, r: ExpectationResult)
   return null;
 }
 
+/**
+ * What stopped at the gate, said (ADR 0027 §4): for each closed rule of a check step that a row failed, the entries that
+ * arrived and the ontology doesn't have, new ones first ("not in the ontology: control_id sbom (1 row)") and then those
+ * whose defining columns differ ("not as the ontology has it: control_id mfa (1 row)"), three of each named and the rest
+ * counted. Null where no closed rule failed. A rule that failed with nothing named says its rows.
+ */
+export function undeclaredSaid(closed: readonly ClosedPlan[] | undefined, counts: ExpectationResult, named: readonly ClosedCounts[] | undefined): string | null {
+  const parts: string[] = [];
+  for (const c of closed ?? []) {
+    const failed = counts.rules.find((r) => r.name === c.rule && r.onFail === 'fail')?.failed ?? 0;
+    if (!(failed > 0)) continue;
+    const got = named?.find((x) => x.rule === c.rule);
+    if (!got?.arrivals.length) {
+      parts.push(`not in the ontology: ${count(failed)} row${failed === 1 ? '' : 's'} of ${c.key}`);
+      continue;
+    }
+    const list = (xs: readonly (readonly [readonly string[], number, boolean])[], more: number) => {
+      const shown = xs.slice(0, 3).map(([entry, rows]) => `${entry[0]} (${count(rows)} row${rows === 1 ? '' : 's'})`);
+      const rest = xs.length - shown.length + more;
+      return `${c.key} ${shown.join(', ')}${rest > 0 ? ` and ${count(rest)} more` : ''}`;
+    };
+    const fresh = got.arrivals.filter(([, , changed]) => !changed);
+    const changed = got.arrivals.filter(([, , was]) => was);
+    // What the list leaves uncounted is said with the new entries: which kind the rest are isn't known.
+    if (fresh.length || got.more) parts.push(`not in the ontology: ${list(fresh, got.more)}`);
+    if (changed.length) parts.push(`not as the ontology has it: ${list(changed, 0)}`);
+  }
+  return parts.length ? parts.join('; ') : null;
+}
+
 /** What a refused file's hold says (ADR 0014 §2): the columns the file has against the columns declared, where the
  * engine said so ("file has 4 of 5 columns"), else the engine's words. */
 export function refusedSaid(why: string): string {
@@ -810,9 +843,19 @@ export function holdsOf(plan: Pick<FlowPlan, 'nodes' | 'outputs' | 'publish'>, m
   if (pub.hold.includes('checks') && !refused.length)
     plan.nodes.forEach((n, i) => {
       if (n.op !== 'expect') return;
-      const counts = manifest.nodes.find((m) => m.node === i)?.expectations;
+      const rec = manifest.nodes.find((m) => m.node === i);
+      const counts = rec?.expectations;
       const said = counts ? tripped(n, counts) : 'its checks were not counted';
-      if (said) out.push({ by: 'checks', node: i, origin: n.origin, said, reaches: reachOf(plan, i) });
+      if (!said) return;
+      // The gate (ADR 0027 §4): a closed list's or column's rule is said by what arrived that the ontology doesn't have,
+      // and any other rule that stops the day after it.
+      const shut = isPublish2(pub) ? pub.closed?.find(([node]) => node === i)?.[1] : undefined;
+      const gate = counts && shut ? undeclaredSaid(shut, counts, rec?.closed) : null;
+      if (!gate || !counts) return void out.push({ by: 'checks', node: i, origin: n.origin, said, reaches: reachOf(plan, i) });
+      const names = new Set(shut!.map((c) => c.rule));
+      const others = counts.rules.filter((x) => x.onFail === 'fail' && x.failed > 0 && !names.has(x.name));
+      const rest = others.length ? `; expectations failed: ${others.map((x) => `${x.name} (${count(x.failed)} row${x.failed === 1 ? '' : 's'})`).join(', ')}` : '';
+      out.push({ by: 'checks', node: i, origin: n.origin, said: `${gate}${rest}`, reaches: reachOf(plan, i), undeclared: true });
     });
   // A gold gate's reconciliation (ADR 0014 §6, plan/4): exact, so a count the run recorded holds, where the gate says
   // hold; a gate not counted holds too, since the run was asked to count it.

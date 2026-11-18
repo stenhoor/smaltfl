@@ -18,9 +18,25 @@ export const MANIFEST_FORMAT = 1;
 export interface ExpectationResult {
   /** Rows the expectation read. */
   rows: number;
-  /** Rows its drop rules left out. */
+  /** Rows its drop rules left out (a row a decision leaves out, `aside`, is counted by its own rule and not here). */
   dropped: number;
   rules: { name: string; onFail: FailAction; failed: number }[];
+}
+
+/** How many undeclared arrivals a manifest names for a closed rule: the rest are counted (`more`). */
+export const ARRIVALS_NAMED = 20;
+
+/**
+ * What arrived that a closed list or column doesn't have (ADR 0027 §4), as the run counted it over the rows its check
+ * step read: each entry as the file writes it (its key, then each column that defines it; a blank is ''), the rows that
+ * carry it, and whether the ontology has an entry under its key (an entry changed, else an entry new); the entries with
+ * the most rows first, then by the entry, `ARRIVALS_NAMED` at most, and how many more there are.
+ */
+export interface ClosedCounts {
+  /** The closed rule, by its name among its check step's rules. */
+  rule: string;
+  arrivals: [entry: string[], rows: number, changed: boolean][];
+  more: number;
 }
 
 export interface ManifestNode {
@@ -52,6 +68,9 @@ export interface ManifestNode {
   gate?: GateResult;
   /** plan/4, a contracted dataset (Q-171): its contract checked by the run over the dataset it built. */
   contract?: ContractCounts;
+  /** A check step that enforces a closed list or column (ADR 0027 §4): what arrived that the ontology doesn't have, for
+   * each closed rule a row failed. Absent where none did, so a day with nothing at the gate is recorded as it always was. */
+  closed?: ClosedCounts[];
 }
 
 /**

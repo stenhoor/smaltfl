@@ -284,6 +284,11 @@ function ruleEntry(r: RuleInput & { id: string }): OntologyRule {
     ...(r.kind === 'range' && r.min !== undefined ? { min: r.min } : {}),
     ...(r.kind === 'range' && r.max !== undefined ? { max: r.max } : {}),
     ...(r.kind === 'when' && r.when ? { when: { column: r.when.column, values: [...new Set(r.when.values.map((v) => v.trim()).filter((v) => v !== ''))] } } : {}),
+    // A closed list or column (ADR 0027 §4): what defines an entry, the entries in the order they were declared, and the
+    // keys left out, each only where there is any.
+    ...(r.kind === 'closed' && r.defines?.length ? { defines: [...r.defines] } : {}),
+    ...(r.kind === 'closed' ? { entries: (r.entries ?? []).map((e) => [...e]) } : {}),
+    ...(r.kind === 'closed' && r.leftOut?.length ? { leftOut: [...r.leftOut] } : {}),
     action: r.action,
   };
 }
@@ -313,6 +318,64 @@ export function setRule(doc: FlowDocument, input: RuleInput, add = false): { doc
   const next = syncRuleCells(defined);
   const words = `${ruleSaid(next.ontology, entry)}, else ${ACTION_SAID[entry.action]}`;
   return { doc: next, said: was ? `Changed a rule in ${entry.file}: ${words} (it was: ${ruleSaid(o, was)}, else ${ACTION_SAID[was.action]})` : `Added a rule to ${entry.file}: ${words}` };
+}
+
+// ------------------------------------------------------------------ closed lists and columns (ADR 0027 §4)
+
+/** A file's closed rule by its id, and the document's rules with it replaced. */
+function closedRule(doc: FlowDocument, file: string, id: string): { o: Ontology; rule: OntologyRule; put(next: OntologyRule): FlowDocument } | null {
+  const o = doc.ontology;
+  const rule = o?.rules?.find((r) => lower(r.file) === lower(file) && r.id === id && r.kind === 'closed');
+  if (!o || !rule) return null;
+  return { o, rule, put: (next) => ({ ...doc, ontology: { ...o, rules: o.rules!.map((r) => (r === rule ? ruleEntry(next) : r)) } }) };
+}
+
+/** An entry as people call it: the ontology's word for its key where it has one beyond the key itself. */
+const entryNamed = (o: Ontology, rule: OntologyRule, key: string): string => {
+  const word = propertyOf(o, rule.file, rule.column)?.values?.[key];
+  return word && saysMore(word, key) ? `${word} (${key})` : key;
+};
+
+/**
+ * An entry declared in a closed list, or a value in a closed column (ADR 0027 §4, Q-253): the ontology has it from the
+ * change set's day. An entry under a key the list has replaces that one (its defining columns changed); a key left out
+ * is left out no longer. Null where the file has no such closed rule or the entry isn't one of its shape; null `said`
+ * where the ontology has this very entry already.
+ */
+export function declareEntry(doc: FlowDocument, file: string, id: string, entry: readonly string[]): { doc: FlowDocument; said: string | null } | null {
+  const c = closedRule(doc, file, id);
+  if (!c) return null;
+  const { o, rule } = c;
+  const defines = rule.defines ?? [];
+  const key = entry[0];
+  if (key === undefined || key === '' || entry.length !== defines.length + 1) return null;
+  const entries = rule.entries ?? [];
+  const at = entries.findIndex((e) => e[0] === key);
+  const was = at >= 0 ? entries[at]! : null;
+  const out = (rule.leftOut ?? []).includes(key);
+  if (was && was.every((v, k) => v === entry[k]) && !out) return { doc, said: null };
+  const next: OntologyRule = { ...rule, entries: was ? entries.map((e, k) => (k === at ? [...entry] : e)) : [...entries, [...entry]] };
+  const leftOut = (rule.leftOut ?? []).filter((k) => k !== key);
+  if (leftOut.length) next.leftOut = leftOut;
+  else delete next.leftOut;
+  const title = (col: string) => propertyOf(o, file, col)?.title ?? col;
+  const differs = was ? defines.flatMap((d, k) => (was[k + 1] === entry[k + 1] ? [] : [`${title(d)} ${was[k + 1] || 'blank'} → ${entry[k + 1] || 'blank'}`])) : [];
+  const said = was && differs.length ? `Changed ${entryNamed(o, rule, key)} in ${file}: ${differs.join(', ')}`
+    : was ? `Declared ${entryNamed(o, rule, key)} in ${file} again: it is left out no longer`
+    : `Declared ${entryNamed(o, rule, key)} in ${file}`;
+  return { doc: c.put(next), said };
+}
+
+/**
+ * A key left out of what goes on until it is declared (ADR 0027 §4, Q-253, "Publish without it"): its rows are kept out
+ * by the check step that reads the file, and the day says so. Null where the file has no such closed rule; null `said`
+ * where the key is left out already.
+ */
+export function leaveOut(doc: FlowDocument, file: string, id: string, key: string): { doc: FlowDocument; said: string | null } | null {
+  const c = closedRule(doc, file, id);
+  if (!c || key === '') return null;
+  if ((c.rule.leftOut ?? []).includes(key)) return { doc, said: null };
+  return { doc: c.put({ ...c.rule, leftOut: [...(c.rule.leftOut ?? []), key] }), said: `Left ${entryNamed(c.o, c.rule, key)} out of ${file} until it is declared` };
 }
 
 /** A file's rule taken away: the document without it, the check cells that listed it written without it, and the change

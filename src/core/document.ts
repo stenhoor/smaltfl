@@ -196,7 +196,9 @@ const CONTRACT_COLUMN_FIELDS = ['name', 'type', 'description', 'required', 'key'
  * - `acceptBand`: a band accepted for a value of a source's column (ADR 0014 §3);
  * - `setCheck`: a check of a node's gate set to a mode, written in its gate cell (ADR 0014 §1);
  * - `declareValues` and `declareKey`: a proposal from the data accepted (ADR 0022 §5, Q-139): a coded column's values, a
- *   file's key (flowedit.ts).
+ *   file's key (flowedit.ts);
+ * - `declareEntry` and `leaveOut`: what arrived at the gate decided (ADR 0027 §4, Q-253): an entry of a closed list, or
+ *   a value of a closed column, declared from the day, or left out of what goes on until it is.
  */
 export type RuleEdit =
   | { op: 'setRule'; rule: RuleInput & { id: string } }
@@ -216,9 +218,14 @@ export type RuleEdit =
   | { op: 'declareValues'; file: string; column: string; values: string[] }
   /** A file's key declared from the data (Q-139, Q-214): the file its own object type, keyed by the column, with a rows
    * entry, so a day whose rows repeat a key holds. */
-  | { op: 'declareKey'; file: string; column: string };
+  | { op: 'declareKey'; file: string; column: string }
+  /** An entry declared in a closed list, or a value in a closed column (ADR 0027 §4, Q-253): the file's closed rule has
+   * it from the day, under its key (an entry the rule has under that key is replaced; a key left out is in again). */
+  | { op: 'declareEntry'; file: string; rule: string; entry: string[] }
+  /** A key left out of what goes on until it is declared (Q-253, "Publish without it"). */
+  | { op: 'leaveOut'; file: string; rule: string; key: string };
 
-export const EDIT_OPS = ['setRule', 'removeRule', 'switchRule', 'nameColumn', 'acceptBand', 'setCheck', 'useVersion', 'mapColumn', 'declareValues', 'declareKey'] as const;
+export const EDIT_OPS = ['setRule', 'removeRule', 'switchRule', 'nameColumn', 'acceptBand', 'setCheck', 'useVersion', 'mapColumn', 'declareValues', 'declareKey', 'declareEntry', 'leaveOut'] as const;
 
 /**
  * A dated change set (ADR 0021 §5, Q-184): edits of the rules people set, in force from a business day, as known from
@@ -1089,6 +1096,16 @@ function validateChanges(doc: Record<string, unknown>, add: (path: string, messa
         case 'declareKey':
           need('file', text(e.file), 'the file whose key it is');
           need('column', text(e.column), 'the column, as the file writes it');
+          return;
+        case 'declareEntry':
+          need('file', text(e.file), 'the file whose closed list or column it is');
+          need('rule', text(e.rule), 'the closed rule, by its name');
+          need('entry', Array.isArray(e.entry) && e.entry.length > 0 && e.entry.every((v: unknown) => typeof v === 'string') && e.entry[0] !== '', 'the entry: its key, then what each column that defines it holds');
+          return;
+        case 'leaveOut':
+          need('file', text(e.file), 'the file whose closed list or column it is');
+          need('rule', text(e.rule), 'the closed rule, by its name');
+          need('key', text(e.key), 'the key left out until it is declared');
           return;
       }
     });
