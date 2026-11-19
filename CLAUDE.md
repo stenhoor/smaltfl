@@ -779,7 +779,8 @@ release (smaltty ADR 0030).
   on pushes, a commit once, a branch's newer push stopping its older run: `check` (the types, the package), `test`
   (`npm test` over two machines, vitest's `--shard`), `slow`, `isolated`, and a pipeline a demo
   (`.github/workflows/demo.yml`, called with the demo, the demos whose data its sets take and its shards; shared
-  steps in `.github/actions/setup` and `browser`, whose install is tried three times): `data` makes the demo's data
+  steps in `.github/actions/setup` and `browser`, whose install is tried three times and takes its font packages
+  from what an earlier job kept for the runner's image, so the package mirror is asked once an image): `data` makes the demo's data
   only where the store has none and keeps it there (`regress.cjs --data <demo> --keep`), and `browser` runs the
   demo's sets a shard a machine (`--demos <demo> --shard K/N --build-only --stored`, then the same without the last
   two), the tour's first shard holding its data to `npm run test:tour` as well. `sizes`, `ci.yml`'s own job after

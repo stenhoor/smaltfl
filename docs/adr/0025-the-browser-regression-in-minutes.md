@@ -308,11 +308,13 @@ cache missed; a change to the core, which is most changes, made every demo's dat
 7. **The unit tests report first.** `check` (the types and the package) and `test`, its files dealt over two
    machines by vitest's own shards, are jobs of their own, as are `slow` and `isolated`. `npm test` runs a worker a
    core (vitest leaves one free by default: 62 s became 57 on four). No test left `npm test` for the slow set (Q-340).
-8. **The browser's install is tried three times.** Two jobs of main's run ended in it before a single stop: the
-   runner's package mirror didn't answer. On the branch's runs the same mirror answered, slowly: the 22 MB of fonts
-   Chromium is installed with took a few seconds on most jobs and 1¼, 2 and 4 minutes on three of the first
-   fourteen. None failed, so none was tried again, and a job's time moved by as much: what is left of chance in a
-   browser job. Not built: those packages kept in a cache.
+8. **The browser's install is tried three times, and asks the runner's package mirror once an image.** Two jobs of
+   main's run ended in the install before a single stop: the mirror didn't answer. On the branch's runs the same
+   mirror answered, slowly: the 22 MB of font packages Chromium is installed with (every library it asks for is on
+   the runner already) took a few seconds on most jobs and 1¼ to 4 minutes on four of the first thirty-four. None
+   failed, so none was tried again, and a job's time moved by as much: what was left of chance in a browser job. So
+   the first job to fetch those packages for a runner image keeps them (`.github/actions/browser`, GitHub's cache,
+   by the image's version), and the jobs after it install them from what was kept and ask the mirror nothing.
 9. **On a session's machine,** `npm run regress` builds up to three demos side by side where their data has to be
    made (`--build-jobs`): a demo's data is made on one core for most of its time, the month recorded a day after the
    day before. Each build bundles its readers to files of its own, and generators take turns (`inTurn` in
