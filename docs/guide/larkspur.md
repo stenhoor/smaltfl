@@ -8,7 +8,7 @@ with trouble planted in March at every layer:
 - files that are fine alone but wrong together;
 - look-alikes: days that look like trouble and aren't, which must publish.
 
-Nothing that judges the days knows where the trouble is planted. The tour picks six scenes of what a flow does; this
+Nothing that judges the days knows where the trouble is planted. The tour picks seven scenes of what a flow does; this
 month has every planted day, and what happened next in its recorded story. It is also where the posture is read over
 the whole month, the rules change twice, a back-dated change restates two days and a what-if run is made the day's.
 
@@ -88,6 +88,24 @@ Its **Contract** tab, like every gold dataset's, says what its consumers rely on
 - each column: its type, whether it is part of the key or required, its classification and its values;
 - its service levels: daily, available by 07:00 UTC.
 
+The product carries its context too ([ADR 0027](../adr/0027-the-ontology-over-time) §8). In **product**, open
+**context_changes**: one row a change to the ontology in force that day and a dataset it reaches, with its kind, the
+day it began, what it did and why in its author's words, who decided it and its own step. **context_events** is what
+was going on, with what each event reaches and excuses, and **context_in_force** the version of the ontology each
+dataset was read under. The run makes the three for its day, so they are hashed, verified and published with the
+facts, each under a contract. On any other card, **Context** at the top of its sheet says the same of that dataset,
+as known now: on Tue 12, *platform_impact* is reached by the WAF's monitor mode, through the WAF's file, written down
+that morning after the day had run, and it says so.
+
+Who decides is on the **Ontology** view, at the head of the register ([ADR 0027](../adr/0027-the-ontology-over-time)
+§10). **Who owns it** lists the ontology part by part: the estate's shared ontology and the posture product's own
+are the security lead's, Sloane Marsden's, and each flow the product reads is its owner's. Every change that asked for
+an owner's agreement says who gave it: the WAF's band was agreed to by the flow's owner, who wrote it and owns
+Evidence feeds, one person holding both roles; the catalogue's fifteenth control was written down by the flow's owner
+at 09:10 on Wed 27 and agreed to by the security lead five minutes later, the moment it is in force from. End
+something as the owner (the SBOM inventory's description, under *Described ahead of their data*) and the change waits:
+pick **Sloane Marsden** under **Viewing as**, and its entry offers **Agree**.
+
 ## One cause behind two controls
 
 **Mon 25.** The **tls** card warns: 8.9% of its applications fail, above their usual share. On its own, that is a rise
@@ -126,7 +144,7 @@ As the app says them when the days are run in order:
 | Wed 6 | The backup file is Tue 5's again | Paused: *backup_jobs: The same file as Tue 5's* (bronze, `fresh`) |
 | Thu 7 | The logging file lacks a column | Paused: the file is refused and nothing is built (bronze, the schema). The Ontology view's row for the file says *file refused* |
 | Fri 8 | Key rotation passes where encryption fails | Paused: *57 applications: key_rotation status pass needs encryption not fail* (silver, the needs rule) |
-| Sat 9 | An agent reinstall makes old findings look new | The findings file warns: *Status new: 3.2%*. Silver keeps each finding's first date, so nothing becomes less overdue. Published |
+| Sat 9 | An agent reinstall makes old findings look new | The reinstall was planned, and written down on Fri 8 as an event that excuses the findings' mix of statuses ([ADR 0027](../adr/0027-the-ontology-over-time) §6). The findings file is told *As expected: Scanner agents reinstalled on eks-prod-4*, and the day isn't learned from as usual. Silver keeps each finding's first date, so nothing becomes less overdue. Published |
 | Wed 13 | WAF rows for applications that aren't internet-facing | Paused: *waf: 50 apps out of scope* (bronze, the scope) |
 | Thu 14 | February's Patch Tuesday findings fall due | Published |
 | Fri 15 | 46 exceptions expire unrenewed | Unusual: failures whose reason is the expired exception, not a regression. Published |
@@ -136,7 +154,7 @@ As the app says them when the days are run in order:
 | Thu 21 | The TLS file arrives twice | Paused: *tls: 815 apps repeat a key* |
 | Sat 23 | DR exercises due Fri 22 ran late; a new cloud account tags resources with an application nobody registered | Paused: *dr_exercises: Late: 111 of 193 due*. shadow_assets warns of the new tags, which gold counts under Unregistered. The late exercises' statuses hold Sun 24, Mon 25 and Tue 26 too, as a lasting change does until someone accepts it (Q-86) |
 | Tue 26 | No TLS rows for one business unit's internet-facing applications | Paused: *tls: 39 in scope with no app* (the scope) |
-| Wed 27 on | The catalogue adds a control with no evidence feed yet | Unusual until Sat 30: more results, said as no data and not as failing. Published |
+| Wed 27 on | The catalogue adds a control with no evidence feed yet | The catalogue is a closed list: the ontology has each control it has accepted. Wed 27 stops at the gate, *not in the ontology: control_id sbom (1 row)*, and the posture product waits while the flows it reads go out. Declared that morning, the day runs again and is published. Then unusual until Sat 30: more results, said as no data and not as failing |
 | Thu 28 | An HR error makes a VP report to one of their own directors | Paused: *6 of 245 rows broke no_loop* (silver, org_chain) |
 | Fri 29 | Quarter-end access reviews | The access reviews file has no quality issues. Published |
 
@@ -157,12 +175,31 @@ versions.)
 | Mon 18 | HR sent the extract again with the teams under their new department, published. ↻2 |
 | Thu 21 | Sent again with half its repeats out, still wrong, kept back; then sent again, every certificate once, published. ↻3 |
 | Tue 26 | Kept back while the scanner team looks for the missing business unit. ⊠ |
+| Wed 27 | At 09:10 the software bill of materials was declared in the catalogue from that day, with its reason (the control board added it), and the day ran again under it; at 09:25 the security lead restated it, published. The same decision describes the feed the control will be evidenced by, the SBOM inventory, ahead of its data ([ADR 0027](../adr/0027-the-ontology-over-time) §5): the Ontology view lists it as waiting for data. ↻2 |
 | Sat 23 to Mon 25, Thu 28 | Still waiting for you: the DR exercises from Sat 23, and Thu 28's loop in the organisation. ‖ |
 | Sat 16, Sun 17 | On Mon 25 the findings' values check was set back to hold the day, back-dated to Fri 1: the scanner hadn't logged in that weekend, and the posture read far fewer findings than there were. Every day already run ran again under it; these two would now be held, and the security lead restated them as not published. The other 23 came out the same, and were noted. |
 
-The rules changed twice ([ADR 0021](../adr/0021-time) §5): on Fri 15 the WAF band was tightened to a tenth from Mon 18,
-which reached no day already run, and on Mon 25 the back-dated change above. The **Ontology** view lists the four
-versions of the rules this makes, each with where and when it was in force, and compares any two.
+The rules changed four times ([ADR 0021](../adr/0021-time) §5): on Fri 8 the estate's ontology said that, from the
+Monday of the reorganisation, Mon 11, who acts for a unit is a relation of its own, *Acted for by*; on Fri 15 the WAF
+band was tightened to a tenth from Mon 18; on Mon 25 the back-dated change above; and on Wed 27 the new control was
+declared from that day. The first is the estate's own change, in `examples/larkspur/ontology.json`
+([ADR 0027](../adr/0027-the-ontology-over-time) §3): every flow that imports the estate's ontology follows it from
+that day, and the register says whose it is. The **Ontology** view lists the seven versions of the rules this
+makes, each with where and when it was in force, and compares any two. Its head is the register: each change with its
+kind, its reason and who decided, what was going on (the push, the reinstall, the reorganisation, the freeze), and,
+from tablet width, the same as lanes over the month. Under the versions, **Kinds and relations** draws the estate's
+five kinds of thing and six relations as a map, and compares any two days: between Fri 1 and Thu 21, *Acted for by*
+is new and the WAF's band moved.
+
+Three of those changes are the business changing, and the build ran the first day of each both ways
+([ADR 0027](../adr/0027-the-ontology-over-time) §7): as it was published, and on the same files under the rules as
+they were. Each entry of the register says what the change alone moved. The relation and the WAF band moved none of
+the 56 measures read. The new control moved the coverage by −8.3 points, from 99.1 to 90.8, and the checks that apply
+from 19,320 to 21,314; it left the score where it was, since a control with no evidence yet isn't in the score. So the
+month's trend **cuts the coverage on Wed 27**, flagged with the step, and *With the steps taken out ›* draws it on
+at 99. The 11% more results `effective` had that day are the change's own: the day picked lists them under *What a
+declared change accounts for*, and the dataset's checks learn from the new level from Thu 28. The mappings file grew
+too, whatever the ontology said: that is the day's data, and stays a finding.
 
 **What if… ›** on a day runs it again on any of its files under any of those versions, apart from the record. On Sat 16,
 under the rules as shipped, it would have passed, where readers got it restated and held. On Thu 21, on the TLS file

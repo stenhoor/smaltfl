@@ -12,7 +12,9 @@ import io from '@smaltdb/io';
 import external from '@smaltdb/external';
 import smaltfl from '../../src/plugin/index.js';
 import { canonicalJSON } from '../../src/core/canonical.js';
-import type { FlowDocument } from '../../src/core/document.js';
+import type { ChangeSet, FlowDocument } from '../../src/core/document.js';
+import { resolve } from '../../src/core/inforce.js';
+import { excusesFor, type FlowEvent } from '../../src/core/events.js';
 import { sha256Hex, utf8 } from '../../src/core/hash.js';
 import type { HistoryFile } from '../../src/core/history.js';
 import { flowStory, loadClaim, tailPath, type Claim, type HistoryRef, type StoryClaim2 } from '../../src/core/hold.js';
@@ -37,6 +39,9 @@ export interface LarkspurWorld {
   bases: Record<string, HistoryFile>;
   /** Each day's run, or the error that stopped it. */
   results: Map<string, RunResult | Error>;
+  /** A day a change set of the world takes effect from, as it first ran: under the rules as they were the day before
+   * (ADR 0027 §4: the day at the gate, before its entry is declared). Nothing is learned from it. */
+  firsts: Map<string, RunResult>;
   /** Each day's claims as the page told them, by file (null where the file couldn't be read as declared), and each
    * watched step's as the engine told it. */
   claims: Map<string, Record<string, StoryClaim2 | null>>;
@@ -52,8 +57,16 @@ export interface LarkspurWorld {
  * A world: the files' histories from `baseFrom` to `baseTo` and the steps' from `stepsFrom` (six weeks before `baseTo`
  * unless said), then every day after `baseTo` to `loadsTo` run as it arrives.
  */
-export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; baseTo: string; loadsTo: string; stepsFrom?: string; warmup?: number; afterRun?: (db: Database, day: string, r: RunResult) => Promise<void> }): Promise<LarkspurWorld> {
-  const doc = await loadFlowDir(larkspurDir);
+export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; baseTo: string; loadsTo: string; stepsFrom?: string; warmup?: number; afterRun?: (db: Database, day: string, r: RunResult) => Promise<void>; changes?: readonly ChangeSet[]; events?: readonly FlowEvent[] }): Promise<LarkspurWorld> {
+  const shipped = await loadFlowDir(larkspurDir);
+  /** The flow under the world's change sets (the story's, ADR 0021 §5): each day runs under the rules in force on it. */
+  const dated: FlowDocument = o.changes?.length ? { ...shipped, changes: [...o.changes] } : shipped;
+  const resolved = new Map<string, FlowDocument>();
+  const docOn = (day: string): FlowDocument => {
+    if (!resolved.has(day)) resolved.set(day, resolve(dated, day).doc);
+    return resolved.get(day)!;
+  };
+  const doc = shipped;
   const data = JSON.parse(readFileSync(new URL('data.json', larkspurDir), 'utf8')) as DataBindings;
   const estate = larkspur(o);
   const watched = DAILY_FILES.filter((f) => doc.publish?.watch?.[f]);
@@ -91,17 +104,19 @@ export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; bas
   const plans = new Map<string, Awaited<ReturnType<typeof translate>>>();
   const bases: Record<string, HistoryFile> = {};
   const refs: Record<string, HistoryRef> = {};
-  const settingsOf = async (day: string, w: string) => {
-    if (!plans.has(day)) plans.set(day, await translate(doc, { day }));
-    const plan = plans.get(day)!;
+  const settingsOf = async (day: string, w: string, under: FlowDocument = docOn(day)) => {
+    const at = `${day}|${under === docOn(day) ? '' : 'first'}`;
+    if (!plans.has(at)) plans.set(at, await translate(under, { day }));
+    const plan = plans.get(at)!;
     const node = plan.nodes.findIndex((n) => n.origin === w);
-    const s = settingsFor(plan, node, bases[w] ?? null, doc.steps)!;
+    const s = settingsFor(plan, node, bases[w] ?? null, under.steps)!;
     if (bases[w]) return { plan, s };
-    const c = watchColumns(doc, w);
+    const c = watchColumns(under, w);
     return { plan, s: { ...s, counted: c.count, followed: c.follow, paired: c.pair } };
   };
   const tails: Record<string, Measures[]> = Object.fromEntries([...watched, ...steps].map((w) => [w, []]));
   const results = new Map<string, RunResult | Error>();
+  const firsts = new Map<string, RunResult>();
   const claimsTold = new Map<string, Record<string, StoryClaim2 | null>>();
   const measuresTaken = new Map<string, Record<string, Measures>>();
   const storiesTold = new Map<string, Record<string, Story>>();
@@ -137,12 +152,21 @@ export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; bas
 
   const arrive = async (day: string): Promise<RunResult> => {
     const sources = await pinDay(day, db);
+    // A day a change set takes effect from first ran without it: under the rules of the day before, kept beside.
+    if (o.changes?.some((c) => c.from === day)) firsts.set(day, await runDay(day, sources, docOn(addDays(day, -1)), false));
+    return runDay(day, sources, docOn(day), true);
+  };
+  /** A day's files run under a document: each file measured and its claim told, the flow run, each step's claim told
+   * again. With `keep`, what was measured joins the tails the next day is judged from, and what was told is kept. */
+  const runDay = async (day: string, sources: Awaited<ReturnType<typeof pinDay>>, doc: FlowDocument, keep: boolean): Promise<RunResult> => {
+    // What the world's events excuse of each watched dataset (ADR 0027 §6), as known when the day's files arrive.
+    const excusesOf = (w: string) => excusesFor(o.events ?? [], w, day, `${day}T06:00:00.000Z`);
     const claims: Claim[] = [];
     const told: Record<string, StoryClaim2 | null> = {};
     const measured: Record<string, Measures> = {};
     const stories: Record<string, Story> = {};
     for (const w of watched) {
-      const { plan, s } = await settingsOf(day, w);
+      const { plan, s } = await settingsOf(day, w, doc);
       let m: Measures;
       try {
         m = await measureLoad(db, data.sources[w]!.table, s);
@@ -153,26 +177,28 @@ export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; bas
       }
       measured[w] = m;
       await pinFile(db, tailPath(w), utf8(canonicalJSON(tailBefore(tails[w]!, '9999') as unknown as Parameters<typeof canonicalJSON>[0])));
-      const t = await loadClaim({ doc, source: w, flow: plan.flow.hash, base: bases[w]!, baseRef: refs[w]!, tail: tails[w]!, measures: m, settings: s, skip: [], build: 'dev', file: facts[w]! });
+      const excuses = excusesOf(w);
+      const t = await loadClaim({ doc, source: w, flow: plan.flow.hash, base: bases[w]!, baseRef: refs[w]!, tail: tails[w]!, measures: m, settings: s, skip: [], build: 'dev', file: facts[w]!, ...(excuses.length ? { excuses } : {}) });
       told[w] = t?.claim ?? null;
-      if (t) (claims.push(t.claim), (stories[w] = flowStory(t.ranges, day, doc, w, undefined, undefined, facts[w])));
+      if (t) (claims.push(t.claim), (stories[w] = t.story));
     }
     // Each watched step's tail, pinned for the engine to tell its claim from, with what the page says of the record.
     for (const st of steps) await pinFile(db, tailPath(st), utf8(canonicalJSON(tailBefore(tails[st]!, '9999') as unknown as Parameters<typeof canonicalJSON>[0])));
-    const tell = Object.fromEntries(steps.map((st) => [st, { skip: [], levels: [] }]));
+    const tell = Object.fromEntries(steps.map((st) => [st, { skip: [], levels: [], ...(excusesOf(st).length ? { excuses: excusesOf(st) } : {}) }]));
     const r = await runFlow(db, doc, { smaltdb: SMALTDB, parameters: { day }, claims, sources, tell });
+    if (!keep) return r;
     for (const w of watched) if (measured[w]) tails[w]!.push(measured[w]!);
     // Each step's claim told again from the run's measures of it, as the engine told it: the same history, tail and
     // upstream claims, the steps in the plan's order, each with what the steps told before it said (Q-173).
     const upstream: Upstream[] = claims.flatMap((c) => ('source' in c && typeof c.source === 'string' ? [{ source: c.source, state: c.state, head: c.head }] : []));
-    const { plan: dayPlan } = await settingsOf(day, steps[0] ?? watched[0]!);
+    const { plan: dayPlan } = await settingsOf(day, steps[0] ?? watched[0]!, doc);
     const ordered = [...steps].sort((a, b) => dayPlan.nodes.findIndex((n) => n.origin === a) - dayPlan.nodes.findIndex((n) => n.origin === b));
     for (const st of ordered) {
       const m = r.measures?.find((x) => x.source === st);
       if (!m) continue;
-      const { plan, s } = await settingsOf(day, st);
+      const { plan, s } = await settingsOf(day, st, doc);
       measured[st] = m;
-      const t = await loadClaim({ doc, source: st, flow: plan.flow.hash, base: bases[st]!, baseRef: refs[st]!, tail: tails[st]!, measures: m, settings: s, skip: [], levels: [], build: 'dev', upstream: [...upstream] });
+      const t = await loadClaim({ doc, source: st, flow: plan.flow.hash, base: bases[st]!, baseRef: refs[st]!, tail: tails[st]!, measures: m, settings: s, skip: [], levels: [], build: 'dev', upstream: [...upstream], ...(excusesOf(st).length ? { excuses: excusesOf(st) } : {}) });
       told[st] = t?.claim ?? null;
       if (t) {
         stories[st] = t.story;
@@ -196,7 +222,7 @@ export async function larkspurWorld(o: LarkspurOptions & { baseFrom: string; bas
     }
   }
   return {
-    doc, db, estate, steps, bases, results, claims: claimsTold, measures: measuresTaken, stories: storiesTold,
+    doc, db, estate, steps, bases, results, firsts, claims: claimsTold, measures: measuresTaken, stories: storiesTold,
     result(day) {
       const r = results.get(day);
       if (!r || r instanceof Error) throw new Error(`${day}: ${r ? r.message : 'not run'}`);

@@ -4,7 +4,7 @@
  * worst rows first; the score read as steady, up or down by a rule, and what moved between two days.
  */
 import { describe, expect, it } from 'vitest';
-import { againstSaid, againstWay, countSaid, findingsOf, followsFiles, headlineOf, healthOf, healthRows, healthSaid, HOW_WORD, monthsOf, moversOf, offDays, OUTCOME_WORD, outcomeOf, outcomeSaid, pointsSaid, scoreRead, readSaid, STEADY, summaryOf, worstFirst, type DayOutcome, type Outcome } from '../src/core/overview.js';
+import { againstSaid, againstWay, AS_EXPECTED, countSaid, expectedOf, findingsOf, followsFiles, headlineOf, healthOf, healthRows, healthSaid, HOW_WORD, monthsOf, moversOf, offDays, OUTCOME_WORD, outcomeOf, outcomeSaid, pointsSaid, scoreRead, readSaid, STEADY, summaryOf, worstFirst, type DayOutcome, type Outcome } from '../src/core/overview.js';
 import type { LogEntry } from '../src/core/log.js';
 import type { RunManifest } from '../src/core/manifest.js';
 
@@ -127,6 +127,30 @@ describe('what a run said of its day', () => {
     ]);
     expect(findingsOf({})).toEqual([]);
     expect(findingsOf({ holds: [hold('x', 'restated', 'restated'), hold('x', 'what-if', 'what-if')] } as never)).toEqual([]);
+  });
+
+  it('says apart what an event explains: the datasets told as expected, each once, never one a hold names or one still unusual', () => {
+    const about = {
+      holds: [hold('backup_jobs', 'Last_state COMPLETED: 33%', 'story'), hold('tls', 'a later file for its day: it waits for a decision', 'correction')],
+      claims: [
+        { source: 'findings', state: 'notes', head: 'As expected: Scanner agents reinstalled on eks-prod-4' },
+        { source: 'Findings', state: 'notes', head: 'As expected: Scanner agents reinstalled on eks-prod-4' },
+        { source: 'backup_jobs', state: 'calm', head: 'As expected: The backup window moved' },
+        { source: 'tls', state: 'calm', head: 'As expected: Certificates reissued' },
+        { source: 'waf', state: 'unusual', head: 'As expected: A drill' },
+        { source: 'edr', state: 'calm', head: 'A normal Saturday' },
+        { source: 'mfa', state: 'calm', head: 'As expected: ' },
+      ],
+    };
+    // A later delivery's own hold says nothing of the data: tls is told as expected all the same.
+    expect(expectedOf(about as never)).toEqual([
+      { origin: 'findings', event: 'Scanner agents reinstalled on eks-prod-4' },
+      { origin: 'tls', event: 'Certificates reissued' },
+    ]);
+    // It is no finding: the day's are what they were without it.
+    expect(findingsOf(about as never).map((x) => [x.origin, x.level])).toEqual([['backup_jobs', 'held'], ['waf', 'unusual']]);
+    expect(AS_EXPECTED).toBe('As expected: ');
+    expect(expectedOf({})).toEqual([]);
   });
 });
 

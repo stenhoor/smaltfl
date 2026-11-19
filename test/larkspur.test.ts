@@ -944,13 +944,34 @@ describe('the tour’s two months (ADR 0023 §3, amendment 1): a scene a day, in
 
   it('plants each scene in its own file, and leaves the day’s other files as they were', () => {
     const one = new Map<string, DailyFile[]>();
-    for (const t of LARKSPUR_TOUR) if (t.kind !== 'migration' && t.kind !== 'dissolve') one.set(t.day, [...(one.get(t.day) ?? []), t.file]);
+    // The migration, the dropped department and the catalogue's new control reach more than a day or a file: each has
+    // its own test below.
+    const wider = (t: Trouble) => t.kind === 'migration' || t.kind === 'dissolve' || t.kind === 'sbom';
+    for (const t of LARKSPUR_TOUR) if (!wider(t)) one.set(t.day, [...(one.get(t.day) ?? []), t.file]);
     for (const [day, planted] of one) {
-      const quiet = but((t) => t.day === day && t.kind !== 'migration' && t.kind !== 'dissolve');
+      const quiet = but((t) => t.day === day && !wider(t));
       for (const f of DAILY_FILES) {
         if (planted.includes(f)) expect(dayFile(tour, f, day), `${day} ${f}`).not.toEqual(dayFile(quiet, f, day));
         else expect(dayFile(tour, f, day), `${day} ${f}`).toEqual(dayFile(quiet, f, day));
       }
+    }
+  });
+
+  it('adds a fifteenth control to the catalogue from Thu Mar 28 (ADR 0027 §11), with its mappings, and leaves every other file as it was', () => {
+    const without = but((t) => t.kind === 'sbom');
+    const before = addDays(D.sbom, -1);
+    expect(dayFile(tour, 'control_catalog', before).rows).toHaveLength(14);
+    for (const f of DAILY_FILES) expect(dayFile(tour, f, before), `${before} ${f}`).toEqual(dayFile(without, f, before));
+    for (const day of [D.sbom, '2024-03-31']) {
+      const catalogue = dayFile(tour, 'control_catalog', day);
+      expect(catalogue.rows).toHaveLength(15);
+      expect(catalogue.rows.at(-1)![0]).toBe('sbom');
+      // Its mappings to the frameworks come with it: three more rows of the mappings file, which no rule declares.
+      const mappings = dayFile(tour, 'control_requirements', day);
+      expect(mappings.rows.filter((r) => r[0] === 'sbom')).toHaveLength(3);
+      expect(mappings.rows.length - dayFile(without, 'control_requirements', day).rows.length).toBe(3);
+      // No tool reports on it yet: every other file of the day is as it would have been.
+      for (const f of DAILY_FILES) if (f !== 'control_catalog' && f !== 'control_requirements') expect(dayFile(tour, f, day), `${day} ${f}`).toEqual(dayFile(without, f, day));
     }
   });
 

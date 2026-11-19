@@ -1,5 +1,5 @@
 {
-  "smaltfl": 4,
+  "smaltfl": 5,
   "id": "larkspur",
   "name": "Larkspur estate",
   "description": "A fictional financial-services group's control posture as its systems export it each day (ADR 0020): the organisation and its leaders from HR, about 2,400 applications from the CMDB, the cloud inventory, 46 shared platforms, a catalogue of 14 controls mapped to the frameworks, the risk register, the findings ledger and twelve evidence feeds. The bronze notebook judges every feed as it arrives; the silver notebooks conform the organisation, the applications and the evidence, and tell the posture a person reads. A synthetic dataset: no real company or person is its subject.",
@@ -57,6 +57,244 @@
   "ontology": {
     "import": [
       "./ontology.json"
+    ],
+    "owners": [
+      { "id": "ciso" }
+    ],
+    "rules": [
+      {
+        "id": "control_id_closed",
+        "file": "control_catalog",
+        "column": "control_id",
+        "kind": "closed",
+        "defines": [
+          "weight",
+          "cadence",
+          "applies_exposure",
+          "applies_tier",
+          "applies_data_class",
+          "applies_datastore",
+          "applies_hosting",
+          "applies_lifecycle",
+          "depends_on",
+          "compensated_by",
+          "provided_by",
+          "allocation"
+        ],
+        "entries": [
+          [
+            "tls",
+            "2",
+            "daily",
+            "internet;partner",
+            "*",
+            "*",
+            "*",
+            "*",
+            "active;retiring",
+            "",
+            "private_link",
+            "ingress",
+            "common"
+          ],
+          [
+            "waf",
+            "2",
+            "daily",
+            "internet",
+            "*",
+            "*",
+            "*",
+            "cloud;onprem",
+            "active;retiring",
+            "",
+            "",
+            "ingress",
+            "common"
+          ],
+          [
+            "pentest",
+            "2",
+            "yearly",
+            "internet;partner",
+            "1;2",
+            "*",
+            "*",
+            "*",
+            "active;retiring",
+            "",
+            "waf",
+            "",
+            "system"
+          ],
+          [
+            "encryption",
+            "3",
+            "daily",
+            "*",
+            "*",
+            "*",
+            "yes",
+            "*",
+            "active;retiring",
+            "",
+            "",
+            "key_store",
+            "hybrid"
+          ],
+          [
+            "key_rotation",
+            "1",
+            "yearly",
+            "*",
+            "*",
+            "pci;pii",
+            "yes",
+            "*",
+            "active;retiring",
+            "encryption",
+            "",
+            "key_store",
+            "hybrid"
+          ],
+          [
+            "backup",
+            "3",
+            "daily",
+            "*",
+            "*",
+            "*",
+            "yes",
+            "cloud;onprem",
+            "active;retiring",
+            "",
+            "",
+            "backup",
+            "common"
+          ],
+          [
+            "dr_exercise",
+            "2",
+            "yearly",
+            "*",
+            "1",
+            "*",
+            "*",
+            "*",
+            "active;retiring",
+            "backup",
+            "",
+            "",
+            "system"
+          ],
+          [
+            "vuln_sla",
+            "3",
+            "per finding",
+            "*",
+            "*",
+            "*",
+            "*",
+            "cloud;onprem",
+            "active;retiring",
+            "",
+            "",
+            "",
+            "system"
+          ],
+          [
+            "mfa",
+            "3",
+            "daily",
+            "*",
+            "*",
+            "*",
+            "*",
+            "*",
+            "active;retiring",
+            "",
+            "",
+            "identity_provider",
+            "common"
+          ],
+          [
+            "access_review",
+            "2",
+            "quarterly",
+            "*",
+            "*",
+            "pci;pii;confidential",
+            "*",
+            "*",
+            "active;retiring",
+            "",
+            "",
+            "",
+            "system"
+          ],
+          [
+            "logging",
+            "2",
+            "daily",
+            "*",
+            "*",
+            "*",
+            "*",
+            "cloud;onprem",
+            "active;retiring",
+            "",
+            "",
+            "log_pipeline",
+            "hybrid"
+          ],
+          [
+            "privileged_access",
+            "3",
+            "daily",
+            "*",
+            "1;2",
+            "*",
+            "*",
+            "*",
+            "active;retiring",
+            "mfa",
+            "",
+            "vault",
+            "hybrid"
+          ],
+          [
+            "edr",
+            "2",
+            "daily",
+            "*",
+            "*",
+            "*",
+            "*",
+            "cloud;onprem",
+            "active;retiring",
+            "",
+            "",
+            "edr",
+            "hybrid"
+          ],
+          [
+            "ownership",
+            "1",
+            "daily",
+            "*",
+            "*",
+            "*",
+            "*",
+            "*",
+            "build;active;retiring",
+            "",
+            "",
+            "",
+            "system"
+          ]
+        ],
+        "action": "hold"
+      }
     ]
   },
   "policies": {
@@ -1261,6 +1499,339 @@
           "name": "filled_from",
           "type": "TEXT",
           "description": "The day its evidence was carried from, where a fill stood in for its feed’s file; blank where the evidence is the day’s own",
+          "classification": "internal"
+        }
+      ],
+      "sla": {
+        "frequency": "daily",
+        "availableBy": "07:00 UTC",
+        "retention": "13 months"
+      }
+    },
+    "context_changes": {
+      "id": "control-posture/context_changes",
+      "version": "1.1.0",
+      "status": "active",
+      "description": {
+        "purpose": "The dated changes to the ontology in force on the day, one row a change and a dataset it reaches",
+        "limitations": "A change that begins after the day isn’t listed. Its own step is there from the day after its first, once that day was run both ways",
+        "usage": "Join a table’s name to dataset, or read the rows whose reach is flow for a change about no one dataset"
+      },
+      "columns": [
+        {
+          "name": "change",
+          "type": "TEXT",
+          "description": "The change, by its id",
+          "classification": "internal",
+          "required": true,
+          "key": true
+        },
+        {
+          "name": "dataset",
+          "type": "TEXT",
+          "description": "A dataset it reaches; blank where it is about the flow as a whole",
+          "classification": "internal",
+          "key": true
+        },
+        {
+          "name": "reach",
+          "type": "TEXT",
+          "description": "How it reaches it: the change is about it, about something it is built from, or about the flow",
+          "classification": "internal",
+          "required": true,
+          "values": [
+            "direct",
+            "downstream",
+            "flow"
+          ]
+        },
+        {
+          "name": "kind",
+          "type": "TEXT",
+          "description": "Its kind, which says how history reads across it",
+          "classification": "internal",
+          "values": [
+            "business",
+            "retuned",
+            "corrected",
+            "source",
+            "described"
+          ]
+        },
+        {
+          "name": "from_day",
+          "type": "TEXT",
+          "description": "The first day it is in force",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "until_day",
+          "type": "TEXT",
+          "description": "Its last day, where it has one",
+          "classification": "internal"
+        },
+        {
+          "name": "what",
+          "type": "TEXT",
+          "description": "What it did, in words",
+          "classification": "internal"
+        },
+        {
+          "name": "why",
+          "type": "TEXT",
+          "description": "Why, in its author’s words",
+          "classification": "internal"
+        },
+        {
+          "name": "recorded_at",
+          "type": "TEXT",
+          "description": "When it was written down",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "recorded_by",
+          "type": "TEXT",
+          "description": "Who wrote it down",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "decided_by",
+          "type": "TEXT",
+          "description": "Who chose it, where that is someone else",
+          "classification": "internal"
+        },
+        {
+          "name": "decided_on",
+          "type": "TEXT",
+          "description": "The day it was chosen",
+          "classification": "internal"
+        },
+        {
+          "name": "agreed_by",
+          "type": "TEXT",
+          "description": "The owners of what it touches who agreed to it, where its kind asks for agreement",
+          "classification": "internal"
+        },
+        {
+          "name": "agreed_at",
+          "type": "TEXT",
+          "description": "When it had that agreement, and took effect",
+          "classification": "internal"
+        },
+        {
+          "name": "because_of",
+          "type": "TEXT",
+          "description": "The event that led to it",
+          "classification": "internal"
+        },
+        {
+          "name": "estate",
+          "type": "TEXT",
+          "description": "The shared ontology it is a change of, where it isn’t this flow’s own",
+          "classification": "internal"
+        },
+        {
+          "name": "step_day",
+          "type": "TEXT",
+          "description": "The day it was run both ways: its first day in force",
+          "classification": "internal"
+        },
+        {
+          "name": "step_measured",
+          "type": "INTEGER",
+          "description": "How many published measures were read both ways",
+          "classification": "internal"
+        },
+        {
+          "name": "step_moved",
+          "type": "INTEGER",
+          "description": "How many of them the change alone moved",
+          "classification": "internal"
+        },
+        {
+          "name": "step",
+          "type": "TEXT",
+          "description": "Each measure it moved, as it was and with the change",
+          "classification": "internal"
+        }
+      ],
+      "sla": {
+        "frequency": "daily",
+        "availableBy": "07:00 UTC",
+        "retention": "13 months"
+      }
+    },
+    "context_events": {
+      "id": "control-posture/context_events",
+      "version": "1.0.0",
+      "status": "active",
+      "description": {
+        "purpose": "What was going on that day, one row an event and a dataset it reaches",
+        "limitations": "Events are written by people: a day nothing was written of has no row. An event written after the day ran isn’t in that run’s rows",
+        "usage": "Join a table’s name to dataset; an event about the whole flow has reach flow and no dataset"
+      },
+      "columns": [
+        {
+          "name": "event",
+          "type": "TEXT",
+          "description": "The event, by its id",
+          "classification": "internal",
+          "required": true,
+          "key": true
+        },
+        {
+          "name": "dataset",
+          "type": "TEXT",
+          "description": "A dataset it reaches; blank where it is about the flow as a whole",
+          "classification": "internal",
+          "key": true
+        },
+        {
+          "name": "reach",
+          "type": "TEXT",
+          "description": "How it reaches it: the event is about it, about something it is built from, or about the flow",
+          "classification": "internal",
+          "required": true,
+          "values": [
+            "direct",
+            "downstream",
+            "flow"
+          ]
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "description": "What it is called",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "kind",
+          "type": "TEXT",
+          "description": "What kind of thing was going on",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "from_day",
+          "type": "TEXT",
+          "description": "Its first day",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "until_day",
+          "type": "TEXT",
+          "description": "Its last day, where it has ended or will",
+          "classification": "internal"
+        },
+        {
+          "name": "day_of",
+          "type": "INTEGER",
+          "description": "Which day of it this is, from one",
+          "classification": "internal"
+        },
+        {
+          "name": "days",
+          "type": "INTEGER",
+          "description": "How many days it lasts, where it has a last day",
+          "classification": "internal"
+        },
+        {
+          "name": "note",
+          "type": "TEXT",
+          "description": "What was going on, in its author’s words",
+          "classification": "internal"
+        },
+        {
+          "name": "excuses",
+          "type": "TEXT",
+          "description": "The learned checks of the dataset it excuses while it lasts",
+          "classification": "internal"
+        },
+        {
+          "name": "recorded_at",
+          "type": "TEXT",
+          "description": "When it was written down",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "recorded_by",
+          "type": "TEXT",
+          "description": "Who wrote it down",
+          "classification": "internal",
+          "required": true
+        }
+      ],
+      "sla": {
+        "frequency": "daily",
+        "availableBy": "07:00 UTC",
+        "retention": "13 months"
+      }
+    },
+    "context_in_force": {
+      "id": "control-posture/context_in_force",
+      "version": "1.0.0",
+      "status": "active",
+      "description": {
+        "purpose": "For each dataset of the day, the version of the ontology it was read under",
+        "limitations": "One flow’s datasets are read under one version a day: the hash says which, not what it holds",
+        "usage": "Join a table’s name to dataset; compare rules between two days to know whether the ontology changed between them"
+      },
+      "columns": [
+        {
+          "name": "dataset",
+          "type": "TEXT",
+          "description": "The dataset",
+          "classification": "internal",
+          "required": true,
+          "key": true
+        },
+        {
+          "name": "is",
+          "type": "TEXT",
+          "description": "A file the flow reads or a step it builds",
+          "classification": "internal",
+          "required": true,
+          "values": [
+            "file",
+            "step"
+          ]
+        },
+        {
+          "name": "flow",
+          "type": "TEXT",
+          "description": "The flow it belongs to, where the product reads it from another",
+          "classification": "internal"
+        },
+        {
+          "name": "day",
+          "type": "TEXT",
+          "description": "The day",
+          "classification": "internal"
+        },
+        {
+          "name": "rules",
+          "type": "TEXT",
+          "description": "The rules in force, by their hash",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "changes",
+          "type": "INTEGER",
+          "description": "How many dated changes that version is made of",
+          "classification": "internal",
+          "required": true
+        },
+        {
+          "name": "since_day",
+          "type": "TEXT",
+          "description": "The day the latest of them began; blank where the flow is as it was written",
           "classification": "internal"
         }
       ],

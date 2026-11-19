@@ -8,32 +8,13 @@
  * Pure. The build and the recorder put a recorded story's changes where they belong with it (scripts/flow.ts), and the
  * page the changes made there; what the page says of a change is follow.ts.
  */
-import type { ChangeSet, FlowDocument, FlowPart, RuleEdit } from './document.js';
+import { editTargets, type ChangeSet, type FlowDocument, type FlowPart } from './document.js';
+
+export { editTargets } from './document.js';
 import { nameColumn, nameColumnThrough, type NameOp } from './flowedit.js';
 import { flowHash } from './plan.js';
 
 const lower = (x: string) => x.toLowerCase();
-
-/** The datasets an edit is about: the file or step it names. A version's rules taken whole (`useVersion`) name none. */
-export function editTargets(edit: RuleEdit): string[] {
-  switch (edit.op) {
-    case 'setRule':
-      return [edit.rule.file];
-    case 'removeRule':
-    case 'switchRule':
-    case 'nameColumn':
-    case 'mapColumn':
-    case 'declareValues':
-    case 'declareKey':
-      return [edit.file];
-    case 'acceptBand':
-      return [edit.source];
-    case 'setCheck':
-      return [edit.node];
-    case 'useVersion':
-      return [];
-  }
-}
 
 /**
  * A flow's own document with the change sets that are about it (ADR 0026 §7): those with an edit about a file or step

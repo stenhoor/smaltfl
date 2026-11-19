@@ -1,5 +1,5 @@
 {
-  "smaltfl": 4,
+  "smaltfl": 5,
   "id": "estate",
   "name": "Control estate",
   "description": "Six hundred applications, typed, and twelve security controls, each its own daily file covering only the applications it applies to, with statuses in four words; five of the controls run on SLAs with due dates that cluster, so a pass rate can flip for a day without anything being wrong. A synthetic feed from a fixed seed (scripts/data/estate.ts) with three layers of trouble planted in March 2024: the obvious (a file with no rows, a column missing, a pass rate that collapses, a scanner outage, rows twice), the contradictions and scope (key rotation passing where encryption at rest fails; WAF rows for applications that aren't internet-facing; TLS rows missing for one business unit) and the look-alikes (due dates that cluster, with the usual share running late) beside one SLA day that is a real problem (six in ten DR exercises late). What the flow says of each is the next ADR's question.",

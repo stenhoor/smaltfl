@@ -369,6 +369,17 @@ describe('Evidence feeds’ own page, on the tour’s files', () => {
     expect(new Set(story.decisions.map((d: { by: string }) => d.by))).toEqual(new Set(['owner']));
     // The day the tour leaves for a visitor to decide is left here too: it is the day a decision is carried on.
     expect(story.decisions.some((d: { day: string }) => d.day === DAY)).toBe(false);
+    // A change to the rules of one of its files is this flow's too, the same change set (ADR 0027 §11: the WAF's band,
+    // said ahead): a decision is carried between the two pages only where Evidence feeds is the same flow on both. The
+    // catalogue's new control is the estate's, and not here.
+    const aboutOf = (c: { edits: { source?: string; file?: string; node?: string }[] }) => c.edits.flatMap((e) => [e.source, e.file, e.node]).filter((d): d is string => !!d);
+    type Change = { id: string; edits: { source?: string; file?: string; node?: string }[] };
+    expect(story.changes).toEqual((tour.changes as Change[]).filter((c) => aboutOf(c).some((d) => mine.has(d))));
+    expect((story.changes as Change[]).map((c) => c.id)).toEqual(['waf-band-tenth']);
+    // And what was written down as going on about one of its files, by its own owner here.
+    type Ev = { id: string; by: string; about?: string[] };
+    expect((story.events as Ev[]).map(bare)).toEqual((tour.events as Ev[]).filter((e) => e.about?.some((d) => mine.has(d))).map(bare));
+    expect((story.events as Ev[]).map((e) => [e.id, e.by])).toEqual([['log-migration', 'owner']]);
   });
 });
 

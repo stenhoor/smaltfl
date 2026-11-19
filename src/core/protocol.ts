@@ -4,6 +4,7 @@
  */
 import type { Repair } from './fill.js';
 import type { Claim, ClaimLevel, FillHold, Hold, Load, RunRef, StoryClaim2 } from './hold.js';
+import type { ClaimExcuse } from './events.js';
 import type { RunManifest } from './manifest.js';
 import type { Measures } from './measures.js';
 import type { Column } from './plan.js';
@@ -96,6 +97,8 @@ export interface SourceIngest {
 export interface TellFor {
   skip: string[];
   levels: ClaimLevel[];
+  /** What events excuse of the step, as known when the run starts (ADR 0027 §6, events.ts `excusesFor`); none: absent. */
+  excuses?: ClaimExcuse[];
 }
 
 /** How far verify goes (ADR 0006 §1): the stored hashes; then a recomputation; then decoding the source files again. */
@@ -223,7 +226,7 @@ export interface VerifyCheck {
    * (Q-171); flows: each flow the run names is the document's, its own document kept with the run hashes to the hash
    * it is named by, and the run's document holds it unchanged (ADR 0026 §2).
    */
-  check: 'stored' | 'rerun' | 'expectations' | 'coherent' | 'key' | 'published' | 'previous' | 'accounting' | 'flow' | 'flows' | 'file' | 'held' | 'repair' | 'gate' | 'contract';
+  check: 'stored' | 'rerun' | 'expectations' | 'coherent' | 'key' | 'published' | 'previous' | 'accounting' | 'flow' | 'flows' | 'file' | 'held' | 'repair' | 'gate' | 'contract' | 'closed';
   ok: boolean;
   expected?: string;
   actual?: string | null;

@@ -88,9 +88,24 @@ The owner can build on the flow from the page ([ADR 0026](../adr/0026-flows-in-f
   rows are kept and the columns to take, and name it. The form writes the join as a cell of `joins.nb.ts`, a notebook
   of the flow's own, and the day runs again: the new dataset has a card, and opens on its Explore tab. The cell is
   read back by the same parser that reads a flow's folder, so a join made here is a join written in the flow.
+- **Add a source ›**, above the canvas of any flow written as notebooks ([ADR 0027](../adr/0027-the-ontology-over-time)
+  §5): a source and its description are made together, through either of two doors.
+  - *Here is the data.* Pick a CSV file with a header. It is read in the browser and sent nowhere. The form proposes
+    its name, what one row is and its key, and lists every column with what its values read as. Before anything is
+    written you confirm what one row is, by which key, and every column: described in your words, or set aside (the
+    flow then doesn't take it, and nothing can read it). A column the ontology has a meaning for already needs no
+    words. With a reason, **Add it to the flow** writes the source as cells of `sources.nb.ts`, a notebook of the
+    flow's own, with a check step that warns of a row without its key; the file is kept in this browser, and the day
+    runs again with it.
+  - *Describe it first.* Say what the business needs before any file exists: its name, what one row is, its columns
+    and its key, with a reason. It is the ontology's from its day and **waits for data**: the Ontology page lists it
+    under *Described ahead of their data*. **Bind a file ›** then maps a file's columns onto the described ones: a
+    column under another name is read as the described one, a close name is yours to confirm, and the file's other
+    columns are described or set aside.
+  - A source added here is listed in the same sheet, with **Take it off**, where no step but its own check reads it.
 - Each is recorded in words, kept in this browser with every other edit, and listed under **Made here** in the
-  catalogue's sheet, with the way to take it back. *Back to the flow as shipped*, on the Ontology page, takes them all
-  away.
+  catalogue's sheet (a source, in *Add a source*), with the way to take it back. *Back to the flow as shipped*, on the
+  Ontology page, takes them all away.
 - A flow that reads no other and ships no catalogue has the join form all the same. Once a join is made, **Add a
   flow ›** is above its canvas too, and says the build ships no flow to add.
 
@@ -250,6 +265,87 @@ screen ([ADR 0022](../adr/0022-the-answers-of-2026-11-14) §1). It says first wh
 It asks someone who may publish a day, and the owner where it takes other rules.
 
 Edits are kept across a reload and listed with **Back to the flow as shipped**.
+
+### The ontology over time {#over-time}
+
+The ontology comes first, and every change to it is a dated record
+([ADR 0027](../adr/0027-the-ontology-over-time)). The head of the Ontology view is its **register**: on a phone a
+list, what is coming on top and then the months, newest first; from tablet width, lanes over the days, one row a
+thing's life. Each entry says its kind (the business changed, a setting re-tuned, a mistake corrected, the source
+changed), the day it is in force from and the day it was said, what it did, why in its author's words, and who
+decided. Every change made in the app asks for a kind and a reason. **What was going on** is written down beside the
+rules as events, which are context and no rule; an event may say what it excuses of the learned checks.
+
+- **Since when.** A rule, a kind, a relation and a redefined meaning each say since when they have stood, a tap from
+  the change that made them so.
+- **At the gate.** A list or a column the ontology closes lets in only what it has declared. What arrives that it
+  doesn't have stops what the file reaches, and the day's head offers three decisions: declare it from the day,
+  publish without it, or don't publish.
+- **Kinds and relations.** A map first: a box a kind of thing, a line a relation. **Two dates compared** picks any
+  two days and says each thing that differs, before and after, with the change that made it; on the map only what
+  differs is marked (`+` new, `×` ended, `~` changed, hatched where it is still to come). Behind a bar, each kind and
+  relation says what it is, since when, and whose it is where an estate's ontology says it. The owner adds, changes
+  and ends one that is the flow's own, each a dated change.
+- **What a row is, and a dependency,** are changed and ended the same way, from the line of a file's own checks.
+- **A meaning.** Edit what a column or a value means and the form asks which it is: **reworded** says the same thing
+  better, on every day, and the record keeps the old wording; **redefined** means something else from a day, with a
+  kind and a reason, and the days before keep the meaning they were made under. A name stays a label and changes at
+  once. A column an estate describes is the estate's to redefine.
+- **Nothing is deleted.** A thing ends from a day and the ontology keeps that it ended, with what follows it:
+  replaced by, merged into or split into. A kind ends once nothing names it. An ended entry of a closed list stops at
+  the gate from that day, and the gate says so.
+- **An estate's own changes.** An estate's ontology carries its own dated changes, and every flow that imports it
+  follows from the change's day. The register says whose the change is, and the flow can try it on its own recorded
+  days. Larkspur's estate adds one relation, *Acted for by*, from Mon Mar 11.
+- **A change's own step.** The build runs the first day of a change of the business both ways: as it was published,
+  and as a what-if on the same files under the rules as they were. What differs is the change's own, and its entry
+  says it: *Run both ways, the change alone moved coverage by −8.3, from 99.1 to 90.8*, or that it moved nothing.
+  *The day both ways* opens to the outputs that differ between the two runs. A coming change tried on the recorded
+  days gives the same figures before it starts. A change made in the app isn't measured yet; its entry says so.
+- **Charts across a change.** The month's trend shows what was published each day. A line is **cut** where a change
+  of the business moved it by itself, with a rule on that day and a flag that says the step: the two sides aren't one
+  trend. Every other change is a mark. *With the steps taken out ›* draws the cut lines again, dotted and labelled as
+  adjusted, beside the published ones. *Corrected since* lists the days a correction replaced, each with what it
+  first published. An event's band says what the event excuses.
+- **The checks after a declared change.** The series a change moved are at a new level from its first day, and the
+  learned checks learn from it from the day after. The first day's data is judged the old way: the month lists what
+  the change accounts for apart from the day's findings, and a dataset's own News says first that what follows is the
+  change's own step. A file's own finding stays a finding: data that changes with the business is told, and
+  accepted by a person.
+- **A column through its changes.** A finding's day by day carries a diamond on the day its column's meaning was
+  redefined, with the change a tap away. A value that ended is followed through: what it was replaced by, merged into
+  or split into, and from which day.
+- **Context that travels.** A notebook cell writes `context('changes')`, `context('events')` or
+  `context('in_force')` (from `smaltfl/notebook`) and has a table any cell after it can join to: the dated changes in
+  force on the run's day, a row a change and a dataset it reaches, with why, who decided and its own step; what was
+  going on, with what each event reaches and excuses; and, for each dataset, the version of the ontology it was read
+  under. The run makes their rows, so they are published, hashed and verified like any output: a product that
+  publishes them hands its readers the context with the data. Every card's sheet says the same of its dataset under
+  **Context**: what is in force and going on that reaches it, through which dataset, and why, read as known now, with
+  what was written down after the day's version ran said as such. A change also marks the charts of what it reaches,
+  on the month's rows and on each day by day chart. The tables say what a run was read under and are no data of its
+  day: a day whose data is the same under rules changed since isn't restated for them, and Compare lists them apart.
+- **Who decides.** The ontology names who owns each of its parts: an estate's shared ontology, and each flow's own
+  (**Who owns it**, at the head of the Ontology view's register). A change the business made, and one that ends
+  something, is in force only once an owner of each part it touches has agreed; a setting re-tuned, a mistake
+  corrected, a changed source and a first description need only their author. The form that asks why says whose
+  agreement the kind picked asks for. Where the person making the change owns what it touches, recording it is
+  agreeing to it, and the entry says one person held both roles. Otherwise it waits, first on the register and in
+  force on no day, until an owner agrees: pick them under **Viewing as** and the entry offers **Agree**. Every entry
+  says who agreed and when, and the offline audit holds each agreement to the owners the flow names.
+- **Who hears.** *Since you last looked:* the register opens with what is new and what has moved since whoever is
+  viewing last looked (a change agreed to, one now in force, an event over), each a tap from its entry; the home
+  screen says so in a line at its top, and a flow's sheet marks the change. **Got it** takes what is on screen as
+  seen. What you did yourself is no news to you, and the first look says nothing. *Pass it on,* under the register:
+  a digest of the month, the week or every day here, with what waits for someone, what is coming, what changed and
+  what was going on; copy it as text, as an image, or as a link that opens the same digest. *A feed:* each build
+  writes `feed.xml` beside the page, an Atom feed of the changes, what is coming and the events, each entry a link
+  to its place in the Ontology view.
+- **For an auditor.** **The history for an auditor, to print ›** (in *Pass it on*) shows, in place of the Ontology
+  view and over the period you pick, who owns each part of the ontology and every change with its kind, its reason,
+  who made it, who decided, who agreed, what it reached and its own step, then what was written down as going on.
+  **Print** prints it as it reads. **Export for audit** puts the same history, over every day here, in the bag
+  (`data/ontology/history.json`), and the offline check makes it again from the flow the record kept.
 
 ## The record and verify
 

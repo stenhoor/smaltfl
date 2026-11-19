@@ -6,11 +6,15 @@
  * with its own names. Nothing here reads data or knows a dataset.
  */
 
+import type { ContextTable } from './document.js';
+
 export type StepOp = 'table' | 'sql' | 'filter' | 'formula' | 'select' | 'join' | 'aggregate' | 'expect' | 'fill';
 
 export interface StepFacts {
   op: StepOp;
   origin: string;
+  /** A context table (ADR 0027 §8), by which of the three: its rows are the run's, and its statement only writes them out. */
+  context?: ContextTable;
   /** What the rows are called (the ontology's noun), for the sentences. */
   noun?: { one: string; many: string };
   /** Each input and its rows (null: closed to the viewer). */
@@ -72,8 +76,16 @@ export function sqlDoes(sql: string): { joins: boolean; outer: boolean; groups: 
 }
 
 /** What each kind of step does, in a sentence, for any flow. */
-export function opDoes(f: Pick<StepFacts, 'op' | 'inputs' | 'join' | 'filter' | 'aggregate' | 'sql' | 'expect'> & Partial<Pick<StepFacts, 'added'>>): string {
+/** What each context table is (ADR 0027 §8), as its step's sheet says it does. */
+export const CONTEXT_DOES: Readonly<Record<ContextTable, string>> = {
+  changes: 'Made by the run, not by a query: the dated changes to the ontology in force on the day, one row a change and a dataset it reaches, with its kind, why it was made, who decided it and what it alone moved on its first day.',
+  events: 'Made by the run, not by a query: what was going on that day as people wrote it down, one row an event and a dataset it reaches, with which day of it this is and what it excuses.',
+  in_force: 'Made by the run, not by a query: one row a dataset of the day, with the version of the ontology it was read under.',
+};
+
+export function opDoes(f: Pick<StepFacts, 'op' | 'inputs' | 'join' | 'filter' | 'aggregate' | 'sql' | 'expect'> & Partial<Pick<StepFacts, 'added' | 'context'>>): string {
   const names = f.inputs.map((i) => i.name);
+  if (f.context) return CONTEXT_DOES[f.context];
   switch (f.op) {
     case 'join': return `Matches each row of ${names[0]} with ${names[1] ?? 'another dataset'} by ${f.join ? list(f.join.on.map(([l, r]) => (l === r ? l : `${l} = ${r}`))) : 'a key'}, and adds its columns. ${f.join?.how === 'left' ? 'A row with no match is kept, with those columns blank.' : 'A row with no match is left out.'}`;
     case 'filter': return `Keeps only the rows where ${f.filter?.where ?? 'its condition holds'}.`;
@@ -118,11 +130,15 @@ export function stepStory(f: StepFacts): StepStory {
     } else if (f.op === 'expect' && f.expect) {
       const e = f.expect;
       if (e.dropped) lost.push({ why: 'broke a rule', rows: e.dropped });
+      // Rows a decision leaves out until the ontology has their entry (ADR 0027 §4): no rule dropped them.
+      const aside = e.rules.filter((r) => r.onFail === 'aside').reduce((a, r) => a + r.failed, 0);
+      if (aside) lost.push({ why: 'left out until the ontology has its entry', rows: aside });
       // A rule that stops the day (onFail 'fail'): its rows are kept, and the step fails, which holds what reads it.
       stops = e.rules.filter((r) => r.onFail === 'fail' && r.failed > 0).map((r) => ({ name: r.name, rows: r.failed }));
       const stopped = stops.length ? `${list(stops.map((r) => `${n(r.rows)} of ${rows(inn)} broke ${r.name}`))}, ${stops.length === 1 ? 'a rule that stops' : 'rules that stop'} the day: they were kept, and the step failed.` : null;
       head = e.dropped ? `${n(e.dropped)} of ${rows(inn)} broke a rule and were left out (${pct(e.dropped / Math.max(1, inn))}${e.maxDropped !== null ? `; the limit is ${pct(e.maxDropped)}` : ''}).${stopped ? ` ${stopped}` : ''}` : stopped ?? `Every one of ${rows(inn)} kept the rules.`;
       if (e.flagged) head += ` ${n(e.flagged)} were flagged and kept.`;
+      if (aside) head += ` ${n(aside)} ${aside === 1 ? 'was' : 'were'} left out until the ontology has ${aside === 1 ? 'its' : 'their'} entry, by a decision.`;
     } else if (out < inn && (f.op === 'filter' || f.op === 'fill' || (f.op === 'sql' && sqlDoes(f.sql ?? '').where && !sqlDoes(f.sql ?? '').joins && !sqlDoes(f.sql ?? '').union))) {
       lost.push({ why: f.op === 'filter' ? `the condition isn’t true` : 'left out by the query', rows: inn - out });
       head = `${rows(out)} of ${n(inn)} kept; ${n(inn - out)} (${pct((inn - out) / Math.max(1, inn))}) left out${f.op === 'filter' ? ` where ${f.filter?.where ?? 'its condition'} isn’t true` : ''}.`;

@@ -54,7 +54,10 @@
 //     "press": ["sel", "ArrowLeft"],      optional: after the taps, focus the first match and press each key in order
 //                                         (the month's arrow keys, ADR 0024 §7)
 //     "upload": ["sel", "file"],          optional: after the taps, choose this file (relative to the stops file) in a
-//                                         file input, and wait for the run it starts (Replace the file)
+//                                         file input, and wait for the run it starts (Replace the file); a third
+//                                         entry is what the file opens once read (a form), waited for
+//     "then": ["sel", ...],               optional: taps and typed fields after the file was chosen, as `clicks` are
+//                                         (a form the file opened, filled in and sent)
 //     "waitFor": "sel",                   optional: after the taps, wait until this shows (what a tap draws once the engine answers)
 //     "waitForMs": 240000,                optional: how long waitFor waits (default 30 s): what takes many runs to draw.
 //                                         The page may be at work that long in the stop, where it is more than the
@@ -90,6 +93,7 @@
 //   "download": "^smaltfl-audit-.*\.zip$" with "download": the file saved has this name (a regex) and isn't empty
 //   "audit": true                         with "download": the offline audit holds the bag downloaded
 //                                         (node scripts/audit.mjs check BAG.zip, what an auditor runs on it)
+//   "audit": ["…"]                        the same, and its report says each of these
 //
 // Writes <outDir>/<name>.png (TOUR_SHOTS) and <outDir>/metrics.json: per stop, the status line, the visible text of the
 // sheet (or the canvas page), its word count, its paragraphs of more than 25 words, the number of charts
@@ -633,9 +637,12 @@ function tracker() {
             const r = spawnSync(process.execPath, [path.join(repo, 'scripts', 'audit.mjs'), 'check', saved.path], { cwd: repo, encoding: 'utf8', timeout: 600000 });
             const said = `${r.stdout ?? ''}${r.stderr ?? ''}`;
             kept.audit = r.status !== 0 || !/The bag holds/.test(said) ? `the offline audit doesn't hold ${saved.name}: ${said.split('\n').filter((l) => /^FAIL|Error/.test(l)).slice(0, 3).join(' // ') || `exit ${r.status}`}` : null;
+            kept.auditSaid = said;
             if (kept.audit === null) console.log(`${stop.name}: the offline audit holds ${saved.name}`);
           }
           if (kept.audit) fail(kept.audit);
+          // Lines the audit must say of the bag (a list in place of true): what it checked, in its own words.
+          else for (const want of Array.isArray(x.audit) ? x.audit : []) if (!kept.auditSaid.includes(want)) fail(`the offline audit of ${saved.name} doesn't say "${want}"`);
         }
       }
     }
@@ -818,21 +825,25 @@ function tracker() {
           await idle();
         } else problems.push(`${stop.name}: nothing to double-click at ${stop.dblclick}`);
       }
-      for (const step of stop.clicks ?? []) {
-        const [sel, typed] = Array.isArray(step) ? step : [step];
-        const target = p.locator(sel).first();
-        if (!(await target.count())) problems.push(`${stop.name}: nothing to ${typed === undefined ? 'click' : 'type into'} at ${sel}`);
-        else if (typed !== undefined) {
-          if (await target.evaluate((el) => el.tagName === 'SELECT')) await target.selectOption(typed);
-          else await target.fill(typed);
-          await idle();
-        } else {
-          const before = await status();
-          await target.click();
-          await idle();
-          if (!HOOKED && ((await status()).split('|')[0] !== before.split('|')[0] || /Running|Fetching/.test(await status()))) await settledByStatus(before);
+      // Taps and typed fields, in order (a stop's `clicks`, and its `then` after a file was chosen).
+      const taps = async (steps) => {
+        for (const step of steps ?? []) {
+          const [sel, typed] = Array.isArray(step) ? step : [step];
+          const target = p.locator(sel).first();
+          if (!(await target.count())) problems.push(`${stop.name}: nothing to ${typed === undefined ? 'click' : 'type into'} at ${sel}`);
+          else if (typed !== undefined) {
+            if (await target.evaluate((el) => el.tagName === 'SELECT')) await target.selectOption(typed);
+            else await target.fill(typed);
+            await idle();
+          } else {
+            const before = await status();
+            await target.click();
+            await idle();
+            if (!HOOKED && ((await status()).split('|')[0] !== before.split('|')[0] || /Running|Fetching/.test(await status()))) await settledByStatus(before);
+          }
         }
-      }
+      };
+      await taps(stop.clicks);
       // Keys pressed with something focused (the month's calendar: the arrow keys move through its days).
       if (stop.press) {
         const [sel, ...keys] = stop.press;
@@ -848,7 +859,7 @@ function tracker() {
       }
       // A file chosen in a file input (Replace the file), relative to the stops file: the run it starts is waited for.
       if (stop.upload) {
-        const [sel, file] = stop.upload;
+        const [sel, file, shows] = stop.upload;
         const target = p.locator(sel).first();
         if (!(await target.count())) problems.push(`${stop.name}: nothing to choose a file in at ${sel}`);
         else {
@@ -856,8 +867,14 @@ function tracker() {
           await target.setInputFiles(path.resolve(path.dirname(stopsFile), file));
           await idle();
           if (!HOOKED) await settledByStatus(before);
+          // What the file opens once it is read (a form): waited for, so the taps after it find it.
+          if (shows) {
+            await p.waitForSelector(shows, { state: 'visible', timeout: 30000 }).catch(() => problems.push(`${stop.name}: ${shows} never showed after ${file} was chosen`));
+            await idle();
+          }
         }
       }
+      await taps(stop.then);
       if (stop.view && !stop.viewFirst) {
         await go(`#${stop.view}`);
         await idle();

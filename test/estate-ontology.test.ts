@@ -5,9 +5,11 @@
  */
 import { describe, expect, it } from 'vitest';
 import { composeFlow, type FlowFiles } from '../src/core/compose.js';
-import { validateDocument } from '../src/core/document.js';
+import { contextRows } from '../src/core/context.js';
+import { validateDocument, type FlowDocument } from '../src/core/document.js';
+import { resolve, rulesHash } from '../src/core/inforce.js';
 import { propertyOf, rowsOf } from '../src/core/ontology.js';
-import { flowHash } from '../src/core/plan.js';
+import { flowHash, translate } from '../src/core/plan.js';
 import { asEstate, estateHash, estateSays, isEstate, overrideProblems, SharedOntologyError, takeEstate, type EstateOntology } from '../src/core/shared.js';
 import { loadFlowDir, ts } from './helpers/notebooks.js';
 
@@ -238,6 +240,27 @@ describe('a flow read with the estate’s ontology it imports', () => {
     expect(await flowHash(sales)).not.toBe(await flowHash(await composeFlow('flow.json', files(SHOP()), ts)));
   });
 
+  it('keeps what a flow’s own ontology says beside it: the columns set aside, and a dataset described ahead of its data', async () => {
+    const five = (x: Record<string, unknown>) => Object.fromEntries(Object.entries(x).map(([k, v]) => [k, k.endsWith('flow.json') ? { ...(v as object), smaltfl: 5 } : v]));
+    const awaited = [{ id: 'returns', name: 'Returns', row: { one: 'return', many: 'returns' }, key: ['return_id'], columns: [{ column: 'return_id', description: 'The return' }, { column: 'sku', description: 'What came back' }] }];
+    const given = five(SHOP(
+      { objectTypes: [], linkTypes: [], actionTypes: [], aside: { orders: ['notes'] } },
+      { import: ['./ontology.json'], objectTypes: [], linkTypes: [], actionTypes: [], aside: { products: ['legacy_sku'] }, awaited },
+    ));
+    const orders = await composeFlow('orders/flow.json', files(given), ts);
+    expect(validateDocument(orders)).toEqual([]);
+    expect(orders.ontology!.aside).toEqual({ orders: ['notes'] });
+    // The reader has its own, and what the flow it reads set aside in its file.
+    const sales = await composeFlow('flow.json', files(given), ts);
+    expect(validateDocument(sales)).toEqual([]);
+    expect(sales.ontology!.aside).toEqual({ orders: ['notes'], products: ['legacy_sku'] });
+    expect(sales.ontology!.awaited).toEqual(awaited);
+    expect(sales.ontology!.estate).toHaveLength(1);
+    // A dataset described ahead in two flows is said twice.
+    const twice = five(SHOP({ objectTypes: [], linkTypes: [], actionTypes: [], awaited }, { import: ['./ontology.json'], objectTypes: [], linkTypes: [], actionTypes: [], awaited }));
+    await expect(composeFlow('flow.json', files(twice), ts)).rejects.toThrow(/the dataset described ahead returns is said by Orders and by Sales: the ontology says a thing once/);
+  });
+
   it('refuses a shared column said again without the mark, an override of another flow’s dataset, and a thing the estate says said again', async () => {
     const again = SHOP({ objectTypes: [], linkTypes: [], actionTypes: [], properties: [{ column: 'status', title: 'State', description: '', datasets: ['orders'] }] });
     await expect(composeFlow('orders/flow.json', files(again), ts)).rejects.toThrow(/Orders describes status on orders, which Shop’s ontology describes: an override says so/);
@@ -258,12 +281,15 @@ describe('Larkspur’s ontology, the estate’s', () => {
     const top = await loadFlowDir(dir);
     expect(top.ontology!.estate).toHaveLength(1);
     const { hash } = top.ontology!.estate![0]!;
-    expect(top.ontology!.estate![0]).toEqual({ name: 'Larkspur estate', path: 'ontology.json', hash });
+    // Its owners travel with where it came from (ADR 0027 §10): who agrees to a change of the estate's is said from the
+    // flow's document alone.
+    const owners = [{ id: 'ciso', name: 'Sloane Marsden' }];
+    expect(top.ontology!.estate![0]).toEqual({ name: 'Larkspur estate', path: 'ontology.json', hash, owners });
     expect(top.ontology!.objectTypes.map((t) => t.id)).toEqual(['org_unit', 'person', 'application', 'platform', 'control']);
     for (const id of ['hr', 'inventory', 'feeds', 'applications']) {
       const own = await loadFlowDir(new URL(`${id}/`, dir));
       expect(validateDocument(own)).toEqual([]);
-      expect(own.ontology!.estate).toEqual([{ name: 'Larkspur estate', path: '../ontology.json', hash }]);
+      expect(own.ontology!.estate).toEqual([{ name: 'Larkspur estate', path: '../ontology.json', hash, owners }]);
       expect(top.flows!.find((f) => f.id === id)!.hash).toBe(await flowHash(own));
     }
     // HR has its units and its people, and nothing of the applications; the feeds, which read the inventory, have
@@ -285,5 +311,36 @@ describe('Larkspur’s ontology, the estate’s', () => {
     // Everywhere else it is as the estate says it.
     expect(propertyOf(top.ontology, 'cmdb_apps', 'owner_team_id')).toEqual({ column: 'owner_team_id', title: 'Owning team', description: 'The team accountable for the application' });
     expect(top.ontology!.properties!.filter((p) => p.override)).toHaveLength(1);
+  });
+
+  it('changes the estate’s ontology once in March, and every flow follows from that day: who acts for a unit, a relation from Mon 11', async () => {
+    const top = await loadFlowDir(dir);
+    // Said on Fri 8 for Mon 11, by the estate: the change is the estate's in every flow that imports it.
+    expect(top.changes!.map((c) => [c.id, c.estate, c.from, c.recorded])).toEqual([['acting-leader', 'Larkspur estate', '2024-03-11', '2024-03-08T14:00:00Z']]);
+    const links = (d: FlowDocument, day: string, asOf?: string) => resolve(d, day, asOf).doc.ontology!.linkTypes.map((l) => l.id);
+    expect(links(top, '2024-03-10')).toEqual(['owned_by', 'reports_into', 'led_by', 'managed_by', 'runs_on']);
+    expect(links(top, '2024-03-11')).toEqual(['owned_by', 'reports_into', 'led_by', 'managed_by', 'runs_on', 'acted_for_by']);
+    // As known on the morning it was written down, Mon 11 was still read without it.
+    expect(links(top, '2024-03-11', '2024-03-08T09:00:00Z')).toEqual(['owned_by', 'reports_into', 'led_by', 'managed_by', 'runs_on']);
+    // HR has the units and the people: the relation is its too. The feeds have neither, and are as they were.
+    const hr = await loadFlowDir(new URL('hr/', dir));
+    expect(links(hr, '2024-03-11')).toEqual(['reports_into', 'led_by', 'managed_by', 'acted_for_by']);
+    const feeds = await loadFlowDir(new URL('feeds/', dir));
+    expect(feeds.changes!.map((c) => c.id)).toEqual(['acting-leader']);
+    expect(await rulesHash(resolve(feeds, '2024-03-11').doc)).toBe(await rulesHash(resolve(feeds, '2024-03-10').doc));
+    expect(await rulesHash(resolve(hr, '2024-03-11').doc)).not.toBe(await rulesHash(resolve(hr, '2024-03-10').doc));
+    // A relation is no step: the day's plan is the plan it was before the relation was known, but for the tables of
+    // the product's context (ADR 0027 §8), which say the change and the version of the rules it makes.
+    const nodesOf = async (asOf?: string) => (await translate(top, { day: '2024-03-11' }, asOf ? { asOf } : {})).nodes;
+    const [known, before] = [await nodesOf(), await nodesOf('2024-03-08T09:00:00Z')];
+    const plain = (nodes: typeof known) => nodes.filter((n) => !(n.op === 'sql' && n.context));
+    expect(plain(known)).toEqual(plain(before));
+    expect(plain(known)).toHaveLength(known.length - 3);
+    const changes = (nodes: typeof known) => (nodes.find((n) => n.origin === 'context_changes') as { context: { rows: unknown[][] } }).context.rows.map((r) => r[0]);
+    expect(changes(known)).toEqual(['acting-leader']);
+    expect(changes(before)).toEqual([]);
+    // The feeds have no part in the relation: it is no change of theirs, and their context has none.
+    expect((await contextRows(feeds, '2024-03-11', null)).changes).toEqual([]);
+    expect((await contextRows(hr, '2024-03-11', null)).changes.map((r) => r[0])).toEqual(['acting-leader']);
   });
 });

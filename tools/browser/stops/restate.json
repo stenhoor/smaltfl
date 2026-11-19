@@ -1,7 +1,7 @@
 [
   {
     "name": "restate-from",
-    "what": "Sign-ins, Fri Mar 1, the Ontology view: the rules in force on the day on screen by hash, as shipped; edits take effect from the day on screen, chosen over the next day to arrive (Sat Mar 23), and what that reaches: all 21 recorded days, 17 of them published, run again under the new rules and restated by one decision (ADR 0021 §5, Q-197)",
+    "what": "Sign-ins, Fri Mar 1, the Ontology view: the rules in force on the day on screen by hash, as shipped; edits take effect from the day on screen, chosen over the next day to arrive (Tue Mar 26), and what that reaches: all 21 recorded days, 17 of them published, run again under the new rules and restated by one decision (ADR 0021 §5, Q-197)",
     "day": "Fri 1",
     "view": "ontology",
     "viewFirst": true,
@@ -11,8 +11,8 @@
       "pageText": [
         "The rules in force on Fri Mar 1",
         "as shipped",
-        "the next day to arrive, Sat Mar 23",
-        "Back-dated: 22 recorded days (Fri Mar 1 to Fri Mar 22, 17 published) run again under the new rules, and one decision restates them."
+        "the next day to arrive, Tue Mar 26",
+        "Back-dated: 25 recorded days (Fri Mar 1 to Mon Mar 25, 17 published) run again under the new rules, and one decision restates them."
       ]
     }
   },
@@ -31,7 +31,7 @@
     "expect": {
       "pageText": [
         "On once saved: it is recorded, and enforced from the day below.",
-        "Back-dated: 22 recorded days (Fri Mar 1 to Fri Mar 22, 17 published) run again under the new rules, and one decision restates them."
+        "Back-dated: 25 recorded days (Fri Mar 1 to Mon Mar 25, 17 published) run again under the new rules, and one decision restates them."
       ]
     }
   },
@@ -43,7 +43,9 @@
     "clicks": [
       [".of-rule-form input[type=number] >> nth=1", "10000"],
       [".of-rule-form select:has(option[value=hold])", "hold"],
-      ".of-rule-form button[type=submit]"
+      ".of-rule-form button[type=submit]",
+      [".vf-detail .wy-reason", "A sign-in slower than 10 s is an outage"],
+      ".vf-detail .wy-go"
     ],
     "waitFor": ".vf-detail .rs-days",
     "waitForMs": 300000,
@@ -54,10 +56,12 @@
         "Changed a rule in auth: Latency is from 0 to 10,000 ms, else hold the day",
         "Mon Mar 4 published → held: auth_valid: expectations failed: latency_ms_range (1 row)",
         "Wed Mar 6 published → held: auth_valid: expectations failed: latency_ms_range (1 row)",
-        "20 days came out the same",
+        "23 days came out the same",
         "Restate 2 days"
       ],
-      "count": { ".vf-detail .rs-day input:checked": 2 }
+      "count": {
+        ".vf-detail .rs-day input:checked": 2
+      }
     }
   },
   {
@@ -123,7 +127,7 @@
     "view": "runs",
     "expect": {
       "pageText": [
-        "Restated 1 day (Mon 4) under rules changed since, from Fri Mar 1; 1 day left as readers had it; 20 days the same: “A sign-in slower than 10 s is an outage: such a day waits”",
+        "Restated 1 day (Mon 4) under rules changed since, from Fri Mar 1; 1 day left as readers had it; 23 days the same: “A sign-in slower than 10 s is an outage: such a day waits”",
         "again under rules changed since: held by auth_valid"
       ]
     }
@@ -137,7 +141,8 @@
     "expect": {
       "pageText": [
         "1 change set",
-        "From Fri Mar 1 Changed a rule in auth: Latency is from 0 to 10,000 ms, else hold the day",
+        "From Fri 1",
+        "Changed a rule in auth: Latency is from 0 to 10,000 ms, else hold the day",
         "recorded"
       ],
       "loads": { "Mon 4": "restated under rules changed since, held under them: not published", "Wed 6": "!restated" }

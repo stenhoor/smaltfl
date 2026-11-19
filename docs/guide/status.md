@@ -26,18 +26,27 @@ detail, how to check it and what is left are in [where the work stands](../HANDO
 ## Demos
 
 - [The tour](/app/){target="_self"}: Larkspur, a fictional financial-services group, about 2,400 applications, its
-  organisation and shared platforms, on a February and March made to show what a flow does, in six scenes listed on
-  its month ([ADR 0023](../adr/0023-the-demo-as-a-tour)).
+  organisation and shared platforms, on a February and March made to show what a flow does, in seven scenes listed on
+  its month ([ADR 0023](../adr/0023-the-demo-as-a-tour); the seventh, a change to the ontology, is
+  [ADR 0027](../adr/0027-the-ontology-over-time)'s).
 - [Evidence feeds' own page](/feeds/){target="_self"}: one of the estate's flows as a page of its own on the tour's
   files; a paused day decided there or on the tour is carried to the other ([ADR 0026](../adr/0026-flows-in-flows) §6).
 - [Larkspur's planted month](/larkspur/){target="_self"}: the same group, six months of history and a planted March at
   every layer, bronze to gold; ADR 0020's answer key, the posture over the month and the rules changed over time.
+  Its trend is read across a change ([ADR 0027](../adr/0027-the-ontology-over-time) §7): the build ran the first day
+  of each change of the business both ways, the coverage is cut on Wed Mar 27 where the catalogue's new control moved
+  it by 8.3 points, and the checks learn from the new level from the day after.
 - [The control estate](/estate/){target="_self"}: 600 applications, twelve controls, a year of history and a planted
   March; the answer key the gates were built against, kept as a regression, and a day whose TLS file renames the
   column every control is joined on.
 - [The sign-in log](/signins/){target="_self"}: a year of generated sign-ins, the shared ontology's rules and fixes,
-  two days only the models see, and two days whose files changed their columns (a column added on Thu Mar 7, one
-  renamed on Fri Mar 22).
+  two days only the models see, two days whose files changed their columns (a column added on Thu Mar 7, one
+  renamed on Fri Mar 22), and three days at the gate ([ADR 0027](../adr/0027-the-ontology-over-time) §4): Method is a
+  closed column, magic links arrive on Sat Mar 23 and codes by text message on Sun Mar 24, each waiting for someone
+  to declare it, publish without it or not publish. **Add a source ›**, above its canvas, is where a file of your
+  own is described and added, or a dataset described before its data (§5). On any of them the Ontology view's
+  **Kinds and relations** is where a kind of thing, a relation, what a row is and a dependency are added, changed
+  and ended from a day, and a column's card is where its meaning is reworded or redefined (§3).
 
 ## Depends on
 

@@ -4,7 +4,7 @@
 // organisation's chain (dim_org, dim_app, org_posture) holds when the chain breaks; the facts and the scorecards read the
 // teams themselves and publish.
 import { cell, md, param, sql } from 'smaltnb';
-import { check, gate, publish } from 'smaltfl/notebook';
+import { check, context, gate, publish } from 'smaltfl/notebook';
 import { control_catalog_checked, control_requirements_checked, exceptions_checked } from './bronze.nb.js';
 import { findings_checked } from './feeds/bronze.nb.js';
 import { leaders, org_chain, org_closure } from './hr/org.nb.js';
@@ -307,6 +307,20 @@ export const remediation_queue = sql`
 cell('remediation_queue_gate');
 export const remediation_queue_gate = gate(remediation_queue, { layer: 'gold', reconcile: { key: ['app_id', 'control_id'] } });
 
+cell('about_context', { lang: 'md' });
+md`# Its context
+
+What a reader needs to read a day of the product across a change, made by the run for its day and published with the facts (ADR 0027 §8). **context_changes**: the dated changes to the ontology in force that day, one row a change and a dataset it reaches, with its kind, the day it began, what it did and why in its author's words, who decided it, and what the change alone moved on its first day. **context_events**: what was going on that day, one row an event and a dataset it reaches, with which day of it this is and what it excuses. **context_in_force**: one row a dataset, with the version of the ontology it was read under. Join a table's name to \`dataset\`.`;
+
+cell('context_changes');
+export const context_changes = context('changes');
+
+cell('context_events');
+export const context_events = context('events');
+
+cell('context_in_force');
+export const context_in_force = context('in_force');
+
 cell('published');
 publish(dim_org, { description: 'Control Posture v1: the organisation, one row a unit, with its path, its leader and the leader at each level' });
 publish(dim_app, { description: 'Control Posture v1: the applications, with their owner chain; Unassigned and Unregistered say what is unknown' });
@@ -318,3 +332,6 @@ publish(org_posture, { description: 'Control Posture v1: every unit, over the ap
 publish(exceptions_register, { description: 'Control Posture v1: the risk register, one row an exception' });
 publish(remediation_queue, { description: 'Control Posture v1: what is failing, for ticketing' });
 publish(failing_by_unit, { description: 'Control Posture v1: what is failing, by the units that own it' });
+publish(context_changes, { description: 'Control Posture v1: the dated changes in force that day, with what each reaches, why, and its own step' });
+publish(context_events, { description: 'Control Posture v1: what was going on that day, with what each event reaches and excuses' });
+publish(context_in_force, { description: 'Control Posture v1: the version of the ontology each dataset was read under' });

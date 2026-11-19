@@ -5,8 +5,8 @@
 **[Open the demo](/app/){target="_self"}**: a tour of what a flow does, on Larkspur, a fictional financial-services
 group's March of security controls. About 2,400 applications, the organisation that owns them and the 46 shared
 platforms they run on: twenty files a day, through bronze, silver and a gold data product, run entirely in your
-browser. The month lists six scenes: a normal day, a warning, a written check's hold, an anomaly that was real, one
-that was an issue, and fills each way. The first day takes a few seconds while the engine starts.
+browser. The month lists seven scenes: a normal day, a warning, a written check's hold, an anomaly that was real, one
+that was an issue, fills each way, and the business changing what the ontology has. The first day takes a few seconds while the engine starts.
 
 One of its flows has a page of its own, **[Evidence feeds](/feeds/){target="_self"}**: a paused day decided there or
 on the tour is carried to the other.
@@ -19,7 +19,7 @@ models' planted days.
 Nothing is sent anywhere: the data files, the engine (smaltdb, in a Web Worker) and the record of what was decided
 all live in the page and your browser's storage.
 
-Then read [the tour](./demo): the six scenes, ten minutes.
+Then read [the tour](./demo): the seven scenes, ten minutes.
 
 ## What you are looking at
 

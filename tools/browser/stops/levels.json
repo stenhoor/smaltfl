@@ -46,7 +46,7 @@
   },
   {
     "name": "levels-sheet",
-    "what": "A flow's sheet, from its card (ADR 0026 §4): what its day came to as a state and its extent, never a score; Open the flow; what holds it, a tap from the card inside; the flows it reads, each with its own day; what it gives, each with whether today's went out and who reads it; the hash it is known by",
+    "what": "A flow's sheet, from its card (ADR 0026 §4): what its day came to as a state and its extent, never a score; Open the flow; what holds it, a tap from the card inside; the flows it reads, each with its own day; what it gives, each with whether today's went out and who reads it; the hash it is known by. The rule changed for one of its files is listed under What changed, in the rule's own words",
     "day": "Wed 27",
     "flow": "feeds",
     "full": true,
@@ -67,9 +67,11 @@
         "13 files, 25 steps of its own.",
         "Its files are sealed: each matches the data’s list, as the engine hashed it.",
         "Read by Larkspur estate, Applications. Known by",
-        "the same flow, with the same hash, wherever it is read."
+        "the same flow, with the same hash, wherever it is read.",
+        "WHAT CHANGED",
+        "From Mon Mar 25: Accepted a new band in waf: Status Fail between 0% and 10%"
       ],
-      "noText": ["%", "score"],
+      "noText": ["score"],
       "count": {
         "#sheet .fl-day.fo-waiting": 1,
         "#sheet .fl-row[data-inside=\"access_reviews\"]": 1,
@@ -77,6 +79,9 @@
         "#sheet .fl-row.fl-given.fo-waiting": 1,
         "#sheet .fl-row[data-flow=\"inventory\"]": 1,
         "g.card.flow.selected": 1
+      },
+      "noTextIn": {
+        "#sheet .fl-day": ["%", "score"]
       }
     }
   },
@@ -195,15 +200,20 @@
     }
   },
   {
-    "name": "levels-next-day",
-    "what": "Stepping to the next day stays inside the flow on screen (ADR 0026 §4): each level has a link, and the day's buttons keep it",
-    "click": ".dh-step button:last-child",
+    "name": "levels-other-day",
+    "what": "Stepping to another day stays inside the flow on screen (ADR 0026 §4): each level has a link, and the day's buttons keep it. The day before, Tue Mar 26: Thu Mar 28 has two versions since the catalogue's control was declared (ADR 0027 §11), and opening it would be two runs",
+    "click": ".dh-step button:first-child",
     "waitFor": "#status[data-state=\"done\"]",
     "waitForMs": 120000,
     "expect": {
-      "status": "^Thu Mar 28",
-      "textIn": { "#crumbs": ["Applications", "Evidence feeds", "Normal · 13 files, 25 steps"] },
-      "count": { "#crumbs .crumb-trail li": 3, "g.card.source": 13 }
+      "status": "^Tue Mar 26",
+      "textIn": {
+        "#crumbs": ["Applications", "Evidence feeds", "Normal · 13 files, 25 steps"]
+      },
+      "count": {
+        "#crumbs .crumb-trail li": 3,
+        "g.card.source": 13
+      }
     }
   },
   {
@@ -211,9 +221,14 @@
     "what": "A level's link opens it again (ADR 0026 §4): after a reload the page is on the same day, inside the same flow",
     "reload": true,
     "expect": {
-      "status": "^Thu Mar 28",
-      "textIn": { "#crumbs": ["Applications", "Evidence feeds"] },
-      "count": { "#crumbs .crumb-trail li": 3, "g.card.source": 13 }
+      "status": "^Tue Mar 26",
+      "textIn": {
+        "#crumbs": ["Applications", "Evidence feeds"]
+      },
+      "count": {
+        "#crumbs .crumb-trail li": 3,
+        "g.card.source": 13
+      }
     }
   },
   {

@@ -35,8 +35,9 @@
  */
 import { buildGraph } from 'smaltnb/graph';
 import { importSpecifiers, moduleOf, parseNotebook, type Cell, type Notebook, type TypeScriptKit } from 'smaltnb/format';
-import { filePath, GROUP_COLORS, usedName, usePath, usesOf, type CellRef, type ExpectationRule, type FlowDocument, type FlowUse, type GroupDef, type InputDef, type Issue, type NotebookDef, type NotebookOutline, type OutlineCell, type StepDef } from './document.js';
-import { emitPort } from './emit.js';
+import { CONTEXT_TABLES, filePath, GROUP_COLORS, usedName, usePath, usesOf, type CellRef, type ContextTable, type ExpectationRule, type FlowDocument, type FlowUse, type GroupDef, type InputDef, type Issue, type NotebookDef, type NotebookOutline, type OutlineCell, type StepDef } from './document.js';
+import { CONTEXT_COLUMNS } from './context.js';
+import { emitPort, emitRows } from './emit.js';
 import { gateProblems, layerOf, type GateDef } from './gates.js';
 import { PlanError } from './plan.js';
 import { literal } from './sqltext.js';
@@ -366,6 +367,10 @@ export async function stepsOfNotebooks(doc: Pick<FlowDocument, 'notebooks' | 'so
       if (c.kind === 'sql') {
         const r = sqlOf(c.text, (n) => resolve(parsed, n), (m) => add(where, m), settingOf(parsed));
         if (r) step = { kind: 'sql', inputs: r.inputs, sql: r.sql, ...base };
+      } else if (c.kind === 'context') {
+        // A context table (ADR 0027 §8): a step that reads nothing. Its statement here is the table with no rows, which
+        // says its columns; the plan has the day's rows in its place.
+        step = { kind: 'sql', inputs: [], sql: emitRows(CONTEXT_COLUMNS[c.table], []), context: c.table, ...base };
       } else if (c.kind === 'check' || c.kind === 'fill') {
         const input = idOf(parsed, c.input);
         if (!input) {
@@ -496,6 +501,7 @@ type Classified =
   | { kind: 'check'; input: string; rules: ExpectationRule[]; maxDropped?: number; ontology?: Record<string, 'on' | 'off'> }
   | { kind: 'fill'; input: string; time?: string; shift: string[] }
   | { kind: 'gate'; input: string; options: Record<string, unknown> }
+  | { kind: 'context'; table: ContextTable }
   | { kind: 'df' };
 
 /** What a cell is, from its own code; null (with an issue) when it isn't anything a flow runs. */
@@ -535,6 +541,15 @@ function classify(parsed: Parsed, cell: Cell, ts: TypeScriptKit, reading: Readin
       return null;
     }
     return { kind: 'input', id: found };
+  }
+  if (marker === 'context') {
+    // A context table (ADR 0027 §8): one of the three, by its name.
+    const table = decl!.args[0] !== undefined ? literalValue(tree, ts, decl!.args[0]) : undefined;
+    if (typeof table !== 'string' || !(CONTEXT_TABLES as readonly string[]).includes(table)) {
+      add(where, `context() names a context table${typeof table === 'string' ? `, and ${table} isn't one` : ''} (${CONTEXT_TABLES.join(', ')})`);
+      return null;
+    }
+    return { kind: 'context', table: table as ContextTable };
   }
   if (marker === 'gate') {
     const [first, second] = decl!.args;
@@ -580,7 +595,7 @@ function classify(parsed: Parsed, cell: Cell, ts: TypeScriptKit, reading: Readin
     add(where, `${cell.id} is a cypher cell: a flow runs sql and df cells and its own (source(), check(), fill(), gate(), publish(), param()), not cypher`);
     return null;
   }
-  add(where, `not a step a flow runs: a sql cell (const ${cell.id} = sql\`…\`), a df cell, source(), input(), check(), fill(), gate(), publish() or param()`);
+  add(where, `not a step a flow runs: a sql cell (const ${cell.id} = sql\`…\`), a df cell, source(), input(), context(), check(), fill(), gate(), publish() or param()`);
   return null;
 }
 

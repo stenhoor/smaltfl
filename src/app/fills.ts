@@ -11,6 +11,7 @@
  */
 import { fixesOf, fixOfDonor } from '../core/rules.js';
 import { donorBinding, pinnedDdl, type Binding } from '../../examples/sources.js';
+import type { ContextRows } from '../core/context.js';
 import { fillStepOf, type FlowDocument } from '../core/document.js';
 import { donorChoices, donorRuleOf, fillCounts, missingFor, offersOf, repairDocument, type DonorPick, type FillCounts, type Missing, type NoDonor, type Offer, type Repair } from '../core/fill.js';
 import type { HistoryRanges } from '../core/history.js';
@@ -107,12 +108,12 @@ export async function pinDonor(engine: Engine, source: string, binding: Binding,
  * run's parameters, with the day's claim and the donor's, every output held whatever else holds, naming the held run it
  * repairs. Its versions are kept and hashed like any run's, and go out only by a decision's release.
  */
-export async function stageRepair(engine: Engine, o: { doc: FlowDocument; held: RunResult; repair: Repair; claims: readonly Claim[]; smaltdb: string; data: { commit: string; manifest: string } | null; log: { origin: string; size: number; root: string } | null; tell?: Record<string, TellFor> }): Promise<{ doc: FlowDocument; result: RunResult }> {
+export async function stageRepair(engine: Engine, o: { doc: FlowDocument; held: RunResult; repair: Repair; claims: readonly Claim[]; smaltdb: string; data: { commit: string; manifest: string } | null; log: { origin: string; size: number; root: string } | null; tell?: Record<string, TellFor>; context?: ContextRows }): Promise<{ doc: FlowDocument; result: RunResult }> {
   const doc = repairDocument(o.doc, o.repair);
   const claims = [...o.claims, ...(o.repair.donor ? [o.repair.donor.claim] : [])];
   // The watched steps it builds are told again by the engine, of the filled rows (ADR 0023 §5), from what the page says
   // of the record, as a day's own run tells them.
-  const result = await runFlow(engine, doc, { smaltdb: o.smaltdb, parameters: { ...o.held.manifest.parameters } as Record<string, string>, data: o.data, log: o.log, claims, stage: true, from: { run: o.held.run, manifest: o.held.hash }, ...(o.tell && Object.keys(o.tell).length ? { tell: o.tell } : {}) });
+  const result = await runFlow(engine, doc, { smaltdb: o.smaltdb, parameters: { ...o.held.manifest.parameters } as Record<string, string>, data: o.data, log: o.log, claims, stage: true, from: { run: o.held.run, manifest: o.held.hash }, ...(o.tell && Object.keys(o.tell).length ? { tell: o.tell } : {}), ...(o.context ? { context: o.context } : {}) });
   return { doc, result };
 }
 

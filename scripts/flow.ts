@@ -10,6 +10,7 @@ import { composeAll, composeFlow, type FlowFiles } from '../src/core/compose.js'
 import type { ChangeSet, FlowDocument } from '../src/core/document.js';
 import { attributeChanges } from '../src/core/attribute.js';
 import { asEstate, type EstateFrom, type EstateOntology } from '../src/core/shared.js';
+import { undescribed, undescribedSaid } from '../src/core/described.js';
 
 /**
  * A flow from disk (compose.ts): the shared ontologies it imports brought in (shared.ts: each starting file's meanings
@@ -19,6 +20,23 @@ import { asEstate, type EstateFrom, type EstateOntology } from '../src/core/shar
  */
 export async function readFlow(path: string): Promise<FlowDocument> {
   return composeFlow(basename(path), filesIn(dirname(path)), smaltty);
+}
+
+/**
+ * What a format-5 flow still lacks before the ontology comes first for it (ADR 0027 §4, described.ts), by the columns
+ * its data's list declares: each source in a sentence, none where every source says what a row is and every column it
+ * declares is described. A flow in an older format is asked nothing.
+ */
+export async function undescribedIn(path: string): Promise<string[]> {
+  const doc = await readFlow(path);
+  if (doc.smaltfl !== 5) return [];
+  let sources: Record<string, { columns?: [string, string][] }> = {};
+  try {
+    sources = (JSON.parse(readFileSync(bindingsPath(path), 'utf8')) as { sources?: typeof sources }).sources ?? {};
+  } catch {
+    // No data list beside the flow (one a flow reads from, or a catalogue's): its columns aren't known here.
+  }
+  return undescribed(doc, (id) => sources[id]?.columns?.map((c) => c[0]) ?? null).map(undescribedSaid);
 }
 
 /** A flow's files, each by its path from the flow's folder. */

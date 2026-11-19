@@ -12,7 +12,7 @@
  */
 import { canonicalJSON } from './canonical.js';
 import { validateDocument, type FlowDocument, type StepDef } from './document.js';
-import { propertyOf, saysMore, type Ontology, type PropertyType } from './ontology.js';
+import { propertyOf, saysMore, type AwaitedDataset, type Ended, type LinkType, type NeedsDef, type ObjectType, type Ontology, type PropertyType, type RowsDef } from './ontology.js';
 import { syncRuleCells, writeRuleSwitches } from './gatecell.js';
 import { ACTION_SAID, checkStepOf, newRuleId, ruleOn, ruleSaid, switchesFor, type OntologyRule } from './rules.js';
 
@@ -284,6 +284,11 @@ function ruleEntry(r: RuleInput & { id: string }): OntologyRule {
     ...(r.kind === 'range' && r.min !== undefined ? { min: r.min } : {}),
     ...(r.kind === 'range' && r.max !== undefined ? { max: r.max } : {}),
     ...(r.kind === 'when' && r.when ? { when: { column: r.when.column, values: [...new Set(r.when.values.map((v) => v.trim()).filter((v) => v !== ''))] } } : {}),
+    // A closed list or column (ADR 0027 §4): what defines an entry, the entries in the order they were declared, and the
+    // keys left out, each only where there is any.
+    ...(r.kind === 'closed' && r.defines?.length ? { defines: [...r.defines] } : {}),
+    ...(r.kind === 'closed' ? { entries: (r.entries ?? []).map((e) => [...e]) } : {}),
+    ...(r.kind === 'closed' && r.leftOut?.length ? { leftOut: [...r.leftOut] } : {}),
     action: r.action,
   };
 }
@@ -313,6 +318,330 @@ export function setRule(doc: FlowDocument, input: RuleInput, add = false): { doc
   const next = syncRuleCells(defined);
   const words = `${ruleSaid(next.ontology, entry)}, else ${ACTION_SAID[entry.action]}`;
   return { doc: next, said: was ? `Changed a rule in ${entry.file}: ${words} (it was: ${ruleSaid(o, was)}, else ${ACTION_SAID[was.action]})` : `Added a rule to ${entry.file}: ${words}` };
+}
+
+// ------------------------------------------------------------------ columns set aside (ADR 0027 §4)
+
+/**
+ * A file's column set aside, or taken in again (ADR 0027 §4, Q-254): named in `ontology.aside` as one the flow doesn't
+ * take, so that every column the file has is either described or set aside. It says how the file is read, as a name
+ * does, so it holds for every day (Q-198). Null `said` where it changes nothing.
+ */
+export function setAside(doc: FlowDocument, file: string, column: string, aside: boolean): { doc: FlowDocument; said: string | null } {
+  const o = ontologyOf(doc);
+  const source = doc.sources.find((x) => lower(x.id) === lower(file))?.id ?? file;
+  const was = Object.entries(o.aside ?? {}).find(([f]) => lower(f) === lower(source));
+  const had = was?.[1] ?? [];
+  const has = had.some((c) => lower(c) === lower(column));
+  if (has === aside) return { doc, said: null };
+  const next = aside ? [...had, column] : had.filter((c) => lower(c) !== lower(column));
+  const rest = Object.fromEntries(Object.entries(o.aside ?? {}).filter(([f]) => lower(f) !== lower(source)));
+  const all = next.length ? { ...rest, [source]: next } : rest;
+  const { aside: _aside, ...bare } = o;
+  return { doc: { ...doc, ontology: Object.keys(all).length ? { ...bare, aside: all } : bare }, said: aside ? `Set ${source}’s column ${column} aside: the flow doesn’t take it` : `Took ${source}’s column ${column} back from aside` };
+}
+
+// ------------------------------------------------------------------ described ahead of its data (ADR 0027 §5)
+
+/** "a vendor", "an application": one of them, with its article. */
+const oneOfThem = (one: string) => `${/^[aeiou]/i.test(one.trim()) ? 'an' : 'a'} ${one.trim()}`;
+
+/** A dataset described ahead, as the ontology keeps it: its settings in one order, nothing else carried. */
+const awaitedEntry = (d: AwaitedDataset): AwaitedDataset => ({
+  id: d.id,
+  name: d.name.trim(),
+  ...(d.description?.trim() ? { description: d.description.trim() } : {}),
+  row: { one: d.row.one.trim(), many: d.row.many.trim() },
+  key: [...d.key],
+  columns: d.columns.map((c) => ({ column: c.column, ...(c.title?.trim() ? { title: c.title.trim() } : {}), description: c.description.trim() })),
+});
+
+/**
+ * A dataset described before its data exists (ADR 0027 §5, Q-255, "Describe it first"): written into the ontology's
+ * `awaited`, in place of an earlier description of the same dataset. It waits for data until a source of its name is
+ * in the flow. Null `said` where the ontology has it so already.
+ */
+export function describeAhead(doc: FlowDocument, dataset: AwaitedDataset): { doc: FlowDocument; said: string | null } {
+  const o = ontologyOf(doc);
+  const entry = awaitedEntry(dataset);
+  const had = (o.awaited ?? []).find((a) => lower(a.id) === lower(entry.id));
+  if (had && canonicalJSON(had as never) === canonicalJSON(entry as never)) return { doc, said: null };
+  const awaited = had ? o.awaited!.map((a) => (a === had ? entry : a)) : [...(o.awaited ?? []), entry];
+  const what = `one row is ${oneOfThem(entry.row.one)}, by ${listed(entry.key)}; ${entry.columns.length} ${entry.columns.length === 1 ? 'column' : 'columns'}`;
+  // Described again after its description ended (§2), it is one again: the record that it ended goes.
+  const again = (o.ended ?? []).filter((e) => !(e.what === 'awaited' && lower(e.id) === lower(entry.id)));
+  const { ended: _ended, ...rest } = o;
+  return { doc: { ...doc, ontology: { ...rest, ...(again.length ? { ended: again } : {}), awaited } }, said: had ? `Described ${entry.id} again, still ahead of its data: ${what}` : `Described ${entry.id} ahead of its data: ${what}` };
+}
+
+// ------------------------------------------------------------------ kinds, relations and meanings over time (ADR 0027 §3)
+
+// The ontology's kinds of thing, its relations, what a dataset's rows are and its dependencies are edited as rules are:
+// each edit a function of the document, replayed by a dated change set (inforce.ts). An edit that would leave a
+// document the flow can't be read as changes nothing and says nothing, so a change set made for one flow passes over
+// another that hasn't the datasets it is about (an estate's change, in a flow that takes only part of the estate).
+
+const same = (a: unknown, b: unknown): boolean => canonicalJSON((a ?? null) as never) === canonicalJSON((b ?? null) as never);
+/** The edit's result where the document is still one the flow can be read as; nothing where it isn't. */
+const kept = (doc: FlowDocument, next: FlowDocument, said: string): { doc: FlowDocument; said: string | null } => (validateDocument(next).length ? { doc, said: null } : { doc: next, said });
+const datasetOf = (doc: FlowDocument, id: string): string | undefined => [...doc.sources, ...doc.steps].find((x) => lower(x.id) === lower(id))?.id;
+/** What changed between two of a thing, field by field, in words: "its key app_id → id". */
+function fieldsSaid(was: Record<string, unknown>, now: Record<string, unknown>, names: Readonly<Record<string, string>>): string {
+  const word = (v: unknown): string => (v === undefined || v === null || v === '' ? 'none' : Array.isArray(v) ? v.map((x) => (Array.isArray(x) ? x.join(' = ') : String(x))).join(', ') : typeof v === 'object' ? JSON.stringify(v) : String(v));
+  const parts = Object.keys(names).filter((k) => !same(was[k], now[k])).map((k) => `${names[k]} ${word(was[k])} → ${word(now[k])}`);
+  return parts.join('; ');
+}
+/** The ontology without a record that a thing ended: it is one again. */
+const notEnded = (o: Ontology, what: Ended['what'], id: string, of?: Ended['of']): Ontology => {
+  const left = (o.ended ?? []).filter((e) => !(e.what === what && lower(e.id) === lower(id) && lower(e.of?.file ?? '') === lower(of?.file ?? '') && (e.of?.rule ?? '') === (of?.rule ?? '')));
+  const { ended: _ended, ...rest } = o;
+  return left.length ? { ...rest, ended: left } : rest;
+};
+
+/**
+ * A kind of thing, added or changed (ADR 0027 §3, Q-250): the ontology's object type of that id is this one, from the
+ * day its change says. Its rows are a dataset the flow has; where it isn't, the edit doesn't apply.
+ */
+export function setType(doc: FlowDocument, type: ObjectType): { doc: FlowDocument; said: string | null } {
+  const o = ontologyOf(doc);
+  const dataset = datasetOf(doc, type.dataset);
+  if (!dataset) return { doc, said: null };
+  const entry: ObjectType = { id: type.id, name: type.name.trim(), dataset, key: [...type.key], title: type.title, ...(type.description?.trim() ? { description: type.description.trim() } : {}) };
+  const had = o.objectTypes.find((t) => t.id === entry.id);
+  if (had && same(had, entry)) return { doc, said: null };
+  const next = { ...notEnded(o, 'type', entry.id), objectTypes: had ? o.objectTypes.map((t) => (t === had ? entry : t)) : [...o.objectTypes, entry] };
+  const said = had
+    ? `Changed the kind ${had.name}: ${fieldsSaid(had as never, entry as never, { name: 'its name', dataset: 'its rows', key: 'its key', title: 'what it is called by', description: 'what it is' })}`
+    : `Added the kind ${entry.name}: one row of ${entry.dataset}, by ${listed(entry.key)}`;
+  return kept(doc, { ...doc, ontology: next }, said);
+}
+
+/** A relation in words: "Application to Organisational unit, on owner_team_id = org_unit_id". */
+export function linkSaid(o: Ontology | undefined, l: LinkType): string {
+  const name = (id: string) => o?.objectTypes.find((t) => t.id === id)?.name ?? id;
+  return `${name(l.from)} to ${name(l.to)}, on ${l.on.map(([a, b]) => (lower(a) === lower(b) ? a : `${a} = ${b}`)).join(' and ')}`;
+}
+
+/**
+ * A relation between two kinds, added or changed (Q-250): the ontology's link of that id is this one, from the day its
+ * change says. Both kinds are the ontology's by then; where one isn't, the edit doesn't apply.
+ */
+export function setLink(doc: FlowDocument, link: LinkType): { doc: FlowDocument; said: string | null } {
+  const o = ontologyOf(doc);
+  if (!o.objectTypes.some((t) => t.id === link.from) || !o.objectTypes.some((t) => t.id === link.to)) return { doc, said: null };
+  const entry: LinkType = { id: link.id, name: link.name.trim(), from: link.from, to: link.to, on: link.on.map(([a, b]): [string, string] => [a, b]), ...(link.cardinality ? { cardinality: link.cardinality } : {}) };
+  const had = o.linkTypes.find((l) => l.id === entry.id);
+  if (had && same(had, entry)) return { doc, said: null };
+  const next = { ...notEnded(o, 'link', entry.id), linkTypes: had ? o.linkTypes.map((l) => (l === had ? entry : l)) : [...o.linkTypes, entry] };
+  const said = had
+    ? `Changed the relation ${had.name}: ${fieldsSaid(had as never, entry as never, { name: 'its name', from: 'from', to: 'to', on: 'on', cardinality: 'how many' })}`
+    : `Added the relation ${entry.name}: ${linkSaid(next, entry)}`;
+  return kept(doc, { ...doc, ontology: next }, said);
+}
+
+/** A condition in words: "exposure internet or partner, and tier 1". */
+const whereSaid = (where: RowsDef['where']): string =>
+  Object.entries(where ?? {}).map(([c, v]) => `${c} ${(Array.isArray(v) ? v : [v]).join(' or ')}`).join(', and ');
+
+/**
+ * What a dataset's rows are, said or changed (Q-250, ADR 0015 §1): one row an object of a kind, for the objects a
+ * condition selects. A flow with gates keeps these; in any other, and where the dataset or the kind isn't there, the
+ * edit doesn't apply.
+ */
+export function setRows(doc: FlowDocument, rows: RowsDef): { doc: FlowDocument; said: string | null } {
+  const o = ontologyOf(doc);
+  const dataset = datasetOf(doc, rows.dataset);
+  const type = o.objectTypes.find((t) => t.id === rows.of);
+  if (!dataset || !type) return { doc, said: null };
+  const entry: RowsDef = { dataset, of: rows.of, ...(rows.key ? { key: rows.key } : {}), ...(rows.where && Object.keys(rows.where).length ? { where: rows.where } : {}), ...(rows.ids ? { ids: rows.ids } : {}) };
+  const had = (o.rows ?? []).find((r) => lower(r.dataset) === lower(dataset));
+  if (had && same(had, entry)) return { doc, said: null };
+  const next = { ...notEnded(o, 'rows', dataset), rows: had ? o.rows!.map((r) => (r === had ? entry : r)) : [...(o.rows ?? []), entry] };
+  const what = `${type.name}${entry.where ? `, where ${whereSaid(entry.where)}` : ''}`;
+  return kept(doc, { ...doc, ontology: next }, had ? `Changed what a row of ${dataset} is: ${what}` : `Said what a row of ${dataset} is: ${what}`);
+}
+
+/** A dependency between columns or datasets, added or changed (Q-250, Q-119): the ontology's needs rule of that id. */
+export function setNeeds(doc: FlowDocument, needs: NeedsDef): { doc: FlowDocument; said: string | null } {
+  const o = ontologyOf(doc);
+  const datasets = needs.datasets.map((d) => datasetOf(doc, d)).filter((d): d is string => d !== undefined);
+  if (!datasets.length) return { doc, said: null };
+  const entry: NeedsDef = { ...needs, datasets };
+  const had = (o.needs ?? []).find((n) => n.id === entry.id);
+  if (had && same(had, entry)) return { doc, said: null };
+  const next = { ...notEnded(o, 'needs', entry.id), needs: had ? o.needs!.map((n) => (n === had ? entry : n)) : [...(o.needs ?? []), entry] };
+  return kept(doc, { ...doc, ontology: next }, `${had ? 'Changed' : 'Added'} the dependency ${entry.id} on ${listed(datasets)}${entry.description ? `: ${entry.description}` : ''}`);
+}
+
+/**
+ * A meaning redefined (ADR 0027 §3, Q-251): from the day its change says, a column means something else. The property
+ * that describes the column for the datasets named (for every dataset, where none is) takes the new words; past days
+ * keep the meaning they were made under. A rewording, which says the same thing better, is no dated change: it is the
+ * name's own, at once (Q-198). Where the ontology has no such meaning, the edit doesn't apply.
+ */
+export function redefine(doc: FlowDocument, column: string, datasets: readonly string[] | undefined, change: { description: string; title?: string; values?: Record<string, string> }): { doc: FlowDocument; said: string | null } {
+  const o = ontologyOf(doc);
+  // The meaning it names: for every dataset, the one said for every dataset; for some, the one said for those, or for
+  // those of them a flow has (an estate's meaning is trimmed to the datasets a flow takes). Never a flow's own handling
+  // of a column an estate describes: that one is the flow's to change.
+  const within = new Set((datasets ?? []).map(lower));
+  const had = (o.properties ?? []).find((p) => lower(p.column) === lower(column) && p.override === undefined && (datasets === undefined ? p.datasets === undefined : !!p.datasets?.length && p.datasets.every((d) => within.has(lower(d)))));
+  if (!had) return { doc, said: null };
+  const next: PropertyType = { ...had, description: change.description.trim(), ...(change.title?.trim() ? { title: change.title.trim() } : {}), ...(change.values ? { values: { ...(had.values ?? {}), ...change.values } } : {}) };
+  if (same(had, next)) return { doc, said: null };
+  const where = had.datasets?.length ? ` in ${listed([...had.datasets])}` : '';
+  const valued = change.values ? Object.entries(change.values).filter(([k, v]) => had.values?.[k] !== v).map(([k, v]) => `${k} means ${v}`) : [];
+  const parts = [...(had.description !== next.description ? [`“${had.description}” → “${next.description}”`] : []), ...valued];
+  return kept(doc, { ...doc, ontology: { ...o, properties: o.properties!.map((p) => (p === had ? next : p)) } }, `Redefined ${had.title || had.column}${where}: ${parts.join('; ') || 'its meaning'}`);
+}
+
+/** A thing that ended, named as people call it. */
+function endedName(o: Ontology, e: Ended): string {
+  switch (e.what) {
+    case 'type':
+      return `the kind ${o.objectTypes.find((t) => t.id === e.id)?.name ?? e.id}`;
+    case 'link':
+      return `the relation ${o.linkTypes.find((l) => l.id === e.id)?.name ?? e.id}`;
+    case 'rows':
+      return `what a row of ${e.id} is`;
+    case 'needs':
+      return `the dependency ${e.id}`;
+    case 'entry': {
+      const rule = e.of ? o.rules?.find((r) => lower(r.file) === lower(e.of!.file) && r.id === e.of!.rule && r.kind === 'closed') : undefined;
+      return `${rule ? entryNamed(o, rule, e.id) : e.id} in ${e.of?.file ?? 'its list'}`;
+    }
+    case 'awaited':
+      return `the description of ${(o.awaited ?? []).find((a) => lower(a.id) === lower(e.id))?.name ?? e.id}, written ahead of its data`;
+  }
+}
+const FOLLOWED_SAID = { replaced: 'replaced by', merged: 'merged into', split: 'split into' } as const;
+
+/**
+ * A thing of the ontology ended (ADR 0027 §2, Q-264: nothing is deleted): from the day its change says it is no longer
+ * in force, and the ontology keeps that it ended, with what follows it (`ended`). A kind ends once no relation and no
+ * rows entry names it; what follows a thing is of its own sort and in force (a kind for a kind, an entry of the same
+ * list for an entry), one for *replaced by* and *merged into*, two or more for *split into*. Where the thing isn't
+ * there, or what follows it isn't, the edit doesn't apply.
+ */
+export function endThing(doc: FlowDocument, e: Ended): { doc: FlowDocument; said: string | null } {
+  const o = ontologyOf(doc);
+  const none = { doc, said: null };
+  let next: Ontology;
+  let there: (id: string) => boolean;
+  if (e.what === 'type') {
+    const t = o.objectTypes.find((x) => x.id === e.id);
+    if (!t || o.linkTypes.some((l) => l.from === e.id || l.to === e.id) || (o.rows ?? []).some((r) => r.of === e.id)) return none;
+    next = { ...o, objectTypes: o.objectTypes.filter((x) => x !== t) };
+    there = (id) => next.objectTypes.some((x) => x.id === id);
+  } else if (e.what === 'link') {
+    const l = o.linkTypes.find((x) => x.id === e.id);
+    if (!l) return none;
+    next = { ...o, linkTypes: o.linkTypes.filter((x) => x !== l) };
+    there = (id) => next.linkTypes.some((x) => x.id === id);
+  } else if (e.what === 'rows') {
+    const r = (o.rows ?? []).find((x) => lower(x.dataset) === lower(e.id));
+    if (!r) return none;
+    const { rows: _rows, ...rest } = o;
+    const left = o.rows!.filter((x) => x !== r);
+    next = left.length ? { ...rest, rows: left } : rest;
+    there = (id) => (next.rows ?? []).some((x) => lower(x.dataset) === lower(id));
+  } else if (e.what === 'needs') {
+    const n = (o.needs ?? []).find((x) => x.id === e.id);
+    if (!n) return none;
+    const { needs: _needs, ...rest } = o;
+    const left = o.needs!.filter((x) => x !== n);
+    next = left.length ? { ...rest, needs: left } : rest;
+    there = (id) => (next.needs ?? []).some((x) => x.id === id);
+  } else if (e.what === 'awaited') {
+    // A dataset described ahead of its data that still waits for it: once a source of its name is in the flow the
+    // description is the record of what was asked for, and stays (§5).
+    const a = (o.awaited ?? []).find((x) => lower(x.id) === lower(e.id));
+    if (!a || doc.sources.some((x) => lower(x.id) === lower(a.id))) return none;
+    const { awaited: _awaited, ...rest } = o;
+    const left = o.awaited!.filter((x) => x !== a);
+    next = left.length ? { ...rest, awaited: left } : rest;
+    there = (id) => (next.awaited ?? []).some((x) => lower(x.id) === lower(id));
+  } else {
+    const found = e.of ? closedRule(doc, e.of.file, e.of.rule) : null;
+    if (!found || !(found.rule.entries ?? []).some((x) => x[0] === e.id)) return none;
+    const { leftOut: _leftOut, ...bare } = found.rule;
+    const leftOut = (found.rule.leftOut ?? []).filter((k) => k !== e.id);
+    const rule: OntologyRule = { ...bare, entries: found.rule.entries!.filter((x) => x[0] !== e.id), ...(leftOut.length ? { leftOut } : {}) };
+    next = found.put(rule).ontology!;
+    there = (id) => (rule.entries ?? []).some((x) => x[0] === id);
+  }
+  const by = e.then?.by ?? [];
+  if (e.then && (by.length === 0 || (e.then.how !== 'split' && by.length !== 1) || (e.then.how === 'split' && by.length < 2) || new Set(by).size !== by.length || by.some((id) => lower(id) === lower(e.id) || !there(id)))) return none;
+  const record: Ended = { what: e.what, id: e.what === 'rows' ? (datasetOf(doc, e.id) ?? e.id) : e.id, ...(e.what === 'entry' && e.of ? { of: { file: e.of.file, rule: e.of.rule } } : {}), ...(e.then ? { then: { how: e.then.how, by: [...by] } } : {}) };
+  const withRecord: Ontology = { ...notEnded(next, record.what, record.id, record.of), ended: [...(notEnded(next, record.what, record.id, record.of).ended ?? []), record] };
+  // What follows it, as people call it: a kind or a relation by its name, an entry by the ontology's word for it.
+  const called = (id: string): string =>
+    e.what === 'type' ? (o.objectTypes.find((t) => t.id === id)?.name ?? id)
+    : e.what === 'link' ? (o.linkTypes.find((l) => l.id === id)?.name ?? id)
+    : e.what === 'entry' && e.of ? ((r) => (r ? entryNamed(o, r.rule, id) : id))(closedRule(doc, e.of.file, e.of.rule))
+    : e.what === 'awaited' ? ((o.awaited ?? []).find((a) => lower(a.id) === lower(id))?.name ?? id)
+    : id;
+  return kept(doc, { ...doc, ontology: withRecord }, `Ended ${endedName(o, e)}${e.then ? `: ${FOLLOWED_SAID[e.then.how]} ${listed(by.map(called))}` : ''}`);
+}
+
+// ------------------------------------------------------------------ closed lists and columns (ADR 0027 §4)
+
+/** A file's closed rule by its id, and the document's rules with it replaced. */
+function closedRule(doc: FlowDocument, file: string, id: string): { o: Ontology; rule: OntologyRule; put(next: OntologyRule): FlowDocument } | null {
+  const o = doc.ontology;
+  const rule = o?.rules?.find((r) => lower(r.file) === lower(file) && r.id === id && r.kind === 'closed');
+  if (!o || !rule) return null;
+  return { o, rule, put: (next) => ({ ...doc, ontology: { ...o, rules: o.rules!.map((r) => (r === rule ? ruleEntry(next) : r)) } }) };
+}
+
+/** An entry as people call it: the ontology's word for its key where it has one beyond the key itself. */
+const entryNamed = (o: Ontology, rule: OntologyRule, key: string): string => {
+  const word = propertyOf(o, rule.file, rule.column)?.values?.[key];
+  return word && saysMore(word, key) ? `${word} (${key})` : key;
+};
+
+/**
+ * An entry declared in a closed list, or a value in a closed column (ADR 0027 §4, Q-253): the ontology has it from the
+ * change set's day. An entry under a key the list has replaces that one (its defining columns changed); a key left out
+ * is left out no longer. Null where the file has no such closed rule or the entry isn't one of its shape; null `said`
+ * where the ontology has this very entry already.
+ */
+export function declareEntry(doc: FlowDocument, file: string, id: string, entry: readonly string[]): { doc: FlowDocument; said: string | null } | null {
+  const c = closedRule(doc, file, id);
+  if (!c) return null;
+  const { o, rule } = c;
+  const defines = rule.defines ?? [];
+  const key = entry[0];
+  if (key === undefined || key === '' || entry.length !== defines.length + 1) return null;
+  const entries = rule.entries ?? [];
+  const at = entries.findIndex((e) => e[0] === key);
+  const was = at >= 0 ? entries[at]! : null;
+  const out = (rule.leftOut ?? []).includes(key);
+  if (was && was.every((v, k) => v === entry[k]) && !out) return { doc, said: null };
+  const next: OntologyRule = { ...rule, entries: was ? entries.map((e, k) => (k === at ? [...entry] : e)) : [...entries, [...entry]] };
+  const leftOut = (rule.leftOut ?? []).filter((k) => k !== key);
+  if (leftOut.length) next.leftOut = leftOut;
+  else delete next.leftOut;
+  const title = (col: string) => propertyOf(o, file, col)?.title ?? col;
+  const differs = was ? defines.flatMap((d, k) => (was[k + 1] === entry[k + 1] ? [] : [`${title(d)} ${was[k + 1] || 'blank'} → ${entry[k + 1] || 'blank'}`])) : [];
+  const said = was && differs.length ? `Changed ${entryNamed(o, rule, key)} in ${file}: ${differs.join(', ')}`
+    : was ? `Declared ${entryNamed(o, rule, key)} in ${file} again: it is left out no longer`
+    : `Declared ${entryNamed(o, rule, key)} in ${file}`;
+  // Declared again after it ended (§2, Q-264), it is an entry again: the record that it ended goes.
+  const put = c.put(next);
+  return { doc: put.ontology ? { ...put, ontology: notEnded(put.ontology, 'entry', key, { file: rule.file, rule: rule.id }) } : put, said };
+}
+
+/**
+ * A key left out of what goes on until it is declared (ADR 0027 §4, Q-253, "Publish without it"): its rows are kept out
+ * by the check step that reads the file, and the day says so. Null where the file has no such closed rule; null `said`
+ * where the key is left out already.
+ */
+export function leaveOut(doc: FlowDocument, file: string, id: string, key: string): { doc: FlowDocument; said: string | null } | null {
+  const c = closedRule(doc, file, id);
+  if (!c || key === '') return null;
+  if ((c.rule.leftOut ?? []).includes(key)) return { doc, said: null };
+  return { doc: c.put({ ...c.rule, leftOut: [...(c.rule.leftOut ?? []), key] }), said: `Left ${entryNamed(c.o, c.rule, key)} out of ${file} until it is declared` };
 }
 
 /** A file's rule taken away: the document without it, the check cells that listed it written without it, and the change

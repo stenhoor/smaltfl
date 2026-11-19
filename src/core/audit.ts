@@ -28,8 +28,9 @@
  * signer's fingerprint from its owner, and the data list from the data branch (`git show <commit>:MANIFEST.json`).
  * The script (scripts/audit.mjs) and the tests use this; nothing here needs a browser or the engine.
  */
+import { agreedIssues, agreementOf } from './agree.js';
 import { checkBag, readBagInfo, type BagFile } from './bag.js';
-import type { FlowDocument } from './document.js';
+import { contextTables, type FlowDocument } from './document.js';
 import { sha256Hex } from './hash.js';
 import { daysBetween } from './calendar.js';
 import { DONOR_WINDOW, levelStray, levelWays, repairDocument, type Repair } from './fill.js';
@@ -44,6 +45,9 @@ import { flowHash, planPeriod, watchesOf, type FlowPlan } from './plan.js';
 import { checkDecision, DECIDE_OPTIONS } from './policy.js';
 import { isHistory, type HistoryFile } from './history.js';
 import { isRestate, restatedOutcome, runDay } from './month.js';
+import type { FlowEvent } from './events.js';
+import { stepsOf } from './step.js';
+import { historyProblems, type OntologyHistory } from './told.js';
 import { retellClaims, toTell, type Retold } from './retell.js';
 import type { Story } from './story.js';
 
@@ -703,7 +707,9 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
       }
       const ofAbout = of.entry.about as { outcome?: string; holds?: unknown };
       const published = ofAbout.outcome === 'ok' || entries.some((x) => x.kind === 'release' && x.seq < e.seq && isRecord(x.about) && x.about.manifest === m.restates!.of && x.about.outcome === 'applied');
-      const outcome = restatedOutcome({ published, holds: Array.isArray(ofAbout.holds) ? (ofAbout.holds as Hold[]) : [], contents: contentsOf(of.manifest) }, { holds: Array.isArray(about.holds) ? (about.holds as Hold[]) : [], contents: contentsOf(m) });
+      // The run's own context tables are no data of its day (ADR 0027 §8): named by its flow's document.
+      const aside = new Set(doc ? contextTables(doc) : []);
+      const outcome = restatedOutcome({ published, holds: Array.isArray(ofAbout.holds) ? (ofAbout.holds as Hold[]) : [], contents: contentsOf(of.manifest) }, { holds: Array.isArray(about.holds) ? (about.holds as Hold[]) : [], contents: contentsOf(m) }, aside);
       if (as === 'notes' && outcome.changed) problems.push(`${d.day} would change, and it notes it as the same`);
       else if (as !== 'notes' && !outcome.changed) problems.push(`${d.day} comes out the same, and it ${as} it`);
       else if (as === 'restates' && (d as { passes: boolean }).passes !== outcome.passes) problems.push(`it says readers get ${d.day}'s restated run ${(d as { passes: boolean }).passes ? 'published' : 'held'}, and it comes out ${outcome.passes ? 'published' : 'held'}`);
@@ -723,6 +729,98 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
       a.same.length ? `${decides ? 'noted' : reasoned ? 'signed off' : 'noted at once (before ADR 0022 made a sign-off need a reason)'} ${days(a.same.length)} as the same` : null,
     ].filter((x): x is string => x !== null).join('; ');
     say(problems.length === 0, `${where}: under ${a.changes.join(', ')} from ${a.from}, by ${e.by.as}: ${what || 'no day'}${problems.length ? `: ${problems.join('; ')}` : ''}`);
+  }
+
+  // Who decides (ADR 0027 §10, Q-276, Q-277): the flow as the record kept it, each time it changed. Every agreement a
+  // change set carries is by an owner of what it touches, as that document names its owners; and a change set or an
+  // agreement that came with an entry of this record was made by whoever made the entry, so who made a change and who
+  // agreed to it are the record's to say, not the document's alone. The change sets the flow had when the record
+  // first saw it came with the flow: they are held to the names. An estate's own change sets are its file's.
+  {
+    let before: FlowDocument | null = null;
+    let last: { seq: number; doc: FlowDocument } | null = null;
+    for (const e of entries.filter((x) => x.kind === 'flow')) {
+      const a = e.about as { doc?: unknown } | null;
+      const f = typeof a?.doc === 'string' ? blobs.get(`flow-${a.doc}`) : undefined;
+      if (!f) continue;
+      let doc: FlowDocument;
+      try {
+        doc = JSON.parse(text(f.bytes)) as FlowDocument;
+      } catch {
+        continue;
+      }
+      const problems = agreedIssues(doc).map((i) => i.message);
+      if (before !== null) {
+        const had = new Map((before.changes ?? []).map((c) => [c.id, c] as const));
+        for (const c of doc.changes ?? []) {
+          if (c.estate !== undefined) continue;
+          const was = had.get(c.id);
+          if (!was && c.by !== e.by.as) problems.push(`${c.id} says ${c.by} made it, and ${e.by.as} recorded it`);
+          for (const g of c.agreed ?? []) {
+            if (was?.agreed?.some((x) => x.by === g.by && x.at === g.at)) continue;
+            if (g.by !== e.by.as) problems.push(`${c.id} says ${g.by} agreed to it, and ${e.by.as} recorded that`);
+            else if (g.card !== undefined && g.card !== e.by.card) problems.push(`${c.id} says ${g.by} agreed to it by the card ${shortHash(g.card)}, and the entry that recorded it was made by ${e.by.card === null ? 'no card' : shortHash(e.by.card)}`);
+            if (Date.parse(g.at) > Date.parse(e.at)) problems.push(`${c.id} says ${g.by} agreed to it after the entry that recorded it`);
+          }
+        }
+      }
+      if (problems.length) say(false, `the flow as kept at #${e.seq}: ${problems.join('; ')}`);
+      before = doc;
+      last = { seq: e.seq, doc };
+    }
+    if (last) {
+      const stand = (last.doc.changes ?? []).map((c) => ({ c, a: agreementOf(last!.doc, c) }));
+      const asked = stand.filter((x) => x.a.asked);
+      const waits = asked.filter((x) => x.a.waiting.length > 0);
+      const own = asked.filter((x) => x.a.same);
+      if (stand.length) {
+        say(true, `the flow as kept at #${last.seq}: ${stand.length} change set${stand.length === 1 ? '' : 's'}, ${asked.length} asking for an owner’s agreement${asked.length ? `: ${asked.length - waits.length} ${asked.length - waits.length === 1 ? 'has' : 'have'} it, each from an owner of what it touches${own.length ? ` (${own.length} from ${own.length === 1 ? 'its' : 'their'} own author, who held both roles)` : ''}${waits.length ? `; ${waits.length} ${waits.length === 1 ? 'waits' : 'wait'} (${waits.map((x) => x.c.id).join(', ')}), in force on no day` : ''}` : ''}`);
+      }
+    }
+  }
+
+  // The ontology's history for an auditor (ADR 0027 §10, Q-279), where the bag carries one: made again from the flow
+  // document the record kept under the hash it names, and from the record's own events and changes' steps, it must come
+  // out the same. What it says came with the build's data isn't this record's: it is counted, and whoever vouches for
+  // the build vouches for it.
+  {
+    const f = file('data/ontology/history.json');
+    if (f) {
+      let h: unknown = null;
+      try {
+        h = JSON.parse(text(f.bytes));
+      } catch {
+        h = null;
+      }
+      const named = typeof (h as { flow?: { hash?: unknown } } | null)?.flow?.hash === 'string' ? (h as { flow: { hash: string } }).flow.hash : null;
+      const kept = named === null ? undefined : [...entries].reverse().find((e) => e.kind === 'flow' && (e.about as { after?: unknown } | null)?.after === named);
+      const blob = named === null ? undefined : flows.get(named);
+      let doc: FlowDocument | null = null;
+      try {
+        doc = blob ? (JSON.parse(text(blob.bytes)) as FlowDocument) : null;
+      } catch {
+        doc = null;
+      }
+      if (named === null) say(false, "ontology/history.json isn't shaped as a history: it names no flow");
+      else if (!kept || !doc) say(false, `ontology/history.json says it was made from the flow ${shortHash(named)}, and ${kept ? 'the bag has no document of that hash' : 'no entry of the record says the flow was ever that'}`);
+      else {
+        const asOf = typeof (h as { asOf?: unknown }).asOf === 'string' ? Date.parse((h as { asOf: string }).asOf) : null;
+        const known = entries.filter((e) => asOf === null || Date.parse(e.at) <= asOf);
+        const events = known.flatMap((e) => (e.kind === 'event' && e.about && typeof (e.about as { id?: unknown }).id === 'string' ? [e.about as unknown as FlowEvent] : []));
+        const problems = historyProblems(h, doc, named, { events, steps: stepsOf(known) });
+        const got = h as OntologyHistory;
+        const latest = [...entries].reverse().find((e) => e.kind === 'flow');
+        const shipped = (got.shipped?.events?.length ?? 0) + (got.shipped?.steps?.length ?? 0);
+        // What was held: the changes, with how many asked for an agreement, and the events the record itself holds.
+        const count = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
+        const asked = problems.length ? [] : got.changes.filter((c) => c.agreeing !== 'none');
+        const waits = asked.filter((c) => c.agreeing === 'waiting');
+        const held = problems.length ? '' : `${count(got.changes.length, 'change')}${asked.length ? ` (${asked.length} asking for an owner’s agreement, ${waits.length ? `${waits.length} still waiting` : asked.length === 1 ? 'which has it' : 'each with it'})` : ''} and ${count(got.events.length, 'event')} of the record’s own`;
+        say(problems.length === 0, problems.length
+          ? `ontology/history.json: ${problems.slice(0, 4).join('; ')}${problems.length > 4 ? `; and ${problems.length - 4} more` : ''}`
+          : `ontology/history.json: the ontology’s history from ${got.from} to ${got.to}, made again from the flow as kept at #${kept.seq}${latest && latest.seq !== kept.seq ? ` (the flow changed again at #${latest.seq})` : ''} and the record’s own events and steps: ${held}.${shipped ? ` It also lists what came with the build’s data (${[got.shipped?.events?.length ? count(got.shipped.events.length, 'event') : '', got.shipped?.steps?.length ? `${got.shipped.steps.length} change${got.shipped.steps.length === 1 ? '’s' : 's’'} own step${got.shipped.steps.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(', ')}): not this record’s, so not checked here.` : ''}`);
+      }
+    }
   }
 
   // Each dataset's proof: its run entry is in the record, and the run's manifest made that dataset with that content.

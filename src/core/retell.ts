@@ -7,6 +7,7 @@
  * flow's story told again from them must say what the claim said. Pure: no engine, no DOM.
  */
 import type { FlowDocument } from './document.js';
+import { excusesFor, type ClaimExcuse, type FlowEvent } from './events.js';
 import type { HistoryFile } from './history.js';
 import { dayOfSlot } from './calendar.js';
 import { claimRanges, flowStory, isClaim2, levelsOf, skipOf, type Claim, type StoryClaim2 } from './hold.js';
@@ -14,6 +15,9 @@ import type { LogEntry } from './log.js';
 import { appendPeriods, emptyHistory, measuresHash, samePeriod, settingsFor, tailBefore, tailRef, type Measures } from './measures.js';
 import { translate } from './plan.js';
 import type { Story } from './story.js';
+
+/** Whether an entry's `about` is an object, as an event's is. */
+const isRecordOf = (v: unknown): boolean => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /** A run whose claim is told again: its record entry's seq, its claim, and the flow document it ran. */
 export interface Retold {
@@ -84,6 +88,11 @@ export async function retellClaims(entries: readonly EntryLike[], runs: readonly
     const levels = levelsOf(entries.filter((e) => e.seq < r.seq), c.source).filter((l) => l.from < c.slot);
     const said = (ls: readonly { from: string; metrics: readonly string[]; decision: number }[]) => ls.map((l) => `${l.from} (${l.metrics.join(', ')}, #${l.decision})`).join('; ');
     if (said(levels) !== said(c.levels)) problems.push(`its claim learned from the levels ${said(c.levels) || 'none'}, and the record before it accepted ${said(levels) || 'none'}`);
+    // What it was excused by (ADR 0027 §6): the events the record had written down before it, and nothing since.
+    const written = entries.filter((e) => e.seq < r.seq && e.kind === 'event' && isRecordOf(e.about)).map((e) => e.about as unknown as FlowEvent);
+    const excuses = excusesFor(written, c.source, dayOfSlot(c.slot), null);
+    const excused = (xs: readonly ClaimExcuse[]) => xs.map((x) => `${x.event} (${x.check}${x.column ? ` of ${x.column}` : ''}, ${x.from}${x.until ? ` to ${x.until}` : ' on'})`).join('; ');
+    if (JSON.stringify(excuses) !== JSON.stringify(c.excuses ?? [])) problems.push(`its claim was told as excused by ${excused(c.excuses ?? []) || 'nothing'}, and the events written down before it excuse ${excused(excuses) || 'nothing'}`);
     if (!r.doc) problems.push("its flow document isn't in the bag, so its verdict can't be told again");
     if (own && r.doc && !problems.length) {
       try {
@@ -104,7 +113,8 @@ export async function retellClaims(entries: readonly EntryLike[], runs: readonly
         // The levels the claim names (C6) are learned anew from their days, as the page told it.
         // The file the claim was told of (ADR 0020 §2): its facts are the claim's, so freshness is told again as it was.
         // A slot's claim from its own series, as the page told it (`claimRanges`, ADR 0010 §7, Q-84).
-        const story = flowStory(claimRanges(file, c.slot, c.every, { doc: r.doc, source: c.source, skip: c.skip, levels: c.levels }), dayOfSlot(c.slot), r.doc, c.source, undefined, undefined, c.file);
+        // What events excused (ADR 0027 §6): told again under the claim's own, which the record was just held to.
+        const story = flowStory(claimRanges(file, c.slot, c.every, { doc: r.doc, source: c.source, skip: c.skip, levels: c.levels, ...(c.excuses ? { excuses: c.excuses } : {}) }), dayOfSlot(c.slot), r.doc, c.source, undefined, undefined, c.file, c.excuses);
         const below = story.amount ? story.amount.value < story.amount.low : story.state === 'wrong' && story.hero === 'amount' && story.cause?.kind === 'volume';
         if (story.state !== c.state || story.head !== c.head || below !== c.below) problems.push(`told again, its story says ${story.state} "${story.head}", and the claim ${c.state} "${c.head}"`);
         else stories?.set(`${r.seq}|${c.source.toLowerCase()}`, story);

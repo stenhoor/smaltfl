@@ -225,6 +225,173 @@ Results on 2026-11-09, at `e42d9ec` on data `0ca4dd1`:
 
 ## What is not done
 
+**Now: [ADR 0027](adr/0027-the-ontology-over-time.md), the ontology over time** (designed 2026-11-18, the maintainer's
+answers Q-247 to Q-279; slices 1 to 7 of ten are built, its §"As built"). The maintainer asked for a temporal
+ontology: how the ontology changes over time, why certain things apply on certain dates, what was going on and what
+was decided then, shown visually and carried with the data so that analysis is always aware of its context. The
+research is [research/temporal-ontology.md](research/temporal-ontology.md): temporal data models, ontologies and
+knowledge graphs, law, clinical terms and statistics, HR systems, data platforms, how change over time is drawn, and
+analysis across a change of definition, in two passes, the second against the primary pages. The design was settled in
+the question prompt, thirty-three questions in seven rounds. Its shape:
+
+- **The line.** The ontology is the business's rules, meanings and kinds of things. Who and what is where from day to
+  day is data. A reorg or a freeze is context, written down as an event.
+- **Ontology first.** A source is made with its description. A new entry in a closed list, a new value of a closed
+  column or a changed defining column pauses what it reaches until it is declared, from a day, with a kind and a
+  reason.
+- **Every change is a dated record** with a kind (the business changed, a setting re-tuned, a mistake corrected, the
+  source changed), a reason, an optional note, who decided and who agreed. A change said ahead is coming, with what it
+  would have done.
+- **A day is read under what was in force,** and carries its context: marks on charts, three tables any cell can join
+  to, the same tables published with the product. A chart is cut where the business changed, with the change's own
+  step.
+
+In the slices of ADR 0027 §11, the first of which moves no hash: (1) the register on screen, over the rule changes
+smaltfl already dates; (2) reasons, kinds and events; (3) the gate, and document format 5; (4) the two doors; (5)
+kinds, relations and meanings over time, and the shared ontology's own changes; (6) reading across a change; (7)
+context that travels; (8) who decides; (9) who hears, and the auditor; (10) the demo's new scene. Q-280 to Q-285 are
+the choices the answers leave open, proposed for the maintainers to confirm as each is built; Q-286 to Q-291 are the
+ones slice 3 made as it was built, Q-292 to Q-296 slice 4's, Q-297 to Q-303 slice 5's, Q-304 to Q-311 slice 6's,
+Q-312 to Q-319 slice 7's, Q-320 to Q-326 slice 8's, Q-327 to Q-332 slice 9's and Q-333 to Q-336 slice 10's. All
+ten slices are built: ADR 0027 is done.
+
+Built so far:
+
+- **Slice 1, the register on screen:** every change set as a list and, from tablet width, as lanes; since when and by
+  which change on each rule; what was coming on a day's head; marks on the month's score.
+- **Slice 2, reasons, kinds and events:** a kind and a reason on every change, the note, who decided; events written
+  in a story or in the app, on days, lanes and charts; a coming change tried on the days before it.
+- **Slice 3, the gate:** a list or a column the ontology closes (a rule of kind `closed`). What arrives that the
+  ontology doesn't have stops what the file reaches, named by the run, with three decisions on the day's head: declare
+  it from the day, publish without it, or don't publish. An entry declared before its data waits for it. An event can
+  say what it excuses of the learned checks. Document format 5 puts the ontology first, and every example flow but
+  the older controls posture is format 5. How to check it: `test/closed.test.ts`, `test/excuse.test.ts`,
+  `test/described.test.ts`, Larkspur's answer key (`npm run test:slow`: Wed 27 at the gate and declared, Sat 9 told
+  as expected), and `npm run regress -- gate` on the sign-ins.
+
+- **Slice 4, the two doors:** *Add a source ›* above the canvas. *Here is the data*: a CSV file picked is read in the
+  browser, its description proposed from what it holds, and nothing is written until what one row is, its key and
+  every column (described or set aside) are confirmed, with a reason; it is then cells of `sources.nb.ts`, its file
+  kept in the browser, and the day runs with it. *Describe it first*: a dataset described ahead of its data
+  (`ontology.awaited`, the dated edit `describeAhead`) waits for data until a file is bound to it, its columns read
+  as the described ones. A format-4 flow is brought up to format 5 by its owner on the Ontology view. How to check
+  it: `test/newsource.test.ts` (through the engine too), `test/described.test.ts`, `test/files.test.ts`, and
+  `npm run regress -- doors` on the sign-ins (a file added, the page loaded again, a dataset described and bound, a
+  source taken off); Larkspur's Ontology view lists the SBOM inventory, described ahead from Wed 27
+  (`npm run regress -- versions`).
+
+- **Slice 5, kinds, relations and meanings over time:** six dated edits beside the rules' (`setType`, `setLink`,
+  `setRows`, `setNeeds`, `redefine`, `end`), each a change set with a kind and a reason. Nothing is deleted: a thing
+  ends from a day and the ontology keeps that it ended, with what follows it (`ontology.ended`). A meaning edited on
+  a column's card is reworded (at once, every day) or redefined (from a day). An estate's ontology carries its own
+  change sets, which every flow that imports it follows: Larkspur's adds the relation *Acted for by* from Mon 11.
+  On the Ontology view: the kinds and relations as a map, two dates compared (each line with the change that made
+  it), each thing since when and whose, and the forms that add, change and end a kind, a relation, what a row is, a
+  dependency, an entry of a closed list and a dataset described ahead. The build's recorder now judges a fill's donor
+  under the rules of the day it fills (Q-303), which the tour's fill of Mon Mar 11 needs since the estate's relation
+  begins that day. How to check it: `test/kinds.test.ts`, `test/estate-ontology.test.ts`, the tour's answer key
+  (`npm run test:tour`, which runs that fill through the recorder), `npm run regress -- versions` on Larkspur (the
+  map, the list, the estate's change, two dates, a description written ahead ended), `npm run regress -- estate` on
+  the control estate (a meaning redefined, a kind and a relation added and ended, what a row is changed, a dependency
+  added, then back to the flow as shipped) and `npm run regress -- gate` on the sign-ins (an entry of a closed column
+  ended, merged into another).
+
+- **Slice 6, reading across a change:** the build runs the first day of each change of kind *the business changed*
+  both ways (as published, and as a what-if under the rules as they were) and the record keeps what the change alone
+  moved as an entry of kind `step` (`src/core/step.ts`, the recorder's `stepOnce`). The month's trend is cut where a
+  step moved one of its lines, flagged with the step, with the lines with the steps taken out on request, the days a
+  correction replaced listed with what they first published, and each change's own step said beside its mark
+  (`src/core/across.ts`, viz.ts `scoreTrend`). The watched series a change moved are a level from its first day,
+  which the learned checks learn from; the first day itself is read as the day's data was judged the old way, and
+  the month says what the change accounts for. A coming change's trial gives the same figures. A finding's day by
+  day is marked where its column was redefined, and a value that ended is followed through to what replaced it. On
+  Larkspur: the catalogue's fifteenth control (Wed 27) cut the coverage by 8.3 points and left the score where it
+  was; the other two changes moved nothing. How to check it: `test/step.test.ts` (a day run both ways through the
+  engine), `test/viz.test.ts` (the cuts and the adjusted lines), the tour's answer key on data made again
+  (`npm run test:tour`, whose month the recorder steps through), and `npm run regress -- month versions follow` on
+  Larkspur (the cut and the adjusted line, the day picked, the day's head and a dataset's News on a change's first
+  day and the day after, each entry's step, a trial's figures). The recorded steps themselves are in each demo's
+  `data/month.json`, as entries of kind `step`.
+
+- **Slice 7, context that travels:** three tables any notebook cell can join to (`context('changes')`,
+  `context('events')`, `context('in_force')` from `smaltfl/notebook`): the dated changes in force on the run's day
+  with what each reaches, why and its own step; what was going on, with what each event reaches and excuses; and the
+  version of the ontology each dataset was read under. In the document each is a SQL step that reads nothing, marked
+  `context`; the run's rows are made from the flow as kept and the record (`src/core/context.ts` `contextRows`,
+  `contextKnown`) and carried by the plan, so the run publishes them like any output and verify recomputes them.
+  Larkspur's product publishes the three under contracts: 95 plan nodes and 40 outputs where it had 92 and 37. A
+  context table is no data of its day (Q-318): it differs wherever the rules do, so a day run again under rules
+  changed since is compared with what readers got by its other outputs (`restatedOutcome`'s `context`), and Compare
+  lists a context table that differs apart; counted as data, a back-dated change restated every day it reached. In
+  the app every card's sheet says its **Context** (what reaches it, through what, as known now, with what was said
+  after the version on screen ran marked as such), and a change marks the charts of what it reaches: the month's rows
+  and each day by day chart. How to check it: `test/context.test.ts` (the rows, the notebook's marker, a run through
+  the engine whose cell joins all three, verify, and a tampered plan failing it), `test/compose.test.ts` (Larkspur's
+  plan), `test/step.test.ts` (`changesReaching`), `test/month.test.ts` and `test/compare.test.ts` (the tables left
+  out of a restated day and of Compare's count), the tour's answer key, and `npm run regress -- larkspur month
+  compare tour` (the tables' own sheets, a card's context, the rows' marks, a day by day chart's; Larkspur's March
+  still three restated days; a fill released as the record decided it).
+
+- **Slice 8, who decides:** the ontology names who owns each of its parts (an estate's shared ontology, `owners` in
+  its document; each flow's own, `ontology.owners`; none named, the flow's owner), and a change the business made, or
+  one that ends something, is in force only once an owner of every part it touches has agreed, from the moment of
+  the last agreement (`src/core/agree.ts`: `asksAgreement`, `partsOf`, `ownersOf`, `agreementOf`, `knownFrom`,
+  `agreeTo`, `agreedIssues`; `ChangeSet.agreed`). The rules in force follow a change from then (`changesOn`), so one
+  that waits is in force on no day; an author who owns what a change touches agrees by recording it, and the record
+  says one person held both roles. Larkspur's estate and its product are the security lead's: the catalogue's
+  control was written down at 09:10 on Wed 27 and is in force from her agreement at 09:15. In the app: **Who owns
+  it** at the head of the register, whose agreement a kind asks for in the form that asks why, a waiting change
+  first on the register with **Agree** for an owner of what it waits for, and who agreed on every entry. The audit
+  holds each agreement to the owners its flow document names and to whoever made the record's entry. How to check
+  it: `test/agree.test.ts`, `test/audit.test.ts` (the last block), `test/compose.test.ts` (owners travel with their
+  flow), and `npm run regress -- versions` on Larkspur (a change that ends something waits, the security lead
+  agrees, it is in force).
+
+- **Slice 9, who hears, and the auditor:** the ontology's changes and events are told once (`src/core/told.ts`
+  `toldOf`: each with its days, kind, what it did, why, who made, decided and agreed, what it reaches and its own
+  step) and read four ways. *Since you last looked:* a browser keeps, by flow and by who is viewing, how each thing
+  stood; the register's head, the home screen's top and a read flow's sheet say what is new and what moved, until
+  **Got it**. *A digest:* under the register, **Pass it on**, over a month, a week or every day, as text, an image
+  or a link. *A feed:* the app's build writes `feed.xml` beside the page (Atom; `scripts/feed.ts`), which the page
+  links to. *The history for an auditor:* a page in place of the Ontology view over a period picked, which prints
+  as it reads, and `data/ontology/history.json` in the audit bag, which the offline check makes again from the flow
+  document the record kept and the record's own events and steps. Nothing a run is judged by changes: no hash
+  moves, and no data is made again. How to check it: `test/told.test.ts` (the telling, the digest, since, the feed,
+  the history and its check; Larkspur's March and its feed), `test/audit.test.ts` (a bag's history held, and six
+  ways it fails), and `npm run regress -- versions` on Larkspur (the owner told what moved once the security lead
+  agreed, the digest, the history's page by a button and by a link); `integrity` exports a bag with the history.
+
+- **Slice 10, the demo:** Larkspur's tour has a seventh scene. On Thu Mar 28 the catalogue lists a fifteenth
+  control (`LARKSPUR_TOUR`'s `sbom`), which stops at the gate; the story declares it at 09:10 with the board's
+  reason, the security lead agrees at 09:15, the day runs again under it and is published restated at 09:25. Its own
+  step cuts coverage by 8.3 points (99.1 to 90.8) and leaves the score; `effective` is at a new level from that
+  day. A third story is kept as more to see, a rule said ahead: the WAF's band, recorded Fri Mar 22 for Mon Mar 25,
+  coming on the three days between (Sat Mar 23's head says so), in the tour's story and in Evidence feeds' own. The
+  story writes down what was going on in the tour's world: the department dissolved (Fri Feb 16) and the log
+  pipelines' migration (Tue Mar 5). The mappings file grows with the catalogue and is noted by its learned check
+  for two days. A day whose lead is a declared change's own step says *as declared* on the status line. Found on
+  the way: a story's change to a read flow's file left the catalogue's flows unaddable (built on the folder's flow,
+  not the page's); the build now reads the catalogue with the story's changes. How to
+  check it: `test/larkspur.test.ts` (the tour's block), `npm run test:tour` (the answer key: 13 tests),
+  `test/carry.test.ts` (the two stories), `test/scenes.test.ts`, and `npm run regress -- tour overview` (the scene
+  by its link, the dataset as declared, the trend's cut, the register; the tour's set makes 19 runs, 1,324 of 1,330
+  engine seconds).
+
+ADR 0027 is done. What it leaves is in its §"As built" under each slice; the audit holds neither a run's rules nor
+its context tables to the flow as kept (Q-313, Q-324): both need the moment a run's rules were known at, which a
+run's entry doesn't keep, and keeping it wants its own decision.
+
+Slice 6 left the app measuring no step of a change made in it (Q-311), and a first day held by its own
+change's step waiting for a person. Found on the way, and left: the brief of a day a restatement published (Larkspur's
+Wed 27, on the dataset the views follow) still says its outputs wait, since the run on screen is the restated run,
+which the browser's engine holds; the day's head and the month say it was published. And the offline audit doesn't
+hold a bag whose run was held at a check step that reads several watched files: the run names the step's hold once a
+load it reads (ADR 0010 §7), and `checksHolds` in `src/core/audit.ts` counts it once (*the checks it says held it
+aren't what its manifest's counts hold*). To see it: on Larkspur's planted month open Thu Mar 28, export for audit,
+`node scripts/audit.mjs check` the bag. Mon 18 and Thu 21 are such days too; the integrity stops audit others. With
+`--history`, the audit also can't tell a page's claims again on a recorded month: the tail, the days left out and
+the levels they name are the build's entries, which the bag doesn't carry.
+
 **Built: [ADR 0026](adr/0026-flows-in-flows.md), flows in flows** (2026-11-17, the maintainer's answers Q-231 to
 Q-245: every slice of its §12, and both steps of slice 5). The maintainer asked for flows that are parts of other flows: build one, read it from many, stack them, change
 a bronze flow once and have it reach everything built on it; a card for each flow on its reader's canvas with the day's
@@ -569,7 +736,7 @@ recorded Fri 15; the findings' values check back to hold the day from Fri 1, rec
 every run under its day's rules as known then and runs the 25 days the back-dated change reaches again, and the
 security lead restates Sat 16 and Sun 17 (the scan that didn't log in) as not published, the other 23 noted the same.
 A day published by a decision keeps it when restated where nothing new holds it (Q-200, the maintainers' to confirm).
-The Ontology view lists the versions of the rules (four on Larkspur), marks the one on screen, now and as known on, and
+The Ontology view lists the versions of the rules (four on Larkspur then; seven since ADR 0027's slice 5), marks the one on screen, now and as known on, and
 compares any two (`tools/browser/stops/versions.json`). Slice 5, what-if runs, is built (2026-11-14): *What if… ›* on
 a day runs it on any of its files under any version of the rules, marked as a what-if in its manifest and held so
 nothing of it is published, never recorded, on screen until *Back to the day*, compared with what readers got, and says

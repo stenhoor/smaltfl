@@ -9,7 +9,9 @@ import { FlowRecord } from '../src/app/record.js';
 import { auditBag } from '../src/core/audit.js';
 import { buildBag, type BagFile } from '../src/core/bag.js';
 import { canonicalJSON } from '../src/core/canonical.js';
+import { ownersOf } from '../src/core/agree.js';
 import { composeFlow, flowProblems, pathFrom, type FlowFiles } from '../src/core/compose.js';
+import { CONTEXT_COLUMNS } from '../src/core/context.js';
 import { flowOf, givesOf, readsOf, validateDocument, type FlowDocument } from '../src/core/document.js';
 import { repairDocument, type Repair } from '../src/core/fill.js';
 import { syncRuleCells } from '../src/core/gatecell.js';
@@ -291,6 +293,29 @@ describe('a composed document', () => {
     expect(flowProblems({ ...doc, sources: doc.sources.filter((s) => s.id !== 'orders') }, alone)).toEqual(["its source orders isn't there"]);
   });
 
+  it('keeps who owns each flow’s ontology with that flow: a read flow’s owners on its part, never the reader’s own (ADR 0027 §10)', async () => {
+    const empty = { objectTypes: [], linkTypes: [], actionTypes: [] };
+    const owned = { ...SALES, 'orders/flow.json': { ...ORDERS['orders/flow.json'], ontology: { ...empty, owners: [{ id: 'ops', name: 'Ravi Okafor' }] } } };
+    const doc = await read(owned);
+    expect(doc.flows!.map((f) => [f.id, f.owners])).toEqual([['orders', [{ id: 'ops', name: 'Ravi Okafor' }]]]);
+    // Sales names no owner of its own: the read flow's aren't taken for it.
+    expect(doc.ontology?.owners).toBeUndefined();
+    expect(ownersOf(doc, { kind: 'flow', id: 'orders' })).toEqual([{ id: 'ops', name: 'Ravi Okafor' }]);
+    expect(ownersOf(doc, { kind: 'flow', id: '' })).toEqual([{ id: 'owner', name: 'Owner' }]);
+    // Read on its own, Orders' owners are its own ontology's.
+    const alone = await read(owned, 'orders/flow.json');
+    expect(alone.ontology?.owners).toEqual([{ id: 'ops', name: 'Ravi Okafor' }]);
+    expect(flowProblems(doc, alone)).toEqual([]);
+    // A document that says other owners of the flow than the flow's own doesn't hold it unchanged.
+    expect(flowProblems({ ...doc, flows: doc.flows!.map((f) => ({ ...f, owners: [{ id: 'owner' }] })) }, alone)).toEqual(["its ontology's owners aren't as it named them"]);
+    // The reader's own owners stay its own, with a flow read beside them.
+    const both = await read({ ...owned, 'flow.json': { ...SALES['flow.json'], ontology: { ...empty, owners: [{ id: 'owner' }] } } });
+    expect(both.ontology?.owners).toEqual([{ id: 'owner' }]);
+    expect(both.flows![0]!.owners).toEqual([{ id: 'ops', name: 'Ravi Okafor' }]);
+    // An owner of a flow with no policies says their name, unless it is the flow's own `owner`.
+    expect(await refused({ ...owned, 'orders/flow.json': { ...ORDERS['orders/flow.json'], ontology: { ...empty, owners: [{ id: 'ops' }] } } })).toContain('what ops is called');
+  });
+
   it('names paths from one folder to another', () => {
     expect(pathFrom('', 'orders/flow.json')).toBe('orders/flow.json');
     expect(pathFrom('feeds', 'inventory/bronze.nb.ts')).toBe('../inventory/bronze.nb.ts');
@@ -403,7 +428,9 @@ describe('Larkspur, cut into the flows it is made of (ADR 0026 §12)', () => {
     expect(givesOf(doc, 'inventory')).toEqual(['cmdb_apps_checked', 'cloud_assets_checked']);
     expect(givesOf(doc, 'feeds')).toHaveLength(13);
     expect(givesOf(doc, 'applications')).toEqual(['apps', 'app_owners', 'shadow_assets']);
-    expect(givesOf(doc)).toHaveLength(15);
+    // The product's own, the three tables of its context among them (ADR 0027 §8).
+    expect(givesOf(doc)).toHaveLength(18);
+    expect(givesOf(doc).filter((x) => x.startsWith('context_'))).toEqual(['context_changes', 'context_events', 'context_in_force']);
     // Every flow brings its own watches: together, the twenty-eight datasets the estate is judged by.
     expect(Object.keys(doc.publish!.watch!)).toHaveLength(28);
   });
@@ -430,10 +457,33 @@ describe('Larkspur, cut into the flows it is made of (ADR 0026 §12)', () => {
     expect(repairDocument(doc, { ...repair, kind: 'complete', donor: null }).flows).toEqual(doc.flows);
   });
 
-  it('runs as one flat plan: the same 92 nodes, 37 of them published', async () => {
+  it('runs as one flat plan: 95 nodes, 40 of them published', async () => {
+    // The 92 nodes and 37 outputs the estate had as one flow, and the three tables of the product's context (ADR 0027
+    // §8), which read nothing and are published with it.
     const plan = await translate(await loadFlowDir(dir), { day: '2024-03-12' });
-    expect(plan.nodes).toHaveLength(92);
-    expect(plan.outputs).toHaveLength(37);
+    expect(plan.nodes).toHaveLength(95);
+    expect(plan.outputs).toHaveLength(40);
     expect(plan.smaltflPlan).toBe(4);
+    const context = plan.nodes.filter((n) => n.op === 'sql' && n.context);
+    expect(context.map((n) => [n.origin, n.inputs.length])).toEqual([['context_changes', 0], ['context_events', 0], ['context_in_force', 0]]);
+    // The flow as shipped has one change in force on Tue 12, its estate's own (the relation that began on Mon 11, about
+    // no one dataset), and no event; every dataset is read under the one version of the rules that makes.
+    const rows = (name: string) => (context.find((n) => n.origin === name) as { context: { rows: unknown[][] } }).context.rows;
+    // The estate's relation, with who agreed to it and when (ADR 0027 §10): the security lead, who owns the shared
+    // ontology, as she wrote it down.
+    const at = (name: string) => CONTEXT_COLUMNS.changes.findIndex(([n]) => n === name);
+    expect(rows('context_changes').map((r) => ['change', 'dataset', 'reach', 'kind', 'from_day', 'recorded_by', 'agreed_by', 'agreed_at', 'estate'].map((n) => r[at(n)]))).toEqual([['acting-leader', null, 'flow', 'business', '2024-03-11', 'ciso', 'ciso', '2024-03-08T14:00:00Z', 'Larkspur estate']]);
+    expect(rows('context_events')).toEqual([]);
+    expect(rows('context_in_force')).toHaveLength(95);
+    // By name, each dataset with the flow it belongs to; the product's own with none.
+    expect(rows('context_in_force')[0]!.slice(0, 4)).toEqual(['access_reviews', 'file', 'feeds', '2024-03-12']);
+    expect(rows('context_in_force').find((r) => r[0] === 'hr_org_units')!.slice(1, 4)).toEqual(['file', 'hr', '2024-03-12']);
+    expect(rows('context_in_force').find((r) => r[0] === 'control_catalog')!.slice(1, 4)).toEqual(['file', null, '2024-03-12']);
+    expect(rows('context_in_force')[0]!.slice(5)).toEqual([1, '2024-03-11']);
+    expect(new Set(rows('context_in_force').map((r) => r[4])).size).toBe(1);
+    expect(rows('context_in_force').find((r) => r[0] === 'waf')!.slice(1, 3)).toEqual(['file', 'feeds']);
+    // Before the relation began, nothing is in force but the flow as written.
+    const before = await translate(await loadFlowDir(dir), { day: '2024-03-08' });
+    expect((before.nodes.find((n) => n.origin === 'context_changes') as { context: { rows: unknown[][] } }).context.rows).toEqual([]);
   });
 });

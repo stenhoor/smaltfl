@@ -22,23 +22,29 @@
     }
   },
   {
+    "name": "register-day-coming",
+    "what": "The day's head says what was on its way (ADR 0027 §9, slice 1): on Fri Mar 15 the WAF's band, said that afternoon after the day's own run, in force from Mon 18",
+    "day": "Fri 15",
+    "element": "#loads .dh-rules",
+    "expect": {
+      "text": ["said this day, from Mon 18: Accepted a new band in waf"],
+      "textIn": { "#loads .dh-events": ["Remediation push, day 15 of 31", "Reorganisation, and two weeks of handover, day 5 of 14"] },
+      "count": { "#loads .dh-rules-coming": 1, "#loads .dh-events [data-event]": 2 }
+    }
+  },
+  {
     "name": "follow-card",
-    "what": "Larkspur's month, Mon Mar 18, the day the WAF's band takes effect (ADR 0026 §7): the change is Evidence feeds', whose file it is about, and its card says CHANGED; Applications, which only follows it, says what it gives",
+    "what": "Larkspur's month, Mon Mar 18, the day the WAF's band takes effect (ADR 0026 §7): the change is Evidence feeds', whose file it is about, and its card says CHANGED; Applications, which only follows it, says what it gives; the day's head says the change was run both ways and moved none of the measures read (ADR 0027 §7)",
     "day": "Mon 18",
     "in": "",
     "expect": {
       "textIn": {
-        "g.card[data-card=\"flow:feeds\"]": [
-          "CHANGED"
-        ]
+        "g.card[data-card=\"flow:feeds\"]": ["CHANGED"],
+        "#loads .dh-rules-step[data-step=\"waf-band-tenth\"]": ["run both ways:", "the change moved none of 56 measures ›"]
       },
       "noTextIn": {
-        "g.card[data-card=\"flow:applications\"]": [
-          "CHANGED"
-        ],
-        "g.card[data-card=\"flow:hr\"]": [
-          "CHANGED"
-        ]
+        "g.card[data-card=\"flow:applications\"]": ["CHANGED"],
+        "g.card[data-card=\"flow:hr\"]": ["CHANGED"]
       }
     }
   },
@@ -105,7 +111,7 @@
   },
   {
     "name": "follow-test",
-    "what": "The change tested on the days recorded: each of the last 14 days before it takes effect run again under it as a what-if, nothing published and nothing recorded; the sheet and the status line then say what it found, and the day that was on screen is on screen again",
+    "what": "The change tested on the days recorded: each of the last 14 days before it takes effect run again under it as a what-if, nothing published and nothing recorded; the sheet and the status line then say what it found, and the day that was on screen is on screen again; and the same figures a change's own step gives (ADR 0027 §7, Q-261): on those days the change alone would have moved none of the published measures",
     "in": "",
     "flow": "feeds",
     "click": "#sheet .fl-change[data-change=\"waf-band-tenth\"] .fl-test",
@@ -113,19 +119,32 @@
     "waitForMs": 600000,
     "element": "#sheet .fl-changed",
     "expect": {
-      "status": "^Under the changed Evidence feeds, all of the last 14 days come out the same\\.$",
+      "status": "^Under the changed Evidence feeds, all of the last 14 days come out the same\\. On those 14 days the change alone would have moved none of the published measures\\.$",
       "textIn": {
         "#sheet .fl-change[data-change=\"waf-band-tenth\"]": [
           "Under the changed Evidence feeds, all of the last 14 days come out the same.",
+          "On those 14 days the change alone would have moved none of the published measures.",
           "Test again ›"
         ],
-        "#loads": [
-          "Mon Mar 18"
-        ]
+        "#loads": ["Mon Mar 18"]
       },
       "count": {
         "#sheet .fl-tested": 1,
         "#sheet .fl-tested-days": 0
+      }
+    }
+  },
+  {
+    "name": "register-trial",
+    "what": "What a change would have done on the days before it is said on its entry in the register (ADR 0027 §2, Q-259): the band's test, just run from its flow's sheet, reads the same there, with its figures",
+    "view": "ontology",
+    "element": "#rules-time .rg-item[data-change=\"waf-band-tenth\"]",
+    "expect": {
+      "textIn": {
+        "#rules-time .rg-item[data-change=\"waf-band-tenth\"] .rg-trial": ["all of the last 14 days come out the same.", "On those 14 days the change alone would have moved none of the published measures."]
+      },
+      "count": {
+        "#rules-time .rg-trial": 1
       }
     }
   }

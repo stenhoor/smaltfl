@@ -5,20 +5,26 @@
  * Expressions are SQL expression text (smaltdb's SQL), so a visual step reads the way its SQL would. Steps refer to
  * their inputs, and SQL steps to their inputs' data, by the inputs' ids.
  */
+import { agreedIssues } from './agree.js';
 import { calendarProblems, EVERIES, isEvery, type CalendarDef, type Every } from './calendar.js';
 import type { AcceptedBand, ColumnChange, RuleInput } from './flowedit.js';
 import { CHECK_MODES, CHECK_NAMES, gateProblems, type CheckMode, type CheckName, type GateDef } from './gates.js';
-import { marksVerdicts, NEEDS_FIELDS, ROWS_FIELDS, type Ontology } from './ontology.js';
-import { FIX_KINDS, rulesIssues } from './rules.js';
+import { awaitedIssues } from './described.js';
+import { ENDED_KINDS, FOLLOWED, marksVerdicts, NEEDS_FIELDS, ownersIssues, ROWS_FIELDS, type AwaitedDataset, type Ended, type LinkType, type NeedsDef, type ObjectType, type Ontology, type Owner, type RowsDef } from './ontology.js';
+import { checkStepOf, FIX_KINDS, rulesIssues } from './rules.js';
 import { DECIDE, DECIDE_OPTIONS, type Policies } from './policy.js';
 import type { ParamType, ParamValue } from './sqltext.js';
 import { renameIdentifier, SqlTextError, tokens } from './sqltext.js';
 
 /**
  * The formats this version reads: 1; 2 for a document that says what holds its publication (ADR 0009 §2); 3 for one
- * that says how its days are judged (ADR 0010 §10).
+ * that says how its days are judged (ADR 0010 §10); 4 for one whose steps are its notebooks' cells (ADR 0011); 5 for a
+ * notebook flow that puts the ontology first (ADR 0027 §4, Q-274): every source says what one row is, every change
+ * set says its kind and why, a closed list is enforced by a check step, and the columns of a file the flow doesn't
+ * take are set aside by name (`ontology.aside`). Whether every column a source declares is described is checked
+ * where the columns are known (described.ts `undescribed`). A format-4 document runs as it always did.
  */
-export const DOCUMENT_FORMATS = [1, 2, 3, 4] as const;
+export const DOCUMENT_FORMATS = [1, 2, 3, 4, 5] as const;
 export type DocumentFormat = (typeof DOCUMENT_FORMATS)[number];
 
 /** Whether a watch is given in the general form, as an object of its settings, not as a history's file name. */
@@ -196,7 +202,9 @@ const CONTRACT_COLUMN_FIELDS = ['name', 'type', 'description', 'required', 'key'
  * - `acceptBand`: a band accepted for a value of a source's column (ADR 0014 §3);
  * - `setCheck`: a check of a node's gate set to a mode, written in its gate cell (ADR 0014 §1);
  * - `declareValues` and `declareKey`: a proposal from the data accepted (ADR 0022 §5, Q-139): a coded column's values, a
- *   file's key (flowedit.ts).
+ *   file's key (flowedit.ts);
+ * - `declareEntry` and `leaveOut`: what arrived at the gate decided (ADR 0027 §4, Q-253): an entry of a closed list, or
+ *   a value of a closed column, declared from the day, or left out of what goes on until it is.
  */
 export type RuleEdit =
   | { op: 'setRule'; rule: RuleInput & { id: string } }
@@ -216,9 +224,89 @@ export type RuleEdit =
   | { op: 'declareValues'; file: string; column: string; values: string[] }
   /** A file's key declared from the data (Q-139, Q-214): the file its own object type, keyed by the column, with a rows
    * entry, so a day whose rows repeat a key holds. */
-  | { op: 'declareKey'; file: string; column: string };
+  | { op: 'declareKey'; file: string; column: string }
+  /** An entry declared in a closed list, or a value in a closed column (ADR 0027 §4, Q-253): the file's closed rule has
+   * it from the day, under its key (an entry the rule has under that key is replaced; a key left out is in again). */
+  | { op: 'declareEntry'; file: string; rule: string; entry: string[] }
+  /** A key left out of what goes on until it is declared (Q-253, "Publish without it"). */
+  | { op: 'leaveOut'; file: string; rule: string; key: string }
+  /** A dataset described before its data exists (ADR 0027 §5, Q-255, "Describe it first"): the ontology has its
+   * description from the day, in place of an earlier one of the same dataset, and it waits for data. */
+  | { op: 'describeAhead'; dataset: AwaitedDataset }
+  /** A kind of thing, added or changed (ADR 0027 §3, Q-250): the ontology's object type of that id, from the day. */
+  | { op: 'setType'; type: ObjectType }
+  /** A relation between two kinds, added or changed (Q-250): the ontology's link of that id. */
+  | { op: 'setLink'; link: LinkType }
+  /** What a dataset's rows are, said or changed (Q-250, ADR 0015 §1): its rows entry. */
+  | { op: 'setRows'; rows: RowsDef }
+  /** A dependency between columns or datasets, added or changed (Q-250, Q-119): the needs rule of that id. */
+  | { op: 'setNeeds'; needs: NeedsDef }
+  /** A meaning redefined (Q-251): the column means something else from the day, for the datasets named (every dataset,
+   * where none is). A rewording is no dated change: it is the name's own, at once (Q-198). */
+  | { op: 'redefine'; column: string; datasets?: string[]; change: { description: string; title?: string; values?: Record<string, string> } }
+  /** A thing of the ontology ended, with what follows it (Q-264): no longer in force from the day, and kept as ended. */
+  | { op: 'end'; ended: Ended };
 
-export const EDIT_OPS = ['setRule', 'removeRule', 'switchRule', 'nameColumn', 'acceptBand', 'setCheck', 'useVersion', 'mapColumn', 'declareValues', 'declareKey'] as const;
+export const EDIT_OPS = ['setRule', 'removeRule', 'switchRule', 'nameColumn', 'acceptBand', 'setCheck', 'useVersion', 'mapColumn', 'declareValues', 'declareKey', 'declareEntry', 'leaveOut', 'describeAhead', 'setType', 'setLink', 'setRows', 'setNeeds', 'redefine', 'end'] as const;
+
+/** The datasets an edit is about: the file or step it names. A version's rules taken whole (`useVersion`) name none. */
+export function editTargets(edit: RuleEdit): string[] {
+  switch (edit.op) {
+    case 'setRule':
+      return [edit.rule.file];
+    case 'removeRule':
+    case 'switchRule':
+    case 'nameColumn':
+    case 'mapColumn':
+    case 'declareValues':
+    case 'declareKey':
+    case 'declareEntry':
+    case 'leaveOut':
+      return [edit.file];
+    case 'acceptBand':
+      return [edit.source];
+    case 'setCheck':
+      return [edit.node];
+    case 'useVersion':
+      return [];
+    // A dataset described ahead of its data is no file or step yet: the change is the flow's that wrote it.
+    case 'describeAhead':
+      return [];
+    // A kind is about the dataset its rows are; what a row is and a dependency, about theirs. A relation and a meaning
+    // for every dataset are the ontology's own: the flow's that wrote them.
+    case 'setType':
+      return [edit.type.dataset];
+    case 'setRows':
+      return [edit.rows.dataset];
+    case 'setNeeds':
+      return [...edit.needs.datasets];
+    case 'redefine':
+      return [...(edit.datasets ?? [])];
+    case 'setLink':
+      return [];
+    case 'end':
+      return edit.ended.what === 'entry' && edit.ended.of ? [edit.ended.of.file] : edit.ended.what === 'rows' ? [edit.ended.id] : [];
+  }
+}
+
+/** What is wrong with a record that a thing ended, each as a path under it and a sentence; none, and it is one. */
+export function endedIssues(x: unknown): [path: string, message: string][] {
+  if (!isRecord(x)) return [['', 'what ended: { what, id, of?, then? }']];
+  const out: [string, string][] = [];
+  if (!(ENDED_KINDS as readonly unknown[]).includes(x.what)) out.push(['.what', `what ended: one of ${ENDED_KINDS.join(', ')}`]);
+  if (typeof x.id !== 'string' || x.id === '') out.push(['.id', 'the thing that ended: its id, a rows entry’s dataset, an entry’s key, or a described dataset’s name']);
+  if (x.what === 'entry' && (!isRecord(x.of) || typeof x.of.file !== 'string' || x.of.file === '' || typeof x.of.rule !== 'string' || x.of.rule === '')) out.push(['.of', 'the list an entry was of: { file, rule }']);
+  if (x.what !== 'entry' && x.of !== undefined) out.push(['.of', 'only an entry is of a list']);
+  if (x.then !== undefined) {
+    const t = x.then;
+    const by = isRecord(t) && Array.isArray(t.by) && t.by.every((b: unknown) => typeof b === 'string' && b !== '') ? (t.by as string[]) : null;
+    if (!isRecord(t) || !(FOLLOWED as readonly unknown[]).includes(t.how) || !by) out.push(['.then', `what follows it: { how: ${FOLLOWED.join(', ')}; by: [ … ] }`]);
+    else if (t.how === 'split' ? by.length < 2 : by.length !== 1) out.push(['.then.by', t.how === 'split' ? 'a thing splits into two or more' : 'one thing follows it']);
+    else if (new Set(by).size !== by.length || by.includes(String(x.id))) out.push(['.then.by', 'what follows it: each once, and never the thing itself']);
+  }
+  for (const k of Object.keys(x)) if (!['what', 'id', 'of', 'then'].includes(k)) out.push([`.${k}`, 'not a setting of a thing that ended: what, id, of, then']);
+  return out;
+}
 
 /**
  * A dated change set (ADR 0021 §5, Q-184): edits of the rules people set, in force from a business day, as known from
@@ -226,6 +314,32 @@ export const EDIT_OPS = ['setRule', 'removeRule', 'switchRule', 'nameColumn', 'a
  * with every change set from that day or before, recorded by then, applied in the order they were recorded
  * (inforce.ts `inForce`).
  */
+/**
+ * What kind of change a change set is (ADR 0027 §2, Q-256): it says how history is read afterwards. `business`: the
+ * business changed (a new or changed definition, rule or entry), and old and new are each right for their own time.
+ * `retuned`: a setting moved to follow what is normal, its meaning the same. `corrected`: the ontology was wrong.
+ * `source`: the file's form changed and its meaning didn't. `described`: the first description of something, the
+ * start of its history and no change at all.
+ */
+export const CHANGE_KINDS = ['business', 'retuned', 'corrected', 'source', 'described'] as const;
+export type ChangeKind = (typeof CHANGE_KINDS)[number];
+
+/** The thinking behind a change, kept beside its reason (ADR 0027 §2, Q-257): each part there only where it was given. */
+export interface ChangeNote {
+  /** What we saw. */
+  saw?: string;
+  /** What we chose, and what we turned down. */
+  chose?: string;
+  turnedDown?: string;
+  /** What we expect to happen. */
+  expect?: string;
+  /** The day to look again (YYYY-MM-DD). */
+  lookAgain?: string;
+  /** Where anything longer is. */
+  link?: string;
+}
+const NOTE_FIELDS = ['saw', 'chose', 'turnedDown', 'expect', 'lookAgain', 'link'];
+
 export interface ChangeSet {
   /** Its name, unique among the flow's change sets. */
   id: string;
@@ -241,9 +355,34 @@ export interface ChangeSet {
   why: string;
   /** Its edits, in the order they were made. */
   edits: RuleEdit[];
+  /** What kind of change it is (ADR 0027 §2); none on a change set made before kinds were asked for. */
+  kind?: ChangeKind;
+  /** The thinking behind it, where its author wrote any. */
+  note?: ChangeNote;
+  /** Who chose it and on what day, where that isn't who recorded it and when: shown, and nothing is computed from it. */
+  decided?: { by: string; on?: string };
+  /** What led to it: an event by its id, or a decision by its number in the record. */
+  because?: { event?: string; decision?: number };
+  /** The estate whose ontology's change it is (ADR 0027 §3, Q-265), by its name: brought in with the estate's ontology
+   * when the flow is read, and followed by every flow that imports it. None on a flow's own change. */
+  estate?: string;
+  /** Who agreed to it (ADR 0027 §10, Q-277): an owner of each part of the ontology it touches. A change the business
+   * made, and one that ends something, is in force only once it has them (`agree.ts`); any other needs only its
+   * author, and one given here says nothing more. In the order they were given. */
+  agreed?: Agreed[];
 }
 
-const CHANGE_FIELDS = ['id', 'from', 'until', 'recorded', 'by', 'why', 'edits'];
+/** An owner's agreement to a change (ADR 0027 §10): who, by the id their part's owners are named by, and when (ISO
+ * 8601); their identity card's fingerprint where the record that carries it was signed by one. */
+export interface Agreed {
+  by: string;
+  at: string;
+  card?: string;
+}
+
+const AGREED_FIELDS = ['by', 'at', 'card'];
+
+const CHANGE_FIELDS = ['id', 'from', 'until', 'recorded', 'by', 'why', 'edits', 'kind', 'note', 'decided', 'because', 'estate', 'agreed'];
 
 export const REACHES = ['sources', 'downstream'] as const;
 export type Reach = (typeof REACHES)[number];
@@ -371,10 +510,13 @@ export interface FlowPart {
   /** A use of a flow (ADR 0026 §11): what it is a use of, and what this use maps and sets. Its `id` is the use's name,
    * its `hash` the use's own, its `path` the used flow's. Absent for a flow read as it is. */
   use?: FlowUse;
+  /** Who owns its own part of the ontology (ADR 0027 §10), as its own document names them: whose agreement a change
+   * the business made to what it has waits for. Absent where it names none: the reading flow's owner. */
+  owners?: Owner[];
 }
 
 /** A flow part's fields: any other is refused by name. */
-const FLOW_PART_FIELDS = ['path', 'id', 'name', 'description', 'hash', 'sources', 'steps', 'reads', 'direct', 'pin', 'use'];
+const FLOW_PART_FIELDS = ['path', 'id', 'name', 'description', 'hash', 'sources', 'steps', 'reads', 'direct', 'pin', 'use', 'owners'];
 
 /** An open input of a flow (ADR 0026 §11): a dataset it reads in place of a file of its own. A flow that uses it maps
  * one of its own datasets onto it, and the flow's steps read the columns named here and no other. */
@@ -567,10 +709,27 @@ export interface NamedExpr {
   expr: string;
 }
 
+/**
+ * The context tables a cell can join to (ADR 0027 §8): the changes in force on the run's day, the events going on,
+ * and the version of the ontology each dataset was read under.
+ */
+export const CONTEXT_TABLES = ['changes', 'events', 'in_force'] as const;
+export type ContextTable = (typeof CONTEXT_TABLES)[number];
+
+/** A flow's context tables (ADR 0027 §8), by the ids of the steps that are one: the names their rows are published
+ * under. They say what a run was read under, and are no data of its day. */
+export const contextTables = (doc: { steps: readonly StepDef[] }): string[] => doc.steps.filter((s) => s.kind === 'sql' && s.context !== undefined).map((s) => s.id);
+
 export interface SqlStep extends StepBase {
   kind: 'sql';
   /** One SELECT over the inputs, which it names by their ids. */
   sql: string;
+  /**
+   * A context table (ADR 0027 §8): the step reads nothing, and its rows are made by the run from the flow's dated
+   * changes, the events written down and the rules in force on its day (core/context.ts). `sql` is the table with no
+   * rows, so the document says its columns; the plan has the day's rows in its place.
+   */
+  context?: ContextTable;
 }
 
 export interface FilterStep extends StepBase {
@@ -686,7 +845,8 @@ export function validateDocument(doc: unknown): Issue[] {
   const add = (path: string, message: string) => issues.push({ path, message });
   if (!isRecord(doc)) return [{ path: '$', message: 'a flow document is a JSON object' }];
   if (!(DOCUMENT_FORMATS as readonly unknown[]).includes(doc.smaltfl)) add('$.smaltfl', `expected ${DOCUMENT_FORMATS.join(', ')}, the formats this version reads`);
-  else if (doc.smaltfl !== documentFormat(doc)) {
+  else if (doc.smaltfl === 5 && documentFormat(doc) !== 4) add('$.smaltfl', `expected ${documentFormat(doc)}: format 5 is for a document with notebooks, the ontology first`);
+  else if (doc.smaltfl !== documentFormat(doc) && !(doc.smaltfl === 5 && documentFormat(doc) === 4)) {
     const want = documentFormat(doc);
     const three = 'a calendar, a watch given as an object, or a mark that changes verdicts (bad, newValues, after)';
     add('$.smaltfl', want === 4 ? 'expected 4: a document with notebooks is format 4'
@@ -845,6 +1005,11 @@ export function validateDocument(doc: unknown): Issue[] {
   validateGates(doc, add);
   validateContracts(doc, add);
   validateChanges(doc, add);
+  // Who agreed to each change set (ADR 0027 §10): an owner of what it touches. Said of a document whose change sets,
+  // owners and flows are shaped as they should be, since it reads all three.
+  if (!issues.some((i) => i.path.startsWith('$.changes') || i.path.startsWith('$.flows') || i.path.startsWith('$.ontology.owners') || i.path.startsWith('$.ontology.estate') || i.path.startsWith('$.policies') || i.path === '$.ontology' || i.path === '$.name')) {
+    for (const i of agreedIssues(doc as unknown as FlowDocument)) add(i.path, i.message);
+  }
   validatePublish(doc, params, add);
   if (doc.calendar !== undefined) for (const [path, message] of calendarProblems(doc.calendar)) add(`$.calendar${path}`, message);
   validateFills(doc, steps, add);
@@ -978,6 +1143,50 @@ function validateChanges(doc: Record<string, unknown>, add: (path: string, messa
     if (typeof cs.recorded !== 'string' || !/^\d{4}-\d{2}-\d{2}T/.test(cs.recorded) || Number.isNaN(Date.parse(cs.recorded))) add(`${at}.recorded`, 'when it was made: an ISO 8601 time');
     if (typeof cs.by !== 'string') add(`${at}.by`, 'who made it');
     if (typeof cs.why !== 'string') add(`${at}.why`, 'why, in their words (empty where they gave none)');
+    if (cs.kind !== undefined && !(CHANGE_KINDS as readonly unknown[]).includes(cs.kind)) add(`${at}.kind`, `one of ${CHANGE_KINDS.join(', ')}`);
+    // Ontology first (format 5, ADR 0027 §2, Q-256): every change says its kind, and why in a line.
+    if (doc.smaltfl === 5) {
+      if (cs.kind === undefined) add(`${at}.kind`, `a format-5 change set says its kind: one of ${CHANGE_KINDS.join(', ')}`);
+      if (typeof cs.why === 'string' && cs.why.trim() === '') add(`${at}.why`, 'a format-5 change set says why, in a line');
+    }
+    // Who agreed (ADR 0027 §10): each an owner by id, at a moment not before it was recorded. Whether each owns a
+    // part it touches is said once the whole document is read (`agreedIssues`).
+    if (cs.agreed !== undefined) {
+      if (!Array.isArray(cs.agreed) || cs.agreed.length === 0) add(`${at}.agreed`, 'who agreed to it: a list of one or more { by, at, card? }; absent while no one has');
+      else {
+        const who = new Set<string>();
+        cs.agreed.forEach((a: unknown, j: number) => {
+          const aa = `${at}.agreed[${j}]`;
+          if (!isRecord(a)) return add(aa, 'an agreement: { by, at, card? }');
+          for (const k of Object.keys(a)) if (!AGREED_FIELDS.includes(k)) add(`${aa}.${k}`, `not a field of an agreement (${AGREED_FIELDS.join(', ')})`);
+          if (!text(a.by)) add(`${aa}.by`, 'who agreed: an owner, by id');
+          else if (who.has(a.by as string)) add(`${aa}.by`, `${String(a.by)} agreed once already`);
+          else who.add(a.by as string);
+          if (typeof a.at !== 'string' || !/^\d{4}-\d{2}-\d{2}T/.test(a.at) || Number.isNaN(Date.parse(a.at))) add(`${aa}.at`, 'when they agreed: an ISO 8601 time');
+          else if (typeof cs.recorded === 'string' && Date.parse(a.at) < Date.parse(cs.recorded)) add(`${aa}.at`, 'before the change was recorded: an agreement is to a change written down');
+          if (a.card !== undefined && (typeof a.card !== 'string' || !/^[0-9a-f]{64}$/.test(a.card))) add(`${aa}.card`, 'their identity card’s fingerprint: 64 hex digits, or left out');
+        });
+      }
+    }
+    if (cs.note !== undefined) {
+      if (!isRecord(cs.note)) add(`${at}.note`, `the thinking behind it: { ${NOTE_FIELDS.join(', ')} }, each a string`);
+      else {
+        for (const k of Object.keys(cs.note)) if (!NOTE_FIELDS.includes(k)) add(`${at}.note.${k}`, `not a part of a note (${NOTE_FIELDS.join(', ')})`);
+        for (const k of NOTE_FIELDS) if (cs.note[k] !== undefined && !text(cs.note[k])) add(`${at}.note.${k}`, 'a non-empty string, or left out');
+        if (typeof cs.note.lookAgain === 'string' && (!DAY.test(cs.note.lookAgain) || Number.isNaN(Date.parse(`${cs.note.lookAgain}T00:00:00Z`)))) add(`${at}.note.lookAgain`, 'the day to look again: YYYY-MM-DD');
+      }
+    }
+    if (cs.decided !== undefined) {
+      if (!isRecord(cs.decided) || !text(cs.decided.by)) add(`${at}.decided`, 'who chose it: { by, on }');
+      else if (cs.decided.on !== undefined && (typeof cs.decided.on !== 'string' || !DAY.test(cs.decided.on) || Number.isNaN(Date.parse(`${cs.decided.on}T00:00:00Z`)))) add(`${at}.decided.on`, 'the day it was chosen: YYYY-MM-DD');
+    }
+    if (cs.because !== undefined) {
+      if (!isRecord(cs.because) || (cs.because.event === undefined && cs.because.decision === undefined)) add(`${at}.because`, 'what led to it: { event } by its id, or { decision } by its number in the record');
+      else {
+        if (cs.because.event !== undefined && !text(cs.because.event)) add(`${at}.because.event`, 'an event’s id');
+        if (cs.because.decision !== undefined && !(Number.isInteger(cs.because.decision) && (cs.because.decision as number) >= 0)) add(`${at}.because.decision`, 'a decision’s number in the record');
+      }
+    }
     if (!Array.isArray(cs.edits) || cs.edits.length === 0) return add(`${at}.edits`, 'its edits: a list of one or more');
     cs.edits.forEach((e: unknown, j: number) => {
       const ea = `${at}.edits[${j}]`;
@@ -1035,6 +1244,50 @@ function validateChanges(doc: Record<string, unknown>, add: (path: string, messa
         case 'declareKey':
           need('file', text(e.file), 'the file whose key it is');
           need('column', text(e.column), 'the column, as the file writes it');
+          return;
+        case 'declareEntry':
+          need('file', text(e.file), 'the file whose closed list or column it is');
+          need('rule', text(e.rule), 'the closed rule, by its name');
+          need('entry', Array.isArray(e.entry) && e.entry.length > 0 && e.entry.every((v: unknown) => typeof v === 'string') && e.entry[0] !== '', 'the entry: its key, then what each column that defines it holds');
+          return;
+        case 'leaveOut':
+          need('file', text(e.file), 'the file whose closed list or column it is');
+          need('rule', text(e.rule), 'the closed rule, by its name');
+          need('key', text(e.key), 'the key left out until it is declared');
+          return;
+        case 'describeAhead':
+          for (const [path, message] of awaitedIssues(e.dataset)) add(`${ea}.dataset${path}`, message);
+          return;
+        case 'setType': {
+          const t = e.type;
+          need('type', isRecord(t) && text(t.id) && text(t.name) && text(t.dataset) && Array.isArray(t.key) && t.key.length > 0 && t.key.every((k: unknown) => text(k)) && text(t.title), 'the kind: { id, name, dataset, key, title }');
+          return;
+        }
+        case 'setLink': {
+          const l = e.link;
+          const on = isRecord(l) && Array.isArray(l.on) && l.on.length > 0 && l.on.every((x: unknown) => Array.isArray(x) && x.length === 2 && text(x[0]) && text(x[1]));
+          need('link', isRecord(l) && text(l.id) && text(l.name) && text(l.from) && text(l.to) && on, 'the relation: { id, name, from, to, on: [[column of from, column of to], …] }');
+          return;
+        }
+        case 'setRows': {
+          const r = e.rows;
+          need('rows', isRecord(r) && text(r.dataset) && text(r.of) && Object.keys(r).every((k) => (ROWS_FIELDS as readonly string[]).includes(k)), `what a dataset’s rows are: { ${ROWS_FIELDS.join(', ')} }`);
+          return;
+        }
+        case 'setNeeds': {
+          const n = e.needs;
+          need('needs', isRecord(n) && text(n.id) && Array.isArray(n.datasets) && n.datasets.length > 0 && n.datasets.every((d: unknown) => text(d)) && isRecord(n.when) && isRecord(n.then) && Object.keys(n).every((k) => (NEEDS_FIELDS as readonly string[]).includes(k)), `the dependency: { ${NEEDS_FIELDS.join(', ')} }`);
+          return;
+        }
+        case 'redefine': {
+          need('column', text(e.column), 'the column whose meaning it is');
+          need('datasets', e.datasets === undefined || (Array.isArray(e.datasets) && e.datasets.length > 0 && e.datasets.every((d: unknown) => text(d))), 'the datasets it is the meaning for; absent, for every dataset');
+          const ch = e.change;
+          need('change', isRecord(ch) && text(ch.description) && (ch.title === undefined || text(ch.title)) && (ch.values === undefined || (isRecord(ch.values) && Object.values(ch.values).every((v) => typeof v === 'string'))), 'what it means now: { description, title?, values? }');
+          return;
+        }
+        case 'end':
+          for (const [path, message] of endedIssues(e.ended)) add(`${ea}.ended${path}`, message);
           return;
       }
     });
@@ -1218,6 +1471,15 @@ function validateFlows(doc: Record<string, unknown>, ids: Map<string, string>, a
     seen.set(part.id.toLowerCase(), at);
     for (const r of part.reads) if (!parts.some((p) => p.id === r)) add(`${at}.reads`, `${part.name} reads ${r}, which isn't listed before it: a flow comes after the flows it reads, and none reads itself`);
     if (part.pin !== undefined && (!strings(part.pin) || part.pin.length === 0)) add(`${at}.pin`, 'the flows that pin it, by id: a list of names, the document’s own flow by an empty one');
+    // Who owns its own ontology (ADR 0027 §10), as its own document names them: each a principal of the reading flow,
+    // or said by name where its policies don't have them (the flow's own `owner` needs none).
+    for (const [path, message] of ownersIssues(f.owners)) add(`${at}.owners${path}`, message);
+    if (Array.isArray(f.owners)) {
+      const principals = new Set(isRecord(doc.policies) && Array.isArray(doc.policies.principals) ? doc.policies.principals.flatMap((x: unknown) => (isRecord(x) && typeof x.id === 'string' ? [x.id] : [])) : ['owner']);
+      f.owners.forEach((w: unknown, k: number) => {
+        if (isRecord(w) && typeof w.id === 'string' && w.id !== '' && w.name === undefined && !principals.has(w.id)) add(`${at}.owners[${k}].name`, `what ${w.id} is called: the flow that reads ${part.name} has no principal of that id to take it from`);
+      });
+    }
     if (part.use !== undefined) {
       const problem = useProblem(part.use);
       if (problem) add(`${at}.use`, problem);
@@ -1326,6 +1588,21 @@ function validateExtras(doc: Record<string, unknown>, ids: Map<string, string>, 
   if (o !== undefined) {
     if (!isRecord(o) || !Array.isArray(o.objectTypes) || !Array.isArray(o.linkTypes) || !Array.isArray(o.actionTypes)) add('$.ontology', '{ objectTypes, linkTypes, actionTypes }');
     else {
+      // Who owns the flow's own part of the ontology (ADR 0027 §10, Q-276): principals by id. A flow with policies
+      // names its own principals; one without, read under another flow's, says each owner's name unless it is `owner`.
+      if (o.owners !== undefined) {
+        const principals = isRecord(doc.policies) && Array.isArray(doc.policies.principals) ? new Set(doc.policies.principals.flatMap((x: unknown) => (isRecord(x) && typeof x.id === 'string' ? [x.id] : []))) : null;
+        for (const [path, message] of ownersIssues(o.owners)) add(`$.ontology.owners${path}`, message);
+        if (Array.isArray(o.owners)) o.owners.forEach((w: unknown, i: number) => {
+          if (!isRecord(w) || typeof w.id !== 'string' || w.id === '') return;
+          if (principals) {
+            if (!principals.has(w.id)) add(`$.ontology.owners[${i}].id`, `${w.id} is no principal of the flow: an owner is someone its policies name`);
+          } else if (w.id !== 'owner' && w.name === undefined) add(`$.ontology.owners[${i}].name`, `what ${w.id} is called: the flow has no policies to take it from`);
+        });
+      }
+      if (Array.isArray(o.estate)) o.estate.forEach((x: unknown, i: number) => {
+        if (isRecord(x)) for (const [path, message] of ownersIssues(x.owners, true)) add(`$.ontology.estate[${i}].owners${path}`, message);
+      });
       o.objectTypes.forEach((t: unknown, i: number) => {
         if (!isRecord(t) || typeof t.id !== 'string' || !Array.isArray(t.key) || typeof t.title !== 'string') return add(`$.ontology.objectTypes[${i}]`, '{ id, name, dataset, key, title }');
         if (types.has(t.id)) add(`$.ontology.objectTypes[${i}].id`, `duplicate object type ${t.id}`);
@@ -1531,7 +1808,77 @@ function validateExtras(doc: Record<string, unknown>, ids: Map<string, string>, 
       }
       // Rules set on a file's columns (rules.ts): each a source's own, enforced by its check step.
       if (o.rules !== undefined) for (const [path, message] of rulesIssues(doc, o.rules)) add(path, message);
+      // The columns of a file the flow doesn't take (ADR 0027 §4): set aside by name, a source's own.
+      if (o.aside !== undefined) {
+        const sourceIds = (Array.isArray(doc.sources) ? doc.sources : []).flatMap((x: unknown) => (isRecord(x) && typeof x.id === 'string' ? [x.id.toLowerCase()] : []));
+        if (doc.smaltfl !== 5) add('$.ontology.aside', 'the columns set aside are a format-5 document’s (the ontology first)');
+        else if (!isRecord(o.aside)) add('$.ontology.aside', 'the columns each file has that the flow doesn’t take: { file: [column, …] }');
+        else for (const [f, list] of Object.entries(o.aside)) {
+          if (!sourceIds.includes(f.toLowerCase())) add(`$.ontology.aside.${f}`, `no source ${f}: a column is set aside in a file`);
+          if (!Array.isArray(list) || list.length === 0 || list.some((x) => typeof x !== 'string' || x === '') || new Set(list.map((x) => String(x).toLowerCase())).size !== list.length) add(`$.ontology.aside.${f}`, 'its columns set aside, each once; absent when there are none');
+        }
+      }
+      // What has ended (ADR 0027 §2, Q-264): each thing once, well formed; and nothing in force that is said to have ended.
+      if (o.ended !== undefined) {
+        if (doc.smaltfl !== 5) add('$.ontology.ended', 'a thing that ended is a format-5 document’s (the ontology first)');
+        else if (!Array.isArray(o.ended) || o.ended.length === 0) add('$.ontology.ended', 'what has ended: a list of one or more; absent when nothing has');
+        else {
+          const seen = new Set<string>();
+          o.ended.forEach((x: unknown, i: number) => {
+            for (const [path, message] of endedIssues(x)) add(`$.ontology.ended[${i}]${path}`, message);
+            if (!isRecord(x)) return;
+            const key = `${String(x.what)}|${isRecord(x.of) ? `${String(x.of.file).toLowerCase()}|${String(x.of.rule)}|` : ''}${String(x.id).toLowerCase()}`;
+            if (seen.has(key)) add(`$.ontology.ended[${i}]`, `${String(x.id)} is said to have ended twice`);
+            seen.add(key);
+            const listOf = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+            const inForce = x.what === 'type' ? listOf(o.objectTypes).some((t: unknown) => isRecord(t) && t.id === x.id)
+              : x.what === 'link' ? listOf(o.linkTypes).some((l: unknown) => isRecord(l) && l.id === x.id)
+              : x.what === 'rows' ? (Array.isArray(o.rows) ? o.rows : []).some((r: unknown) => isRecord(r) && String(r.dataset).toLowerCase() === String(x.id).toLowerCase())
+              : x.what === 'needs' ? (Array.isArray(o.needs) ? o.needs : []).some((n: unknown) => isRecord(n) && n.id === x.id)
+              : x.what === 'awaited' ? (Array.isArray(o.awaited) ? o.awaited : []).some((a: unknown) => isRecord(a) && String(a.id).toLowerCase() === String(x.id).toLowerCase())
+              : x.what === 'entry' && isRecord(x.of) ? listOf(o.rules).some((r: unknown) => isRecord(r) && r.id === (x.of as Record<string, unknown>).rule && String(r.file).toLowerCase() === String((x.of as Record<string, unknown>).file).toLowerCase() && listOf(r.entries).some((e: unknown) => Array.isArray(e) && e[0] === x.id))
+              : false;
+            if (inForce) add(`$.ontology.ended[${i}]`, `${String(x.id)} is in force and said to have ended: it is one or the other`);
+          });
+        }
+      }
+      // The datasets described before their data exists (ADR 0027 §5, Q-255): each once, and well formed. One whose
+      // name is a dataset of the flow has its data: it stays, the record of what was asked for.
+      if (o.awaited !== undefined) {
+        if (doc.smaltfl !== 5) add('$.ontology.awaited', 'a dataset described ahead of its data is a format-5 document’s (the ontology first)');
+        else if (!Array.isArray(o.awaited) || o.awaited.length === 0) add('$.ontology.awaited', 'the datasets described ahead of their data: a list of one or more; absent when there are none');
+        else {
+          const ids: string[] = [];
+          o.awaited.forEach((x: unknown, i: number) => {
+            for (const [path, message] of awaitedIssues(x)) add(`$.ontology.awaited[${i}]${path}`, message);
+            const id = isRecord(x) && typeof x.id === 'string' ? x.id.toLowerCase() : null;
+            if (id !== null && ids.includes(id)) add(`$.ontology.awaited[${i}].id`, `${id} is described ahead twice`);
+            if (id !== null) ids.push(id);
+          });
+        }
+      }
     }
+  }
+  // Ontology first (format 5, ADR 0027 §4, Q-254): every source says what one row of it is, by a rows entry, a type
+  // whose objects are its rows, or a noun; and a closed list or column is enforced, by the check step that reads its file.
+  if (doc.smaltfl === 5 && documentFormat(doc) === 4) {
+    const o = isRecord(doc.ontology) ? doc.ontology : {};
+    const lowerOf = (v: unknown) => (typeof v === 'string' ? v.toLowerCase() : '');
+    const said = new Set<string>([
+      ...(Array.isArray(o.rows) ? o.rows : []).flatMap((r: unknown) => (isRecord(r) ? [lowerOf(r.dataset)] : [])),
+      ...(Array.isArray(o.objectTypes) ? o.objectTypes : []).flatMap((t: unknown) => (isRecord(t) ? [lowerOf(t.dataset)] : [])),
+      ...(isRecord(o.nouns) ? Object.keys(o.nouns).map((k) => k.toLowerCase()) : []),
+    ]);
+    // A derived document's donor (ADR 0009 amendment 1) is its source's file of another day: its rows are that source's.
+    const DONOR = '_donor';
+    const rowSaid = (id: string) => said.has(id) || (id.endsWith(DONOR) && said.has(id.slice(0, -DONOR.length)));
+    (Array.isArray(doc.sources) ? doc.sources : []).forEach((x: unknown, i: number) => {
+      if (isRecord(x) && typeof x.id === 'string' && !rowSaid(x.id.toLowerCase())) add(`$.sources[${i}]`, `the ontology doesn’t say what one row of ${x.id} is: a rows entry, a type whose objects are its rows, or a noun (format 5 puts the ontology first)`);
+    });
+    const rulesDoc = { sources: (Array.isArray(doc.sources) ? doc.sources : []) as FlowDocument['sources'], steps: (Array.isArray(doc.steps) ? doc.steps : []) as StepDef[] };
+    (Array.isArray(o.rules) ? o.rules : []).forEach((r: unknown, i: number) => {
+      if (isRecord(r) && r.kind === 'closed' && typeof r.file === 'string' && !checkStepOf(rulesDoc, r.file)) add(`$.ontology.rules[${i}]`, `no check step reads ${r.file}: a closed list is enforced where its file comes into the flow`);
+    });
   }
   const p = doc.policies;
   if (p !== undefined) {
@@ -1593,6 +1940,10 @@ function validateConfig(s: Record<string, unknown>, at: string, add: (path: stri
   switch (s.kind) {
     case 'sql':
       sqlText(s.sql, `${at}.sql`);
+      if (s.context !== undefined) {
+        if (!(CONTEXT_TABLES as readonly unknown[]).includes(s.context)) add(`${at}.context`, `one of ${CONTEXT_TABLES.join(', ')}`);
+        if (Array.isArray(s.inputs) && s.inputs.length) add(`${at}.inputs`, 'a context table reads nothing: its rows are made by the run');
+      }
       break;
     case 'filter':
       sqlText(s.where, `${at}.where`);

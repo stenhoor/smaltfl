@@ -1,5 +1,5 @@
 {
-  "smaltfl": 4,
+  "smaltfl": 5,
   "id": "lockouts",
   "name": "Lock-outs",
   "description": "Lock-outs at work, a day at a time: the same sign-in file the Sign-ins flow reads, checked by the same shared rules (examples/ontologies/auth.json), and counted another way: the users locked out, and lock-outs by how they signed in. A second flow from one starting file, so a change to the file's rules reaches both.",

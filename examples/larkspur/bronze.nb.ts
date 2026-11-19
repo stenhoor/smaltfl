@@ -21,7 +21,7 @@ cell('exceptions');
 export const exceptions = source('exceptions');
 
 cell('about_gates', { lang: 'md' });
-md`The bronze gate on each file (ADR 0014, ADR 0015): each is held to its own key. The catalogue changes on purpose, so a new row there only warns. The catalogue and its mappings barely change from day to day, so the forest, which learns what a usual day looks like, has nothing to learn there and is off`;
+md`The bronze gate on each file (ADR 0014, ADR 0015): each is held to its own key. The catalogue changes on purpose, so its learned checks only warn; which controls there are, and what defines each, is the ontology’s to say first (below). The catalogue and its mappings barely change from day to day, so the forest, which learns what a usual day looks like, has nothing to learn there and is off`;
 
 cell('control_catalog_gate');
 export const control_catalog_gate = gate(control_catalog, { layer: 'bronze', reconcile: { key: 'control_id' }, checks: { amount: 'warn', values: 'warn', forest: 'off' } });
@@ -33,7 +33,7 @@ cell('exceptions_gate');
 export const exceptions_gate = gate(exceptions, { layer: 'bronze', reconcile: { key: ['exception_id', 'version'] } });
 
 cell('about_checks', { lang: 'md' });
-md`Each file’s rows, kept when they can be read: an id, a relationship or a status in the file’s own words`;
+md`Each file’s rows, kept when they can be read: an id, a relationship or a status in the file’s own words. The catalogue is a closed list (ADR 0027): the ontology has each control it has accepted, with its weight, its cadence and what it applies to. A control the ontology doesn’t have, or one whose defining columns changed, stops the posture product until someone declares it, publishes without it or doesn’t publish. A reworded name passes`;
 
 cell('control_catalog_checked');
 export const control_catalog_checked = check(control_catalog, {
@@ -41,6 +41,7 @@ export const control_catalog_checked = check(control_catalog, {
     { name: 'has_id', check: "control_id IS NOT NULL", onFail: 'drop' },
   ],
   maxDropped: 0.05,
+  ontology: { control_id_closed: 'on' },
 });
 
 cell('control_requirements_checked');

@@ -50,6 +50,9 @@ describe('a table’s news from its own rows', () => {
     // A key of two columns is judged together: each repeats alone, as a district's hours do.
     const hours = { ...zones(), noun: 'weather hours', rows: 4464, keys: [{ columns: ['borough', 'hour'], by: 'borough_hour_weather', present: 4464, distinct: 4464 }], columns: [{ name: 'borough', present: 4464, distinct: 6 }, { name: 'hour', present: 4464, distinct: 744 }], unmatched: [] };
     expect(tableNewsOf(hours, names).map((f) => [f.kind, f.detail])).toEqual([['calm', '4,464 weather hours: each borough and hour once together.']]);
+    // A table of one row says what one is called, where it is known.
+    expect(tableNewsOf({ ...hours, rows: 1, keys: [], one: 'weather hour' }, names)[0]!.detail).toBe('1 weather hour.');
+    expect(tableNewsOf({ ...hours, rows: 1, keys: [] }, names)[0]!.detail).toBe('1 weather hours.');
     expect(tableNewsOf({ ...hours, keys: [{ ...hours.keys[0]!, distinct: 4400 }] }, names)[0]!.title).toBe('Borough and hour together repeat: 4,400 combinations on 4,464 weather hours');
   });
 

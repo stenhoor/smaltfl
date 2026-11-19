@@ -7,15 +7,15 @@ as its systems export it each day:
 - from the CMDB, about 2,400 applications, each owned by a team;
 - the cloud inventory;
 - 46 shared platforms: clusters, ingresses, certificate authorities, backup controllers, scanners;
-- a catalogue of 14 controls mapped to the frameworks;
+- a catalogue of 14 controls mapped to the frameworks, and a fifteenth from Thu Mar 28;
 - the risk register and the findings ledger;
 - twelve evidence feeds, one a control.
 
 Twenty of these files arrive each day, about 28,000 rows; the platforms' two files are fixed. All of it runs in your
 browser. The data is synthetic, from a fixed seed, with six months of history before February 2024.
 
-The demo is a tour of what a flow does, over a February and a March made for it: six scenes, a week or so apart, and
-calm days between them. The tour's world is steady, so only its scenes stand out; a few calm days still carry a learned
+The demo is a tour of what a flow does, over a February and a March made for it: seven scenes, a week or so apart,
+and calm days between them. The tour's world is steady, so only its scenes stand out; a few calm days still carry a learned
 check's note, marked unusual, as any long-running flow's judges will now and then. The month screen lists the scenes
 behind **What this demo shows**, a bar at its head: tap it, and each scene has what happened and links to the places
 to look: a day, a version of it, a card's tab or the day's decision. This page follows the same list. Nothing that
@@ -76,7 +76,10 @@ the exceptions) and its notebooks:
   - the organisation, the applications and the controls;
   - each pair's status, and the findings;
   - a scorecard an application, and the posture a unit;
-  - the exceptions and the remediation queue.
+  - the exceptions and the remediation queue;
+  - its context ([ADR 0027](../adr/0027-the-ontology-over-time) §8): the changes to the ontology in force that day
+    with what each reaches and why (`context_changes`), what was going on (`context_events`), and the version of the
+    ontology each dataset was read under (`context_in_force`). The run makes them; any cell can join to them.
 
   Each dataset has a contract.
 
@@ -187,9 +190,35 @@ was filled, is the version before.
     receipt says *Decided on Evidence feeds’ page, and carried here: nobody was asked twice*. It works the other way
     round too.
 
+## 7. The business changes, and the ontology comes first {#declared}
+
+**Thu Mar 28.** The control board adds a control: a software bill of materials for every application the group
+hosts. The GRC tool's catalogue lists it that morning, a fifteenth row. The catalogue is a **closed list**: the
+ontology has each control, and an entry it doesn't have stops at the gate. Open the day's first version, **v1**, *as
+it arrived*: *Held: control_catalog_checked: not in the ontology: control_id sbom (1 row)*. The eleven outputs the
+catalogue reaches wait, and everything it doesn't reach goes out as usual. Nothing is wrong with the file: the
+business changed, and the ontology hadn't been told.
+
+At 09:10 the flow's owner **declared** it, with the board's reason: *The control board added a software bill of
+materials for every application we host: the catalogue lists it from today, before any tool reports on it, and the
+feed it will be evidenced by is described ahead*. A change the business made takes effect only when an owner of
+what it touches agrees, and the product's ontology is the security lead's: she agreed at 09:15. The day ran again
+under the rules with the control and was published restated at 09:25. The day opens on that version, the one
+readers got, and its head says both.
+
+The change keeps **its own step**. The build ran its first day both ways, with the control and as the rules were:
+the change alone moved coverage by −8.3 points, from 99.1 to 90.8, and left the score where it was, since a control
+with no evidence yet isn't in the score. On the month's score, coverage is **cut** on Thu Mar 28 with a flag that
+says so: the two sides of a cut aren't one trend. `effective`, which gained a row an application for the new
+control, says *as declared* on its News, and its checks learn from the new level from that day.
+
+The **Ontology** view's register lists it first: what was declared, why, who decided it, who agreed and when, and
+its step. One thing follows that no one declared: the file of framework mappings grew by three rows with the
+catalogue, and its learned check notes the new size that day and the next, then has learned it.
+
 ## More to see {#more}
 
-Two stories for silver and gold, which the scenes don't show.
+Three stories the scenes don't show: two for silver and gold, and one for a rule said ahead.
 
 ### The join that lost its applications
 
@@ -210,6 +239,20 @@ and the security lead published it: *Every team has a department again, and ever
 and log forwarding uses the same certificates, so the applications behind it fail both controls. Unfold **posture**
 and open **platform_impact**: its **News** names `ca-int-2`, *Platform_id ca-int-2: 4.9% (usually 0.4–1.2%)* of the
 day's failing and unassessed results. Nothing holds the day: the platform says what the failures have in common.
+
+### A rule said ahead
+
+**Fri Mar 22.** The control board's standard holds a day when more than a tenth of a WAF's applications fail, and the
+ontology's band let up to 15% pass. The owner tightened it that afternoon, from Mon Mar 25. For three days the rule
+is **coming**: each day's head says so (open **Sat Mar 23**, scene 6's day), and the register read *as known on* one
+of them lists it first, under *Coming*. From Monday it is in force. Its own step moved none of the 55 measures read:
+the tour's WAFs fail two to four applications in a hundred. The rule is Evidence feeds', so
+[its own page](/feeds/){target="_self"} has it too. The site's [feed](/app/feed.xml){target="_self"} lists every
+change and what was going on, as they stand at the end of March.
+
+The story also writes down what was **going on**, as context and no rule: the department dissolved on Fri Feb 16
+and the log pipelines' migration on Tue Mar 5, each on the days it covers and on the register. Neither excuses
+anything, so scene 4's day was still held by its learned check and decided by a person.
 
 ## Checks
 
@@ -252,8 +295,9 @@ apart from the record, and **Compare** puts any two versions of a day side by si
   tour's two months: its thirteen files and Inventory's, its own month and record. A paused day decided here or on the
   tour is carried to the other ([how](./app#a-flow-that-reads-flows)).
 - **[Larkspur's planted month](/larkspur/){target="_self"}**: the same group with trouble planted at every layer, the
-  month ADR 0020's answer key was built against: the posture over the whole month, the rules changed twice, a
-  back-dated change restating two days. [Its walk](./larkspur) goes day by day.
+  month ADR 0020's answer key was built against: the posture over the whole month, the rules changed four times
+  (one of them the estate's own, a relation added from the Monday of the reorganisation), a back-dated change
+  restating two days. [Its walk](./larkspur) goes day by day.
 - **[The control estate](/estate/){target="_self"}**: the month the gates were built against (ADR 0014), 600
   applications and twelve controls, kept as a regression. [Its walk](./estate).
 - **[The sign-in log](/signins/){target="_self"}**: a year of generated sign-ins, the shared ontology's rules and

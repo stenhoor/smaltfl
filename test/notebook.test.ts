@@ -41,7 +41,7 @@ const SETUP = "import { cell, md, param, sql } from 'smaltnb';\nimport { check, 
 describe('the sign-ins example as notebooks (ADR 0011 §1, §5)', () => {
   it('derives the JSON example\'s steps from its two notebooks, the exports as datasets', async () => {
     const doc = await loadFlowDir(signinsDir);
-    expect(doc.smaltfl).toBe(4);
+    expect(doc.smaltfl).toBe(5);
     expect(documentFormat(doc)).toBe(4);
     expect(validateDocument(doc)).toEqual([]);
     const brief = doc.steps.map((s) => [s.id, s.kind, s.inputs, s.dataset?.description]);
@@ -78,7 +78,13 @@ describe('the sign-ins example as notebooks (ADR 0011 §1, §5)', () => {
     const { shared: _s, ...ontology } = doc.ontology!;
     const { notebooks: _n, smaltfl: _f, cells: _c, groups: _g, outline: _o, ...rest } = { ...doc, ontology };
     const { smaltfl: _jf, ...jrest } = json;
-    expect({ ...rest, steps: rest.steps.map((s) => (s.kind === 'sql' ? { ...s, sql: '' } : s)) }).toEqual({ ...jrest, steps: jrest.steps.map((s) => (s.kind === 'aggregate' ? { kind: 'sql', id: s.id, inputs: s.inputs, sql: '', description: s.description, dataset: s.dataset } : s)) });
+    // But for the method's rule: the folder closes the column (ADR 0027 §4), which a notebook flow may and the JSON
+    // example, an older format, may not: there it is one of the same values.
+    const closed = { id: 'method_one_of', file: 'auth', column: 'method', kind: 'closed', entries: [['password'], ['sso'], ['mfa_push'], ['passkey'], ['api_key']], action: 'hold' };
+    expect(rest.ontology!.rules![0]).toEqual(closed);
+    const asJson = { ...jrest, ontology: { ...jrest.ontology!, rules: jrest.ontology!.rules!.map((r) => (r.id === 'method_one_of' ? closed : r)) } };
+    expect(jrest.ontology!.rules![0]).toMatchObject({ id: 'method_one_of', kind: 'oneOf', values: ['password', 'sso', 'mfa_push', 'passkey', 'api_key'] });
+    expect({ ...rest, steps: rest.steps.map((s) => (s.kind === 'sql' ? { ...s, sql: '' } : s)) }).toEqual({ ...asJson, steps: asJson.steps.map((s) => (s.kind === 'aggregate' ? { kind: 'sql', id: s.id, inputs: s.inputs, sql: '', description: s.description, dataset: s.dataset } : s)) });
   });
 
   it('translates to plan/3: the expect node and the publish block the JSON example has, the aggregates as SQL', async () => {
@@ -89,9 +95,15 @@ describe('the sign-ins example as notebooks (ADR 0011 §1, §5)', () => {
     expect(planKind(plan)).toBe('plan/3');
     expect(() => validatePlan(plan)).not.toThrow();
     expect(plan.nodes[1]).toEqual(other.nodes[1]);
-    expect(plan.nodes[2]).toEqual(other.nodes[2]);
+    // The check step is the JSON example's but for the method's rule, which the folder closes (ADR 0027 §4): a blank
+    // key is no entry, and the publish block names the rule for the run to say what arrived.
+    const expectNode = other.nodes[2] as Extract<typeof other.nodes[number], { op: 'expect' }>;
+    const closedCheck = `"method" IS NULL OR trim(CAST("method" AS TEXT)) = '' OR CAST("method" AS TEXT) IN ('password', 'sso', 'mfa_push', 'passkey', 'api_key')`;
+    expect(plan.nodes[2]).toEqual({ ...expectNode, rules: expectNode.rules.map((r) => (r[0] === 'method_one_of' ? [r[0], closedCheck, r[2]] : r)) });
     expect(plan.nodes.slice(3).map((n) => n.op)).toEqual(['sql', 'sql']);
-    expect(plan.publish).toEqual(other.publish);
+    const { closed, ...publish } = plan.publish as typeof plan.publish & { closed?: unknown };
+    expect(publish).toEqual(other.publish);
+    expect(closed).toEqual([[2, [{ rule: 'method_one_of', key: 'method', defines: [], keys: ['api_key', 'mfa_push', 'passkey', 'password', 'sso'] }]]]);
     expect(plan.outputs.map((o) => o.name)).toEqual(other.outputs.map((o) => o.name));
     // A plan/3 hash is not a plan/2 hash of the same bytes.
     expect(await planHash(plan)).not.toBe(await planHash({ ...plan, smaltflPlan: 2 }));
@@ -218,7 +230,7 @@ await exec\`DELETE FROM t\`;
     expect(steps).toEqual([]);
     expect(issues).toEqual([
       { path: '$.notebooks[0]#auth', message: "source() names a source of the document, and users isn't one (sources: auth)" },
-      { path: '$.notebooks[0]#n', message: 'not a step a flow runs: a sql cell (const n = sql`…`), a df cell, source(), input(), check(), fill(), gate(), publish() or param()' },
+      { path: '$.notebooks[0]#n', message: 'not a step a flow runs: a sql cell (const n = sql`…`), a df cell, source(), input(), context(), check(), fill(), gate(), publish() or param()' },
       { path: '$.notebooks[0]#rows', message: '${nothing}: nothing defines nothing' },
       { path: '$.notebooks[0]#frame', message: 'a df cell needs a frame compiler (expandNotebooks options.df): this build has none' },
     ]);

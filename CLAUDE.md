@@ -443,7 +443,7 @@ release (smaltty ADR 0030).
   check holds the run's document to them (`flowProblems`). A fill's derived document names its donor in the flow that
   owns the file (`repairDocument`). The app's build ships each read flow (`data/flows/<id>.json`, loads.json `flows`,
   `DataList.flows`). Larkspur is five flows: `hr/`, `inventory/`, `feeds/`, `applications/` and the posture product at
-  the root, which lists the four (the same 92 plan nodes, 37 outputs where it had 19; the ontology the estate's own
+  the root, which lists the four (the same 92 plan nodes, 37 outputs where it had 19, and 95 and 40 since ADR 0027's context tables; the ontology the estate's own
   document since slice 7); `test/compose.test.ts`. Slice 2, the canvas in levels: `src/core/levels.ts` (pure, not in what the
   data's cache is keyed by): `levelDoc` is the document one flow's canvas lays out, its own files, steps and sections and
   a card a flow it reads itself (`flowCard`, `cardFlow`, `readHere`; a card joined to every flow its flow lists and to
@@ -583,6 +583,177 @@ release (smaltty ADR 0030).
   read, the site's pages), `notCarried` said in `whoseLine`, `carriedOf` and `takenBy` on the receipt, `namePage`, `pagePeople`.
   `test/carry.test.ts`, `test/record-others.test.ts` (on `test/helpers/fake-idb.ts`);
   `tools/browser/stops/carry.json` on the two apps served from one origin (tour.cjs's `page`).
+- The ontology over time (ADR 0027, docs/research/temporal-ontology.md): the ontology first, every change a dated
+  record with a kind and a reason, events as context, a day read under what was in force. Slice 1, the register on
+  screen, over the rule changes already dated (no hash moves): `src/core/register.ts` (pure, outside the data's cache
+  key): `subjectOf` and `shortOf` (what an edit is about, by key and lane, and what it leaves a thing as), `registerOf`
+  (each change set an `Entry`: what it did, its `Tense` for the day read from, `How` it was said, as known at a
+  moment), `livesOf` (rows, one a thing: its `Span`s over the days), `sinceOf`, `comingOn`, `howSaid`. viz.ts
+  `registerLanes` and `scoreTrend`'s `marks`. In the app: `registerPart` at the Ontology view's head (a list on a
+  phone, lanes from 820 px; `registerNow`, `registerToday`, `entryWhen`, `decidedMarks`, `openChange`), `sinceLink`
+  on a rule's line (`ruleSubjectKeys`), what was coming on the day's head (`rulesLine`), `changeMarks` on the month's
+  score; `test/register.test.ts`, stops in `versions.json` and `follow.json`. Slice 2, reasons, kinds and events (no
+  hash a run names moves): a change set's `kind` (`CHANGE_KINDS`), `note` (`ChangeNote`), `decided` and `because` in
+  document.ts; `KIND_NAMES`, `defaultKind`, `kindReads` in register.ts; `editRules` asks why wherever no reason came
+  with the edit (`askWhy`, `whyFields`, `WhyGiven`); `src/core/events.ts` (`FlowEvent`, `eventsProblems`,
+  `latestEvents`, `eventsOn`, `eventDay`), a story's `events` shipped in loads.json (`DataList.events`) and the app's
+  own in the record (an `event` entry: `flowEvents`, `eventForm`, `writeEvent`); the register lists both, with each
+  kind's mark (`kindMark`), the lanes' *Going on*, the day's `eventsLine`, the month's `eventBands`; a change tried
+  from its entry (`testChange` with no flow). `test/events.test.ts`. Slice 3, the gate: a list or column the ontology
+  closes is a rule of kind `closed` (`rules.ts`: `defines`, `entries`, `leftOut`; `closedOf`, `isList`, `arrivalOf`,
+  `entryDiff`, `engineRules`), enforced by its file's check step (`emitRuleCheck`; a key left out by `emitLeftOut`,
+  an `aside` rule `<id>_left_out`, counted apart from the rows the rules drop), named in the plan only where declared
+  (`publish.closed`, `ClosedPlan`: no plan version, Q-286); the run names what arrived and what waits for data
+  (`countClosed`, `ManifestNode.closed`, `ClosedCounts`; `emitUndeclared`, `emitKeysPresent`), the hold says it
+  (`undeclaredSaid`, `Hold.undeclared`) and verify names it again (`closed`). The edits `declareEntry` and `leaveOut`
+  (`flowedit.ts`, an entry's own), on the register as one thing (`entry:` subjects, begun on the day first named). The
+  app: `gatePart` (*At the gate*: `gateStops` by the rules as known now, `docKnownNow`; `decideAtGate`,
+  `declareLeftOut`, `leftOutNow`, `waitingNow`; `rerunAndRestate` shared with a mapped column), *Publish as is* off on
+  the sheet, `closedEntries` and the closed kind of `ruleForm` (`entriesOnScreen`) on the Ontology page, `gateMarks`
+  (the lanes' *What stopped at the gate*); `latestGot` (hold.ts) is the day readers see once a restatement publishes
+  one, and `skipOf` learns from such a day (`restatedGot`: unless the run restated still holds the pause's own file). What an event excuses (§6): `Excuse`, `EXCUSABLE`, `excusesFor`, `ClaimExcuse` in events.ts; `excusedBy`
+  (news.ts, `Finding.excused`), `Aside`/`asideOn` (history.ts), `asideBefore` and `StoryClaim2.excuses` (hold.ts),
+  `TellFor.excuses`, the story's head *As expected: …*; the recorder writes a story's events into the record
+  (`timelineOf`'s `event`) and the audit holds a claim's excuses to them (`retell.ts`); the app's `excusesNow`,
+  `excusedLine`, `excusesSaid`, `excusedDays`, and the month's day picked saying what an event explains, no finding
+  of the day (`expectedOf`, `AS_EXPECTED` in overview.ts; `dayExpected`). Document format 5 (`document.ts`; `described.ts`: `undescribed`,
+  `rowSaid`, `asideOf`; `setAside`; the build's `undescribedIn`; the app's `firstLine`, `asideColumn`): every example
+  flow but `examples/controls/`. Larkspur's catalogue is closed (the story declares the SBOM control on Wed 27 and
+  plans the agents' reinstall of Sat 9 as an event that excuses); the sign-ins' Method is closed, its month to Mon 25
+  (`GATE_DAYS`). `test/closed.test.ts`, `test/excuse.test.ts`, `test/described.test.ts`,
+  `tools/browser/stops/gate.json`. Slice 4, the two doors (§5): `src/core/newsource.ts` (pure, outside the key):
+  `readFile` (a CSV file read whole: each column's type from every value, blanks, distinct, commonest), `proposeSource`,
+  `sourceProblems` and `columnsLacking` (what is still to confirm: what one row is, its key, every column described or
+  set aside), `withSource` (the source, its description, and in `SOURCES_NOTEBOOK` its cell, a check step that warns of
+  a row without its key, published; `shared` leaves an estate's meanings to the estate), `bindingOfSource`,
+  `withoutSource`, `sourcesAdded`, `sourceReaders`; a dataset described ahead of its data (`ontology.awaited`,
+  `AwaitedDataset`, `awaitedOf`, `awaitedIssues` in described.ts; the dated edit `describeAhead`; `matchAwaited`,
+  `specOfAwaited`, `awaitedProblems`, `waitingForData`); `withRowSaid` (a format-4 flow's file says what one row is).
+  `src/app/files.ts` (`FileStore`: the files added here, in a database of their own). The app: *Add a source ›* in
+  `renderBuildBar`, `openSource`, `pickFile`, `sourceForm`, `addSource`, `takeOffSource`, `describeForm`, `awaitedNow`,
+  `awaitedPart` (the Ontology view's *Described ahead of their data*), `addedSources`/`restoreAdded`/`pinAdded`
+  (bindings and files kept in the browser, restored and pinned at start; `bindingOf` reads them), `rowForm` and
+  `saveAsFormat5` on `firstLine`. `mergeOntologies` carries `aside` and `awaited`. tour.cjs: a stop's `then` (taps
+  after a file was chosen) and `upload`'s third entry. `test/newsource.test.ts`, `test/files.test.ts`,
+  `tools/browser/stops/doors.json` on the sign-ins; Larkspur's story describes the SBOM inventory ahead (`versions.json`).
+  Slice 5, kinds, relations and meanings over time (§3; no hash tag moves, `rules/1` hashes the ontology whole): six
+  dated edits (`RuleEdit` ops `setType`, `setLink`, `setRows`, `setNeeds`, `redefine`, `end`; `flowedit.ts` `setType`,
+  `setLink`, `setRows`, `setNeeds`, `redefine`, `endThing`, each saying nothing where the document couldn't be read
+  after it, `kept`); what ended is kept (`ontology.ended`, `Ended`, `ENDED_KINDS`: a kind, a relation, a rows entry, a
+  dependency, a closed list's entry, a dataset described ahead that still waits; `FOLLOWED`; `endedIssues`); an
+  estate's own change sets (`EstateOntology.changes`, `ESTATE_OPS`, brought in by `withEstates` before the flow's own,
+  each marked `ChangeSet.estate`; Larkspur's `acting-leader` adds the relation *Acted for by* from Mon 11); the
+  register's subjects for them (`type:`, `link:`, `rows:`, `needs:`, `meaning:`, `awaited:`; a thing a change adds
+  begins there). Outside the key: `ruleversions.ts` (`RuleDiff`'s kinds for them, `diffSaid`, a closed list's entries
+  said by what was declared, `ontologyMap`, `datedDiff` and `diffKey`: each difference with the change that made it)
+  and `ontologypage.ts` (`redefinable`, `redefineEdits`, `redefinedWhere`, `Rule.needs`, `endedEntry`,
+  `endedArrivalSaid`, `entryCalled`). The app: `kindsPart` on the Ontology view (the map first, viz.ts `kindsMap`;
+  `datesCompared`; each thing behind a bar, since when, whose, `comingOfKey`, `ontologyComing`, `kindsKnown`), the
+  forms `kindForm`, `linkForm`, `rowsForm`, `needsForm`, `endForm` (any ended kind) through `sendKindEdit` and
+  `datedTail`; `editRules` checks an edit that changes nothing on screen on its own first day; the names form's
+  *reworded or redefined* (`columnForm`, `meaningSince`); a closed list's entry ended and listed (`closedEntries`,
+  `endedAtGate`); a description written ahead changed or ended (`describeForm(had)`, `awaitedNow`'s `ended`). The
+  recorder judges a fill's donor under the rules of the day it fills (Q-303). `test/kinds.test.ts`; stops in
+  `versions.json` (Larkspur), `estate.json` (the control estate) and `gate.json` (the sign-ins).
+  Slice 6, reading across a change (§7; no hash moves). `src/core/step.ts` (in what the data's cache is keyed by: the
+  recorder reads it): a change's own step, the first day of a change of kind `business` run both ways (`StepAbout`,
+  the record's entry of kind `step`, `STEP_KIND`, `isStep`, `stepsOf`; `asItWas`: the flow without the change set, each
+  entry it declares left out for that day; `StepMarks`, `stepMeasures`: score, coverage, `checks:*`, `failing:<control>`,
+  `rows:<output>`; `seriesIn`, `toldDay`, `ToldDay`, `declaredLevels`, `StepLevel`: each series of a watched step that
+  the two runs give another value, that stands outside what was usual under the change and that the old way told
+  nothing of, with what the day's data said the old way). `scripts/data/record.ts`: `tellDay`, `postureOf`, `marksOf`,
+  `toldOf`, `stepOnce` (a what-if under `asItWas`, its manifest kept with the month's; none where the rules in force
+  are the same without the change), a day's first-published mark
+  (`PostureMark.first`, month.ts). `hold.ts` `levelsOf` reads a step's levels as levels from its day (a claim names
+  the step's entry; `levelFor` carries only an Accept). `src/core/across.ts` (pure, outside the key: what a page
+  reads): `stepIn`, `moveSaid`, `cutsOf`, `adjusted`, `asDeclared` (a declared dataset's first day read as the run as
+  it was judged it, for runs on the files the step was measured on), `declaredOf`, `declaredOn`, `trialMoves`,
+  `redefinedOn`, `followedThrough`. viz.ts `scoreTrend`'s `cuts` (`ScoreCut`, a line each) and `adjusted`, the mark
+  `changed`. The app: `stepsNow`, `stepLine` (the register's entry, *The day both ways*), `stepOnTrend`, `trendCuts`,
+  `trendAdjusted`, `monthView.adjusted`, the month's *Where a line is cut* and *Corrected since*, `readEntries`
+  (the record as the month reads it), `dayDeclared`, `declaredNote`, `declaredPart` (a watched dataset's News),
+  `levelSeries`, the day head's `.dh-rules-step`, `marksOfRun`, `marksOfRecorded`, `trialFigures` (a trial's figures,
+  in `testChange`), `acrossColumn` (the redefinition marks and `followedPart`, `rawValue`, in `findingDetail` and
+  `causeDetail`), the brief's status *as declared*. `test/step.test.ts`,
+  `test/viz.test.ts`; stops in `month.json`, `versions.json` and `follow.json` (Larkspur).
+  Slice 7, context that travels (§8; no plan version, no node kind, no hash tag). `src/core/context.ts` (in what the
+  data's cache is keyed by): the three tables' columns (`CONTEXT_COLUMNS`), `contextRows` (a run's rows, from the flow
+  as kept, the day, the moment the rules are known at and a `ContextGiven`), `contextKnown` (the events and the
+  changes' own steps recorded by a moment: the recorder and the page both ask it), `reachOf` (the datasets a change
+  or an event reaches: `direct`, `downstream`, else the `flow`'s), `changeAbout`, `datasetsOf`, `contextOf` (what
+  reaches one dataset, for the page), `stepSaid`. In the document a context table is a `SqlStep` with `context`
+  (`CONTEXT_TABLES`, `ContextTable`; its `sql` the table with no rows, `emit.ts` `emitRows`); `context()` in
+  `src/notebook.ts`, classified and derived in `core/notebook.ts`; `translate`'s `context` option puts the day's rows
+  in the plan (`SqlNode.context`), `runFlow`'s passes them; verify translates the kept document again with the rows
+  the plan carries; `typed.ts` `typesKey` leaves a context table's rows out. `editTargets` is `document.ts`'s
+  (re-exported by `attribute.ts`). The recorder: `contextAt`, `contextSteps` (kept out of `marksOf`). Larkspur's
+  product publishes `context_changes`, `context_events` and `context_in_force` under contracts (95 plan nodes, 40
+  outputs). A context table is no data of its day (Q-318): `contextTables` (document.ts) names them, `restatedOutcome`
+  (month.ts) leaves them out of what makes a restated day changed (the recorder, the page and the audit pass the
+  names), and `compareSummary`'s `context` lists them apart. Outside the key: `across.ts` `changesReaching`;
+  `silver.ts` `CONTEXT_DOES`, `StepFacts.context`. The app:
+  `contextForRun` (the rows a run here takes, a what-if's from the change sets picked, a fill's derived run's from its
+  own document as known when it was made), `contextSteps`,
+  `contextPart` (a card's **Context**, on the tabs that tell its day, as known at the moment the page reads at, saying
+  what was said after the version on screen ran, Q-319), `acrossColumn`'s marks for every change that
+  reaches the dataset, the month's rows' `BarDay.changed` (viz.ts `dayBars`). `test/context.test.ts`; stops in
+  `larkspur.json` and `month.json`.
+  Slice 8, who decides (§10; no hash tag moves). `src/core/agree.ts` (in what the data's cache is keyed by): `Owner`
+  (ontology.ts: a principal's id, a name, a card once known), named part by part (`EstateOntology.owners`, a flow's
+  `ontology.owners`; in a document read with its flows, `FlowPart.owners` and `EstateFrom.owners`; none named, the
+  flow's owner, `flowsOwner`), `partsIn`, `partsOf` (what a change touches: the estate for its own change, else the
+  flow of each file or step it is about), `ownersOf`, `asksAgreement` (kind `business`, or an `end` edit),
+  `agreementOf` (each part with who agreed, the parts that wait, the moment it took effect, whether one person held
+  both roles), `knownFrom`, `mayAgree`, `agreeTo`, `agreedIssues` (the document refuses an agreement by someone who
+  owns nothing the change touches). `ChangeSet.agreed` (`Agreed`: by, at, card). `inforce.ts` `changesOn` and
+  `versionRules` order change sets by when they came to be known, one that waits left out (a version that names it
+  applies it last); `register.ts` the tense `waiting`, an entry's `agreement` and `knownFrom`; `ruleversions.ts`
+  the moments versions change at; `timeline.ts` `timelineOf`'s `knownFrom`; the recorder's `knownAt`; `compose.ts`
+  and `catalogue.ts` keep each part's owners with it, and `flowProblems` holds them. `context_changes` has
+  `agreed_by` and `agreed_at`. The audit (`audit.ts`): each kept flow document's agreements against its owners, and
+  against who made the entry that brought them. The app: `keptChanges` (the change sets with what says who owns
+  what), `withOwnAgreement` (an author who owns what a change touches agrees by recording it), `agreeToChange`,
+  `agreedLine` and `ownersPart` on the register, `agreeHint` in `whyFields`, `waitsFor`, the day head's
+  `.dh-rules-waits`, a declaration at the gate that waits (`declaredWaiting`, `.gt-agree`). Larkspur's estate and its product are the security lead's (`ciso`), each read flow its owner's;
+  the story's `sbom-declared` is agreed to five minutes after it was recorded. `test/agree.test.ts`,
+  `test/audit.test.ts`, `test/compose.test.ts`; stops in `versions.json`.
+  Slice 9, who hears, and the auditor (§10; no hash moves). `src/core/told.ts` (pure, outside the data's cache key):
+  `Told` (a change set or an event told once: its days, kind, what it did, why, who made, decided and agreed, what
+  it reaches, what it excuses, its own step), `toldOf`, `inPeriod`, `toldLines`, `spanSaid`, `saidWhen`,
+  `agreedSaid`, `reachSaid`; a period's digest (`digestOf`, `digestHead`, `digestText`, `periodSaid`); since a
+  browser last looked (`Seen`, `seenOf`, `sinceSeen`, `movedSaid`, `sinceSaid`); the feed (`feedOf`: Atom, an
+  entry's id `urn:smaltfl:<flow>:<change|event>:<id>`); the history for an auditor (`smaltfl-ontology-history/1`:
+  `OntologyHistory`, `historyOf`, `historyTold`, `historyHead`, `historyText`, `historyProblems`; what came with the
+  build under `shipped`). `scripts/feed.ts` `feedFor`: the app's build writes `feed.xml` beside the page (loads.json
+  `feed`, `DataList.feed`; the page's `<link rel="alternate">`), from the flow as shipped, the story's events and
+  the month recorded; not in the data's cache key. The app: `toldNow`; `sinceNow` (kept by flow and viewer,
+  `seenPlace`, once `toldReady`; a first look says nothing; `seeOwn`, `changesHad`: one's own doings are no news),
+  `sincePart` (the register's head, **Got it**), `sinceLine` (the month's top), the mark on a read flow's sheet
+  (`flowChangedPart`'s `.fl-since`); `digestPart` (**Pass it on**; `toldPeriods`, `copyActs`, `textImage`);
+  `renderHistoryPage` (`#history-page` in place of the Ontology view, `body[data-told="history"]`, the page's
+  `@media print` rules), `historyNow`, `historyEntry`; links `#ontology/change|event|digest|history/…`
+  (`takeOntologyLink`); `exportAudit` records the flow as kept, then puts `ontology/history.json` in the bag
+  (`auditReadme` says what it is); `audit.ts` makes it again from the flow document the record kept under the hash
+  it names and the record's events and steps. The history is told from the flow without its display fields, as the
+  record keeps it: `register.ts` `checkWithoutCells` says a gate's toggle there, where no cell can be rewritten.
+  `test/told.test.ts`, `test/audit.test.ts`; stops in `versions.json`, and `integrity.json`'s bag (tour.cjs's
+  `expect.audit` takes a list of lines the audit's report must say).
+  Slice 10, the demo (§11; the tour's answer key moves, as §11 said). The tour's seventh scene: `LARKSPUR_TOUR_DAYS.sbom`
+  (Thu Mar 28) and `LARKSPUR_TOUR`'s `sbom` plant the catalogue's fifteenth control; `examples/larkspur/tour.json`
+  has `changes` (`waf-band-tenth`, recorded Fri Mar 22 for Mon Mar 25, the rule said ahead; `sbom-declared`, recorded
+  Thu Mar 28 09:10 and agreed to by `ciso` at 09:15), `events` (`dept-dissolved`, `log-migration`: the tour's own
+  world, no freeze and no push) and the `restatements` entry that publishes the day; `examples/larkspur/feeds/tour.json`
+  has the WAF's change and the migration too (`test/carry.test.ts` holds the two stories to each other, since a
+  decision carries only where the flow is the same on both pages). `scenes.json`: scene 7 and *A rule said ahead*
+  (its look Sat Mar 23, scene 6's day, so no run is added). The mappings file (`control_requirements`) grows with the
+  catalogue and is noted by its learned check for two days (no event excuses a lasting change: an excused day isn't
+  learned from). `sayRun` says *as declared* on the status line of a day whose lead is a declared change's own step.
+  The build reads the catalogue with the story's changes (`scripts/catalogue.ts` `readCatalogue(flowPath, changes)`:
+  a catalogue flow's own document holds the change sets about what it reads and names each flow it reads by the
+  hash that flow has with them), else a story's change to a read flow's file left the catalogue's flows built on
+  another flow than the page's, and unaddable. `test/larkspur.test.ts`, `test/larkspur-tour.test.ts` (13 tests),
+  `test/catalogue.test.ts`, `test/scenes.test.ts`; stops in `tour.json` (19 runs), `overview.json`, `tiers.json` and
+  `levels.json` (which steps to the day before the visitor's, since the day after has two versions).
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -599,7 +770,8 @@ release (smaltty ADR 0030).
   Evidence feeds' page), each demo's cost of a run, `budget.engineSeconds` over their sum; a set that makes more runs,
   a stops file not listed, or a sum over the budget fails the regression. CI's `demos` and `browser` jobs run it.
   Amended on 2026-11-17 for ADR 0026's eleven sets (its §"Amended"; the budget raised with the maintainer's
-  agreement, Q-246): 33 sets on five demos, 215 runs, 1,292 of 1,330 engine seconds; the tour finds a set's opening
+  agreement, Q-246): 33 sets on five demos, 215 runs, 1,292 of 1,330 engine seconds then, and with ADR 0027's sets
+  and stops 35 sets, 244 runs, 1,324 of 1,330 (the tour's seventh scene is one run more); the tour finds a set's opening
   day by the list's `slot`.
 - **State of the work:** [docs/HANDOFF.md](docs/HANDOFF.md) says what is built, how to check it and what is left, in
   priority order. Read it before starting. **What comes next:** [ADR 0011](docs/adr/0011-notebooks-as-the-step-surface.md),
@@ -692,6 +864,23 @@ release (smaltty ADR 0030).
   slice 5 in two steps (its §"As built", which says what each leaves): the second, a decision carried between a read
   flow's own page and its reader's, once the maintainer had chosen the page (Q-245), with Q-240 to Q-244 confirmed as
   built: ADR 0026 is done. What it leaves first is a flow run on its own and read by another (its §"Not built").
+  **Next:** [ADR 0027](docs/adr/0027-the-ontology-over-time.md), the ontology over time (2026-11-18, the maintainer's
+  answers Q-247 to Q-279, docs/research/temporal-ontology.md): the ontology is the business's rules, meanings and kinds
+  of things, and data that changes stays data; the ontology comes first (a source is made with its description, and an
+  entry of a closed list or a value of a closed column the ontology doesn't have pauses what it reaches until it is
+  declared); every change is a dated record with a kind and a reason; events are context written by people, and may
+  say what they excuse; a day is read under what was in force and carries that context. In the slices of its §11:
+  slice 1 (the register on screen), slice 2 (reasons, kinds and events), slice 3 (the gate, what an event excuses,
+  document format 5), slice 4 (the two doors), slice 5 (kinds, relations and meanings over time, with the shared
+  ontology's own change sets), slice 6 (reading across a change: each change's own step, the cuts, the adjusted
+  line, a declared change as the new level), slice 7 (context that travels: three tables any cell can join to,
+  published with the product), slice 8 (who decides: owners named in the ontology, agreement recorded on the
+  change set, the audit holding one to the other), slice 9 (who hears, and the auditor: since you last looked,
+  a digest, a feed the build writes, the history as a page that prints and in the audit bag) and slice 10 (the
+  demo: the tour's seventh scene, the catalogue's fifteenth control declared at the gate, a rule said ahead and
+  the story's events) are built (its §"As built", which says what each leaves): ADR 0027 is done. Its Q-280 to
+  Q-285 are proposed, for the maintainers to confirm, and Q-286 to Q-336 are the choices slices 3 to 10 made as
+  they were built.
 
 ## Rules for this repository
 

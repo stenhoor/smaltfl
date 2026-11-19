@@ -1,5 +1,5 @@
 {
-  "smaltfl": 4,
+  "smaltfl": 5,
   "id": "feeds",
   "name": "Evidence feeds",
   "description": "The findings ledger and twelve evidence feeds, one a control, as their tools export them each day. Each is judged as it arrives against the inventory’s list of applications, may be filled from another day when it is missing or wrong, and gives its readable rows.",

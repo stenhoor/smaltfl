@@ -124,18 +124,17 @@
   },
   {
     "name": "alone-taken-out",
-    "what": "The join taken out: its notebook is gone from the canvas, and so is the bar, since nothing made here is left",
-    "clicks": [
-      "#build-bar .build-add",
-      ".cat-made li[data-join=\"app_scores_with_apps\"] .cat-off"
-    ],
-    "waitFor": "body:has(#run:not([disabled])):has(#build-bar[hidden]) #loads",
+    "what": "The join taken out: its notebook is gone from the canvas, and the bar is back to Add a source alone, since nothing made here is left and this build ships no flow to add",
+    "clicks": ["#build-bar .build-add", ".cat-made li[data-join=\"app_scores_with_apps\"] .cat-off"],
+    "waitFor": "body:has(#run:not([disabled])):has(#build-bar:not(:has(.build-made))) #loads",
     "waitForMs": 120000,
     "expect": {
       "state": "done",
       "count": {
         "g.card[data-card=\"nb-joins\"]": 0,
-        "#build-bar .build-add": 0
+        "#build-bar .build-add": 0,
+        "#build-bar .build-source": 1,
+        "#build-bar .build-made": 0
       }
     }
   }

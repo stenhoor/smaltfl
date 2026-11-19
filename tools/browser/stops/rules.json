@@ -10,7 +10,7 @@
     "full": true,
     "expect": {
       "text": [
-        "Method is Password, Single sign-on, MFA push, Passkey or API key: else hold the day",
+        "Method is Password, Single sign-on, MFA push, Passkey or API key, and nothing the ontology doesn’t have: else hold the day",
         "Latency is from 0 to 30,000 ms: else flag the row and keep it",
         "Country is never blank: else flag the row and keep it",
         "Shared. auth’s meanings and rules come from ../ontologies/auth.json, which every flow that reads auth imports"
@@ -26,7 +26,7 @@
   },
   {
     "name": "rules-add-form",
-    "what": "The owner taps Add a check on the User card, and has edits take effect from the day on screen (Thu Mar 21, ADR 0021 §5; they reach Fri Mar 22, the last recorded day, too): the form in place of the button, what User must be (never blank by default), what a row that breaks it does, Add the check and Cancel",
+    "what": "The owner taps Add a check on the User card, and has edits take effect from the day on screen (Thu Mar 21, ADR 0021 §5; they reach every day recorded after it, to Mon Mar 25, too): the form in place of the button, what User must be (never blank by default), what a row that breaks it does, Add the check and Cancel",
     "view": "ontology",
     "viewFirst": true,
     "clicks": [
@@ -43,17 +43,45 @@
         "A row that breaks it",
         "Add the check",
         "For auth only. On once saved",
-        "Back-dated: 2 recorded days (Thu Mar 21 to Fri Mar 22, 1 published) run again under the new rules, and one decision restates them."
+        "Back-dated: 5 recorded days (Thu Mar 21 to Mon Mar 25, 1 published) run again under the new rules, and one decision restates them."
       ]
     }
   },
   {
+    "name": "rules-why",
+    "what": "Saving a rule asks why (ADR 0027 §2, Q-256): the kind of change, one of four with the one the edit usually is picked, and a reason, both required; who decided, what led to it and the thinking fold away beneath. Without a reason it says one is needed",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [".of-rule-form .of-save", ".vf-detail .wy-go"],
+    "element": ".vf-detail",
+    "expect": {
+      "textIn": {
+        ".vf-detail": [
+          "Kind",
+          "The business changed",
+          "A setting re-tuned",
+          "A mistake corrected",
+          "The source changed",
+          "Why",
+          "A change needs a reason: one line of why.",
+          "Who decided, what led to it, the thinking"
+        ]
+      },
+      "count": {
+        ".vf-detail .wy-kind input": 4,
+        ".vf-detail .wy-kind[data-kind=\"business\"] input:checked": 1
+      }
+    }
+  },
+  {
     "name": "rules-added",
-    "what": "The rule added, in force from Thu Mar 21: Thu 21 and Fri 22 run again under it and come out the same (Fri 22 still held for its renamed column), and the restatement opens for its sign-off (Q-199 as answered, ADR 0022 §1); User is never blank, else flag the row and keep it, listed on the User card and among the changes above the files; the check cell auth_valid gains user_required: 'on' in its ontology list",
+    "what": "The rule added, in force from Thu Mar 21: the five days recorded from Thu 21 run again under it and come out the same (Fri 22 still held for its renamed column, the three days after it at the gate), and the restatement opens for its sign-off (Q-199 as answered, ADR 0022 §1); User is never blank, else flag the row and keep it, listed on the User card and among the changes above the files; the check cell auth_valid gains user_required: 'on' in its ontology list",
     "view": "ontology",
     "viewFirst": true,
     "clicks": [
-      ".of-rule-form .of-save"
+      ".of-rule-form .of-save",
+      [".vf-detail .wy-reason", "A sign-in without its user can’t be traced"],
+      ".vf-detail .wy-go"
     ],
     "waitFor": ".vf-detail .rs-go",
     "waitForMs": 120000,
@@ -63,7 +91,7 @@
         "User is never blank: else flag the row and keep it",
         "Added a rule to auth: User is never blank, else flag the row and keep it, in force from Thu Mar 21",
         "The new rules change no published day",
-        "Sign off 2 days as the same"
+        "Sign off 5 days as the same"
       ],
       "count": {
         "#ontology-files .of-rule-form": 0,
@@ -80,7 +108,7 @@
       ".vf-detail .rs-go"
     ],
     "expect": {
-      "status": "^2 recorded days ran again under the new rules: they come out the same\\. Signed off and recorded\\.$",
+      "status": "^5 recorded days ran again under the new rules: they come out the same\\. Signed off and recorded\\.$",
       "count": {
         ".vf-detail-wrap": 0
       }
@@ -112,16 +140,15 @@
     "card": "auth",
     "tab": "Rules",
     "clicks": [
-      "#sheet .rl-item[data-rule=\"latency_ms_range\"] .rl-switch"
+      "#sheet .rl-item[data-rule=\"latency_ms_range\"] .rl-switch",
+      [".vf-detail .wy-reason", "Latency is checked elsewhere"],
+      ".vf-detail .wy-go"
     ],
     "waitFor": ".vf-detail .rs-go",
     "waitForMs": 120000,
     "full": true,
     "expect": {
-      "text": [
-        "Switched off a rule of auth: Latency is from 0 to 30,000 ms, in auth_valid (from Thu Mar 21)",
-        "Sign off 2 days as the same"
-      ],
+      "text": ["Switched off a rule of auth: Latency is from 0 to 30,000 ms, in auth_valid (from Thu Mar 21)", "Sign off 5 days as the same"],
       "count": {
         "#sheet .rl-switch[aria-checked=\"false\"]": 1
       }
@@ -136,7 +163,7 @@
       ".vf-detail .rs-go"
     ],
     "expect": {
-      "status": "^2 recorded days ran again under the new rules: they come out the same\\. Signed off and recorded\\.$",
+      "status": "^5 recorded days ran again under the new rules: they come out the same\\. Signed off and recorded\\.$",
       "count": {
         ".vf-detail-wrap": 0
       }

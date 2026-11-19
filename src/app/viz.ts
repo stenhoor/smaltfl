@@ -16,7 +16,7 @@
 
 import type { DrawCause, ReaderRows } from '../core/decision.js';
 
-export type Mark = 'alert' | 'warn' | 'note' | 'held' | 'flag' | 'closed' | 'decided' | 'explained' | 'info' | 'chev' | 'more' | 'seal' | 'ack' | 'publish' | 'keep' | 'unlearned' | 'fill' | 'part' | 'level' | 'lock' | 'corrected';
+export type Mark = 'alert' | 'warn' | 'note' | 'held' | 'flag' | 'closed' | 'decided' | 'explained' | 'info' | 'chev' | 'more' | 'seal' | 'ack' | 'publish' | 'keep' | 'unlearned' | 'fill' | 'part' | 'level' | 'lock' | 'corrected' | 'changed';
 
 export const esc = (s: unknown): string => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const sum = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0);
@@ -65,6 +65,10 @@ export function glyph(kind: Mark, size = 16): string {
     // ink, never a severity's colour; its count of versions is said beside it.
     case 'corrected':
       return `<svg ${a}><path class="g-corr" d="M13.1 9.2A5.2 5.2 0 1 1 11.6 4.3"/><path class="g-corr" d="M12.4 1.6v3.3H9.1"/></svg>`;
+    // A day a meaning or a rule changed from (ADR 0027 §3, §7): the diamond a chart's change marks are, in the brand's
+    // blue, never a severity's colour; the words beside it say what changed.
+    case 'changed':
+      return `<svg ${a}><path class="g-changed" d="M8 2.2l4.6 5.8L8 13.8L3.4 8z"/></svg>`;
     case 'explained':
       return `<svg ${a}><path class="g-arrow" d="M4 2.5v6.5h8M9.2 6.2L12 9l-2.8 2.8"/></svg>`;
     case 'note':
@@ -823,20 +827,25 @@ export function dayStrip(o: { days: readonly StripDay[]; w?: number; h?: number;
   // are, a day with no usual of its own, and each mark on its days with its word.
   const extra = o.key && o.more ? stripKeyRow(o.days, o.more, w) : '';
   const keyH = o.key ? (extra ? 32 : 16) : 0;
-  const h = (o.h ?? 64) + keyH + (marks ? 4 : 0);
   // With an axis printed, its 0 sits in a gutter of its own, clear of the first day's band.
   // A strip given its axis's words (`axis`: a share's "2.5%", a count's "8k") prints its top too, as one with a unit does.
   const scaled = !!(o.unit || o.axis);
   const gx = o.zero || scaled ? 12 : 0;
   const cw = (w - gx) / Math.max(1, n);
   const bw = Math.min(14, cw - 2);
-  const top = 14 + keyH + (marks ? 4 : 0);
-  const base = h - 14;
   // A share's strip given its axis is a printed zoom, from 0 to just past its largest band end or value (Extras $5.00 at
   // 0–40%); without one, as it was (a count from 1, a share on 0–100%).
   const most = Math.max(0, ...o.days.flatMap((d) => [d.high ?? 0, d.v ?? 0]));
   const raw = o.axis ? (most > 0 ? most : 1) : Math.max(1, most);
   const ymax = scaled ? niceMax(raw * 1.02) : raw * 1.06;
+  const thousands = (v: number) => (v >= 1000 ? `${Number((v / 1000).toPrecision(3))}k` : String(v));
+  const axisTop = scaled ? (o.axis ? o.axis(ymax) : `${thousands(ymax)}${o.unit ?? ''}`) : '';
+  // The axis's top is written at the left, above the plot, where a mark on one of the first days stands too (a change
+  // that began on the chart's first day): with both, the plot starts lower and the words sit between the mark and it.
+  const room = scaled && o.days.some((d, i) => (d.mark || d.marks?.length || d.unlearned) && gx + i * cw + cw / 2 - 9 < axisTop.length * 6) ? 12 : 0;
+  const h = (o.h ?? 64) + keyH + (marks ? 4 : 0) + room;
+  const top = 14 + keyH + (marks ? 4 : 0) + room;
+  const base = h - 14;
   const y = (v: number) => base - (v / ymax) * (base - top);
   const last = o.days[n - 1];
   const wd = last ? new Date(`${last.day}T00:00:00Z`).getUTCDay() : -1;
@@ -884,10 +893,7 @@ export function dayStrip(o: { days: readonly StripDay[]; w?: number; h?: number;
     if (o.bandLabel && last.high !== null) s += `<text x="${f1(lx - cw / 2 - 4)}" y="${f1(y(last.high) + 4)}" text-anchor="end" class="lbl-m lbl-halo">${esc(o.bandLabel)}</text>`;
   }
   if (gx) s += `<text x="0" y="${base}" class="tick" aria-hidden="true">0</text>`;
-  if (scaled) {
-    const k = (v: number) => (v >= 1000 ? `${Number((v / 1000).toPrecision(3))}k` : String(v));
-    s += `<line class="hair" x1="${gx}" x2="${w}" y1="${f1(y(ymax)) + 0.5}" y2="${f1(y(ymax)) + 0.5}"/><text x="0" y="${f1(y(ymax) - 3)}" class="tick" aria-hidden="true">${esc(o.axis ? o.axis(ymax) : `${k(ymax)}${o.unit ?? ''}`)}</text>`;
-  }
+  if (scaled) s += `<line class="hair" x1="${gx}" x2="${w}" y1="${f1(y(ymax)) + 0.5}" y2="${f1(y(ymax)) + 0.5}"/><text x="0" y="${f1(y(ymax) - 3)}" class="tick" aria-hidden="true">${esc(axisTop)}</text>`;
   for (const [i, t, anchor] of o.labels ?? []) s += `<text x="${f1(gx + i * cw + cw / 2)}" y="${h - 2}" text-anchor="${anchor ?? 'middle'}" class="tick" aria-hidden="true">${esc(t)}</text>`;
   return `${s}</svg>`;
 }
@@ -1847,16 +1853,28 @@ export interface ScorePoint {
   coverage: number | null;
 }
 
+/** A place the trend is cut (ADR 0027 §7, Q-260): a change's first day, the line it cuts and the change's own step on it. */
+export interface ScoreCut {
+  day: string;
+  series: 'score' | 'coverage';
+  step: number;
+  label: string;
+}
+
 /**
  * A unit's score over the month's days (ADR 0020 §6, Q-178: a steady change is a trend, the product view's to show),
  * its coverage beside it as a lighter line: each day published a point, a day not run or not published a gap crossed
  * by a dashed line (the missing-data convention), the axis zoomed to the values and printed at its ends, the last
  * score labelled.
  */
-export function scoreTrend(o: { days: readonly string[]; points: readonly ScorePoint[]; w?: number; h?: number; aria: string; gap?: string; focus?: { from: string; to: string } }): string {
+export function scoreTrend(o: { days: readonly string[]; points: readonly ScorePoint[]; w?: number; h?: number; aria: string; gap?: string; focus?: { from: string; to: string }; marks?: readonly { day: string; label: string }[]; bands?: readonly { from: string; until: string; label: string }[]; cuts?: readonly ScoreCut[]; adjusted?: readonly ScorePoint[] }): string {
   const w = o.w ?? 334;
   const h = o.h ?? 132;
   const at = new Map(o.points.map((p) => [p.day, p]));
+  // Where a line is cut (ADR 0027 §7, Q-260): the first day of a change of kind the business changed whose own step
+  // moved that line. It isn't joined across it: the two sides aren't one trend.
+  const cutAt = (o.cuts ?? []).map((c) => ({ ...c, i: o.days.findIndex((d) => d.slice(0, 10) === c.day.slice(0, 10)) })).filter((c) => c.i >= 0);
+  const cutsOn = (series: ScoreCut['series']) => cutAt.filter((c) => c.series === series);
   const known = o.days.map((d, i) => ({ i, p: at.get(d) })).filter((x): x is { i: number; p: ScorePoint } => !!x.p && x.p.score !== null);
   const vals = known.flatMap(({ p }) => [p.score!, ...(p.coverage !== null ? [p.coverage] : [])]);
   const lo = vals.length ? Math.max(0, Math.floor((Math.min(...vals) - 4) / 5) * 5) : 0;
@@ -1869,6 +1887,9 @@ export function scoreTrend(o: { days: readonly string[]; points: readonly ScoreP
   const y = (v: number) => base - ((v - lo) / Math.max(1, hi - lo)) * (base - top);
   let s = open(w, h, o.aria);
   s += `<text x="${gx}" y="10" class="key">— score</text><text x="${gx + 64}" y="10" class="key lbl-m">— coverage</text><text x="${gx + 146}" y="10" class="key lbl-m">┄ ${esc(o.gap ?? 'not run')}</text>`;
+  // The adjusted lines' key: beside the others where the chart is wide enough for all four, else under the plot, between
+  // the first and the last day's labels.
+  if (o.adjusted) s += w >= 430 ? `<text x="${w - 4}" y="10" text-anchor="end" class="key adj-key">··· steps taken out</text>` : `<text x="${f1((gx + w - 4) / 2)}" y="${h - 2}" text-anchor="middle" class="key adj-key">··· steps taken out</text>`;
   s += `<line class="base" x1="${gx}" x2="${w - 4}" y1="${f1(base)}" y2="${f1(base)}"/><line class="hair" x1="${gx}" x2="${w - 4}" y1="${f1(top)}" y2="${f1(top)}"/>`;
   s += `<text x="0" y="${f1(top + 4)}" class="lbl-m">${hi}</text><text x="0" y="${f1(base + 4)}" class="lbl-m">${lo}</text>`;
   // The month on show, where the days span more than one (ADR 0024 §6): a wash behind its days and a rule under them on
@@ -1882,19 +1903,66 @@ export function scoreTrend(o: { days: readonly string[]; points: readonly ScoreP
       s += `<rect class="focus" x="${f1(x0)}" y="${f1(top)}" width="${f1(x1 - x0)}" height="${f1(base - top)}"/><line class="focus-rule" x1="${f1(x0)}" x2="${f1(x1)}" y1="${f1(base + 1.5)}" y2="${f1(base + 1.5)}"/>`;
     }
   }
-  const series = (pick: (p: ScorePoint) => number | null, cls: string) => {
+  const series = (pick: (p: ScorePoint) => number | null, cls: string, which: ScoreCut['series']) => {
     let out = '';
     const pts = known.map(({ i, p }) => ({ i, v: pick(p) })).filter((q): q is { i: number; v: number } => q.v !== null);
+    const cuts = cutsOn(which);
     for (let k = 1; k < pts.length; k++) {
       const a = pts[k - 1]!;
       const b = pts[k]!;
+      // Cut: no line from the last day before a cut to the first day from it on.
+      if (cuts.some((c) => a.i < c.i && c.i <= b.i)) continue;
       out += `<line class="${b.i - a.i > 1 ? `${cls} gap` : cls}" x1="${f1(x(a.i))}" y1="${f1(y(a.v))}" x2="${f1(x(b.i))}" y2="${f1(y(b.v))}"/>`;
     }
     return { out, pts };
   };
-  const cov = series((p) => p.coverage, 'line cov');
-  const score = series((p) => p.score, 'line');
-  s += cov.out + score.out;
+  // What was going on (ADR 0027 §6): a tint over an event's days and a rule along the top, under everything else.
+  for (const b of o.bands ?? []) {
+    const days = o.days.map((d, i) => ({ d: d.slice(0, 10), i })).filter(({ d }) => b.from <= d && d <= b.until);
+    if (!days.length) continue;
+    const x0 = Math.max(gx, x(days[0]!.i) - cw / 2);
+    const x1 = Math.min(w - 4, x(days.at(-1)!.i) + cw / 2);
+    s += `<rect class="ev-band" x="${f1(x0)}" y="${f1(top)}" width="${f1(Math.max(2, x1 - x0))}" height="${f1(base - top)}"><title>${esc(b.label)}</title></rect><line class="ev-rule" x1="${f1(x0)}" x2="${f1(Math.max(x0 + 2, x1))}" y1="${f1(top + 1)}" y2="${f1(top + 1)}"/>`;
+  }
+  // Where the rules changed (ADR 0027 §7): a diamond at the top of the plot and a dashed line through it, under the lines.
+  for (const m of o.marks ?? []) {
+    const i = o.days.findIndex((d) => d.slice(0, 10) === m.day.slice(0, 10));
+    if (i < 0) continue;
+    s += `<line class="chg" x1="${f1(x(i))}" x2="${f1(x(i))}" y1="${f1(top)}" y2="${f1(base)}"/><path class="chg-mark" d="M${f1(x(i))} ${f1(top - 5)}l4 4.5l-4 4.5l-4 -4.5z"><title>${esc(m.label)}</title></path>`;
+  }
+  // A cut (Q-260, Q-284): a solid rule through the plot on the change's first day, flagged with its own step on each
+  // line it cuts, one flag under another where it cuts both.
+  const cutDays = [...new Set(cutAt.map((c) => c.i))].sort((a, b) => a - b);
+  for (const i of cutDays) {
+    const here = cutAt.filter((c) => c.i === i);
+    const said = here.map((c) => `${c.series} ${c.step > 0 ? '+' : c.step < 0 ? '−' : ''}${Math.abs(c.step).toFixed(1)} by the change`);
+    // The flags stand right of the rule where the widest fits before the chart's edge, else left of it.
+    const right = x(i) + 8 + Math.max(...said.map((t) => t.length)) * 6 > w;
+    s += `<line class="step-cut" x1="${f1(x(i))}" x2="${f1(x(i))}" y1="${f1(top)}" y2="${f1(base)}"><title>${esc(here.map((c) => c.label).join('; '))}</title></line>`;
+    said.forEach((t, k) => {
+      s += `<text class="step-flag" x="${f1(x(i) + (right ? -5 : 5))}" y="${f1(base - 5 - (here.length - 1 - k) * 11)}" text-anchor="${right ? 'end' : 'start'}">${esc(t)}</text>`;
+    });
+  }
+  const cov = series((p) => p.coverage, 'line cov', 'coverage');
+  const score = series((p) => p.score, 'line', 'score');
+  s += cov.out;
+  // The published lines with the steps taken out (Q-261): beside them, dotted, never in their place. Each from the last
+  // day before its first cut: before that it is the published line itself.
+  const adjLine = (which: ScoreCut['series'], cls: string) => {
+    const cuts = cutsOn(which);
+    if (!o.adjusted || !cuts.length) return '';
+    const adj = new Map(o.adjusted.map((p) => [p.day, which === 'score' ? p.score : p.coverage]));
+    const pts = o.days.map((d, i) => ({ i, v: adj.get(d) ?? null })).filter((q): q is { i: number; v: number } => q.v !== null);
+    const first = Math.min(...cuts.map((c) => c.i));
+    const from = pts.filter((q) => q.i < first).at(-1);
+    const chain = from ? [from, ...pts.filter((q) => q.i >= first)] : pts.filter((q) => q.i >= first);
+    let out = '';
+    for (let k = 1; k < chain.length; k++) out += `<line class="${cls}" x1="${f1(x(chain[k - 1]!.i))}" y1="${f1(y(chain[k - 1]!.v))}" x2="${f1(x(chain[k]!.i))}" y2="${f1(y(chain[k]!.v))}"/>`;
+    return out;
+  };
+  s += adjLine('coverage', 'line cov adj');
+  s += adjLine('score', 'line adj');
+  s += score.out;
   // A point a day where the days have room for one; else the line alone, with its last point (a phone's sixty days
   // would be one smear of dots).
   const last = score.pts.at(-1);
@@ -1944,6 +2012,9 @@ export interface BarDay {
   done?: boolean;
   /** What pointing at the day says. */
   title?: string;
+  /** A change to the rules that reaches the row began on this day (ADR 0027 §8): a rule at the day's left edge, where
+   * it began, with a diamond at its head. */
+  changed?: boolean;
 }
 
 /**
@@ -1974,6 +2045,12 @@ export function dayBars(o: { days: readonly BarDay[]; w?: number; h?: number; pi
     const monday = isMonday(d.day);
     if (d.day === o.pick) s += `<rect class="db-pick" x="${f1(i * cw)}" y="0" width="${f1(cw)}" height="${f1(base)}" rx="2"/>`;
     if (monday && i > 0) s += `<line class="db-week" x1="${f1(i * cw)}" x2="${f1(i * cw)}" y1="${f1(base - 2)}" y2="${f1(base + 3)}"/>`;
+    // Where a change that reaches the row began (ADR 0027 §8): a dashed rule at the day's left edge, and a diamond at
+    // its head, set in from the row's own edge on its first day.
+    if (d.changed) {
+      const cx = Math.max(2.5, i * cw);
+      s += `<line class="db-chg" x1="${f1(cx)}" x2="${f1(cx)}" y1="0" y2="${f1(base)}"/><path class="db-chg-mark" d="M${f1(cx)} 0l2.5 2.8l-2.5 2.8l-2.5 -2.8z"/>`;
+    }
     const hgt = height[d.level];
     if (hgt > 0) {
       const hollow = d.level === 'unjudged' || d.level === 'waited' || (d.level === 'bad' && d.done);
@@ -2027,4 +2104,213 @@ export function matchBars(o: { days: readonly MatchBar[]; w?: number; h?: number
   });
   if (o.days.length) s += `<text x="${gx}" y="${H - 1}" class="lbl-m">${esc(day(o.days[0]!.day))}</text><text x="${w}" y="${H - 1}" text-anchor="end" class="lbl-m">${esc(day(o.days.at(-1)!.day))}</text>`;
   return `${s}</svg>`;
+}
+
+// ------------------------------------------------------------------ the register as lanes (ADR 0027 §9)
+
+/** A run of days in a lane's row: as it was before any change, in force by a change, or coming. */
+export interface LaneSpan { from: string; until: string; kind: 'was' | 'on' | 'next' | 'then' | 'event'; short?: string; change?: string | null; event?: string | null; title?: string }
+/** A change's kind as the drawings mark it (ADR 0027 §2): never by colour alone. `none`: no kind was given. */
+export type KindMark = 'business' | 'retuned' | 'corrected' | 'source' | 'described' | 'none';
+
+/** The mark of a kind about a point, as SVG shapes: a filled diamond where the business changed, an open one where a
+ * setting was re-tuned, a ring with a dot where a mistake was corrected, a square where the source changed, a small
+ * ring for a first description, a dot where no kind was given. */
+const kindShape = (kind: KindMark, cx: number, cy: number, r: number, extra = ''): string => {
+  const d = `M${f1(cx)} ${f1(cy - r - 1)}L${f1(cx + r)} ${f1(cy)}L${f1(cx)} ${f1(cy + r + 1)}L${f1(cx - r)} ${f1(cy)}Z`;
+  if (kind === 'business') return `<path class="rg-k rg-k-business" d="${d}"${extra}/>`;
+  if (kind === 'retuned') return `<path class="rg-k rg-k-retuned" d="${d}"${extra}/>`;
+  if (kind === 'corrected') return `<circle class="rg-k rg-k-ring" cx="${f1(cx)}" cy="${f1(cy)}" r="${f1(r + 0.6)}"${extra}/><circle class="rg-k-dot" cx="${f1(cx)}" cy="${f1(cy)}" r="${f1(r * 0.42)}"/>`;
+  if (kind === 'source') return `<rect class="rg-k rg-k-source" x="${f1(cx - r + 0.4)}" y="${f1(cy - r + 0.4)}" width="${f1(2 * r - 0.8)}" height="${f1(2 * r - 0.8)}" rx="1.6"${extra}/>`;
+  if (kind === 'described') return `<circle class="rg-k rg-k-ring" cx="${f1(cx)}" cy="${f1(cy)}" r="${f1(r * 0.7)}"${extra}/>`;
+  return `<circle class="rg-k-dot muted" cx="${f1(cx)}" cy="${f1(cy)}" r="${f1(r * 0.5)}"${extra}/>`;
+};
+
+/** A kind's mark as a small drawing of its own, beside the kind's words. */
+export function kindMark(kind: KindMark, size = 12): string {
+  return `<svg class="viz kind-mark" width="${size}" height="${size}" viewBox="0 0 14 14" aria-hidden="true">${kindShape(kind, 7, 7, 5)}</svg>`;
+}
+
+/** A mark on a day of a row: the day a change was said, the day one of a kind took effect, a decision, or a day taken
+ * back or restated. */
+export interface LaneMark { day: string; kind: 'said' | 'decided' | 'back' | 'gate' | KindMark; change?: string | null; title?: string }
+export interface LaneRow { label: string; spans: readonly LaneSpan[]; marks: readonly LaneMark[] }
+export interface LaneGroup { name: string; rows: readonly LaneRow[] }
+
+/**
+ * The register as lanes over the days (ADR 0027 §9, Q-268): each row one thing's life. A dashed outline while it
+ * stood as shipped, a bar while a change is in force, hatched while one is coming; a dashed line under a bar over the
+ * days whose runs were judged without a change recorded later (`then`: the other clock); a ring on the day a change
+ * was said, a diamond a decision, a filled one a day taken back. Today is a line, the day on screen a wash, weekends
+ * a tint. A bar and a ring carry their change (`data-change`), so the page can open it.
+ */
+export function registerLanes(o: { days: readonly string[]; today: string; pick?: string | null; groups: readonly LaneGroup[]; w?: number; aria: string }): string {
+  const w = o.w ?? 720;
+  // The labels' column: as wide as the longest label needs, within a third of the drawing.
+  const longest = Math.max(0, ...o.groups.flatMap((g) => g.rows.map((r) => r.label.length)));
+  const lx = Math.round(Math.min(w * 0.34, Math.max(132, longest * 6 + 12)));
+  const right = w - 6;
+  const n = Math.max(1, o.days.length);
+  const dw = (right - lx) / n;
+  const index = new Map(o.days.map((d, i) => [d, i]));
+  const x0 = (i: number) => lx + i * dw;
+  const rowH = 20;
+  const top = 30;
+  const rows = o.groups.reduce((sum, g) => sum + g.rows.length, 0);
+  const h = top + o.groups.length * 17 + rows * rowH + 8;
+  const dow = (d: string) => new Date(`${d}T00:00:00Z`).getUTCDay();
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  let s = open(w, h, o.aria);
+  s += '<defs><pattern id="rg-hatch" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect class="rg-hatch-bg" width="6" height="6"/><line class="rg-hatch-line" x1="0" y1="0" x2="0" y2="6"/></pattern></defs>';
+  // The days: weekends tinted, the day on screen washed, a number where there is room (every day, or Mondays).
+  o.days.forEach((d, i) => {
+    if (dow(d) === 0 || dow(d) === 6) s += `<rect class="rg-wk" x="${f1(x0(i))}" y="${top - 4}" width="${f1(dw)}" height="${h - top}"/>`;
+    if (o.pick && d === o.pick.slice(0, 10)) s += `<rect class="rg-pick" x="${f1(x0(i))}" y="${top - 4}" width="${f1(dw)}" height="${h - top}"/>`;
+    const first = i === 0 || d.slice(5, 7) !== o.days[i - 1]!.slice(5, 7);
+    if (first) s += `<text class="tick" x="${f1(x0(i) + 1)}" y="9">${MONTHS[Number(d.slice(5, 7)) - 1]}</text>`;
+    if (dw >= 13 || dow(d) === 1) s += `<text class="tick" x="${f1(x0(i) + dw / 2)}" y="21" text-anchor="middle">${Number(d.slice(8, 10))}</text>`;
+  });
+  s += `<line class="hair" x1="${lx}" x2="${right}" y1="${top - 4}" y2="${top - 4}"/>`;
+  const fit = (text: string, px: number, per = 5.6) => (text.length * per <= px ? text : px < per * 4 ? '' : `${text.slice(0, Math.max(1, Math.floor(px / per) - 1))}…`);
+  let y = top;
+  for (const g of o.groups) {
+    s += `<text class="rg-lane" x="0" y="${y + 9}">${esc(g.name.toUpperCase())}</text>`;
+    y += 17;
+    for (const r of g.rows) {
+      s += `<text class="lbl-m rg-label" x="0" y="${y + 13}">${esc(fit(r.label, lx - 8, 6))}<title>${esc(r.label)}</title></text>`;
+      for (const sp of r.spans) {
+        const a = index.get(sp.from.slice(0, 10));
+        const b = index.get(sp.until.slice(0, 10));
+        if (a === undefined || b === undefined) continue;
+        const xa = x0(a) + 1;
+        const wd = Math.max(2, x0(b) + dw - 1 - xa);
+        const data = sp.change ? ` data-change="${esc(sp.change)}"` : sp.event ? ` data-event="${esc(sp.event)}"` : '';
+        if (sp.kind === 'then') {
+          // A slim dashed box, not a line: a line has no height, and what has none isn't counted as showing.
+          s += `<rect class="rg-then" x="${f1(xa + 1)}" y="${f1(y + 16.6)}" width="${f1(Math.max(2, wd - 2))}" height="2.4" rx="1.2"${data}>${sp.title ? `<title>${esc(sp.title)}</title>` : ''}</rect>`;
+          continue;
+        }
+        s += `<rect class="rg-${sp.kind}" x="${f1(xa)}" y="${y + 4}" width="${f1(wd)}" height="11" rx="3.5"${data}>${sp.title ? `<title>${esc(sp.title)}</title>` : ''}</rect>`;
+        // A bar by a change keeps room at its start for its kind's mark.
+        const lead = sp.kind === 'was' || sp.kind === 'event' ? 5 : 14;
+        const shown = sp.short ? fit(sp.short, wd - lead - 3, 5.2) : '';
+        if (shown) s += `<text class="rg-short" x="${f1(xa + lead)}" y="${y + 12.6}">${esc(shown)}</text>`;
+      }
+      for (const m of r.marks) {
+        const i = index.get(m.day.slice(0, 10));
+        if (i === undefined) continue;
+        const cx = x0(i) + dw / 2;
+        const cy = y + 9.5;
+        const data = m.change ? ` data-change="${esc(m.change)}"` : '';
+        const t = m.title ? `<title>${esc(m.title)}</title>` : '';
+        if (m.kind === 'said') s += `<circle class="rg-said" cx="${f1(cx)}" cy="${f1(cy)}" r="3.6"${data}>${t}</circle>`;
+        else if (m.kind === 'decided' || m.kind === 'back') s += `<path class="rg-${m.kind}" d="M${f1(cx)} ${f1(cy - 5)}L${f1(cx + 4.4)} ${f1(cy)}L${f1(cx)} ${f1(cy + 5)}L${f1(cx - 4.4)} ${f1(cy)}Z"${data}>${t}</path>`;
+        // A day something stopped at the gate (ADR 0027 §4): a bar across the day, as a gate is.
+        else if (m.kind === 'gate') s += `<rect class="rg-gate" x="${f1(cx - 1.75)}" y="${f1(cy - 6)}" width="3.5" height="12" rx="1"${data}>${t}</rect>`;
+        // The day a change of a kind took effect: its kind's mark at the start of its bar.
+        else s += `<g class="rg-kind" data-kind="${m.kind}"${data}>${t}${kindShape(m.kind, x0(i) + 6.5, cy, 3.6)}</g>`;
+      }
+      y += rowH;
+    }
+  }
+  // Today: the last day that has arrived. What is right of it is coming.
+  const ti = index.get(o.today.slice(0, 10));
+  if (ti !== undefined && ti < o.days.length - 1) {
+    const tx = x0(ti) + dw;
+    s += `<line class="rg-now" x1="${f1(tx)}" x2="${f1(tx)}" y1="12" y2="${h - 4}"/><text class="rg-now-t" x="${f1(tx - 4)}" y="9" text-anchor="end">today</text>`;
+  }
+  return `${s}</svg>`;
+}
+
+/** A kind of thing on the map of two dates: how it stands between them, and whether it is still to come. */
+export interface MapBox { id: string; name: string; state: 'same' | 'added' | 'ended' | 'changed'; coming?: boolean }
+/** A relation on the map: from one kind to another. */
+export interface MapLine { id: string; name: string; from: string; to: string; state: 'same' | 'added' | 'ended' | 'changed'; coming?: boolean }
+
+/** The mark a kind or a relation carries where the two dates differ, so the difference is never colour alone. */
+const MAP_MARK = { same: '', added: '+ ', ended: '× ', changed: '~ ' } as const;
+
+/**
+ * The kinds and relations between two dates as a map (ADR 0027 §9, Q-269): kinds as boxes, relations as lines. Only
+ * what differs is coloured, each with its own mark (+ new, × gone, ~ changed), and what is still to come is hatched.
+ * Kinds are few, so they sit on a grid, two across on a phone and three from tablet width; a relation of a kind with
+ * itself is a loop over its box. A still picture: nothing plays.
+ */
+export function kindsMap(o: { kinds: readonly MapBox[]; links: readonly MapLine[]; w?: number; aria: string }): string {
+  const w = o.w ?? 340;
+  const cols = Math.max(1, Math.min(o.kinds.length, w >= 600 ? 3 : 2));
+  const gap = w >= 600 ? 56 : 26;
+  const bw = Math.floor((w - gap * (cols - 1) - 2) / cols);
+  const bh = 34;
+  const rowGap = 58;
+  const top = 30;
+  const rows = Math.max(1, Math.ceil(o.kinds.length / cols));
+  const at = new Map(o.kinds.map((k, i) => [k.id, { x: 1 + (i % cols) * (bw + gap), y: top + Math.floor(i / cols) * (bh + rowGap) }] as const));
+  const fit = (text: string, px: number, per = 6.1) => (text.length * per <= px ? text : `${text.slice(0, Math.max(1, Math.floor(px / per) - 1))}…`);
+  // The relations first, under the boxes: a line between two kinds, a loop for a kind with itself. Two between the same
+  // pair, or two loops on one kind, are set apart so each name can be read; one between two kinds of a row with a box
+  // between them goes under the row, so it crosses no box.
+  const seen = new Map<string, number>();
+  let lines = '';
+  // Each name steps away from one already written where the two would overlap: up from above a row, down from under one.
+  const placed: { x0: number; x1: number; y: number }[] = [];
+  const labels: { cls: string; x: number; y: number; text: string }[] = [];
+  const place = (text: string, x: number, y: number, step: number, cls: string) => {
+    const half = (text.length * 6.1) / 2 + 3;
+    let yy = y;
+    for (let k = 0; k < 5 && placed.some((q) => Math.abs(q.y - yy) < 11 && q.x0 < x + half && x - half < q.x1); k++) yy += step;
+    placed.push({ x0: x - half, x1: x + half, y: yy });
+    labels.push({ cls, x, y: yy, text });
+  };
+  for (const l of o.links) {
+    const a = at.get(l.from);
+    const b = at.get(l.to);
+    if (!a || !b) continue;
+    const pair = [l.from, l.to].sort().join('|');
+    const nth = seen.get(pair) ?? 0;
+    seen.set(pair, nth + 1);
+    const cls = `km-line km-${l.state}${l.coming ? ' km-coming' : ''}`;
+    const name = `${MAP_MARK[l.state]}${l.name}`;
+    const title = `<title>${esc(`${l.name}: ${l.state === 'same' ? 'the same on both' : l.state === 'added' ? (l.coming ? 'coming' : 'new') : l.state === 'ended' ? 'ended' : 'changed'}`)}</title>`;
+    if (l.from === l.to) {
+      const cx = a.x + bw / 2 + (nth ? 34 * (nth % 2 ? 1 : -1) * Math.ceil(nth / 2) : 0);
+      lines += `<path class="${cls}" data-link="${esc(l.id)}" d="M${f1(cx - 16)} ${a.y}C${f1(cx - 16)} ${a.y - 20} ${f1(cx + 16)} ${a.y - 20} ${f1(cx + 16)} ${a.y}">${title}</path>`;
+      place(fit(name, bw), cx, a.y - 18, -12, `km-lt km-${l.state}`);
+      continue;
+    }
+    const ax = a.x + bw / 2;
+    const ay = a.y + bh / 2;
+    const bx = b.x + bw / 2;
+    const by = b.y + bh / 2;
+    const off = nth * 13;
+    const apart = Math.round(Math.abs(a.x - b.x) / (bw + gap));
+    if (a.y === b.y && apart > 1) {
+      const dip = a.y + bh + 16 + nth * 10;
+      lines += `<path class="${cls}" data-link="${esc(l.id)}" d="M${f1(ax)} ${a.y + bh}C${f1(ax)} ${dip + 6} ${f1(bx)} ${dip + 6} ${f1(bx)} ${b.y + bh}">${title}</path>`;
+      place(fit(name, apart * (bw + gap) - 20), (ax + bx) / 2, dip + 13, 12, `km-lt km-${l.state}`);
+      continue;
+    }
+    lines += `<line class="${cls}" data-link="${esc(l.id)}" x1="${f1(ax)}" y1="${f1(ay + off)}" x2="${f1(bx)}" y2="${f1(by + off)}">${title}</line>`;
+    // Its name where the line is clear of both boxes: between two rows, or in the gap between two columns.
+    if (a.y === b.y) place(fit(name, bw + gap), (ax + bx) / 2, ay - bh / 2 - 5 - off, -12, `km-lt km-${l.state}`);
+    else place(fit(name, w / cols + gap), (ax + bx) / 2, (ay + by) / 2 + 3 + off, 12, `km-lt km-${l.state}`);
+  }
+  // Room for the names that stepped up over the first row or down under the last.
+  const up = Math.max(0, 11 - Math.min(11, ...labels.map((t) => t.y)));
+  const h = Math.max(top + rows * bh + (rows - 1) * rowGap + 14, ...labels.map((t) => t.y + 8)) + up;
+  let s = open(w, h, o.aria);
+  s += '<defs><pattern id="km-hatch" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><rect class="rg-hatch-bg" width="6" height="6"/><line class="rg-hatch-line" x1="0" y1="0" x2="0" y2="6"/></pattern></defs>';
+  s += `<g${up ? ` transform="translate(0 ${f1(up)})"` : ''}>${lines}`;
+  for (const k of o.kinds) {
+    const p = at.get(k.id)!;
+    s += `<g class="km-kind km-${k.state}${k.coming ? ' km-coming' : ''}" data-kind="${esc(k.id)}"><title>${esc(`${k.name}: ${k.state === 'same' ? 'the same on both' : k.state === 'added' ? (k.coming ? 'coming' : 'new') : k.state === 'ended' ? 'ended' : 'changed'}`)}</title>`
+      + `<rect class="km-box" x="${p.x}" y="${p.y}" width="${bw}" height="${bh}" rx="6"${k.coming ? ' style="fill:url(#km-hatch)"' : ''}/>`
+      + `<text class="km-name" x="${f1(p.x + bw / 2)}" y="${p.y + 21}" text-anchor="middle">${esc(fit(`${MAP_MARK[k.state]}${k.name}`, bw - 10, 6.6))}</text></g>`;
+  }
+  // Each name on a ground of its own, so a line that passes behind it is broken by it and never strikes it through.
+  const named = labels.map((t) => {
+    const half = (t.text.length * 6.1) / 2 + 3;
+    return `<rect class="km-lbg" x="${f1(t.x - half)}" y="${f1(t.y - 10)}" width="${f1(half * 2)}" height="13" rx="2"/><text class="${t.cls}" x="${f1(t.x)}" y="${f1(t.y)}" text-anchor="middle">${esc(t.text)}</text>`;
+  });
+  return `${s}${named.join('')}</g></svg>`;
 }

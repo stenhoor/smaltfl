@@ -13,6 +13,7 @@
  * outcome would change (Q-199, ADR 0022 §1).
  */
 import { changesProblems, type ChangeSet } from './document.js';
+import { eventsProblems, type FlowEvent } from './events.js';
 import { DECIDE_OPTIONS, type DecisionOption } from './policy.js';
 
 export const STORY_FORMAT = 'smaltfl-story/1';
@@ -76,6 +77,8 @@ export interface StoryFile {
   /** The changes to the rules people set, as the page records them: in force from a day, as known from when recorded. */
   changes?: ChangeSet[];
   restatements?: StoryRestatement[];
+  /** What was going on (ADR 0027 §6): the story's events, each written down at a time by someone, as the page records one. */
+  events?: FlowEvent[];
 }
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -98,12 +101,23 @@ export function storyProblems(v: unknown, o: { sources?: readonly string[]; prin
   const decisions = Array.isArray(s.decisions) ? s.decisions : (out.push('it lists its decisions'), []);
   const changes = s.changes === undefined ? [] : Array.isArray(s.changes) ? s.changes : (out.push('its changes are a list of change sets'), []);
   const restatements = s.restatements === undefined ? [] : Array.isArray(s.restatements) ? s.restatements : (out.push('its restatements are a list'), []);
+  out.push(...eventsProblems(s.events));
+  if (Array.isArray(s.events)) {
+    for (const e of s.events) if (typeof e?.recorded === 'string' && !AT.test(e.recorded)) out.push(`event ${String(e?.id)}: when it was written down is a UTC time, YYYY-MM-DDTHH:MMZ`);
+    if (o.principals) for (const e of s.events) if (typeof e?.by === 'string' && !o.principals.includes(e.by)) out.push(`event ${String(e?.id)}: ${e.by} is not one of the flow’s people`);
+  }
   for (const p of changesProblems(changes)) out.push(`${p.path.replace(/^\$\.changes\[(\d+)\]/, (_, i: string) => `change ${Number(i) + 1}`).replace(/^\$\.changes/, 'its changes')}: ${p.message}`);
   changes.forEach((c, i) => {
     const at = `change ${i + 1}`;
     if (!c || typeof c !== 'object') return;
     if (typeof c.recorded === 'string' && !AT.test(c.recorded)) out.push(`${at}: it was recorded at a UTC time`);
     if (typeof c.by === 'string' && o.principals && !o.principals.includes(c.by)) out.push(`${at}: ${c.by} isn't a principal of the flow`);
+    // Who agreed to it (ADR 0027 §10): one of the flow's people, at a UTC time. Whether they own what it touches is the
+    // document's to say, once the story's changes are read with the flow.
+    for (const a of Array.isArray(c.agreed) ? c.agreed : []) {
+      if (typeof a?.at === 'string' && !AT.test(a.at)) out.push(`${at}: ${String(a?.by)} agreed to it at a UTC time`);
+      if (typeof a?.by === 'string' && o.principals && !o.principals.includes(a.by)) out.push(`${at}: ${a.by}, who agreed to it, isn't a principal of the flow`);
+    }
   });
   const recordedOf = new Map(changes.filter((c) => c && typeof c.id === 'string').map((c) => [c.id, c.recorded] as const));
   const restated = new Set<string>();
@@ -173,24 +187,32 @@ export type StoryEvent =
   | { at: string; kind: 'delivery'; day: string; n: number; delivery: Delivery }
   | { at: string; kind: 'decision'; day: string; n: number; decision: StoryDecision }
   | { at: string; kind: 'change'; change: ChangeSet }
-  | { at: string; kind: 'restate'; restatement: StoryRestatement };
+  | { at: string; kind: 'restate'; restatement: StoryRestatement }
+  /** An event written down (ADR 0027 §6): the record keeps it from then, and it excuses only runs after it. */
+  | { at: string; kind: 'event'; event: FlowEvent };
 
 /**
  * The month in time order: each day's first run at its time (`dayAt`), each delivery when it arrived (numbered from 1
- * within its day, in arrival order), each decision when it was taken, each change set when it was recorded, and each
- * restatement when it was decided. At the same moment a day's run comes first, then deliveries, decisions, change sets
- * (in the order the story lists them) and restatements. Times are compared as instants, so two ways of writing one
- * moment are the same moment.
+ * within its day, in arrival order), each decision when it was taken, each change set when it came to be known, and each
+ * restatement when it was decided, and each event when it was written down. At the same moment a day's run comes
+ * first, then deliveries, decisions, change sets (in the order the story lists them), restatements and events. Times
+ * are compared as instants, so two ways of writing one moment are the same moment.
  */
-export function timelineOf(days: readonly string[], dayAt: (day: string) => string, story: StoryFile | null): StoryEvent[] {
+export function timelineOf(days: readonly string[], dayAt: (day: string) => string, story: StoryFile | null, knownFrom: (change: ChangeSet) => string | null = (c) => c.recorded): StoryEvent[] {
   const out: StoryEvent[] = days.map((day) => ({ at: dayAt(day), kind: 'day', day }));
   const byDay = new Map<string, Delivery[]>();
   for (const d of [...(story?.deliveries ?? [])].sort((a, b) => Date.parse(a.at) - Date.parse(b.at))) byDay.set(d.day, [...(byDay.get(d.day) ?? []), d]);
   for (const [day, ds] of byDay) ds.forEach((delivery, i) => out.push({ at: delivery.at, kind: 'delivery', day, n: i + 1, delivery }));
   for (const decision of story?.decisions ?? []) out.push({ at: decision.at, kind: 'decision', day: decision.day, n: decision.delivery ?? 0, decision });
-  for (const change of story?.changes ?? []) out.push({ at: change.recorded, kind: 'change', change });
+  // A change set comes into the month when it is known (`knownFrom`: when it was recorded, or, where it asks for an
+  // owner's agreement, when it had it, ADR 0027 §10): one that still waits never does.
+  for (const change of story?.changes ?? []) {
+    const at = knownFrom(change);
+    if (at !== null) out.push({ at, kind: 'change', change });
+  }
   for (const restatement of story?.restatements ?? []) out.push({ at: restatement.at, kind: 'restate', restatement });
-  const rank = { day: 0, delivery: 1, decision: 2, change: 3, restate: 4 } as const;
+  for (const event of story?.events ?? []) out.push({ at: event.recorded, kind: 'event', event });
+  const rank = { day: 0, delivery: 1, decision: 2, change: 3, restate: 4, event: 5 } as const;
   // A stable sort: events of one kind at one moment keep the order they were added in.
   return out.sort((a, b) => Date.parse(a.at) - Date.parse(b.at) || rank[a.kind] - rank[b.kind]);
 }

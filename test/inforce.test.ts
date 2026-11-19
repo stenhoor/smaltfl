@@ -23,7 +23,8 @@ import { loadFlowDir, signinsDir } from './helpers/notebooks.js';
 
 const data = JSON.parse(readFileSync(new URL('../examples/security-signins.data.json', import.meta.url), 'utf8')) as DataBindings;
 const signins = () => loadFlowDir(signinsDir);
-const change = (id: string, from: string, recorded: string, edits: RuleEdit[], why = ''): ChangeSet => ({ id, from, recorded, by: 'the security lead', why, edits });
+/** A change set as a format-5 flow keeps one (ADR 0027 §2): with its kind, and why in a line. */
+const change = (id: string, from: string, recorded: string, edits: RuleEdit[], why = 'The security lead asked for it'): ChangeSet => ({ id, from, recorded, by: 'the security lead', why, kind: 'business', edits, agreed: [{ by: 'owner', at: recorded }] });
 const latency = (max: number): RuleEdit => ({ op: 'setRule', rule: { id: 'latency_ms_range', file: 'auth', column: 'latency_ms', kind: 'range', min: 0, max, action: 'flag' } });
 
 describe('the rules-in-force hash, rules/1', () => {
@@ -61,6 +62,7 @@ describe('the rules-in-force hash, rules/1', () => {
 
 describe('change sets in force on a day, as known at a moment', () => {
   const doc = {
+    name: 'A flow',
     changes: [
       change('waf-band', '2024-03-18', '2024-03-15T16:00:00.000Z', [latency(20_000)]),
       change('back-dated', '2024-03-01', '2024-03-25T09:30:00.000Z', [latency(25_000)]),
@@ -235,7 +237,7 @@ describe('a document with change sets', () => {
     const issues = (changes: unknown) => validateDocument({ ...doc, changes } as FlowDocument).filter((i) => i.path.startsWith('$.changes')).map((i) => i.path);
     expect(issues([change('a', '2024-03-12', '2024-03-12T08:00:00Z', [latency(1)])])).toEqual([]);
     expect(issues({})).toEqual(['$.changes']);
-    expect(issues([change('a', '2024-3-12', 'yesterday', [])])).toEqual(['$.changes[0].from', '$.changes[0].recorded', '$.changes[0].edits']);
+    expect(issues([change('a', '2024-3-12', 'yesterday', [])])).toEqual(['$.changes[0].from', '$.changes[0].recorded', '$.changes[0].agreed[0].at', '$.changes[0].edits']);
     expect(issues([change('a', '2024-03-12', '2024-03-12T08:00:00Z', [latency(1)]), change('a', '2024-03-13', '2024-03-13T08:00:00Z', [latency(2)])])).toEqual(['$.changes[1].id']);
     expect(issues([{ ...change('a', '2024-03-12', '2024-03-12T08:00:00Z', [latency(1)]), note: 'x' }])).toEqual(['$.changes[0].note']);
     expect(

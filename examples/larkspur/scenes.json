@@ -57,6 +57,14 @@
       ]
     },
     {
+      "n": 7,
+      "title": "The business changes, and the ontology comes first",
+      "said": "The control board adds a fifteenth control. The catalogue is a closed list, so the new entry stops at the gate and what it reaches waits. The flow's owner declares it with the board's reason, the security lead agrees five minutes later, and Thu Mar 28 goes out with it. Coverage is cut on that day by the change's own step, eight points down; the score isn't moved.",
+      "looks": [
+        { "day": "2024-03-28", "label": "Thu Mar 28, declared" }
+      ]
+    },
+    {
       "title": "The join that lost its applications",
       "said": "HR drops a department without moving its teams, so their applications lose their owner chain. Silver's rules hold what reads the chain until HR sends the extract again that morning.",
       "looks": [
@@ -68,6 +76,13 @@
       "said": "A certificate authority's intermediate expires, and TLS and log forwarding fail for what it issued. The platforms' share of the failures names it.",
       "looks": [
         { "day": "2024-03-18", "label": "Mon Mar 18's platforms", "card": "platform_impact", "tab": "news" }
+      ]
+    },
+    {
+      "title": "A rule said ahead",
+      "said": "On Fri Mar 22 a tighter band for a failing WAF is recorded for Mon Mar 25. For three days it is coming, and each of those days' heads says so. From Monday it is in force, and its own step moved nothing.",
+      "looks": [
+        { "day": "2024-03-23", "label": "Sat Mar 23, with a rule coming" }
       ]
     }
   ]

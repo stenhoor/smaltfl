@@ -8,14 +8,15 @@
  */
 import { canonicalJSON } from './canonical.js';
 import { calendarListProblems, calendarProblems, EVERIES, isEvery, isSlotOf, resolveCalendar, type Calendar, type Every } from './calendar.js';
-import type { DonorRule, FlowDocument, HoldKind, Meanwhile, Missing, ParameterDef, StepDef, Until, WatchDef } from './document.js';
+import type { ContextTable, DonorRule, FlowDocument, HoldKind, Meanwhile, Missing, ParameterDef, StepDef, Until, WatchDef } from './document.js';
 import { DONOR_RULES, HOLD_KINDS, isGeneralWatch, MEANWHILES, missingProblem, periodOf, UNTILS, validateDocument, withoutDisplay } from './document.js';
-import { emitMatch, emitRuleCheck } from './emit.js';
+import { CONTEXT_COLUMNS, contextRows, type ContextGiven, type ContextRows } from './context.js';
+import { emitMatch, emitRows } from './emit.js';
 import { hashOf } from './hash.js';
 import { dayOf, inForce } from './inforce.js';
 import { CHECK_NAMES, gateChecksOf, hasGates, overwhelmingOf, writtenRules, type GateChecks } from './gates.js';
 import { conditionOf, marksOn, readAsOf, type Ontology } from './ontology.js';
-import { enforcedBy, ON_FAIL, type OntologyRule } from './rules.js';
+import { enforcedBy, engineRules, type OntologyRule } from './rules.js';
 import type { ParamType, ParamValue } from './sqltext.js';
 import { bindParameters, quoteIdent, SqlTextError, withoutTrailingSemicolons } from './sqltext.js';
 
@@ -39,7 +40,10 @@ export type Column = [name: string, type: ColumnType];
 /** A computed column: its name and a SQL expression. */
 export type Named = [name: string, expr: string];
 
-export type FailAction = 'warn' | 'drop' | 'fail';
+/** What a row that fails a check step's rule does: it is flagged and kept, left out, or stops the day. `aside` is no
+ * rule a person writes: a row a decision leaves out until the ontology has its entry (ADR 0027 §4, Q-253) is kept out
+ * of what goes on and isn't counted among the rows the rules dropped. */
+export type FailAction = 'warn' | 'drop' | 'fail' | 'aside';
 
 interface NodeBase {
   /** The source or step of the document this node came from (for messages and the canvas; not in keys). */
@@ -67,6 +71,11 @@ export interface SqlNode extends NodeBase {
   op: 'sql';
   names: string[];
   sql: string;
+  /**
+   * A context table (ADR 0027 §8): which one, and the day's rows, which `sql` writes out and nothing else. Only on a
+   * step the document marks as one, so every other plan is as it was.
+   */
+  context?: { of: ContextTable; rows: ContextRows[ContextTable] };
 }
 
 export interface FilterNode extends NodeBase {
@@ -216,6 +225,18 @@ export interface ContractPlan {
   columns: [name: string, type: string, required: boolean, values: string[] | null][];
 }
 
+/**
+ * A closed list or column as the run names what arrived undeclared (ADR 0027 §4): the rule by its name among its check
+ * step's, the key column and the columns that define an entry, and the keys the ontology has, sorted (an arrival under
+ * one of them is an entry changed, any other an entry new). What a row must hold is the rule's own check, in the node.
+ */
+export interface ClosedPlan {
+  rule: string;
+  key: string;
+  defines: string[];
+  keys: string[];
+}
+
 export interface ScopePlan {
   table: string;
   key: string;
@@ -252,6 +273,10 @@ export interface PlanPublish2 {
   gates?: [node: number, gate: GatePlan][];
   /** plan/4, where the document declares contracts (Q-171): each contracted dataset's checked part, sorted by node. */
   contracts?: [node: number, contract: ContractPlan][];
+  /** Where the ontology closes a list or a column (ADR 0027 §4): each check step that enforces one, by its node (sorted),
+   * with its closed rules in the step's order. Only where the document declares one, so every other plan hashes as it
+   * did; a build that doesn't read it refuses the plan. */
+  closed?: [node: number, closed: ClosedPlan[]][];
 }
 
 /** A watched source as either plan format says it: its node, its history's file, its period, whether it holds, and in
@@ -373,8 +398,13 @@ export function forDay(doc: FlowDocument, values: Readonly<Record<string, ParamV
  * Translate a flow document into its flow plan, filling in parameter values (`values`, else each parameter's
  * default). The same document and values always give the same plan. A document with change sets is translated as the
  * run of its day reads it (`forDay`, as known at `options.asOf`), so its plan's flow hash is of the rules in force.
+ *
+ * A flow with a context table (ADR 0027 §8) has the day's rows in its plan: `options.context` is the rows as the
+ * caller made them (context.ts `contextRows`, from the flow as kept and the record), or what the record adds, for the
+ * rows to be made here from the document given; without either they are made from the document given alone, its change
+ * sets and no event. A flow with no context table doesn't read it, and its plan is as it was.
  */
-export async function translate(given: FlowDocument, values: Readonly<Record<string, ParamValue>> = {}, options: { asOf?: string | null } = {}): Promise<FlowPlan> {
+export async function translate(given: FlowDocument, values: Readonly<Record<string, ParamValue>> = {}, options: { asOf?: string | null; context?: ContextRows | ContextGiven } = {}): Promise<FlowPlan> {
   const doc = forDay(given, values, options.asOf);
   const issues = validateDocument(doc);
   if (issues.length > 0) throw new PlanError(`the flow document has ${issues.length} problem${issues.length === 1 ? '' : 's'}: ${issues[0]!.path}: ${issues[0]!.message}`, issues);
@@ -399,6 +429,11 @@ export async function translate(given: FlowDocument, values: Readonly<Record<str
     }
   };
 
+  // The context tables' rows for the day (ADR 0027 §8), only where a step is one.
+  const wantsContext = doc.steps.some((s) => s.kind === 'sql' && s.context !== undefined);
+  const isRows = (c: ContextRows | ContextGiven | undefined): c is ContextRows => !!c && Array.isArray((c as ContextRows).in_force);
+  const context = !wantsContext ? null : isRows(options.context) ? options.context : await contextRows(given, dayOf(given, values), options.asOf ?? null, options.context ?? {});
+
   const nodes: PlanNode[] = [];
   const index = new Map<string, number>();
   for (const s of doc.sources) {
@@ -407,6 +442,7 @@ export async function translate(given: FlowDocument, values: Readonly<Record<str
     nodes.push({ op: 'table', origin: s.id, inputs: [], table: s.table, ...(readAs.length ? { readAs } : {}) });
   }
   const outputs: PlanOutput[] = [];
+  const closed: [number, ClosedPlan[]][] = [];
   for (const step of topological(doc.steps)) {
     const at = `steps.${step.id}`;
     const inputs = step.inputs.map((id) => index.get(id.toLowerCase())!);
@@ -421,7 +457,12 @@ export async function translate(given: FlowDocument, values: Readonly<Record<str
       const message = `a fill from ${step.from} moves its rows to the run's day, and ${period} is ${day === null || day === undefined ? 'not given' : `'${String(day)}', not a day${step.from.length > 10 ? ` with that slot (${step.from.slice(11)})` : ''}`}`;
       throw new PlanError(`${at}: ${message}`, [{ path: at, message }]);
     }
-    nodes.push(translateStep(step, base, at, bind, typeof day === 'string' ? day : null, enforcedBy(doc, step)));
+    const enforced = enforcedBy(doc, step);
+    nodes.push(translateStep(step, base, at, bind, typeof day === 'string' ? day : null, enforced, context));
+    // The lists and columns the ontology closes (ADR 0027 §4), by the check step that enforces each: what the run names
+    // the undeclared arrivals by.
+    const shut = enforced.filter((r) => r.kind === 'closed');
+    if (shut.length) closed.push([nodes.length - 1, shut.map((r): ClosedPlan => ({ rule: r.id, key: r.column, defines: [...(r.defines ?? [])], keys: (r.entries ?? []).map((e) => e[0] ?? '').sort() }))]);
     index.set(step.id.toLowerCase(), nodes.length - 1);
     if (step.dataset) outputs.push({ name: step.id, node: nodes.length - 1 });
   }
@@ -430,7 +471,7 @@ export async function translate(given: FlowDocument, values: Readonly<Record<str
   for (const [k, p] of Object.entries(params)) parameters[k] = typeof p.value === 'bigint' ? p.value.toString() : p.value;
   // A format-4 document's plan is plan/3 (ADR 0011 §1, E14), with or without a publish block; with gates, plan/4
   // (ADR 0014 §1), each watch carrying the checks it is judged by.
-  const notebooks = doc.smaltfl === 4;
+  const notebooks = doc.smaltfl >= 4;
   const gates = notebooks && hasGates(doc);
   const plan: FlowPlan = { smaltflPlan: gates ? 4 : notebooks ? 3 : 0, flow: { id: doc.id, hash: await flowHash(doc) }, parameters, nodes, outputs };
   // Without a publish block the plan is what it always was, so every plan/0 hash holds (ADR 0009, E10).
@@ -497,7 +538,7 @@ export async function translate(given: FlowDocument, values: Readonly<Record<str
       return [[node, { id: c.id, version: c.version, schema: gateChecksOf(doc, name)?.schema ?? 'hold', columns: c.columns.map((col): [string, string, boolean, string[] | null] => [col.name, col.type, col.required === true, col.values ? [...col.values] : null]) }]];
     }).sort((a, b) => a[0] - b[0])
     : [];
-  return { ...plan, smaltflPlan: gates ? 4 : notebooks ? 3 : 2, publish: { hold, period: p.period ?? null, together: p.together ?? true, ...(p.reach === 'downstream' ? { reach: 'downstream' as const } : {}), calendar: { ...calendar }, watch, meanwhile: p.meanwhile ?? 'last', until: p.until ?? 'decision', ...(gates ? { gates: goldGates } : {}), ...(contracts.length ? { contracts } : {}) } };
+  return { ...plan, smaltflPlan: gates ? 4 : notebooks ? 3 : 2, publish: { hold, period: p.period ?? null, together: p.together ?? true, ...(p.reach === 'downstream' ? { reach: 'downstream' as const } : {}), calendar: { ...calendar }, watch, meanwhile: p.meanwhile ?? 'last', until: p.until ?? 'decision', ...(gates ? { gates: goldGates } : {}), ...(contracts.length ? { contracts } : {}), ...(closed.length ? { closed } : {}) } };
 }
 
 /** Whether a document judges its watched sources other than every flow did before ADR 0010: a plan/2. */
@@ -538,10 +579,15 @@ function watchPlan(w: string | WatchDef, source: string, period: string | null, 
 
 type Base = Pick<NodeBase, 'origin' | 'inputs' | 'storage'>;
 
-function translateStep(step: StepDef, base: Base, at: string, bind: (sql: string, path: string) => string, day: string | null, ontologyRules: readonly OntologyRule[] = []): PlanNode {
+function translateStep(step: StepDef, base: Base, at: string, bind: (sql: string, path: string) => string, day: string | null, ontologyRules: readonly OntologyRule[] = [], context: ContextRows | null = null): PlanNode {
   const named = (c: string | { name: string; expr: string }, path: string): Named => (typeof c === 'string' ? [c, quoteIdent(c)] : [c.name, bind(c.expr, path)]);
   switch (step.kind) {
     case 'sql':
+      // A context table is its day's rows, written out (ADR 0027 §8): the step's own statement says its columns only.
+      if (step.context !== undefined) {
+        const rows = context?.[step.context] ?? [];
+        return { op: 'sql', ...base, names: [], sql: emitRows(CONTEXT_COLUMNS[step.context], rows), context: { of: step.context, rows } };
+      }
       return { op: 'sql', ...base, names: [...step.inputs], sql: bind(withoutTrailingSemicolons(step.sql), `${at}.sql`) };
     case 'filter':
       return { op: 'filter', ...base, where: bind(step.where, `${at}.where`) };
@@ -572,7 +618,7 @@ function translateStep(step: StepDef, base: Base, at: string, bind: (sql: string
         // (rules.ts): each by its name, written for the engine.
         rules: [
           ...step.rules.map((r, i): [string, string, FailAction] => [r.name, bind(r.check, `${at}.rules[${i}].check`), r.onFail]),
-          ...ontologyRules.map((r): [string, string, FailAction] => [r.id, emitRuleCheck(r), ON_FAIL[r.action]]),
+          ...ontologyRules.flatMap(engineRules).map((r): [string, string, FailAction] => [r.name, r.check, r.onFail]),
         ],
         maxDropped: step.maxDropped ?? null,
       };
@@ -665,8 +711,25 @@ const WATCH_PLAN_FIELDS_4 = [...WATCH_PLAN_FIELDS, 'checks', 'due', 'expect', 'n
 function validatePublish2(p: FlowPlan, fail: (message: string) => never, gated = false): void {
   const pub = p.publish as unknown;
   if (typeof pub !== 'object' || pub === null || Array.isArray(pub)) return fail('a format-2 plan says what holds it: publish { hold, period, together, calendar, watch, meanwhile, until }');
-  const { hold, period, together, reach, calendar, watch, meanwhile, until, gates: goldGates, contracts, ...rest } = pub as Record<string, unknown>;
+  const { hold, period, together, reach, calendar, watch, meanwhile, until, gates: goldGates, contracts, closed, ...rest } = pub as Record<string, unknown>;
   if (Object.keys(rest).length) fail(`publish has ${Object.keys(rest).join(', ')}, which this version doesn't read`);
+  // The lists and columns the ontology closes (ADR 0027 §4): each on a check step, by a rule the step has.
+  if (closed !== undefined) {
+    if (!Array.isArray(closed) || closed.length === 0) fail('publish.closed is a list of [node, closed rules], absent when there are none');
+    (closed as unknown[]).forEach((x, i) => {
+      if (!Array.isArray(x) || x.length !== 2 || !Number.isInteger(x[0]) || !Array.isArray(x[1]) || x[1].length === 0) fail(`publish.closed[${i}] is [node, closed rules]`);
+      const [node, rules] = x as [number, Record<string, unknown>[]];
+      const n = p.nodes[node];
+      if (!n || n.op !== 'expect') fail(`publish.closed[${i}] is on node ${node}, which isn't a check step`);
+      if (i > 0 && !(((closed as unknown[])[i - 1] as [number, unknown])[0] < node)) fail('publish.closed is sorted by node, each node once');
+      rules.forEach((c, k) => {
+        const strings = (v: unknown): v is string[] => Array.isArray(v) && v.every((s) => typeof s === 'string');
+        if (typeof c !== 'object' || c === null || Object.keys(c).sort().join() !== 'defines,key,keys,rule' || typeof c.rule !== 'string' || typeof c.key !== 'string' || !strings(c.defines) || !strings(c.keys)) fail(`publish.closed[${i}][${k}] is { rule, key, defines, keys }`);
+        const rule = (n as ExpectNode).rules.find(([name]) => name === c.rule);
+        if (!rule || rule[2] !== 'fail') fail(`publish.closed[${i}][${k}] names ${String(c.rule)}, which isn't a rule of ${n!.origin} that stops the day`);
+      });
+    });
+  }
   if (contracts !== undefined) {
     if (!gated) fail('publish.contracts is plan/4’s: a plan without gates has none');
     if (!Array.isArray(contracts) || contracts.length === 0) fail('publish.contracts is a list of [node, contract], absent when there are none');

@@ -13,9 +13,10 @@
  * title exists. A condition its author wrote for the engine in a gate cell is quoted as written. A file's rule that
  * is about a column (its key, the objects it covers) is listed on that column's card as well, counted once.
  */
-import { flowOf, sourceOf, type FlowDocument } from './document.js';
+import { flowOf, sourceOf, type FlowDocument, type RuleEdit } from './document.js';
 import { gateChecksOf, gateLayerOf, writtenRules, type CheckName, type Layer } from './gates.js';
-import { marksOn, meaningOf, nounOf, propertyOf, rowsOf, saysMore, type Noun, type ObjectType, type Ontology, type PropertyType } from './ontology.js';
+import { asideOf } from './described.js';
+import { marksOn, meaningOf, nounOf, propertyOf, rowsOf, saysMore, type Ended, type Noun, type ObjectType, type Ontology, type PropertyType } from './ontology.js';
 import { ACTION_SAID, checkStepOf, ruleOn, rulesOf, ruleSaid, type OntologyRule } from './rules.js';
 import { estateSays, type EstateFrom, type EstateOntology } from './shared.js';
 
@@ -68,6 +69,8 @@ export interface Rule {
   unchecked?: string;
   /** A rule people set (`set`): the ontology's entry, which the form edits, and what a row that breaks it does. */
   def?: OntologyRule;
+  /** A dependency written in the ontology (`needs`): its id there, which a dated change sets or ends (ADR 0027 §3). */
+  needs?: string;
 }
 
 /**
@@ -141,6 +144,9 @@ export interface FileSection {
    * from its day, ADR 0022 §2, Q-204): what each is called and holds. Absent where there are none, or the file's columns
    * aren't known. */
   unread?: { name: string; title: string; description?: string }[];
+  /** The columns of the file set aside (ADR 0027 §4, format 5): named as ones the flow doesn't take, so that every
+   * column the file has is either described or set aside. Absent where there are none. */
+  aside?: string[];
   /** How many rules the file has: its own and its columns'. */
   count: number;
   /** A file's: the made datasets with a section of their own that read it, near or far, in the flow's order (Q-144).
@@ -287,7 +293,7 @@ export function ontologyPage(doc: PageDoc, columns: (file: string) => readonly s
       // The columns of this file it names: what must hold, and the condition's where that is read here.
       const about = [...new Set([...(n.from ? [] : Object.keys(n.when)), ...Object.keys(n.then)])];
       // Written once in the ontology (Q-119), or in the gate cell, which may override one of the ontology's.
-      rules.push({ id: `${id}/needs#${k + 1}`, kind: 'needs', said: `Where ${where(from, listed(n.when))}${n.from ? ` in ${n.from}` : ''}, ${then}${n.overrides ? ` (the notebook’s, in place of the ontology’s ${n.overrides})` : ''}`, ...(n.from ? { against: n.from, againstSaid: n.from } : {}), columns: about, origin: { how: 'set', in: n.written === 'gate' ? 'notebook' : 'ontology' }, ...quiet('needs') });
+      rules.push({ id: `${id}/needs#${k + 1}`, kind: 'needs', said: `Where ${where(from, listed(n.when))}${n.from ? ` in ${n.from}` : ''}, ${then}${n.overrides ? ` (the notebook’s, in place of the ontology’s ${n.overrides})` : ''}`, ...(n.from ? { against: n.from, againstSaid: n.from } : {}), columns: about, origin: { how: 'set', in: n.written === 'gate' ? 'notebook' : 'ontology' }, ...(n.written !== 'gate' && n.id !== undefined ? { needs: n.id } : {}), ...quiet('needs') });
     });
 
     // The rules people set on this file's columns (rules.ts): enforced by the check step that reads the file, said as
@@ -365,6 +371,7 @@ export function ontologyPage(doc: PageDoc, columns: (file: string) => readonly s
       rules,
       columns: cards,
       ...(unread.length ? { unread } : {}),
+      ...(!made && asideOf(o, id).length ? { aside: asideOf(o, id) } : {}),
       count: rules.length + (cards ?? []).reduce((n, c) => n + c.rules.length, 0),
       ...(made ? { made: { layer: gateLayerOf(doc, id), published } } : {}),
     };
@@ -431,4 +438,74 @@ export function estateSaid(x: Handling): string | null {
   if (!x.estate) return null;
   const what = [x.estate.title, x.estate.description].filter((t): t is string => !!t).join('. ');
   return what ? `${x.estate.name ? `${x.estate.name}’s` : 'The estate’s'} ontology says: ${what}` : null;
+}
+
+/**
+ * Whether a column of a dataset has a meaning that can be redefined from a day (ADR 0027 §3, Q-251): the ontology says
+ * what it means there, and the saying isn't a flow's own handling of a column an estate describes, which is the flow's
+ * to change at once with its reason (ADR 0026 §8). A column nothing describes has no meaning to redefine: its first
+ * description is a description.
+ */
+export function redefinable(doc: Pick<FlowDocument, 'ontology'>, dataset: string, column: string): boolean {
+  const p = propertyOf(doc.ontology, dataset, column);
+  return !!p && p.override === undefined && !!p.description.trim();
+}
+
+/**
+ * A column's meaning redefined from a file's card (ADR 0027 §3, Q-251), as the dated edits that say so: one for each
+ * meaning the ontology keeps for the column in the file and in the datasets that pass it on under its name (`through`,
+ * `columnUses`'s `carried` after the file), so a step's output goes on reading as its file does. A meaning shared by
+ * several datasets is one edit, and is redefined for all of them: it is one meaning. A flow's own handling of a
+ * column is left as it is.
+ */
+export function redefineEdits(doc: Pick<FlowDocument, 'ontology'>, file: string, column: string, through: readonly string[], change: { description: string; values?: Record<string, string> }): RuleEdit[] {
+  const seen = new Set<PropertyType>();
+  const out: RuleEdit[] = [];
+  for (const dataset of [file, ...through]) {
+    const p = propertyOf(doc.ontology, dataset, column);
+    if (!p || p.override !== undefined || seen.has(p)) continue;
+    seen.add(p);
+    out.push({ op: 'redefine', column: p.column, ...(p.datasets ? { datasets: [...p.datasets] } : {}), change });
+  }
+  return out;
+}
+
+/** Where a redefinition reaches, in words: the datasets its edits name, or every dataset that has the column. */
+export function redefinedWhere(edits: readonly RuleEdit[]): string {
+  const named: string[] = [];
+  for (const e of edits) {
+    if (e.op !== 'redefine') continue;
+    if (!e.datasets?.length) return 'every dataset that has the column';
+    for (const d of e.datasets) if (!named.some((x) => x.toLowerCase() === d.toLowerCase())) named.push(d);
+  }
+  return named.length <= 1 ? (named[0] ?? '') : `${named.slice(0, -1).join(', ')} and ${named.at(-1)}`;
+}
+
+/** An entry of a closed list or column as people call it: the ontology's word for its key where that says more. */
+export function entryCalled(o: Ontology | undefined, rule: Pick<OntologyRule, 'file' | 'column'>, key: string): string {
+  const word = propertyOf(o, rule.file, rule.column)?.values?.[key];
+  return word !== undefined && saysMore(word, key) ? `${word} (${key})` : key;
+}
+
+/** The record that an entry of a closed list or column ended (ADR 0027 §2, Q-264), where the ontology keeps one. */
+export function endedEntry(o: Ontology | undefined, rule: Pick<OntologyRule, 'file' | 'id'>, key: string): Ended | null {
+  return (o?.ended ?? []).find((e) => e.what === 'entry' && e.id === key && e.of?.rule === rule.id && e.of.file.toLowerCase() === rule.file.toLowerCase()) ?? null;
+}
+
+/** A thing that ended, in a few words: "ended", or with what follows it, each named by `called`. */
+export function endedInWords(x: Pick<Ended, 'then'>, called: (id: string) => string = (id) => id): string {
+  if (!x.then) return 'ended';
+  const by = x.then.by.map(called);
+  const names = by.length <= 1 ? (by[0] ?? '') : `${by.slice(0, -1).join(', ')} and ${by.at(-1)}`;
+  return `ended: ${x.then.how === 'replaced' ? 'replaced by' : x.then.how === 'merged' ? 'merged into' : 'split into'} ${names}`;
+}
+
+/**
+ * What the gate says of an arrival the ontology ended (§4 with §2): it isn't new to the ontology, it was taken out,
+ * with what follows it. Empty where the ontology keeps no such record: the arrival is new, or changed.
+ */
+export function endedArrivalSaid(o: Ontology | undefined, rule: Pick<OntologyRule, 'file' | 'id' | 'column'>, key: string, from?: string): string {
+  const x = endedEntry(o, rule, key);
+  if (!x) return '';
+  return `The ontology ${endedInWords(x, (k) => entryCalled(o, rule, k)).replace(/^ended/, 'ended it')}${from ? `, from ${from}` : ''}.`;
 }

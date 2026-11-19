@@ -15,8 +15,16 @@ const calendarNow = (): Calendar => history?.calendar ?? US_NYC_1;
 import { canonicalJSON } from '../core/canonical.js';
 import type { ChangeSet, ContractDef, FlowDocument, GroupDef, NotebookOutline, OutlineCell, ProfileDef, RuleEdit, StepDef } from '../core/document.js';
 import { applyEdit, changesOn, inForce, resolve as resolveRules, ruleParts, rulesHash, rulesInForce, versionRules, withRuleParts, type RuleParts } from '../core/inforce.js';
-import { diffSaid, ruleVersions, rulesDiff, versionKey, versionOn, type RuleVersion } from '../core/ruleversions.js';
-import { flowOf, givesOf, GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, usedName, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
+import { datedDiff, diffSaid, ontologyMap, ruleVersions, rulesDiff, versionKey, versionOn, type RuleVersion } from '../core/ruleversions.js';
+import { agreementOf, agreeTo, asksAgreement, asksWhy, knownFrom, mayAgree, ownersOf, ownersSaid, partsIn, type OwnedDoc } from '../core/agree.js';
+import { digestHead, digestOf, digestText, historyHead, historyOf as ontologyHistoryOf, historyText, historyTold, movedSaid as sinceMoved, periodSaid, reachSaid as toldReach, saidWhen, seenOf as seenNow, sinceSaid, sinceSeen, spanSaid, stepToldSaid, toldOf as tellOf, type OntologyHistory, type Seen, type SinceSeen, type Told as ToldThing } from '../core/told.js';
+import { adjusted, asDeclared, changesReaching, cutsOf, declaredOf, declaredOn, followedThrough, moveSaid, redefinedOn, trialMoves, type TrialMove } from '../core/across.js';
+import { changeAbout, contextKnown, contextOf, contextRows, type ContextRows } from '../core/context.js';
+import { stepMeasures, stepsOf, type StepAbout, type StepMarks, type StepMeasure } from '../core/step.js';
+import { comingOn, dayAfter, dayBefore, defaultKind, KIND_NAMES, KIND_NOT_GIVEN, KINDS_ASKED, LANE_NAMES, livesOf, registerOf, sinceOf, type Entry as RegisterEntry, type Life } from '../core/register.js';
+import { covers as eventCovers, eventDay, EVENT_KINDS, EVENT_KIND_NAMES, eventTense, EXCUSABLE, EXCUSABLE_SAID, excusesFor, latestEvents, type ClaimExcuse, type EventKind, type Excusable, type Excuse, type FlowEvent } from '../core/events.js';
+import type { ChangeKind, ChangeNote } from '../core/document.js';
+import { contextTables, editTargets, flowOf, givesOf, GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, usedName, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
 import { notebookSectionId } from '../core/notebook.js';
 import { baseOf, carriedSaid, decidedElsewhere, givesWay, leadingHere, notCarriedSaid, originOf, pageOf, proofOf, type CarriedFrom, type CarryAbout, type Leading, type OtherRecord } from '../core/carry.js';
 import { holdGroups, loadRoles, possessive, waitingOn, whoseSaid, withRoles } from '../core/deciding.js';
@@ -25,7 +33,7 @@ import { flowMonthOutcome, flowOff, flowRows, flowRowSaid, onlyFollowed, onlyWai
 import { lookOf, sceneHash, type SceneLook, type ScenesFile } from '../core/scenes.js';
 import { briefOf, briefText, type BriefIn, type BriefOption } from '../core/brief.js';
 import { compareSummary, diffKeyOf, diffOf, type RowDiff } from '../core/compare.js';
-import { createTable, emitBinCounts, emitCheckCounts, emitColumnFacts, emitCopy, emitDiff, emitDistinct, emitFit, emitHourValues, emitDrop, emitDropped, emitExcept, emitFailures, emitJoinMatch, emitKept, emitKeptCell, emitLit, emitLookup, emitRead, emitRuleFailures, emitSample, emitStampCounts, emitUnmatched, emitUnmatchedKeys, emitValueCounts, emitWhere, sameColumns, type EmitContext, type RowPick } from '../core/emit.js';
+import { createTable, emitBinCounts, emitCheckCounts, emitColumnFacts, emitCopy, emitDiff, emitDistinct, emitFit, emitHourValues, emitDrop, emitDropped, emitExcept, emitFailures, emitJoinMatch, emitKept, emitKeptCell, emitLeftOut, emitLit, emitLookup, emitRead, emitRuleFailures, emitSample, emitStampCounts, emitUndeclared, emitUnmatched, emitUnmatchedKeys, emitValueCounts, emitWhere, sameColumns, type EmitContext, type RowPick } from '../core/emit.js';
 import { askOf, cardOf, cardSaid, fitSaid, joinPartners, joinRead, joinSaid, litSaid, matchDays, joinWhy, matchSaid, pickSaid, rowSaid, rowsKeptFrom, samePick, type Bar, type ExploreCard, type JoinPartner } from '../core/explore.js';
 import { effectOf, type Effect } from '../core/effect.js';
 import { daysFrom, HistoryRanges, isHistory, metricKey, QUANTILES, timeOf, type HistoryFile, type Metric } from '../core/history.js';
@@ -35,10 +43,10 @@ import { flowNames, isPlaceholder, judgeOf, labelOf, newsOf, shareWords, tableNe
 import { writtenRules, CHECK_MODES, CHECK_NAMES, CHECK_SAID, checkOf, gateChecksOf, gateLayerOf, hasGates, JUDGED, LAYER_SAID, overwhelmingSaid, WRITTEN, type CheckMode, type CheckName, type GateChecks } from '../core/gates.js';
 import { calendarHead, heldLoadLine, dayMid, dayShort, guessWords, judgedWords, lacked, MARK as REMEDY_MARK, noRowsBefore, reachLabel, readersOf as readersHad, readersSee, rowsFrom, shortfall, shownRun, stagedBar, stoppedLine as stoppedWords, toldLine, type DayState, type EpisodeDay, type KeptMark, type PauseState, type RemedyMark } from '../core/days.js';
 import { UNTIL, afterLabel, afterLine, betweenLine, dayPausedLine, daySentence, decidedLines, decisionDrawing, donorPicked, failLine, goShown, heldLine, outputPausedLine, passedLine, pausedChecks, pauseLines, pauseReasons, pickFails, receiptLines, remedyHead, ribbonOf, runFigures, sheetText, versionLines, waitedLabel, checksSeen, filesSeen, findingOf, type RunSight, type AfterPart, type KeptLacks, type RemedySaid, type SheetIn, type SheetPick, type SheetText, type Sight } from '../core/decision.js';
-import { contractSaid, countedChecks, rangesFor, dayClaim, dayState, flowStory, learnedMeasures, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, upstreamSteps, tailPath, type Claim, decisionFor, decisionForLoad, standingForLoad, heldLoadsOf, dayPauseOfLoads, loadDecisions, keysForLoads, loadKey, loadsOf, byLoad, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, latestPublished, publishedDays, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
+import { contractSaid, countedChecks, rangesFor, dayClaim, dayState, flowStory, learnedMeasures, levelFor, levelsOf, loadClaim, reconcileSaid, skipOf, upstreamSteps, tailPath, type Claim, decisionFor, decisionForLoad, standingForLoad, heldLoadsOf, dayPauseOfLoads, loadDecisions, keysForLoads, loadKey, loadsOf, byLoad, heldOutputs, inputsKey, inputsOf, pausesOf, pauseState, latestGot, latestPublished, publishedDays, sameKeys, stagedKeys, standingEnds, standingFor, type DecideAbout, type Decided, type HistoryRef, type Hold, type Inputs, type Pause, type ReleaseAbout, type StoryClaim } from '../core/hold.js';
 import { checkAgainst as againstRecord, endOfDay, isMonthFile, isRestate, knownOn, layered, monthOf, ownHolds, restatedOutcome, runDay, runsByDay, versionsOf, type CellState, type DayState as MonthState, type MonthDay, type MonthFile, type RecordCheck, type RestateAbout, type RunAbout } from '../core/month.js';
-import { againstSaid, againstWay, countSaid, findingsOf, followsFiles, headlineOf, healthOf as monthHealth, healthSaid, HOW_WORD, monthsOf, moversOf, offDays, OUTCOME_WORD, outcomeOf, outcomeSaid, pointsSaid, readSaid, scoreRead, summaryOf, worstFirst, type DayFinding, type DayOutcome, type HealthRow, type Outcome } from '../core/overview.js';
-import { dayVersions, donorIdOf, fillCounts, levelOf as acceptedLevel, levelWays, partLabel as remedyPart, type Offer, type Repair, type Version } from '../core/fill.js';
+import { againstSaid, againstWay, AS_EXPECTED, countSaid, expectedOf, findingsOf, followsFiles, headlineOf, healthOf as monthHealth, healthSaid, HOW_WORD, monthsOf, moversOf, offDays, OUTCOME_WORD, outcomeOf, outcomeSaid, pointsSaid, readSaid, scoreRead, summaryOf, worstFirst, type DayFinding, type DayOutcome, type HealthRow, type Outcome } from '../core/overview.js';
+import { dayVersions, donorIdOf, fillCounts, levelOf as acceptedLevel, levelWays, partLabel as remedyPart, repairDocument, type Offer, type Repair, type Version } from '../core/fill.js';
 import { gridOf, shadeOf, shareOf, standOut } from './grid.js';
 import { setUpSplit, showWorkspace } from './split.js';
 import { mark } from './perf.js';
@@ -54,24 +62,31 @@ import type { EditorSchema, SchemaColumn } from 'smaltkit/editor';
 import type { GridRow } from 'smaltkit/grid';
 import { derivedAbout, derivedFails, derivedKeys, derivedWhy, donorsOf, filledRows, pinDonor, repairOf, stageRepair, type Listed, type Remedies } from './fills.js';
 import { followsCause as followsFrom, ACT_VERB, CELL_KINDS, CELL_NAMES, HEALTH_HEAD, STRIP_KEY, approx, axisShare, recentSpan, cardWords, changeLabel, compact, countLabel, countRange, fallSteps, gateHead, overLabel, gateLabels, gateOf, partLabel, ruleOrder, ruleUsual, shortWho, splitSentence, splitSteps, saidOf, storyOf, type Cell, type DayStep, type Gate, type HourValues, type Story, type Told, type Upstream } from '../core/story.js';
-import { dayBars, matchBars, scoreSpark, scoreTrend, type BarDay, type ScorePoint, rowFlow, differenceMeter, fileTwins, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, chain, composition, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
+import { kindMark, kindsMap, registerLanes, type KindMark, type LaneGroup, type LaneMark, type LaneRow } from './viz.js';
+import { dayBars, matchBars, scoreSpark, scoreTrend, type BarDay, type ScoreCut, type ScorePoint, rowFlow, differenceMeter, fileTwins, aucTrack, forestTicks, heatGrid, rankBars, amountLine, bulletTrack, chain, composition, dayStrip, decisionRow, effectBars, learnStrip, episodeBars, episodeChip, episodeDays, episodeIcon, heldLineage, partBar, reachIcon, DEFS as VIZ_DEFS, dumbbellRows, episodeLine, farStrip, gateBars, glyph, hourBars, lineage, microDot, quantileStrip, ruleRows, splitRows, stripBar, trendPips, waterfall, type Dumbbell, type Mark as VizMark, type StripDay } from './viz.js';
 import { sha256Hex } from '../core/hash.js';
 import { LEVEL_NAME, leaderSaid, postureTree, scoreSaid, trendSaid, unitCounts, type PostureNode } from '../core/posture.js';
-import { counted, glossOf, meaningBeyond, meaningOf, nounOf as ontologyNoun, propertyOf, readAsOf, saysMore, type Edit, type Noun, type PropertyType } from '../core/ontology.js';
+import { counted, glossOf, meaningBeyond, meaningOf, nounOf as ontologyNoun, propertyOf, readAsOf, saysMore, type AwaitedDataset, type Condition, type Edit, type Ended, type EndedKind, type LinkType, type NeedsDef, type Noun, type ObjectType, type PropertyType, type RowsDef } from '../core/ontology.js';
 import { columnChangeSaid, columnsHold, csvColumn, csvHeader, readAsIn, type ColumnMap } from '../core/columns.js';
 import { columnUses, joinImpactSaid, joinMatch, usesSaid, type ColumnUses, type JoinUse, type ParseSql } from '../core/uses.js';
-import { estateSaid, handlingSaid, ontologyPage, originSaid, typesShown, type ColumnCard, type FileSection, type Handling, type OntologyPage, type Rule } from '../core/ontologypage.js';
+import { endedArrivalSaid, endedEntry, endedInWords, entryCalled, estateSaid, handlingSaid, ontologyPage, originSaid, redefinable, redefinedWhere, redefineEdits, typesShown, type ColumnCard, type FileSection, type Handling, type OntologyPage, type Rule } from '../core/ontologypage.js';
 import { MAX_CODES, proposalsOf, shareRange, valueCandidates, watchedFile, type Proposal } from '../core/proposals.js';
-import { applyBand, asShipped, keptOf as keptFlow, nameColumn, nameColumnThrough, restoreKept, setRule, type FlowEdit, type NameOp, type RuleInput } from '../core/flowedit.js';
+import { applyBand, asShipped, keptOf as keptFlow, nameColumn, nameColumnThrough, restoreKept, setAside as setColumnAside, setRule, type FlowEdit, type NameOp, type RuleInput } from '../core/flowedit.js';
+import { awaitedIssues, awaitedOf, isAside, undescribed, undescribedSaid } from '../core/described.js';
 import { ownWithEdits } from '../core/attribute.js';
 import { addFlow, addProblems, takeOff, takeOffProblems, type CatalogueEntry } from '../core/catalogue.js';
 import { mapProblems, USE_NAME, useName, useProblems, type UseSpec } from '../core/reuse.js';
 import { JOINS_NOTEBOOK, joinProblems, joinSaid as joinWritten, joinsOf, withJoin, withoutJoin, type JoinSpec } from '../core/joincell.js';
+import {
+  awaitedProblems, bindingOfSource, checkedOf, columnsLacking, describedAlready, keyRepeats, matchAwaited, proposeSource, readFile, sourceProblems, sourceReaders, sourceSaid, sourcesAdded, SOURCES_NOTEBOOK, specOfAwaited,
+  rowProblems, withoutSource, withRowSaid, withSource, type FileRead, type SourceColumn, type SourceSpec,
+} from '../core/newsource.js';
+import { fileKey, FileStore } from './files.js';
 import { changeFlows, flowChanges, followersOf, pinProblem, testCount, testSaid, type DayTest, type TestCount } from '../core/follow.js';
 import { estateSays, sharedOf, type EstateOntology } from '../core/shared.js';
 import { voice } from '../core/voice.js';
 import { fixesOf, fixOfDonor, type FixKind } from '../core/rules.js';
-import { ACTION_SAID, checkStepOf, RULE_ACTIONS, ruleOn, rulesOf, ruleSaid, type OntologyRule, type OntologyRuleKind, type RuleAction } from '../core/rules.js';
+import { ACTION_SAID, arrivalOf, checkStepOf, closedOf, entryDiff, isList, leftOutName, RULE_ACTIONS, ruleOn, rulesOf, ruleSaid, type OntologyRule, type OntologyRuleKind, type RuleAction } from '../core/rules.js';
 import { DECIDE, DECIDE_OPTIONS, checkDecision, checkRun, covers, readView, wrapRead, type DecideOption, type DecisionOption, type Principal, type ReadView, type RowRule } from '../core/policy.js';
 import { createIdentity, ontologyHash, policiesHash, signManifest, verifyManifest } from '../core/manifest.js';
 import { shapeOf } from '../core/optimize.js';
@@ -408,9 +423,15 @@ function sayRun(r: RunRecord): void {
   }
   const top = day ? verdictOf(day) : undefined;
   const may = (['asis', 'dont'] as const).some((o) => checkDecision(policies(), state.viewer, o).allowed);
-  const other = pause ? heldElsewhere(r) : null;
+  // Stopped at the gate (ADR 0027 §4): the day is said by what arrived that the ontology doesn't have.
+  const gated = pause ? result.holds.find((x) => (x as Hold).undeclared && sightOf(x.origin) === 'all') : undefined;
+  const other = pause ? (gated ? { origin: gated.origin, said: gated.said } : heldElsewhere(r)) : null;
+  // The dataset the views follow read as declared that day (ADR 0027 §7, Q-263): what leads its story is a declared
+  // change's own step, and the line says so, as its News and the day's brief do.
+  const src = loadSource();
+  const asDeclared = !!day && !!src && !!top && !other && (top.severity === 'warn' || top.severity === 'alert') && !!declaredOn(stepsNow(), src, day);
   const said = day
-    ? daySentence({ day, head: other ? `${other.origin}: ${other.said}` : top?.title ?? null, wrong: top?.severity === 'alert' || !!other, pause: pause ? { state: pause.state, readers: readersAsOf(r).day, past: readersAsOf(r).past, standing: standsOn(pause.pause?.decision), may, deciders: deciders(), remedy: pause.remedy, withdrawn: pause.withdrawn, level: pause.pause?.decision?.about.level?.from ?? null, under: levelUnder(pause.pause?.decision) } : null })
+    ? daySentence({ day, head: other ? `${other.origin}: ${other.said}` : top ? `${top.title}${asDeclared ? ', as declared' : ''}` : null, wrong: top?.severity === 'alert' || !!other, pause: pause ? { state: pause.state, readers: readersAsOf(r).day, past: readersAsOf(r).past, standing: standsOn(pause.pause?.decision), may, deciders: deciders(), remedy: pause.remedy, withdrawn: pause.withdrawn, level: pause.pause?.decision?.about.level?.from ?? null, under: levelUnder(pause.pause?.decision) } : null })
     : pause ? `Held${result.holds.every((x) => sightOf(x.origin) === 'all') ? `: ${result.holds[0]!.said}` : ''}` : figures;
   setStatus(said, false, { n: attempts, state: pause && !isOut(pause.state) ? 'held' : 'done', mark: pause?.state ?? null });
   $('status').title = figures;
@@ -650,7 +671,7 @@ function keptThen(day: string): string | null {
   const all = allEntries();
   const held = all.find((e) => e.kind === 'run' && (e.about as { outcome?: string; day?: string } | null)?.outcome === 'held' && (e.about as { day?: string }).day === day);
   if (held) {
-    const then = latestPublished(all.filter((e) => e.seq < held.seq), periodOfFlow());
+    const then = latestGot(all.filter((e) => e.seq < held.seq), periodOfFlow());
     if (then && then < day) return then;
   }
   let best: string | null = null;
@@ -671,7 +692,7 @@ function readersMarkOf(r: RunRecord): KeptMark | null {
 
 /** The latest day readers see, as the record says (Q-51, ADR 0022 §1): the latest day published, whatever order the
  * days were published in; a day decided after it keeps its version for itself. */
-const readersLatest = (): string | null => latestPublished(allEntries(), periodOfFlow());
+const readersLatest = (): string | null => latestGot(allEntries(), periodOfFlow());
 
 /**
  * Whether the day after `day` (the next of the flow's loads) has published already, as the record says: a decision
@@ -708,7 +729,7 @@ function readersAsOf(r: RunRecord): { day: string | null; past: boolean } {
   const now = had.past ? pauseOf(r) : null;
   const d = now?.state === 'dont' ? now.pause?.decision : null;
   if (d && day && ledger) {
-    const before = latestPublished(allEntries().filter((e) => e.seq < d.seq && !(runDay(e) !== null && runDay(e)! >= day)), periodOfFlow());
+    const before = latestGot(allEntries().filter((e) => e.seq < d.seq && !(runDay(e) !== null && runDay(e)! >= day)), periodOfFlow());
     return { day: before && before < day ? before : null, past: true };
   }
   return had;
@@ -742,12 +763,12 @@ const nodeOf = (id: string): ManifestNode | undefined => latest()?.result.manife
 
 const KIND: Record<string, string> = { sql: 'SQL', filter: 'FILTER', formula: 'FORMULAS', select: 'SELECT', join: 'JOIN', aggregate: 'AGGREGATE', expectations: 'CHECKS' };
 
-/** A source's binding (ADR 0010 §9): from the data list the page opened. */
+/** A source's binding (ADR 0010 §9): from the data list the page opened, or its own where it was added here (ADR 0027 §5). */
 const bindingOf = (id: string): Binding | undefined => {
   const src = state.doc.sources.find((x) => x.id === id);
   if (!src) return undefined;
   const all: Record<string, Binding> = dataList?.sources ?? {};
-  return all[src.id] ?? Object.values(all).find((b) => b.table === src.table);
+  return all[src.id] ?? Object.values(all).find((b) => b.table === src.table) ?? addedSources.get(src.id)?.binding;
 };
 /** The file an input reads, where the app knows it: its binding's. */
 const inputFile = (id: string) => bindingOf(id);
@@ -2993,12 +3014,15 @@ function openCatalogue(): void {
 function renderBuildBar(): void {
   const bar = document.getElementById('build-bar');
   if (!bar) return;
-  const made = (state.doc.flows ?? []).filter((f) => addedHere(f.id)).length + joinsOf(state.doc).length;
-  const show = levelAt() === null && !!state.doc.notebooks && ((dataList?.catalogue.length ?? 0) > 0 || made > 0);
+  const flows = (state.doc.flows ?? []).filter((f) => addedHere(f.id)).length + joinsOf(state.doc).length;
+  const made = flows + sourcesAdded(state.doc).length;
+  // A flow written as notebooks takes a source (ADR 0027 §5); a flow, where the build ships a catalogue or one was made.
+  const show = levelAt() === null && !!state.doc.notebooks;
   bar.hidden = !show;
   if (!show) return void bar.replaceChildren();
   bar.replaceChildren(
-    h('button', { type: 'button', class: 'btn small build-add', onclick: openCatalogue }, 'Add a flow ›'),
+    ...((dataList?.catalogue.length ?? 0) > 0 || flows > 0 ? [h('button', { type: 'button', class: 'btn small build-add', onclick: openCatalogue }, 'Add a flow ›')] : []),
+    h('button', { type: 'button', class: 'btn small build-source', onclick: openSource }, 'Add a source ›'),
     ...(made ? [h('span', { class: 'build-made' }, `${plural(made, 'thing')} made here`)] : []));
 }
 
@@ -3108,6 +3132,1161 @@ function joinForm(left: string, partner: { dataset: string; own: string; key: st
   if (others.length) void drawRight();
 }
 
+// ------------------------------------------------------------------ the two doors (ADR 0027 §5)
+
+// A source and its description are made together. *Here is the data*: someone picks a file; it is read here, its
+// description proposed from what it holds, and no step may read it until what one row is and every column are
+// confirmed. *Describe it first*: someone says what the business needs; it is in the ontology from its day and waits
+// for data until a file is bound to it. Either way the source is written as cells of a notebook of the flow's own
+// (`sources.nb.ts`), its file is kept in this browser, and the day runs again with it.
+
+/** A source added here: the binding it is read by and the file it reads, by its hash, as this browser keeps them. */
+interface AddedSource {
+  binding: Binding;
+  sha256: string;
+  /** The file's name as it was picked, and its size. */
+  name: string;
+  bytes: number;
+  at: string;
+  by: string;
+}
+const addedSources = new Map<string, AddedSource>();
+/** Each added source's file, in hand: what is pinned for it. */
+const addedBytes = new Map<string, Uint8Array>();
+let fileStoreOpen: Promise<FileStore> | null = null;
+const fileStore = (): Promise<FileStore> => (fileStoreOpen ??= FileStore.open());
+const addedKey = (): string => `${flowKey()}:sources`;
+/** The largest file read here: a browser holds it whole, as bytes and as text. */
+const FILE_MOST = 64 * 1024 * 1024;
+
+function saveAdded(): void {
+  try {
+    if (addedSources.size) localStorage.setItem(addedKey(), JSON.stringify(Object.fromEntries(addedSources)));
+    else localStorage.removeItem(addedKey());
+  } catch {
+    // Storage off or full: the sources last as long as the page, as the flow's other edits do.
+  }
+}
+
+/**
+ * The sources the flow as kept here added, restored with it: each one's binding, and its file from this browser. A
+ * source whose file isn't here any more can't be read, and a flow can't run with a source nothing binds: what the
+ * browser kept of the flow is dropped, as it is when the flow itself is another, and the page says so.
+ */
+async function restoreAdded(): Promise<void> {
+  const ids = sourcesAdded(state.doc).filter((id) => !dataList?.sources[id]);
+  let saved: Record<string, AddedSource> = {};
+  try {
+    saved = (JSON.parse(localStorage.getItem(addedKey()) ?? '{}') ?? {}) as Record<string, AddedSource>;
+  } catch {
+    // Unreadable: none of them is here.
+  }
+  // What was added to a flow this browser no longer keeps so (another build's, or the flow as shipped again) goes.
+  const gone = Object.entries(saved).filter(([id]) => !ids.includes(id));
+  if (!ids.length && !gone.length) return;
+  const store = await fileStore();
+  for (const [, a] of gone) if (!ids.some((id) => saved[id]?.sha256 === a.sha256)) await store.delete(fileKey(shippedDoc.id, a.sha256));
+  if (!ids.length) return void saveAdded();
+  const missing: string[] = [];
+  for (const id of ids) {
+    const a = saved[id];
+    const f = a ? await store.get(fileKey(shippedDoc.id, a.sha256)) : null;
+    if (!a || !f) missing.push(id);
+    else {
+      addedSources.set(id, a);
+      addedBytes.set(id, f.bytes);
+    }
+  }
+  if (!missing.length) return void (gone.length ? saveAdded() : undefined);
+  const n = flowEdits.length;
+  [state.doc, flowEdits] = [structuredClone(shippedDoc), []];
+  addedSources.clear();
+  addedBytes.clear();
+  forgetFlow();
+  saveAdded();
+  const why = `the file of ${listed(missing)}, added here, isn’t in this browser any more`;
+  flowDropped = { edits: n, why };
+  // The record last saw the flow with them: the next run's flow entry says why it is the shipped one again.
+  flowReason = `${n ? `${plural(n, 'change')} kept in this browser ${n === 1 ? 'was' : 'were'}` : 'What this browser kept of the flow was'} dropped: ${why}`;
+}
+
+/** A source added here, pinned in the engine and its table defined: its file as this browser holds it, hashed again by
+ * the engine and read as `smaltfl:<file>`, a column the file names otherwise declared by the file's name. */
+async function pinAdded(engine: Engine, id: string, doc: FlowDocument): Promise<void> {
+  const a = addedSources.get(id);
+  const bytes = addedBytes.get(id);
+  if (!a || !bytes) return;
+  await pinFiles(engine, [{ name: a.binding.file, bytes, sha256: a.sha256 }]);
+  pinnedNow.set(a.binding.file, a.sha256);
+  const header = csvHeader(new TextDecoder().decode(bytes.subarray(0, 1 << 16)));
+  pinnedHeaders.set(id, header);
+  const readAs = readAsIn(readAsOf(doc.ontology, id), header);
+  await engine.exec([`DROP EXTERNAL TABLE IF EXISTS ${quoteIdent(a.binding.table)}`, pinnedDdl(a.binding, readAs)].join(';\n'));
+  tableReadAs.set(id, JSON.stringify(readAs));
+  pulledIn(id, a.name, a.sha256, `added here by ${personName(a.by)}`);
+}
+
+/** A source added here out of what this browser keeps: its binding, its table, and its file where no other source
+ * added here reads the same one. */
+async function dropAdded(id: string): Promise<void> {
+  const a = addedSources.get(id);
+  addedSources.delete(id);
+  addedBytes.delete(id);
+  tableReadAs.delete(id);
+  pinnedHeaders.delete(id);
+  ingested.delete(id);
+  saveAdded();
+  if (!a) return;
+  pinnedNow.delete(a.binding.file);
+  await state.engine?.exec(`DROP EXTERNAL TABLE IF EXISTS ${quoteIdent(a.binding.table)}`).catch(() => undefined);
+  if (![...addedSources.values()].some((x) => x.sha256 === a.sha256)) await (await fileStore()).delete(fileKey(shippedDoc.id, a.sha256));
+}
+
+/** After the flow is the shipped one again, or another: what was added here and is no source of it any more goes. */
+async function dropAddedGone(): Promise<void> {
+  for (const id of [...addedSources.keys()]) if (!state.doc.sources.some((x) => x.id === id)) await dropAdded(id);
+}
+
+/**
+ * Add a source (ADR 0027 §5): the file kept in this browser and pinned in the engine, the source written into the flow
+ * with its description, recorded with its reason, and the day run again with it. A source whose own step stops its
+ * first run here is taken off again, and the record keeps both.
+ */
+async function addSource(spec: SourceSpec, file: PickedFile, why: string, fail: (why: string) => void): Promise<boolean> {
+  if (!isOwner()) return false;
+  if (state.running) return void fail('The flow is running. Add the source when the run has ended.'), false;
+  const engine = state.engine;
+  if (!engine) return void fail('The engine isn’t ready yet: try again in a moment.'), false;
+  const base = baseDoc();
+  const problems = sourceProblems(base, spec);
+  if (problems.length) return void fail(`${problems[0]}.`), false;
+  const derive = await loadDerive();
+  if (!derive) return void fail('The notebook parser couldn’t be loaded, so the cells can’t be read back: nothing was written.'), false;
+  let next: FlowDocument;
+  try {
+    next = await derive(withSource(base, spec, (c) => !!estateSays(estates, spec.id, c)));
+  } catch (err) {
+    return void fail(`The cells don’t read as steps: ${message(err)}`), false;
+  }
+  const issue = validateDocument(next)[0];
+  if (issue) return void fail(`That can’t be written: ${issue.message}.`), false;
+  addedSources.set(spec.id, { binding: bindingOfSource(base, spec), sha256: file.sha256, name: file.name, bytes: file.bytes.length, at: new Date().toISOString(), by: state.viewer });
+  addedBytes.set(spec.id, file.bytes);
+  try {
+    await (await fileStore()).put(fileKey(shippedDoc.id, file.sha256), file.name, file.bytes);
+    await pinAdded(engine, spec.id, next);
+  } catch (err) {
+    await dropAdded(spec.id);
+    return void fail(`The engine couldn’t take the file: ${message(err)}`), false;
+  }
+  saveAdded();
+  document.querySelector('.vf-detail-wrap')?.remove();
+  const said = sourceSaid(spec);
+  setStatus(`${said}. Written as cells of ${SOURCES_NOTEBOOK}, and recorded; the day runs again with it.`, false);
+  await builtInto(next, `${said} (“${why}”)`);
+  const stopped = stoppedAt([spec.id, checkedOf(spec.id)]);
+  if (stopped !== null) {
+    try {
+      await builtInto(await derive(withoutSource(baseDoc(), spec.id)), `Took ${spec.id} off again: its first run stopped (${stopped})`);
+      await dropAdded(spec.id);
+      setStatus(`${spec.id} couldn’t be run. ${stopped}. It was taken off again, and the flow runs as it did.`, true);
+    } catch (err) {
+      setStatus(`${spec.id} couldn’t be run, and couldn’t be taken off again: ${message(err)}`, true);
+    }
+    return true;
+  }
+  renderRulesTime();
+  if (!state.failed) openTab(spec.id, 'data');
+  return true;
+}
+
+/** Take a source added here off again: where no step of the flow reads it but its own check. */
+async function takeOffSource(id: string): Promise<void> {
+  if (!isOwner()) return;
+  if (state.running) return void setStatus('The flow is running. Take the source off when the run has ended.', true);
+  const base = baseDoc();
+  const readers = sourceReaders(base, id);
+  if (readers.length) return void setStatus(`${id} stays: ${listed(readers)} ${readers.length === 1 ? 'reads' : 'read'} it.`, true);
+  const derive = await loadDerive();
+  if (!derive) return void setStatus('The notebook parser couldn’t be loaded: nothing was changed.', true);
+  try {
+    const next = await derive(withoutSource(base, id));
+    document.querySelector('.vf-detail-wrap')?.remove();
+    if (state.selected === id || state.selected === checkedOf(id)) select(null);
+    const said = `Took the source ${id} off`;
+    setStatus(`${said}. Recorded.`, false);
+    await builtInto(next, said);
+    await dropAdded(id);
+    renderRulesTime();
+  } catch (err) {
+    setStatus(`${id} couldn’t be taken off: ${message(err)}`, true);
+  }
+}
+
+/** A file someone picked, read here: its bytes, their hash, and the table they read as. */
+interface PickedFile {
+  name: string;
+  bytes: Uint8Array<ArrayBuffer>;
+  sha256: string;
+  text: string;
+  read: FileRead;
+}
+
+/** Read a picked file (ADR 0027 §5): whole, in this browser, nothing sent anywhere. Says why where it can't be read. */
+async function pickFile(file: File): Promise<PickedFile | string> {
+  if (file.size > FILE_MOST) return `${file.name} is ${bytesSaid(file.size)}: a file added here is read whole in the browser, ${bytesSaid(FILE_MOST)} at most.`;
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (!bytes.length) return `${file.name} is empty.`;
+  let text: string;
+  try {
+    text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return `${file.name} isn’t text in UTF-8: a file added here is a CSV file with a header.`;
+  }
+  const read = readFile(text);
+  if (read.problems.length) return `${file.name} can’t be read as a table: ${read.problems[0]}.`;
+  return { name: file.name, bytes, sha256: await sha256Hex(bytes), text, read };
+}
+
+/** A file's column as the form says it: what its values read as, its blanks, how many differ, and a few of them. */
+function columnFacts(c: FileRead['columns'][number], rows: number): string {
+  const type = c.type === 'INTEGER' ? 'whole numbers' : c.type === 'REAL' ? 'numbers' : 'text';
+  const differ = c.unique ? 'never the same twice' : c.distinct > c.values.length && !c.values.length ? 'more than 1,000 values' : plural(c.distinct, 'value');
+  const blank = c.blank ? (c.blank === rows ? 'always blank' : `${fmtInt(c.blank)} blank`) : null;
+  const some = c.values.slice(0, 3).map(([v]) => (v.length > 24 ? `${v.slice(0, 23)}…` : v).replace(/\s+/g, ' '));
+  return [type, differ, blank, some.length ? `e.g. ${some.join(', ')}` : null].filter(Boolean).join(' · ');
+}
+
+/** The datasets described ahead of their data (ADR 0027 §5, Q-255), as known now, each with the change that described
+ * it (none: the flow shipped with it) and whether a source of its name is in the flow. */
+function awaitedNow(): { dataset: AwaitedDataset; change: ChangeSet | null; bound: boolean; ended: ChangeSet | null }[] {
+  const out = new Map<string, { dataset: AwaitedDataset; change: ChangeSet | null; ended: ChangeSet | null }>();
+  for (const a of awaitedOf(ruleBase.ontology)) out.set(a.id.toLowerCase(), { dataset: a, change: null, ended: null });
+  for (const c of [...ruleChanges].sort((x, y) => Date.parse(x.recorded) - Date.parse(y.recorded))) {
+    // A change that waits for an owner's agreement (ADR 0027 §10) describes nothing yet; one that ends a description
+    // is kept with it, and said as waiting.
+    const waits = waitsFor(c) !== null;
+    for (const e of c.edits) {
+      if (e.op === 'describeAhead' && waits) continue;
+      if (e.op === 'describeAhead') out.set(e.dataset.id.toLowerCase(), { dataset: e.dataset, change: c, ended: null });
+      // A description that ended (ADR 0027 §2): kept, with the change that ended it; described again, it is one again.
+      const had = e.op === 'end' && e.ended.what === 'awaited' ? out.get(e.ended.id.toLowerCase()) : undefined;
+      if (had) had.ended = c;
+    }
+  }
+  const have = new Set([...state.doc.sources, ...state.doc.steps].map((x) => x.id.toLowerCase()));
+  return [...out.values()].map((x) => ({ ...x, bound: have.has(x.dataset.id.toLowerCase()) }));
+}
+
+/** A file input behind a button: picked, the file is read and `then` given it; a file that can't be read says why. */
+function filePicker(label: string, cls: string, then: (file: PickedFile) => void, err: HTMLElement): HTMLElement {
+  const input = h('input', { type: 'file', class: `src-file ${cls}`, accept: '.csv,text/csv,text/plain', 'aria-label': label }) as HTMLInputElement;
+  input.addEventListener('change', () => {
+    const f = input.files?.[0];
+    if (!f) return;
+    err.hidden = true;
+    void pickFile(f).then((picked) => {
+      input.value = '';
+      if (typeof picked === 'string') {
+        err.textContent = picked;
+        err.hidden = false;
+        return;
+      }
+      then(picked);
+    });
+  });
+  return h('label', { class: 'btn small primary src-pick' }, label, input);
+}
+
+/**
+ * Add a source (ADR 0027 §5): the two doors, the datasets described ahead that wait for data, each with the way to
+ * bind a file to it, and the sources added here, each with the way to take it off.
+ */
+function openSource(): void {
+  const owner = isOwner();
+  const err = h('p', { class: 'of-err src-err', role: 'alert', hidden: true });
+  const waiting = awaitedNow().filter((a) => !a.bound && !a.ended);
+  const added = sourcesAdded(state.doc);
+  const doors = owner
+    ? h('div', { class: 'src-doors' },
+        h('article', { class: 'src-door', 'data-door': 'data' },
+          h('h4', {}, 'Here is the data'),
+          h('p', { class: 'src-say' }, 'Pick a CSV file with a header. It is read in this browser and sent nowhere. Its description is proposed from what it holds, and you confirm what one row is and every column before anything reads it.'),
+          filePicker('Pick a file ›', 'src-file-data', (file) => sourceForm(file, null), err)),
+        h('article', { class: 'src-door', 'data-door': 'describe' },
+          h('h4', {}, 'Describe it first'),
+          h('p', { class: 'src-say' }, 'Say what the business needs before any file exists: what one row is, its key and its columns. It is in the ontology from its day and waits for data until a file is bound to it.'),
+          h('button', { type: 'button', class: 'btn small primary src-describe', onclick: () => describeForm() }, 'Describe a dataset ›')))
+    : h('p', { class: 'foot' }, 'Adding a source is the owner’s: it is part of the flow.');
+  const wait = waiting.length
+    ? block('Waiting for data',
+        h('ul', { class: 'cat-made src-waiting' }, ...waiting.map((a) => h('li', { 'data-awaited': a.dataset.id },
+          h('span', {}, h('b', {}, a.dataset.name), ` · ${a.dataset.id}: one row is ${withArticle(a.dataset.row.one)}, by ${listed(a.dataset.key)}; ${plural(a.dataset.columns.length, 'column')}${a.change ? `, described from ${dayLabel(a.change.from)}` : ''}`),
+          owner ? filePicker('Bind a file ›', 'src-file-bind', (file) => sourceForm(file, a.dataset), err) : null))))
+    : null;
+  const made = added.length
+    ? block('Added here',
+        h('ul', { class: 'cat-made src-added' }, ...added.map((id) => {
+          const a = addedSources.get(id);
+          return h('li', { 'data-source': id },
+            h('span', {}, h('b', {}, id), a ? ` · ${a.name}, ${bytesSaid(a.bytes)}, added by ${personName(a.by)}` : ' · a source added here'),
+            owner ? h('button', { type: 'button', class: 'linkish cat-off', onclick: () => void takeOffSource(id) }, 'Take it off') : null);
+        })),
+        h('p', { class: 'foot' }, 'Each is part of the flow as kept in this browser, with its file, and recorded. Back to the flow as shipped, on the Ontology page, takes them all away.'))
+    : null;
+  openDetail('Add a source', 'ok', [
+    h('p', { class: 'vf-one' }, 'A source and its description are made together: the ontology comes first. Before any step may read a file it says what one row is, by which key, and every column is described or set aside.'),
+    doors, err, wait, made,
+  ]);
+}
+
+/** "a vendor", "an application": one of them, with its article. */
+const withArticle = (one: string): string => `${/^[aeiou]/i.test(one.trim()) ? 'an' : 'a'} ${one.trim()}`;
+
+let sourceForms = 0;
+
+/**
+ * A file's description, confirmed (ADR 0027 §5, Q-254): what it will be called, what one row is and by which key, and
+ * every column described or set aside. Proposed from the file's own data; for a dataset described ahead, filled in
+ * from its description, each described column read from the file's column of its name or a close one, which a person
+ * confirms. Nothing is written until nothing is left to confirm.
+ */
+function sourceForm(file: PickedFile, awaited: AwaitedDataset | null): void {
+  const uid = `sf-${++sourceForms}`;
+  const base = baseDoc();
+  const read = file.read;
+  const byName = new Map(read.columns.map((c) => [c.name.toLowerCase(), c] as const));
+  // What was typed for each of the file's columns, kept while the mapping changes under it.
+  const typed = new Map<string, { description?: string; aside?: boolean }>();
+  const map: Record<string, string | null> = awaited ? Object.fromEntries(matchAwaited(awaited, read).map((m) => [m.column, m.from])) : {};
+  const close = new Set(awaited ? matchAwaited(awaited, read).filter((m) => m.by === 'close').map((m) => m.column) : []);
+  let spec: SourceSpec = awaited ? specOfAwaited(awaited, read, map) : proposeSource(base, file.name, read);
+  const gated = Object.keys(base.gates ?? {}).length > 0;
+  const kinds = gated && !awaited ? (base.ontology?.objectTypes ?? []) : [];
+
+  const field = (cls: string, label: string, value: string, more: Record<string, string> = {}) => {
+    const input = h('input', { type: 'text', id: `${uid}-${cls}`, class: cls, value, autocomplete: 'off', ...more }) as HTMLInputElement;
+    return { input, row: h('div', { class: 'of-field' }, h('label', { for: input.id }, label), input) };
+  };
+  const name = field('sf-name', 'Its name in the flow', spec.id, { maxlength: '40', autocapitalize: 'none', spellcheck: 'false', ...(awaited ? { disabled: 'disabled' } : {}) });
+  const about = field('sf-about', 'What it is', spec.description, { maxlength: '160', placeholder: 'What the file is, in a line (optional)' });
+  const one = field('sf-one', 'One row is one', spec.row.one, { maxlength: '40', ...(awaited ? { disabled: 'disabled' } : {}) });
+  const many = field('sf-many', 'Many are', spec.row.many, { maxlength: '40', ...(awaited ? { disabled: 'disabled' } : {}) });
+  const kind = h('select', { class: 'sf-kind', id: `${uid}-kind`, 'aria-label': 'What kind of thing a row is' },
+    h('option', { value: '' }, 'a kind of their own'), ...kinds.map((t) => h('option', { value: t.id }, `${t.name}, which the ontology has (by ${listed(t.key)})`))) as HTMLSelectElement;
+  const cols = h('div', { class: 'sf-cols' });
+  const count = h('p', { class: 'sf-count', role: 'status' });
+  const why = h('textarea', { class: 'sf-why', id: `${uid}-why`, rows: '2', 'aria-label': 'Why it is added', placeholder: 'Why, in a sentence: the record keeps it.' }) as HTMLTextAreaElement;
+  const err = h('p', { class: 'of-err sf-err', role: 'alert', hidden: true });
+  const go = h('button', { type: 'submit', class: 'btn primary sf-go' }, awaited ? 'Bind it to the flow' : 'Add it to the flow') as HTMLButtonElement;
+
+  /** The spec as the form stands: what was typed laid over what the file and the description give. */
+  const current = (): SourceSpec => {
+    const fresh = awaited ? specOfAwaited(awaited, read, map) : spec;
+    const described = new Set(awaited ? awaited.columns.map((c) => c.column.toLowerCase()) : []);
+    return {
+      ...fresh,
+      id: awaited ? awaited.id : name.input.value.trim(),
+      description: about.input.value.trim(),
+      row: awaited ? fresh.row : { one: one.input.value.trim(), many: many.input.value.trim() },
+      ...(kind.value ? { of: kind.value } : {}),
+      key: awaited ? fresh.key : spec.key,
+      columns: fresh.columns.map((c): SourceColumn => {
+        if (described.has(c.column.toLowerCase())) return c;
+        const t = typed.get((c.fromFile ?? c.column).toLowerCase());
+        return { ...c, ...(t?.description?.trim() ? { description: t.description.trim() } : {}), ...(t?.aside ? { aside: true } : {}) };
+      }),
+    };
+  };
+
+  const said = () => {
+    const now = current();
+    const lacking = columnsLacking(base.ontology, now);
+    const missing = awaited ? awaited.columns.filter((c) => !map[c.column]).length : 0;
+    const repeats = now.key.length && !awaited ? keyRepeats(file.text, now.key) : awaited ? keyRepeats(file.text, now.key.map((k) => map[k] ?? k)) : 0;
+    const parts = [
+      missing ? `${plural(missing, 'described column')} ${missing === 1 ? 'has' : 'have'} no column of the file to be read from` : null,
+      lacking.length ? `${plural(lacking.length, 'column')} still to describe or set aside` : 'Every column is described or set aside',
+      !now.key.length ? 'no key yet' : repeats ? `${plural(repeats, 'row')} of the file ${repeats === 1 ? 'shares' : 'share'} ${repeats === 1 ? 'its' : 'their'} key with a row before: one row isn’t one ${now.row.one || 'thing'} by ${listed(now.key)}` : `one row is one ${now.row.one || 'thing'}, by ${listed(now.key)}`,
+    ].filter(Boolean);
+    count.textContent = `${parts.join('; ')}.`;
+    count.classList.toggle('lacking', lacking.length > 0 || missing > 0 || !now.key.length || repeats > 0);
+    count.dataset.lacking = String(lacking.length);
+  };
+
+  const drawCols = () => {
+    const now = current();
+    const describedCol = (c: SourceColumn) => awaited?.columns.find((x) => x.column.toLowerCase() === c.column.toLowerCase());
+    // A dataset described ahead: each described column, with the file's column it is read from.
+    const mapped = awaited
+      ? awaited.columns.map((d) => {
+          const pick = h('select', { class: 'sf-from', 'aria-label': `The file’s column read as ${d.column}` },
+            h('option', { value: '' }, 'none of the file’s'), ...read.columns.map((c) => h('option', { value: c.name, ...(map[d.column]?.toLowerCase() === c.name.toLowerCase() ? { selected: 'selected' } : {}) }, c.name))) as HTMLSelectElement;
+          pick.addEventListener('change', () => {
+            map[d.column] = pick.value || null;
+            close.delete(d.column);
+            drawCols();
+          });
+          const from = map[d.column] ? byName.get(map[d.column]!.toLowerCase()) : undefined;
+          return h('div', { class: `sf-col sf-described${map[d.column] ? '' : ' unread'}`, 'data-column': d.column },
+            h('p', { class: 'sf-col-head' }, h('code', {}, d.column), awaited.key.some((k) => k.toLowerCase() === d.column.toLowerCase()) ? h('span', { class: 'sf-iskey' }, 'key') : null, h('span', { class: 'sf-said' }, ` ${d.description}`)),
+            h('div', { class: 'sf-read' }, h('span', {}, 'read from'), pick, close.has(d.column) ? h('span', { class: 'sf-close' }, 'a close name: confirm it') : null),
+            from ? h('p', { class: 'sf-facts' }, columnFacts(from, read.rows)) : h('p', { class: 'sf-facts unread' }, 'The file has no column for it yet: pick the one it is read from.'));
+        })
+      : [];
+    const rest = now.columns.filter((c) => !describedCol(c)).map((c) => {
+      const fileName = c.fromFile ?? c.column;
+      const f = byName.get(fileName.toLowerCase())!;
+      const has = describedAlready(base.ontology, now.id, c.column);
+      const t = typed.get(fileName.toLowerCase()) ?? {};
+      const isKey = now.key.some((k) => k.toLowerCase() === c.column.toLowerCase());
+      const desc = h('input', { type: 'text', class: 'sf-desc', maxlength: '200', 'aria-label': `What ${c.column} holds`, placeholder: has ? 'Its own words here (optional)' : 'What it holds', value: t.description ?? '', ...(t.aside ? { disabled: 'disabled' } : {}) }) as HTMLInputElement;
+      desc.addEventListener('input', () => {
+        typed.set(fileName.toLowerCase(), { ...typed.get(fileName.toLowerCase()), description: desc.value });
+        said();
+      });
+      const aside = h('input', { type: 'checkbox', class: 'sf-aside', ...(t.aside ? { checked: 'checked' } : {}) }) as HTMLInputElement;
+      aside.addEventListener('change', () => {
+        typed.set(fileName.toLowerCase(), { ...typed.get(fileName.toLowerCase()), aside: aside.checked });
+        if (aside.checked) spec = { ...spec, key: spec.key.filter((k) => k.toLowerCase() !== c.column.toLowerCase()) };
+        drawCols();
+      });
+      const key = h('input', { type: 'checkbox', class: 'sf-key', ...(isKey ? { checked: 'checked' } : {}), ...(awaited || t.aside ? { disabled: 'disabled' } : {}) }) as HTMLInputElement;
+      key.addEventListener('change', () => {
+        spec = { ...spec, key: key.checked ? [...spec.key, c.column] : spec.key.filter((k) => k.toLowerCase() !== c.column.toLowerCase()) };
+        said();
+      });
+      return h('div', { class: `sf-col${t.aside ? ' aside' : ''}`, 'data-column': c.column },
+        h('p', { class: 'sf-col-head' }, h('code', {}, c.column), h('span', { class: 'sf-facts' }, ` ${columnFacts(f, read.rows)}`)),
+        has && !t.aside ? h('p', { class: 'sf-has' }, 'The ontology has it: ', h('b', {}, has.title), ` · ${has.description}`) : null,
+        // A meaning the estate shares is the estate's to say: a file's own handling is written on its card, with its reason.
+        has && estateSays(estates, now.id, c.column) ? null : desc,
+        h('div', { class: 'sf-marks' },
+          awaited ? null : h('label', { class: 'sf-mark' }, key, ' part of its key'),
+          h('label', { class: 'sf-mark' }, aside, ' set aside: the flow doesn’t take it')));
+    });
+    cols.replaceChildren(
+      ...(awaited ? [h('p', { class: 'sf-sub' }, `As described: ${plural(awaited.columns.length, 'column')}`), ...mapped, ...(rest.length ? [h('p', { class: 'sf-sub' }, `The file’s other ${rest.length === 1 ? 'column' : `${rest.length} columns`}: describe or set aside`)] : [])] : []),
+      ...rest);
+    said();
+  };
+
+  name.input.addEventListener('change', () => {
+    spec = { ...spec, id: name.input.value.trim() };
+    drawCols();
+  });
+  for (const x of [one.input, many.input]) x.addEventListener('input', said);
+  kind.addEventListener('change', said);
+  const form = h('form', { class: 'of-form sf-form', 'aria-label': awaited ? `Bind ${file.name} to ${awaited.name}` : `Describe ${file.name}`, novalidate: true },
+    h('p', { class: 'sf-file' }, h('b', {}, file.name), ` · ${plural(read.rows, 'row')}, ${plural(read.columns.length, 'column')}, ${bytesSaid(file.bytes.length)} · `, hashCode(Promise.resolve(file.sha256), 'sf-hash')),
+    awaited ? h('p', { class: 'sf-awaited' }, h('b', {}, awaited.name), ` was described ahead of its data: one row is ${withArticle(awaited.row.one)}, by ${listed(awaited.key)}. The file is read as it: a column under another name is read as the described one.`) : null,
+    name.row,
+    about.row,
+    h('div', { class: 'sf-row' }, one.row, many.row),
+    kinds.length ? h('div', { class: 'of-field' }, h('label', { for: kind.id }, 'Its rows are'), kind, h('p', { class: 'of-hint' }, 'A kind the ontology has already is told by the one column that holds its key.')) : null,
+    h('fieldset', { class: 'of-vals sf-columns' }, h('legend', {}, awaited ? 'Its columns' : `Its ${plural(read.columns.length, 'column')}`), cols),
+    count,
+    h('div', { class: 'of-field' }, h('label', { for: why.id }, 'Why'), why),
+    h('p', { class: 'of-hint sf-writes' }, `Written as cells of ${SOURCES_NOTEBOOK}, a notebook of this flow, with a check step that asks every row for its key, and published as checked. The file is kept in this browser; the record keeps its hash.`),
+    err,
+    h('div', { class: 'of-acts' }, go, h('button', { type: 'button', class: 'btn quiet sf-cancel', onclick: () => document.querySelector('.vf-detail-wrap')?.remove() }, 'Cancel')));
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fail = (said: string) => {
+      err.textContent = said;
+      err.hidden = false;
+      go.disabled = false;
+    };
+    const now = current();
+    const problems = [...(awaited ? awaitedProblems(awaited, map) : []), ...sourceProblems(baseDoc(), now)];
+    if (problems.length) return fail(`${problems[0]}.`);
+    if (!why.value.trim()) {
+      why.focus();
+      return fail('Adding a source needs a reason: one line of why.');
+    }
+    go.disabled = true;
+    err.hidden = true;
+    void addSource(now, file, why.value.trim(), fail);
+  });
+  openDetail(awaited ? `Bind a file to ${awaited.name}` : 'Describe the file', 'ok', [form]);
+  drawCols();
+}
+
+/**
+ * Describe it first (ADR 0027 §5, Q-255): a dataset the business needs, said before any file exists. Its name, what
+ * one row is, its key and its columns, each with what it holds. A dated change of the ontology, with its reason: in
+ * force from its day, and waiting for data until a file is bound to it.
+ */
+function describeForm(had: AwaitedDataset | null = null): void {
+  const uid = `df-${++sourceForms}`;
+  const field = (cls: string, label: string, more: Record<string, string> = {}) => {
+    const input = h('input', { type: 'text', id: `${uid}-${cls}`, class: cls, autocomplete: 'off', ...more }) as HTMLInputElement;
+    return { input, row: h('div', { class: 'of-field' }, h('label', { for: input.id }, label), input) };
+  };
+  // Described again (ADR 0027 §3): the form opens on what it has. Its name in the flow is what it is known by, and stays.
+  const called = field('df-called', 'What people call it', { maxlength: '60', placeholder: 'SBOM inventory', value: had?.name ?? '' });
+  const name = field('df-name', 'Its name in the flow', { maxlength: '40', autocapitalize: 'none', spellcheck: 'false', placeholder: 'sbom_inventory', value: had?.id ?? '', ...(had ? { readonly: 'readonly' } : {}) });
+  const about = field('df-about', 'What it is', { maxlength: '160', placeholder: 'In a line (optional)', value: had?.description ?? '' });
+  const one = field('df-one', 'One row is one', { maxlength: '40', placeholder: 'component list', value: had?.row.one ?? '' });
+  const many = field('df-many', 'Many are', { maxlength: '40', placeholder: 'component lists', value: had?.row.many ?? '' });
+  // Its name follows what it is called until someone types one.
+  let named = had !== null;
+  name.input.addEventListener('input', () => (named = true));
+  called.input.addEventListener('input', () => {
+    if (!named) name.input.value = called.input.value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').replace(/^(\d)/, 'd_$1').slice(0, 40);
+  });
+  const rows = h('div', { class: 'df-cols' });
+  const row = (c?: { column: string; description: string; key: boolean }) => {
+    const column = h('input', { type: 'text', class: 'df-col-name', maxlength: '60', autocapitalize: 'none', spellcheck: 'false', 'aria-label': 'The column', placeholder: 'column', value: c?.column ?? '' }) as HTMLInputElement;
+    const holds = h('input', { type: 'text', class: 'df-col-desc', maxlength: '200', 'aria-label': 'What it holds', placeholder: 'What it holds', value: c?.description ?? '' }) as HTMLInputElement;
+    const key = h('input', { type: 'checkbox', class: 'df-col-key', ...(c?.key ? { checked: 'checked' } : {}) }) as HTMLInputElement;
+    const el: HTMLElement = h('div', { class: 'df-col' }, column, holds, h('label', { class: 'sf-mark' }, key, ' key'),
+      h('button', { type: 'button', class: 'linkish df-col-off', 'aria-label': 'Take this column out', onclick: () => {
+        if (rows.querySelectorAll('.df-col').length > 1) el.remove();
+      } }, 'Remove'));
+    return el;
+  };
+  if (had) rows.append(...had.columns.map((c) => row({ column: c.column, description: c.description, key: had.key.some((k) => k.toLowerCase() === c.column.toLowerCase()) })));
+  else rows.append(row(), row());
+  const why = whyFields(had ? 'business' : 'described');
+  const err = h('p', { class: 'of-err df-err', role: 'alert', hidden: true });
+  const go = h('button', { type: 'submit', class: 'btn primary df-go' }, had ? 'Describe it again' : 'Describe it') as HTMLButtonElement;
+  const form = h('form', { class: 'of-form df-form', 'aria-label': 'Describe a dataset ahead of its data', novalidate: true },
+    called.row, name.row, about.row,
+    h('div', { class: 'sf-row' }, one.row, many.row),
+    h('fieldset', { class: 'of-vals df-columns' }, h('legend', {}, 'Its columns'), rows,
+      h('button', { type: 'button', class: 'linkish df-col-add', onclick: () => rows.append(row()) }, '+ Add a column'),
+      h('p', { class: 'of-hint' }, 'Every column says what it holds. Tick the columns that tell one row from another: its key.')),
+    fromBar(),
+    why.el,
+    h('p', { class: 'of-hint df-writes' }, 'It is the ontology’s from its day and waits for data: nothing reads it until a file is bound to it, from Add a source.'),
+    err,
+    h('div', { class: 'of-acts' }, go, h('button', { type: 'button', class: 'btn quiet df-cancel', onclick: () => document.querySelector('.vf-detail-wrap')?.remove() }, 'Cancel')));
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fail = (said: string) => {
+      err.textContent = said;
+      err.hidden = false;
+      go.disabled = false;
+    };
+    const cols = Array.from(rows.querySelectorAll<HTMLElement>('.df-col')).map((el) => ({
+      column: el.querySelector<HTMLInputElement>('.df-col-name')!.value.trim(),
+      description: el.querySelector<HTMLInputElement>('.df-col-desc')!.value.trim(),
+      key: el.querySelector<HTMLInputElement>('.df-col-key')!.checked,
+    })).filter((c) => c.column || c.description);
+    const dataset: AwaitedDataset = {
+      id: name.input.value.trim(),
+      name: called.input.value.trim(),
+      ...(about.input.value.trim() ? { description: about.input.value.trim() } : {}),
+      row: { one: one.input.value.trim(), many: many.input.value.trim() },
+      key: cols.filter((c) => c.key).map((c) => c.column),
+      columns: cols.map((c) => ({ column: c.column, description: c.description })),
+    };
+    const issue = awaitedIssues(dataset)[0];
+    if (issue) return fail(`${DESCRIBE_FIELD[issue[0].split('[')[0]!.replace(/^\./, '')] ?? 'It'} needs ${issue[1]}.`);
+    const taken = [...state.doc.sources, ...state.doc.steps].some((x) => x.id.toLowerCase() === dataset.id.toLowerCase());
+    if (taken) return fail(`${dataset.id} is a dataset of the flow already: it has its data.`);
+    if (!had && awaitedNow().some((a) => !a.ended && a.dataset.id.toLowerCase() === dataset.id.toLowerCase())) return fail(`${dataset.id} is described ahead already: it waits for data.`);
+    if (state.doc.smaltfl !== 5) return fail('Describing ahead of the data is a format-5 flow’s: this one isn’t asked to put the ontology first.');
+    const given = why.read();
+    if (typeof given === 'string') {
+      why.focus();
+      return fail(given);
+    }
+    go.disabled = true;
+    err.hidden = true;
+    void editRules({ op: 'describeAhead', dataset }, { given }).then((done) => {
+      if (!done) return fail(had ? 'Nothing of its description changes.' : 'It couldn’t be written: the rules didn’t change.');
+      document.querySelector('.vf-detail-wrap')?.remove();
+    });
+  });
+  openDetail(had ? `Describe ${had.name} again` : 'Describe a dataset', 'ok', [
+    h('p', { class: 'vf-one' }, 'Say what the business needs before any file exists. It waits for data until a file is bound to it: a file’s columns are then read as these, whatever the file calls them.'),
+    form,
+  ]);
+}
+/** What each part of a description ahead is called on the form, for what it still lacks. */
+const DESCRIBE_FIELD: Record<string, string> = { id: 'Its name', name: 'What people call it', row: 'One row', key: 'Its key', columns: 'A column', description: 'What it is' };
+
+/**
+ * The datasets described ahead of their data, on the Ontology view (ADR 0027 §5, Q-255): each with what one row is,
+ * its columns in words, since when and by which change, and whether it still waits for data or a source of its name is
+ * in the flow by now. Null where the flow describes none.
+ */
+function awaitedPart(): HTMLElement | null {
+  const all = awaitedNow();
+  if (!all.length) return null;
+  const owner = isOwner();
+  const day = (viewedDay() ?? shownDay())?.slice(0, 10) ?? null;
+  const waits = all.filter((a) => !a.bound && !(a.ended && (day === null || a.ended.from <= day)));
+  return h('section', { class: 'aw', 'aria-label': 'Described ahead of their data' },
+    h('p', { class: 'aw-head' }, h('b', {}, 'Described ahead of their data'), ` · ${waits.length ? `${plural(waits.length, 'dataset')} waiting for data` : all.some((a) => a.bound) ? 'each has its data by now' : 'none waits for data'}${all.length - waits.length - all.filter((a) => a.bound).length > 0 ? ` · ${all.length - waits.length - all.filter((a) => a.bound).length} ended` : ''}`),
+    ...all.map((a) => {
+      const d = a.dataset;
+      const coming = !!a.change && day !== null && a.change.from > day;
+      // A description that ended (§2): kept, with the day it ended from; nothing binds to it. One whose end is
+      // recorded for a later day still waits, and says the day.
+      // An end that waits for an owner's agreement (§10) has ended nothing yet.
+      const endWaits = !!a.ended && waitsFor(a.ended) !== null;
+      const over = !!a.ended && !endWaits && (day === null || a.ended.from <= day);
+      if (a.ended && over && !a.bound) return h('article', { class: 'aw-item ended', 'data-awaited': d.id },
+        h('p', { class: 'aw-name' }, h('b', {}, d.name), ' ', h('code', {}, d.id), h('span', { class: 'aw-state ended' }, 'ended')),
+        h('p', { class: 'aw-row' }, `It was one row ${withArticle(d.row.one)}, by ${listed(d.key)}, and never had its data. `,
+          h('button', { type: 'button', class: 'linkish aw-since', onclick: () => openChange(a.ended!.id) }, `Ended from ${dayLabel(a.ended.from)} ›`)));
+      return h('article', { class: `aw-item${a.bound ? ' bound' : ' waiting'}${coming ? ' coming' : ''}`, 'data-awaited': d.id },
+        h('p', { class: 'aw-name' }, h('b', {}, d.name), ' ', h('code', {}, d.id), h('span', { class: `aw-state ${a.bound ? 'bound' : 'waiting'}` }, a.bound ? 'has its data' : 'waiting for data')),
+        d.description ? h('p', { class: 'aw-desc' }, d.description) : null,
+        h('p', { class: 'aw-row' }, `One row is ${withArticle(d.row.one)}, by ${listed(d.key)}.`,
+          a.change ? ' ' : ' Shipped with the flow.',
+          a.change ? h('button', { type: 'button', class: 'linkish aw-since', onclick: () => openChange(a.change!.id) }, `${coming ? 'Coming' : 'Described'} from ${dayLabel(a.change.from)} ›`) : null,
+          a.ended && !a.bound ? h('button', { type: 'button', class: `linkish aw-ends${endWaits ? ' aw-ends-waits' : ''}`, onclick: () => openChange(a.ended!.id) }, endWaits ? ' Ends once agreed to ›' : ` Ends from ${dayLabel(a.ended.from)} ›`) : null),
+        h('details', { class: 'aw-cols' }, h('summary', {}, `Its ${plural(d.columns.length, 'column')}`),
+          h('dl', { class: 'aw-dl' }, ...d.columns.flatMap((c) => [h('dt', {}, h('code', {}, c.column), d.key.some((k) => k.toLowerCase() === c.column.toLowerCase()) ? h('span', { class: 'sf-iskey' }, 'key') : null), h('dd', {}, c.description)]))),
+        a.bound
+          ? h('p', { class: 'aw-bound' }, 'A source of its name is in the flow. ', h('button', { type: 'button', class: 'linkish aw-open', onclick: () => openTab(d.id, 'data') }, 'Open it ›'))
+          : owner ? h('p', { class: 'aw-bind' }, 'No file is bound to it yet: every day says so, and nothing reads it. ', h('button', { type: 'button', class: 'btn small aw-go', onclick: openSource }, 'Bind a file ›'),
+              // Described again, or ended, while it waits (§3, §2): each a dated change with its reason.
+              state.doc.smaltfl === 5 ? h('span', { class: 'aw-acts' },
+                h('button', { type: 'button', class: 'linkish aw-change', onclick: () => describeForm(d) }, 'Change ›'),
+                a.ended ? null : h('button', { type: 'button', class: 'linkish aw-end', onclick: () => endForm('awaited', d.id, `the description of ${d.name}`) }, 'End ›')) : null)
+            : h('p', { class: 'aw-bind' }, 'No file is bound to it yet. Binding one is the owner’s.'));
+    }));
+}
+
+// ------------------------------------------------------------------ kinds, relations and meanings over time (ADR 0027 §3)
+
+// The ontology's kinds of thing and its relations, on the Ontology view's head: what is in force on the day on screen,
+// each since when and by which change; for the owner, the forms that add, change and end one, each a dated change with
+// a kind and a reason; and two dates compared, in words and as a map (§9, Q-269).
+
+/** Since when a thing of the ontology has stood, by its subject on the register: a link to the change that made it so. */
+function sinceOfKey(key: string): HTMLElement | null {
+  if (!ruleChanges.length) return null;
+  const reg = registerNow();
+  const e = sinceOf(reg.entries, key, resolvedFor.day ?? reg.today);
+  return e ? h('button', { type: 'button', class: 'linkish kd-since', 'data-change': e.change.id, onclick: () => openChange(e.change.id) }, `since ${dayNear(e.change.from)} ›`) : null;
+}
+
+/** The day the Ontology view reads the rules on: the day on screen, or the register's today. */
+const ontologyDay = (): string => (resolvedFor.day ?? registerNow().today).slice(0, 10);
+/**
+ * The rules in force on a day as known at a moment, kept while the flow on screen, its rules and its change sets
+ * stand: the Ontology view reads several days at each draw (two dates compared, what is still to come), and making a
+ * day's rules replays every change set.
+ */
+const forceKept = new Map<string, FlowDocument>();
+const diffKept = new Map<string, ReturnType<typeof datedDiff>>();
+let forceKeptFor: { doc: FlowDocument; base: typeof ruleBase; changes: typeof ruleChanges } | null = null;
+function keptStill(): void {
+  if (forceKeptFor && forceKeptFor.doc === state.doc && forceKeptFor.base === ruleBase && forceKeptFor.changes === ruleChanges) return;
+  forceKept.clear();
+  diffKept.clear();
+  forceKeptFor = { doc: state.doc, base: ruleBase, changes: ruleChanges };
+}
+function inForceKept(day: string, asOf: string | null): FlowDocument {
+  keptStill();
+  const key = `${day}|${asOf ?? ''}`;
+  let doc = forceKept.get(key);
+  if (!doc) forceKept.set(key, (doc = inForce(baseDoc(), day, asOf)));
+  return doc;
+}
+function datedDiffKept(a: string, b: string, asOf: string | null): ReturnType<typeof datedDiff> {
+  keptStill();
+  const key = `${a}|${b}|${asOf ?? ''}`;
+  let diff = diffKept.get(key);
+  if (!diff) diffKept.set(key, (diff = datedDiff(baseDoc(), a, b, asOf)));
+  return diff;
+}
+
+/**
+ * The kinds and relations still to come (Q-259): those a recorded change brings from a day after the day on screen,
+ * as known at the moment the view reads at, each as it is on the first day it is in force. Read on the first day of
+ * every later change, so a thing that begins and ends before the last of them is listed too.
+ */
+let comingKept: { key: string; kinds: ObjectType[]; links: LinkType[] } | null = null;
+function ontologyComing(): { kinds: ObjectType[]; links: LinkType[] } {
+  const day = ontologyDay();
+  const key = `${day}|${keptEpoch}|${ruleChanges.map((c) => c.id).join(',')}|${monthView.at ?? ''}`;
+  if (comingKept?.key === key) return comingKept;
+  const on = state.doc.ontology;
+  const kinds: ObjectType[] = [];
+  const links: LinkType[] = [];
+  for (const from of [...new Set(ruleChanges.map((c) => c.from))].filter((d) => d > day).sort()) {
+    const o = inForceKept(from, monthView.at).ontology;
+    for (const t of o?.objectTypes ?? []) if (!on?.objectTypes.some((x) => x.id === t.id) && !kinds.some((x) => x.id === t.id)) kinds.push(t);
+    for (const l of o?.linkTypes ?? []) if (!on?.linkTypes.some((x) => x.id === l.id) && !links.some((x) => x.id === l.id)) links.push(l);
+  }
+  comingKept = { key, kinds, links };
+  return comingKept;
+}
+/** The kinds and the relations a form may name: those in force on the day on screen, then those still to come. */
+const kindsKnown = (): ObjectType[] => [...(state.doc.ontology?.objectTypes ?? []), ...ontologyComing().kinds];
+const linksKnown = (): LinkType[] => [...(state.doc.ontology?.linkTypes ?? []), ...ontologyComing().links];
+/** A day named beside the day on screen: by its weekday and date within the same month, with its month beyond it. */
+const dayNear = (day: string): string => (day.slice(0, 7) === ontologyDay().slice(0, 7) ? dayShort(day) : dayLabel(day));
+/**
+ * The change still to come for a thing of the ontology, by its subject on the register: the first, after the day on
+ * screen, that sets it (or, with `ending`, that ends it). A link to the change, said by its first day.
+ */
+function comingOfKey(key: string, ending = false): HTMLElement | null {
+  if (!ruleChanges.length) return null;
+  const day = ontologyDay();
+  const k = key.toLowerCase();
+  const about = registerNow().entries.filter((x) => x.edits.some((y) => y.subject.key === k && y.said !== null && (y.edit.op === 'end') === ending));
+  const e = about
+    .filter((x) => x.tense !== 'waiting' && x.change.from > day)
+    .sort((a, b) => a.change.from.localeCompare(b.change.from) || Date.parse(a.change.recorded) - Date.parse(b.change.recorded))[0];
+  if (e) return h('button', { type: 'button', class: `linkish ${ending ? 'kd-ends' : 'kd-from'}`, 'data-change': e.change.id, onclick: () => openChange(e.change.id) }, `${ending ? 'ends' : 'from'} ${dayNear(e.change.from)} ›`);
+  // One that waits for an owner's agreement (ADR 0027 §10) has no day yet: it is said as waiting, never as coming.
+  const waits = about.find((x) => x.tense === 'waiting');
+  return waits ? h('button', { type: 'button', class: `linkish kd-waits`, 'data-change': waits.change.id, onclick: () => openChange(waits.change.id) }, `${ending ? 'ends' : 'changes'} once agreed to ›`) : null;
+}
+
+/** Whether an estate's ontology says what a dataset's rows are, or a dependency: the estate's to change. */
+const estateRows = (dataset: string): string | null => estates.find((e) => (e.rows ?? []).some((r) => r.dataset.toLowerCase() === dataset.toLowerCase()))?.name ?? null;
+const estateNeeds = (id: string): string | null => estates.find((e) => (e.needs ?? []).some((n) => n.id === id))?.name ?? null;
+/** Whether an estate's ontology the flow imports says a kind or a relation: the estate's to change, in its own file. */
+const estateKind = (id: string): string | null => estates.find((e) => (e.objectTypes ?? []).some((t) => t.id === id))?.name ?? null;
+const estateLink = (id: string): string | null => estates.find((e) => (e.linkTypes ?? []).some((l) => l.id === id) || (e.changes ?? []).some((c) => c.edits.some((x) => x.op === 'setLink' && x.link.id === id)))?.name ?? null;
+
+/** The two days the Ontology view compares; none picked: the first day against the day on screen. */
+const kindsView: { a: string | null; b: string | null } = { a: null, b: null };
+
+/** An id for a new kind or relation from what it is called: lower case, letters, digits and underscores. */
+const idFrom = (name: string, taken: readonly string[]): string => {
+  const base = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'thing';
+  let id = /^[a-z]/.test(base) ? base : `k_${base}`;
+  for (let n = 2; taken.includes(id); n++) id = `${base}_${n}`;
+  return id;
+};
+
+/**
+ * The kinds of thing and the relations (ADR 0027 §3, Q-250): those in force on the day on screen, each with what it
+ * is, since when, and whose it is; those that ended, with what follows them; and two dates compared.
+ */
+function kindsPart(): HTMLElement | null {
+  const o = state.doc.ontology;
+  const kinds = (o?.objectTypes ?? []).filter((t) => visible(t.dataset));
+  const shown = new Set(kinds.map((t) => t.id));
+  const links = (o?.linkTypes ?? []).filter((l) => shown.has(l.from) && shown.has(l.to));
+  const ended = (o?.ended ?? []).filter((e) => e.what === 'type' || e.what === 'link');
+  const may = isOwner() && state.doc.smaltfl === 5;
+  // The days two dates are picked from: the days of the month, and the first day of each change, which may lie ahead.
+  const days = [...new Set([...loads.list.map((l) => l.day.slice(0, 10)), ...ruleChanges.map((c) => c.from)])].sort();
+  // What a recorded change brings from a later day (Q-259: coming), and what one ends.
+  const ahead = ontologyComing();
+  const comingKinds = ahead.kinds.filter((t) => visible(t.dataset));
+  const known = new Set([...shown, ...comingKinds.map((t) => t.id)]);
+  const comingLinks = ahead.links.filter((l) => known.has(l.from) && known.has(l.to));
+  if (!kinds.length && !links.length && !ended.length && !comingKinds.length && !(may && !!state.doc.notebooks)) return null;
+  const typeName = (id: string) => kindsKnown().find((t) => t.id === id)?.name ?? id;
+  const whose = (name: string | null) => (name ? h('span', { class: 'kd-whose' }, `${name}’s`) : null);
+  const acts = (what: 'type' | 'link', id: string, name: string, mine: boolean) => (may && mine
+    ? h('span', { class: 'kd-acts' },
+        h('button', { type: 'button', class: 'linkish kd-change', 'aria-label': `Change ${name}`, onclick: () => (what === 'type' ? kindForm(kindsKnown().find((t) => t.id === id)!) : linkForm(linksKnown().find((l) => l.id === id)!)) }, 'Change ›'),
+        h('button', { type: 'button', class: 'linkish kd-end', 'aria-label': `End ${name}`, onclick: () => endForm(what, id, name) }, 'End ›'))
+    : null);
+  // A thing in force says since when and, where a recorded change ends it later, from which day; one still to come
+  // says the day it begins.
+  const when = (key: string, coming: boolean, estate: string | null) => h('span', { class: 'kd-when' },
+    coming ? (comingOfKey(key) ?? 'coming') : (sinceOfKey(key) ?? 'as shipped'), comingOfKey(key, true), whose(estate));
+  const kindRow = (t: ObjectType, coming: boolean) => h('li', { class: `kd-item kd-kind${coming ? ' kd-coming' : ''}`, 'data-kind': t.id },
+    h('span', { class: 'kd-what' }, h('b', {}, t.name), ` · one row of ${t.dataset}, by ${listed(t.key)}`),
+    when(`type:${t.id}`, coming, estateKind(t.id)),
+    acts('type', t.id, t.name, !estateKind(t.id)));
+  const linkRow = (l: LinkType, coming: boolean) => h('li', { class: `kd-item kd-link${coming ? ' kd-coming' : ''}`, 'data-link': l.id },
+    h('span', { class: 'kd-what' }, h('b', {}, l.name), ` · ${linkWords(l)}`),
+    when(`link:${l.id}`, coming, estateLink(l.id)),
+    acts('link', l.id, l.name, !estateLink(l.id)));
+  const kindRows = [...kinds.map((t) => kindRow(t, false)), ...comingKinds.map((t) => kindRow(t, true))];
+  const linkRows = [...links.map((l) => linkRow(l, false)), ...comingLinks.map((l) => linkRow(l, true))];
+  const comingCount = comingKinds.length + comingLinks.length;
+  const endedRows = ended.map((e) => h('li', { class: 'kd-item kd-ended', 'data-ended': `${e.what}:${e.id}` },
+    h('span', { class: 'kd-what' }, h('b', {}, endedCalled(e.what, e.id)), ` · ${e.what === 'type' ? 'a kind of thing' : 'a relation'}, ended${e.then ? `: ${e.then.how === 'replaced' ? 'replaced by' : e.then.how === 'merged' ? 'merged into' : 'split into'} ${listed(e.then.by.map((x) => (e.what === 'type' ? typeName(x) : (o?.linkTypes.find((l) => l.id === x)?.name ?? x))))}` : ''}`),
+    h('span', { class: 'kd-when' }, sinceOfKey(`${e.what}:${e.id}`) ?? '')));
+  const on = resolvedFor.day ? ` on ${dayLabel(resolvedFor.day)}` : '';
+  const rows = kindRows.length + linkRows.length + ended.length;
+  // Whether any of them is the flow's own to change or end: an estate's are the estate's, in its own change sets.
+  const own = [...kinds, ...comingKinds].some((t) => !estateKind(t.id)) || [...links, ...comingLinks].some((l) => !estateLink(l.id));
+  // The picture first (ADR 0012): the map, with what differs between two dates; then each thing by name behind a bar,
+  // open or shut as the reader left it.
+  const all = rows ? h('details', { class: 'fold kd-all', ...(kindsOpen() ? { open: 'open' } : {}) },
+    h('summary', {}, `Each of them, since when${may && own ? ', and the way to change or end one' : ''}`),
+    h('ul', { class: 'kd-list' }, ...kindRows, ...linkRows, ...endedRows)) as HTMLDetailsElement : null;
+  all?.addEventListener('toggle', () => {
+    try {
+      localStorage.setItem(KINDS_KEY, all.open ? '1' : '0');
+    } catch {
+      // No storage: the bar opens shut next time.
+    }
+  });
+  return h('section', { class: 'kd', 'aria-label': 'Kinds and relations' },
+    h('p', { class: 'kd-head' }, h('b', {}, 'Kinds and relations'), ` · ${plural(kinds.length, 'kind')} of thing, ${plural(links.length, 'relation')}${on}${comingCount ? ` · ${comingCount} still to come` : ''}`),
+    rows ? datesCompared(days) : h('p', { class: 'foot' }, 'The ontology names no kind of thing yet: a file’s rows are said by its noun alone.'),
+    all,
+    may ? h('p', { class: 'kd-add' },
+      h('button', { type: 'button', class: 'btn small kd-add-kind', onclick: () => kindForm(null) }, 'Add a kind ›'),
+      known.size >= 1 ? h('button', { type: 'button', class: 'btn small kd-add-link', onclick: () => linkForm(null) }, 'Add a relation ›') : null) : null);
+}
+/**
+ * What a kind or a relation that ended was called: the ontology on screen has it no longer, so its name is read from
+ * the flow as shipped, or from the last change that set it.
+ */
+function endedCalled(what: EndedKind, id: string): string {
+  const shipped = what === 'type' ? ruleBase.ontology?.objectTypes.find((t) => t.id === id)?.name : ruleBase.ontology?.linkTypes.find((l) => l.id === id)?.name;
+  let name = shipped;
+  for (const c of [...ruleChanges].sort((x, y) => Date.parse(x.recorded) - Date.parse(y.recorded))) {
+    for (const e of c.edits) {
+      if (what === 'type' && e.op === 'setType' && e.type.id === id) name = e.type.name;
+      if (what === 'link' && e.op === 'setLink' && e.link.id === id) name = e.link.name;
+    }
+  }
+  return name ?? id;
+}
+/** Whether the list of kinds and relations is open, as the reader left it in this browser. */
+const KINDS_KEY = 'smaltfl-kinds-open';
+function kindsOpen(): boolean {
+  try {
+    return localStorage.getItem(KINDS_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+/** A relation in words, its kinds named as the ontology names them, on screen or still to come. */
+const linkWords = (l: { from: string; to: string; on: readonly (readonly [string, string])[] }): string => {
+  const name = (id: string) => kindsKnown().find((t) => t.id === id)?.name ?? id;
+  return `${name(l.from)} to ${name(l.to)}, on ${l.on.map(([a, b]) => (a.toLowerCase() === b.toLowerCase() ? a : `${a} = ${b}`)).join(' and ')}`;
+};
+
+/**
+ * Two dates compared (ADR 0027 §9, Q-269): what the ontology was on one day against another, as known at the moment
+ * the view reads at. In words, each line one thing, before and after; and as a map of the kinds and relations, only
+ * what differs coloured, what is still to come hatched.
+ */
+function datesCompared(days: readonly string[]): HTMLElement {
+  const screen = resolvedFor.day?.slice(0, 10) ?? null;
+  // With no change recorded, or one day alone, there is nothing to compare: the map of the ontology as it stands.
+  const comparing = days.length > 1 && ruleChanges.length > 0;
+  const b = !comparing ? (screen ?? days.at(-1) ?? registerNow().today) : kindsView.b && days.includes(kindsView.b) ? kindsView.b : screen && days.includes(screen) ? screen : days.at(-1)!;
+  const a = !comparing ? b : kindsView.a && days.includes(kindsView.a) ? kindsView.a : days[0]!;
+  const asOf = monthView.at;
+  const docA = inForceKept(a, asOf);
+  const docB = inForceKept(b, asOf);
+  // Each thing that differs, with the change that made it: its day and its kind (§9).
+  const diffs = a === b ? [] : datedDiffKept(a, b, asOf);
+  // What is still to come: in the later day's ontology, and not yet in today's.
+  const today = registerNow().today;
+  const now = inForceKept(today, asOf).ontology;
+  const m = ontologyMap(docA.ontology, docB.ontology);
+  const coming = b > today;
+  const kinds = m.kinds.filter((k) => { const t = (docB.ontology ?? docA.ontology)?.objectTypes.find((x) => x.id === k.id) ?? docA.ontology?.objectTypes.find((x) => x.id === k.id); return !t || visible(t.dataset); })
+    .map((k) => ({ ...k, coming: coming && k.state === 'added' && !now?.objectTypes.some((t) => t.id === k.id) }));
+  const links = m.links.filter((l) => kinds.some((k) => k.id === l.from) && kinds.some((k) => k.id === l.to))
+    .map((l) => ({ ...l, coming: coming && l.state === 'added' && !now?.linkTypes.some((x) => x.id === l.id) }));
+  const pick = (which: 'a' | 'b', value: string) => h('select', { class: `kd-pick kd-pick-${which}`, 'aria-label': which === 'a' ? 'Compare this day' : 'with this day', onchange: (e: Event) => {
+    kindsView[which] = (e.target as HTMLSelectElement).value;
+    renderRulesTime();
+  } }, ...days.map((d) => h('option', { value: d, ...(d === value ? { selected: 'selected' } : {}) }, dayLabel(d))));
+  const wide = (document.getElementById('rules-time')?.clientWidth ?? 0) >= 640;
+  const moved = kinds.some((k) => k.state !== 'same') || links.some((l) => l.state !== 'same');
+  const map = kinds.length
+    ? h('div', { class: 'kd-map' }, svgNode(kindsMap({ kinds, links, w: wide ? 640 : 340, aria: `The kinds and relations on ${dayLabel(b)} against ${dayLabel(a)}: ${moved ? [...kinds, ...links].filter((x) => x.state !== 'same').map((x) => `${x.name} ${x.state === 'added' ? (x.coming ? 'coming' : 'new') : x.state}`).join(', ') : 'the same on both'}` })),
+        h('p', { class: 'kd-legend' }, comparing ? `+ new · × ended · ~ changed${coming ? ' · hatched: still to come' : ''}. ` : '', 'A box a kind of thing, a line a relation.'))
+    : null;
+  if (!comparing) return h('div', { class: 'kd-compare kd-alone' }, map);
+  return h('div', { class: 'kd-compare' },
+    h('p', { class: 'kd-cmp-head' }, h('b', {}, 'Two dates compared'), ' ', pick('a', a), ' with ', pick('b', b), asOf ? ` · as known on the end of ${dayLabel(asOf.slice(0, 10))}` : ' · as known now'),
+    a === b ? h('p', { class: 'rt-where' }, 'The same day.')
+      : diffs.length ? h('ul', { class: 'kd-diff' }, ...diffs.map(({ diff: d, change: c }) => h('li', { 'data-diff': d.kind, ...(c ? { 'data-change': c.id } : {}) },
+        h('span', { class: 'kd-said' }, diffSaid(d, docB.ontology)),
+        c ? h('button', { type: 'button', class: 'linkish kd-by', 'data-change': c.id, 'aria-label': `${c.kind ? KIND_NAMES[c.kind] : KIND_NOT_GIVEN}, from ${dayLabel(c.from)}: the change`, onclick: () => openChange(c.id) }, kindEl(c.kind ?? null), ` ${dayNear(c.from)} ›`) : null)))
+      : h('p', { class: 'rt-where kd-same' }, 'The same ontology and the same rules on both days.'),
+    map);
+}
+
+let kindForms = 0;
+/** The fields every dated change of a kind or a relation ends with: when it takes effect, its kind and its reason. */
+function datedTail(go: HTMLButtonElement, err: HTMLElement, about: readonly string[] = [], ends = false): { why: ReturnType<typeof whyFields>; nodes: HTMLElement[] } {
+  const why = whyFields('business', about, ends);
+  return { why, nodes: [fromBar(), why.el, err, h('div', { class: 'of-acts' }, go, h('button', { type: 'button', class: 'btn quiet', onclick: () => document.querySelector('.vf-detail-wrap')?.remove() }, 'Cancel'))] };
+}
+/** Send one dated edit of the ontology with what its form gave; says why where it can't be written. */
+function sendKindEdit(edit: RuleEdit, why: ReturnType<typeof whyFields>, fail: (said: string) => void, go: HTMLButtonElement, cant: string): void {
+  if (!applyEdit(state.doc, edit) && !applyEdit(docKnownNow(fromDay()), edit)) return fail(cant);
+  const given = why.read();
+  if (typeof given === 'string') {
+    why.focus();
+    return fail(given);
+  }
+  go.disabled = true;
+  void editRules(edit, { given }).then((done) => {
+    if (!done) return fail(cant);
+    document.querySelector('.vf-detail-wrap')?.remove();
+  });
+}
+
+/**
+ * A kind of thing, added or changed (ADR 0027 §3, Q-250): what it is called, the dataset whose rows are one each of
+ * it, the columns that tell one from another, and the column people call one by. A dated change, with its reason.
+ */
+function kindForm(had: ObjectType | null): void {
+  const uid = `kf-${++kindForms}`;
+  const o = state.doc.ontology;
+  const datasets = [...state.doc.sources.map((x) => x.id), ...state.doc.steps.filter((x) => x.dataset !== undefined).map((x) => x.id)].filter((d) => visible(d));
+  const field = (cls: string, label: string, value: string, more: Record<string, string> = {}) => {
+    const input = h('input', { type: 'text', id: `${uid}-${cls}`, class: cls, value, autocomplete: 'off', ...more }) as HTMLInputElement;
+    return { input, row: h('div', { class: 'of-field' }, h('label', { for: input.id }, label), input) };
+  };
+  const name = field('kf-name', 'What it is called', had?.name ?? '', { maxlength: '60', placeholder: 'Vendor' });
+  const dataset = h('select', { class: 'kf-dataset', id: `${uid}-dataset`, 'aria-label': 'The dataset whose rows are one each' }, ...datasets.map((d) => h('option', { value: d, ...(d === had?.dataset ? { selected: 'selected' } : {}) }, d))) as HTMLSelectElement;
+  const key = field('kf-key', 'Its key', had?.key.join(', ') ?? '', { maxlength: '120', autocapitalize: 'none', spellcheck: 'false', placeholder: 'vendor_id' });
+  const title = field('kf-title', 'The column people call one by', had?.title ?? '', { maxlength: '60', autocapitalize: 'none', spellcheck: 'false', placeholder: 'name' });
+  const about = field('kf-about', 'What it is', had?.description ?? '', { maxlength: '200', placeholder: 'In a line (optional)' });
+  const err = h('p', { class: 'of-err kf-err', role: 'alert', hidden: true });
+  const go = h('button', { type: 'submit', class: 'btn primary sf-go kf-go' }, had ? 'Change the kind' : 'Add the kind') as HTMLButtonElement;
+  const tail = datedTail(go, err);
+  const form = h('form', { class: 'of-form sf-form kf-form', 'aria-label': had ? `Change the kind ${had.name}` : 'Add a kind of thing', novalidate: true },
+    name.row,
+    h('div', { class: 'of-field' }, h('label', { for: dataset.id }, 'One row of'), dataset, h('p', { class: 'of-hint' }, 'The dataset whose rows are one each of it.')),
+    key.row, h('p', { class: 'of-hint' }, 'The columns that tell one from another, with commas between.'),
+    title.row, about.row,
+    ...tail.nodes);
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fail = (said: string) => {
+      err.textContent = said;
+      err.hidden = false;
+      go.disabled = false;
+    };
+    const keys = key.input.value.split(',').map((k) => k.trim()).filter(Boolean);
+    if (!name.input.value.trim()) return fail('Say what the kind is called.');
+    if (!keys.length) return fail('Say which columns tell one from another: its key.');
+    const type: ObjectType = { id: had?.id ?? idFrom(name.input.value, kindsKnown().map((t) => t.id)), name: name.input.value.trim(), dataset: dataset.value, key: keys, title: title.input.value.trim() || keys[0]!, ...(about.input.value.trim() ? { description: about.input.value.trim() } : {}) };
+    err.hidden = true;
+    sendKindEdit({ op: 'setType', type }, tail.why, fail, go, had ? 'Nothing of the kind changes.' : 'That isn’t a kind the flow can have: its rows are a dataset of the flow.');
+  });
+  openDetail(had ? `Change ${had.name}` : 'Add a kind of thing', 'ok', [
+    h('p', { class: 'vf-one' }, 'A kind of thing is the ontology’s: what one row of a dataset is, and what relations and rows entries name. Added or changed, it is in force from its day, and past days read it as it was.'),
+    form,
+  ]);
+}
+
+/**
+ * A relation between two kinds, added or changed (Q-250): its name, the kind it is from and the kind it is to, and the
+ * columns that match. A dated change, with its reason.
+ */
+function linkForm(had: LinkType | null): void {
+  const uid = `lf-${++kindForms}`;
+  // Between two kinds the ontology has, or will have by the day the relation begins.
+  const kinds = kindsKnown();
+  const name = h('input', { type: 'text', id: `${uid}-name`, class: 'lf-name', value: had?.name ?? '', maxlength: '60', autocomplete: 'off', placeholder: 'Acted for by' }) as HTMLInputElement;
+  const end = (cls: string, picked: string | undefined) => h('select', { class: cls, 'aria-label': cls === 'lf-from' ? 'From the kind' : 'To the kind' }, ...kinds.map((t) => h('option', { value: t.id, ...(t.id === picked ? { selected: 'selected' } : {}) }, t.name))) as HTMLSelectElement;
+  const from = end('lf-from', had?.from);
+  const to = end('lf-to', had?.to ?? kinds[1]?.id);
+  const col = (cls: string, value: string, label: string) => h('input', { type: 'text', class: cls, value, maxlength: '60', autocapitalize: 'none', spellcheck: 'false', autocomplete: 'off', 'aria-label': label, placeholder: label }) as HTMLInputElement;
+  const fromCol = col('lf-from-col', had?.on[0]?.[0] ?? '', 'its column');
+  const toCol = col('lf-to-col', had?.on[0]?.[1] ?? '', 'the column it matches');
+  const err = h('p', { class: 'of-err lf-err', role: 'alert', hidden: true });
+  const go = h('button', { type: 'submit', class: 'btn primary sf-go lf-go' }, had ? 'Change the relation' : 'Add the relation') as HTMLButtonElement;
+  const tail = datedTail(go, err);
+  const form = h('form', { class: 'of-form sf-form lf-form', 'aria-label': had ? `Change the relation ${had.name}` : 'Add a relation', novalidate: true },
+    h('div', { class: 'of-field' }, h('label', { for: name.id }, 'What it is called'), name),
+    h('div', { class: 'sf-row' },
+      h('div', { class: 'of-field' }, h('label', {}, 'From'), from, fromCol),
+      h('div', { class: 'of-field' }, h('label', {}, 'To'), to, toCol)),
+    h('p', { class: 'of-hint' }, 'A row of the first names one of the second where the two columns hold the same value.'),
+    ...tail.nodes);
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fail = (said: string) => {
+      err.textContent = said;
+      err.hidden = false;
+      go.disabled = false;
+    };
+    if (!name.value.trim()) return fail('Say what the relation is called.');
+    if (!fromCol.value.trim() || !toCol.value.trim()) return fail('Say the column on each side whose values match.');
+    const link: LinkType = { id: had?.id ?? idFrom(name.value, linksKnown().map((l) => l.id)), name: name.value.trim(), from: from.value, to: to.value, on: [[fromCol.value.trim(), toCol.value.trim()]], ...(had?.cardinality ? { cardinality: had.cardinality } : {}) };
+    err.hidden = true;
+    sendKindEdit({ op: 'setLink', link }, tail.why, fail, go, had ? 'Nothing of the relation changes.' : 'That isn’t a relation the ontology can have: both its kinds are the ontology’s.');
+  });
+  openDetail(had ? `Change ${had.name}` : 'Add a relation', 'ok', [
+    h('p', { class: 'vf-one' }, 'A relation says how one kind of thing names another. Added or changed, it is in force from its day, and past days read the ontology as it was.'),
+    kinds.length ? form : h('p', { class: 'foot' }, 'A relation is between two kinds of thing: add a kind first.'),
+  ]);
+}
+
+/**
+ * A kind or a relation ended (ADR 0027 §2, Q-264): from a day, with a reason, and with what follows it where anything
+ * does. Nothing is deleted: past days still read it, and the ontology keeps that it ended.
+ */
+function endForm(what: EndedKind, id: string, called: string, of?: { file: string; rule: string }): void {
+  const uid = `ef-${++kindForms}`;
+  // What may follow it is of its own sort: a kind for a kind, a relation for a relation, an entry of the same list for
+  // an entry. What a row is and a dependency end with nothing after them.
+  const rule = what === 'entry' && of ? (state.doc.ontology?.rules ?? []).find((r) => r.file.toLowerCase() === of.file.toLowerCase() && r.id === of.rule) : undefined;
+  const others = what === 'type' ? kindsKnown().filter((t) => t.id !== id).map((t) => ({ id: t.id, name: t.name }))
+    : what === 'link' ? linksKnown().filter((l) => l.id !== id).map((l) => ({ id: l.id, name: l.name }))
+    : rule ? (rule.entries ?? []).map((e) => e[0] ?? '').filter((k) => k !== id).map((k) => ({ id: k, name: gateKey(rule, k) }))
+    : what === 'awaited' ? awaitedNow().filter((a) => !a.bound && !a.ended && a.dataset.id.toLowerCase() !== id.toLowerCase()).map((a) => ({ id: a.dataset.id, name: a.dataset.name }))
+    : [];
+  const how = (value: string, label: string, on = false) => h('label', { class: 'sf-mark ef-how', 'data-how': value }, h('input', { type: 'radio', name: `${uid}-how`, value, ...(on ? { checked: 'checked' } : {}) }), ` ${label}`);
+  const pick = (cls: string) => h('select', { class: cls, 'aria-label': 'What follows it' }, h('option', { value: '' }, 'pick one'), ...others.map((x) => h('option', { value: x.id }, x.name))) as HTMLSelectElement;
+  const first = pick('ef-by');
+  const second = pick('ef-by2');
+  const follows = h('div', { class: 'ef-follows', hidden: true }, first, second);
+  const err = h('p', { class: 'of-err ef-err', role: 'alert', hidden: true });
+  const go = h('button', { type: 'submit', class: 'btn primary sf-go ef-go' }, `End ${called}`) as HTMLButtonElement;
+  const tail = datedTail(go, err, what === 'entry' && of ? [of.file] : what === 'rows' ? [id] : [], true);
+  const form = h('form', { class: 'of-form sf-form ef-form', 'aria-label': `End ${called}`, novalidate: true },
+    h('fieldset', { class: 'of-vals ef-hows' }, h('legend', {}, 'What follows it'),
+      how('', 'Nothing: it ends', true),
+      ...(others.length ? [how('replaced', 'Replaced by another'), how('merged', 'Merged into another')] : []),
+      ...(others.length > 1 ? [how('split', 'Split into two')] : []),
+      follows),
+    ...tail.nodes);
+  const chosen = () => form.querySelector<HTMLInputElement>(`input[name="${uid}-how"]:checked`)?.value ?? '';
+  form.addEventListener('change', () => {
+    follows.hidden = chosen() === '';
+    second.hidden = chosen() !== 'split';
+  });
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fail = (said: string) => {
+      err.textContent = said;
+      err.hidden = false;
+      go.disabled = false;
+    };
+    const h2 = chosen();
+    const by = h2 === 'split' ? [first.value, second.value] : [first.value];
+    if (h2 && (by.some((x) => !x) || new Set(by).size !== by.length)) return fail(h2 === 'split' ? 'Pick the two it is split into.' : 'Pick what follows it.');
+    const ended: Ended = { what, id, ...(what === 'entry' && of ? { of } : {}), ...(h2 ? { then: { how: h2 as 'replaced' | 'merged' | 'split', by } } : {}) };
+    err.hidden = true;
+    sendKindEdit({ op: 'end', ended }, tail.why, fail, go,
+      what === 'type' ? `${called} can’t end yet: a relation or a rows entry still names it, or its file would no longer say what one row is.`
+        : what === 'rows' ? `${called} can’t end so: its file would no longer say what one row is.`
+        : what === 'awaited' ? `${called} can’t end so: it has its data by now, and stays as the record of what was asked for.`
+        : `${called} can’t be ended so.`);
+  });
+  openDetail(`End ${called}`, 'ok', [
+    h('p', { class: 'vf-one' }, what === 'entry'
+      ? 'Nothing is deleted. From its day the ontology no longer has it, so a row that carries it stops at the gate; past days still read it as it was, and the ontology keeps that it ended, with what follows it.'
+      : 'Nothing is deleted. From its day it is no longer in force; past days still read it as it was, and the ontology keeps that it ended, with what follows it.'),
+    form,
+  ]);
+}
+
+/** A condition as the fields of a form hold it: a column, and the values it may hold, with commas between. */
+const conditionRows = (c: Condition | undefined, more = 1): [string, string][] => [...Object.entries(c ?? {}).map(([k, v]): [string, string] => [k, (Array.isArray(v) ? v : [v]).join(', ')]), ...Array.from({ length: more }, (): [string, string] => ['', ''])];
+/** The fields back as a condition: a column left empty is no condition; one value alone is written alone. */
+function conditionOfRows(rows: readonly { column: HTMLInputElement; values: HTMLInputElement }[]): Condition | string {
+  const out: Record<string, string | string[]> = {};
+  for (const r of rows) {
+    const column = r.column.value.trim();
+    const values = r.values.value.split(',').map((v) => v.trim()).filter(Boolean);
+    if (!column && !values.length) continue;
+    if (!column) return 'A condition names its column.';
+    if (!values.length) return `Say what ${column} holds, with commas between values.`;
+    if (Object.hasOwn(out, column)) return `${column} is named twice.`;
+    out[column] = values.length === 1 ? values[0]! : values;
+  }
+  return out;
+}
+/** A condition's rows of fields: "where [column] is [values]". */
+function conditionFields(cls: string, c: Condition | undefined, columnSaid: string, valuesSaid: string): { rows: { column: HTMLInputElement; values: HTMLInputElement }[]; el: HTMLElement } {
+  const input = (kind: string, value: string, label: string) => h('input', { type: 'text', class: `${cls}-${kind}`, value, maxlength: '120', autocapitalize: 'none', spellcheck: 'false', autocomplete: 'off', 'aria-label': label, placeholder: label }) as HTMLInputElement;
+  const rows = conditionRows(c).map(([k, v]) => ({ column: input('col', k, columnSaid), values: input('vals', v, valuesSaid) }));
+  return { rows, el: h('div', { class: 'cf-rows' }, ...rows.map((r) => h('div', { class: 'cf-row' }, r.column, h('span', { class: 'cf-is' }, 'is'), r.values))) };
+}
+
+/**
+ * What a dataset's rows are, said or changed (ADR 0027 §3, Q-250; ADR 0015 §1): the kind of thing one row is, the
+ * column that names it, and which of them the dataset has rows for, as a condition on the kind's own list. A dated
+ * change, with its reason; it is a written check of a gated flow, so a flow without a gate is told so.
+ */
+function rowsForm(dataset: string, had: RowsDef | null): void {
+  const uid = `wf-${++kindForms}`;
+  const kinds = kindsKnown().filter((t) => t.dataset.toLowerCase() !== dataset.toLowerCase());
+  const of = h('select', { class: 'wf-of', id: `${uid}-of`, 'aria-label': 'The kind of thing one row is' }, ...kinds.map((t) => h('option', { value: t.id, ...(t.id === had?.of ? { selected: 'selected' } : {}) }, t.name))) as HTMLSelectElement;
+  const key = h('input', { type: 'text', id: `${uid}-key`, class: 'wf-key', value: had?.key ?? '', maxlength: '60', autocapitalize: 'none', spellcheck: 'false', autocomplete: 'off', placeholder: kinds.find((t) => t.id === (had?.of ?? kinds[0]?.id))?.key[0] ?? 'its key' }) as HTMLInputElement;
+  const where = conditionFields('wf', had?.where, 'a column', 'its values');
+  const loose = h('input', { type: 'checkbox', class: 'wf-loose', ...(had?.ids === 'loose' ? { checked: 'checked' } : {}) }) as HTMLInputElement;
+  const err = h('p', { class: 'of-err wf-err', role: 'alert', hidden: true });
+  const go = h('button', { type: 'submit', class: 'btn primary sf-go wf-go' }, had ? 'Change what a row is' : 'Say what a row is') as HTMLButtonElement;
+  const tail = datedTail(go, err, [dataset]);
+  const form = h('form', { class: 'of-form sf-form wf-form', 'aria-label': `What one row of ${dataset} is`, novalidate: true },
+    h('div', { class: 'of-field' }, h('label', { for: of.id }, `One row of ${dataset} is`), of),
+    h('div', { class: 'of-field' }, h('label', { for: key.id }, 'Named by the column'), key, h('p', { class: 'of-hint' }, 'The column of this dataset that holds the thing’s key. Left empty, it is the key’s own name.')),
+    h('fieldset', { class: 'of-vals wf-where' }, h('legend', {}, 'For the ones where'), where.el,
+      h('p', { class: 'of-hint' }, 'Read on the kind’s own list: this dataset has a row for each of those, and no others. Left empty, it has one for every one.')),
+    h('label', { class: 'sf-mark' }, loose, ' An id is the same whatever its case and the spaces around it'),
+    ...tail.nodes);
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fail = (said: string) => {
+      err.textContent = said;
+      err.hidden = false;
+      go.disabled = false;
+    };
+    if (!of.value) return fail('Pick the kind of thing one row is: add a kind first.');
+    const cond = conditionOfRows(where.rows);
+    if (typeof cond === 'string') return fail(cond);
+    const rows: RowsDef = { dataset, of: of.value, ...(key.value.trim() ? { key: key.value.trim() } : {}), ...(Object.keys(cond).length ? { where: cond } : {}), ...(loose.checked ? { ids: 'loose' as const } : {}) };
+    err.hidden = true;
+    sendKindEdit({ op: 'setRows', rows }, tail.why, fail, go, had ? 'Nothing of what a row is changes.' : `That can’t be said of ${dataset}: its rows are judged by a gate, and the column and the condition are the kind’s own.`);
+  });
+  openDetail(had ? `What a row of ${dataset} is` : `Say what a row of ${dataset} is`, 'ok', [
+    h('p', { class: 'vf-one' }, 'What one row is, is the ontology’s: the kind of thing, and which of them the dataset has rows for. The gate checks it: a row for one it shouldn’t have, or none for one it should, is counted. Said or changed, it is in force from its day.'),
+    kinds.length ? form : h('p', { class: 'foot' }, 'A row is one of a kind of thing: add the kind first.'),
+  ]);
+}
+
+/**
+ * A dependency between columns, added or changed (ADR 0027 §3, Q-250; Q-119): where a row matches one condition it
+ * must match another, in each dataset the rule names. A dated change, with its reason.
+ */
+function needsForm(dataset: string, had: NeedsDef | null): void {
+  const uid = `nf-${++kindForms}`;
+  const called = h('input', { type: 'text', id: `${uid}-name`, class: 'nf-name', value: '', maxlength: '40', autocomplete: 'off', placeholder: 'Rotation needs encryption' }) as HTMLInputElement;
+  const about = h('input', { type: 'text', id: `${uid}-about`, class: 'nf-about', value: had?.description ?? '', maxlength: '200', autocomplete: 'off', placeholder: 'Key rotation needs encryption at rest: passing one while failing the other is a contradiction' }) as HTMLInputElement;
+  const datasets = h('input', { type: 'text', id: `${uid}-datasets`, class: 'nf-datasets', value: (had?.datasets ?? [dataset]).join(', '), maxlength: '200', autocapitalize: 'none', spellcheck: 'false', autocomplete: 'off' }) as HTMLInputElement;
+  const when = conditionFields('nf-when', had?.when, 'a column', 'its values');
+  const then = conditionFields('nf-then', had?.then, 'a column', 'the values it may hold');
+  const err = h('p', { class: 'of-err nf-err', role: 'alert', hidden: true });
+  const go = h('button', { type: 'submit', class: 'btn primary sf-go nf-go' }, had ? 'Change the dependency' : 'Add the dependency') as HTMLButtonElement;
+  const tail = datedTail(go, err, [dataset]);
+  const form = h('form', { class: 'of-form sf-form nf-form', 'aria-label': had ? `Change the dependency ${had.id}` : 'Add a dependency', novalidate: true },
+    had ? null : h('div', { class: 'of-field' }, h('label', { for: called.id }, 'What it is called'), called, h('p', { class: 'of-hint' }, 'A few words: the ontology keeps it by this name.')),
+    h('div', { class: 'of-field' }, h('label', { for: about.id }, 'Why it holds'), about),
+    h('div', { class: 'of-field' }, h('label', { for: datasets.id }, 'In the datasets'), datasets, h('p', { class: 'of-hint' }, 'Each dataset it is checked in, with commas between.')),
+    h('fieldset', { class: 'of-vals nf-whens' }, h('legend', {}, had?.from ? `Where, in ${had.from}` : 'Where'), when.el),
+    h('fieldset', { class: 'of-vals nf-thens' }, h('legend', {}, 'Then'), then.el,
+      h('p', { class: 'of-hint' }, 'A row that matches the first and not the second is a contradiction, counted by the gate.')),
+    ...tail.nodes);
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fail = (said: string) => {
+      err.textContent = said;
+      err.hidden = false;
+      go.disabled = false;
+    };
+    const w = conditionOfRows(when.rows);
+    if (typeof w === 'string') return fail(w);
+    const t = conditionOfRows(then.rows);
+    if (typeof t === 'string') return fail(t);
+    if (!Object.keys(w).length || !Object.keys(t).length) return fail('A dependency says where, and then what must hold.');
+    const names = datasets.value.split(',').map((d) => d.trim()).filter(Boolean);
+    if (!names.length) return fail('Say which datasets it is checked in.');
+    if (!had && !called.value.trim()) return fail('Say what it is called, in a few words.');
+    const needs: NeedsDef = { id: had?.id ?? idFrom(called.value, (state.doc.ontology?.needs ?? []).map((n) => n.id)), datasets: names, ...(had?.from !== undefined ? { from: had.from } : {}), ...(had?.key !== undefined ? { key: had.key } : {}), when: w, then: t, ...(about.value.trim() ? { description: about.value.trim() } : {}) };
+    err.hidden = true;
+    sendKindEdit({ op: 'setNeeds', needs }, tail.why, fail, go, had ? 'Nothing of the dependency changes.' : 'That isn’t a dependency the flow can have: it is checked in datasets of the flow that a gate judges.');
+  });
+  openDetail(had ? `Change the dependency ${had.id}` : 'Add a dependency', 'ok', [
+    h('p', { class: 'vf-one' }, 'A dependency is written once, in the ontology: where a row matches one condition it must match another. Added or changed, it is in force from its day, and past days were judged as it stood.'),
+    form,
+  ]);
+}
+
 // ------------------------------------------------------------------ a change followed, said and tested (ADR 0026 §7)
 
 /** Whether the flow shipped with a change set (a recorded story's): any other was made here. */
@@ -3133,7 +4312,7 @@ function partChanged(id: string): boolean {
 /** How many recorded days a change is tested on: the last before it takes effect. */
 const TEST_DAYS = 14;
 /** What each change's test found, by its id, while the page is open: a test informs, and is no part of the record. */
-const tested = new Map<string, { count: TestCount; what: string }>();
+const tested = new Map<string, { count: TestCount; what: string; moves: { moves: TrialMove[]; read: number } }>();
 /** The test under way: the change, and how far it is. */
 let testing: { id: string; done: number; of: number } | null = null;
 
@@ -3142,24 +4321,91 @@ function testDays(c: Pick<ChangeSet, 'from'>): number[] {
   return loads.list.map((l, k) => ({ k, day: l.day.slice(0, 10) })).filter((x) => x.day < c.from && runsOfVersions(x.k).length > 0).map((x) => x.k).slice(-TEST_DAYS);
 }
 
+/** Each output's rows, as a run's manifest counts them: what a step reads of a flow with no product. */
+const rowsOfManifest = (m: RunResult['manifest']): Record<string, number> => {
+  // A context table says what changed: it differs between two runs by what it is, and is no measure a change moved.
+  const aside = contextSteps();
+  return Object.fromEntries(Object.keys(m.outputs).filter((n) => !aside.has(n)).flatMap((n) => {
+    const rows = m.nodes.find((x) => x.origin === n)?.rows;
+    return rows === undefined ? [] : [[n, rows]];
+  }));
+};
+/**
+ * What a run here published or would publish, as a change's own step reads it (ADR 0027 §7): each output's rows from
+ * its manifest and, where the data list names a posture product, the group's score and coverage and the checks behind
+ * them, read from the run's own versions by key, published or not (a what-if publishes nothing).
+ */
+async function marksOfRun(run: RunRecord): Promise<StepMarks> {
+  const m = run.result.manifest;
+  const marks: StepMarks = { rows: rowsOfManifest(m) };
+  const p = dataList?.posture;
+  const engine = state.engine;
+  if (!p || !engine) return marks;
+  try {
+    const keys = [p.units, p.org, p.apps].map((n) => m.outputs[n]?.key).filter((k): k is string => !!k);
+    if (keys.length < 2) return marks;
+    const tables = new Map<string, string>();
+    for (const [key, tbl] of (await engine.query(`SELECT key, tbl FROM _smaltfl_versions WHERE key IN (${keys.map((k) => literal(k, 'text')).join(', ')})`)).rows) tables.set(String(key), String(tbl));
+    const table = (name: string) => {
+      const t = tables.get(m.outputs[name]?.key ?? '');
+      return t ? `"${t}"` : null;
+    };
+    const units = table(p.units);
+    const org = table(p.org);
+    if (!units || !org) return marks;
+    const row = (await engine.query(`SELECT p.score, p.coverage FROM ${units} p JOIN ${org} o ON o.org_unit_id = p.org_unit_id WHERE o.level = 'group' AND o.parent_id IS NULL`)).rows[0];
+    if (!row) return marks;
+    marks.score = row[0] === null ? null : Number(row[0]);
+    marks.coverage = row[1] === null ? null : Number(row[1]);
+    const apps = table(p.apps);
+    const sums = apps ? (await engine.query(`SELECT sum(applying), sum(with_evidence), sum(failing) FROM ${apps}`)).rows[0] : undefined;
+    if (sums && sums[0] !== null) marks.checks = { applying: Number(sums[0]), evidence: Number(sums[1] ?? 0), failing: Number(sums[2] ?? 0) };
+  } catch {
+    // Scorecards of another shape, or a run that built no roll-up: its outputs' rows alone.
+  }
+  return marks;
+}
+/** What the version readers got of a recorded day published, as a step reads it: its manifest's rows, and the
+ * product's marks where the month keeps them for the day. Null where the record has no manifest of it. */
+function marksOfRecorded(day: string, manifest: string | undefined): StepMarks | null {
+  const m = manifest ? manifestOf(manifest) : null;
+  if (!m) return null;
+  const mark = takenBackDays(null).has(day) ? undefined : recorded?.posture?.[day];
+  return { rows: rowsOfManifest(m), ...(mark ? { score: mark.score, coverage: mark.coverage, ...(mark.checks ? { checks: mark.checks } : {}) } : {}) };
+}
+/**
+ * What a change alone would have moved on the days it was tried on (ADR 0027 §7, Q-261), after the test's own sentence:
+ * the measures it moved, on how many of the days read, with the last day's figures; or that it moved none.
+ */
+function trialFigures(t: { moves: TrialMove[]; read: number } | undefined, dayOf: (day: string) => string): string {
+  if (!t || !t.read) return '';
+  const those = t.read === 1 ? 'that day' : `those ${t.read} days`;
+  if (!t.moves.length) return ` On ${those} the change alone would have moved none of the published measures.`;
+  const as = (m: TrialMove): StepMeasure => ({ measure: m.measure, without: m.last.without, with: m.last.with });
+  const order = movedInOrder(t.moves.map(as)).map((x) => t.moves.find((m) => m.measure === x.measure)!);
+  const shown = order.slice(0, 2);
+  return ` The change alone would have moved ${shown.map((m) => `${measureNamed(m.measure)} on ${m.days === t.read ? (t.read === 1 ? 'it' : 'each of them') : `${m.days} of ${those}`} (${movedSaid(as(m))} on ${dayOf(m.last.day)})`).join('; ')}${order.length > 2 ? `, and ${plural(order.length - 2, 'other measure')}` : ''}.`;
+}
+
 /**
  * A change tested on the days recorded (ADR 0026 §7, Q-232): each of the last days before it takes effect is run again
  * on the files readers got, under the rules it ran under with the change added, as a what-if (ADR 0021 §4): nothing is
  * published, no name moves, nothing is recorded. What it finds is said on the flow's sheet: the days that would have
  * paused, those that would have been published, and how many come out the same. It informs: the change stands either way.
  */
-async function testChange(c: ChangeSet, flow: string): Promise<void> {
+async function testChange(c: ChangeSet, flow: string | null): Promise<void> {
   if (!state.engine || state.running || testing || !mayRun()) return;
   const ks = testDays(c);
   const back = loads.at;
   const what = `the changed ${listed(changeFlows(state.doc, c).map(flowName))}`;
-  const days: DayTest[] = [];
+  const days: (DayTest & { moved?: StepMeasure[]; measured?: number })[] = [];
   testing = { id: c.id, done: 0, of: ks.length };
   try {
     for (const k of ks) {
       const day = loads.list[k]!.day;
       setStatus(`Testing the change on ${dayLabel(day)}, ${testing.done + 1} of ${ks.length}: nothing is published.`, false);
-      if (state.section === flowCard(flow)) renderFlowSheet(flow);
+      if (flow === null) renderRulesTime();
+      else if (state.section === flowCard(flow)) renderFlowSheet(flow);
       // The files of the version readers got, and the rules its day had, with the change.
       const all = versionsOfLoad(k);
       const plain = all.filter((v) => !v.restated);
@@ -3167,7 +4413,7 @@ async function testChange(c: ChangeSet, flow: string): Promise<void> {
       while (got > 1 && all[got - 1]?.restated) got--;
       const at = Math.max(1, plain.indexOf(all[got - 1]!) + 1);
       const files = Object.fromEntries(Object.keys(plain[at - 1]?.files ?? {}).map((id) => [id, at]));
-      const inForceThen = new Set(changesOn({ changes: ruleChanges }, day.slice(0, 10)).map((x) => x.id));
+      const inForceThen = new Set(changesOn(keptChanges(), day.slice(0, 10)).map((x) => x.id));
       const rules = ruleChanges.filter((x) => inForceThen.has(x.id) || x.id === c.id).map((x) => x.id);
       // What the version readers got came to, by the record: held by its own checks, or published.
       const recorded = runsOfVersions(k).filter((x) => x.v === wentWith(k)).at(-1)?.e.about as unknown as RunAbout | undefined;
@@ -3177,17 +4423,28 @@ async function testChange(c: ChangeSet, flow: string): Promise<void> {
       const ran = whatIf?.k === k ? whatIf.run : null;
       const now = held(ran?.result.holds);
       const before = new Set(was.map((x) => x.origin));
-      days.push({ day: day.slice(0, 10), was: was.length ? 'held' : 'published', now: !ran ? 'failed' : now.length ? 'held' : 'published', holds: [...new Set(now.map((x) => x.origin).filter((o) => !before.has(o)))] });
+      // The same figures a change's own step gives, before it starts (ADR 0027 §7, Q-261): what the day published
+      // against what it would have under the change. The product's marks only where both sides have them.
+      const then = marksOfRecorded(day, recorded?.manifest === undefined ? undefined : String(recorded.manifest));
+      let figures: { moved: StepMeasure[]; measured: number } | null = null;
+      if (ran && then) {
+        const under = await marksOfRun(ran);
+        const both = then.score !== undefined && under.score !== undefined;
+        const side = (x: StepMarks): StepMarks => (both ? x : { rows: x.rows });
+        figures = stepMeasures(side(then), side(under));
+      }
+      days.push({ day: day.slice(0, 10), was: was.length ? 'held' : 'published', now: !ran ? 'failed' : now.length ? 'held' : 'published', holds: [...new Set(now.map((x) => x.origin).filter((o) => !before.has(o)))], ...(figures ?? {}) });
       closeWhatIf(true);
       testing.done++;
     }
-    tested.set(c.id, { count: testCount(days), what });
+    tested.set(c.id, { count: testCount(days), what, moves: trialMoves(days) });
   } finally {
     testing = null;
     // The day that was on screen again, with its own files and its own rules.
     if (loads.list[back]) await runLoad(back);
-    setStatus(tested.has(c.id) ? testSaid(tested.get(c.id)!.what, tested.get(c.id)!.count, dayLabel) : 'The test didn’t finish.', !tested.has(c.id));
-    openSection(flowCard(flow));
+    setStatus(tested.has(c.id) ? `${testSaid(tested.get(c.id)!.what, tested.get(c.id)!.count, dayLabel)}${trialFigures(tested.get(c.id)!.moves, dayLabel)}` : 'The test didn’t finish.', !tested.has(c.id));
+    if (flow === null) renderRulesTime();
+    else openSection(flowCard(flow));
   }
 }
 
@@ -3207,6 +4464,12 @@ function flowChangedPart(id: string): HTMLElement | null {
   const applied = new Set(resolvedSets ? resolvedSets.split('\n') : []);
   const stands = (c: ChangeSet) => (applied.has(c.id) ? 'in force on the day on screen' : day && c.from > day ? `not in force yet on ${dayMid(day)}` : 'made after the version on screen ran');
   const at = (t: string) => new Date(t).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  // What whoever is viewing hasn't seen of them yet (ADR 0027 §10): said on the change, until Got it on the register.
+  const since = sinceNow();
+  const unseen = new Map<string, string>([
+    ...(since?.fresh ?? []).filter((t) => t.is === 'change').map((t) => [t.id, 'New since you last looked'] as const),
+    ...(since?.moved ?? []).filter((m) => m.told.is === 'change').map((m) => [m.told.id, `Since you last looked: ${sinceMoved(m)}`] as const),
+  ]);
   const item = (x: (typeof all)[number]) => {
     const c = x.change;
     const got = tested.get(c.id);
@@ -3214,9 +4477,10 @@ function flowChangedPart(id: string): HTMLElement | null {
     const busy = testing?.id === c.id;
     const differ = got ? [...got.count.paused, ...got.count.freed, ...got.count.failed] : [];
     return h('li', { class: `fl-change${x.bearing === 'follows' ? ' fl-follows' : ''}`, 'data-change': c.id },
+      unseen.has(c.id) ? h('p', { class: 'fl-since' }, unseen.get(c.id)!) : null,
       h('p', { class: 'fl-change-what' }, h('b', {}, `From ${dayLabel(c.from)}${c.until ? ` to ${dayLabel(c.until)}` : ''}`), x.bearing === 'follows' ? ` · it follows ${listed(x.of.map(flowName))}` : '', `: ${changeSaid(c)}`),
-      h('p', { class: 'fl-change-who' }, `${shippedChange(c.id) ? 'Recorded' : 'Made here'} ${at(c.recorded)} by ${personName(c.by)}${c.why ? `: “${c.why}”` : ''} · ${stands(c)}`),
-      got ? h('p', { class: 'fl-tested', role: 'status' }, testSaid(got.what, got.count, dayLabel)) : null,
+      h('p', { class: 'fl-change-who' }, `${shippedChange(c.id) ? 'Recorded' : 'Made here'} ${at(c.recorded)} by ${personName(c.by)}${c.why ? `: “${c.why}”` : ''} · ${waitsFor(c) ?? stands(c)}`),
+      got ? h('p', { class: 'fl-tested', role: 'status' }, testSaid(got.what, got.count, dayLabel), h('span', { class: 'fl-figures' }, trialFigures(got.moves, dayLabel))) : null,
       differ.length ? h('ul', { class: 'fl-tested-days' }, ...differ.map((t) => h('li', {}, h('a', { href: `#day/${t.day}` }, dayLabel(t.day)), t.now === 'failed' ? ': the run would have failed' : t.now === 'held' ? `: would have paused${t.holds.length ? `, held by ${listed(t.holds)}` : ''}` : ': would have been published'))) : null,
       busy ? h('p', { class: 'fl-testing', role: 'status' }, `Testing: ${testing!.done} of ${testing!.of} days run.`)
         : mayRun() && days.length ? h('button', { type: 'button', class: 'btn small fl-test', disabled: state.running || !!testing, onclick: () => void testChange(c, id) }, got ? 'Test again ›' : `Test on the ${days.length === 1 ? 'day' : `${days.length} days`} before it ›`)
@@ -4067,6 +5331,40 @@ function baseDoc(): FlowDocument {
   return (ruleChanges.length ? { ...rest, changes: ruleChanges } : rest) as FlowDocument;
 }
 
+/** The flow's change sets with what says who owns what (ADR 0027 §10: its policies, its own ontology's owners and the
+ * estates', the flows it reads): what the change sets in force on a day are asked of, where the rules aren't needed. */
+function keptChanges(): OwnedDoc & Pick<FlowDocument, 'changes'> {
+  return { name: state.doc.name, ...(state.doc.policies ? { policies: state.doc.policies } : {}), ...(state.doc.flows ? { flows: state.doc.flows } : {}), ...(ruleBase.ontology ? { ontology: ruleBase.ontology } : {}), changes: ruleChanges };
+}
+
+/** The steps of the flow on screen that are context tables (ADR 0027 §8), by id. */
+const contextSteps = (): Set<string> => new Set(contextTables(state.doc));
+
+/**
+ * The context a run of a day takes (ADR 0027 §8), for a flow with a context table: the rows of the changes in force on
+ * the day, the events going on and each change's own step, made from the flow as kept and the record as known at the
+ * moment the rules on screen are (the version's first run, for a day the record has; now, for one it hasn't), as the
+ * build's recorder makes them, so a day run here has the context its recorded run had. A what-if's are the change sets
+ * picked for it, in force on its day whatever their own first day. A derived run's (`made`: a fill's or the part's
+ * alone) are its own document's, the donor it reads among its datasets, under the rules its held run had, with the
+ * events and the steps known at the moment it was made (now, for one made here; the moment the record has it at, for
+ * one the record decided). Undefined for a flow with no context table.
+ */
+async function contextForRun(day: string | null, made?: { repair: Repair; at: string | null }): Promise<ContextRows | undefined> {
+  if (!contextSteps().size) return undefined;
+  const d = day?.slice(0, 10) ?? null;
+  const picked = loads.whatIf;
+  const asOf = picked ? null : resolvedFor.asOf;
+  let kept = baseDoc();
+  if (picked) {
+    const { changes: _changes, ...rest } = kept;
+    const changes = ruleChanges.filter((c) => picked.includes(c.id)).map(({ until: _until, ...c }) => (d !== null && c.from > d ? { ...c, from: d } : c));
+    kept = (changes.length ? { ...rest, changes } : rest) as FlowDocument;
+  }
+  if (made) kept = repairDocument(kept, made.repair);
+  return contextRows(kept, d, asOf, contextKnown(allEntries(), everyEvent(), made ? made.at : asOf));
+}
+
 /** A document read in (shipped, kept, or the flow as shipped again): its rules the base, its change sets the flow's, and
  * the document on screen its base until a day is resolved. */
 function takeRules(doc: FlowDocument): void {
@@ -4086,7 +5384,7 @@ function takeRules(doc: FlowDocument): void {
  */
 function resolveDoc(day: string | null, asOf: string | null, force = false): boolean {
   resolvedFor = { day, asOf };
-  const sets = changesOn({ changes: ruleChanges }, day, asOf).map((c) => c.id).join('\n');
+  const sets = changesOn(keptChanges(), day, asOf).map((c) => c.id).join('\n');
   if (!force && sets === resolvedSets) return false;
   state.doc = sets ? inForce(baseDoc(), day, asOf) : withRuleParts(state.doc, ruleBase);
   resolvedSets = sets;
@@ -4145,8 +5443,12 @@ const publishedLoad = (k: number): boolean => versionFacts(k).some((f) => f.publ
 /** The recorded days a change set reaches (ADR 0021 §5): from its day (to its last, ADR 0022 §1), whose version readers
  * got first ran before the change was recorded, so under rules that didn't have it. A change made here reaches every
  * recorded day from its day; one the build recorded (the story's) only the days run before it. */
-function reachedBy(c: Pick<ChangeSet, 'from' | 'until' | 'recorded'>): string[] {
-  const t = Date.parse(c.recorded);
+function reachedBy(c: ChangeSet): string[] {
+  // Known from when it was recorded, or, where it asks for an owner's agreement, from when it had it (ADR 0027 §10):
+  // one that still waits reaches no day.
+  const known = knownFrom(keptChanges(), c);
+  if (known === null) return [];
+  const t = Date.parse(known);
   const days = new Set<string>();
   loads.list.forEach((l, k) => {
     const day = l.day.slice(0, 10);
@@ -4211,6 +5513,119 @@ function fromBar(): HTMLElement {
   return box;
 }
 
+/** Whom a change waits for, in a few words, where it asks for an owner's agreement and hasn't it (ADR 0027 §10): what
+ * a list of changes says in place of where it stands. Null where it waits for no one. */
+function waitsFor(c: ChangeSet): string | null {
+  if (!asksAgreement(c)) return null;
+  const a = agreementOf(keptChanges(), c);
+  return a.waiting.length ? `waits for ${ownersSaid(a.parts.filter((p) => p.agreed === null))} to agree` : null;
+}
+
+/** This browser's identity card, by its fingerprint, where the record has one: what an agreement made here is signed by. */
+const cardNow = (): string | null => ledger?.identity.card.fingerprint ?? null;
+
+/**
+ * A change set made here with its author's own agreement (ADR 0027 §10, Q-277), where it asks for one and they own a
+ * part of the ontology it touches: until sharing is built one person may hold both roles, and the agreement says so by
+ * naming them. One whose author owns nothing it touches is as it was made, and waits.
+ */
+function withOwnAgreement(c: ChangeSet): ChangeSet {
+  if (!asksAgreement(c)) return c;
+  const got = agreeTo(keptChanges(), c, c.by, c.recorded, cardNow());
+  return 'change' in got ? got.change : c;
+}
+
+/**
+ * Agree to a change that waits (ADR 0027 §10): the viewer, an owner of a part of the ontology it touches, agrees now.
+ * With every part agreed for, it is in force from its day as known from this moment: recorded with who agreed, and the
+ * days it reaches that already ran are run again under it, as a change back-dated to them is. Whoever owns what it
+ * touches may agree, the flow's owner or not: it is the ontology's owners' to say.
+ */
+async function agreeToChange(id: string): Promise<void> {
+  const c = ruleChanges.find((x) => x.id === id);
+  if (!c) return;
+  if (state.running) return void setStatus('The flow is running. Agree again when the run has ended.', true);
+  const got = agreeTo(keptChanges(), c, state.viewer, new Date().toISOString(), cardNow());
+  if ('problem' in got) return void setStatus(got.problem, true);
+  const what = changeSaid(c);
+  ruleChanges = ruleChanges.map((x) => (x.id === id ? got.change : x));
+  // The change sets are named as they were and say something else: whatever is kept by their names is made again.
+  keptEpoch++;
+  registerKept = null;
+  const waits = agreementOf(keptChanges(), got.change).waiting;
+  const days = waits.length ? [] : reachedBy(got.change);
+  resolveDoc(resolvedFor.day, resolvedFor.asOf, true);
+  const said = `Agreed to “${what}”, as ${got.for.length === 1 ? 'an owner' : 'an owner of each'} of ${listed(got.for.map((p) => p.name))}`;
+  await flowEdited(said);
+  seeOwn('change', [id]);
+  setStatus(waits.length ? `${said}. Recorded. It still waits for ${ownersSaid(waits.map((part) => ({ part, owners: ownersOf(keptChanges(), part) })))}.`
+    : `${said}. Recorded: in force from ${dayLabel(c.from)}. ${days.length ? `${plural(days.length, 'recorded day')} it reaches ${days.length === 1 ? 'is' : 'are'} run again under the new rules.` : 'No recorded day moves.'}`, false);
+  requestCanvas();
+  syncTitle();
+  for (const f of [...fromBars]) f();
+  if (state.selected) void renderSheet();
+  if (location.hash === '#ontology') void renderOntology();
+}
+
+/** How long after a moment another came, in words: "at once", "5 minutes later", "3 days later". */
+function laterSaid(from: string, to: string): string {
+  const ms = Date.parse(to) - Date.parse(from);
+  if (ms < 60_000) return 'at once';
+  const minutes = Math.round(ms / 60_000);
+  if (minutes < 60) return `${plural(minutes, 'minute')} later`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${plural(hours, 'hour')} later`;
+  return `${plural(Math.round(hours / 24), 'day')} later`;
+}
+
+/**
+ * Where a change stands with the owners of what it touches (ADR 0027 §10), as its entry on the register says it: who
+ * agreed, when, and whether one person held both roles; or whom it waits for, with **Agree** where the viewer is one
+ * of them. Nothing for a change that asks for no agreement.
+ */
+function agreedLine(e: RegisterEntry): HTMLElement | null {
+  const a = e.agreement;
+  if (!a.asked) return null;
+  const c = e.change;
+  const nameOf = (id: string) => a.parts.flatMap((p) => p.owners).find((o) => o.id === id)?.name ?? personName(id);
+  if (a.waiting.length) {
+    const may = monthView.at === null ? mayAgree(keptChanges(), c, state.viewer) : [];
+    const whose = ownersSaid(a.parts.filter((p) => p.agreed === null));
+    const had = a.parts.filter((p) => p.agreed !== null);
+    return h('span', { class: 'rg-agree rg-waits', 'data-waits': c.id },
+      h('b', {}, 'Waits for agreement. '),
+      `It asks for one (${asksWhy(c)}), from ${whose}. Until then it is in force on no day.`,
+      had.length ? ` ${listed(had.map((p) => `${nameOf(p.agreed!.by)} agreed for ${p.part.name}`))}.` : '',
+      may.length ? h('button', { type: 'button', class: 'btn small rg-agree-go', ...(state.running ? { disabled: 'disabled' } : {}), onclick: () => void agreeToChange(c.id) }, `Agree as ${personName(state.viewer)} ›`)
+        : monthView.at === null ? h('span', { class: 'rg-agree-how' }, ` Viewing as ${personName(state.viewer)}, who owns no part it waits for.`) : null);
+  }
+  const by = [...new Map(a.parts.map((p) => [p.agreed!.by, p.agreed!] as const)).values()];
+  // A change made here on a demo's days is agreed by this browser's clock, long after them: said by its date alone.
+  const when = (at: string) => (Math.abs(Date.parse(at) - Date.parse(`${c.from}T00:00:00Z`)) <= 92 * 86_400_000 ? `on ${dayShort(at.slice(0, 10))}` : `on ${dayLabel(new Date(Date.parse(at)).toISOString().slice(0, 10))}`);
+  if (a.same) return h('span', { class: 'rg-agree rg-same', 'data-agreed': by.map((x) => x.by).join(' ') }, `Agreed by ${nameOf(c.by)}, who also made it: one person held both roles.`);
+  return h('span', { class: 'rg-agree', 'data-agreed': by.map((x) => x.by).join(' ') },
+    `Agreed by ${listed(by.map((x) => `${nameOf(x.by)} ${when(x.at)}, ${laterSaid(c.recorded, x.at)}`))}${a.parts.length > 1 ? `, for ${listed(a.parts.map((p) => p.part.name))}` : `, who ${a.parts[0]!.owners.length === 1 ? 'owns' : 'is an owner of'} ${a.parts[0]!.part.name}`}.`);
+}
+
+/**
+ * Who owns the ontology (ADR 0027 §10, Q-276), part by part, at the head of the register: an estate's shared ontology,
+ * each flow read, the flow's own, each with its owners by name. The line under it says what asks for their agreement.
+ * Folded: who decides is looked up, not read every day.
+ */
+function ownersPart(): HTMLElement {
+  const doc = keptChanges();
+  const parts = partsIn(doc).map((part) => ({ part, owners: ownersOf(doc, part) }));
+  const everyone = new Set(parts.flatMap((p) => p.owners.map((o) => o.id)));
+  const waiting = ruleChanges.filter((c) => asksAgreement(c) && knownFrom(doc, c) === null).length;
+  return h('details', { class: 'fold rg-owners', ...(ownersOpen ? { open: '' } : {}), ontoggle: (e: Event) => (ownersOpen = (e.currentTarget as HTMLDetailsElement).open) },
+    h('summary', {}, h('span', { class: 'rg-owners-k' }, 'Who owns it'), h('span', { class: 'rg-owners-n' }, everyone.size === 1 ? `${parts[0]!.owners[0]!.name} owns every part` : `${plural(parts.length, 'part')}, ${plural(everyone.size, 'owner')}`), waiting ? h('span', { class: 'rg-owners-w' }, `${plural(waiting, 'change')} ${waiting === 1 ? 'waits' : 'wait'} for agreement`) : null),
+    h('ul', { class: 'rg-owners-list' }, ...parts.map(({ part, owners }) => h('li', { 'data-part': `${part.kind}:${part.id}` },
+      h('b', {}, part.kind === 'estate' ? part.name : part.id === '' ? `${part.name}, this flow’s own` : `${part.name}, a flow it reads`),
+      h('span', { class: 'rg-owners-who' }, ` ${listed(owners.map((o) => o.name))}`)))),
+    h('p', { class: 'foot rg-owners-said' }, 'A change the business made, and one that ends something, takes effect only when an owner of each part it touches has agreed. A setting re-tuned, a mistake corrected, a changed source and a first description need only their author. Until sharing is built one person may hold both roles, and the record says so.'));
+}
+let ownersOpen = false;
+
 let changeSeq = 0;
 /** A change set's name: when it was made, and its place among this visit's. */
 const changeId = () => `c-${Date.now().toString(36)}-${(++changeSeq).toString(36)}`;
@@ -4221,7 +5636,7 @@ const changeId = () => `c-${Date.now().toString(36)}-${(++changeSeq).toString(36
  * reason given, kept with the change set; `words` what the record says of it, when not the edit's own words; `redraw`
  * what is drawn again in place of the sheet and the Ontology page.
  */
-async function editRules(edit: RuleEdit | readonly RuleEdit[], opts: { why?: string; words?: string; redraw?: () => void } = {}): Promise<boolean> {
+async function editRules(edit: RuleEdit | readonly RuleEdit[], opts: { why?: string; words?: string; redraw?: () => void; kind?: ChangeKind; given?: WhyGiven } = {}): Promise<boolean> {
   const { why = '', words, redraw } = opts;
   // Several edits are one change set (a proposal's bands, Q-139): recorded once, said once.
   const edits = 'op' in edit ? [edit] : [...edit];
@@ -4233,14 +5648,21 @@ async function editRules(edit: RuleEdit | readonly RuleEdit[], opts: { why?: str
     setStatus('The flow is running. Change the rule again when the run has ended.', true);
     return false;
   }
-  let doc = state.doc;
-  const saids: string[] = [];
-  for (const e of edits) {
-    const r = applyEdit(doc, e);
-    if (!r) continue;
-    doc = r.doc;
-    saids.push(r.said);
-  }
+  const replay = (on: FlowDocument): string[] => {
+    let doc = on;
+    const out: string[] = [];
+    for (const e of edits) {
+      const r = applyEdit(doc, e);
+      if (!r) continue;
+      doc = r.doc;
+      out.push(r.said);
+    }
+    return out;
+  };
+  let saids = replay(state.doc);
+  // An edit about a thing still to come (a relation between a kind that begins on a later day, ADR 0027 §3) changes
+  // nothing on the day on screen: it is checked on its own first day, under the rules as known now.
+  if (!saids.length && ruleChanges.length) saids = replay(docKnownNow(fromDay()));
   if (!saids.length) return false;
   // A flow some flow reads only as it is (a pin, ADR 0026 §7) isn't changed from here.
   const pinned = pinProblem(state.doc, changeFlows(state.doc, { edits }), flowName);
@@ -4248,13 +5670,27 @@ async function editRules(edit: RuleEdit | readonly RuleEdit[], opts: { why?: str
     setStatus(pinned, true);
     return false;
   }
+  // Why (ADR 0027 §2, Q-256): a kind and a reason on every change. A form that asked for them gives them; any other
+  // change is asked now, and closed without an answer it isn't made.
+  const kind = opts.kind ?? defaultKind(edits);
+  const given: WhyGiven | null = opts.given ?? (why.trim() ? { why: why.trim(), kind } : await askWhy(words ?? saids.join('; '), kind, edits));
+  if (!given) return false;
+  if (state.running) {
+    setStatus('The flow is running. Change the rule again when the run has ended.', true);
+    return false;
+  }
   const from = fromDay();
   const { days } = reachedDays(from);
-  ruleChanges = [...ruleChanges, { id: changeId(), from, recorded: new Date().toISOString(), by: state.viewer, why, edits }];
+  const made = withOwnAgreement({ id: changeId(), from, recorded: new Date().toISOString(), by: state.viewer, why: given.why, kind: given.kind, ...(given.note ? { note: given.note } : {}), ...(given.decided ? { decided: given.decided } : {}), ...(given.because ? { because: given.because } : {}), edits });
+  ruleChanges = [...ruleChanges, made];
+  // One that asks for an owner's agreement its author can't give (ADR 0027 §10) is recorded and waits: in force on no
+  // day until an owner of what it touches agrees, from its entry on the register.
+  const waits = agreementOf(keptChanges(), made).waiting;
   const moved = resolveDoc(resolvedFor.day, resolvedFor.asOf, true) && rulesSaid(state.doc) !== rulesSaid(withRuleParts(state.doc, ruleBase));
-  const said = `${words ?? saids.join('; ')}, in force from ${dayLabel(from)}`;
+  const said = waits.length ? `${words ?? saids.join('; ')}, from ${dayLabel(from)} once agreed to` : `${words ?? saids.join('; ')}, in force from ${dayLabel(from)}`;
   await flowEdited(said);
-  setStatus(`${said}. Recorded. ${days.length ? `${plural(days.length, 'recorded day')} from ${dayLabel(from)} ${days.length === 1 ? 'is' : 'are'} run again under the new rules.` : moved ? 'The next run uses it.' : 'No recorded day moves.'}`, false);
+  setStatus(waits.length ? `${said}. Recorded. It waits for ${ownersSaid(waits.map((part) => ({ part, owners: ownersOf(keptChanges(), part) })))} to agree: until then it is in force on no day.`
+    : `${said}. Recorded. ${days.length ? `${plural(days.length, 'recorded day')} from ${dayLabel(from)} ${days.length === 1 ? 'is' : 'are'} run again under the new rules.` : moved ? 'The next run uses it.' : 'No recorded day moves.'}`, false);
   requestCanvas();
   syncTitle();
   for (const f of [...fromBars]) f();
@@ -4393,7 +5829,7 @@ function restatingOf(k: number, got: RecordEntry, run: RecordEntry): Restating {
   const was = publishedRun(k, got);
   // The decision that published a held day carries where the same holds say the same (core/month.ts restatedOutcome).
   const holds = ownHolds((run.about as unknown as RunAbout).holds ?? []);
-  const o = restatedOutcome({ published: was, holds: (got.about as unknown as RunAbout).holds ?? [], contents: contentsOf(got) }, { holds, contents: contentsOf(run) });
+  const o = restatedOutcome({ published: was, holds: (got.about as unknown as RunAbout).holds ?? [], contents: contentsOf(got) }, { holds, contents: contentsOf(run) }, contextSteps());
   const lead = o.fresh[0] ?? holds[0];
   const changedOutputs = o.differ ? `, ${plural(o.differ, 'output')} changed` : '';
   const before = was ? 'published' : 'not published';
@@ -4571,8 +6007,11 @@ function changeSaid(c: ChangeSet): string {
   // A version taken whole (ADR 0022 §1): said by the version, as the Ontology view numbers it, not its change sets' names.
   const v = c.edits.length === 1 && c.edits[0]!.op === 'useVersion' ? c.edits[0]!.changes : null;
   if (v) return `Took ${ruleVersionSaid(v)}${c.until ? ` for ${c.until === c.from ? `${dayShort(c.from)} only` : `${dayShort(c.from)} to ${dayShort(c.until)}`}` : ''}`;
-  const a = resolveRules(baseDoc(), c.from, c.recorded).applied.find((x) => x.change.id === c.id);
-  return a?.said.length ? a.said.join('; ') : 'nothing that applies to the rules of its day';
+  // On the rules of its first day as known when it took effect; one that waits for agreement (ADR 0027 §10) by what
+  // it would do were it agreed to, as the register replays it.
+  const known = knownFrom(keptChanges(), c);
+  const said = known === null ? (registerNow().entries.find((x) => x.change.id === c.id)?.said ?? []) : (resolveRules(baseDoc(), c.from, known).applied.find((x) => x.change.id === c.id)?.said ?? []);
+  return said.length ? said.join('; ') : 'nothing that applies to the rules of its day';
 }
 
 /**
@@ -4584,8 +6023,1114 @@ function rulesLine(day: string, prev: string | null): HTMLElement | null {
   const since = ruleChanges.length ? resolveRules(baseDoc(), day.slice(0, 10), resolvedFor.asOf).applied.filter((a) => a.said.length && a.change.from <= day && (prev === null || a.change.from > prev.slice(0, 10))) : [];
   // A what-if's rules are a version picked for it (ADR 0021 §4), not the day's.
   if (whatIf?.run && loads.list[whatIf.k]?.day.slice(0, 10) === day.slice(0, 10)) return h('p', { class: 'dh-rules' }, h('span', { class: 'dh-rules-k' }, 'Rules of the what-if'), ' ', hashCode(rulesHashOf(state.doc), 'dh-hash'));
+  // What was on its way that day (ADR 0027 §9): said by its end, in force from a later day. The day's own run may be
+  // earlier than the saying (a rule said that afternoon): it is said as said that day, not as known to the run.
+  const coming = ruleChanges.length ? comingOn(keptChanges(), day, monthView.at) : [];
+  const saidThatDay = (c: ChangeSet) => new Date(Date.parse(c.recorded)).toISOString().slice(0, 10) === day.slice(0, 10);
+  const waiting = new Set(ruleChanges.length ? registerNow().entries.filter((e) => e.tense === 'waiting').map((e) => e.change.id) : []);
+  const waitingHere = ruleChanges.filter((c) => waiting.has(c.id) && c.from <= day.slice(0, 10) && (c.until === undefined || day.slice(0, 10) <= c.until));
+  // A change whose first day this is was run both ways (ADR 0027 §7): its own step, a tap from the change.
+  const steps = stepsNow();
+  const stepped = since.map((a) => a.change).filter((c) => steps.get(c.id)?.day === day.slice(0, 10));
   return h('p', { class: 'dh-rules' }, h('span', { class: 'dh-rules-k' }, 'Rules in force'), ' ', hashCode(rulesHashOf(state.doc), 'dh-hash'),
-    since.length ? h('span', { class: 'dh-rules-new' }, ` · new on this day: ${since.flatMap((a) => a.said).join('; ')}`) : ruleChanges.length ? '' : h('span', { class: 'dh-rules-new' }, baseEdited() ? ' · names and labels edited here' : ' · as shipped'));
+    since.length ? h('span', { class: 'dh-rules-new' }, ` · new on this day: ${since.flatMap((a) => a.said).join('; ')}`) : ruleChanges.length ? '' : h('span', { class: 'dh-rules-new' }, baseEdited() ? ' · names and labels edited here' : ' · as shipped'),
+    ...stepped.map((c) => {
+      const step = steps.get(c.id)!;
+      const on = TREND_SERIES.filter((m) => moveSaid(step, m));
+      return h('span', { class: 'dh-rules-step', 'data-step': c.id }, ' · run both ways: ', h('button', { type: 'button', class: 'linkish', onclick: () => openChange(c.id) },
+        `${on.length ? `the change alone moved ${on.map((m) => `${m === 'score' ? 'the score' : m} ${moveSaid(step, m)}`).join(' and ')}` : step.moved.length ? `the change alone moved ${plural(step.moved.length, 'measure')} of ${step.measured}, none of them the score` : `the change moved none of ${plural(step.measured, 'measure')}`} ›`));
+    }),
+    // One that waits for an owner's agreement (ADR 0027 §10) is in force on no day: said as waiting, on the days it
+    // would reach and before them, never as coming.
+    ...waitingHere.map((c) => h('span', { class: 'dh-rules-waits', 'data-change': c.id }, ' · waits for agreement: ', h('button', { type: 'button', class: 'linkish', onclick: () => openChange(c.id) }, `${changeSaid(c)} ›`))),
+    ...coming.map((c) => h('span', { class: waiting.has(c.id) ? 'dh-rules-waits' : 'dh-rules-coming', 'data-change': c.id }, waiting.has(c.id) ? ' · waits for agreement, from ' : saidThatDay(c) ? ' · said this day, from ' : ' · coming ', h('button', { type: 'button', class: 'linkish', onclick: () => openChange(c.id) }, `${dayShort(c.from)}: ${changeSaid(c)} ›`))));
+}
+
+// ------------------------------------------------------------------ why a change is made (ADR 0027 §2, slice 2)
+
+/** What a change says of itself beside its edits (ADR 0027 §2): a kind and a reason, both required, and what more its
+ * author gives: who chose it and when, what led to it, the thinking behind it. */
+interface WhyGiven { why: string; kind: ChangeKind; note?: ChangeNote; decided?: { by: string; on?: string }; because?: { event: string } }
+
+/**
+ * Whose agreement a change of a kind asks for (ADR 0027 §10, Q-277), for the form that asks why: nothing more than its
+ * author's for a setting re-tuned, a mistake corrected, a changed source and a first description; an owner's of each
+ * part of the ontology it touches where the business changed or it ends something. Where the viewer owns every part,
+ * recording it is agreeing to it, and the record says one person held both roles; else it will wait, and for whom.
+ * `about` is the files and steps the change is about, as far as the form knows them.
+ */
+function agreeHint(kind: ChangeKind, about: readonly string[], ends = false): { text: string; waits: boolean } {
+  if (kind !== 'business' && !ends) return { text: `${KIND_NAMES[kind]}: it needs only its author, and is in force once recorded.`, waits: false };
+  const doc = keptChanges();
+  const parts = [...new Map((about.length ? about : ['']).map((d) => {
+    const f = d ? flowOf(state.doc, d) : undefined;
+    const part = f ? { kind: 'flow' as const, id: f.id, name: f.name } : { kind: 'flow' as const, id: '', name: doc.name };
+    return [part.id, part] as const;
+  })).values()].map((part) => ({ part, owners: ownersOf(doc, part) }));
+  const why = kind === 'business' ? (ends ? 'the business changed, and it ends something' : 'the business changed') : 'it ends something';
+  const others = parts.filter((p) => !p.owners.some((o) => o.id === state.viewer));
+  if (!others.length) return { text: `It asks for an owner’s agreement (${why}). You own ${listed(parts.map((p) => p.part.name))}: recording it says you agree, and the record says one person held both roles.`, waits: false };
+  return { text: `It asks for an owner’s agreement (${why}): recorded, it waits for ${ownersSaid(others)}, and is in force on no day until then.`, waits: true };
+}
+
+/** A kind's own mark, beside its words: never colour alone. */
+const kindEl = (kind: ChangeKind | null) => svgNode(kindMark((kind ?? 'none') as KindMark, 12));
+let whyForms = 0;
+
+/**
+ * The fields that say why (ADR 0027 §2, Q-256 to Q-258): the kind, one of four, with the one the edit usually is
+ * picked; one line of why; and, folded, who decided and when, what led to it, and the note in four parts. `read`
+ * gives what was written, or what is missing, in words.
+ */
+function whyFields(kind: ChangeKind, about: readonly string[] = [], ends = false): { el: HTMLElement; read: () => WhyGiven | string; focus: () => void } {
+  const name = `wy-kind-${++whyForms}`;
+  // A first description (closing a list on what it has always held) is offered where the edit is one: it is no change.
+  const asked: readonly ChangeKind[] = kind === 'described' ? ['described', ...KINDS_ASKED] : KINDS_ASKED;
+  const first = asked.includes(kind) ? kind : 'business';
+  const radios = asked.map((k) => {
+    const input = h('input', { type: 'radio', name, value: k, ...(k === first ? { checked: 'checked' } : {}) }) as HTMLInputElement;
+    return { k, input, label: h('label', { class: 'wy-kind', 'data-kind': k }, input, kindEl(k), ` ${KIND_NAMES[k]}`) };
+  });
+  const why = h('textarea', { class: 'wy-reason', rows: '2', 'aria-label': 'Why', placeholder: 'Why, in a sentence: the record keeps it.' }) as HTMLTextAreaElement;
+  const field = (cls: string, label: string, type = 'text', placeholder = '') => {
+    const input = h('input', { class: cls, type, 'aria-label': label, ...(placeholder ? { placeholder } : {}) }) as HTMLInputElement;
+    return { input, row: h('div', { class: 'of-field' }, h('label', {}, label), input) };
+  };
+  const by = field('wy-by', 'Decided by', 'text', 'Who chose it, where that isn’t you');
+  const on = field('wy-on', 'Decided on', 'date');
+  const events = flowEvents();
+  const because = h('select', { class: 'wy-because', 'aria-label': 'Because of' }, h('option', { value: '' }, 'nothing written down'), ...events.map((e) => h('option', { value: e.id }, e.name))) as HTMLSelectElement;
+  const saw = field('wy-saw', 'What we saw');
+  const chose = field('wy-chose', 'What we chose');
+  const down = field('wy-down', 'What we turned down');
+  const expect = field('wy-expect', 'What we expect');
+  const again = field('wy-again', 'Look again on', 'date');
+  // Whose agreement the kind picked asks for (ADR 0027 §10, Q-277), said as the kind is picked: before the change is
+  // recorded, its author knows whether it takes effect at once or waits for someone.
+  const agree = h('p', { class: 'wy-agree', role: 'status' });
+  const sayAgree = () => {
+    const picked = radios.find((r) => r.input.checked)?.k ?? first;
+    const said = agreeHint(picked, about, ends);
+    agree.textContent = said.text;
+    agree.dataset.waits = String(said.waits);
+  };
+  for (const r of radios) r.input.addEventListener('change', sayAgree);
+  sayAgree();
+  const el = h('div', { class: 'wy' },
+    h('div', { class: 'of-field wy-kinds', role: 'radiogroup', 'aria-label': 'What kind of change' }, h('label', {}, 'Kind'), h('div', { class: 'wy-kind-list' }, ...radios.map((r) => r.label))),
+    agree,
+    h('div', { class: 'of-field' }, h('label', {}, 'Why'), why),
+    h('details', { class: 'wy-more' }, h('summary', {}, 'Who decided, what led to it, the thinking'),
+      by.row, on.row, h('div', { class: 'of-field' }, h('label', {}, 'Because of'), because), saw.row, chose.row, down.row, expect.row, again.row));
+  const read = (): WhyGiven | string => {
+    if (!why.value.trim()) return 'A change needs a reason: one line of why.';
+    const said = (x: { input: HTMLInputElement }) => x.input.value.trim();
+    const note: ChangeNote = { ...(said(saw) ? { saw: said(saw) } : {}), ...(said(chose) ? { chose: said(chose) } : {}), ...(said(down) ? { turnedDown: said(down) } : {}), ...(said(expect) ? { expect: said(expect) } : {}), ...(said(again) ? { lookAgain: said(again) } : {}) };
+    if (said(on) && !said(by)) return 'Say who decided it, with the day.';
+    return {
+      why: why.value.trim(),
+      kind: radios.find((r) => r.input.checked)?.k ?? first,
+      ...(Object.keys(note).length ? { note } : {}),
+      ...(said(by) ? { decided: { by: said(by), ...(said(on) ? { on: said(on) } : {}) } } : {}),
+      ...(because.value ? { because: { event: because.value } } : {}),
+    };
+  };
+  return { el, read, focus: () => why.focus() };
+}
+
+/** Ask why a change is made (ADR 0027 §2, Q-256), on a sheet of its own: what it is, from which day, and the fields
+ * that say why. Null where it is closed without an answer: the change isn't made. */
+function askWhy(what: string, kind: ChangeKind, edits: readonly RuleEdit[] = []): Promise<WhyGiven | null> {
+  return new Promise((resolve) => {
+    const f = whyFields(kind, edits.flatMap(editTargets), edits.some((e) => e.op === 'end'));
+    const err = h('p', { class: 'of-err', role: 'alert', hidden: 'hidden' });
+    const go = h('button', { type: 'button', class: 'btn small primary wy-go' }, 'Record the change') as HTMLButtonElement;
+    let answered = false;
+    go.addEventListener('click', () => {
+      const g = f.read();
+      if (typeof g === 'string') {
+        err.textContent = g;
+        err.hidden = false;
+        return;
+      }
+      answered = true;
+      document.querySelector('.vf-detail-wrap')?.remove();
+      resolve(g);
+    });
+    openDetail(what, 'ok', [h('p', { class: 'vf-one wy-from' }, `In force from ${dayLabel(fromDay())}. The record keeps who, when and why.`), f.el, err, h('div', { class: 'of-acts' }, go)]);
+    const wrap = document.querySelector('.vf-detail-wrap');
+    const host = wrap?.parentElement;
+    if (!wrap || !host) return resolve(null);
+    wrap.classList.add('wy-wrap');
+    // Closed without an answer (its close button, the page behind it, Escape): nothing changes.
+    const gone = new MutationObserver(() => {
+      if (wrap.isConnected) return;
+      gone.disconnect();
+      if (!answered) resolve(null);
+    });
+    gone.observe(host, { childList: true });
+    f.focus();
+  });
+}
+
+// ------------------------------------------------------------------ events (ADR 0027 §6, slice 2)
+
+/** Every event the page has, whenever it was written: the build's story's and the record's. */
+function everyEvent(): FlowEvent[] {
+  const written = allEntries().flatMap((e) => (e.kind === 'event' && e.about && typeof (e.about as { id?: unknown }).id === 'string' ? [e.about as unknown as FlowEvent] : []));
+  return [...(dataList?.events ?? []), ...written];
+}
+
+/**
+ * What events excuse of a dataset's load of a day (ADR 0027 §6), as known when the day's version on screen first ran:
+ * a day the record has is told under the events its run knew, so a note written since excuses nothing of it, and a day
+ * not run yet under every event written so far.
+ */
+function excusesNow(source: string, day: string): ClaimExcuse[] {
+  const k = loads.pinned >= 0 ? loads.pinned : loads.at;
+  const asOf = k >= 0 ? versionAsOf(k, Math.max(1, loads.pinnedVersion)) : null;
+  return excusesFor(everyEvent(), source, day, asOf);
+}
+
+/** The flow's events as known at the moment the month is read at: the build's story's, and those written here, which
+ * the record keeps (an entry of kind `event`; written again under its id, an event is changed or taken back). */
+function flowEvents(): FlowEvent[] {
+  return latestEvents(everyEvent(), monthView.at);
+}
+
+/** An event's days in words: "Mon 25 to Sun 31", "Tue 12", "from Mon 11". */
+const eventSpan = (e: Pick<FlowEvent, 'from' | 'until'>): string => (e.until === undefined ? `from ${dayShort(e.from)}` : e.until === e.from ? dayShort(e.from) : `${dayShort(e.from)} to ${dayShort(e.until)}`);
+
+/** Write an event down (ADR 0027 §6): kept in the record, shown at once. */
+async function writeEvent(e: FlowEvent): Promise<void> {
+  if (!ledger) return void setStatus('The record isn’t open: the event can’t be kept.', true);
+  await ledger.append('event', state.viewer, e as unknown as JSONValue, e.note ?? null);
+  seeOwn('event', [e.id]);
+  setStatus(e.withdrawn ? `${e.name}: taken back. Recorded.` : `${e.name}, ${eventSpan(e)}: written down. Recorded.`, false);
+  renderRulesTime();
+  renderLoads();
+  if (location.hash.startsWith('#month') || !$('view-month').hidden) renderMonth();
+  renderRecord();
+}
+
+/** The form that writes an event down, or changes one written here: its name, its days, its kind, what it is about
+ * and a note. */
+function eventForm(was?: FlowEvent): void {
+  const days = [...new Set(loads.list.map((l) => l.day.slice(0, 10)))].sort();
+  const name = h('input', { class: 'ev-name', type: 'text', 'aria-label': 'What was going on', value: was?.name ?? '', placeholder: 'A change freeze, a migration, a reorganisation' }) as HTMLInputElement;
+  const from = h('input', { class: 'ev-from', type: 'date', 'aria-label': 'From', value: was?.from ?? (resolvedFor.day ?? days.at(-1) ?? '') }) as HTMLInputElement;
+  const until = h('input', { class: 'ev-until', type: 'date', 'aria-label': 'Until', value: was?.until ?? '' }) as HTMLInputElement;
+  const kind = h('select', { class: 'ev-kind', 'aria-label': 'Kind' }, ...EVENT_KINDS.map((k) => h('option', { value: k, ...(k === (was?.kind ?? 'other') ? { selected: 'selected' } : {}) }, EVENT_KIND_NAMES[k]))) as HTMLSelectElement;
+  const sources = [...new Set([...Object.keys(dataList?.sources ?? {}), ...Object.keys(state.doc.publish?.watch ?? {})])].sort();
+  const about = h('select', { class: 'ev-about', 'aria-label': 'About' }, h('option', { value: '' }, 'the whole flow'), ...sources.map((id) => h('option', { value: id, ...(was?.about?.[0] === id ? { selected: 'selected' } : {}) }, id))) as HTMLSelectElement;
+  const note = h('textarea', { class: 'ev-note', rows: '2', 'aria-label': 'A note', placeholder: 'What was going on, in a sentence or two' }, was?.note ?? '') as HTMLTextAreaElement;
+  // What it excuses (ADR 0027 §6): learned checks of the dataset it is about, a column's alone where one is named.
+  const ticks = EXCUSABLE.map((c) => ({ c, input: h('input', { type: 'checkbox', class: 'ev-excuse', value: c, ...(was?.excuses?.some((x) => x.check === c) ? { checked: 'checked' } : {}) }) as HTMLInputElement }));
+  const column = h('input', { class: 'ev-column', type: 'text', 'aria-label': 'Only in this column', value: was?.excuses?.find((x) => x.column)?.column ?? '', placeholder: 'every column' }) as HTMLInputElement;
+  const excusing = h('fieldset', { class: 'of-defines ev-excuses' }, h('legend', {}, 'It excuses'),
+    h('p', { class: 'of-hint' }, 'While it lasts, what these checks learned to expect of the dataset is told as expected and holds nothing, and its days aren’t learned from as usual. A rule someone wrote is never excused, and neither is a day already run.'),
+    h('div', { class: 'of-define-list' }, ...ticks.map((t) => h('label', { class: 'of-define' }, t.input, ` ${EXCUSABLE_SAID[t.c]}`))),
+    h('div', { class: 'of-field' }, h('label', {}, 'Only in this column'), column));
+  const fitExcuses = () => (excusing.hidden = !about.value);
+  about.addEventListener('change', fitExcuses);
+  fitExcuses();
+  const err = h('p', { class: 'of-err', role: 'alert', hidden: 'hidden' });
+  const go = h('button', { type: 'button', class: 'btn small primary ev-go' }, was ? 'Record the change' : 'Write it down') as HTMLButtonElement;
+  const bad = (m: string) => {
+    err.textContent = m;
+    err.hidden = false;
+  };
+  go.addEventListener('click', () => {
+    if (!name.value.trim()) return bad('Say what was going on.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from.value)) return bad('Say its first day.');
+    if (until.value && until.value < from.value) return bad('Its last day is on or after its first.');
+    go.disabled = true;
+    const id = was?.id ?? `${name.value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'event'}-${Date.now().toString(36)}`;
+    const col = column.value.trim();
+    const excuses: Excuse[] = about.value ? ticks.filter((t) => t.input.checked).map((t): Excuse => ({ dataset: about.value, check: t.c as Excusable, ...(col && t.c !== 'amount' ? { column: col } : {}) })) : [];
+    const e: FlowEvent = { id, name: name.value.trim(), from: from.value, ...(until.value ? { until: until.value } : {}), kind: kind.value as EventKind, ...(about.value ? { about: [about.value] } : {}), ...(note.value.trim() ? { note: note.value.trim() } : {}), recorded: new Date().toISOString(), by: state.viewer, ...(excuses.length ? { excuses } : {}) };
+    void writeEvent(e).then(() => document.querySelector('.vf-detail-wrap')?.remove());
+  });
+  const takeBack = was ? h('button', { type: 'button', class: 'btn small ev-back', onclick: () => void writeEvent({ ...was, recorded: new Date().toISOString(), by: state.viewer, withdrawn: true }).then(() => document.querySelector('.vf-detail-wrap')?.remove()) }, 'Take it back') : null;
+  openDetail(was ? was.name : 'What was going on', 'ok', [
+    h('p', { class: 'vf-one' }, 'An event is context for reading the days: a freeze, a migration, a reorganisation. It explains the data and changes no rule.'),
+    h('div', { class: 'of-field' }, h('label', {}, 'What'), name),
+    h('div', { class: 'of-field' }, h('label', {}, 'From'), from),
+    h('div', { class: 'of-field' }, h('label', {}, 'Until'), until),
+    h('div', { class: 'of-field' }, h('label', {}, 'Kind'), kind),
+    h('div', { class: 'of-field' }, h('label', {}, 'About'), about),
+    excusing,
+    h('div', { class: 'of-field' }, h('label', {}, 'Note'), note),
+    err, h('div', { class: 'of-acts' }, go, takeBack)]);
+  name.focus();
+}
+
+/** The days a run's claim was told as expected under an event (ADR 0027 §6), by the record: each once, in order. */
+function excusedDays(e: Pick<FlowEvent, 'id' | 'name'>): string[] {
+  const days = new Set<string>();
+  for (const x of allEntries()) {
+    if (x.kind !== 'run') continue;
+    const a = x.about as unknown as { day?: string | null; claims?: { head?: string; excuses?: ClaimExcuse[] }[] };
+    if (typeof a.day !== 'string') continue;
+    if ((a.claims ?? []).some((c) => c.excuses?.some((q) => q.event === e.id) && c.head === `As expected: ${e.name}`)) days.add(a.day.slice(0, 10));
+  }
+  return [...days].sort();
+}
+
+/** What an event excuses, in words: "the mix of status and how much arrives, in findings". Empty where nothing. */
+function excusesSaid(e: Pick<FlowEvent, 'excuses'>): string {
+  const by = new Map<string, string[]>();
+  for (const x of e.excuses ?? []) by.set(x.dataset, [...(by.get(x.dataset) ?? []), `${EXCUSABLE_SAID[x.check]}${x.column ? ` (${x.column})` : ''}`]);
+  return [...by].map(([dataset, what]) => `${listed(what)}, in ${dataset}`).join('; ');
+}
+
+/** The events going on on a day, on its head (ADR 0027 §9): each with which day of it this is. Null where none is. */
+function eventsLine(day: string): HTMLElement | null {
+  const on = flowEvents().filter((e) => eventCovers(e, day));
+  if (!on.length) return null;
+  return h('p', { class: 'dh-events' }, h('span', { class: 'dh-rules-k' }, 'Going on'), ' ', ...on.flatMap((e, k) => {
+    const d = eventDay(e, day);
+    return [k ? ' · ' : '', h('button', { type: 'button', class: 'linkish', 'data-event': e.id, onclick: () => openEvent(e.id) }, `${e.name}${d && d.of !== null && d.of > 1 ? `, day ${d.n} of ${d.of}` : ''} ›`), e.excuses?.length ? h('span', { class: 'dh-excuses' }, ` (excuses ${excusesSaid(e)})`) : ''];
+  }));
+}
+
+/** An event asked for from elsewhere: shown in the register once the Ontology view has drawn its head. */
+let pendingEvent: string | null = null;
+function openEvent(id: string): void {
+  pendingEvent = id;
+  if (location.hash === '#ontology') showChange();
+  else location.hash = '#ontology';
+}
+
+// ------------------------------------------------------------------ who hears, and the auditor (ADR 0027 §10, slice 9)
+
+/** Everything told of the ontology (core/told.ts), as known at the moment the page reads at: every change set and every
+ * event, each with its days, its kind, why, who decided and agreed, what it reaches and its own step. */
+let toldKept: { key: string; told: ToldThing[] } | null = null;
+function toldNow(): ToldThing[] {
+  const events = everyEvent();
+  const steps = stepsNow();
+  const key = `${keptEpoch}|${ruleChanges.map((c) => `${c.id}:${c.agreed?.length ?? 0}`).join(',')}|${monthView.at ?? ''}|${registerToday()}|${events.length}|${steps.size}|${state.doc.id}`;
+  if (toldKept?.key !== key) toldKept = { key, told: tellOf(baseDoc(), { today: registerToday(), asOf: monthView.at, events, steps, name: (id) => pagePeople.get(id) }) };
+  return toldKept.told;
+}
+
+/** Where a browser keeps what each person last saw of a flow's register: by the flow and by who is viewing, the stand-in
+ * for people until sharing is built. */
+const seenPlace = (): string => `smaltfl:seen:${shippedDoc.id}:${state.viewer}`;
+function readSeen(): Seen | null {
+  try {
+    const kept = localStorage.getItem(seenPlace());
+    const v = kept ? (JSON.parse(kept) as unknown) : null;
+    return v && typeof v === 'object' && !Array.isArray(v) ? (v as Seen) : null;
+  } catch {
+    return null;
+  }
+}
+function writeSeen(seen: Seen): void {
+  try {
+    localStorage.setItem(seenPlace(), JSON.stringify(seen));
+  } catch {
+    // A browser that keeps nothing says everything again next time: nothing to do about it here.
+  }
+}
+
+/**
+ * What is new, and what has moved, since whoever is viewing last looked at the register (ADR 0027 §10, Q-278), as known
+ * now. Someone who never looked has everything as it stands for their starting point, and is told nothing; read as
+ * known at an earlier moment, nothing is said either.
+ */
+function sinceNow(): SinceSeen | null {
+  if (!toldReady || monthView.at !== null) return null;
+  const told = toldNow();
+  if (!told.length) return null;
+  const seen = readSeen();
+  if (seen === null) {
+    writeSeen(seenNow(told));
+    return null;
+  }
+  const since = sinceSeen(told, seen);
+  return since && (since.fresh.length || since.moved.length) ? since : null;
+}
+
+/** What whoever is viewing did themselves is no news to them: a change they made or agreed to, an event they wrote. */
+function seeOwn(is: ToldThing['is'], ids: readonly string[]): void {
+  const seen = readSeen();
+  if (seen === null || !ids.length) return;
+  toldKept = null;
+  const now = seenNow(toldNow().filter((t) => t.is === is && ids.includes(t.id)));
+  writeSeen({ ...seen, ...now });
+}
+
+/** The change sets the page has had since the flow was read in or last edited: one more is someone's own doing. */
+let changesHad = new Set<string>();
+/** Whether the page has what the telling is made of: its record open and the build's month read. Before that nothing
+ * is compared with what was seen, and nothing is kept as seen. */
+let toldReady = false;
+
+/** Since you last looked, at the head of the register: how much is new, each thing a tap from its entry, and **Got
+ * it**, which makes what is on screen the last thing seen. Null where nothing is new. */
+function sincePart(): HTMLElement | null {
+  const since = sinceNow();
+  if (!since) return null;
+  const go = (t: ToldThing) => (t.is === 'change' ? openChange(t.id) : openEvent(t.id));
+  const line = (t: ToldThing, said: string) => h('li', { [`data-${t.is}`]: t.id },
+    h('button', { type: 'button', class: 'linkish', onclick: () => go(t) }, `${t.what[0]}${t.what.length > 1 ? `, and ${plural(t.what.length - 1, 'more edit')}` : ''} ›`),
+    h('span', { class: 'rg-since-how' }, ` ${said}`));
+  const state1 = (t: ToldThing) => (t.tense === 'waiting' ? 'new · waits for agreement' : t.tense === 'coming' ? `new · ${spanSaid(t).replace(/^From /, 'from ')}` : `new · ${spanSaid(t).replace(/^From /, 'from ')}`);
+  return h('section', { class: 'rg-since', 'aria-label': 'Since you last looked' },
+    h('p', { class: 'rg-since-head' }, h('b', {}, 'Since you last looked. '), sinceSaid(since)),
+    h('ul', { class: 'rg-since-list' }, ...since.fresh.map((t) => line(t, state1(t))), ...since.moved.map((m) => line(m.told, sinceMoved(m)))),
+    h('button', { type: 'button', class: 'btn small rg-since-go', onclick: () => {
+      writeSeen(seenNow(toldNow()));
+      renderRulesTime();
+      if (!$('view-month').hidden) renderMonth();
+    } }, 'Got it'));
+}
+
+/** The same on the home screen, in a line: that the ontology changed since whoever is viewing last looked, a tap from
+ * the register. Null where nothing is new. */
+function sinceLine(): HTMLElement | null {
+  const since = sinceNow();
+  if (!since) return null;
+  return h('p', { class: 'mo-since' }, h('b', {}, 'The ontology changed since you last looked: '), h('a', { class: 'mo-since-go', href: '#ontology' }, `${sinceSaid(since).replace(/\.$/, '')} ›`));
+}
+
+/** What the Ontology view shows in place of itself, where a link or a button asked: a period's digest, or the history
+ * for an auditor, each over a period (both days in). */
+let toldView: { is: 'digest' | 'history'; from: string; to: string } | null = null;
+
+/** The periods a digest or a history is offered over: the month on screen, the week of the day on screen, and all the
+ * days the page has. */
+function toldPeriods(): { name: string; from: string; to: string }[] {
+  const days = [...new Set(loads.list.map((l) => l.day.slice(0, 10)))].sort();
+  if (!days.length) return [];
+  const day = (resolvedFor.day ?? registerToday()).slice(0, 10);
+  const month = day.slice(0, 7);
+  const last = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).toISOString().slice(0, 10);
+  const d = new Date(`${day}T00:00:00Z`);
+  const monday = new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86_400_000).toISOString().slice(0, 10);
+  const sunday = new Date(Date.parse(`${monday}T00:00:00Z`) + 6 * 86_400_000).toISOString().slice(0, 10);
+  return [
+    { name: `the month, ${periodSaid(`${month}-01`, last)}`, from: `${month}-01`, to: last },
+    { name: `the week, ${periodSaid(monday, sunday)}`, from: monday, to: sunday },
+    ...(days[0] !== `${month}-01` || days.at(-1) !== last ? [{ name: `every day here, ${periodSaid(days[0]!, days.at(-1)!)}`, from: days[0]!, to: days.at(-1)! }] : []),
+  ];
+}
+
+/** Text as an image, as a brief is copied as one: a title and lines on the page's own surface, wrapped to its width. */
+async function textImage(title: string, lines: readonly string[]): Promise<Blob> {
+  const W = 760;
+  const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const wrap = (text: string, width: number): string[] => {
+    const indent = /^\s*/.exec(text)![0];
+    const out: string[] = [];
+    let line = '';
+    for (const w of text.trim().split(/\s+/)) {
+      if ((line + ' ' + w).trim().length > width - indent.length) { out.push(indent + line.trim()); line = w; } else line = `${line} ${w}`;
+    }
+    if (line.trim()) out.push(indent + line.trim());
+    return out.length ? out : [''];
+  };
+  const root = getComputedStyle(document.documentElement);
+  const bg = root.getPropertyValue('--surface').trim() || '#fff';
+  const ink = root.getPropertyValue('--ink').trim() || '#151922';
+  const muted = root.getPropertyValue('--muted').trim() || '#5c6375';
+  const rows = lines.flatMap((l) => wrap(l, 92).map((text) => ({ text, head: /^[A-Z ]+$/.test(l) && l.trim() !== '' })));
+  const H = 64 + rows.length * 19 + 24;
+  const body = rows.map((r, i) => `<text x="${28 + (r.text.length - r.text.trimStart().length) * 7}" y="${72 + i * 19}" font-size="${r.head ? 11 : 13}" font-weight="${r.head ? 600 : 400}" fill="${r.head ? muted : ink}"${r.head ? ' letter-spacing="1"' : ''}>${esc(r.text.trim())}</text>`).join('');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="system-ui, sans-serif"><rect width="${W}" height="${H}" fill="${bg}"/><text x="28" y="40" font-size="20" font-weight="650" fill="${ink}">${esc(title)}</text>${body}</svg>`;
+  const img = new Image();
+  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error('the image couldn’t be drawn'));
+    img.src = url;
+  });
+  const canvas = document.createElement('canvas');
+  canvas.width = W * 2;
+  canvas.height = H * 2;
+  const ctx = canvas.getContext('2d')!;
+  ctx.scale(2, 2);
+  ctx.drawImage(img, 0, 0);
+  URL.revokeObjectURL(url);
+  return new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('the image couldn’t be made'))), 'image/png'));
+}
+
+/** Copy as text, as an image and as a link, as a day's brief has them (ADR 0012): each says it copied, or gives the
+ * thing itself where the browser has no clipboard for it. */
+function copyActs(o: { text: () => string; title: string; link: string }): HTMLElement {
+  const copy = h('button', { type: 'button', class: 'btn small tl-copy' }, 'Copy as text');
+  copy.addEventListener('click', () => {
+    const text = o.text();
+    navigator.clipboard?.writeText(text).then(() => { copy.textContent = 'Copied'; setTimeout(() => (copy.textContent = 'Copy as text'), 1500); }).catch(() => {
+      const ta = h('textarea', { class: 'brief-edit', rows: '8', 'aria-label': `${o.title} as text` }) as HTMLTextAreaElement;
+      ta.value = text;
+      copy.replaceWith(ta);
+      ta.select();
+    });
+  });
+  const image = h('button', { type: 'button', class: 'btn small tl-image' }, 'Copy as image');
+  image.addEventListener('click', () => {
+    image.textContent = 'Drawing…';
+    const [, ...lines] = o.text().split('\n');
+    void textImage(o.title, lines).then(async (blob) => {
+      try {
+        if (!('ClipboardItem' in window)) throw new Error('no clipboard images here');
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        image.textContent = 'Copied';
+        setTimeout(() => (image.textContent = 'Copy as image'), 1500);
+      } catch {
+        image.replaceWith(h('img', { class: 'brief-img', alt: `${o.title} as an image: press and hold to save it`, src: URL.createObjectURL(blob) }));
+      }
+    }).catch(() => { image.textContent = 'Couldn’t draw it'; });
+  });
+  const link = h('button', { type: 'button', class: 'btn small tl-link', 'data-link': o.link }, 'Copy link');
+  link.addEventListener('click', () => {
+    const url = `${location.href.split('#')[0]}${o.link}`;
+    navigator.clipboard?.writeText(url).then(() => { link.textContent = 'Copied'; setTimeout(() => (link.textContent = 'Copy link'), 1500); }).catch(() => { link.textContent = url; });
+  });
+  return h('div', { class: 'nb-actions tl-acts' }, copy, image, link);
+}
+
+/** Whether a period is one the page was asked for by a link, or one of those it offers. */
+const samePeriod = (a: { from: string; to: string }, b: { from: string; to: string }) => a.from === b.from && a.to === b.to;
+
+/**
+ * A digest to pass on (ADR 0027 §10, Q-278), under the register: a period's changes, what is coming, what waits for
+ * someone and what was going on, as text to copy, as an image, or as a link that opens the same digest. Folded, and
+ * open where a link asked for it. The feed the site publishes is a tap from it, and the history for an auditor.
+ */
+function digestPart(): HTMLElement | null {
+  const told = toldNow();
+  const periods = toldPeriods();
+  if (!told.length || !periods.length) return null;
+  const asked = toldView?.is === 'digest' ? toldView : null;
+  const offered = asked && !periods.some((p) => samePeriod(p, asked)) ? [{ name: periodSaid(asked.from, asked.to), from: asked.from, to: asked.to }, ...periods] : periods;
+  let at = Math.max(0, asked ? offered.findIndex((p) => samePeriod(p, asked)) : 0);
+  const out = h('div', { class: 'dg-out' });
+  const pick = h('select', { class: 'dg-period', 'aria-label': 'The period of the digest' }, ...offered.map((p, i) => h('option', { value: String(i), ...(i === at ? { selected: 'selected' } : {}) }, p.name))) as HTMLSelectElement;
+  const draw = () => {
+    const p = offered[at]!;
+    const d = digestOf(state.doc.name, told, p.from, p.to, registerToday());
+    const text = digestText(d);
+    out.replaceChildren(
+      h('p', { class: 'dg-head' }, digestHead(d)),
+      h('pre', { class: 'dg-text', tabindex: '0', 'aria-label': `The digest of ${periodSaid(p.from, p.to)}, as text` }, text.split('\n').slice(2).join('\n').trim() || 'Nothing to pass on.'),
+      copyActs({ text: () => text, title: `${state.doc.name}: the ontology, ${periodSaid(p.from, p.to)}`, link: `#ontology/digest/${p.from}..${p.to}` }));
+  };
+  pick.addEventListener('change', () => {
+    at = Number(pick.value);
+    draw();
+  });
+  draw();
+  const day = (resolvedFor.day ?? registerToday()).slice(0, 10);
+  return h('details', { class: 'fold rg-digest', ...(asked || digestOpen ? { open: '' } : {}), ontoggle: (e: Event) => (digestOpen = (e.currentTarget as HTMLDetailsElement).open) },
+    h('summary', {}, h('span', { class: 'dg-k' }, 'Pass it on'), h('span', { class: 'dg-n' }, 'a digest to copy, the feed, and the history for an auditor')),
+    h('label', { class: 'dg-row' }, h('span', { class: 'dg-row-k' }, 'A digest of'), pick),
+    out,
+    h('p', { class: 'foot dg-more' },
+      dataList?.feed ? h('span', { class: 'dg-feed' }, 'The site publishes the changes, what is coming and the events as a feed: ', h('a', { href: dataList.feed, class: 'dg-feed-go', type: 'application/atom+xml' }, `${dataList.feed} ›`), ' ') : null,
+      h('button', { type: 'button', class: 'linkish dg-history', onclick: () => {
+        const p = toldPeriods()[0];
+        toldView = { is: 'history', from: p?.from ?? day, to: p?.to ?? day };
+        void renderOntology();
+      } }, 'The history for an auditor, to print ›')));
+}
+let digestOpen = false;
+
+/** One thing told, as the history's page sets it out: its days and kind, then each fact on a line of its own. */
+function historyEntry(t: ToldThing & { shipped?: true }): HTMLElement {
+  const row = (k: string, v: string | null) => (v ? [h('dt', {}, k), h('dd', {}, v)] : []);
+  return h('article', { class: `hp-entry hp-${t.is}`, [`data-${t.is}`]: t.id },
+    h('p', { class: 'hp-when' }, t.is === 'change' ? kindEl(t.kind as ChangeKind | null) : null, `${spanSaid(t)} · ${t.kindSaid}${t.estate ? ` · ${t.estate}’s ontology` : ''}`),
+    h('p', { class: 'hp-what' }, t.what.join('; ')),
+    h('dl', { class: 'hp-facts' },
+      ...row('Why', t.why ? `“${t.why}”` : 'No reason given'),
+      ...row(t.is === 'event' ? 'Written down' : 'Recorded', `${whenSaid(t.recorded)}, by ${t.by} · ${saidWhen(t)}`),
+      ...row('Decided', t.decided ? `${t.decided.by}${t.decided.on ? `, on ${dayLabel(t.decided.on)}` : ''}` : null),
+      ...row('Agreed', t.is === 'event' ? null : t.agreeing === 'none' ? 'Asked for no agreement: a change of its kind needs only its author' : t.agreeing === 'waiting' ? `Waits for ${t.waitsFor}: in force on no day` : `${listed(t.agreed.map((a) => `${a.by}, ${whenSaid(a.at)}`))}${t.agreeing === 'same' ? ' · one person held both roles' : ''}`),
+      ...row('Because of', t.because ?? null),
+      ...row('Reaches', toldReach(t).replace(/^Reaches /, '').replace(/\.$/, '').replace(/^About the flow as a whole$/, 'The flow as a whole')),
+      ...row('Excuses', t.excuses ?? null),
+      ...row('Its own step', t.step ? stepToldSaid(t).replace(/^Its own step, /, '').replace(/\.$/, '') : null),
+      ...row('Stands', t.tense === 'waiting' ? 'Waiting for agreement' : t.tense === 'coming' ? 'Still to come at the end of the period' : t.tense === 'ended' ? (t.is === 'event' ? 'Over by the end of the period' : 'Ended by the end of the period') : t.is === 'event' ? 'Going on at the end of the period' : 'In force at the end of the period'),
+      ...row('From', t.shipped ? 'The build’s data: not in this browser’s record' : null)));
+}
+
+/** A history over a period, from everything the page knows: the flow as kept, the events and the steps of its record,
+ * and those that came with the build's data, kept apart. */
+async function historyNow(from: string, to: string, asOf: string | null = monthView.at, entries: readonly RecordEntry[] = ledger?.entries ?? []): Promise<OntologyHistory> {
+  // The flow as the record keeps it, without what is only for display: the offline check has that document and no other.
+  const doc = withoutDisplay(baseDoc()) as FlowDocument;
+  const at = asOf ? Date.parse(asOf) : null;
+  const known = entries.filter((e) => at === null || Date.parse(e.at) <= at);
+  const own = known.flatMap((e) => (e.kind === 'event' && e.about && typeof (e.about as { id?: unknown }).id === 'string' ? [e.about as unknown as FlowEvent] : []));
+  const builds = stepsOf(recordedEntries.filter((e) => at === null || Date.parse(e.at) <= at));
+  return ontologyHistoryOf(doc, await flowHash(doc), from, to, { asOf, events: own, steps: stepsOf(known), shipped: { events: dataList?.events ?? [], steps: builds } });
+}
+
+/**
+ * The history for an auditor (ADR 0027 §10, Q-279), in place of the Ontology view: over a chosen period, who owns the
+ * ontology, then every change with its kind, its reason, who decided, who agreed, what it reached and its own step,
+ * and what was written down as going on. It prints as it reads: the page's own furniture is left off the paper.
+ */
+async function renderHistoryPage(view: { from: string; to: string }): Promise<void> {
+  const page = $('history-page');
+  document.body.dataset.told = 'history';
+  page.hidden = false;
+  const hist = await historyNow(view.from, view.to);
+  // Asked for another period, or left, while it was being made.
+  if (toldView?.is !== 'history' || !samePeriod(toldView, view)) return;
+  const told = historyTold(hist);
+  const from = h('input', { type: 'date', class: 'hp-from', 'aria-label': 'From', value: view.from }) as HTMLInputElement;
+  const to = h('input', { type: 'date', class: 'hp-to', 'aria-label': 'To', value: view.to }) as HTMLInputElement;
+  const again = () => {
+    if (!from.value || !to.value || from.value > to.value) return;
+    toldView = { is: 'history', from: from.value, to: to.value };
+    void renderOntology();
+  };
+  from.addEventListener('change', again);
+  to.addEventListener('change', again);
+  const text = historyText(hist);
+  page.replaceChildren(
+    h('div', { class: 'hp-acts' },
+      h('button', { type: 'button', class: 'btn small hp-back', onclick: () => {
+        toldView = null;
+        void renderOntology();
+      } }, '‹ The Ontology view'),
+      h('label', { class: 'hp-pick' }, 'From ', from), h('label', { class: 'hp-pick' }, 'to ', to),
+      h('button', { type: 'button', class: 'btn small primary hp-print', onclick: () => window.print() }, 'Print'),
+      copyActs({ text: () => text, title: `${hist.flow.name}: the ontology’s history, ${periodSaid(view.from, view.to)}`, link: `#ontology/history/${view.from}..${view.to}` })),
+    h('h2', { class: 'hp-title' }, `${hist.flow.name}: the ontology’s history`),
+    h('p', { class: 'hp-period' }, `${periodSaid(view.from, view.to)}. ${historyHead(hist)}`),
+    h('p', { class: 'hp-made' }, `Made from the flow as kept, `, h('code', {}, hist.flow.hash.slice(0, 16)), `…${hist.asOf ? `, as known on ${whenSaid(hist.asOf)}` : ''}, as things stood on ${dayLabel(view.to)}. The audit export carries this history over every day here, and the offline check makes it again from the record.`),
+    h('h3', { class: 'hp-h' }, 'Who owns it'),
+    h('table', { class: 'hp-owners' }, h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, 'Part of the ontology'), h('th', { scope: 'col' }, 'Owned by'))), h('tbody', {}, ...hist.owners.map((x) => h('tr', {}, h('th', { scope: 'row' }, x.part), h('td', {}, listed(x.owners)))))),
+    h('h3', { class: 'hp-h' }, `Changes · ${told.changes.length}`),
+    ...(told.changes.length ? told.changes.map(historyEntry) : [h('p', { class: 'hp-none' }, 'No change to the ontology in the period.')]),
+    h('h3', { class: 'hp-h' }, `Going on · ${told.events.length}`),
+    ...(told.events.length ? told.events.map(historyEntry) : [h('p', { class: 'hp-none' }, 'Nothing was written down as going on in the period.')]));
+}
+
+/** A link into the Ontology view (ADR 0027 §10): a change or an event by its id (the feed's entries), a period's digest,
+ * the history for an auditor. Each says what the view shows, and the link becomes the view's own. */
+function takeOntologyLink(): void {
+  const m = /^#ontology\/(change|event|digest|history)\/(.+)$/.exec(location.hash);
+  if (!m) return;
+  const [, what, arg] = m as unknown as [string, string, string];
+  const period = /^(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})$/.exec(arg);
+  if (what === 'change') pendingChange = decodeURIComponent(arg);
+  else if (what === 'event') pendingEvent = decodeURIComponent(arg);
+  else if (period && period[1]! <= period[2]!) toldView = { is: what as 'digest' | 'history', from: period[1]!, to: period[2]! };
+  window.history.replaceState(null, '', '#ontology');
+}
+
+// ------------------------------------------------------------------ the register (ADR 0027 §9, slice 1)
+
+/** The day the register is read from: the last day that has arrived, as known at the moment the month is read at. */
+let todayKept: { key: string; day: string } | null = null;
+function registerToday(): string {
+  const days = daysShown();
+  const entries = allEntries();
+  const key = `${entries.length}|${monthView.at ?? ''}|${days.length}|${days.at(-1) ?? ''}`;
+  if (todayKept?.key !== key) {
+    const known = [...monthOf(days, entries, { at: monthView.at, judged: loadSource() })].reverse().find((d) => d.state !== 'notRun' && d.state !== 'notArrived')?.day;
+    todayKept = { key, day: (known ?? days.at(-1) ?? new Date().toISOString()).slice(0, 10) };
+  }
+  return todayKept.day;
+}
+
+/** The register's entries as known at the moment the month is read at, kept while nothing they are made from moves. */
+let registerKept: { key: string; entries: RegisterEntry[]; later: number; today: string } | null = null;
+function registerNow(): { entries: RegisterEntry[]; later: number; today: string } {
+  const today = registerToday();
+  const key = `${keptEpoch}|${ruleChanges.map((c) => c.id).join(',')}|${monthView.at ?? ''}|${today}`;
+  if (registerKept?.key !== key) registerKept = { key, ...registerOf(baseDoc(), { today, asOf: monthView.at }), today };
+  return registerKept;
+}
+
+/** A change set's days in words, and how it was said: "From Mon 18 · said Fri 15, 3 days ahead". */
+function entryWhen(e: RegisterEntry): string {
+  const c = e.change;
+  // What is coming has no month's heading over it: a day outside the month on screen is said with its month.
+  const dayOf = (d: string) => (e.tense === 'coming' || e.tense === 'waiting' ? dayNear(d) : dayShort(d));
+  const span = c.until ? (c.until === c.from ? `${dayOf(c.from)} only` : `${dayOf(c.from)} to ${dayOf(c.until)}`) : `From ${dayOf(c.from)}`;
+  // A change made here on a demo's days is recorded by this browser's clock, long after them: said by its date alone.
+  const near = Math.abs(e.lead) <= 92;
+  const said = e.how === 'ahead' ? (near ? `said ${dayShort(e.recordedDay)}, ${plural(e.lead, 'day')} ahead` : `said ${dayLabel(e.recordedDay)}`)
+    : e.how === 'back' ? (near ? `recorded ${dayShort(e.recordedDay)}, back-dated ${plural(-e.lead, 'day')}` : `recorded ${dayLabel(e.recordedDay)}, after its first day`)
+    : 'recorded on its day';
+  return `${span} · ${said}`;
+}
+
+/** The change a link asked for, shown once the Ontology view has drawn its head. */
+let pendingChange: string | null = null;
+function openChange(id: string): void {
+  pendingChange = id;
+  if (location.hash === '#ontology') showChange();
+  else location.hash = '#ontology';
+}
+function showChange(): void {
+  const item = pendingChange ? document.querySelector<HTMLElement>(`#rules-time .rg-item[data-change="${CSS.escape(pendingChange)}"]`)
+    : pendingEvent ? document.querySelector<HTMLElement>(`#rules-time .rg-item[data-event="${CSS.escape(pendingEvent)}"]`) : null;
+  if (!item) return;
+  pendingChange = null;
+  pendingEvent = null;
+  for (const x of document.querySelectorAll('#rules-time .rg-item.at')) x.classList.remove('at');
+  item.classList.add('at');
+  item.scrollIntoView({ block: 'center' });
+}
+
+/**
+ * Each change's own step (ADR 0027 §7, Q-261), as the record keeps it and as known at the moment the month is read at:
+ * its first day run both ways, and what the change alone moved.
+ */
+function stepsNow(): Map<string, StepAbout & { seq: number }> {
+  const at = monthView.at ? Date.parse(monthView.at) : null;
+  return stepsOf(allEntries().filter((e) => at === null || Date.parse(e.at) <= at));
+}
+/** The trend's two lines, as a step's measures name them. */
+const TREND_SERIES = ['score', 'coverage'] as const;
+/**
+ * A change's own step on the trend's two lines, in words: what it moved of the score and the coverage, that it moved
+ * neither with how much else it did, or that it moved nothing. Empty for a change that wasn't run both ways.
+ */
+function stepOnTrend(change: string): string {
+  const step = stepsNow().get(change);
+  if (!step) return '';
+  const on = TREND_SERIES.filter((m) => moveSaid(step, m));
+  if (on.length) return `its own step: ${on.map((m) => `${m === 'score' ? 'the score' : m} ${moveSaid(step, m)}`).join('; ')}${on.length === 1 ? `; ${on[0] === 'score' ? 'coverage' : 'the score'} not at all` : ''}`;
+  return step.moved.length ? `its own step: nothing on the score or coverage, ${plural(step.moved.length, 'other measure')} of ${step.measured}` : `its own step: none of ${plural(step.measured, 'measure')} moved`;
+}
+/**
+ * The note beside a watched dataset on the first day of a declared change whose own step moved its series (ADR 0027 §7,
+ * Q-263): what its run said there is the change's own, accepted ahead by the declaration, and the checks learn from the
+ * new level from that day. A tap from the change.
+ */
+function declaredNote(source: string, day: string): HTMLElement | null {
+  const d = declaredOn(stepsNow(), source, day);
+  const change = d ? ruleChanges.find((c) => c.id === d.change) : undefined;
+  return change ? h('span', { class: 'mo-f-declared', 'data-change': change.id }, ' The rest of what its run said is as declared: ', h('button', { type: 'button', class: 'linkish', onclick: () => openChange(change.id) }, `${changeSaid(change)} ›`), ' The change’s own step, and the new level from this day.') : null;
+}
+
+/**
+ * The series a level names, as people read them, by what they are of: how many rows there are, the mix of each
+ * column whose values it names, the blanks and the spread of others, and how the columns go together. A level names
+ * series one by one, and a change that adds a tenth more rows moves dozens: they are said by column.
+ */
+function levelSeries(metrics: readonly string[]): string {
+  const cols = (kind: RegExp) => [...new Set(metrics.flatMap((m) => {
+    const got = kind.exec(m);
+    return got ? [got[1]!] : [];
+  }))];
+  const few = (xs: string[]) => `${listed(xs.slice(0, 4))}${xs.length > 4 ? ` and ${xs.length - 4} more` : ''}`;
+  const mix = cols(/^(?:value|count):([^=]+)=/);
+  const blank = cols(/^missing:(.+)$/);
+  const spread = cols(/^(?:quantile|median):([^@]+)/);
+  const pairs = metrics.some((m) => m.startsWith('combo:'));
+  const parts = [
+    ...(metrics.includes('trips') ? ['how many rows it has'] : []),
+    ...(mix.length ? [`the mix of ${few(mix)}`] : []),
+    ...(blank.length ? [`the blanks of ${few(blank)}`] : []),
+    ...(spread.length ? [`the spread of ${few(spread)}`] : []),
+    ...(pairs ? ['how its columns go together'] : []),
+  ];
+  return parts.length ? parts.join('; ') : plural(metrics.length, 'series');
+}
+/**
+ * A declared change on a watched dataset's own News (ADR 0027 §7, Q-263). On the change's first day: what its checks
+ * say below is the change's own step, the day's data was judged as it was, and the new level starts here. On a later
+ * day: that its checks learn from the level the change declared, and since when. Null where no change's step moved it.
+ */
+function declaredPart(id: string, day: string): HTMLElement | null {
+  const steps = stepsNow();
+  const first = declaredOn(steps, id, day);
+  if (first) {
+    const change = ruleChanges.find((c) => c.id === first.change);
+    if (!change) return null;
+    const was = first.level.was;
+    const old = !was ? '' : was.state === 'unusual' || was.state === 'wrong' ? ` The day’s data, judged as it was, had this to say: ${was.head}` : ' The day’s data, judged as it was, had nothing to say.';
+    return h('div', { class: 'verdict note declared', 'data-change': change.id },
+      h('p', { class: 'v-day' }, `${dayLabel(day)} · as declared`),
+      h('h3', { class: 'v-head' }, glyphEl('explained', 16), ' The change’s own step'),
+      h('p', { class: 'v-line' }, h('button', { type: 'button', class: 'linkish', onclick: () => openChange(change.id) }, `${changeSaid(change)} ›`), ` This is its first day, run both ways: the change alone moved ${levelSeries(first.level.metrics)}.${old} The checks learn from the new level from this day.`));
+  }
+  const d = day.slice(0, 10);
+  const since = [...steps.values()].filter((st) => st.day < d && st.levels?.some((l) => l.source.toLowerCase() === id.toLowerCase())).sort((a, b) => (a.day < b.day ? 1 : -1))[0];
+  const change = since ? ruleChanges.find((c) => c.id === since.change) : undefined;
+  if (!since || !change) return null;
+  const level = since.levels!.find((l) => l.source.toLowerCase() === id.toLowerCase())!;
+  return h('p', { class: 'foot declared-since', 'data-change': change.id }, `Judged from the level declared on ${dayShort(since.day)}: `, h('button', { type: 'button', class: 'linkish', onclick: () => openChange(change.id) }, `${changeSaid(change)} ›`), ` Its checks learn from that day on: ${levelSeries(level.metrics)}.`);
+}
+
+/** A measure a step moved, as people read it: the product's score, the checks behind it, a control, an output's rows. */
+function measureNamed(measure: string): string {
+  if (measure === 'score') return 'the score';
+  if (measure === 'coverage') return 'coverage';
+  if (measure === 'checks:applying') return 'checks that apply';
+  if (measure === 'checks:evidence') return 'checks with evidence';
+  if (measure === 'checks:failing') return 'checks failing';
+  if (measure.startsWith('failing:')) return `applications failing ${recorded?.controls?.[measure.slice(8)] ?? measure.slice(8)}`;
+  if (measure.startsWith('rows:')) return `the output ${measure.slice(5)}`;
+  return measure;
+}
+/** A measure's move in words: a score or a share to a decimal, a count whole: "+1,994 (19,320 → 21,314)". */
+function movedSaid(m: Pick<StepMeasure, 'measure' | 'without' | 'with'>): string {
+  if (m.without === null || m.with === null) return m.with === null ? 'no longer built' : 'built where it wasn’t';
+  if (m.measure === 'score' || m.measure === 'coverage') return moveSaid({ moved: [m as StepMeasure] }, m.measure);
+  const d = Math.round(m.with - m.without);
+  return `${d > 0 ? '+' : d < 0 ? '−' : ''}${fmtInt(Math.abs(d))}${m.measure.startsWith('rows:') ? (Math.abs(d) === 1 ? ' row' : ' rows') : ''} (${fmtInt(m.without)} → ${fmtInt(m.with)})`;
+}
+/** Measures in the order people read them: the trend's lines, the checks behind them, each control, then the outputs by
+ * how far they moved. */
+function movedInOrder(moved: readonly StepMeasure[]): StepMeasure[] {
+  const rank = (m: StepMeasure) => (m.measure === 'score' ? 0 : m.measure === 'coverage' ? 1 : m.measure.startsWith('checks:') ? 2 : m.measure.startsWith('failing:') ? 3 : 4);
+  const size = (m: StepMeasure) => (m.without === null || m.with === null ? Infinity : Math.abs(m.with - m.without));
+  return [...moved].sort((x, y) => rank(x) - rank(y) || size(y) - size(x) || (x.measure < y.measure ? -1 : 1));
+}
+/**
+ * A change's own step on its register entry (ADR 0027 §7, Q-261): the day it was run both ways, what the change alone
+ * moved (the trend's lines first, then the measures that moved most, the rest a tap away), what was left out as it was,
+ * the series it is the new level of (Q-263), and the day's outputs both ways from the two runs' manifests. For a change
+ * of the business made here, whose first day has run, that it wasn't measured and how to see the day as it was. Null
+ * for any other change that wasn't run both ways.
+ */
+function stepLine(c: ChangeSet): HTMLElement | null {
+  const step = stepsNow().get(c.id);
+  if (!step) {
+    const ran = loads.list.some((l, k) => l.day.slice(0, 10) === c.from && runsOfVersions(k).length > 0);
+    if (c.kind !== 'business' || shippedChange(c.id) || !ran) return null;
+    return h('span', { class: 'rg-step rg-step-none', 'data-step': c.id }, h('b', {}, 'Its own step isn’t measured. '), `The build runs a recorded change’s first day both ways; one made here isn’t yet. On ${dayShort(c.from)}, What if… › under the rules before it shows the day as it was.`);
+  }
+  const moved = movedInOrder(step.moved);
+  const shown = moved.slice(0, 3);
+  const rest = moved.slice(3);
+  const hasScore = recorded?.posture !== undefined && Object.keys(recorded.posture).length > 0;
+  const levels = step.levels ?? [];
+  const left = step.leftOut?.flatMap((x) => x.keys) ?? [];
+  const a = manifestOf(step.without.manifest);
+  const b = manifestOf(step.with.manifest);
+  // The context tables say the change itself (ADR 0027 §8): they differ by what they are, and aren't counted.
+  const both = a && b ? compareSummary(a, b, contextSteps()) : null;
+  const outs = both ? both.outputs : [];
+  const differ = outs.filter((o) => o.changed);
+  return h('span', { class: 'rg-step', 'data-step': c.id },
+    h('b', {}, `Its own step, ${dayShort(step.day)}. `),
+    step.moved.length
+      ? `Run both ways, the change alone moved ${shown.map((m) => `${measureNamed(m.measure)} ${movedSaid(m)}`).join('; ')}${rest.length ? `, and ${plural(rest.length, 'other measure')}` : ''}, of ${plural(step.measured, 'measure')} read.${hasScore && !step.moved.some((m) => m.measure === 'score') ? ' It didn’t move the score.' : ''}`
+      : `Run both ways, it moved none of ${plural(step.measured, 'measure')}.`,
+    left.length ? ` As it was, ${listed(left)} ${left.length === 1 ? 'was' : 'were'} left out.` : '',
+    levels.length ? ` A new level from that day for ${listed(levels.map((l) => l.source))}: the checks learn from it.` : '',
+    both && (differ.length || rest.length) ? h('details', { class: 'fold rg-both' },
+      h('summary', {}, `The day both ways: ${differ.length ? `${fmtInt(differ.length)} of ${fmtInt(outs.length)} outputs differ` : 'no output differs'}`),
+      rest.length ? h('p', { class: 'rg-both-more' }, `Also moved: ${rest.map((m) => `${measureNamed(m.measure)} ${movedSaid(m)}`).join('; ')}.`) : null,
+      differ.length ? h('ul', { class: 'rg-both-outs' }, ...differ.map((o) => h('li', { 'data-output': o.name }, h('b', {}, o.name), ` ${o.a ? fmtInt(o.a.rows) : 'not built'} → ${o.b ? fmtInt(o.b.rows) : 'not built'} rows`))) : null,
+      h('p', { class: 'foot' }, 'As it was, then with the change: the same files, run under the rules without it and with it.')) : null);
+}
+
+/**
+ * Where the trend's lines are cut (Q-260, Q-284): each change of the business whose own step moved the score or the
+ * coverage, among the days shown, with the line it cuts.
+ */
+function trendCuts(days: readonly string[]): (ScoreCut & { change: string })[] {
+  if (!ruleChanges.length) return [];
+  const have = new Set(days.map((d) => d.slice(0, 10)));
+  const steps = stepsNow();
+  const known = registerNow().entries.map((e) => e.change);
+  return TREND_SERIES.flatMap((series) => cutsOf(known, steps, series).filter((c) => have.has(c.day)).map((c) => ({ ...c, series, label: `${dayShort(c.day)}: ${changeSaid(known.find((x) => x.id === c.change)!)}; ${series === 'score' ? 'the score' : series} ${moveSaid(steps.get(c.change), series)}` })))
+    .sort((x, y) => (x.day < y.day ? -1 : x.day > y.day ? 1 : x.series === 'score' ? -1 : 1));
+}
+/** The trend's points with the steps taken out (Q-261): each line shifted back by the steps of the changes that cut it. */
+function trendAdjusted(points: readonly ScorePoint[], cuts: readonly (ScoreCut & { change: string })[]): ScorePoint[] {
+  const of = (series: ScoreCut['series']) => cuts.filter((c) => c.series === series);
+  const score = adjusted(points.map((p) => ({ day: p.day, value: p.score })), of('score'));
+  const coverage = adjusted(points.map((p) => ({ day: p.day, value: p.coverage })), of('coverage'));
+  return points.map((p, i) => ({ day: p.day, score: score[i]!.value, coverage: coverage[i]!.value }));
+}
+
+function changeMarks(days: readonly string[]): { day: string; label: string; change: string }[] {
+  if (!ruleChanges.length) return [];
+  const have = new Set(days.map((d) => d.slice(0, 10)));
+  return registerNow().entries.filter((e) => e.tense !== 'coming' && e.tense !== 'waiting' && have.has(e.change.from)).map((e) => ({ day: e.change.from, label: `${dayShort(e.change.from)}: ${changeSaid(e.change)}`, change: e.change.id })).reverse();
+}
+
+/** The events that touch `days`, for a chart's bands (ADR 0027 §6): each over its days, one that goes on to the last day. */
+function eventBands(days: readonly string[]): { from: string; until: string; label: string; id: string }[] {
+  const first = days[0]?.slice(0, 10);
+  const last = days.at(-1)?.slice(0, 10);
+  if (!first || !last) return [];
+  // Each with what it excuses (ADR 0027 §7): a band over a chart says what the checks were told to expect under it.
+  return flowEvents().filter((e) => e.from <= last && (e.until === undefined || e.until >= first)).map((e) => ({ from: e.from, until: e.until ?? last, label: `${e.name}, ${eventSpan(e)}${e.excuses?.length ? `; excuses ${excusesSaid(e)}` : ''}`, id: e.id }));
+}
+
+/** The lanes' rows of what people decided: a mark on each day decided, kept back or restated, as the month says it. */
+function decidedMarks(): LaneMark[] {
+  const seen = new Set<string>();
+  return monthOf(daysShown(), allEntries(), { at: monthView.at, judged: loadSource() }).flatMap((d): LaneMark[] => {
+    const day = d.day.slice(0, 10);
+    const o = outcomeOf(calendarDay(d));
+    if ((o.outcome !== 'decided' && o.outcome !== 'kept') || seen.has(day)) return [];
+    seen.add(day);
+    const back = o.outcome === 'kept' || o.how === 'restated';
+    return [{ day, kind: back ? 'back' : 'decided', title: `${dayShort(day)}: ${o.outcome === 'kept' ? 'kept back' : (o.how ? HOW_WORD[o.how] : 'decided')}` }];
+  });
+}
+
+/** The days something stopped at the gate (ADR 0027 §4), by the file it arrived in: each run the record keeps whose
+ * holds say the ontology didn't have what arrived, as known at the moment the month is read at. */
+function gateMarks(): Map<string, LaneMark[]> {
+  const out = new Map<string, LaneMark[]>();
+  const at = monthView.at ? Date.parse(monthView.at) : null;
+  const seen = new Set<string>();
+  for (const e of allEntries()) {
+    if (e.kind !== 'run' || (at !== null && Date.parse(e.at) > at)) continue;
+    const a = e.about as unknown as { day?: string | null; holds?: Hold[] };
+    const day = typeof a.day === 'string' ? a.day.slice(0, 10) : null;
+    if (!day) continue;
+    for (const hold of a.holds ?? []) {
+      if (!hold.undeclared) continue;
+      const file = (state.doc.ontology?.rules ?? []).find((r) => r.kind === 'closed' && checkStepOf(state.doc, r.file)?.id === hold.origin)?.file ?? hold.origin;
+      if (seen.has(`${file}|${day}`)) continue;
+      seen.add(`${file}|${day}`);
+      out.set(file, [...(out.get(file) ?? []), { day, kind: 'gate', title: `${dayShort(day)}: ${hold.said}` }]);
+    }
+  }
+  return out;
+}
+
+/**
+ * The register at the head of the Ontology page (ADR 0027 §9, Q-268): every change set as a list, what is coming on
+ * top, then by month, newest first, each with its days, how it was said, what it did, why and by whom; and, from
+ * tablet width, the same as lanes over the days, each row one thing's life. A bar or a ring of the lanes opens its
+ * entry in the list. Read as known at the moment the month is read at.
+ */
+function registerPart(): HTMLElement | null {
+  const events = flowEvents();
+  if (!ruleChanges.length && !events.length && !isOwner()) return null;
+  const reg = registerNow();
+  const applied = new Set(resolvedSets ? resolvedSets.split('\n') : []);
+  const day = resolvedFor.day;
+  const owner = isOwner();
+  const eventName = new Map(events.map((e) => [e.id, e.name]));
+  const where = (c: ChangeSet) => (applied.has(c.id) ? 'in force on the day on screen' : day && c.from > day ? 'from a later day than the one on screen' : 'made after the version on screen ran');
+  const item = (e: RegisterEntry) => {
+    const c = e.change;
+    // The days it reaches that ran before it was known: said back-dated, or agreed to after its first day (§10).
+    const reached = e.tense === 'waiting' ? [] : reachedBy(c);
+    const led = c.because?.event ? eventName.get(c.because.event) : undefined;
+    const n = c.note;
+    const parts: [string, string | undefined][] = n ? [['What we saw', n.saw], ['What we chose', n.chose], ['What we turned down', n.turnedDown], ['What we expect', n.expect], ['Look again', n.lookAgain ? dayLabel(n.lookAgain) : undefined]] : [];
+    const noted = parts.filter((x): x is [string, string] => !!x[1]);
+    const trial = tested.get(c.id);
+    const trying = testing?.id === c.id;
+    return h('li', { class: `rg-item rg-${e.tense === 'in force' ? 'on' : e.tense}${applied.has(c.id) ? ' on-screen' : ''}`, 'data-change': c.id, 'data-kind': e.kind ?? 'none', ...(c.estate ? { 'data-estate': c.estate } : {}) },
+      h('span', { class: 'rg-kind' }, kindEl(e.kind), e.kind ? KIND_NAMES[e.kind] : KIND_NOT_GIVEN),
+      // An estate's own change (ADR 0027 §3, Q-265): every flow that imports the estate follows it, from its day.
+      c.estate ? h('span', { class: 'rg-estate' }, `${c.estate}’s ontology: every flow that imports it follows`) : null,
+      h('span', { class: 'rg-when' }, entryWhen(e)),
+      h('span', { class: 'rg-what' }, changeSaid(c)),
+      h('span', { class: 'rg-why' }, c.why ? `“${c.why}” ` : 'No reason given · ', h('span', { class: 'rg-by' }, personName(c.by))),
+      c.decided ? h('span', { class: 'rg-led' }, `Decided by ${c.decided.by}${c.decided.on ? ` on ${dayShort(c.decided.on)}` : ''}`) : null,
+      agreedLine(e),
+      led ? h('button', { type: 'button', class: 'linkish rg-because', 'data-event': c.because!.event!, onclick: () => openEvent(c.because!.event!) }, `Because of: ${led} ›`) : null,
+      stepLine(c),
+      noted.length ? h('details', { class: 'rg-note' }, h('summary', {}, 'The thinking'), h('dl', {}, ...noted.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)]))) : null,
+      // The day its author asked to look again has come (ADR 0027 §2): said until someone changes it or its note.
+      n?.lookAgain && n.lookAgain <= reg.today ? h('span', { class: 'rg-again' }, `Due for another look since ${dayLabel(n.lookAgain)}`) : null,
+      // What it would have done, or did, on the days before it (ADR 0027 §2, Q-259): tried as what-if runs.
+      trial ? h('span', { class: 'rg-trial' }, testSaid(trial.what, trial.count, dayShort), h('span', { class: 'rg-figures' }, trialFigures(trial.moves, dayShort)))
+        : trying ? h('span', { class: 'rg-trial' }, h('span', { class: 'mini-wait' }), ` Trying it on ${testing!.of === 1 ? 'the day before' : `the ${testing!.of} days before`}: ${testing!.done} done.`)
+        : owner && monthView.at === null && testDays(c).length && mayRun() ? h('button', { type: 'button', class: 'linkish rg-try', ...(state.running || testing ? { disabled: 'disabled' } : {}), onclick: () => void testChange(c, null) }, `Try it on the ${plural(testDays(c).length, 'recorded day')} before it ›`) : null,
+      h('span', { class: 'rg-facts' }, [e.tense === 'waiting' ? 'in force on no day until it is agreed to' : where(c), reached.length ? `${e.how === 'back' ? 'recorded' : 'agreed to'} after ${plural(reached.length, 'day')} it reaches had run: ${daysSaid(reached)}` : ''].filter(Boolean).join(' · ')));
+  };
+  const eventItem = (e: FlowEvent) => {
+    const tense = eventTense(e, reg.today);
+    const mine = !(dataList?.events ?? []).some((x) => x.id === e.id);
+    return h('li', { class: `rg-item rg-ev rg-${tense === 'going on' ? 'on' : tense === 'over' ? 'ended' : 'coming'}`, 'data-event': e.id },
+      h('span', { class: 'rg-kind' }, `Going on · ${EVENT_KIND_NAMES[e.kind]}`),
+      h('span', { class: 'rg-when' }, `${eventSpan(e)} · written ${dayShort(e.recorded.slice(0, 10))}${e.about?.length ? ` · about ${e.about.join(', ')}` : ''}`),
+      h('span', { class: 'rg-what' }, e.name),
+      h('span', { class: 'rg-why' }, e.note ? `“${e.note}” ` : '', h('span', { class: 'rg-by' }, personName(e.by))),
+      // What it excuses (ADR 0027 §6), and the days a run was told as expected under it.
+      e.excuses?.length ? h('span', { class: 'rg-excuses' }, `Excuses ${excusesSaid(e)}. ${excusedDays(e).length ? `Told as expected on ${daysSaid(excusedDays(e))}.` : 'No day has been told as expected under it yet.'}`) : null,
+      owner && mine && monthView.at === null ? h('button', { type: 'button', class: 'linkish rg-ev-edit', onclick: () => eventForm(e) }, 'Change it ›') : null);
+  };
+  const monthName = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  // One list: what waits for an owner's agreement on top (ADR 0027 §10: someone has something to do), then what is
+  // coming, the soonest first; then by month, newest first, a change before an event of its day.
+  type Thing = { from: string; coming: boolean; waiting?: boolean; el: () => HTMLElement };
+  const things: Thing[] = [
+    ...reg.entries.map((e): Thing => ({ from: e.change.from, coming: e.tense === 'coming', waiting: e.tense === 'waiting', el: () => item(e) })),
+    ...events.map((e): Thing => ({ from: e.from, coming: eventTense(e, reg.today) === 'coming', el: () => eventItem(e) })),
+  ];
+  const ordered = [...things.filter((t) => t.waiting).sort((a, b) => a.from.localeCompare(b.from)), ...things.filter((t) => t.coming).sort((a, b) => a.from.localeCompare(b.from)), ...things.map((t, i) => ({ t, i })).filter(({ t }) => !t.coming && !t.waiting).sort((a, b) => b.t.from.localeCompare(a.t.from) || a.i - b.i).map(({ t }) => t)];
+  const groups: { name: string; things: Thing[] }[] = [];
+  for (const t of ordered) {
+    const name = t.waiting ? 'Waiting for agreement' : t.coming ? 'Coming' : monthName(t.from.slice(0, 7));
+    const g = groups.at(-1)?.name === name ? groups.at(-1)! : (groups.push({ name, things: [] }), groups.at(-1)!);
+    g.things.push(t);
+  }
+  const list = h('div', { class: 'rg-list' }, ...groups.flatMap((g) => [h('p', { class: 'rg-tense' }, g.name), h('ol', { class: 'rg-items' }, ...g.things.map((t) => t.el()))]),
+    !things.length ? h('p', { class: 'rg-later' }, 'No change to the rules yet, and nothing written down as going on.') : '',
+    reg.later ? h('p', { class: 'rg-later' }, `${plural(reg.later, 'more change')} ${reg.later === 1 ? 'was' : 'were'} recorded after the moment this is read at.`) : '',
+    owner && monthView.at === null ? h('p', { class: 'rg-acts' }, h('button', { type: 'button', class: 'btn small rg-write', onclick: () => eventForm() }, 'Write down what was going on ›')) : '');
+  // The lanes, from tablet width (the stylesheet shows them): the data's days, and on to a week past the last change coming.
+  const dataDays = [...new Set(loads.list.map((l) => l.day.slice(0, 10)))].sort();
+  const lanes = h('div', { class: 'rg-lanes' });
+  if (dataDays.length && things.length) {
+    const lastFrom = [...reg.entries.map((e) => e.change.from), ...events.map((e) => e.from)].sort().at(-1) ?? dataDays.at(-1)!;
+    let end = dataDays.at(-1)!;
+    if (lastFrom > end) for (let k = 0, d = lastFrom; k < 7; k++, d = dayAfter(d)) end = d;
+    const days: string[] = [];
+    for (let d = dataDays[0]!; d <= end && days.length < 400; d = dayAfter(d)) days.push(d);
+    const firstDay = days[0]!;
+    const lastDay = days.at(-1)!;
+    const byId = new Map(reg.entries.map((e) => [e.change.id, e]));
+    const rowOf = (l: Life): LaneRow => ({
+      label: `${l.subject.dataset ? `${l.subject.dataset} · ` : ''}${l.subject.what}`,
+      spans: [
+        ...l.spans.map((sp) => {
+          const e = sp.change ? byId.get(sp.change) : undefined;
+          return { from: sp.from, until: sp.until, kind: sp.change === null ? ('was' as const) : sp.coming ? ('next' as const) : ('on' as const), short: sp.short, change: sp.change, title: e ? `${changeSaid(e.change)} · ${entryWhen(e)}` : 'As shipped' };
+        }),
+        // The other clock: the days of a back-dated change whose runs were judged without it, until it was recorded.
+        ...l.said.flatMap((m) => {
+          const e = byId.get(m.change);
+          if (!e || m.how !== 'back') return [];
+          const until = [dayBefore(m.day), e.change.until ?? lastDay, lastDay].sort()[0]!;
+          return until >= e.change.from ? [{ from: e.change.from, until, kind: 'then' as const, change: m.change, title: `The runs of these days were judged without it: it was recorded ${dayLabel(m.day)}` }] : [];
+        }),
+      ],
+      marks: [
+        ...l.said.map((m) => ({ day: m.day, kind: 'said' as const, change: m.change, title: `Said ${dayShort(m.day)}` })),
+        // Its kind's mark on the day it took effect.
+        ...l.said.flatMap((m) => {
+          const e = byId.get(m.change);
+          return e ? [{ day: e.change.from, kind: (m.kind ?? 'none') as KindMark, change: m.change, title: `${m.kind ? KIND_NAMES[m.kind] : KIND_NOT_GIVEN}, from ${dayShort(e.change.from)}` }] : [];
+        }),
+      ],
+    });
+    const lives = livesOf(reg.entries, days, reg.today);
+    const laneGroups: LaneGroup[] = [];
+    // What was going on (ADR 0027 §6): a row an event, a bar over its days.
+    if (events.length) laneGroups.push({ name: 'Going on', rows: events.map((e) => ({ label: e.name, spans: [{ from: e.from < firstDay ? firstDay : e.from, until: e.until === undefined || e.until > lastDay ? lastDay : e.until, kind: 'event' as const, event: e.id, title: `${e.name}, ${eventSpan(e)}${e.note ? `: ${e.note}` : ''}` }].filter((sp) => sp.from <= sp.until), marks: [] })) });
+    for (const lane of ['is', 'check'] as const) {
+      const rows = lives.filter((l) => l.subject.lane === lane).map(rowOf);
+      if (rows.length) laneGroups.push({ name: LANE_NAMES[lane], rows });
+    }
+    // What stopped at the gate (ADR 0027 §4): a row a file, a bar on each day the ontology didn't have what it brought.
+    const stopped = gateMarks();
+    if (stopped.size) laneGroups.push({ name: 'What stopped at the gate', rows: [...stopped].map(([file, marks]) => ({ label: file, spans: [], marks })) });
+    const decided = decidedMarks();
+    if (decided.length) laneGroups.push({ name: 'What we decided', rows: [{ label: 'Days decided', spans: [], marks: decided }] });
+    const wide = document.getElementById('rules-time')?.clientWidth ?? 0;
+    lanes.append(svgNode(registerLanes({ days, today: reg.today, pick: day, groups: laneGroups, w: Math.min(1180, Math.max(640, (wide || 744) - 24)), aria: `The ontology over ${plural(days.length, 'day')}: ${[...events.map((e) => `${e.name}, ${eventSpan(e)}`), ...reg.entries.map((e) => `${changeSaid(e.change)}, ${entryWhen(e)}`)].join('; ')}` })));
+    lanes.append(h('p', { class: 'rg-key' }, 'A bar: in force, or going on. Dashed: as shipped. Hatched: coming. A ring: the day it was said. ',
+      ...KINDS_ASKED.flatMap((k) => [kindEl(k), ` ${KIND_NAMES[k].toLowerCase()}. `]),
+      'A dashed line under a bar: those days’ runs were judged without it, until it was recorded. A diamond with no fill: a day decided; in red, kept back or restated. An upright bar: a day something stopped at the gate.'));
+    lanes.addEventListener('click', (ev) => {
+      const el = (ev.target as Element | null)?.closest?.('[data-change], [data-event]');
+      const change = el?.getAttribute('data-change');
+      const event = el?.getAttribute('data-event');
+      if (change) openChange(change);
+      else if (event) openEvent(event);
+    });
+  }
+  return h('div', { class: 'rg', 'data-today': reg.today }, lanes, list);
+}
+
+/**
+ * Whether the ontology comes first (ADR 0027 §4, §5), at the head of the Ontology view: a format-5 flow says so, with
+ * anything a file still lacks by the columns the data's list declares; a flow in an older format says what it would be
+ * asked for. Null for a flow of no notebooks.
+ */
+function firstLine(): HTMLElement | null {
+  if (state.doc.smaltfl < 4) return null;
+  const declared = (id: string) => bindingOf(id)?.columns?.map((c) => c[0]) ?? null;
+  const lacking = undescribed(state.doc, declared);
+  const first = state.doc.smaltfl === 5;
+  const line = h('p', { class: `rt-first${lacking.length ? ' lacking' : ''}`, 'data-format': String(state.doc.smaltfl) },
+    h('b', {}, first ? 'The ontology comes first. ' : 'Format 4: the ontology isn’t asked to come first. '),
+    !lacking.length ? (first ? 'Every file says what one row is, and every column it has is described or set aside. A change says its kind and why.' : 'Every file says what one row is and every column is described: it could be format 5.')
+      : `${first ? 'Still to say' : 'Format 5 would ask'}: ${lacking.map(undescribedSaid).join('. ')}.`);
+  // A flow in an older format is brought up here (Q-274): the owner says what is asked, then saves it as format 5.
+  if (first || !isOwner()) return line;
+  const rows = lacking.filter((u) => u.row);
+  // What the document itself would still be refused for as format 5, beside what a row is (said above, file by file).
+  const other = lacking.length ? [] : validateDocument({ ...baseDoc(), smaltfl: 5 } as FlowDocument).map((i) => i.message);
+  return h('div', { class: 'rt-up' }, line,
+    h('div', { class: 'rt-up-acts' },
+      ...rows.map((u) => h('button', { type: 'button', class: 'btn small rt-row', 'data-source': u.source, onclick: () => rowForm(u.source) }, `Say what one row of ${u.source} is ›`)),
+      !lacking.length && !other.length ? h('button', { type: 'button', class: 'btn small primary rt-save5', onclick: () => saveAsFormat5() }, 'Save it as format 5 ›') : null),
+    lacking.some((u) => u.columns.length) ? h('p', { class: 'of-hint rt-up-how' }, 'A column is described on its card below: its name, then what it holds.') : null,
+    other.length ? h('p', { class: 'of-hint rt-up-how' }, `Format 5 would also ask: ${other[0]}.`) : null);
+}
+
+/**
+ * What one row of a file is, said (ADR 0027 §4, Q-274): its noun, for a flow in an older format being brought up. A
+ * name, as a column's is: it holds for every day, is recorded with its reason, and nothing is run again.
+ */
+function rowForm(source: string): void {
+  const uid = `rw-${++sourceForms}`;
+  const field = (cls: string, label: string, placeholder: string) => {
+    const input = h('input', { type: 'text', id: `${uid}-${cls}`, class: cls, maxlength: '40', autocomplete: 'off', placeholder }) as HTMLInputElement;
+    return { input, row: h('div', { class: 'of-field' }, h('label', { for: input.id }, label), input) };
+  };
+  const one = field('rw-one', 'One row is one', 'application');
+  const many = field('rw-many', 'Many are', 'applications');
+  const why = h('textarea', { class: 'rw-why', id: `${uid}-why`, rows: '2', 'aria-label': 'Why', placeholder: 'Why, in a sentence: the record keeps it.' }) as HTMLTextAreaElement;
+  const err = h('p', { class: 'of-err rw-err', role: 'alert', hidden: true });
+  const go = h('button', { type: 'submit', class: 'btn primary sf-go rw-go' }, 'Say so') as HTMLButtonElement;
+  const form = h('form', { class: 'of-form sf-form rw-form', 'aria-label': `What one row of ${source} is`, novalidate: true },
+    h('div', { class: 'sf-row' }, one.row, many.row),
+    h('p', { class: 'of-hint' }, `A word or two each, as a count reads: “1,204 ${many.input.placeholder}”. Its key, where the file has one, is declared from its data on its card.`),
+    h('div', { class: 'of-field' }, h('label', { for: why.id }, 'Why'), why),
+    err,
+    h('div', { class: 'of-acts' }, go, h('button', { type: 'button', class: 'btn quiet', onclick: () => document.querySelector('.vf-detail-wrap')?.remove() }, 'Cancel')));
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fail = (said: string) => {
+      err.textContent = said;
+      err.hidden = false;
+    };
+    const row = { one: one.input.value, many: many.input.value };
+    const problem = rowProblems(baseDoc(), source, row)[0];
+    if (problem) return fail(`${problem}.`);
+    if (!why.value.trim()) return fail('It needs a reason: one line of why.');
+    if (state.running) return fail('The flow is running. Say it when the run has ended.');
+    const next = withRowSaid(baseDoc(), source, row);
+    const issue = validateDocument(next)[0];
+    if (issue) return fail(`That can’t be written: ${issue.message}.`);
+    document.querySelector('.vf-detail-wrap')?.remove();
+    takeRules(next);
+    const said = `Said what one row of ${source} is: ${withArticle(row.one)} (“${why.value.trim()}”)`;
+    void flowEdited(said).then(() => {
+      setStatus(`${said}. Recorded.`, false);
+      void renderOntology();
+    });
+  });
+  openDetail(`One row of ${source}`, 'ok', [h('p', { class: 'vf-one' }, 'The ontology says what one row of every file is before anything reads it. A name for it is enough: a kind of thing, with its key, can follow.'), form]);
+}
+
+/**
+ * A flow in an older format saved as format 5 (ADR 0027 §4, Q-274), once nothing it is asked is left: the ontology
+ * comes first from here on. Every file says what one row is, every column is described, and every change from now says
+ * its kind and why. Recorded as a change of the flow; the next run is the flow's as saved.
+ */
+async function saveAsFormat5(): Promise<void> {
+  if (!isOwner()) return;
+  if (state.running) return void setStatus('The flow is running. Save it when the run has ended.', true);
+  const next = { ...baseDoc(), smaltfl: 5 } as FlowDocument;
+  const declared = (id: string) => bindingOf(id)?.columns?.map((c) => c[0]) ?? null;
+  const lacking = undescribed(next, declared);
+  const issue = lacking.length ? undescribedSaid(lacking[0]!) : validateDocument(next)[0]?.message;
+  if (issue) return void setStatus(`It can’t be format 5 yet: ${issue}.`, true);
+  takeRules(next);
+  const said = 'Saved as format 5: the ontology comes first';
+  await flowEdited(said);
+  setStatus(`${said}. Every file says what one row is and every column is described; a change now says its kind and why. Recorded.`, false);
+  void renderOntology();
 }
 
 /**
@@ -4596,22 +7141,25 @@ function renderRulesTime(): void {
   const box = document.getElementById('rules-time');
   if (!box) return;
   const owner = isOwner();
-  if (!ruleChanges.length && !owner) {
+  if (!ruleChanges.length && !owner && !flowEvents().length) {
     box.hidden = true;
     box.replaceChildren();
     return;
   }
   box.hidden = false;
   const day = resolvedFor.day;
-  const applied = new Set(resolvedSets ? resolvedSets.split('\n') : []);
-  const where = (c: ChangeSet) => (applied.has(c.id) ? 'in force on the day on screen' : day && c.from > day ? 'from a later day' : 'made after the version on screen ran');
   box.replaceChildren(
     h('p', { class: 'rt-head' }, h('b', {}, day ? `The rules in force on ${dayLabel(day)}` : 'The rules in force'), ' ', hashCode(rulesHashOf(state.doc), 'rt-hash'), ruleChanges.length ? ` · ${plural(ruleChanges.length, 'change set')}${baseEdited() ? '; names and labels edited here' : ''}` : baseEdited() ? ' · names and labels edited here' : ' · as shipped'),
-    ruleChanges.length ? h('ol', { class: 'rt-list' }, ...ruleChanges.map((c) => h('li', { class: `rt-item${applied.has(c.id) ? ' on' : ''}`, 'data-change': c.id },
-      h('span', { class: 'rt-from' }, `From ${dayLabel(c.from)}`), ' ', changeSaid(c),
-      h('span', { class: 'rt-where' }, ` · ${where(c)} · recorded ${new Date(c.recorded).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} by ${personName(c.by)}${c.why ? `: “${c.why}”` : ''}`)))) : '',
+    firstLine() ?? '',
+    awaitedPart() ?? '',
+    sincePart() ?? '',
+    ownersPart(),
+    registerPart() ?? '',
+    digestPart() ?? '',
     ruleVersionsPart() ?? '',
+    kindsPart() ?? '',
     owner ? fromBar() : '');
+  showChange();
 }
 
 // ------------------------------------------------------------------ the versions of the rules (ADR 0021 §5)
@@ -4657,12 +7205,12 @@ const knownSaid = (from: string | null, to: string | null): string => {
 function ruleVersionsPart(): HTMLElement | null {
   if (!ruleChanges.length) return null;
   const days = [...new Set([...loads.list.map((l) => l.day.slice(0, 10)), nextDayToArrive()])].sort();
-  const vs = ruleVersions({ changes: ruleChanges }, days);
+  const vs = ruleVersions(keptChanges(), days);
   const day = resolvedFor.day;
   const keys = vs.map((v) => versionKey(v.changes));
   const shown = resolvedSets ?? '';
-  const now = day ? versionOn({ changes: ruleChanges }, day, null) : null;
-  const known = day && monthView.at ? versionOn({ changes: ruleChanges }, day, monthView.at) : null;
+  const now = day ? versionOn(keptChanges(), day, null) : null;
+  const known = day && monthView.at ? versionOn(keptChanges(), day, monthView.at) : null;
   const n = (k: string | null) => (k === null ? -1 : keys.indexOf(k));
   const label = (i: number) => (i >= 0 ? `Version ${i + 1}` : 'rules of its own');
   const what = (v: RuleVersion) => (v.changes.length ? v.changes.map((id) => ruleChanges.find((c) => c.id === id)).filter((c): c is ChangeSet => !!c).map((c) => `${changeSaid(c)} (from ${dayShort(c.from)})`).join('; ') : asShippedSaid('The rules as shipped'));
@@ -4851,6 +7399,10 @@ const pinnedSaid = (datasets: readonly string[]): string | null => pinProblem(st
  * made again on the own document of the flow it belongs to.
  */
 async function flowEdited(said: string, name?: NameOp): Promise<void> {
+  // What whoever is viewing just did is no news to them (ADR 0027 §10): a change set the page didn't have is theirs.
+  const had = changesHad;
+  changesHad = new Set(ruleChanges.map((c) => c.id));
+  seeOwn('change', [...changesHad].filter((id) => !had.has(id)));
   storyCache.clear();
   planKindCache.doc = null;
   flowEdits = [...flowEdits, { at: new Date().toISOString(), said, ...(name ? { name } : {}) }];
@@ -4881,6 +7433,7 @@ async function backToShipped(): Promise<void> {
   // A section made here (a join's notebook, an added flow's) goes with what was in it.
   const back = asShipped(state.doc, shippedDoc);
   takeRules(back.groups ? { ...back, groups: back.groups.filter((g) => g.steps.length > 0 || !!shippedDoc.groups?.some((x) => x.id === g.id)) } : back);
+  changesHad = new Set(ruleChanges.map((c) => c.id));
   flowEdits = [];
   flowDropped = null;
   await followEdits();
@@ -4891,6 +7444,9 @@ async function backToShipped(): Promise<void> {
   storyCache.clear();
   planKindCache.doc = null;
   state.issues = [];
+  // What was added here goes with it: each source's binding and its file.
+  await dropAddedGone();
+  renderBuildBar();
   await recordFlowChange(`Back to the flow as shipped: ${n ? `${plural(n, 'change')} taken away` : 'every change taken away'}`, doc);
   setStatus(`The flow is as it was shipped again${n ? `: ${plural(n, 'change')} taken away` : ''}. Recorded; the next run uses it.`, false);
   requestCanvas();
@@ -5071,7 +7627,10 @@ async function renderDrill(card: string): Promise<void> {
     if (token !== drill.token) return;
     // Rows of another day carry that day, full width, over the whole panel (ADR 0008 §10).
     const bar = showsRunRows(card, tab) ? (tab !== 'news' && asReaders(id, who) ? readersBar() : rowsFromBar()) : (tab === 'news' || tab === 'quality') && pauseOnTop(card) ? pauseBanner() : null;
-    panel.replaceChildren(...(bar ? [bar] : []), content);
+    // What reaches the dataset on the day on screen (ADR 0027 §8), on the tabs that tell its day.
+    const now = viewedDay() ?? shownDay();
+    const ctx = now && (tab === 'happened' || tab === 'news' || tab === 'quality') && (sourceIds().has(id) || steps().has(id)) ? contextPart(id, now) : null;
+    panel.replaceChildren(...(bar ? [bar] : []), ...(ctx ? [ctx] : []), content);
     panel.removeAttribute('aria-busy');
     // The news is known now for a table measured on opening it: its badge on the tab.
     sheet.querySelector('.drill-head')?.replaceWith(drillHead(card, tabs, tab));
@@ -5629,6 +8188,8 @@ async function stepFactsOf(id: string): Promise<{ facts: StepFacts; run: RunReco
     ...(n.op === 'filter' ? { filter: { where: n.where } } : {}),
     ...(n.op === 'aggregate' ? { aggregate: { groupBy: n.groupBy.map(([name]) => name), measures: n.measures.map(([name]) => name) } } : {}),
     ...(n.op === 'sql' ? { sql: n.sql } : {}),
+    // A context table (ADR 0027 §8): made by the run, not by a query a person wrote.
+    ...(n.op === 'sql' && n.context ? { context: n.context.of } : {}),
     ...(n.op === 'expect' && m.expectations ? { expect: { dropped: m.expectations.dropped, flagged: c.flagged ?? 0, rules: m.expectations.rules.map((r, k) => ({ name: r.name, failed: r.failed, onFail: n.rules[k]?.[2] ?? 'warn' })), maxDropped: n.maxDropped } } : {}),
   };
   return { facts, run };
@@ -6570,7 +9131,7 @@ function provenancePart(id: string): HTMLElement | null {
     h('summary', {}, h('span', { class: 'pv-t' }, 'Where this table came from'), h('span', { class: 'pv-s' }, `kept with run ${runName(meta.run)}’s signed record`)),
     h('dl', { class: 'pv-facts' },
       ...row('Pulled in', meta.ingest ? whenSaid(meta.ingest.at) : h('span', { class: 'foot' }, 'not recorded: the run wasn’t told where the file came from')),
-      ...(meta.ingest ? row('From', code(meta.ingest.path), meta.ingest.from ? h('span', { class: 'foot' }, ` · made by ${meta.ingest.from}`) : null) : []),
+      ...(meta.ingest ? row('From', code(meta.ingest.path), meta.ingest.from ? h('span', { class: 'foot' }, /^(uploaded|added) /.test(meta.ingest.from) ? ` · ${meta.ingest.from}` : ` · made by ${meta.ingest.from}`) : null) : []),
       ...(meta.file ? row('The file', code(`sha256 ${shortHash(meta.file.sha256)}…`, meta.file.sha256), h('span', { class: 'foot' }, ` · ${bytesSaid(meta.file.bytes)}${meta.rows !== undefined ? ` · ${plural(meta.rows, 'row')}` : ''}`)) : []),
       ...row('Code', 'smaltfl ', commitEl(meta.commit)),
       ...row('Ontology', meta.ontology ? code(`${shortHash(meta.ontology)}…`, meta.ontology) : h('span', { class: 'foot' }, 'not recorded'), h('span', { class: 'foot' }, ' · flow '), code(`${shortHash(meta.flow)}…`, meta.flow))),
@@ -7302,7 +9863,9 @@ async function measureTableNews(insp: Inspection, i: number, id: string, who: st
   if (!q) return [];
   const c = (who === state.viewer ? state.changes.get(id) : undefined) ?? (await changeOf(insp, i, who));
   const input = state.doc.sources.some((x) => x.id === id);
-  const added = new Set(c.added.map((x) => x.toLowerCase()));
+  // A context table (ADR 0027 §8) says "none" by a blank: a change with no last day, with no step of its own measured,
+  // or not an estate's. Its blanks are how it is read, and no news of the day.
+  const added = new Set(contextSteps().has(id) ? [] : c.added.map((x) => x.toLowerCase()));
   const keys: TableFacts['keys'] = [];
   const unmatched: TableFacts['unmatched'] = [];
   const changeFor = async (step: string) => {
@@ -7358,6 +9921,7 @@ async function measureTableNews(insp: Inspection, i: number, id: string, who: st
   const handledBy = values.length ? downstreamOf(id).filter((st) => { const text = JSON.stringify(steps().get(st) ?? {}); return values.some((v) => text.includes(`'${v}'`)); }) : [];
   const told = tableNewsOf({
     noun: nounOf(id),
+    one: rowNoun(id).one,
     rows: q.rows,
     columns: q.profiles.map((p) => ({ name: p.name, present: p.facts.present, distinct: p.facts.distinct, added: added.has(p.name.toLowerCase()) })),
     keys, unmatched, placeholders, placeholderRows, exact: q.sample.length >= q.rows, handledBy, input,
@@ -7654,7 +10218,9 @@ function causeDetail(story: Story, card: string): void {
   if (sp && story.amount) {
     const part = stripOf({ of: 'count', column: sp.column, value: sp.value }, day, 28, story.severity);
     const at = part.at(-1);
-    if (part.length) body.push(block(`${sp.name}, day by day`, svgNode(dayStrip({ days: part, h: 88, labels: stripLabels(part), key: STRIP_KEY, more: { same: sameDays(day) }, unit: '/day', aria: `${sp.name} records day by day for four weeks to ${dayLabel(day)}, each against its own usual range${at?.v !== null && at?.v !== undefined ? `: ${fmtInt(at.v)} on ${dayLabel(day)}${at.low !== null && at.high !== null ? `, where ${fmtInt(at.low)} to ${fmtInt(at.high)} is usual` : ''}` : ''}.` }))));
+    // Marked where the column's meaning was redefined, and the value followed through an ending (ADR 0027 §2, §3).
+    const across = acrossColumn(dataOf(card), sp.column, sp.value, part);
+    if (part.length) body.push(block(`${sp.name}, day by day`, svgNode(dayStrip({ days: across.days, h: 88, labels: stripLabels(part), key: STRIP_KEY, more: { same: sameDays(day), ...(Object.keys(across.marks).length ? { marks: across.marks } : {}) }, unit: '/day', aria: `${sp.name} records day by day for four weeks to ${dayLabel(day)}, each against its own usual range${at?.v !== null && at?.v !== undefined ? `: ${fmtInt(at.v)} on ${dayLabel(day)}${at.low !== null && at.high !== null ? `, where ${fmtInt(at.low)} to ${fmtInt(at.high)} is usual` : ''}` : ''}${across.said}.` })), ...across.notes));
     // Its column's shares, usual and today, only when the part's own count moved: a part that held reads as a share
     // that surged when the rest fell (Thu Sep 21, 2023: Flex Fare 3.9% → 11.1% on its usual 4,657 trips). Its count is
     // on its segment, beside its share.
@@ -7667,7 +10233,9 @@ function causeDetail(story: Story, card: string): void {
   if (!byHours && (story.hours || story.episode)) body.push(hoursDetail(story));
   if (story.hero === 'amount' || story.hero === 'calm') {
     const days = stripOf({ of: 'trips' }, day, 56, story.severity);
-    if (days.length) body.push(block(`${RowsWord()}, eight weeks`, svgNode(dayStrip({ days, h: 90, labels: stripLabels(days), key: STRIP_KEY, more: { same: sameDays(day) }, unit: '/day', aria: `${RowsWord()} day by day for eight weeks to ${dayLabel(day)}.` }))));
+    // Marked where a change that reaches the dataset began (ADR 0027 §8).
+    const across = acrossColumn(dataOf(card), undefined, undefined, days);
+    if (days.length) body.push(block(`${RowsWord()}, eight weeks`, svgNode(dayStrip({ days: across.days, h: 90, labels: stripLabels(days), key: STRIP_KEY, more: { same: sameDays(day), ...(Object.keys(across.marks).length ? { marks: across.marks } : {}) }, unit: '/day', aria: `${RowsWord()} day by day for eight weeks to ${dayLabel(day)}${across.said}.` })), ...across.notes));
   }
   // A population's own rows (the value and each field blank on it, all at one share) would say the split again.
   if (story.hero === 'finding' && story.cause && story.split?.via !== 'blanks') body.push(findingVisual(story.cause), oneLine(story.cause.detail));
@@ -7946,6 +10514,133 @@ function compositionOf(column: string, day: string, moved?: string, names?: [str
   }));
 }
 
+/** Whether a card's context is open on its sheet: as the reader left it. */
+let contextOpen = false;
+
+/**
+ * A dataset's context on the day on screen (ADR 0027 §8), at the head of its sheet: the changes in force that reach
+ * it (they are about it, or about something it is built from, however far up and in whichever flow it is read from),
+ * each with its kind's mark, the day it began, what it did and through which dataset it reaches this one, a tap from
+ * its entry; and the events going on that reach it, each with which day of it this is and what it excuses here.
+ * Read as known at the moment the page reads at, as the day's head reads what was going on: an event written down
+ * after the version on screen ran, or a change recorded since, is what a reader of the day needs, and each says that
+ * the version's own context tables, made when it ran, haven't it. Those about the flow as a whole are the day's, said
+ * on its head, and counted here. Folded, with what it holds said on its bar. Null where nothing reaches the dataset
+ * itself.
+ */
+function contextPart(id: string, day: string): HTMLElement | null {
+  if (!ruleChanges.length && !everyEvent().length) return null;
+  const d = day.slice(0, 10);
+  const got = contextOf(baseDoc(), id, d, monthView.at, everyEvent());
+  // What the version on screen knew when it ran: what its own context tables say.
+  const ranAt = resolvedFor.day === d ? resolvedFor.asOf : null;
+  const ran = ranAt === null ? got : contextOf(baseDoc(), id, d, ranAt, everyEvent());
+  const knewChange = new Set(ran.changes.map((x) => x.change.id));
+  const knewEvent = new Set(ran.events.map((x) => x.event.id));
+  const changes = got.changes.filter((x) => x.reach !== 'flow');
+  const events = got.events.filter((x) => x.reach !== 'flow');
+  if (!changes.length && !events.length) return null;
+  const wide = [got.changes.length - changes.length ? plural(got.changes.length - changes.length, 'change') : '', got.events.length - events.length ? plural(got.events.length - events.length, 'event') : ''].filter(Boolean);
+  const bar = [changes.length ? `${plural(changes.length, 'change')} in force` : '', events.length ? `${plural(events.length, 'event')} going on` : ''].filter(Boolean).join(' and ');
+  const through = (about: readonly string[]) => {
+    const from = about.filter((a) => a.toLowerCase() !== id.toLowerCase());
+    return from.length ? `through ${listed(from)}, which it is built from` : '';
+  };
+  const since = [...changes.filter((x) => !knewChange.has(x.change.id)).map(() => 'change'), ...events.filter((x) => !knewEvent.has(x.event.id)).map(() => 'event')];
+  // A moment near the day by its day and time; one made here on a demo's days, long after them, by its date alone.
+  const whenShort = (iso: string): string => {
+    const on = new Date(Date.parse(iso)).toISOString();
+    return Math.abs(Date.parse(iso) - Date.parse(`${d}T00:00:00Z`)) <= 92 * 86_400_000 ? `on ${dayShort(on.slice(0, 10))} at ${on.slice(11, 16)} UTC` : `on ${dayLabel(on.slice(0, 10))}`;
+  };
+  return h('details', { class: 'fold ctx', 'data-of': id, ...(contextOpen ? { open: '' } : {}), ontoggle: (e: Event) => (contextOpen = (e.currentTarget as HTMLDetailsElement).open) },
+    h('summary', {}, h('span', { class: 'ctx-k' }, 'Context'), h('span', { class: 'ctx-n' }, `${bar} ${changes.length + events.length === 1 ? 'reaches' : 'reach'} it on ${dayShort(d)}`)),
+    changes.length ? h('p', { class: 'eyebrow ctx-sub' }, 'In force') : null,
+    changes.length ? h('ul', { class: 'ctx-list' }, ...[...changes].reverse().map((x) => h('li', { 'data-change': x.change.id, ...(knewChange.has(x.change.id) ? {} : { 'data-since': '' }) },
+      kindEl(x.change.kind ?? null),
+      h('button', { type: 'button', class: 'linkish', onclick: () => openChange(x.change.id) }, `${dayShort(x.change.from)}: ${x.what.join('; ')} ›`),
+      h('span', { class: 'ctx-how' }, [x.reach === 'direct' ? 'about this dataset' : through(changeAbout(x.change)), x.change.why ? `“${x.change.why}”` : ''].filter(Boolean).join(' · ')),
+      knewChange.has(x.change.id) ? null : h('span', { class: 'ctx-since' }, `Recorded ${whenShort(x.change.recorded)}, after this version ran: it was read without it.`)))) : null,
+    events.length ? h('p', { class: 'eyebrow ctx-sub' }, 'Going on') : null,
+    events.length ? h('ul', { class: 'ctx-list' }, ...events.map((x) => {
+      const at = eventDay(x.event, d);
+      const excused = (x.event.excuses ?? []).filter((e) => e.dataset.toLowerCase() === id.toLowerCase());
+      return h('li', { 'data-event': x.event.id, ...(knewEvent.has(x.event.id) ? {} : { 'data-since': '' }) },
+        h('button', { type: 'button', class: 'linkish', onclick: () => openEvent(x.event.id) }, `${x.event.name}${at && at.of !== null && at.of > 1 ? `, day ${at.n} of ${at.of}` : ''} ›`),
+        h('span', { class: 'ctx-how' }, [x.reach === 'direct' ? 'about this dataset' : through(x.event.about ?? []), excused.length ? `excuses ${excusesSaid({ excuses: excused }).replace(/, in [^;]+$/, '')} here` : ''].filter(Boolean).join(' · ')),
+        knewEvent.has(x.event.id) ? null : h('span', { class: 'ctx-since' }, `Written down ${whenShort(x.event.recorded)}, after this version ran.`));
+    })) : null,
+    since.length ? h('p', { class: 'foot ctx-ran' }, `This version’s own context tables were made when it ran: ${since.length === 1 ? `the ${since[0]} said since isn’t` : 'what was said since isn’t'} in them.`) : null,
+    wide.length ? h('p', { class: 'foot ctx-wide' }, `${wide.join(' and ').replace(/^./, (c) => c.toUpperCase())} more ${got.changes.length + got.events.length - changes.length - events.length === 1 ? 'is' : 'are'} about the flow as a whole: on the day’s head.`) : null);
+}
+
+/**
+ * A chart of a dataset's day by day, read across its changes (ADR 0027 §2, §3, §8): its days marked where a change
+ * that reaches the dataset began (the column's meaning redefined, Q-251, or any change about the dataset or about
+ * something it is built from), the key's word for the mark, what the chart's words add, and the lines under it: each
+ * change a tap away, and the value followed through an ending (Q-264).
+ */
+function acrossColumn(dataset: string, column: string | undefined, value: string | undefined, days: readonly StripDay[]): { days: StripDay[]; marks: Partial<Record<VizMark, string>>; said: string; notes: (HTMLElement | null)[] } {
+  const inStrip = (day: string) => days.some((d) => d.day.slice(0, 10) === day);
+  const known = registerNow().entries.filter((e) => e.tense !== 'coming' && e.tense !== 'waiting').map((e) => e.change);
+  const redefs = column ? redefinedOn(known, dataset, column).filter((r) => inStrip(r.day)) : [];
+  // Every other change that reaches the dataset marks its charts too (ADR 0027 §8): it is about it, or about something
+  // it is built from.
+  const others = changesReaching<ChangeSet>(state.doc, known, dataset).filter((x) => inStrip(x.change.from) && !redefs.some((r) => r.change === x.change.id));
+  const marked = new Set([...redefs.map((r) => r.day), ...others.map((x) => x.change.from)]);
+  const out = marked.size ? days.map((d) => (marked.has(d.day.slice(0, 10)) ? { ...d, marks: [...(d.marks ?? (d.mark ? [d.mark] : [])), 'changed' as const] } : d)) : [...days];
+  const notes: (HTMLElement | null)[] = redefs.map((r) => {
+    const c = ruleChanges.find((x) => x.id === r.change);
+    return c ? h('p', { class: 'foot redefined-on', 'data-change': c.id }, glyphEl('changed', 13), ` What ${column} means was redefined from ${dayShort(r.day)}: `, h('button', { type: 'button', class: 'linkish', onclick: () => openChange(c.id) }, `${c.why} ›`), ' The days either side of the mark don’t mean the same.') : null;
+  });
+  for (const x of others) {
+    notes.push(h('p', { class: 'foot redefined-on changed-on', 'data-change': x.change.id }, glyphEl('changed', 13), ` From ${dayShort(x.change.from)}: `, h('button', { type: 'button', class: 'linkish', onclick: () => openChange(x.change.id) }, `${changeSaid(x.change)} ›`), x.through.length ? ` It reaches this through ${listed(x.through)}.` : ''));
+  }
+  // A finding names its value as the history keys it (JSON): the ontology's entries are the values themselves.
+  if (column && value !== undefined) notes.push(followedPart(dataset, column, rawValue(value)));
+  const word = redefs.length && !others.length ? 'redefined' : 'the rules changed';
+  const said = [redefs.length ? `what ${column} means was redefined from ${listed(redefs.map((r) => dayShort(r.day)))}` : '', others.length ? `the rules changed from ${listed([...new Set(others.map((x) => dayShort(x.change.from)))])}` : ''].filter(Boolean).join('; ');
+  return { days: out, marks: marked.size ? { changed: word } : {}, said: said ? `; ${said}` : '', notes };
+}
+
+/** A value as written, from the key the history keeps it under (its JSON): `"passkey"` is passkey, `null` is null. */
+const rawValue = (key: string): string => {
+  try {
+    const v = JSON.parse(key) as unknown;
+    return v === null ? 'null' : typeof v === 'string' ? v : String(v);
+  } catch {
+    return key;
+  }
+};
+
+/**
+ * A value of a closed list or column followed through an ending (ADR 0027 §2, Q-264), under its day by day: that it
+ * ended and what follows it, with the day; or what it carries since another value ended into it. Its series goes on in
+ * what follows. Null where no ending touches the value.
+ */
+function followedPart(dataset: string, column: string, value: string): HTMLElement | null {
+  // A file's own step (its checks, its fill) is told of the file's values: the file's closed rules are its own.
+  const file = sourceIds().has(dataset) ? dataset : (ownFiles().get(dataset.toLowerCase()) ?? dataset);
+  const doc = docKnownNow(viewedDay()?.slice(0, 10) ?? fromDay());
+  const rules = closedOf(doc.ontology, file).filter((r) => r.column.toLowerCase() === column.toLowerCase());
+  const got = rules.length ? followedThrough(doc.ontology, file, rules.map((r) => r.id), value) : null;
+  if (!got) return null;
+  const rule = rules[0]!;
+  const called = (k: string) => entryCalled(doc.ontology, rule, k);
+  // The day an entry ended: the first day of the change that ended it.
+  const endedFrom = (key: string) => ruleChanges.find((c) => c.edits.some((e) => e.op === 'end' && e.ended.what === 'entry' && e.ended.id === key && e.ended.of?.rule !== undefined && rules.some((r) => r.id === e.ended.of!.rule)))?.from;
+  const how = (h0: 'replaced' | 'merged' | 'split') => (h0 === 'replaced' ? 'replaced by' : h0 === 'merged' ? 'merged into' : 'split into');
+  const parts: string[] = [];
+  if (got.ended) {
+    const from = endedFrom(value);
+    parts.push(`${called(value)} ended${from ? ` from ${dayShort(from)}` : ''}${got.ended.then ? `: ${how(got.ended.then.how)} ${listed(got.ended.then.by.map(called))}. Its series goes on there.` : ', with nothing after it.'}`);
+  }
+  for (const c of got.carries) {
+    const from = endedFrom(c.key);
+    parts.push(`${from ? `From ${dayShort(from)} this` : 'This'} carries ${called(c.key)}, ${c.how === 'replaced' ? 'which it replaced' : c.how === 'merged' ? 'merged into it' : 'split into it and others'}: before then ${called(c.key)} was counted on its own.`);
+  }
+  return h('p', { class: 'foot followed-on', 'data-value': value }, glyphEl('changed', 13), ` ${parts.join(' ')}`);
+}
+
 /** What a tap on a finding opens: its visual, its day by day, one sentence, its verbs. */
 function findingDetail(f: Finding, card: string): void {
   const day = newsDay();
@@ -7959,7 +10654,12 @@ function findingDetail(f: Finding, card: string): void {
     const axis = scale === 'share' ? axisShare : scale === 'count' ? (v: number) => compact(v) : undefined;
     const recent = axis ? recentSpan(days, axis) : null;
     const most = Math.max(...days.flatMap((d) => [d.high ?? 0, d.v ?? 0]));
-    if (days.length) body.push(block('Day by day', svgNode(dayStrip({ days, labels: stripLabels(days), key: STRIP_KEY, more: { same: sameDays(day) }, zero: true, ...(axis ? { axis } : {}), aria: `${f.title}, day by day for four weeks${axis ? `, from 0 to ${axis(most)} at most` : ''}${recent ? `; ${recent}` : ''}.` })), recent ? h('p', { class: 'vf-sub' }, recent) : null));
+    // A chart built on a column is marked from the day its meaning was redefined, and its value followed through an
+    // ending (ADR 0027 §2, §3).
+    const across = acrossColumn(dataOf(card), (f.metric as { column?: string }).column ?? f.columns?.[0], f.values?.[0] === undefined ? undefined : String(f.values[0]), days);
+    if (days.length) body.push(block('Day by day', svgNode(dayStrip({ days: across.days, labels: stripLabels(days), key: STRIP_KEY, more: { same: sameDays(day), ...(Object.keys(across.marks).length ? { marks: across.marks } : {}) }, zero: true, ...(axis ? { axis } : {}), aria: `${f.title}, day by day for four weeks${axis ? `, from 0 to ${axis(most)} at most` : ''}${recent ? `; ${recent}` : ''}${across.said}.` })),
+      ...across.notes,
+      recent ? h('p', { class: 'vf-sub' }, recent) : null));
   }
   if (day && f.columns?.[0] && (f.kind === 'share' || f.kind === 'gone' || f.kind === 'new') && history?.file.values?.[f.columns[0]]?.counts) body.push(block(`${NEWS_NAMES.column(f.columns[0])}, usual and today`, compositionOf(f.columns[0], day, f.values?.[0])));
   body.push(oneLine(f.detail));
@@ -8152,6 +10852,9 @@ function causeCard(story: Story, card: string): HTMLElement {
   return h('section', { class: `vf-card ${story.state}${paused ? ' paused' : ''}${brief ? ' brief' : ''}`, ...(anchor ? { id: `finding-${anchor.key}` } : {}) },
     h('div', { class: 'vf-headrow' }, h('h3', { class: 'vf-head', role: 'status', 'aria-live': 'polite' }, story.state === 'unlearned' ? glyphEl('unlearned', 18) : m && !calm ? glyphEl(m, 18) : '', ...head)),
     gloss,
+    // A declared change's own step on this dataset's series (ADR 0027 §7, Q-263), said under the head: on the change's
+    // first day what follows is the change's own; after it, which level its checks learn from.
+    src && (card === src || card === profiles().find((p) => p.of === src)?.id) ? declaredPart(src, story.day) : null,
     story.chip ? h('button', { type: 'button', class: 'vf-chip-btn', 'aria-label': `${story.chip}${ep ? `: ${ep.trend.map((d) => `${WEEKDAY_NAMES[dateOf(d.day).getUTCDay()]!.slice(0, 3)} ${Math.round((d.trips / Math.max(1, d.expected)) * 100)}% of a usual day`).join(', ')}${ep.short ? `; about ${rowsSaid(ep.short.estimate)} short so far` : ''}` : ''}. Open the episode’s days.`, onclick: () => episodeSheet(story) },
       chipIcon(story, days), story.chip, glyphEl('chev', 13)) : null,
     told ? h('p', { class: 'vf-told' }, glyphEl('ack', 14), told) : null,
@@ -8325,8 +11028,12 @@ function briefSections(story: Story, card: string): { top: HTMLElement[]; body: 
       // No storage: this once.
     }
   };
-  const statusWord = b.status === 'no action' ? 'no action needed' : b.status;
-  const status = h('p', { class: `brief-status ${b.status.replace(/\s+/g, '-')}` }, h('span', { class: 'pill' }, statusWord), h('span', { class: 'brief-day' }, dayMid(day)));
+  // A day whose news is a declared change's own step, with nothing paused and nothing the old way found (ADR 0027 §7,
+  // Q-263), isn't under investigation: it is as declared.
+  const dec = declaredOn(stepsNow(), loadSource() ?? '', day);
+  const declaredOnly = !!dec && b.status === 'investigating' && !input.pause && !!dec.level.was && dec.level.was.state !== 'unusual' && dec.level.was.state !== 'wrong';
+  const statusWord = declaredOnly ? 'as declared' : b.status === 'no action' ? 'no action needed' : b.status;
+  const status = h('p', { class: `brief-status ${declaredOnly ? 'expected' : b.status.replace(/\s+/g, '-')}` }, h('span', { class: 'pill' }, statusWord), h('span', { class: 'brief-day' }, dayMid(day)));
   const sit = h('p', { class: `brief-sit${b.edited ? ' edited' : ''}` }, b.situation);
   const area = h('textarea', { class: 'brief-edit', rows: '3', hidden: true, 'aria-label': 'The situation, in your words' });
   area.value = b.situation;
@@ -8813,6 +11520,10 @@ function decisionSheet(shown0: RunRecord, story: Story | null): void {
   const shown = readersDay(r);
   const later = shown && day && shown > day ? shown : null;
   const can = Object.fromEntries(DECIDE_OPTIONS.map((o) => [o, checkDecision(policies(), state.viewer, o)])) as Record<DecisionOption, ReturnType<typeof checkDecision>>;
+  // At the gate (ADR 0027 §4): what the ontology doesn't have isn't published as it came. It is declared or left out on
+  // the day's screen; here the day is kept back.
+  const atGate = r.result.holds.some((x) => (x as Hold).undeclared);
+  if (atGate) can.asis = { allowed: false, reason: 'the ontology doesn’t have what arrived: it is declared or left out on the day’s screen' };
   const anyone = can.asis.allowed || can.dont.allowed || can.fill.allowed || can.complete.allowed;
   // Someone who may not decide, and doesn't read every row of the source, gets what readers get with nothing of the
   // source, whatever path led here (round 3, #6: the sheet draws and counts the source's rows).
@@ -9012,7 +11723,8 @@ function decisionSheet(shown0: RunRecord, story: Story | null): void {
       receiptBox(l, st, entry.seq, `${(derived ?? r).result.hash.slice(0, 4)} ${(derived ?? r).result.hash.slice(4, 8)}`, l.change && anyone ? () => decisionSheet(r, story) : null, day, l.versions && day ? () => versionsSheet(day) : null));
     headMark.replaceWith(glyphEl(PAUSE_MARK[st], 16));
   };
-  openDetail(t.title, 'ok', [whoseLine(r), status, recEl, ask, rowsEl, replaceRow, why, scopes, foot]);
+  const gateLine = atGate ? h('p', { class: 'vf-whose vf-gate' }, 'Something arrived that the ontology doesn’t have. Declare it or publish without it on the day’s screen; here the day can be kept back.') : null;
+  openDetail(t.title, 'ok', [whoseLine(r), gateLine, status, recEl, ask, rowsEl, replaceRow, why, scopes, foot]);
   document.querySelector('.vf-detail')?.classList.toggle('readonly', !anyone);
   document.querySelector('.vf-detail .vf-dhead h3')?.prepend(headMark);
   sync();
@@ -9202,7 +11914,9 @@ function healthDetail(story: Story, cell: Cell, card: string): void {
   if (cell === 'amount') {
     body.push(amountVisual(story));
     const days = stripOf({ of: 'trips' }, day, 28, story.severity);
-    if (days.length) body.push(svgNode(dayStrip({ days, labels: stripLabels(days), key: STRIP_KEY, more: { same: sameDays(day) }, unit: '/day', aria: `${RowsWord()} day by day for four weeks to ${dayLabel(day)}, each against its own usual range.` })));
+    // Marked where a change that reaches the dataset began (ADR 0027 §8).
+    const across = acrossColumn(dataOf(card), undefined, undefined, days);
+    if (days.length) body.push(svgNode(dayStrip({ days: across.days, labels: stripLabels(days), key: STRIP_KEY, more: { same: sameDays(day), ...(Object.keys(across.marks).length ? { marks: across.marks } : {}) }, unit: '/day', aria: `${RowsWord()} day by day for four weeks to ${dayLabel(day)}, each against its own usual range${across.said}.` })), ...across.notes.filter((x): x is HTMLElement => x !== null));
   }
   if (cell === 'hours' && history && k >= 0) {
     const r = rangesOf({ of: 'trips' })?.at(day);
@@ -9330,6 +12044,9 @@ async function newsTab(card: string, id: string, who: string): Promise<HTMLEleme
   }
   // A watched step the views don't follow tells its own day (ADR 0014 §2): its verdict and what it follows.
   const ownStory = !state.failed && storyDay ? watchedStory(dataOf(card), storyDay) : null;
+  // A declared change's own step on its series (ADR 0027 §7, Q-263): said first, so what follows reads as the change's.
+  const declared = !state.failed && storyDay && watchedSteps().includes(dataOf(card)) ? declaredPart(dataOf(card), storyDay) : null;
+  if (declared) box.append(declared);
   if (ownStory && ownStory.state !== 'calm' && ownStory.state !== 'unlearned') box.append(...watchedNews(ownStory, !!mine));
   // A day paused with no story to tell it (the history doesn't have the day, or there is none): what held it, what
   // waits, and Decide (ADR 0009 §3: a source not judged is held, and a person decides).
@@ -9456,9 +12173,14 @@ function findingCard(f: Finding, card: string): HTMLElement {
   const after = followsCause(f);
   return h('article', { class: `vf-story ${f.severity}`, id: `finding-${f.key}` },
     h('button', { type: 'button', class: 'vf-story-h', onclick: () => findingDetail(f, card) }, m ? glyphEl(m, 15) : '', h('span', {}, f.title), h('span', { class: 'vf-chev' }, glyphEl('chev', 13))),
+    // Told as expected (ADR 0027 §6): the event that excuses it, a tap from its entry on the register.
+    f.excused ? excusedLine(f.excused) : null,
     vis ? h('button', { type: 'button', class: 'vf-hero', 'aria-label': `${f.title}: open`, onclick: () => findingDetail(f, card) }, vis) : (chipsOf(f) ?? oneLine(f.detail)),
     f.acts.length ? (after ? moreOnly(actionsOf(f, card, null, null, dayWaits(), true)) : actionsOf(f, card, f.acts[0] ?? null)) : null);
 }
+/** An excused finding's line: expected while its event lasts, which holds nothing; the event a tap away. */
+const excusedLine = (x: NonNullable<Finding['excused']>): HTMLElement =>
+  h('p', { class: 'vf-excused' }, glyphEl('note', 13), ' Expected while ', h('button', { type: 'button', class: 'linkish', 'data-event': x.event, onclick: () => openEvent(x.event) }, `${x.name} ›`), ' lasts: it holds nothing, and these days aren’t learned from as usual.');
 /** Verbs behind ⋯ alone, the ⋯ labelled "More", so a lone square doesn't read as a stray control. */
 function moreOnly(acts: HTMLElement): HTMLElement {
   const more = acts.querySelector<HTMLElement>('.vf-more');
@@ -10041,6 +12763,21 @@ function allEntries(): RecordEntry[] {
     layerCache.size = size;
   }
   return layerCache.list;
+}
+/**
+ * The record as the month reads its days (ADR 0027 §7, Q-263): on the first day of a declared change, a watched dataset
+ * whose series the change's own step moved says what the day's data said the old way, and names the change
+ * (core/across.ts `asDeclared`). What a run was told stays in the record; this is how its day is read once the step is
+ * known. The same list while the record is the same.
+ */
+const declaredKept: { of: RecordEntry[] | null; read: RecordEntry[] } = { of: null, read: [] };
+function readEntries(): RecordEntry[] {
+  const all = allEntries();
+  if (declaredKept.of !== all) {
+    declaredKept.of = all;
+    declaredKept.read = asDeclared(all);
+  }
+  return declaredKept.read;
 }
 /** An entry by its number: the recorded month's below zero, this browser's from zero. */
 const entryOf = (seq: number | null | undefined): RecordEntry | undefined => (seq === null || seq === undefined ? undefined : seq < 0 ? recordedEntries[seq + recordedEntries.length] : ledger?.entries[seq]);
@@ -11709,10 +14446,65 @@ function ruleLine(r: Rule, here?: string, acts?: HTMLElement | null, thing: 'fil
   return h('li', { class: `of-rule${r.unchecked ? ' unchecked' : ''}${here !== undefined ? ' of-files' : ''}${st ? ` st-${st}` : ''}`, 'data-rule': r.id },
     h('span', { class: 'of-said' }, st && st !== 'off' ? h('span', { class: 'of-state', 'aria-label': STATE_SAID[st] }, stateMark(st, 13)) : null, here ?? r.said),
     h('span', { class: 'of-how' }, how),
+    sinceLink(r),
     r.unchecked ? h('span', { class: 'of-off' }, `Not checked: ${r.unchecked}`) : null,
+    r.def?.kind === 'closed' ? closedEntries(r.def) : null,
     acts ?? null,
     isBronze(file) ? h('button', { type: 'button', class: 'of-card-link', 'aria-label': `${here ?? r.said}: on ${file}’s card`, onclick: () => openCardCheck(file, r.id) }, st && st !== 'ok' && st !== 'off' ? `${STATE_SAID[st]} today · on the card ›` : 'On the card ›') : null);
 }
+/** The register's keys for a rule of the Ontology page: a rule people set, a band, a column's values, a file's key. */
+function ruleSubjectKeys(r: Rule): string[] {
+  const [file, a, b] = r.id.split('/');
+  const column = b !== undefined ? a : null;
+  const last = b ?? a ?? '';
+  const value = last.includes('=') ? last.slice(last.indexOf('=') + 1) : null;
+  if (r.kind === 'covers' || r.kind === 'rows') return [`rows:${file}`];
+  if (r.kind === 'needs') return r.needs !== undefined ? [`needs:${r.needs}`] : [];
+  if (r.kind === 'set' && value !== null) return [`rule:${file}:${value}`];
+  if (r.kind === 'band' && column && value !== null) return [`band:${file}:${column}:${value}`];
+  if (r.kind === 'values' && column) return [`values:${file}:${column}`];
+  if (r.kind === 'key') return [`key:${file}`];
+  return [];
+}
+
+/**
+ * Since when a column has meant what its card says, where a change redefined it (ADR 0027 §3, Q-251): the last recorded
+ * of the redefinitions in force on the day on screen that reach the dataset, with a link to the change. Null where the
+ * meaning stands as shipped, or was only reworded.
+ */
+function meaningSince(file: string, column: string): HTMLElement | null {
+  if (!ruleChanges.length) return null;
+  const reg = registerNow();
+  const day = (resolvedFor.day ?? reg.today).slice(0, 10);
+  const about = (x: RuleEdit) => x.op === 'redefine' && x.column.toLowerCase() === column.toLowerCase() && (x.datasets === undefined || x.datasets.some((d) => d.toLowerCase() === file.toLowerCase()));
+  const e = reg.entries
+    .filter((x) => x.change.from <= day && (x.change.until === undefined || day <= x.change.until) && x.edits.some((y) => y.said !== null && about(y.edit)))
+    .sort((a, b) => Date.parse(a.change.recorded) - Date.parse(b.change.recorded))
+    .at(-1);
+  // The redefinition still to come, where one is recorded: the first after the day on screen, with what it will mean.
+  const next = reg.entries
+    .filter((x) => x.change.from > day && x.edits.some((y) => y.said !== null && about(y.edit)))
+    .sort((a, b) => a.change.from.localeCompare(b.change.from) || Date.parse(a.change.recorded) - Date.parse(b.change.recorded))[0];
+  if (!e && !next) return null;
+  const link = (x: RegisterEntry, said: string) => h('button', { type: 'button', class: 'linkish of-since', 'data-change': x.change.id, onclick: () => openChange(x.change.id) }, `${said} ${dayNear(x.change.from)} ›`);
+  const will = next?.edits.map((y) => y.edit).find(about);
+  return h('div', { class: 'of-redefs' },
+    e ? h('p', { class: 'of-redefined', 'data-change': e.change.id }, h('b', {}, 'Redefined. '), 'It has meant this ', link(e, 'since'), e.change.why ? ` “${e.change.why}”` : '') : null,
+    next && will?.op === 'redefine' ? h('p', { class: 'of-redefined of-coming', 'data-change': next.change.id }, h('b', {}, 'To be redefined. '), link(next, 'From'), ` it means: “${will.change.description}”`) : null);
+}
+
+/** Since when a rule has stood, and by which change (ADR 0027 §9), where a change set made it: a link to the change. */
+function sinceLink(r: Rule): HTMLElement | null {
+  if (!ruleChanges.length) return null;
+  const reg = registerNow();
+  const day = resolvedFor.day ?? reg.today;
+  for (const key of ruleSubjectKeys(r)) {
+    const e = sinceOf(reg.entries, key, day);
+    if (e) return h('button', { type: 'button', class: 'linkish of-since', 'data-change': e.change.id, onclick: () => openChange(e.change.id) }, `Since ${dayShort(e.change.from)} · ${e.how === 'ahead' ? `said ${dayShort(e.recordedDay)}` : e.how === 'back' ? `recorded ${dayShort(e.recordedDay)}` : 'changed that day'} ›`);
+  }
+  return null;
+}
+
 /** Each check's state today, by its id, for the files on the Ontology page: what their cards' Quality tabs say. */
 const ontologyStates = new Map<string, CheckState>();
 /** A file's verdict on its row of the Files panel: something wrong or unusual today, said after its checks. */
@@ -11728,6 +14520,7 @@ const KIND_SAID: Record<OntologyRuleKind, string> = {
   oneOf: 'One of some values',
   range: 'A number in a range',
   when: 'One of some values, where another column has one of its own',
+  closed: 'Only what the ontology has: anything new waits for a person',
 };
 /** Values typed as a list: by commas or new lines, each trimmed, each once. */
 const typedList = (text: string): string[] => [...new Set(text.split(/[,\n]/).map((v) => v.trim()).filter((v) => v !== ''))];
@@ -11754,17 +14547,43 @@ function ruleForm(file: string, column: string, title: string, columns: readonly
   const whenField = h('div', { class: 'of-when' }, field('Where', whenColumn), field('has one of', whenValues, 'By commas, as the file writes them.'));
   const err = h('p', { class: 'of-err', role: 'alert', hidden: true });
   const save = h('button', { type: 'submit', class: 'btn of-save' }, was ? 'Save' : 'Add the check');
+  // A closed column or list (ADR 0027 §4): the values the ontology has, or, with columns that define an entry, the
+  // entries the load on screen has. One that stands takes more values here; a list's entries are declared at the gate.
+  const wasClosed = was?.kind === 'closed' ? was : null;
+  const closedValues = h('textarea', { id: `${uid}-closed`, rows: '2', maxlength: '4000', placeholder: 'a, b, c' }, wasClosed ? '' : known.join(', ')) as HTMLTextAreaElement;
+  // An entry of a closed list declared ahead of its data (Q-255): its key, and what each defining column will hold. It
+  // is in force from the day below and waits for data until the file has it.
+  const aheadKey = h('input', { type: 'text', id: `${uid}-ahead-key`, class: 'of-ahead-key', maxlength: '200' }) as HTMLInputElement;
+  const aheadDefs = (wasClosed?.defines ?? []).map((c) => ({ c, input: h('input', { type: 'text', id: `${uid}-ahead-${c}`, class: 'of-ahead-def', 'data-column': c, maxlength: '400' }) as HTMLInputElement }));
+  const aheadFields = { el: h('fieldset', { class: 'of-defines of-ahead' }, h('legend', {}, 'Declare an entry before its data'),
+    h('p', { class: 'of-hint' }, `The business decided on it, and the file doesn’t have it yet. It is in force from the day below and is shown as waiting for data until a row of ${file} carries it, as declared.`),
+    field(`${title} (its key)`, aheadKey),
+    ...aheadDefs.map((d) => field(propertyOf(state.doc.ontology, file, d.c)?.title ?? d.c, d.input))) };
+  const defineTicks = others.map((c) => ({ c, input: h('input', { type: 'checkbox', value: c }) as HTMLInputElement }));
+  const closedField = h('div', { class: 'of-closed' },
+    wasClosed
+      ? h('p', { class: 'of-hint' }, isList(wasClosed) ? `The ontology has ${plural(wasClosed.entries?.length ?? 0, 'entry', 'entries')}, each with its ${listed((wasClosed.defines ?? []).map((c) => propertyOf(state.doc.ontology, file, c)?.title ?? c))}. An entry the file brings is declared at the gate, on its day; one the business has decided on ahead is declared here.` : `The ontology has ${plural(wasClosed.entries?.length ?? 0, 'value')}: ${(wasClosed.entries ?? []).map((e) => e[0]).slice(0, 12).join(', ')}${(wasClosed.entries?.length ?? 0) > 12 ? ', …' : ''}.`)
+      : null,
+    wasClosed && isList(wasClosed) ? aheadFields.el : field(wasClosed ? `More values ${title} may hold` : `The values the ontology has for ${title}`, closedValues, wasClosed ? 'By commas, as the file writes them. Each is declared from the day below.' : `By commas, as the file writes them. Any other value that arrives stops what ${file} reaches until someone declares it, publishes without it or doesn’t publish.`),
+    wasClosed || !others.length ? null : h('fieldset', { class: 'of-defines' }, h('legend', {}, 'A list of things? Tick what defines one'),
+      h('p', { class: 'of-hint' }, `With any ticked, ${title} is each thing’s key, and the ontology keeps the entries the load on screen has, each with the columns ticked. A changed one stops at the gate as a new one does; a reworded name doesn’t.`),
+      h('div', { class: 'of-define-list' }, ...defineTicks.map((t) => h('label', { class: 'of-define' }, t.input, ` ${propertyOf(state.doc.ontology, file, t.c)?.title ?? t.c}`)))));
+  const actionField = field('A row that breaks it', action, 'Flagged rows are kept and counted; left out, they don’t go on to the next step; a held day waits for a decision.');
   const fit = () => {
     const k = kind.value as OntologyRuleKind;
     valuesField.hidden = k !== 'oneOf' && k !== 'when';
     rangeField.hidden = k !== 'range';
     whenField.hidden = k !== 'when';
+    closedField.hidden = k !== 'closed';
+    // What the ontology doesn't have always waits for a person: a closed rule holds.
+    actionField.hidden = k === 'closed';
   };
+  if (wasClosed) (kind as HTMLSelectElement).disabled = true;
   kind.addEventListener('change', fit);
   const form = h('form', { class: 'of-form of-rule-form', 'aria-label': `${was ? 'Change a rule' : 'Add a rule'} on ${title} in ${file}`, novalidate: true },
     field(`${title} must be`, kind),
-    whenField, valuesField, rangeField,
-    field('A row that breaks it', action, 'Flagged rows are kept and counted; left out, they don’t go on to the next step; a held day waits for a decision.'),
+    whenField, valuesField, rangeField, closedField,
+    actionField,
     h('p', { class: 'of-hint' }, `For ${file} only. On once saved: it is recorded, and enforced from the day below.${anyDayWaits() ? ` ${WAITS_AGAIN}` : ''}`),
     fromBar(),
     err,
@@ -11779,6 +14598,44 @@ function ruleForm(file: string, column: string, title: string, columns: readonly
       return;
     }
     const k = kind.value as OntologyRuleKind;
+    const refuse = (why: string) => {
+      err.textContent = why;
+      err.hidden = false;
+      save.disabled = false;
+    };
+    // A closed rule that stands takes more values: each declared, an edit of its own (a change set dated before another
+    // keeps both).
+    if (wasClosed) {
+      const key = aheadKey.value.trim();
+      const more = isList(wasClosed) ? (key ? [[key, ...aheadDefs.map((d) => d.input.value.trim())]] : []) : typedList(closedValues.value).filter((v) => !(wasClosed.entries ?? []).some((e) => e[0] === v)).map((v) => [v]);
+      if (!more.length) return refuse(isList(wasClosed) ? 'Say the entry’s key.' : 'Type a value the ontology doesn’t have yet.');
+      if (isList(wasClosed) && (wasClosed.entries ?? []).some((e) => e[0] === key && e.every((v, k) => v === more[0]![k]))) return refuse(`The ontology has ${key} as typed already.`);
+      save.disabled = true;
+      void editRules(more.map((entry): RuleEdit => ({ op: 'declareEntry', file, rule: wasClosed.id, entry }))).then((done) => {
+        if (done) form.remove();
+        else save.disabled = false;
+      });
+      return;
+    }
+    if (k === 'closed') {
+      const defines = defineTicks.filter((t) => t.input.checked).map((t) => t.c);
+      save.disabled = true;
+      void (async () => {
+        // A list's entries are the load's on screen, each with the columns that define it; a column's are as typed.
+        const entries = defines.length ? await entriesOnScreen(file, column, defines) : typedList(closedValues.value).map((v) => [v]);
+        if (typeof entries === 'string') return refuse(entries);
+        const made = setRule(state.doc, { file, column, kind: 'closed', ...(defines.length ? { defines } : {}), entries, action: 'hold' });
+        if ('problem' in made) return refuse(`That rule can’t be kept: ${made.problem}.`);
+        const had = new Set(rulesOf(state.doc.ontology, file).map((x) => x.id));
+        const kept = rulesOf(made.doc.ontology, file).find((x) => !had.has(x.id));
+        if (!kept) return refuse('That rule can’t be kept.');
+        // Closing what the data already holds is its first description, not a change (ADR 0027 §2).
+        const done = await editRules({ op: 'setRule', rule: kept }, { kind: 'described' });
+        if (done) form.remove();
+        else save.disabled = false;
+      })();
+      return;
+    }
     const number = (x: HTMLInputElement) => (x.value.trim() === '' ? undefined : Number(x.value));
     const input: RuleInput = {
       ...(was ? { id: was.id } : {}),
@@ -11798,12 +14655,65 @@ function ruleForm(file: string, column: string, title: string, columns: readonly
     const kept = rulesOf(r.doc.ontology, file).find((x) => (was ? x.id === was.id : !had.has(x.id)));
     if (!kept) return;
     save.disabled = true;
-    form.remove();
-    void editRules({ op: 'setRule', rule: kept });
+    // The form stays as it was typed until the change is made: closed without a reason (ADR 0027 §2), nothing is lost.
+    void editRules({ op: 'setRule', rule: kept }).then((done) => {
+      if (done) form.remove();
+      else save.disabled = false;
+    });
   });
   return form;
 }
 const ruleList = (rules: readonly Rule[], none: string): HTMLElement => (rules.length ? h('ul', { class: 'of-rules' }, ...rules.map((r) => ruleLine(r))) : h('p', { class: 'of-none' }, none));
+
+/** How many entries a closed list may take from a load: past this it is no short list of things, and isn't closed. */
+const CLOSED_MOST = 500;
+
+/** A file's entries in the load on screen, each its key and the columns that define it, as the engine writes them: what
+ * closing a list declares. Words where the file can't be read, or holds too many to be a closed list. */
+async function entriesOnScreen(file: string, column: string, defines: readonly string[]): Promise<string[][] | string> {
+  const nv = await nodeView(file, state.viewer);
+  if (typeof nv === 'string' || !state.engine) return `${file} wasn’t read on the day on screen: a list is closed from a day that has its entries.`;
+  const rows = (await state.engine.query(emitUndeclared(nv.read, '1 = 0', column, defines, CLOSED_MOST + 1))).rows;
+  const entries = rows.map((r) => r.slice(0, defines.length + 1).map((v) => (v === null || v === undefined ? '' : String(v)))).filter((e) => e[0] !== '');
+  if (entries.length > CLOSED_MOST) return `${file} has more than ${fmtInt(CLOSED_MOST)} of them: a closed list is a short list of things the business keeps.`;
+  if (new Set(entries.map((e) => e[0])).size !== entries.length) return `${column} isn’t a key in this load: some value is on rows that differ in ${listed([...defines])}.`;
+  return entries.sort((a, b) => (a[0]! < b[0]! ? -1 : a[0]! > b[0]! ? 1 : 0));
+}
+
+/**
+ * The entries a closed list or column has (ADR 0027 §4), under its rule's line: each as the file writes it, what
+ * defines it, and since when where a change declared it; then the keys a decision leaves out, still open.
+ */
+function closedEntries(r: OntologyRule): HTMLElement {
+  const list = isList(r);
+  const reg = ruleChanges.length ? registerNow() : null;
+  const day = resolvedFor.day ?? reg?.today ?? '';
+  const since = (key: string) => {
+    const e = reg ? sinceOf(reg.entries, `entry:${r.file}:${r.id}:${key}`.toLowerCase(), day) : null;
+    return e ? h('button', { type: 'button', class: 'linkish of-since', 'data-change': e.change.id, onclick: () => openChange(e.change.id) }, `since ${dayShort(e.change.from)} ›`) : null;
+  };
+  const entries = r.entries ?? [];
+  const waiting = new Set(waitingNow(latest()).filter((w) => w.rule.id === r.id && w.rule.file === r.file).flatMap((w) => w.keys));
+  // An entry ends from a day, with what follows it (ADR 0027 §2, Q-264): nothing is deleted, and the list keeps that it
+  // ended. The owner's to do, in a flow of format 5.
+  const may = isOwner() && state.doc.smaltfl === 5;
+  const ended = (state.doc.ontology?.ended ?? []).filter((x) => x.what === 'entry' && x.of?.rule === r.id && x.of.file.toLowerCase() === r.file.toLowerCase());
+  const endOf = (key: string) => (may ? h('button', { type: 'button', class: 'linkish of-entry-end', 'aria-label': `End ${gateKey(r, key)}`, onclick: () => endForm('entry', key, gateKey(r, key), { file: r.file, rule: r.id }) }, 'End ›') : null);
+  // Open or shut as the reader left it, while the page is: a change made from the list is seen in it.
+  const openKey = `${r.file.toLowerCase()}|${r.id}`;
+  const box = h('details', { class: 'whole of-entries', 'data-rule': r.id, ...(entriesOpen.has(openKey) ? { open: 'open' } : {}) },
+    h('summary', {}, `The ${plural(entries.length, list ? 'entry' : 'value', list ? 'entries' : 'values')} the ontology has${r.leftOut?.length ? ` · ${r.leftOut.length} left out` : ''}${waiting.size ? ` · ${waiting.size} waiting for data` : ''}${ended.length ? ` · ${ended.length} ended` : ''}`),
+    h('ul', { class: 'of-entry-list' },
+      ...entries.map((e) => h('li', { class: `of-entry${waiting.has(e[0] ?? '') ? ' waiting' : ''}`, 'data-key': e[0] ?? '' }, h('b', {}, gateKey(r, e[0] ?? '')), list ? h('span', { class: 'of-entry-defs' }, gateDefines(r, e)) : null, waiting.has(e[0] ?? '') ? h('span', { class: 'of-entry-wait' }, 'waiting for data: no row of the file carries it') : null, since(e[0] ?? ''), comingOfKey(`entry:${r.file}:${r.id}:${e[0] ?? ''}`, true), endOf(e[0] ?? ''))),
+      ...(r.leftOut ?? []).map((key) => h('li', { class: 'of-entry left', 'data-key': key }, h('b', {}, gateKey(r, key)), h('span', { class: 'of-entry-defs' }, 'left out until it is declared'), since(key))),
+      ...ended.map((x) => h('li', { class: 'of-entry ended', 'data-key': x.id }, h('b', {}, gateKey(r, x.id)), h('span', { class: 'of-entry-defs' }, endedSaid(r, x)), since(x.id))))) as HTMLDetailsElement;
+  box.addEventListener('toggle', () => (box.open ? entriesOpen.add(openKey) : entriesOpen.delete(openKey)));
+  return box;
+}
+/** The closed lists whose entries are open on the Ontology page, by file and rule. */
+const entriesOpen = new Set<string>();
+/** An entry that ended, in a few words: with what follows it, each named as the ontology names it. */
+const endedSaid = (r: OntologyRule, x: Ended): string => endedInWords(x, (k) => entryCalled(state.doc.ontology, r, k));
 
 /** A column's values in the load on screen, at the top of its card: the drawing its file's Columns tab has for it
  * (`columnShape`), and how full it is. A key (every value different) and free text (names, hosts: no value on more
@@ -11858,11 +14768,50 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
     where.textContent = said ? `Where it’s used: ${said}` : 'No step uses it.';
     where.dataset.known = '1';
     forWhom.textContent = scope(u.carried.slice(1));
+    carried = u.carried.slice(1);
+    syncHow();
   });
+  // What a column or a value means, edited (ADR 0027 §3, Q-251): the app asks which it is. Reworded says the same thing
+  // better, on every day, and the record keeps the old wording; redefined means something else from a day, a dated
+  // change with its kind and its reason. Asked once the meaning or a label is edited, where the column has a meaning
+  // to redefine: one an estate describes is the estate's to redefine, in its own change sets.
+  const canRedefine = !estate && redefinable(state.doc, f.id, c.name);
+  const howName = `${uid}-how`;
+  const reworded = h('input', { type: 'radio', name: howName, value: 'reworded', checked: 'checked' }) as HTMLInputElement;
+  const redefined = h('input', { type: 'radio', name: howName, value: 'redefined' }) as HTMLInputElement;
+  const dated = h('div', { class: 'of-dated', hidden: true });
+  let whyDated: ReturnType<typeof whyFields> | null = null;
+  const reach = h('p', { class: 'of-hint of-reach' });
+  const howBox = canRedefine ? h('fieldset', { class: 'of-vals of-how', hidden: true }, h('legend', {}, 'The same meaning, or another?'),
+    h('label', { class: 'of-how-opt', 'data-how': 'reworded' }, reworded, h('span', {}, h('b', {}, 'Reworded. '), 'It says the same thing better: every day reads it so, and the record keeps the old wording.')),
+    h('label', { class: 'of-how-opt', 'data-how': 'redefined' }, redefined, h('span', {}, h('b', {}, 'Redefined. '), 'It means something else from a day: the days before keep the meaning they were made under.')),
+    dated) : null;
+  const labelWas = (value: string) => (saysMore(had.get(value), value) ? had.get(value)! : '');
+  const meaningEdited = () => mean.value.trim() !== (c.description ?? '').trim() || labels.some((x) => x.input.value.trim() !== labelWas(x.value));
+  /** The meaning as the form has it, for a redefinition: the words, and each label that changed. */
+  const meaningNow = () => {
+    const values = Object.fromEntries(labels.filter((x) => x.input.value.trim() !== labelWas(x.value)).map((x) => [x.value, x.input.value.trim() || x.value]));
+    return { description: mean.value.trim(), ...(Object.keys(values).length ? { values } : {}) };
+  };
+  let carried: readonly string[] = [];
+  const redefining = () => !!howBox && !howBox.hidden && redefined.checked;
+  const syncHow = () => {
+    if (!howBox) return;
+    howBox.hidden = !meaningEdited();
+    const on = redefining();
+    if (on && !whyDated) {
+      whyDated = whyFields('business', [f.id]);
+      dated.append(fromBar(), whyDated.el, reach);
+    }
+    dated.hidden = !on;
+    if (on) reach.textContent = `Redefined for ${redefinedWhere(redefineEdits(state.doc, f.id, c.name, carried, meaningNow()))}. Its name is a label, and changes at once.`;
+    forWhom.hidden = on;
+  };
   const form = h('form', { class: 'of-form', 'aria-label': `Edit ${c.title} in ${f.id}`, novalidate: true },
     h('div', { class: 'of-field' }, h('label', { for: name.id }, 'Name'), name,
       h('p', { class: 'of-hint' }, 'The file writes it as ', h('code', {}, ...breakable(c.name)), '. That stays.')),
     h('div', { class: 'of-field' }, h('label', { for: mean.id }, 'What it means'), mean),
+    howBox,
     why && estate ? h('div', { class: 'of-field of-why' }, h('label', { for: why.id }, 'Why it’s handled its own way here'), why,
       h('p', { class: 'of-hint' }, `${estate.estate.name}’s ontology describes this column. A change here is ${possessive(whose)} own handling of it in ${f.id}: noted on this page with its reason, and part of the flow’s hash.`)) : null,
     labels.length ? h('fieldset', { class: 'of-vals' }, h('legend', {}, labels.length === 1 ? 'A label for its value' : 'A label for each value'),
@@ -11873,6 +14822,8 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
     forWhom,
     err,
     h('div', { class: 'of-acts' }, save, h('button', { type: 'button', class: 'btn quiet', onclick: close }, 'Cancel')));
+  form.addEventListener('input', syncHow);
+  form.addEventListener('change', syncHow);
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     void (async () => {
@@ -11883,9 +14834,32 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
         err.hidden = false;
         return;
       }
-      const names = { title: name.value, description: mean.value, values: Object.fromEntries(labels.map((x) => [x.value, x.input.value])) };
+      // Redefined (Q-251): the meaning and the labels go into a dated change with its kind and reason, asked for before
+      // anything is written; the name alone is saved here, at once, as a label is (Q-198).
+      const dating = redefining();
+      const given = dating ? whyDated!.read() : null;
+      if (typeof given === 'string') {
+        err.textContent = given;
+        err.hidden = false;
+        whyDated!.focus();
+        return;
+      }
+      const meaning = dating ? meaningNow() : null;
+      const names = dating ? { title: name.value } : { title: name.value, description: mean.value, values: Object.fromEntries(labels.map((x) => [x.value, x.input.value])) };
       const change = { ...names, ...(why ? { override: why.value } : {}) };
       const through = (await usesReady(f.id, c.name))?.carried.slice(1) ?? [];
+      /** The dated part: the meaning redefined from the day the bar says, for every dataset the meaning is said for. */
+      const redefine = async (): Promise<boolean> => {
+        const edits = redefineEdits(state.doc, f.id, c.name, through, meaning!);
+        const back = () => void renderOntology().then(() => requestAnimationFrame(() => Array.from(document.querySelectorAll<HTMLElement>('#ontology-files .of-item.open .of-col')).find((el) => el.dataset.column === c.name)?.scrollIntoView({ block: 'nearest' })));
+        const done = edits.length > 0 && (await editRules(edits, { given: given as WhyGiven, redraw: () => { if (state.selected) void renderSheet(); back(); } }));
+        if (!done) {
+          err.textContent = 'Its meaning can’t be redefined so: nothing about it changed, or the flow can’t be changed from here.';
+          err.hidden = false;
+          save.disabled = false;
+        }
+        return done;
+      };
       // The estate's column changed with no reason given, on a card that isn't the flow's own handling yet: asked for.
       if (why && !c.own && !why.value.trim() && nameColumnThrough(state.doc, f.id, c.name, names, through).said) {
         err.textContent = `Say why ${whose} handles it its own way: the reason is noted with the change.`;
@@ -11894,7 +14868,7 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
         return;
       }
       const { doc, said } = nameColumnThrough(state.doc, f.id, c.name, change, through, described);
-      if (!said) return close();
+      if (!said) return dating ? void (await redefine()) : close();
       const pinned = pinnedSaid([f.id, ...through]);
       if (pinned) {
         err.textContent = pinned;
@@ -11913,6 +14887,12 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
       ruleBase = ruleParts(nameColumnThrough(withRuleParts(state.doc, ruleBase), f.id, c.name, change, through, described).doc);
       resolveDoc(resolvedFor.day, resolvedFor.asOf, true);
       setStatus(`${closed(said)} Recorded; the next run uses it.`, false);
+      if (dating) {
+        // The name first, recorded, then the meaning's dated change on the document as renamed.
+        await flowEdited(said, { file: f.id, column: c.name, change, through });
+        requestCanvas();
+        return void (await redefine());
+      }
       void flowEdited(said, { file: f.id, column: c.name, change, through });
       requestCanvas();
       if (state.selected) void renderSheet();
@@ -11962,6 +14942,27 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
     at.after(form);
     form.querySelector<HTMLElement>('select')?.focus();
   };
+  // What a row is and a dependency (ADR 0027 §3, Q-250): the ontology's, changed and ended by dated changes with their
+  // reasons, where they are this flow's to change: a gated flow of format 5, and no estate's ontology says them.
+  const dated = owner && state.doc.smaltfl === 5 && Object.keys(state.doc.gates ?? {}).length > 0;
+  const rowsEntry = (state.doc.ontology?.rows ?? []).find((x) => x.dataset.toLowerCase() === f.id.toLowerCase()) ?? null;
+  const twoActs = (changeSaid: string, change: () => void, endSaid: string, end: () => void) => h('span', { class: 'of-rule-acts' },
+    h('button', { type: 'button', class: 'of-act of-dated-change', 'aria-label': changeSaid, onclick: change }, 'Change'),
+    h('button', { type: 'button', class: 'of-act of-dated-end', 'aria-label': endSaid, onclick: end }, 'End'));
+  const ownActs = (r: Rule): HTMLElement | null => {
+    if (!dated || r.origin.how !== 'set' || r.origin.in !== 'ontology') return null;
+    if (r.kind === 'covers' && rowsEntry && !estateRows(f.id)) return twoActs(`Change what a row of ${f.id} is`, () => rowsForm(f.id, rowsEntry), `End what a row of ${f.id} is`, () => endForm('rows', f.id, `what a row of ${f.id} is`));
+    const needs = r.kind === 'needs' && r.needs !== undefined ? (state.doc.ontology?.needs ?? []).find((n) => n.id === r.needs) : undefined;
+    if (needs && !estateNeeds(needs.id)) return twoActs(`Change the dependency ${needs.id}`, () => needsForm(f.id, needs), `End the dependency ${needs.id}`, () => endForm('needs', needs.id, `the dependency ${needs.id}`));
+    return null;
+  };
+  const ownAdds = (): HTMLElement | null => {
+    if (!dated || !isBronze(f.id)) return null;
+    const isList = (state.doc.ontology?.objectTypes ?? []).some((t) => t.dataset.toLowerCase() === f.id.toLowerCase());
+    return h('p', { class: 'of-own-adds' },
+      !rowsEntry && !isList && kindsKnown().length ? h('button', { type: 'button', class: 'btn quiet of-add-rows', onclick: () => rowsForm(f.id, null) }, 'Say what a row is ›') : null,
+      h('button', { type: 'button', class: 'btn quiet of-add-needs', onclick: () => needsForm(f.id, null) }, 'Add a dependency ›'));
+  };
   /** A rule people set, on its line: change it in place, or take it away (asked twice). */
   const setActs = (c: ColumnCard, r: OntologyRule): HTMLElement => {
     const remove = h('button', { type: 'button', class: 'of-act', 'aria-label': `Remove the check: ${ruleSaid(state.doc.ontology, r)}` }, 'Remove');
@@ -11994,6 +14995,7 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
       h('div', { class: 'of-col-head' }, h('div', { class: 'of-col-names' }, h('h4', {}, c.title), c.asWritten ? h('code', {}, ...breakable(c.asWritten)) : null, p?.unit ? h('span', { class: 'unit' }, p.unit) : null), edit),
       slot,
       c.description ? h('p', { class: 'of-mean' }, c.description) : h('p', { class: 'of-none' }, 'Not described yet.'),
+      meaningSince(f.id, c.name),
       // A flow's own handling of the column (ADR 0026 §8): here, with its reason and what the estate says in its place;
       // and in other datasets, noted on every other card of the column.
       c.own ? h('div', { class: 'of-handled', 'data-flow': c.own.flow.id },
@@ -12038,9 +15040,15 @@ function fileSection(f: FileSection, refused: boolean, day: string | null): HTML
       f.inventory ? h('p', { class: 'of-inv' }, `${f.inventory.said}.`) : null,
       f.readBy?.length ? readByLine(f.readBy) : null,
       sharedNote(f.id)),
-    h('section', { class: 'of-part of-own' }, h('h3', { class: 'of-h' }, `This ${thing}’s checks`), ruleList(f.rules, 'No checks of its own yet.')),
+    h('section', { class: 'of-part of-own' }, h('h3', { class: 'of-h' }, `This ${thing}’s checks`),
+      f.rules.length ? h('ul', { class: 'of-rules' }, ...f.rules.map((r) => ruleLine(r, undefined, ownActs(r), thing))) : h('p', { class: 'of-none' }, 'No checks of its own yet.'),
+      ownAdds()),
     h('section', { class: 'of-part' }, h('h3', { class: 'of-h' }, cards.length ? `Columns · ${cards.length}` : 'Columns'), wait, cards.length ? h('div', { class: 'of-cols' }, ...cards) : null),
     // A column the file added, described as the file's own, which the flow doesn't read (ADR 0022 §2, Q-204).
+    // The columns set aside (ADR 0027 §4): named, so that every column the file has is described or set aside.
+    f.aside?.length ? h('section', { class: 'of-part of-aside' }, h('h3', { class: 'of-h' }, `Set aside · ${f.aside.length}`),
+      h('p', { class: 'of-hint' }, 'Columns the file has that the flow doesn’t take: no step reads them.'),
+      h('ul', { class: 'of-unread-list of-aside-list' }, ...f.aside.map((c) => h('li', { 'data-column': c }, h('b', {}, c), owner ? h('button', { type: 'button', class: 'linkish of-aside-back', onclick: () => asideColumn(f.id, c, false) }, ' Take it back ›') : null)))) : null,
     f.unread?.length ? h('section', { class: 'of-part of-unread' }, h('h3', { class: 'of-h' }, `Not read by the flow · ${f.unread.length}`),
       h('ul', { class: 'of-unread-list' }, ...f.unread.map((u) => h('li', { 'data-column': u.name }, h('b', {}, u.title), saysMore(u.name, u.title) ? h('code', {}, u.name) : '', u.description ? `: ${u.description}` : '')))) : null,
     // What the ontology doesn't say yet, proposed from the file's own data (Q-139, Q-213): a file's, not a made dataset's.
@@ -12321,6 +15329,10 @@ async function renderOntology(): Promise<void> {
   await useLookups(state.viewer);
   await estateDocs.catch(() => []);
   if (stale()) return;
+  // The history for an auditor (ADR 0027 §10), where a link or a button asked for it: in place of the view.
+  if (toldView?.is === 'history') return void renderHistoryPage(toldView);
+  delete document.body.dataset.told;
+  $('history-page').hidden = true;
   // The rules over time (ADR 0021 §5), then the edits made to the flow here, with the way back to the flow as shipped.
   renderRulesTime();
   renderFlowEdits();
@@ -12716,6 +15728,8 @@ function loadSummary(): string {
  * (its panel, beside the calendar), the moment it is read as known on (null: now), the outcome its counts filter the
  * calendar and the list by, the folded rows opened under its files and steps, and whether the demo's scenes are open. */
 const monthView = { month: null as string | null, pick: null as string | null, at: null as string | null, filter: 'all' as MonthFilter, open: new Set<string>(), scenes: false,
+  /** The score drawn with the steps taken out beside the published line (ADR 0027 §7, Q-261). */
+  adjusted: false,
   /** The flows entered (ADR 0026 §5): the month on show is the last one's own; none, the page's flow's, of everything. */
   flow: [] as string[] };
 /** What the month's counts filter by (ADR 0024 §2): every day, or the days of one outcome. */
@@ -13071,7 +16085,7 @@ function comparePart(k: number): HTMLElement | null {
   const ma = sideManifest(c.a);
   const mb = sideManifest(c.b);
   if (!ma || !mb) return box(h('p', { class: 'dc-said' }, `${!ma ? (c.a === 0 ? 'The what-if' : `Version ${c.a}`) : (c.b === 0 ? 'The what-if' : `Version ${c.b}`)} hasn’t run: there is nothing of it to compare yet.`));
-  const s = compareSummary(ma, mb);
+  const s = compareSummary(ma, mb, contextSteps());
   const rowsOf = (f: { rows: number | null; refused: boolean } | null) => (!f ? 'not read' : f.refused ? 'refused' : f.rows === null ? 'no rows counted' : `${fmtInt(f.rows)} ${f.rows === 1 ? 'row' : 'rows'}`);
   // A version run again under rules changed since (ADR 0021 §5) by what its restatement made of it.
   const restatedFate = (f: VersionFact) => (!f.restated?.decision ? 'waiting for the restatement' : f.restated.decision.ticked ? `restated by ${whoSaid(f.restated.decision.by)}, ${f.published ? 'published' : 'not published'}` : f.restated.decision.same ? 'the same as readers had, noted' : 'left as readers had it');
@@ -13094,6 +16108,8 @@ function comparePart(k: number): HTMLElement | null {
   if (!fa || !fb) return null;
   const changedOut = s.outputs.filter((o) => o.changed);
   const sameOut = s.outputs.filter((o) => !o.changed);
+  // The context each version was read under (ADR 0027 §8), where it differs: listed after the outputs, never counted.
+  const changedCtx = s.context.filter((o) => o.changed);
   const ra = c.a === 0 ? (wi ?? undefined) : versionRun(k, c.a);
   const rb = c.b === 0 ? (wi ?? undefined) : versionRun(k, c.b);
   const rowsPart = (name: string): HTMLElement => {
@@ -13124,7 +16140,17 @@ function comparePart(k: number): HTMLElement | null {
         renderLoads();
       } }, c.rows === o.name ? 'Hide rows' : 'Rows ›') : null,
       c.rows === o.name && o.a && o.b ? rowsPart(o.name) : null))),
-    sameOut.length ? h('p', { class: 'dc-same' }, `${fmtInt(sameOut.length)} the same: ${sameOut.slice(0, 6).map((o) => o.name).join(', ')}${sameOut.length > 6 ? ` and ${fmtInt(sameOut.length - 6)} more` : ''}.`) : null);
+    sameOut.length ? h('p', { class: 'dc-same' }, `${fmtInt(sameOut.length)} the same: ${sameOut.slice(0, 6).map((o) => o.name).join(', ')}${sameOut.length > 6 ? ` and ${fmtInt(sameOut.length - 6)} more` : ''}.`) : null,
+    changedCtx.length ? h('p', { class: 'eyebrow dc-ctx-k' }, 'Read under another context') : null,
+    changedCtx.length ? h('p', { class: 'dc-said dc-ctx-said' }, `What each version was read under differs too: the changes in force, the events going on or the version of the rules. ${changedCtx.length === 1 ? 'It is' : 'They are'} no data of the day, and ${changedCtx.length === 1 ? 'isn’t' : 'aren’t'} counted above.`) : null,
+    changedCtx.length ? h('ul', { class: 'dc-outs dc-ctx' }, ...changedCtx.map((o) => h('li', { class: `dc-out${comparing?.rows === o.name ? ' open' : ''}`, 'data-output': o.name },
+      h('span', { class: 'dc-name' }, o.name),
+      h('span', { class: 'dc-n' }, `${o.a ? fmtInt(o.a.rows) : 'not built'} → ${o.b ? fmtInt(o.b.rows) : 'not built'} rows`),
+      o.a && o.b ? h('button', { type: 'button', class: 'linkish dc-rows', 'aria-expanded': String(c.rows === o.name), onclick: () => {
+        comparing = { ...c, rows: c.rows === o.name ? null : o.name };
+        renderLoads();
+      } }, c.rows === o.name ? 'Hide rows' : 'Rows ›') : null,
+      c.rows === o.name && o.a && o.b ? rowsPart(o.name) : null))) : null);
 }
 
 
@@ -13623,7 +16649,7 @@ function sourceFiles(k: number): Map<string, DayFile[]> {
 function rulesVersionsOf(): RuleVersion[] {
   if (!ruleChanges.length) return [{ changes: [], spans: [] }];
   const days = [...new Set([...loads.list.map((l) => l.day.slice(0, 10)), nextDayToArrive()])].sort();
-  return ruleVersions({ changes: ruleChanges }, days);
+  return ruleVersions(keptChanges(), days);
 }
 
 /** A version of the rules in words: its number, as the Ontology view gives it, and what its change sets did. */
@@ -13669,7 +16695,7 @@ function whatIfHow(): string | null {
   const day = l.day.slice(0, 10);
   const v = versionOfFiles(w.k, whatIfShas(w));
   const files = v ? `Its files are version ${v}’s` : 'No version of the day has these files: making it the day’s sends them again';
-  const rules = versionKey(w.rules) === versionOn({ changes: ruleChanges }, day, null)
+  const rules = versionKey(w.rules) === versionOn(keptChanges(), day, null)
     ? `its rules are those in force on ${dayShort(day)} now`
     : `its rules aren’t in force on ${dayShort(day)}: making it the day’s takes them for that day only, restated under one decision`;
   return `${files}; ${rules}.`;
@@ -13688,7 +16714,7 @@ function whatIfMakes(): { sent: string[]; rules: boolean; how: string; may: bool
   const day = l.day.slice(0, 10);
   const gotFiles = versionsOfLoad(w.k)[wentWith(w.k) - 1]?.files ?? {};
   const sent = Object.entries(whatIfShas(w)).filter(([id, sha]) => gotFiles[id]?.sha256 !== sha).map(([id]) => id).sort();
-  const rules = versionKey(w.rules) !== versionOn({ changes: ruleChanges }, day, null);
+  const rules = versionKey(w.rules) !== versionOn(keptChanges(), day, null);
   if (!sent.length && !rules) return null;
   const own = w.run.result.holds.filter((x) => x.by !== 'what-if');
   const held = own[0] ? `${own[0].origin}: ${own[0].said}` : null;
@@ -13724,7 +16750,7 @@ async function makeWhatIfTheDays(reason: string): Promise<void> {
   makingWhatIf = false;
   let cs: ChangeSet | null = null;
   if (m.rules) {
-    cs = { id: changeId(), from: day, until: day, recorded: new Date().toISOString(), by: state.viewer, why: reason.trim(), edits: [{ op: 'useVersion', changes: [...w.rules] }] };
+    cs = { id: changeId(), from: day, until: day, recorded: new Date().toISOString(), by: state.viewer, why: reason.trim(), kind: 'corrected', edits: [{ op: 'useVersion', changes: [...w.rules] }] };
     ruleChanges = [...ruleChanges, cs];
     await flowEdited(`${dayLabel(day)} takes ${ruleVersionSaid(w.rules)} for that day only, from a what-if`);
   }
@@ -13759,7 +16785,7 @@ function whatIfSheet(k: number): void {
   const per = sourceFiles(k);
   const varied = [...per].filter(([, xs]) => xs.length > 1);
   const rv = rulesVersionsOf();
-  const nowKey = versionOn({ changes: ruleChanges }, day, null);
+  const nowKey = versionOn(keptChanges(), day, null);
   const was = whatIf?.k === k ? whatIf : null;
   // Each file first as the version on screen has it: this day, with what the what-if changes; else the last one's picks.
   const shown = versionsOfLoad(k)[(loads.pinned === k ? loads.pinnedVersion : wentWith(k)) - 1]?.files ?? {};
@@ -14000,11 +17026,17 @@ async function mapColumnOnDay(k: number, source: string, m: ColumnMap, reason: s
   const of = got ? (got.about as unknown as RunAbout) : null;
   if (!of?.manifest) return void setStatus('The day’s run isn’t in the record: there is nothing to run again under the new name.', true);
   mappingColumn = null;
-  const cs: ChangeSet = { id: changeId(), from: day, recorded: new Date().toISOString(), by: state.viewer, why: reason.trim(), edits: [{ op: 'mapColumn', file: source, column: m.to, from: m.from }] };
+  const cs: ChangeSet = { id: changeId(), from: day, recorded: new Date().toISOString(), by: state.viewer, why: reason.trim(), kind: 'source', edits: [{ op: 'mapColumn', file: source, column: m.to, from: m.from }] };
   ruleChanges = [...ruleChanges, cs];
   await flowEdited(`Read ${source}’s ${m.from} as ${m.to} from ${dayShort(day)} on`);
-  // The recorded days it reaches, from the held day on (Q-206): each run again under it, latest first so the held day is
-  // left on screen, and one restatement decides them all with the reason, as a back-dated edit's does.
+  await rerunAndRestate(reason.trim());
+}
+
+/**
+ * The recorded days a change just made reaches, from its day on (Q-206): each run again under it, latest first so the
+ * held day is left on screen, and one restatement decides them all with the reason, as a back-dated edit's does.
+ */
+async function rerunAndRestate(reason: string): Promise<void> {
   const p = pendingRestating();
   if (!p) return;
   const ids = p.changes.map((c) => c.id);
@@ -14017,7 +17049,7 @@ async function mapColumnOnDay(k: number, source: string, m: ColumnMap, reason: s
   const done = pendingRestating();
   if (!done || done.days.some((x) => x.k >= 0 && x.got && !x.r)) return;
   const rows = done.days.map((x) => ({ day: x.day, r: x.r }));
-  await restateDays(done, rows.filter((x) => x.r?.changed), [], rows.filter((x) => !x.r?.changed), reason.trim());
+  await restateDays(done, rows.filter((x) => x.r?.changed), [], rows.filter((x) => !x.r?.changed), reason);
 }
 
 /** A column a file added, described in the ontology as the file's own (ADR 0022 §2, Q-204): a name says how people read
@@ -14036,6 +17068,22 @@ function describeNewColumn(source: string, column: string, day: string): void {
   renderLoads();
 }
 
+/** A file's column set aside, or taken back (ADR 0027 §4): the ontology's record that the flow doesn't take it. It
+ * says how the file is read, as a name does, so it holds for every day at once (Q-198), and is recorded. */
+function asideColumn(source: string, column: string, aside: boolean): void {
+  if (!isOwner() || state.running) return;
+  const { said } = setColumnAside(state.doc, source, column, aside);
+  if (!said) return;
+  const pinned = pinnedSaid([source]);
+  if (pinned) return void setStatus(pinned, true);
+  ruleBase = ruleParts(setColumnAside(withRuleParts(state.doc, ruleBase), source, column, aside).doc);
+  resolveDoc(resolvedFor.day, resolvedFor.asOf, true);
+  setStatus(`${said}. Recorded.`, false);
+  void flowEdited(said);
+  renderLoads();
+  if (location.hash === '#ontology') void renderOntology();
+}
+
 /**
  * The day's columns that changed (ADR 0022 §2; Q-109, Q-146, Q-203, Q-204), on its head: each source whose file's
  * columns aren't the declared ones, what is gone and new and which new column reads as a gone one, and, for someone
@@ -14052,8 +17100,11 @@ function columnsPart(k: number): HTMLElement | null {
   const changed = r.result.manifest.nodes.filter((n) => n.columns);
   if (!changed.length) return null;
   const may = checkDecision(policies(), state.viewer, 'asis').allowed;
-  const rows = changed.map((n) => {
-    const c = n.columns!;
+  const rows = changed.flatMap((n) => {
+    // A column the ontology sets aside is one the file is known to have and the flow doesn't take (ADR 0027 §4): it is
+    // no news on any day. A file whose only change is such columns says nothing here.
+    const c = { ...n.columns!, added: n.columns!.added.filter((col) => !isAside(state.doc.ontology, n.origin, col)) };
+    if (!columnsHold(c) && !c.added.length) return [];
     const held = columnsHold(c);
     // Each gone column a join reads (Q-205): the joins and what is built from them, and today's matches on the other
     // side where a new column reads as it.
@@ -14117,15 +17168,276 @@ function columnsPart(k: number): HTMLElement | null {
         } }, `Read ${m.from} as ${m.to} ›`))
         : null;
     });
+    // A new column is the ontology's to settle (ADR 0027 §4): described, or set aside; until then it is noted, and no
+    // step reads it either way.
     const fresh = !held ? c.added.filter((col) => !propertyOf(state.doc.ontology, n.origin, col)) : [];
-    return h('div', { class: `cm-source${held ? ' held' : ''}`, 'data-source': n.origin },
+    return [h('div', { class: `cm-source${held ? ' held' : ''}`, 'data-source': n.origin },
       h('p', { class: 'cm-said' }, h('b', {}, `${n.origin}: `), `${columnChangeSaid(c)}.`),
       ...joins,
       ...maps,
       held && !c.maps.length ? h('p', { class: 'foot' }, `Keep the day back or replace the file on the decision sheet; a column read by another name is mapped from a file that has it.`) : '',
-      fresh.length && isOwner() ? h('p', { class: 'cm-ask' }, ...fresh.map((col) => h('button', { type: 'button', class: 'linkish cm-add', 'data-column': col, onclick: () => describeNewColumn(n.origin, col, day) }, `Add ${col} to the ontology ›`))) : '');
+      fresh.length && isOwner() ? h('p', { class: 'cm-ask' }, ...fresh.flatMap((col) => [
+        h('button', { type: 'button', class: 'linkish cm-add', 'data-column': col, onclick: () => describeNewColumn(n.origin, col, day) }, `Add ${col} to the ontology ›`),
+        ...(state.doc.smaltfl === 5 ? [h('button', { type: 'button', class: 'linkish cm-aside', 'data-column': col, onclick: () => asideColumn(n.origin, col, true) }, `Set ${col} aside ›`)] : []),
+      ])) : '')];
   });
+  if (!rows.length) return null;
   return h('section', { class: 'panel dh-columns', 'aria-label': 'Columns that changed' }, h('p', { class: 'eyebrow' }, 'Columns that changed'), ...rows);
+}
+
+// ------------------------------------------------------------------ the gate (ADR 0027 §4, slice 3)
+
+/** What stopped at the gate in a run: a closed rule a row failed, the file it is of, what arrived that the ontology
+ * doesn't have, and the outputs that wait for it. */
+interface GateStop {
+  node: number;
+  step: string;
+  rule: OntologyRule;
+  arrivals: [entry: string[], rows: number, changed: boolean][];
+  more: number;
+  reaches: string[];
+}
+
+/** The rules in force on a day as known now, whatever version of the day is on screen: what is still to decide. */
+let knownNow: { key: string; doc: FlowDocument } | null = null;
+function docKnownNow(day: string | null): FlowDocument {
+  if (!ruleChanges.length) return state.doc;
+  const key = `${day ?? ''}|${keptEpoch}|${ruleChanges.map((c) => c.id).join(',')}`;
+  if (knownNow?.key !== key) knownNow = { key, doc: inForce(baseDoc(), day, null) };
+  return knownNow.doc;
+}
+
+/** A run's stops at the gate, by the closed rules in force on its day as known now: the run on screen may have run
+ * before a decision since, and what the ontology has by now is no longer to decide. */
+function gateStops(r: RunRecord | null | undefined): GateStop[] {
+  if (!r) return [];
+  const now = docKnownNow(dayOfRun(r)?.slice(0, 10) ?? null);
+  return r.result.manifest.nodes.flatMap((n) => (n.closed ?? []).flatMap((c): GateStop[] => {
+    const rule = (now.ontology?.rules ?? []).find((x) => x.kind === 'closed' && x.id === c.rule && checkStepOf(now, x.file)?.id === n.origin);
+    if (!rule) return [];
+    const hold = r.result.holds.find((x) => x.by === 'checks' && x.node === n.node && (x as Hold).undeclared);
+    // A day whose restated run came out the same keeps the version it had: what the rules have, or leave out, by now
+    // isn't at the gate any more.
+    const arrivals = c.arrivals.filter(([entry]) => arrivalOf(rule, entry) !== 'declared' && !(rule.leftOut ?? []).includes(entry[0] ?? ''));
+    return arrivals.length || c.more ? [{ node: n.node, step: n.origin, rule, arrivals, more: c.more, reaches: hold?.reaches ?? [] }] : [];
+  }));
+}
+
+/** The keys a closed rule in force on the day on screen leaves out, with the rows of each run left out today. */
+function leftOutNow(r: RunRecord | null | undefined): { rule: OntologyRule; step: string; keys: string[]; rows: number }[] {
+  if (!r) return [];
+  return (state.doc.ontology?.rules ?? []).flatMap((rule) => {
+    if (rule.kind !== 'closed' || !rule.leftOut?.length) return [];
+    const step = checkStepOf(state.doc, rule.file);
+    if (!step) return [];
+    const counted = r.result.manifest.nodes.find((n) => n.origin === step.id)?.expectations?.rules.find((x) => x.name === leftOutName(rule.id));
+    return counted ? [{ rule, step: step.id, keys: rule.leftOut, rows: counted.failed }] : [];
+  });
+}
+
+/** The entries of closed lists that wait for data in a run (Q-255): the ontology has them, and no row of the file does. */
+function waitingNow(r: RunRecord | null | undefined): { rule: OntologyRule; step: string; keys: string[] }[] {
+  if (!r) return [];
+  return r.result.manifest.nodes.flatMap((n) => (n.closed ?? []).flatMap((c) => {
+    const rule = (state.doc.ontology?.rules ?? []).find((x) => x.kind === 'closed' && x.id === c.rule && checkStepOf(state.doc, x.file)?.id === n.origin);
+    return rule && c.waiting?.length ? [{ rule, step: n.origin, keys: c.waiting }] : [];
+  }));
+}
+
+/** An entry's key as people call it, and what defines it, in the ontology's words. */
+const gateTitle = (file: string, column: string): string => propertyOf(state.doc.ontology, file, column)?.title ?? column;
+const gateKey = (rule: OntologyRule, key: string): string => {
+  const word = meaningBeyond(propertyOf(state.doc.ontology, rule.file, rule.column), key);
+  return word ? `${word} (${key})` : key;
+};
+/**
+ * Where what arrived is an entry the ontology ended (ADR 0027 §2, Q-264), the gate says so: it isn't new, it was taken
+ * out from a day, with what follows it.
+ */
+function endedAtGate(rule: OntologyRule, key: string): string {
+  if (!endedEntry(state.doc.ontology, rule, key)) return '';
+  const e = ruleChanges.length ? sinceOf(registerNow().entries, `entry:${rule.file}:${rule.id}:${key}`.toLowerCase(), ontologyDay()) : null;
+  return ` ${endedArrivalSaid(state.doc.ontology, rule, key, e ? dayNear(e.change.from) : undefined)}`;
+}
+const gateDefines = (rule: OntologyRule, entry: readonly string[]): string => (rule.defines ?? []).map((d, i) => `${gateTitle(rule.file, d)} ${entry[i + 1] || 'blank'}`).join(' · ');
+/** What an arrival is, in a line: new to the ontology, or not as the ontology has it, by each column that differs. */
+function arrivalSaid(rule: OntologyRule, entry: readonly string[], changed: boolean): string {
+  const list = isList(rule);
+  if (!changed) return `${gateKey(rule, entry[0] ?? '')} isn’t in the ontology${list ? `: ${gateDefines(rule, entry)}` : ''}`;
+  const diff = entryDiff(rule, entry);
+  return `${gateKey(rule, entry[0] ?? '')} isn’t as the ontology has it: ${diff.map(([c, was, now]) => `${gateTitle(rule.file, c)} ${was || 'blank'} → ${now || 'blank'}`).join(', ')}`;
+}
+
+/** The form open at the gate: which stop, which way, and the arrivals it is for (by key). */
+let gateForm: { step: string; rule: string; how: 'declare' | 'leaveOut'; entries: string[][] } | null = null;
+
+/**
+ * What arrived at the gate decided on the day's screen (ADR 0027 §4, Q-253): **declared**, each entry the ontology's
+ * from the day on, with a kind and a reason, or **left out**, its rows kept out of what goes on until it is declared.
+ * Either is a dated change set from the day; the day runs again under it and one restatement decides it with the
+ * reason, readers getting it where it passes (as a column read by its new name is, ADR 0022 §2).
+ */
+async function decideAtGate(k: number, stop: { step: string; rule: OntologyRule }, entries: readonly (readonly string[])[], how: 'declare' | 'leaveOut', given: WhyGiven): Promise<void> {
+  const l = loads.list[k];
+  if (!l || !ledger || state.running || !entries.length) return;
+  if (!checkDecision(policies(), state.viewer, 'asis').allowed) return void setStatus('What the ontology takes in decides the day: it is for someone who may publish a day.', true);
+  const pinned = pinnedSaid([stop.rule.file]);
+  if (pinned) return void setStatus(pinned, true);
+  const day = l.day.slice(0, 10);
+  const got = gotEntry(k);
+  const of = got ? (got.about as unknown as RunAbout) : null;
+  if (!of?.manifest) return void setStatus('The day’s run isn’t in the record: there is nothing to run again.', true);
+  const file = stop.rule.file;
+  const edits: RuleEdit[] = entries.map((e) => (how === 'declare' ? { op: 'declareEntry', file, rule: stop.rule.id, entry: [...e] } : { op: 'leaveOut', file, rule: stop.rule.id, key: e[0] ?? '' }));
+  const names = listed(entries.map((e) => gateKey(stop.rule, e[0] ?? '')));
+  gateForm = null;
+  // Whoever declares and owns what the declaration touches agrees by recording it (ADR 0027 §10), as for any change.
+  const cs: ChangeSet = withOwnAgreement({
+    id: changeId(), from: day, recorded: new Date().toISOString(), by: state.viewer, why: given.why, kind: how === 'declare' ? given.kind : 'source', edits,
+    ...(given.note ? { note: given.note } : {}), ...(given.decided ? { decided: given.decided } : {}), ...(given.because ? { because: given.because } : {}),
+  });
+  ruleChanges = [...ruleChanges, cs];
+  const waits = waitsFor(cs);
+  await flowEdited(how === 'declare' ? `Declared ${names} in ${file} from ${dayShort(day)} ${waits ? 'once agreed to' : 'on'}` : `Left ${names} out of ${file} from ${dayShort(day)} until declared`);
+  // The business changed, and whoever declared owns no part of the ontology it touches: it waits for an owner, in force
+  // on no day, and the day stays stopped at the gate until they agree.
+  if (waits) {
+    setStatus(`Declared ${names} in ${file} from ${dayShort(day)} once agreed to. Recorded. It ${waits}: until then it is in force on no day, and ${dayShort(day)} stays as it is.`, false);
+    renderLoads();
+    if (location.hash === '#ontology') void renderOntology();
+    return;
+  }
+  await rerunAndRestate(given.why);
+}
+
+/** The arrivals at the gate that a change still waiting for agreement declares (ADR 0027 §10), by key: whom each waits
+ * for. The day stays stopped until an owner agrees, and declaring again would say it twice. */
+function declaredWaiting(rule: OntologyRule): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const c of ruleChanges) {
+    const waits = c.edits.some((e) => e.op === 'declareEntry' && e.file === rule.file && e.rule === rule.id) ? waitsFor(c) : null;
+    if (!waits) continue;
+    for (const e of c.edits) if (e.op === 'declareEntry' && e.file === rule.file && e.rule === rule.id) out.set((e.entry[0] ?? '').toLowerCase(), waits);
+  }
+  return out;
+}
+
+/** A key left out, declared from the day on screen: its entry read from the rows the day's run left out. */
+async function declareLeftOut(k: number, rule: OntologyRule, step: string, key: string): Promise<void> {
+  const r = latest();
+  if (!r || r.load !== k) return;
+  const insp = await inspect(r);
+  const node = insp.index.get(step.toLowerCase());
+  const n = node === undefined ? undefined : insp.plan.nodes[node];
+  if (!n || n.op !== 'expect') return;
+  const rows = (await state.engine!.query(emitUndeclared(emitRead(insp.plan, n.inputs[0]!, insp.ctx), emitLeftOut(rule.column, [key]), rule.column, rule.defines ?? [], 2))).rows;
+  if (!rows.length) return void setStatus(`No row of ${rule.file} carries ${key} on this day: it is declared from a day that has it.`, true);
+  const entry = rows[0]!.slice(0, (rule.defines?.length ?? 0) + 1).map((v) => (v === null || v === undefined ? '' : String(v)));
+  gateForm = { step, rule: rule.id, how: 'declare', entries: [entry] };
+  renderLoads();
+  document.querySelector<HTMLTextAreaElement>('#loads .dh-gate .wy-reason')?.focus();
+}
+
+/**
+ * The day at the gate (ADR 0027 §4), on its head: each list or column the ontology closes that a file ran ahead of,
+ * what arrived (an entry new to the ontology, or one not as the ontology has it), what waits for it, and, for someone
+ * who may decide, the three decisions: declare it from this day, publish without it, or don't publish. Then what a
+ * decision left out, still open until it is declared. Null where nothing stopped and nothing is left out.
+ */
+function gatePart(k: number): HTMLElement | null {
+  const r = latest();
+  const l = loads.list[k];
+  if (!r || !l || r.load !== k || whatIf?.k === k) return null;
+  const day = l.day.slice(0, 10);
+  const stops = gateStops(r);
+  const left = leftOutNow(r);
+  const waiting = waitingNow(r);
+  if (!stops.length && !left.length && !waiting.length) return null;
+  const may = checkDecision(policies(), state.viewer, 'asis').allowed;
+  const waits = (outs: readonly string[]) => (outs.length ? `${plural(outs.length, 'output waits', 'outputs wait')} for it: ${outs.slice(0, 3).join(', ')}${outs.length > 3 ? ` and ${outs.length - 3} more` : ''}. What it doesn’t feed went out as usual.` : '');
+  const formFor = (stop: { step: string; rule: OntologyRule }, entries: string[][]): HTMLElement => {
+    const how = gateForm!.how;
+    const rule = stop.rule;
+    const names = listed(entries.map((e) => gateKey(rule, e[0] ?? '')));
+    const f = how === 'declare' ? whyFields('business', [rule.file]) : null;
+    const reason = how === 'leaveOut' ? (h('textarea', { class: 'cm-reason gt-reason', rows: '2', 'aria-label': `Why ${names} is left out`, placeholder: 'Why, in a sentence: the record keeps it.' }) as HTMLTextAreaElement) : null;
+    const err = h('p', { class: 'of-err', role: 'alert', hidden: 'hidden' });
+    const go = h('button', { type: 'button', class: 'btn small primary gt-go' }, how === 'declare' ? `Declare ${names}` : `Publish without ${names}`) as HTMLButtonElement;
+    go.addEventListener('click', () => {
+      const given: WhyGiven | string = f ? f.read() : reason!.value.trim() ? { why: reason!.value.trim(), kind: 'source' } : 'Leaving it out needs a reason: one line of why.';
+      if (typeof given === 'string') {
+        err.textContent = given;
+        err.hidden = false;
+        return;
+      }
+      go.disabled = true;
+      void decideAtGate(k, stop, entries, how, given);
+    });
+    const said = how === 'declare'
+      ? `From ${dayShort(day)} on, the ontology has ${names} in ${rule.file}${isList(rule) && entries.length === 1 ? `: ${gateDefines(rule, entries[0]!)}` : ''}. ${dayShort(day)} runs again under it and is restated: readers get it where it passes. Earlier days are read without it.`
+      : `From ${dayShort(day)} on, rows of ${rule.file} with ${gateTitle(rule.file, rule.column)} ${names} are left out until ${entries.length === 1 ? 'it is' : 'they are'} declared. ${dayShort(day)} runs again without them and is restated: readers get it where it passes, and every day says what is left out.`;
+    return h('div', { class: 'cm-form gt-form', role: 'group', 'aria-label': how === 'declare' ? `Declare ${names}` : `Publish without ${names}` },
+      h('p', { class: 'cm-how' }, said),
+      f ? f.el : h('div', { class: 'of-field' }, h('label', {}, 'Why'), reason!),
+      err,
+      h('div', { class: 'wi-acts' }, go, h('button', { type: 'button', class: 'btn small gt-cancel', onclick: () => {
+        gateForm = null;
+        renderLoads();
+      } }, 'Cancel')));
+  };
+  const open = (stop: { step: string; rule: OntologyRule }, how: 'declare' | 'leaveOut', entries: string[][]) => {
+    gateForm = { step: stop.step, rule: stop.rule.id, how, entries };
+    renderLoads();
+    document.querySelector<HTMLTextAreaElement>('#loads .dh-gate .wy-reason, #loads .dh-gate .gt-reason')?.focus();
+  };
+  const rows = stops.map((stop) => {
+    const rule = stop.rule;
+    const forming = gateForm?.step === stop.step && gateForm.rule === rule.id ? gateForm : null;
+    // Several arrivals: each ticked is decided; one alone needs no tick.
+    const ticks = stop.arrivals.map(([entry]) => h('input', { type: 'checkbox', class: 'gt-tick', checked: 'checked', 'aria-label': `Decide ${entry[0]}` }) as HTMLInputElement);
+    const picked = () => stop.arrivals.filter((_, i) => stop.arrivals.length === 1 || ticks[i]!.checked).map(([entry]) => entry);
+    const ask = (how: 'declare' | 'leaveOut', cls: string, label: string) => h('button', { type: 'button', class: `btn small ${cls}`, onclick: () => {
+      const entries = picked();
+      if (!entries.length) return void setStatus('Tick what is decided.', true);
+      open(stop, how, entries);
+    } }, label);
+    // What is declared already and waits for an owner's agreement (ADR 0027 §10): said, and not declared again.
+    const declared = declaredWaiting(rule);
+    const waitingKeys = stop.arrivals.map(([entry]) => entry[0] ?? '').filter((key) => declared.has(key.toLowerCase()));
+    const allDeclared = waitingKeys.length === stop.arrivals.length && stop.more === 0;
+    return h('div', { class: 'cm-source held gt-stop', 'data-file': rule.file, 'data-rule': rule.id },
+      h('p', { class: 'cm-said' }, h('b', {}, `${rule.file}: `), `${isList(rule) ? plural(stop.arrivals.length + stop.more, 'entry', 'entries') : plural(stop.arrivals.length + stop.more, 'value', 'values')} the ontology doesn’t have.`),
+      h('ul', { class: 'gt-arrivals' }, ...stop.arrivals.map(([entry, n, changed], i) => h('li', { class: 'gt-arrival', 'data-key': entry[0] ?? '', 'data-how': changed ? 'changed' : 'new' },
+        stop.arrivals.length > 1 && may && !forming ? ticks[i]! : '', h('span', {}, `${arrivalSaid(rule, entry, changed)}. ${plural(n, 'row carries', 'rows carry')} it.${endedAtGate(rule, entry[0] ?? '')}`)))),
+      stop.more ? h('p', { class: 'foot' }, `And ${plural(stop.more, 'more')}, not named: that many at once is more likely a file gone wrong than the business changing.`) : '',
+      stop.reaches.length ? h('p', { class: 'gt-waits' }, waits(stop.reaches)) : '',
+      waitingKeys.length ? h('p', { class: 'gt-agree' }, h('b', {}, `${listed(waitingKeys.map((key) => gateKey(rule, key)))} ${waitingKeys.length === 1 ? 'is' : 'are'} declared, `), `and the declaration ${declared.get(waitingKeys[0]!.toLowerCase())!}: until then it is in force on no day, and the day stays as it is. `, h('a', { href: '#ontology' }, 'On the register ›')) : '',
+      forming ? formFor(stop, forming.entries)
+        : may ? h('p', { class: 'cm-ask gt-ask' },
+          allDeclared ? '' : ask('declare', 'primary gt-declare', 'Declare it ›'),
+          ask('leaveOut', 'gt-without', 'Publish without it ›'),
+          h('button', { type: 'button', class: 'btn small gt-dont', onclick: () => openDecision(l.day) }, 'Don’t publish ›'))
+        : h('p', { class: 'foot' }, `${deciders()} ${deciders().includes(' and ') || deciders().includes(',') ? 'decide' : 'decides'}: declare it, publish without it, or don’t publish.`));
+  });
+  const open2 = left.map((x) => {
+    const forming = gateForm?.step === x.step && gateForm.rule === x.rule.id && gateForm.how === 'declare' ? gateForm : null;
+    const since = sinceOf(registerNow().entries, `entry:${x.rule.file}:${x.rule.id}:${x.keys[0]}`.toLowerCase(), day);
+    return h('div', { class: 'cm-source gt-left', 'data-file': x.rule.file, 'data-rule': x.rule.id },
+      h('p', { class: 'cm-said' }, h('b', {}, `${x.rule.file}: `), `${listed(x.keys.map((key) => gateKey(x.rule, key)))} left out until declared. ${x.rows ? plural(x.rows, 'row was', 'rows were') : 'No row was'} left out today: what is published counts what the ontology has.`),
+      since ? h('p', { class: 'foot' }, `Since ${dayShort(since.change.from)}, by ${personName(since.change.by)}: ${since.change.why}`) : '',
+      forming ? formFor({ step: x.step, rule: x.rule }, forming.entries)
+        : may ? h('p', { class: 'cm-ask' }, ...x.keys.map((key) => h('button', { type: 'button', class: 'btn small gt-declare-left', 'data-key': key, onclick: () => void declareLeftOut(k, x.rule, x.step, key) }, `Declare ${key} ›`))) : '');
+  });
+  // Declared before its data (Q-255): in force, and nothing held; every day says so until the file has it.
+  const waitRows = waiting.map((w) => {
+    const since = w.keys.length === 1 ? sinceOf(registerNow().entries, `entry:${w.rule.file}:${w.rule.id}:${w.keys[0]}`.toLowerCase(), day) : null;
+    return h('div', { class: 'cm-source gt-waiting', 'data-file': w.rule.file, 'data-rule': w.rule.id },
+      h('p', { class: 'cm-said' }, h('b', {}, `${w.rule.file}: `), `${listed(w.keys.map((key) => gateKey(w.rule, key)))} ${w.keys.length === 1 ? 'is' : 'are'} in the ontology, and no row of the file carries ${w.keys.length === 1 ? 'it' : 'them'}. Waiting for data: nothing is held.`),
+      since ? h('p', { class: 'foot' }, `Declared from ${dayShort(since.change.from)}, by ${personName(since.change.by)}: ${since.change.why}`) : '');
+  });
+  return h('section', { class: 'panel dh-gate', 'aria-label': 'At the gate' }, h('p', { class: 'eyebrow' }, 'At the gate'),
+    stops.length ? h('p', { class: 'gt-lead' }, 'The ontology comes first: what it doesn’t have waits for a person.') : '',
+    ...rows, ...open2, ...waitRows);
 }
 
 /**
@@ -14276,7 +17588,7 @@ const CELL_WORD: Record<CellState, string> = { refused: 'its file was refused', 
  * right still says what was wrong with it.
  */
 function dayFindings(day: string, at: string | null): DayFinding[] {
-  const runs = runsByDay(knownOn(allEntries(), at)).get(day) ?? [];
+  const runs = runsByDay(knownOn(readEntries(), at)).get(day) ?? [];
   // The cause before the symptom (ADR 0013 §5): within what held the day, and within what was unusual, a file's finding
   // leads a step's, which often only follows it.
   const rank = (x: DayFinding) => (x.level === 'held' ? 0 : x.level === 'unusual' ? 2 : 4) + (kindOf(x.origin) === 'file' ? 0 : 1);
@@ -14286,6 +17598,33 @@ function dayFindings(day: string, at: string | null): DayFinding[] {
     if (found.some((x) => x.level !== 'unjudged')) return ordered(found);
   }
   return runs[0] ? ordered(findingsOf(runs[0].about as unknown as RunAbout)) : [];
+}
+
+/**
+ * What an event explains on a day (ADR 0027 §6), as known on a moment: the datasets the run that tells the day (the one
+ * `dayFindings` reads) headed "As expected: …", each with its event's name. No finding: nothing here marks the day.
+ */
+function dayExpected(day: string, at: string | null): { origin: string; event: string }[] {
+  const runs = runsByDay(knownOn(readEntries(), at)).get(day) ?? [];
+  const told = runs.find((e) => findingsOf(e.about as unknown as RunAbout).some((x) => x.level !== 'unjudged')) ?? runs[0];
+  return told ? expectedOf(told.about as unknown as RunAbout) : [];
+}
+
+/**
+ * What a declared change accounts for on a day (ADR 0027 §7, Q-263), as known on a moment: the watched datasets whose
+ * series the change's own step moved, among the day's runs on the files the step was measured on. No finding: the
+ * day's data was judged the old way, and what the change added is the new level from this day.
+ */
+function dayDeclared(day: string, at: string | null): { origin: string; change: ChangeSet }[] {
+  const runs = runsByDay(knownOn(readEntries(), at)).get(day) ?? [];
+  const out: { origin: string; change: ChangeSet }[] = [];
+  for (const e of runs) {
+    for (const d of declaredOf(e.about as unknown as RunAbout)) {
+      const change = ruleChanges.find((c) => c.id === d.change);
+      if (change && !out.some((x) => x.origin.toLowerCase() === d.origin.toLowerCase())) out.push({ origin: d.origin, change });
+    }
+  }
+  return out;
 }
 
 /** A finding's words as the viewer may read them: what a dataset closed to them was told isn't said. */
@@ -14435,7 +17774,8 @@ function renderMonth(): void {
   const days = daysShown();
   const months = monthsOf(days);
   const at = monthView.at;
-  const entries = allEntries();
+  // The record as the month reads its days: a declared change's own step is no finding of its first day (ADR 0027 §7).
+  const entries = readEntries();
   const month = monthOf(days, entries, { at, judged: loadSource() });
   const facts = new Map(month.map((d) => [d.day, calendarDay(d)]));
   // A flow's own month (ADR 0026 §5): the month of the flow entered and of the flows it reads, by what their files and
@@ -14652,6 +17992,11 @@ function renderMonth(): void {
     const held = found.filter((x) => x.level === 'held');
     const odd = found.filter((x) => x.level === 'unusual');
     const unj = found.filter((x) => x.level === 'unjudged');
+    // What an event someone wrote down explains (ADR 0027 §6): said under the findings, a finding of nothing.
+    const asExpected = dayExpected(pd.day, at).filter((x) => !scope || scope.has(x.origin.toLowerCase()));
+    // What a declared change accounts for (ADR 0027 §7, Q-263): the series its own step moved, no finding of the day.
+    // One the old way found trouble in too is a finding above, and says there that the rest is the change's.
+    const asDeclaredHere = dayDeclared(pd.day, at).filter((x) => (!scope || scope.has(x.origin.toLowerCase())) && !found.some((f) => f.origin.toLowerCase() === x.origin.toLowerCase()));
     // What it held back: the outputs that waited behind the run that first held the day.
     const firstHeld = dayRuns.find((e) => (e.about as unknown as RunAbout).outcome === 'held' && findingsOf(e.about as unknown as RunAbout).some((x) => x.level === 'held' && (!scope || scope.has(x.origin.toLowerCase()))));
     // In a flow's own month, what the flows in its scope give: the rest waits in another flow's month.
@@ -14671,7 +18016,9 @@ function renderMonth(): void {
     const finding = (x: DayFinding) => h('li', { class: `mo-f lv-${x.level}` },
       x.level === 'held' ? glyphEl('held', 13) : x.level === 'unusual' ? glyphEl('warn', 13) : glyphEl('unlearned', 13),
       // Where the flow reads flows, whose it is (ADR 0026 §5): the day names the flow whose file or step said it.
-      h('span', { class: 'mo-f-what' }, h('code', { class: 'mo-f-of' }, x.origin), h('span', { class: 'mo-f-kind' }, ` ${fileOf.has(x.origin.toLowerCase()) ? `step on ${fileOf.get(x.origin.toLowerCase())}` : kindOf(x.origin)}${state.doc.flows?.length ? ` in ${flowName(flowOf(state.doc, x.origin)?.id ?? '')}` : ''}`), h('span', { class: 'mo-f-said' }, ` ${findingSaid(x)}`)));
+      h('span', { class: 'mo-f-what' }, h('code', { class: 'mo-f-of' }, x.origin), h('span', { class: 'mo-f-kind' }, ` ${fileOf.has(x.origin.toLowerCase()) ? `step on ${fileOf.get(x.origin.toLowerCase())}` : kindOf(x.origin)}${state.doc.flows?.length ? ` in ${flowName(flowOf(state.doc, x.origin)?.id ?? '')}` : ''}`), h('span', { class: 'mo-f-said' }, ` ${findingSaid(x)}`),
+        // What the old way found too stays a finding; the rest of what its run said is a declared change's own step.
+        x.level === 'unusual' ? declaredNote(x.origin, pd.day) : null));
     const group = (title: string, xs: readonly DayFinding[]) => (xs.length ? [h('p', { class: 'mo-sub' }, title), h('ul', { class: 'mo-fs' }, ...xs.slice(0, 6).map(finding), xs.length > 6 ? h('li', { class: 'mo-f more' }, `and ${xs.length - 6} more`) : null)] : []);
     // The score that day against the day published before it, and what moved (ADR 0024 §6).
     const mk = markOf(pd.day);
@@ -14703,6 +18050,20 @@ function renderMonth(): void {
       unj.length > 3
         ? h('p', { class: 'mo-sub quiet' }, `${plural(unj.length, 'dataset')} weren’t judged: no earlier day like this one to compare with.`)
         : h('div', {}, ...group('Not judged yet', unj)),
+      asExpected.length ? h('p', { class: 'mo-sub' }, 'What an event explains') : null,
+      asExpected.length ? h('ul', { class: 'mo-fs mo-expected' }, ...asExpected.slice(0, 6).map((x) => h('li', { class: 'mo-f lv-expected', 'data-of': x.origin },
+        glyphEl('explained', 13),
+        h('span', { class: 'mo-f-what' }, h('code', { class: 'mo-f-of' }, x.origin), h('span', { class: 'mo-f-kind' }, ` ${kindOf(x.origin)}${state.doc.flows?.length ? ` in ${flowName(flowOf(state.doc, x.origin)?.id ?? '')}` : ''}`),
+          h('span', { class: 'mo-f-said' }, ` ${isOwner() || visible(x.origin) ? `${AS_EXPECTED}${x.event}` : 'closed to you'}`)))),
+        asExpected.length > 6 ? h('li', { class: 'mo-f more' }, `and ${asExpected.length - 6} more`) : null) : null,
+      asDeclaredHere.length ? h('p', { class: 'mo-sub' }, 'What a declared change accounts for') : null,
+      asDeclaredHere.length ? h('ul', { class: 'mo-fs mo-declared' }, ...asDeclaredHere.slice(0, 6).map((x) => h('li', { class: 'mo-f lv-expected', 'data-of': x.origin, 'data-change': x.change.id },
+        glyphEl('explained', 13),
+        h('span', { class: 'mo-f-what' }, h('code', { class: 'mo-f-of' }, x.origin), h('span', { class: 'mo-f-kind' }, ` ${kindOf(x.origin)}${state.doc.flows?.length ? ` in ${flowName(flowOf(state.doc, x.origin)?.id ?? '')}` : ''}`),
+          isOwner() || visible(x.origin)
+            ? h('span', { class: 'mo-f-said' }, ' As declared: ', h('button', { type: 'button', class: 'linkish', 'data-change': x.change.id, onclick: () => openChange(x.change.id) }, `${changeSaid(x.change)} ›`), ' Its own step, and the new level from this day; the day’s data, judged as it was, had nothing to say.')
+            : h('span', { class: 'mo-f-said' }, ' closed to you')))),
+        asDeclaredHere.length > 6 ? h('li', { class: 'mo-f more' }, `and ${asDeclaredHere.length - 6} more`) : null) : null,
       waitingOut.length ? h('p', { class: 'mo-reach' }, h('span', { class: 'mo-sub-k' }, po.outcome === 'waiting' ? 'What waits ' : 'What it held back '), `${waitingOut.length}${outputs ? ` of ${outputs}` : ''} outputs: ${waitingOut.slice(0, 3).join(', ')}${waitingOut.length > 3 ? ` and ${waitingOut.length - 3} more` : ''}.`) : null,
       elsewhere ? h('p', { class: 'mo-sum-hl mo-elsewhere' }, `Nothing of ${flowName(mine!)}${readsHereN ? ' or of the flows it reads' : ''} held it. The day as a whole: ${outcomeSaid(whole.outcome, whole.how).replace(/^./, (c) => c.toLowerCase())}, by another flow.`) : null,
       events.length ? h('p', { class: 'mo-sub' }, elsewhere ? 'What happened to the day' : 'What happened') : null,
@@ -14759,11 +18120,27 @@ function renderMonth(): void {
   const rows = monthHealth(rowDefs, monthDays, entries, manifestOf, at);
   const barW = W >= 786 ? Math.round(Math.min(620, (W - 60) * 0.44)) : Math.max(240, W - 34);
   // A flow's row draws the days it only waited on another flow apart (ADR 0026 §5): nothing of its own was wrong.
+  // The changes that reach each row, by the day they began (ADR 0027 §8): a change marks the month of anything built
+  // from what it is about, as known at the moment the month is read at. A flow's own row isn't marked: its rows are.
+  const reaching: ChangeSet[] = registerNow().entries.filter((e) => e.tense !== 'coming' && e.tense !== 'waiting').map((e) => e.change);
+  const rowChanges = new Map<string, Map<string, ChangeSet[]>>();
+  const changesOfRow = (r: HealthRow): Map<string, ChangeSet[]> => {
+    let got = rowChanges.get(r.id);
+    if (!got) {
+      got = new Map();
+      if (reaching.length && !r.id.startsWith('flow:')) {
+        for (const o of r.origins) for (const x of changesReaching<ChangeSet>(state.doc, reaching, o)) if (!(got.get(x.change.from) ?? []).includes(x.change)) got.set(x.change.from, [...(got.get(x.change.from) ?? []), x.change]);
+      }
+      rowChanges.set(r.id, got);
+    }
+    return got;
+  };
   const bars = (r: HealthRow, ticks = false, waited: readonly string[] = [], said = healthSaid(r, dayShort), inset = 0) => svgNode(dayBars({
     days: monthDays.map((d, i) => {
       const cell = r.cells[i] ?? null;
       const only = waited.includes(d) && cell !== 'unusual';
-      return { day: d, ...(only ? { level: 'waited' as const } : barOfCell(cell, !waits.has(d))), title: `${r.label}, ${dayLabel(d)}: ${only ? 'waited on another flow' : cell ? CELL_WORD[cell] : 'no run'}` };
+      const began = changesOfRow(r).get(d.slice(0, 10)) ?? [];
+      return { day: d, ...(only ? { level: 'waited' as const } : barOfCell(cell, !waits.has(d))), title: `${r.label}, ${dayLabel(d)}: ${only ? 'waited on another flow' : cell ? CELL_WORD[cell] : 'no run'}${began.length ? `; from this day, ${began.map(changeSaid).join('; ')}` : ''}`, ...(began.length ? { changed: true } : {}) };
     }),
     // Inside a flow's row its files and steps are set in: on a phone their bars are as much narrower.
     w: barW - (W >= 786 ? 0 : inset), h: 16, pick, ticks, aria: `${r.label} over ${monthName(shown)}: ${said}`,
@@ -14875,6 +18252,8 @@ function renderMonth(): void {
           svgNode(dayBars({ days: [{ day: '2024-01-02', level: 'bad', done: true }], w: 10, h: 16, aria: 'A hollow full bar' })), 'held the day, since decided',
           svgNode(dayBars({ days: [{ day: '2024-01-02', level: 'unjudged' }], w: 10, h: 16, aria: 'A low hollow bar' })), 'not judged',
           ...(tiers.length && alone === null ? [svgNode(dayBars({ days: [{ day: '2024-01-02', level: 'waited' }], w: 10, h: 16, aria: 'A dashed outline, half height' })), 'waited on another flow'] : []),
+          // A change to the rules that reaches a row (ADR 0027 §8), where one began in the month.
+          ...(reaching.some((c) => monthDays.some((d) => d.slice(0, 10) === c.from)) ? [svgNode(dayBars({ days: [{ day: '2024-01-02', level: 'ok', changed: true }], w: 10, h: 16, aria: 'A dashed rule with a diamond at its head' })), h('span', { class: 'mh-chg' }, 'a change to the rules that reaches it began')] : []),
           h('span', { class: 'mh-key-none' }, 'no bar: no run')))
     : null;
 
@@ -14890,6 +18269,12 @@ function renderMonth(): void {
     const gaps = monthDays.filter((d) => !['notRun', 'notArrived'].includes(byDay.get(d)!.outcome) && (!marks || markOf(d)?.score === undefined || markOf(d)?.score === null));
     const failingNow = lastMark?.checks;
     const failingThen = firstMark?.checks;
+    const cuts = trendCuts(days);
+    const cutSaid = cuts.length ? ` ${[...new Set(cuts.map((c) => c.series))].map((sr) => `${sr === 'score' ? 'The score' : 'Coverage'} is cut on ${cuts.filter((c) => c.series === sr).map((c) => named(c.day)).join(' and ')}`).join('; ')}, where a change of the business moved it by itself.` : '';
+    // What a correction replaced (Q-260): the days a restatement took back, and those published again with another
+    // score. The line shows the month as corrected; what was first published is a tap away, on the day.
+    const firstOf = (d: string) => marks?.[d]?.first;
+    const corrected = monthDays.filter((d) => (!at || endOfDay(d) <= at) && ((takenBack.has(d) && marks?.[d]?.score != null) || (!takenBack.has(d) && firstOf(d) !== undefined)));
     scorePart = h('section', { class: 'panel mo-trend', 'aria-label': `${post.title}: the group’s score` },
       h('p', { class: 'eyebrow' }, `${post.title} · the group’s score on each day published`),
       h('div', { class: 'mo-score-top' },
@@ -14898,8 +18283,33 @@ function renderMonth(): void {
       failingNow ? h('p', { class: 'mo-score-checks' }, `${fmtInt(failingNow.failing)} of ${fmtInt(failingNow.evidence)} checks failing${failingThen && read.days > 1 ? ` (${countSaid(failingNow.failing - failingThen.failing)} since ${named(read.first.day)})` : ''} · coverage ${lastMark?.coverage?.toFixed(1) ?? '–'}%: ${fmtInt(failingNow.evidence)} of ${fmtInt(failingNow.applying)} checks have evidence.`) : null,
       post.about ? h('p', { class: 'mo-score-about' }, post.about) : null,
       points.filter((p) => p.score !== null).length >= 2
-        ? svgNode(scoreTrend({ days, points, w: W >= 1766 ? Math.max(320, Math.round((W - 24) / 3.5) - 34) : Math.min(1600, Math.max(280, W - 34)), aria: `${post.title}: the group’s score and coverage on each day published. ${readSaid(read, named)}`, gap: 'not published', ...(several ? { focus: { from: monthDays[0]!, to: monthDays.at(-1)! } } : {}) }))
+        ? svgNode(scoreTrend({ days, points, w: W >= 1766 ? Math.max(320, Math.round((W - 24) / 3.5) - 34) : Math.min(1600, Math.max(280, W - 34)), aria: `${post.title}: the group’s score and coverage on each day published. ${readSaid(read, named)}${cutSaid}`, gap: 'not published', marks: changeMarks(days), bands: eventBands(days), cuts,
+            ...(monthView.adjusted && cuts.length ? { adjusted: trendAdjusted(points, cuts) } : {}),
+            ...(several ? { focus: { from: monthDays[0]!, to: monthDays.at(-1)! } } : {}) }))
         : null,
+      // A cut (ADR 0027 §7): where a change of the business moved a line by itself, the line isn't joined, and the
+      // change's own step is said; the lines with the steps taken out are on offer, beside the published ones.
+      cuts.length ? h('div', { class: 'mo-changes mo-cuts' },
+        h('p', { class: 'mo-sub' }, '│ Where a line is cut'),
+        h('ul', { class: 'mo-change-list' }, ...cuts.map((c) => h('li', { class: 'mo-cut', 'data-cut': c.change, 'data-series': c.series }, h('button', { type: 'button', class: 'linkish', onclick: () => openChange(c.change) }, `${c.label} ›`)))),
+        h('p', { class: 'mo-step' }, 'The change alone moved it: its first day was run both ways. The two sides of a cut aren’t one trend.'),
+        h('p', { class: 'mo-adjust' }, h('button', { type: 'button', class: 'btn small mo-adjust-btn', 'aria-pressed': String(monthView.adjusted), onclick: () => {
+          monthView.adjusted = !monthView.adjusted;
+          renderMonth();
+        } }, monthView.adjusted ? 'As published alone ›' : 'With the steps taken out ›'),
+        monthView.adjusted ? h('span', { class: 'mo-step mo-adjusted-said' }, ` The dotted ${cuts.some((c) => c.series === 'score') && cuts.some((c) => c.series === 'coverage') ? 'lines are the score and the coverage' : `line is the ${cuts[0]!.series}`} with each change’s own step taken out: adjusted, nobody published it.`) : null)) : null,
+      corrected.length ? h('div', { class: 'mo-changes mo-corrected' },
+        h('p', { class: 'mo-sub' }, '↻ Corrected since'),
+        h('ul', { class: 'mo-change-list' }, ...corrected.map((d) => {
+          const m = marks![d]!;
+          const first = takenBack.has(d) ? { score: m.score, coverage: m.coverage } : m.first!;
+          const now = takenBack.has(d) ? null : m;
+          return h('li', { 'data-day': d }, h('a', { class: 'linkish', href: `${dayHash(d)}${inSuffix}` }, `${named(d)} ›`),
+            ` first published ${first.score === null ? 'no score' : first.score.toFixed(1)}; ${now ? `now ${now.score === null ? 'no score' : now.score.toFixed(1)}` : 'taken back since, so no point on the line'}`);
+        })),
+        h('p', { class: 'mo-step' }, 'The line shows each day as corrected. A day’s versions are on its own screen.')) : null,
+      eventBands(monthDays).length ? h('div', { class: 'mo-changes mo-going' }, h('p', { class: 'mo-sub' }, '▭ What was going on'), h('ul', { class: 'mo-change-list' }, ...eventBands(monthDays).map((b) => h('li', {}, h('button', { type: 'button', class: 'linkish', 'data-event': b.id, onclick: () => openEvent(b.id) }, `${b.label} ›`))))) : null,
+      changeMarks(monthDays).length ? h('div', { class: 'mo-changes' }, h('p', { class: 'mo-sub' }, '◆ Where the rules changed'), h('ul', { class: 'mo-change-list' }, ...changeMarks(monthDays).map((m) => h('li', {}, h('button', { type: 'button', class: 'linkish', 'data-change': m.change, onclick: () => openChange(m.change) }, `${m.label} ›`), stepOnTrend(m.change) ? h('span', { class: 'mo-step', 'data-step': m.change }, ` · ${stepOnTrend(m.change)}`) : null)))) : null,
       movers.length ? h('div', { class: 'mo-movers' },
         h('p', { class: 'mo-sub' }, `What moved it: applications failing each control, ${named(read.first.day)} to ${named(read.last.day)}`),
         h('ul', { class: 'mo-mover-list' }, ...movers.map((m) => h('li', { class: `mo-mover ${m.delta > 0 ? 'up' : 'down'}` }, h('span', { class: 'mo-mover-name' }, controlName(m.id)), h('span', { class: 'mo-mover-n' }, `${fmtInt(m.from)} → ${fmtInt(m.to)}`), h('b', { class: 'mo-mover-d' }, countSaid(m.delta)))))) : null,
@@ -14921,7 +18331,9 @@ function renderMonth(): void {
           : 'Its own month: by what its files and steps came to.'))
     : null;
   box.classList.toggle('mo-few', months.length === 2 || months.length === 3);
-  box.replaceChildren(head, whose ?? '', scenes ?? '', waitPart ?? '', cards ?? '', summaryPart, calPanel, panel ?? '', logPart ?? '', healthPart ?? '', scorePart ?? '');
+  // The ontology changed since whoever is viewing last looked (ADR 0027 §10): said at the top of the home screen.
+  const since = mine === null ? sinceLine() : null;
+  box.replaceChildren(head, whose ?? '', since ?? '', scenes ?? '', waitPart ?? '', cards ?? '', summaryPart, calPanel, panel ?? '', logPart ?? '', healthPart ?? '', scorePart ?? '');
   if (focused) box.querySelector<HTMLElement>(`[data-fk="${focused.replace(/"/g, '')}"]`)?.focus({ preventScroll: true });
 }
 
@@ -14929,7 +18341,7 @@ function renderMonth(): void {
  * tools (tools/browser/tour.cjs reaches a day by its label, and reads it as the strip's was read). */
 (window as unknown as { __smaltflMonth?: () => Record<string, string> }).__smaltflMonth = () => {
   const days = daysShown();
-  return Object.fromEntries(monthOf(days, allEntries(), { at: monthView.at, judged: loadSource() }).map((d) => [d.day, calendarDay(d).label]));
+  return Object.fromEntries(monthOf(days, readEntries(), { at: monthView.at, judged: loadSource() }).map((d) => [d.day, calendarDay(d).label]));
 };
 
 /**
@@ -14990,10 +18402,12 @@ function renderLoads(): void {
     (now ? lifecycleOf(now.day) : null) ?? '',
     (now ? recordLine(now.day) : null) ?? '',
     (now ? rulesLine(now.day, prev) : null) ?? '',
+    (now ? eventsLine(now.day) : null) ?? '',
     (loads.at >= 0 ? restateLine(loads.at) : null) ?? '',
     (loads.at >= 0 ? versionsPart(loads.at) : null) ?? '',
     (loads.at >= 0 ? comparePart(loads.at) : null) ?? '',
     (loads.at >= 0 ? columnsPart(loads.at) : null) ?? '',
+    (loads.at >= 0 ? gatePart(loads.at) : null) ?? '',
     (loads.at >= 0 ? whatIfPart(loads.at) : null) ?? '',
     replacedBy && onVersion ? h('p', { class: 'loads-pause superseded', role: 'status' }, h('b', {}, `Version ${onVersion}, ${onVersion === 1 ? 'as it arrived' : 'sent again'}: replaced by version ${replacedBy.v}`), `${replacedBy.delivery ? `, ${replacedBy.delivery.source} sent again ${whenMin(replacedBy.delivery.arrived, now!.day)}` : replacedBy.made ? `, made the day’s from a what-if ${whenMin(replacedBy.made.at, now!.day)}` : ''}.${gotVersion ? ` Readers got version ${gotVersion}.` : ''} It isn’t decided: the later version is.`) : '',
     h('div', { class: `loads-now${top ? ` sev-${top.severity}` : ''}` },
@@ -15069,7 +18483,7 @@ function flowsKept(): Set<string> {
   if (keptFlows.key === key) return keptFlows.hashes;
   keptFlows.key = key;
   const days = [...new Set([...loads.list.map((l) => l.day.slice(0, 10)), nextDayToArrive()])];
-  const vs = ruleChanges.length ? ruleVersions({ changes: ruleChanges }, days) : [{ changes: [] as string[] }];
+  const vs = ruleChanges.length ? ruleVersions(keptChanges(), days) : [{ changes: [] as string[] }];
   void Promise.all(vs.map((v) => flowHash(versionDoc(v)))).then((hs) => {
     if (keptFlows.key !== key) return;
     keptFlows.hashes = new Set(hs);
@@ -15820,7 +19234,8 @@ async function claimsForRun(engine: Engine, day: string | undefined, parameters:
         pinnedSamples.set(source, sample);
         pins.push(pinFile(engine, samplePath(source), utf8(JSON.stringify(sample))));
       }
-      tell[source] = { skip: recordedSkips(), levels: levelsOf(allEntries(), source) };
+      const excuses = day ? excusesNow(source, day) : [];
+      tell[source] = { skip: recordedSkips(), levels: levelsOf(allEntries(), source), ...(excuses.length ? { excuses } : {}) };
       continue;
     }
     const { b, settings } = prepared[at]!;
@@ -15844,7 +19259,7 @@ async function claimsForRun(engine: Engine, day: string | undefined, parameters:
       keptRows.set(source, mine);
     }
     const file = fileFacts(source, day);
-    const told = await loadClaim({ ...(givens.get(source) ? { given: givens.get(source)! } : {}), doc: state.doc, source, flow: plan.flow.hash, base: ref ? base : null, baseRef: ref, tail: tails.get(source) ?? [], measures: m, settings, skip: recordedSkips(), levels: levelsOf(allEntries(), source), build: BUILD_COMMIT, ...(kept && samples.get(source) ? { sample: samples.get(source)!, kept } : {}), ...(file ? { file } : {}) });
+    const told = await loadClaim({ ...(givens.get(source) ? { given: givens.get(source)! } : {}), doc: state.doc, source, flow: plan.flow.hash, base: ref ? base : null, baseRef: ref, tail: tails.get(source) ?? [], measures: m, settings, skip: recordedSkips(), levels: levelsOf(allEntries(), source), build: BUILD_COMMIT, ...(kept && samples.get(source) ? { sample: samples.get(source)!, kept } : {}), ...(file ? { file } : {}) , ...(day && excusesNow(source, day).length ? { excuses: excusesNow(source, day) } : {}) });
     pins.push(pinFile(engine, tailPath(source), told?.tail.length ? utf8(canonicalJSON(told.tail as unknown as Parameters<typeof canonicalJSON>[0])) : null));
     const key = `${day}|${source}|${flowHistory ? countedChecks(state.doc, flowHistory, source) : false}`;
     claims.set(key, told?.claim ?? null);
@@ -16545,7 +19960,10 @@ async function run(early?: EarlyClaims): Promise<void> {
     loads.correct = null;
     const correction = loads.restates || loads.whatIf ? undefined : correct ?? (before && primarySource() ? { of: { run: before.result.run, manifest: before.result.hash }, sources: [primarySource()!] } : (sent ?? undefined));
     await defineTablesFor(engine, state.doc);
-    const result = await runFlow(engine, state.doc, { smaltdb: SMALTDB, parameters, data, log: recordHead(), ...(readFlowsKept ? {} : { flows: await flowsToKeep() }), ...(told ? { claims: told } : {}), ...(asked && Object.keys(asked.tell).length ? { tell: asked.tell } : {}), ...(Object.keys(sources).length ? { sources } : {}), ...(correction ? { correction } : {}), ...(loads.restates ? { restates: loads.restates } : {}), ...(loads.whatIf ? { whatIf: true as const } : {}) });
+    // The context of the run (ADR 0027 §8), for a flow with a context table: the changes in force on its day, the events
+    // going on and each change's own step, as known at the moment its rules are.
+    const context = await contextForRun(loadDay ?? null);
+    const result = await runFlow(engine, state.doc, { smaltdb: SMALTDB, parameters, data, log: recordHead(), ...(readFlowsKept ? {} : { flows: await flowsToKeep() }), ...(told ? { claims: told } : {}), ...(asked && Object.keys(asked.tell).length ? { tell: asked.tell } : {}), ...(Object.keys(sources).length ? { sources } : {}), ...(correction ? { correction } : {}), ...(loads.restates ? { restates: loads.restates } : {}), ...(loads.whatIf ? { whatIf: true as const } : {}), ...(context ? { context } : {}) });
     readFlowsKept = true;
     const ms = performance.now() - t;
     mark('run: flow run');
@@ -17430,7 +20848,7 @@ let staging: Promise<unknown> = Promise.resolve();
  * the same run is staged once. Inside a run (applied again, or under a standing decision) it runs at once; from the
  * sheet, not while a run or a decision is on its way.
  */
-async function stage(r: RunRecord, repair: Repair, inRun = false): Promise<RunRecord | null> {
+async function stage(r: RunRecord, repair: Repair, inRun = false, madeAt: string | null = null): Promise<RunRecord | null> {
   const key = stagedKey(r, repair);
   const had = stagedRuns.get(key);
   if (had) return had;
@@ -17450,7 +20868,8 @@ async function stage(r: RunRecord, repair: Repair, inRun = false): Promise<RunRe
     // it again of the filled rows (ADR 0023 §5).
     const heldClaims = day ? Object.keys(state.doc.publish?.watch ?? {}).flatMap((w) => claimOfLoad(day, w) ?? []) : [];
     const tell = Object.fromEntries(watchedSteps().concat(loadSource() && !sourceIds().has(loadSource()!) ? [loadSource()!] : []).map((w) => [w, { skip: recordedSkips(), levels: levelsOf(allEntries(), w) }]));
-    const { doc, result } = await stageRepair(engine, { doc: state.doc, held: r.result, repair: asked, claims: heldClaims.length ? heldClaims : (claimsFor(day) ?? []), smaltdb: SMALTDB, data, log: recordHead(), tell });
+    const context = await contextForRun(day ?? null, { repair: asked, at: madeAt });
+    const { doc, result } = await stageRepair(engine, { doc: state.doc, held: r.result, repair: asked, claims: heldClaims.length ? heldClaims : (claimsFor(day) ?? []), smaltdb: SMALTDB, data, log: recordHead(), tell, ...(context ? { context } : {}) });
     const rec: RunRecord = { result, ms: 0, at: new Date(), inputs: r.inputs, ...(r.load !== undefined ? { load: r.load } : {}), derived: { from: r, repair, doc, seq: null } };
     stagedRuns.set(key, rec);
     derivedRuns.set(result.hash, rec);
@@ -17604,7 +21023,9 @@ async function withdrawFill(d: RunRecord, decision: RecordEntry): Promise<Releas
 async function applyRemedy(r: RunRecord, d: Decided, cited: readonly RecordEntry[] = []): Promise<void> {
   const repair = d.about.repair;
   if (!repair || !ledger) return;
-  const derived = await stage(r, repair, true);
+  // Its context (ADR 0027 §8) is as known when the record made it: the moment of the derived run its decision names.
+  const made = d.about.derived ? allEntries().find((e) => e.kind === 'run' && (e.about as { manifest?: unknown } | null)?.manifest === d.about.derived!.manifest) : undefined;
+  const derived = await stage(r, repair, true, made?.at ?? null);
   if (!derived) return;
   const keys = derivedKeys(await planFor(derived), derived.result);
   if (!d.about.derived || !sameKeys(keys, d.about.derived.keys)) return;
@@ -18194,6 +21615,11 @@ async function exportAudit(): Promise<void> {
     setStatus('Checking the latest run before the export: recomputing it…');
     await verify(r, 'rerun');
   }
+  // The flow as it is kept now is in the record before the export names its head: the ontology's history is made from
+  // that document, and the offline check finds it by its hash.
+  const why = flowReason;
+  flowReason = null;
+  await recordFlowChange(why);
   await ledger.append('export', state.viewer, { size: ledger.entries.length, root: ledger.head().root });
   // The record as the bag names it, taken once: every proof below is against this head, whatever is appended after.
   const head = ledger.head();
@@ -18220,6 +21646,11 @@ async function exportAudit(): Promise<void> {
     // What the engine kept of the fills (ADR 0009 amendment 1 S11): derived runs, releases of them, withdrawals.
     if (named.repairs) payload.push({ path: 'engine/repairs.json', bytes: json(named.repairs) });
   }
+  // The ontology's history over every day here (ADR 0027 §10, Q-279), as known when the bag was made: from the flow as
+  // the record keeps it and the record's own events and steps, so the offline check makes it again and holds it to them.
+  const span = [...new Set(loads.list.map((l) => l.day.slice(0, 10)))].sort();
+  const hist = span.length ? await historyNow(span[0]!, span.at(-1)!, null, entries) : null;
+  if (hist) payload.push({ path: 'ontology/history.json', bytes: json(hist) });
   if (integrity.manifestBytes) payload.push({ path: 'data/MANIFEST.json', bytes: integrity.manifestBytes });
   if (integrity.data) payload.push({ path: 'data/commit.txt', bytes: enc.encode(`${integrity.data.commit}\n`) });
   // A proof for each dataset as published, what its name shows: by its run's entry, or, for a day published as is, by
@@ -18231,7 +21662,7 @@ async function exportAudit(): Promise<void> {
     const made = (state.runs.find((x) => x.result.hash === d.manifest) ?? derivedRuns.get(d.manifest))?.result.manifest.outputs[d.name];
     if (entry && made) payload.push({ path: `proofs/${d.name}.json`, bytes: json({ dataset: d.name, ...made, run: d.run, manifest: d.manifest, entry, inclusion: ledger.proofOf(entry.seq, head.size) }) });
   }
-  payload.push({ path: 'README.html', bytes: enc.encode(auditReadme(head, r)) });
+  payload.push({ path: 'README.html', bytes: enc.encode(auditReadme(head, r, hist)) });
   const name = `smaltfl-audit-${state.doc.id}-${head.size}`;
   const files = await buildBag({
     name,
@@ -18253,7 +21684,7 @@ async function exportAudit(): Promise<void> {
   renderRecord();
 }
 
-function auditReadme(head: { origin: string; size: number; root: string }, r: RunRecord | undefined): string {
+function auditReadme(head: { origin: string; size: number; root: string }, r: RunRecord | undefined, hist: OntologyHistory | null = null): string {
   const esc = (t: string) => t.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!);
   const files = r?.result.manifest.nodes.filter((n) => n.file).map((n) => `<li>${esc(n.origin)}: ${esc(n.file!.location)}, ${n.file!.bytes} bytes, sha256 <code>${n.file!.sha256}</code></li>`).join('') ?? '';
   return `<!doctype html><meta charset="utf-8"><title>smaltfl audit: ${esc(state.doc.name)}</title>
@@ -18266,7 +21697,9 @@ function auditReadme(head: { origin: string; size: number; root: string }, r: Ru
 <li><code>node scripts/audit.mjs consistent your-checkpoint.json this-bag.zip</code>: the record is a continuation of a checkpoint you kept, so nothing before it was rewritten.</li></ol>
 <h2>The latest run</h2>
 ${r ? `<p>Run ${runName(r)}, manifest <code>${r.result.hash}</code>${r.verified ? `, ${r.verified.ok ? 'verified' : 'failed verification'} at the ${r.verified.level} level` : ''}. It read:</p><ul>${files}</ul>` : '<p>No run yet.</p>'}
-<h2>What this proves, and what it doesn't</h2>
+${hist ? `<h2>The ontology’s history</h2>
+<p><code>data/ontology/history.json</code> is the ontology’s history over every day this page has, ${esc(periodSaid(hist.from, hist.to))}: who owns each part of it, and every change with its kind, its reason, who decided, who agreed, what it reached and its own step, and what was written down as going on. ${esc(historyHead(hist))} The check in step 2 makes it again from the flow as the record kept it (<code>${hist.flow.hash}</code>) and from the record’s own events and steps, and fails if it differs.${hist.shipped ? ' What it lists under <code>shipped</code> came with the build’s data and isn’t in this record: whoever vouches for the build vouches for it.' : ''}</p>
+` : ''}<h2>What this proves, and what it doesn't</h2>
 <p>Hashes and signatures prove that nothing in the bag changed after it was made, and that the record grew only by appending. Against someone who controls the browser that made it, only a checkpoint you kept elsewhere proves the record wasn't rewritten. Numbers the app computes on screen (profiles, odd rows, the news) are not in the bag; the stored datasets and the checks' counts are, by hash.</p>
 `;
 }
@@ -18404,7 +21837,13 @@ function openDay(day: string, version: number | null = null, level = false): voi
 }
 
 function showView(): void {
+  takeOntologyLink();
   const { view, day, version, look, month, level } = routeOf(location.hash);
+  // The history's page is the Ontology view's while it is on screen: any other view puts the page back as it was.
+  if (view !== 'ontology' && document.body.dataset.told) {
+    delete document.body.dataset.told;
+    toldView = null;
+  }
   if (look) pendingLook = look;
   if (month) monthView.month = month;
   // The month of a flow entered (ADR 0026 §5), as its link names it; any other link to the month is the whole flow's.
@@ -18479,8 +21918,11 @@ async function start(): Promise<void> {
   mark('flow.json');
   shippedHash = await flowHash(shippedDoc);
   loadFlow();
+  // The sources added here (ADR 0027 §5), with their files from this browser: without one, what was kept is dropped.
+  await restoreAdded();
   // The rules before any change set, and the change sets, kept apart from the document on screen (ADR 0021 §5).
   takeRules(state.doc);
+  changesHad = new Set(ruleChanges.map((c) => c.id));
   if (staleUses) saveFlow();
   // Each flow it reads as the edits kept here leave its own document (ADR 0026 §7): what the first run keeps.
   void followEdits();
@@ -18602,9 +22044,11 @@ async function start(): Promise<void> {
       if (isMonthFile(file) && file.flow === state.doc.id) {
         recorded = file;
         recordedEntries = layered(file);
+        toldReady = true;
         if (routeOf(location.hash).view === 'month') renderMonth();
       }
     }
+    toldReady = true;
     mark('recorded month');
     // A link to a day sent again later (ADR 0021 §2) runs its first files first, as every first day does, then the
     // version the link names or the one readers got.
@@ -18646,6 +22090,17 @@ async function start(): Promise<void> {
       tablesDdl.push(pinnedDdl(b));
       if (id === list.loadSource && first) loads.bytes.set(k0, bytes);
       else if (day) loads.others.set(k0, { ...(loads.others.get(k0) ?? {}), [`${id}:${want.sha256}`]: bytes });
+    }
+    // The sources added here (ADR 0027 §5): each one's file as this browser keeps it, pinned with the day's, its table
+    // defined with theirs; a column the file names otherwise is declared by that name before the first run
+    // (`defineTablesFor`).
+    for (const [id, a] of addedSources) {
+      const bytes = addedBytes.get(id);
+      if (!bytes || !state.doc.sources.some((x) => x.id === id)) continue;
+      pulledIn(id, a.name, a.sha256, `added here by ${personName(a.by)}`);
+      dayFiles.push({ name: a.binding.file, bytes, sha256: a.sha256 });
+      tablesDdl.push(pinnedDdl(a.binding));
+      pinnedHeaders.set(id, csvHeader(new TextDecoder().decode(bytes.subarray(0, 1 << 16))));
     }
     // In one round trip each (a call that holds the engine's lock waits for the one before it to be answered): every
     // file, then every table over them, in one statement list.

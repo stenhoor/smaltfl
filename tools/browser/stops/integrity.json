@@ -75,7 +75,10 @@
     "view": "runs",
     "viewFirst": true,
     "download": "#record button:has-text(\"Export for audit\")",
-    "expect": { "download": "^smaltfl-audit-larkspur-\\d+\\.zip$", "audit": true }
+    "expect": {
+      "download": "^smaltfl-audit-larkspur-\\d+\\.zip$",
+      "audit": ["ontology/history.json: the ontology’s history from 2024-03-01 to 2024-03-31, made again from the flow as kept at #"]
+    }
   },
   {
     "name": "int-checkpoint",

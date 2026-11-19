@@ -205,10 +205,110 @@ export const NEEDS_FIELDS = ['id', 'datasets', 'from', 'key', 'when', 'then', 'd
 /** The ontology's needs rules applied to a dataset (Q-119), in the ontology's order; ids are compared without case. */
 export const needsOf = (ontology: Ontology | undefined, dataset: string): NeedsDef[] => (ontology?.needs ?? []).filter((n) => n.datasets.some((d) => d.toLowerCase() === dataset.toLowerCase()));
 
+/**
+ * A dataset the business described before its data exists (ADR 0027 §5, Q-255): what one row of it is, by which key,
+ * and what each of its columns holds. It is in force from the day its change says and **waits for data** until a
+ * source of its name is in the flow, which binding a file to it makes (the file's columns mapped onto these). It stays
+ * in the ontology after that: described on one day, evidenced from another.
+ */
+export interface AwaitedDataset {
+  /** The dataset's name in the flow once it has data: lower-case letters, digits and underscores. */
+  id: string;
+  /** What people call it. */
+  name: string;
+  /** What it is, in a line. */
+  description?: string;
+  /** What one row is, as a count reads: "component", "components". */
+  row: Noun;
+  /** The columns that tell one row from another. */
+  key: string[];
+  /** Its columns, each with what it holds. */
+  columns: AwaitedColumn[];
+}
+
+/** A column of a dataset described ahead of its data. */
+export interface AwaitedColumn {
+  column: string;
+  /** What people call it; made from its name where none is given. */
+  title?: string;
+  description: string;
+}
+
+/** What of the ontology may end (ADR 0027 §2, Q-264): a kind of thing, a relation, what a dataset's rows are, a
+ * dependency, an entry of a closed list or column, a dataset described ahead that still waits for its data. */
+export const ENDED_KINDS = ['type', 'link', 'rows', 'needs', 'entry', 'awaited'] as const;
+export type EndedKind = (typeof ENDED_KINDS)[number];
+/** How a thing that ended goes on: replaced by one, merged into one, or split into several. */
+export const FOLLOWED = ['replaced', 'merged', 'split'] as const;
+export type FollowedHow = (typeof FOLLOWED)[number];
+
+/**
+ * A thing of the ontology that ended (ADR 0027 §2, Q-264: nothing is deleted). From the day its change says, the thing
+ * is no longer in force; it is kept here, with what follows it where anything does, so a later day can say what it
+ * was and a series can be followed through to its successor. Past days still read it as it was.
+ */
+export interface Ended {
+  what: EndedKind;
+  /** A kind's, a relation's or a dependency's id; the dataset of a rows entry; an entry's key; a described dataset's
+   * name. */
+  id: string;
+  /** For an entry: the file and the closed rule it was an entry of. */
+  of?: { file: string; rule: string };
+  /** What follows it, each named as the thing itself is (an id, a dataset, a key). */
+  then?: { how: FollowedHow; by: string[] };
+}
+
+/** An awaited dataset's settings, and a column's: any other is refused by name. */
+export const AWAITED_FIELDS = ['id', 'name', 'description', 'row', 'key', 'columns'] as const;
+export const AWAITED_COLUMN_FIELDS = ['column', 'title', 'description'] as const;
+
+/**
+ * Someone who owns a part of the ontology (ADR 0027 §10, Q-276): a principal, by the id the flows know them by; their
+ * name, where the part's own document has no principal of that id to take it from (an estate's ontology, a flow read
+ * under another flow's policies); and their identity card's fingerprint once it is known (ADR 0002 §1, Q-31), which
+ * binds an agreement to their browser when sharing is built (Q-35).
+ */
+export interface Owner {
+  id: string;
+  name?: string;
+  card?: string;
+}
+
+/** An owner's settings: any other is refused by name. */
+export const OWNER_FIELDS = ['id', 'name', 'card'] as const;
+
+/**
+ * What is wrong with a list of owners as written, each as `[path, what]` (the path from the list itself): one or more,
+ * each a principal's id once, its name a non-empty string where it has one (`named`: required, where the document has
+ * no principals to take it from), its card a fingerprint (64 hex digits) where it has one.
+ */
+export function ownersIssues(value: unknown, named = false): [path: string, message: string][] {
+  if (value === undefined) return [];
+  const rec = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+  if (!Array.isArray(value) || value.length === 0) return [['', 'who owns it: a list of one or more { id, name?, card? }; absent where its flow’s owner does']];
+  const out: [string, string][] = [];
+  const seen = new Set<string>();
+  value.forEach((o: unknown, i: number) => {
+    const at = `[${i}]`;
+    if (!rec(o)) return void out.push([at, 'an owner: { id, name?, card? }']);
+    for (const k of Object.keys(o)) if (!(OWNER_FIELDS as readonly string[]).includes(k)) out.push([`${at}.${k}`, `not a field of an owner (${OWNER_FIELDS.join(', ')})`]);
+    if (typeof o.id !== 'string' || o.id === '') out.push([`${at}.id`, 'a principal’s id']);
+    else if (seen.has(o.id)) out.push([`${at}.id`, `${o.id} is named twice`]);
+    else seen.add(o.id);
+    if (o.name !== undefined ? typeof o.name !== 'string' || o.name.trim() === '' : named) out.push([`${at}.name`, named ? 'what they are called: this document has no principals to take it from' : 'what they are called, or left out']);
+    if (o.card !== undefined && (typeof o.card !== 'string' || !/^[0-9a-f]{64}$/.test(o.card))) out.push([`${at}.card`, 'their identity card’s fingerprint: 64 hex digits, or left out']);
+  });
+  return out;
+}
+
 export interface Ontology {
   objectTypes: ObjectType[];
   linkTypes: LinkType[];
   actionTypes: ActionType[];
+  /** Who owns this flow's own part of the ontology (ADR 0027 §10): whose agreement a change the business made to it,
+   * or one that ends something of it, waits for. None named: the flow's owner. What an estate says is the estate's
+   * owners' (`estate`), and what a flow it reads says is that flow's (`FlowPart.owners`). */
+  owners?: Owner[];
   /** What the columns mean. */
   properties?: PropertyType[];
   /** Where those meanings come from. */
@@ -232,6 +332,14 @@ export interface Ontology {
   /** The fixes a held day of each file may be offered (rules.ts `FIX_KINDS`), by file: what the news, the brief and the
    * decision sheet suggest and offer. A file not listed allows every one. */
   fixes?: Record<string, FixKind[]>;
+  /** The columns of each file that the flow doesn't take (ADR 0027 §4, format 5), by file: named so that every column a
+   * file has is either described or set aside. A column set aside isn't one its source declares, so no step reads it. */
+  aside?: Record<string, string[]>;
+  /** The datasets described before their data exists (ADR 0027 §5, Q-255, format 5): each waits for data until a source
+   * of its name is in the flow, and stays here after, the record of what was asked for. */
+  awaited?: AwaitedDataset[];
+  /** What has ended (ADR 0027 §2, Q-264, format 5): each thing no longer in force, with what follows it. */
+  ended?: Ended[];
   /** The share of a day's rows a learned check's alert must move to hold the day where its check only warns (Q-132,
    * Q-207), by dataset (a source or a watched step): it wins over the flow's (`publish.overwhelming`), which wins over
    * a quarter. */

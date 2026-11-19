@@ -83,7 +83,8 @@ export function useProblems(own: FlowDocument, spec: UseSpec): string[] {
   if ((own.flows ?? []).length) out.push(`${own.name} reads other flows (${listed(own.flows!.map((f) => f.name))}): a flow used under a name reads what is mapped onto its inputs, and no flow of its own yet`);
   const watched = Object.keys(own.publish?.watch ?? {});
   if (watched.length) out.push(`${own.name} watches ${listed(watched)}: a use has no history of its own to be judged by yet`);
-  if ((own.changes ?? []).length) out.push(`${own.name} has dated changes of its own: a flow used under a name is read as it is written`);
+  // Its own, never an estate's it imports: those are every flow's that imports the estate (ADR 0027 §3).
+  if ((own.changes ?? []).some((c) => c.estate === undefined)) out.push(`${own.name} has dated changes of its own: a flow used under a name is read as it is written`);
   if (USE_NAME.test(spec.as)) {
     const long = [...ownSteps(own).map((s) => s.id), ...inputs.map((x) => x.id)].map((id) => usedName(spec.as, id)).filter((id) => id.length > 64);
     if (long.length) out.push(`${long[0]} is longer than a name may be (64): give the use a shorter name`);

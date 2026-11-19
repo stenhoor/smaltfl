@@ -65,7 +65,7 @@ export function gateNote(o: { file: string; layer?: string; modes: Partial<Recor
 
 /** The check cell: each rule it runs, what it does with a row that breaks it, and what it counted today. */
 export function rulesNote(o: { step: string; rules: readonly { name: string; check: string; onFail: string; description?: string }[]; failed?: ReadonlyMap<string, number>; maxDropped?: number; rows?: number }): string {
-  const does: Record<string, string> = { warn: 'counted', drop: 'left out of what follows', fail: 'stops the run', flag: 'marked', hold: 'holds the day' };
+  const does: Record<string, string> = { warn: 'counted', drop: 'left out of what follows', fail: 'stops the run', flag: 'marked', hold: 'holds the day', aside: 'left out until the ontology has its entry, by a decision' };
   const lines = [`### 3 · Rules on the rows`, `${code(o.step)} runs the rules written for the file on every row. A row that breaks a rule is ${o.rules.some((r) => r.onFail === 'drop') ? 'dropped or counted, as the rule says' : 'counted'}.`];
   if (o.rules.length) {
     lines.push(o.rules.map((r) => {

@@ -91,11 +91,25 @@ const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 // steps derived (ADR 0011); a .smaltfl.json as it is.
 const reader = 'node_modules/.cache/smaltfl/flow.mjs';
 await build({ entryPoints: ['scripts/flow.ts'], bundle: true, platform: 'node', format: 'esm', target: 'node20', outfile: reader, logLevel: 'warning' });
-const { readFlow, readWithChanges, readEstates, bindingsPath } = await import(pathToFileURL(reader).href);
+const { readFlow, readWithChanges, readEstates, bindingsPath, undescribedIn } = await import(pathToFileURL(reader).href);
 // The catalogue's reader (scripts/catalogue.ts), bundled the same way: the flows a flow's `catalogue` folder holds.
 const catalogueReader = 'node_modules/.cache/smaltfl/catalogue.mjs';
 await build({ entryPoints: ['scripts/catalogue.ts'], bundle: true, platform: 'node', format: 'esm', target: 'node20', outfile: catalogueReader, logLevel: 'warning' });
 const { readCatalogue } = await import(pathToFileURL(catalogueReader).href);
+// The feed's writer (scripts/feed.ts), bundled the same way: the ontology's changes as a feed beside the page.
+const feedWriter = 'node_modules/.cache/smaltfl/feed.mjs';
+await build({ entryPoints: ['scripts/feed.ts'], bundle: true, platform: 'node', format: 'esm', target: 'node20', outfile: feedWriter, logLevel: 'warning' });
+const { feedFor } = await import(pathToFileURL(feedWriter).href);
+/** The feed the site publishes beside the page (ADR 0027 §10, Q-278): the ontology's changes, what is coming and what was
+ * going on, from the flow as shipped, the story's events and the month the build recorded. Written as feed.xml, which
+ * the page links to; loads.json names it. */
+const shipFeed = async (path, storyPath, { events, monthPath, days, made }) => {
+  const { doc } = await readWithChanges(path, storyChanges(storyPath));
+  const month = monthPath && existsSync(monthPath) ? JSON.parse(readFileSync(monthPath, 'utf8')) : null;
+  const feed = feedFor(doc, { events, month, days, made });
+  writeFileSync(`${out}/feed.xml`, feed.xml);
+  return feed;
+};
 // A flow's bindings (ADR 0010 §9): each source's table, format and file name, which loads.json carries on.
 const bindingsOf = (doc) => JSON.parse(readFileSync(bindingsPath(doc), 'utf8'));
 /** The document the build ships, as data/flow.json, and its entry in loads.json. With a recorded story (ADR 0021 §6), its
@@ -138,8 +152,9 @@ const shipEstates = async (path) => {
 /** The flow's catalogue (ADR 0026 §10): each flow in its `catalogue` folder as its own document, shipped as
  * data/catalogue/<id>.json and listed in loads.json with what it gives and what it is built on. The page adds one to
  * the flow on screen, where it is built from the day's run: no data is made for it here. */
-const shipCatalogue = async (path) => {
-  const all = await readCatalogue(path);
+const shipCatalogue = async (path, storyPath = null) => {
+  // Read with the story's changes (ADR 0026 §7): each names the flows it reads as this page's document does.
+  const all = await readCatalogue(path, storyChanges(storyPath));
   if (all.length) mkdirSync(`${out}/data/catalogue`, { recursive: true });
   return all.map(({ entry, doc }) => {
     const bytes = Buffer.from(JSON.stringify(doc) + '\n');
@@ -183,6 +198,10 @@ writeFileSync(`${out}/bundles.json`, JSON.stringify(hashed, null, 2) + '\n');
   const bind = variant ? { ...listed, ...(listed.variants?.[variant] ?? missingVariant(variant, listed)) } : listed;
   if (!bind.generate) throw new Error(`${flowPath}'s data list names no generator for its files`);
   const flowDoc = await readFlow(flowPath);
+  // Ontology first (format 5, ADR 0027 §4): a flow whose sources aren't described isn't built. What a row is, and every
+  // column its data's list declares, described or set aside.
+  const lacking = await undescribedIn(flowPath);
+  if (lacking.length) throw new Error(`${flowPath} is format 5, and its ontology doesn't come first yet:\n  ${lacking.join('\n  ')}`);
   // The generated days, histories and samples depend only on the generator, the flow, the runtime and the pins: they
   // are kept by a hash of those (node_modules/.cache/smaltfl/data/<hash>/), so a build after a change to the app alone
   // reuses them, and any change to what makes them makes them again. The generator writes its files' paths into
@@ -211,7 +230,7 @@ writeFileSync(`${out}/bundles.json`, JSON.stringify(hashed, null, 2) + '\n');
   const flowEntry = await shipFlow(flowPath, bind.story ?? null);
   const flowEntries = await shipFlows(flowPath, bind.story ?? null);
   const estateEntries = await shipEstates(flowPath);
-  const catalogueEntries = await shipCatalogue(flowPath);
+  const catalogueEntries = await shipCatalogue(flowPath, bind.story ?? null);
   const histories = Object.fromEntries(watches.map((w) => [w, entry(historyName(w), readFileSync(join(work, historyName(w))), `${bind.generate}, scripts/data/history.mjs`)]));
   const samples = sampled ? Object.fromEntries(watches.map((w) => [w, entry(sampleName(w), readFileSync(join(work, sampleName(w))), `${bind.generate}, scripts/data/history.mjs --sample`)])) : {};
   const ranges = Object.fromEntries(watches.filter((w) => existsSync(join(work, rangesName(w)))).map((w) => [w, entry(rangesName(w), readFileSync(join(work, rangesName(w))), 'scripts/data/history.mjs --ranges')]));
@@ -265,9 +284,15 @@ writeFileSync(`${out}/bundles.json`, JSON.stringify(hashed, null, 2) + '\n');
   // The demo's scenes (ADR 0023 §4): what it shows, the month screen's list, shipped as they are written (the page checks
   // them, core/scenes.ts).
   const scenes = bind.scenes ? JSON.parse(readFileSync(bind.scenes, 'utf8')) : null;
-  const index = { format: 2, month: first?.slot.slice(0, 7), built: new Date().toISOString().slice(0, 19) + 'Z', data: null, flow: flowEntry, ...(Object.keys(flowEntries).length ? { flows: flowEntries } : {}), ...(estateEntries.length ? { estates: estateEntries } : {}), ...(catalogueEntries.length ? { catalogue: catalogueEntries } : {}), sources, histories, ...(Object.keys(samples).length ? { samples } : {}), ...(Object.keys(ranges).length ? { ranges } : {}), ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), ...(bind.judged ? { judged: bind.judged } : {}), ...(bind.posture ? { posture: bind.posture } : {}), ...(scenes ? { scenes } : {}), ...(Object.keys(pages).length ? { pages } : {}) };
+  // What was going on (ADR 0027 §6): the story's events, context the page shows on its days, lanes and charts.
+  const events = bind.story ? (JSON.parse(readFileSync(bind.story, 'utf8')).events ?? []) : [];
+  // The feed beside the page (ADR 0027 §10): made from what ships, so it says what the page's register says.
+  const built = new Date().toISOString().slice(0, 19) + 'Z';
+  const dayList = [...new Set(Object.values(sources).flatMap((s) => (s.loads ?? []).map((l) => l.slot.slice(0, 10))))];
+  const feed = await shipFeed(flowPath, bind.story ?? null, { events, monthPath: join(work, 'month.json'), days: dayList, made: built });
+  const index = { format: 2, month: first?.slot.slice(0, 7), built, data: null, flow: flowEntry, ...(Object.keys(flowEntries).length ? { flows: flowEntries } : {}), ...(estateEntries.length ? { estates: estateEntries } : {}), ...(catalogueEntries.length ? { catalogue: catalogueEntries } : {}), sources, histories, ...(Object.keys(samples).length ? { samples } : {}), ...(Object.keys(ranges).length ? { ranges } : {}), ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), ...(bind.judged ? { judged: bind.judged } : {}), ...(bind.posture ? { posture: bind.posture } : {}), ...(scenes ? { scenes } : {}), ...(events.length ? { events } : {}), ...(Object.keys(pages).length ? { pages } : {}), feed: 'feed.xml' };
   writeFileSync(`${out}/data/loads.json`, JSON.stringify(index, null, 2) + '\n');
-  console.log(`built ${out} (${commit.slice(0, 12)}) with ${flowPath}: ${days} days of ${Object.values(sources).filter((s) => s.loads).length} daily source(s) and ${watches.length} histories, generated by ${bind.generate}`);
+  console.log(`built ${out} (${commit.slice(0, 12)}) with ${flowPath}: ${days} days of ${Object.values(sources).filter((s) => s.loads).length} daily source(s) and ${watches.length} histories, generated by ${bind.generate}; feed.xml has ${feed.entries} entries, as of ${feed.today}`);
 }
 
 /**

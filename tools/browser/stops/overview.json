@@ -7,9 +7,24 @@
     "full": true,
     "element": "#view-month",
     "expect": {
-      "text": ["FOR THE DAY", "March 2024", "AS KNOWN ON", "WHAT THIS DEMO SHOWS", "6 scenes to walk through", "WAITING FOR A DECISION · 1 DAY", "Wed Mar 27", "access_reviews: Almost no apps: 0", "25 of 31 days went out on their own, 5 with something unusual. 6 were paused for a decision: 5 published by a decision and 1 still waits.", "11 of 31 days needed a look, more than February (5 of 29).", "WHAT NEEDED A LOOK · 11 DAYS", "FLOWS, FILES AND STEPS OVER MARCH 2024"],
+      "text": [
+        "FOR THE DAY",
+        "March 2024",
+        "AS KNOWN ON",
+        "WHAT THIS DEMO SHOWS",
+        "7 scenes to walk through",
+        "WAITING FOR A DECISION · 1 DAY",
+        "Wed Mar 27",
+        "access_reviews: Almost no apps: 0",
+        "24 of 31 days went out on their own, 6 with something unusual. 7 were paused for a decision: 6 published by a decision and 1 still waits.",
+        "13 of 31 days needed a look, more than February (5 of 29).",
+        "WHAT NEEDED A LOOK · 13 DAYS",
+        "FLOWS, FILES AND STEPS OVER MARCH 2024"
+      ],
       "noText": ["A warning, and what to do about it"],
-      "words": { "#view-month .mo-summary": 60 },
+      "words": {
+        "#view-month .mo-summary": 60
+      },
       "count": {
         "#view-month .mo-d": 31,
         "#view-month .mo-d.oc-waiting": 1,
@@ -18,7 +33,7 @@
         "#view-month .mo-card[aria-current][data-month=\"2024-03\"]": 1,
         "#view-month .mo-chip": 4,
         "#view-month .mo-wait-row": 1,
-        "#view-month .mo-log-row": 11,
+        "#view-month .mo-log-row": 13,
         "#view-month .mo-page.off": 1
       }
     }
@@ -30,7 +45,7 @@
     "viewFirst": true,
     "element": "#view-month .mo-sum",
     "expect": {
-      "text": ["Wed Mar 27", "Paused: it waits for a decision.", "WHAT HOLDS IT", "access_reviews file in Evidence feeds Almost no apps: 0", "posture_wide step in Larkspur estate access_review fail almost gone", "ALSO UNUSUAL", "WHAT WAITS 11 of 37 outputs", "WHAT HAPPENED", "20 files arrived. Held by access_reviews and 1 more: nothing built from them was published.", "SCORE none: the roll-up wasn’t published for the day.", "Decide ›", "Open the day ›", "Recorded by the build."],
+      "text": ["Wed Mar 27", "Paused: it waits for a decision.", "WHAT HOLDS IT", "access_reviews file in Evidence feeds Almost no apps: 0", "posture_wide step in Larkspur estate access_review fail almost gone", "ALSO UNUSUAL", "WHAT WAITS 11 of 40 outputs", "WHAT HAPPENED", "20 files arrived. Held by access_reviews and 1 more: nothing built from them was published.", "SCORE none: the roll-up wasn’t published for the day.", "Decide ›", "Open the day ›", "Recorded by the build."],
       "words": { "#view-month .mo-sum": 110 }
     }
   },
@@ -42,11 +57,11 @@
     "click": "#view-month .mo-chip[data-outcome=\"decided\"]",
     "element": "#view-month .mo-log",
     "expect": {
-      "text": ["DECIDED · 5 DAYS", "Show every day that needed a look", "Filled", "Corrected", "New level", "As is"],
+      "text": ["DECIDED · 6 DAYS", "Show every day that needed a look", "Restated", "Filled", "Corrected", "New level", "As is"],
       "count": {
         "#view-month .mo-chip[aria-pressed=\"true\"]": 1,
-        "#view-month .mo-log-row": 5,
-        "#view-month .mo-d.dim": 26
+        "#view-month .mo-log-row": 6,
+        "#view-month .mo-d.dim": 25
       }
     }
   },
@@ -58,7 +73,11 @@
     "click": "#view-month .mo-log-all .linkish",
     "element": "#view-month .mo-log",
     "expect": {
-      "count": { "#view-month .mo-chip[aria-pressed=\"true\"]": 0, "#view-month .mo-log-row": 11, "#view-month .mo-d.dim": 0 }
+      "count": {
+        "#view-month .mo-chip[aria-pressed=\"true\"]": 0,
+        "#view-month .mo-log-row": 13,
+        "#view-month .mo-d.dim": 0
+      }
     }
   },
   {
@@ -69,7 +88,7 @@
     "click": "#view-month .mo-log-row[data-day=\"2024-03-11\"] .mo-log-btn",
     "element": "#view-month .mo-sum",
     "expect": {
-      "text": ["Mon Mar 11", "corrected: version 2 of 2 published", "Corrected: a file sent again, and published.", "WHAT HELD IT", "backup_jobs file in Evidence feeds Last_state COMPLETED: 64% (usually 94–97%)", "WHAT IT HELD BACK 11 of 37 outputs", "WHAT HAPPENED", "20 files arrived. Held by backup_jobs: nothing built from it was published.", "Sloane Marsden filled it from Sun Mar 10, 3 h after it was held.", "backup_jobs sent again. A later file waits for a decision.", "The backup team fixed its export and sent Monday's file again", "Sloane Marsden published the version sent again", "Monday's own file, every backup as it ran", "2 versions of the day. Recorded by the build."],
+      "text": ["Mon Mar 11", "corrected: version 2 of 2 published", "Corrected: a file sent again, and published.", "WHAT HELD IT", "backup_jobs file in Evidence feeds Last_state COMPLETED: 64% (usually 94–97%)", "WHAT IT HELD BACK 11 of 40 outputs", "WHAT HAPPENED", "20 files arrived. Held by backup_jobs: nothing built from it was published.", "Sloane Marsden filled it from Sun Mar 10, 3 h after it was held.", "backup_jobs sent again. A later file waits for a decision.", "The backup team fixed its export and sent Monday's file again", "Sloane Marsden published the version sent again", "Monday's own file, every backup as it ran", "2 versions of the day. Recorded by the build."],
       "count": {
         "#view-month .mo-d[aria-pressed=\"true\"][data-day=\"2024-03-11\"]": 1,
         "#view-month .mo-log-btn[aria-pressed=\"true\"]": 1,
@@ -84,7 +103,20 @@
     "viewFirst": true,
     "element": "#view-month .mo-health",
     "expect": {
-      "text": ["FLOWS, FILES AND STEPS OVER MARCH 2024", "Flows. 1 of 5 held a day on its own account, and 2 more were unusual on one. Open one for its files and steps.", "Evidence feeds", "held 6 days (Tue 5, Wed 6, Mon 11 and 3 more) · unusual 3 days (Sun 10, Mon 18, Tue 19)", "Larkspur estate", "waited on Evidence feeds 2 days (Tue 5, Wed 6)", "Inventory", "unusual on Sun 17", "2 flows with nothing to report", "held the day, since decided", "waited on another flow", "no bar: no run"],
+      "text": [
+        "FLOWS, FILES AND STEPS OVER MARCH 2024",
+        "Flows. 2 of 5 held a day on their own account, and 1 more was unusual on one. Open one for its files and steps.",
+        "Evidence feeds",
+        "held 6 days (Tue 5, Wed 6, Mon 11 and 3 more) · unusual 3 days (Sun 10, Mon 18, Tue 19)",
+        "Larkspur estate",
+        "waited on Evidence feeds 2 days (Tue 5, Wed 6)",
+        "Inventory",
+        "unusual on Sun 17",
+        "2 flows with nothing to report",
+        "held the day, since decided",
+        "waited on another flow",
+        "no bar: no run"
+      ],
       "count": {
         "#view-month .mh-row": 3,
         "#view-month .mh-row.mh-flow.off": 3,
@@ -114,8 +146,24 @@
     "clicks": ["#view-month .mh-row[data-row=\"flow:\"] .mh-flow-name", "#view-month .mh-fold[data-fold=\"followed:\"]"],
     "element": "#view-month .mo-health",
     "expect": {
-      "text": ["Incoming files. None of the 3 held a day; 1 was unusual on one.", "Steps the flow builds. 1 of 25 had a day of its own to report: trouble no file it reads accounts for. 5 steps held or were unusual only where a file they read was.", "platform_impact", "5 steps that followed a file", "posture_wide", "held 2 days (Sat 23, Wed 27)", "fact_control_status", "held on Thu 21", "19 steps with nothing to report"],
-      "count": { "#view-month .mh-row.mh-flow.open": 2, "#view-month .mh-fold[aria-expanded=\"true\"]": 1 }
+      "text": [
+        "Incoming files. 1 of 3 held a day, and 2 more were unusual on one.",
+        "control_catalog",
+        "held on Thu 28",
+        "unusual 2 days (Thu 28, Fri 29)",
+        "Steps the flow builds. 1 of 28 had a day of its own to report: trouble no file it reads accounts for. 5 steps held or were unusual only where a file they read was.",
+        "platform_impact",
+        "5 steps that followed a file",
+        "posture_wide",
+        "held 2 days (Sat 23, Wed 27)",
+        "fact_control_status",
+        "held on Thu 21",
+        "22 steps with nothing to report"
+      ],
+      "count": {
+        "#view-month .mh-row.mh-flow.open": 2,
+        "#view-month .mh-fold[aria-expanded=\"true\"]": 1
+      }
     }
   },
   {
@@ -137,9 +185,24 @@
     "viewFirst": true,
     "element": "#view-month .mo-trend",
     "expect": {
-      "text": ["CONTROL POSTURE V1 · THE GROUP’S SCORE ON EACH DAY PUBLISHED", "93.8", "of 100 on Sun Mar 31", "Steady: between 93.0 and 93.8 over 30 days published, +0.3 from Fri Mar 1 to Sun Mar 31.", "checks failing", "since Fri Mar 1", "coverage 99.2%", "The share of control checks that pass, across every application.", "WHAT MOVED IT: APPLICATIONS FAILING EACH CONTROL, FRI MAR 1 TO SUN MAR 31", "Endpoint detection on every host", "No score on Wed Mar 27: the roll-up wasn’t published. The line is dashed across it."],
+      "text": [
+        "CONTROL POSTURE V1 · THE GROUP’S SCORE ON EACH DAY PUBLISHED",
+        "93.8",
+        "of 100 on Sun Mar 31",
+        "Steady: between 93.0 and 93.8 over 30 days published, +0.3 from Fri Mar 1 to Sun Mar 31.",
+        "checks failing",
+        "since Fri Mar 1",
+        "coverage 90.8%",
+        "The share of control checks that pass, across every application.",
+        "WHAT MOVED IT: APPLICATIONS FAILING EACH CONTROL, FRI MAR 1 TO SUN MAR 31",
+        "Endpoint detection on every host",
+        "No score on Wed Mar 27: the roll-up wasn’t published. The line is dashed across it."
+      ],
       "minCharts": 1,
-      "count": { "#view-month .mo-trend .focus": 1, "#view-month .mo-mover": 4 }
+      "count": {
+        "#view-month .mo-trend .focus": 1,
+        "#view-month .mo-mover": 4
+      }
     }
   },
   {
@@ -211,8 +274,18 @@
     "full": true,
     "element": "#view-month .mo-scenes",
     "expect": {
-      "text": ["WHAT THIS DEMO SHOWS", "A normal day", "Fills each way, and one file replaced", "MORE TO SEE"],
-      "count": { "#view-month .mo-scenes .sc-n": 6, "#view-month .mo-scenes .sc-look": 14, "#view-month details.mo-scenes[open]": 1 }
+      "text": [
+        "WHAT THIS DEMO SHOWS",
+        "A normal day",
+        "Fills each way, and one file replaced",
+        "The business changes, and the ontology comes first",
+        "MORE TO SEE"
+      ],
+      "count": {
+        "#view-month .mo-scenes .sc-n": 7,
+        "#view-month .mo-scenes .sc-look": 16,
+        "#view-month details.mo-scenes[open]": 1
+      }
     }
   },
   {

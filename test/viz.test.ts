@@ -347,6 +347,21 @@ describe('the news’s charts', () => {
     expect(svg).toMatch(/class="tick" aria-hidden="true">0<\/text>/);
   });
 
+  it('keeps its axis’s words clear of a mark on one of its first days: the plot starts lower, the words between the two', () => {
+    const days = (marked: number) => Array.from({ length: 28 }, (_, i) => ({ day: `2024-03-${String(i + 1).padStart(2, '0')}`, v: 21_000, low: 20_000, high: 22_000, ...(i === marked ? { marks: ['changed' as const] } : {}) }));
+    const heightOf = (svg: string) => Number(/viewBox="0 0 \d+ (\d+)"/.exec(svg)![1]);
+    const tickY = (svg: string) => Number(/<text x="0" y="([\d.]+)" class="tick" aria-hidden="true">25k\/day<\/text>/.exec(svg)![1]);
+    const first = dayStrip({ days: days(0), unit: '/day', aria: 'Results by day' });
+    const late = dayStrip({ days: days(20), unit: '/day', aria: 'Results by day' });
+    // A mark on the first day stands where the words are: twelve more of height, and the words under the mark's row.
+    expect(heightOf(first)).toBe(heightOf(late) + 12);
+    expect(tickY(first)).toBe(tickY(late) + 12);
+    // The mark's glyph is 14 tall from the top of the chart: the words start below it.
+    expect(tickY(first) - 9).toBeGreaterThanOrEqual(14);
+    // With no unit there are no words to keep clear of.
+    expect(heightOf(dayStrip({ days: days(0), aria: 'Results by day' }))).toBe(heightOf(dayStrip({ days: days(20), aria: 'Results by day' })));
+  });
+
   it('labels the value a story is about in a 100% bar, and gives a value gone today no width but its name', () => {
     const svg = composition({ moved: '0', bars: [
       { label: 'usual', parts: [{ name: '1', share: 0.75, text: 'Credit card' }, { name: '4', share: 0.19, text: 'Cash' }, { name: '0', share: 0.06, text: 'Flex Fare trip', callout: 'Flex Fare 6.2%' }] },
@@ -947,6 +962,63 @@ describe('a unit’s score over the month (scoreTrend, scoreSpark; ADR 0020 §6)
     expect(scoreTrend({ days: many, points: pts, aria: 'x', w: 900 }).match(/class="pt"/g)).toHaveLength(60);
   });
 
+  it('cuts a line where a change of the business moved it by itself, flagged with the change’s own step (ADR 0027 §7)', () => {
+    const four = ['2024-03-25', '2024-03-26', '2024-03-27', '2024-03-28'];
+    const pts = [{ day: four[0]!, score: 93, coverage: 99 }, { day: four[1]!, score: 93.1, coverage: 99.1 }, { day: four[2]!, score: 92.7, coverage: 90.8 }, { day: four[3]!, score: 92.3, coverage: 90.8 }];
+    const lines = (svg: string, cls: string) => svg.match(new RegExp(`<line class="${cls}" `, 'g'))?.length ?? 0;
+    const plain = scoreTrend({ days: four, points: pts, aria: 'x' });
+    expect(lines(plain, 'line')).toBe(3);
+    expect(lines(plain, 'line cov')).toBe(3);
+    expect(plain).not.toContain('step-cut');
+    expect(plain).not.toContain('steps taken out');
+    // Coverage cut on Wed 27: its line isn't joined across the cut, the score's is; one rule, one flag naming the line.
+    const cut = { day: '2024-03-27', series: 'coverage' as const, step: -8.3, label: 'Wed 27: SBOM declared; coverage by −8.3, from 99.1 to 90.8' };
+    const svg = scoreTrend({ days: four, points: pts, aria: 'x', cuts: [cut] });
+    expect(lines(svg, 'line cov')).toBe(2);
+    expect(lines(svg, 'line')).toBe(3);
+    expect(lines(svg, 'step-cut')).toBe(1);
+    expect(svg).toContain('<title>Wed 27: SBOM declared; coverage by −8.3, from 99.1 to 90.8</title>');
+    expect(svg.match(/class="step-flag"[^>]*>([^<]*)</)![1]).toBe('coverage −8.3 by the change');
+    // A change that cut both lines: both unjoined there, one rule, a flag a line.
+    const both = scoreTrend({ days: four, points: pts, aria: 'x', cuts: [{ ...cut, series: 'score', step: -0.4, label: 'the score' }, cut] });
+    expect(lines(both, 'line')).toBe(2);
+    expect(lines(both, 'line cov')).toBe(2);
+    expect(lines(both, 'step-cut')).toBe(1);
+    expect([...both.matchAll(/class="step-flag"[^>]*>([^<]*)</g)].map((m) => m[1])).toEqual(['score −0.4 by the change', 'coverage −8.3 by the change']);
+    // A cut on a day the chart doesn't show is none.
+    expect(scoreTrend({ days: four, points: pts, aria: 'x', cuts: [{ ...cut, day: '2024-04-02' }] })).not.toContain('step-cut');
+    // The flag stands right of its rule where it fits before the chart's edge, and left of it where it wouldn't: a
+    // cut near the end of a month, at any width.
+    const march = Array.from({ length: 31 }, (_, i) => `2024-03-${String(i + 1).padStart(2, '0')}`);
+    const all = march.map((day) => ({ day, score: 93, coverage: day >= '2024-03-27' ? 90.8 : 99.1 }));
+    for (const w of [324, 752, 1100, 1340]) {
+      const late = scoreTrend({ days: march, points: all, aria: 'x', w, cuts: [cut] });
+      const flag = /class="step-flag" x="([\d.]+)"[^>]*text-anchor="(end|start)">([^<]*)</.exec(late)!;
+      const at = Number(flag[1]);
+      const wide = flag[3]!.length * 6;
+      expect(flag[2] === 'start' ? at + wide : at).toBeLessThanOrEqual(w);
+      expect(flag[2] === 'end' ? at - wide : at).toBeGreaterThanOrEqual(0);
+    }
+    expect(/text-anchor="(end|start)"/.exec(scoreTrend({ days: march, points: all, aria: 'x', w: 752, cuts: [{ ...cut, day: '2024-03-05' }] }).split('step-flag')[1]!)![1]).toBe('start');
+  });
+
+  it('draws the lines with the steps taken out beside the published ones, only where a line was cut (Q-261)', () => {
+    const four = ['2024-03-25', '2024-03-26', '2024-03-27', '2024-03-28'];
+    const pts = [{ day: four[0]!, score: 93, coverage: 99 }, { day: four[1]!, score: 93.1, coverage: 99.1 }, { day: four[2]!, score: 92.7, coverage: 90.8 }, { day: four[3]!, score: 92.3, coverage: 90.8 }];
+    const cut = { day: '2024-03-27', series: 'coverage' as const, step: -8.3, label: 'x' };
+    const adjusted = pts.map((p) => ({ ...p, coverage: p.day >= '2024-03-27' ? p.coverage + 8.3 : p.coverage }));
+    const svg = scoreTrend({ days: four, points: pts, aria: 'x', cuts: [cut], adjusted });
+    // From the last day before the cut on: two dotted segments for coverage, none for the score, which wasn't cut.
+    expect(svg.match(/<line class="line cov adj" /g)).toHaveLength(2);
+    expect(svg).not.toContain('<line class="line adj" ');
+    expect(svg).toContain('steps taken out');
+    // The published lines are still there, as published.
+    expect(svg.match(/<line class="line cov" /g)).toHaveLength(2);
+    expect(svg.match(/<line class="line" /g)).toHaveLength(3);
+    // With no cut, the adjusted points draw nothing.
+    expect(scoreTrend({ days: four, points: pts, aria: 'x', adjusted })).not.toContain(' adj"');
+  });
+
   it('draws nothing but its frame with no day published, and a spark only with one', () => {
     expect(scoreTrend({ days, points: [], aria: 'x' }).match(/class="pt"/g)).toBeNull();
     expect(scoreSpark({ days, points: [], aria: 'x' })).toBe('');
@@ -1018,6 +1090,18 @@ describe('a row of days as bars (dayBars; ADR 0024 §4, §5)', () => {
 
   it('escapes what it is given', () => {
     expect(dayBars({ days: [{ day: '2024-03-01', level: 'ok', title: 'a<b>&"c"' }], aria: 'x<y> & z' })).toContain('<title>a&lt;b&gt;&amp;&quot;c&quot;</title>');
+  });
+
+  it('marks where a change that reaches the row began: a dashed rule at the day’s left edge, a diamond at its head (ADR 0027 §8)', () => {
+    const three = [{ day: '2024-03-26', level: 'ok' as const }, { day: '2024-03-27', level: 'bad' as const, changed: true }, { day: '2024-03-28', level: 'ok' as const }];
+    const svg = dayBars({ days: three, w: 30, h: 16, aria: 'x' });
+    expect(svg.match(/class="db-chg"/g)).toHaveLength(1);
+    expect(svg.match(/class="db-chg-mark"/g)).toHaveLength(1);
+    // At the second day's left edge, the whole height of the row.
+    expect(svg).toContain('<line class="db-chg" x1="10" x2="10" y1="0" y2="17"/>');
+    // On the first day the rule is set in from the row's own edge, so its diamond is whole.
+    expect(dayBars({ days: [{ day: '2024-03-27', level: 'ok', changed: true }], w: 10, h: 16, aria: 'x' })).toContain('<line class="db-chg" x1="2.5" x2="2.5"');
+    expect(dayBars({ days: three.map(({ changed: _changed, ...d }) => d), w: 30, h: 16, aria: 'x' })).not.toContain('db-chg');
   });
 });
 

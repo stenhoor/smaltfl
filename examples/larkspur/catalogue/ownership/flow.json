@@ -1,5 +1,5 @@
 {
-  "smaltfl": 4,
+  "smaltfl": 5,
   "id": "ownership",
   "name": "Ownership",
   "description": "Who answers for what: the applications each business unit owns, how many of them face the internet, and the ones whose chain of owners doesn’t reach the group. It reads the applications and the organisation, and has no file of its own.",

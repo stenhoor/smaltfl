@@ -23,6 +23,7 @@
  */
 import type { Database } from 'smaltdb/engine';
 import { canonicalJSON } from '../core/canonical.js';
+import type { ContextRows } from '../core/context.js';
 import type { FlowDocument } from '../core/document.js';
 import type { EmitContext } from '../core/emit.js';
 import { createTable, emitSelect } from '../core/emit.js';
@@ -46,7 +47,7 @@ import { quoteIdent as q } from '../core/sqltext.js';
 import { hashTable } from './dataset-hash.js';
 import { PINNED_PREFIX, pinned, pinnedLocation, takeOpened } from './pinned.js';
 import { donorRead } from './release.js';
-import { aborted, countContract, countExpectations, countGate, engineVersion, RunError } from './runtime.js';
+import { aborted, countClosed, countContract, countExpectations, countGate, engineVersion, RunError } from './runtime.js';
 import { carriedFrom, readBefore, currentOf, datasetView, dayVersionOf, derivedOf, ensureStore, findVersion, holdsOfRun, measuresOfRun, releasesOf, repairsOf } from './store.js';
 
 type Json = Parameters<typeof canonicalJSON>[0];
@@ -118,7 +119,11 @@ export async function verifyRun(db: Database, runId: number, options: VerifyOpti
     if (manifest.flow.ontology !== undefined && manifest.flow.ontology !== (await ontologyHash(doc.ontology))) notes.push("the ontology isn't the document's");
     if (manifest.flow.rules !== undefined && manifest.flow.rules !== (await rulesHash(doc))) notes.push("the rules in force aren't the document's");
     try {
-      const again = await translate(doc, typedParameters(doc, plan.parameters));
+      // A context table's rows (ADR 0027 §8) are the run's own, which the plan carries: the document is translated again
+      // with them, so each such step's statement must be those rows written out, and nothing else.
+      const context: ContextRows = { changes: [], events: [], in_force: [] };
+      for (const n of plan.nodes) if (n.op === 'sql' && n.context) context[n.context.of] = n.context.rows;
+      const again = await translate(doc, typedParameters(doc, plan.parameters), { context });
       const strip = (p: FlowPlan) => ({ ...p, nodes: p.nodes.map(({ schema: _schema, ...rest }) => rest) });
       if (!same(strip(again), strip(plan))) notes.push("the document doesn't translate to the plan");
     } catch (e) {
@@ -393,6 +398,10 @@ export async function verifyRun(db: Database, runId: number, options: VerifyOpti
       if (m.expectations) {
         const counts = countExpectations(db, plan, m.node, ctx);
         check({ node: m.node, origin: m.origin, check: 'expectations', ok: same(counts, m.expectations), expected: canonicalJSON(m.expectations as unknown as Json), actual: canonicalJSON(counts as unknown as Json) });
+        // The gate (ADR 0027 §4): what arrived that a closed list or column doesn't have, named again from the rules as
+        // counted here, the same as the run recorded; a closed rule that failed with nothing named is said too.
+        const again = countClosed(db, plan, m.node, ctx, counts);
+        if (m.closed || again.length) check({ node: m.node, origin: m.origin, check: 'closed', ok: same(again, m.closed ?? []), expected: canonicalJSON((m.closed ?? []) as unknown as Json), actual: canonicalJSON(again as unknown as Json) });
       }
       if (!stored.has(m.node)) continue;
       const t = `_smaltfl_verify_${tag}_${m.node}`;

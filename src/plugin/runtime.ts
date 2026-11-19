@@ -16,13 +16,13 @@
 import type { Database } from 'smaltdb/engine';
 import { canonicalJSON } from '../core/canonical.js';
 import type { EmitContext } from '../core/emit.js';
-import { createTable, emitContractCounts, emitExpectCounts, emitRead, emitReconcileCounts, emitRuleCounts, emitSelect } from '../core/emit.js';
+import { createTable, emitContractCounts, emitExpectCounts, emitRead, emitReconcileCounts, emitRuleCounts, emitKeysPresent, emitSelect, emitUndeclared, emitUndeclaredCount } from '../core/emit.js';
 import { hex, sha256Hex } from '../core/hash.js';
 import type { KeyEnv } from '../core/keys.js';
 import { nodeKey } from '../core/keys.js';
 import { FILLED_FROM, withoutDisplay, type FlowDocument } from '../core/document.js';
-import type { ContractCounts, DatasetRecord, ExpectationResult, GateResult, ManifestNode, RunManifest, SourceFile, SourceIngestRecord } from '../core/manifest.js';
-import { MANIFEST_FORMAT, manifestHash, ontologyHash, planHash, policiesHash } from '../core/manifest.js';
+import type { ClosedCounts, ContractCounts, DatasetRecord, ExpectationResult, GateResult, ManifestNode, RunManifest, SourceFile, SourceIngestRecord } from '../core/manifest.js';
+import { ARRIVALS_NAMED, MANIFEST_FORMAT, manifestHash, ontologyHash, planHash, policiesHash } from '../core/manifest.js';
 import { rulesHash } from '../core/inforce.js';
 import { flowHash, translate } from '../core/plan.js';
 import type { Upstream } from '../core/story.js';
@@ -209,7 +209,7 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
     // rows (ADR 0019 amendment 2): the input is evaluated once, into a temporary table that keeps its values as they
     // come (its columns declared ANY, so nothing is converted), and both read it; the rows go into the version in the
     // order they came, as they would from the input itself.
-    const once = n.op === 'expect' && stored.has(i) && !n.rules.some(([, , onFail]) => onFail === 'drop') && !stored.has(n.inputs[0]!) && !findCheck(db, key) && !findVersion(db, key) ? onceTable(db, plan, n.inputs[0]!, ctx, n.origin) : null;
+    const once = n.op === 'expect' && stored.has(i) && !n.rules.some(([, , onFail]) => onFail === 'drop' || onFail === 'aside') && !stored.has(n.inputs[0]!) && !findCheck(db, key) && !findVersion(db, key) ? onceTable(db, plan, n.inputs[0]!, ctx, n.origin) : null;
     try {
       let expectations: ExpectationResult | undefined;
       if (n.op === 'expect') {
@@ -248,6 +248,16 @@ export async function runPlan(db: Database, input: unknown, options: RunOptions,
     }
   }
 
+  // 4a. The gate (ADR 0027 §4): where a closed list's or column's rule failed, what arrived that the ontology doesn't
+  // have is named, by entry, and kept with the check step in the manifest; the hold says it (core/hold.ts), and verify
+  // counts it again.
+  for (const [node] of (plan.publish && isPublish2(plan.publish) && !unreadable ? plan.publish.closed : undefined) ?? []) {
+    const rec = records.get(node);
+    if (!rec?.expectations) continue;
+    aborted(signal);
+    const counted = countClosed(db, plan, node, ctx, rec.expectations);
+    if (counted.length) rec.closed = counted;
+  }
   // 4b. The gold gates (ADR 0014 §6, plan/4): each gate on a published node the plan doesn't watch is counted over the
   // dataset just built (or reused: the counts are of the content), and kept with the node in the manifest; a hold
   // reads them (core/hold.ts), and verify counts them again.
@@ -897,6 +907,36 @@ function onceTable(db: Database, plan: FlowPlan, node: number, ctx: EmitContext,
     }
   });
   return name;
+}
+
+/**
+ * What arrived that a check step's closed rules don't have (ADR 0027 §4): for each closed rule a row failed, the entries
+ * those rows carry, counted over the step's input as its rules were. Empty where no closed rule failed, or the node has
+ * none.
+ */
+export function countClosed(db: Database, plan: FlowPlan, node: number, ctx: EmitContext, counts: ExpectationResult): ClosedCounts[] {
+  const closed = plan.publish && isPublish2(plan.publish) ? plan.publish.closed?.find(([n]) => n === node)?.[1] : undefined;
+  const n = plan.nodes[node];
+  if (!closed || !n || n.op !== 'expect') return [];
+  const input = emitRead(plan, n.inputs[0]!, ctx);
+  return closed.flatMap((c): ClosedCounts[] => {
+    const check = n.rules.find(([name]) => name === c.rule)?.[1];
+    if (check === undefined) return [];
+    const keys = new Set(c.keys);
+    // A closed list's entries no row carries (Q-255): waiting for data. A closed column's values needn't all occur.
+    const present = c.defines.length && c.keys.length ? new Set(engine(n.origin, () => db.query(emitKeysPresent(input, c.key, c.keys)).rows).map((r) => String(r[0]))) : null;
+    const waiting = present ? c.keys.filter((k) => !present.has(k)) : [];
+    const failed = (counts.rules.find((r) => r.name === c.rule)?.failed ?? 0) > 0;
+    if (!failed) return waiting.length ? [{ rule: c.rule, arrivals: [], more: 0, waiting }] : [];
+    const rows = engine(n.origin, () => db.query(emitUndeclared(input, check, c.key, c.defines, ARRIVALS_NAMED)).rows);
+    const entries = Number(engine(n.origin, () => db.query(emitUndeclaredCount(input, check, c.key, c.defines)).rows[0]![0]));
+    const arrivals = rows.map((r): [string[], number, boolean] => {
+      const entry = r.slice(0, c.defines.length + 1).map((v) => (v === null || v === undefined ? '' : String(v)));
+      return [entry, Number(r[c.defines.length + 1]), keys.has(entry[0]!)];
+    });
+    // An entry whose defining columns changed has its row, under its key: it isn't waiting.
+    return [{ rule: c.rule, arrivals, more: Math.max(0, entries - arrivals.length), ...(waiting.length ? { waiting } : {}) }];
+  });
 }
 
 /**

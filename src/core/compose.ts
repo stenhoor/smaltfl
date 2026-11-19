@@ -22,7 +22,7 @@
  */
 import type { TypeScriptKit } from 'smaltnb/format';
 import { canonicalJSON } from './canonical.js';
-import { validateDocument, type FlowDocument, type FlowPart, type NotebookDef, type ParameterDef, type PublishDef } from './document.js';
+import { validateDocument, type ChangeSet, type FlowDocument, type FlowPart, type NotebookDef, type ParameterDef, type PublishDef } from './document.js';
 import { syncRuleCells } from './gatecell.js';
 import { expandNotebooks, joinPath, loadNotebooks, type ExpandOptions, type NotebookRef } from './notebook.js';
 import type { Ontology } from './ontology.js';
@@ -299,12 +299,19 @@ async function withEstates(at: string, doc: FlowDocument, estates: readonly RawE
   // A flow with no gate has nothing to judge the estate's written checks by, and takes none (ADR 0014, ADR 0015).
   const gated = Object.keys(doc.gates ?? {}).length > 0;
   const from: EstateFrom[] = [];
-  for (const e of estates) from.push({ name: e.estate.name, path: pathFrom(dirOf(at), e.path), hash: await estateHash(e.estate) });
+  for (const e of estates) from.push({ name: e.estate.name, path: pathFrom(dirOf(at), e.path), hash: await estateHash(e.estate), ...(e.estate.owners ? { owners: e.estate.owners } : {}) });
   const ontology = mergeOntologies(at, [
     ...estates.map((e) => ({ name: `${e.estate.name}’s ontology`, ontology: takeEstate(e.estate, datasets, overridden, gated) })),
     { name: doc.name, ontology: doc.ontology },
   ])!;
-  return { ...doc, ontology: { ...ontology, estate: from } };
+  // The estates' own change sets (ADR 0027 §3, Q-265), each named as its estate's, before the flow's own: every flow
+  // that imports an estate follows its changes from their days, and each takes what applies to it (an edit about a kind
+  // or a dataset the flow hasn't taken is passed over where the rules of a day are made, inforce.ts).
+  const estateChanges: ChangeSet[] = estates.flatMap((e) => (e.estate.changes ?? []).map((c) => ({ ...c, estate: e.estate.name })));
+  const ownChanges = doc.changes ?? [];
+  const twice = estateChanges.find((c, i) => estateChanges.findIndex((x) => x.id === c.id) !== i) ?? estateChanges.find((c) => ownChanges.some((x) => x.id === c.id));
+  if (twice) fail(at, `two change sets are called ${twice.id}: one of them is ${twice.estate}’s ontology’s`);
+  return { ...doc, ontology: { ...ontology, estate: from }, ...(estateChanges.length ? { changes: [...estateChanges, ...ownChanges] } : {}) };
 }
 
 /**
@@ -409,6 +416,8 @@ function merge(root: Raw, parts: readonly Part[]): { doc: FlowDocument; notebook
         direct: x.use.by === root,
         ...(x.use.pinned ? { pin: [x.use.by === root ? '' : x.use.by.doc.id] } : {}),
         use: own.use!,
+        // A use is the used flow's own ontology, read for it: its owners are that flow's.
+        ...(r.doc.ontology?.owners ? { owners: r.doc.ontology.owners } : {}),
       };
     }
     return {
@@ -422,6 +431,7 @@ function merge(root: Raw, parts: readonly Part[]): { doc: FlowDocument; notebook
       reads: r.reads.map((q) => plain.find((y) => y.raw.path === q)!.raw.doc.id),
       direct: root.reads.includes(r.path),
       ...pinners(r),
+      ...(r.doc.ontology?.owners ? { owners: r.doc.ontology.owners } : {}),
     };
   });
   // Each listed flow's notebooks, by the paths the document has them at.
@@ -442,14 +452,25 @@ function merge(root: Raw, parts: readonly Part[]): { doc: FlowDocument; notebook
   return { doc, notebooks: listed.map((ns) => new Set(ns.map((n) => n.path))) };
 }
 
-/** The flows' ontologies as one: each list after the other, a thing said twice refused (a meaning is said in one place). */
+/**
+ * The flows' ontologies as one: each list after the other, a thing said twice refused (a meaning is said in one place).
+ * Who owns the ontology (ADR 0027 §10) is said part by part, never merged: the one document's own owners are the last
+ * given's, the reading document's; a flow it reads keeps its own on its part (`FlowPart.owners`), and an estate on
+ * where it came from (`EstateFrom.owners`).
+ */
 function mergeOntologies(at: string, given: readonly { name: string; ontology: Ontology | undefined }[]): Ontology | undefined {
-  const has = given.filter((g): g is { name: string; ontology: Ontology } => g.ontology !== undefined);
+  const owners = given.at(-1)?.ontology?.owners;
+  const bare = (o: Ontology): Ontology => {
+    if (o.owners === undefined) return o;
+    const { owners: _owners, ...rest } = o;
+    return rest;
+  };
+  const has = given.map((g) => (g.ontology === undefined ? g : { name: g.name, ontology: bare(g.ontology) })).filter((g): g is { name: string; ontology: Ontology } => g.ontology !== undefined);
   if (has.length === 0) return undefined;
-  if (has.length === 1) return has[0]!.ontology;
-  const out: Ontology = { objectTypes: [], linkTypes: [], actionTypes: [] };
-  const lists = ['objectTypes', 'linkTypes', 'actionTypes', 'properties', 'references', 'rows', 'needs', 'rules', 'shared'] as const;
-  const maps = ['nouns', 'fixes', 'overwhelming'] as const;
+  if (has.length === 1) return owners ? { ...has[0]!.ontology, owners } : has[0]!.ontology;
+  const out: Ontology = { objectTypes: [], linkTypes: [], actionTypes: [], ...(owners ? { owners } : {}) };
+  const lists = ['objectTypes', 'linkTypes', 'actionTypes', 'properties', 'references', 'rows', 'needs', 'rules', 'shared', 'awaited'] as const;
+  const maps = ['nouns', 'fixes', 'aside', 'overwhelming'] as const;
   const keyOf: Record<(typeof lists)[number], (x: never) => string> = {
     objectTypes: (x: { id: string }) => x.id,
     linkTypes: (x: { id: string }) => x.id,
@@ -460,8 +481,9 @@ function mergeOntologies(at: string, given: readonly { name: string; ontology: O
     needs: (x: { id: string }) => x.id,
     rules: (x: { file: string; id: string }) => `${x.file.toLowerCase()} ${x.id}`,
     shared: (x: { file: string }) => x.file.toLowerCase(),
+    awaited: (x: { id: string }) => x.id.toLowerCase(),
   } as never;
-  const what: Record<string, string> = { objectTypes: 'object type', linkTypes: 'link', actionTypes: 'action', properties: 'column', references: 'reference', rows: 'rows entry', needs: 'dependency', rules: 'rule', shared: 'shared ontology' };
+  const what: Record<string, string> = { objectTypes: 'object type', linkTypes: 'link', actionTypes: 'action', properties: 'column', references: 'reference', rows: 'rows entry', needs: 'dependency', rules: 'rule', shared: 'shared ontology', awaited: 'dataset described ahead' };
   for (const k of lists) {
     const seen = new Map<string, string>();
     const merged: unknown[] = [];
@@ -530,5 +552,8 @@ export function flowProblems(doc: FlowDocument, part: FlowDocument): string[] {
   for (const [id, g] of Object.entries(part.gates ?? {})) if (!same(written(doc.gates?.[id]), written(g))) out.push(`the gate on ${id} isn't as it wrote it`);
   for (const [id, c] of Object.entries(part.contracts ?? {})) if (!same(doc.contracts?.[id], c)) out.push(`the contract of ${id} isn't as it wrote it`);
   for (const [id, w] of Object.entries(part.publish?.watch ?? {})) if (!same(doc.publish?.watch?.[id], w)) out.push(`the watch on ${id} isn't as it wrote it`);
+  // Who owns its own ontology (ADR 0027 §10): as its own document names them, on its part of the document that reads it.
+  const mine = doc.flows?.find((f) => f.id === part.id && !f.use);
+  if (mine && !same(mine.owners, part.ontology?.owners)) out.push("its ontology's owners aren't as it named them");
   return out;
 }
