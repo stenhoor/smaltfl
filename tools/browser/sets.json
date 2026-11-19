@@ -10,7 +10,7 @@
   },
   "sets": {
     "overview": { "app": "tour", "runs": 3 },
-    "tour": { "app": "tour", "runs": 18 },
+    "tour": { "app": "tour", "runs": 19 },
     "proposals": { "app": "tour", "runs": 1 },
     "levels": { "app": "tour", "runs": 5 },
     "tiers": { "app": "tour", "runs": 1 },

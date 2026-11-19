@@ -69,8 +69,9 @@ describe('a demo’s scenes (ADR 0023 §4)', () => {
     expect(scenesProblems(file, { days: TOUR, cards })).toEqual([]);
     expect(TOUR).toHaveLength(60);
     const tour = file as ScenesFile;
-    // Six scenes, a capability each, and two stories kept as more to see.
-    expect(tour.scenes.map((s) => s.n ?? null)).toEqual([1, 2, 3, 4, 5, 6, null, null]);
+    // Seven scenes, a capability each (the seventh ADR 0027's: the catalogue's new control, declared at the gate), and
+    // three stories kept as more to see.
+    expect(tour.scenes.map((s) => s.n ?? null)).toEqual([1, 2, 3, 4, 5, 6, 7, null, null, null]);
     const D = LARKSPUR_TOUR_DAYS;
     const days = (n: number) => [...new Set(tour.scenes[n - 1]!.looks.map((l) => l.day))];
     expect(days(1)).toEqual([D.normal]);
@@ -79,7 +80,9 @@ describe('a demo’s scenes (ADR 0023 §4)', () => {
     expect(days(4)).toEqual([D.migration, addDays(D.migration, 1), addDays(D.migration, 2)]);
     expect(days(5)).toEqual([D.mislabel]);
     expect(days(6)).toEqual([D.double, D.weekend, D.missing]);
-    expect([...days(7), ...days(8)]).toEqual([D.dissolve, D.ca]);
+    expect(days(7)).toEqual([D.sbom]);
+    // The rule said ahead is looked at on a day it was coming: the Saturday of the three, which scene 6 opens too.
+    expect([...days(8), ...days(9), ...days(10)]).toEqual([D.dissolve, D.ca, D.weekend]);
     // The day left for the visitor opens its decision.
     expect(tour.scenes[5]!.looks.find((l) => l.day === D.missing)).toMatchObject({ decide: true });
   });

@@ -426,8 +426,12 @@ function sayRun(r: RunRecord): void {
   // Stopped at the gate (ADR 0027 §4): the day is said by what arrived that the ontology doesn't have.
   const gated = pause ? result.holds.find((x) => (x as Hold).undeclared && sightOf(x.origin) === 'all') : undefined;
   const other = pause ? (gated ? { origin: gated.origin, said: gated.said } : heldElsewhere(r)) : null;
+  // The dataset the views follow read as declared that day (ADR 0027 §7, Q-263): what leads its story is a declared
+  // change's own step, and the line says so, as its News and the day's brief do.
+  const src = loadSource();
+  const asDeclared = !!day && !!src && !!top && !other && (top.severity === 'warn' || top.severity === 'alert') && !!declaredOn(stepsNow(), src, day);
   const said = day
-    ? daySentence({ day, head: other ? `${other.origin}: ${other.said}` : top?.title ?? null, wrong: top?.severity === 'alert' || !!other, pause: pause ? { state: pause.state, readers: readersAsOf(r).day, past: readersAsOf(r).past, standing: standsOn(pause.pause?.decision), may, deciders: deciders(), remedy: pause.remedy, withdrawn: pause.withdrawn, level: pause.pause?.decision?.about.level?.from ?? null, under: levelUnder(pause.pause?.decision) } : null })
+    ? daySentence({ day, head: other ? `${other.origin}: ${other.said}` : top ? `${top.title}${asDeclared ? ', as declared' : ''}` : null, wrong: top?.severity === 'alert' || !!other, pause: pause ? { state: pause.state, readers: readersAsOf(r).day, past: readersAsOf(r).past, standing: standsOn(pause.pause?.decision), may, deciders: deciders(), remedy: pause.remedy, withdrawn: pause.withdrawn, level: pause.pause?.decision?.about.level?.from ?? null, under: levelUnder(pause.pause?.decision) } : null })
     : pause ? `Held${result.holds.every((x) => sightOf(x.origin) === 'all') ? `: ${result.holds[0]!.said}` : ''}` : figures;
   setStatus(said, false, { n: attempts, state: pause && !isOut(pause.state) ? 'held' : 'done', mark: pause?.state ?? null });
   $('status').title = figures;

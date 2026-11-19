@@ -6,6 +6,8 @@
 - **Date:** 2026-11-15
 - **Amended by:** [ADR 0024](0024-the-month-at-a-glance.md) (proposed, 2026-11-16): the scene list of §4 sits behind a
   bar at the head of the month, closed at first (Q-221), and the tour's two months are paged, the latest on show.
+  [ADR 0027](0027-the-ontology-over-time.md) §11 (2026-11-19): a seventh scene, the business changing what the
+  ontology has, and a third story kept as more to see (amendment 2 below).
 - **Builds on:**
   - [ADR 0020](0020-the-estate-as-a-company.md): Larkspur, the demo at `/app/`.
   - [ADR 0021](0021-time.md): the month and the day, a day's versions, corrections decided (Q-62, Q-183).
@@ -361,6 +363,19 @@ ADR 0022's Q-84 (levels and fills for slots of a day) and slice 5 (Q-139, propos
     The answer key holds the calm days to at most six notes, none of them something wrong; the scenes' holds and
     decisions are as before. Thu Mar 7, a scene's day, carries one note too: the migration's effect a step later,
     `platform_impact`'s share of the day's failures through the data centres' pipeline below its usual.
+
+## Amendment 2 (2026-11-19): a seventh scene
+
+- **What.** [ADR 0027](0027-the-ontology-over-time.md) §11 (Q-272) adds one scene to the tour: on Thu Mar 28 the
+  catalogue lists a fifteenth control, which the closed list stops at the gate; it is declared with the control
+  board's reason, agreed to by the security lead, and the day goes out restated, its coverage cut by the change's
+  own step. A third story is kept as more to see: a rule said ahead, the WAF's band recorded on Fri Mar 22 for Mon
+  Mar 25. The story writes down two things as going on, the department dissolved on Fri Feb 16 and the log
+  pipelines' migration on Tue Mar 5.
+- **What it moves.** The days held on their first files are nine where they were eight; the calm days are 46 where
+  they were 48 (Thu Mar 28, and Fri Mar 29, when the mappings file's learned check still notes its new size); the
+  six scenes' holds and decisions are as before. The tour's stop set makes one run more, within the budget.
+- **Where it is told.** ADR 0027's §"As built", slice 10; `test/larkspur-tour.test.ts`; `docs/guide/demo.md`.
 
 ## Consequences
 

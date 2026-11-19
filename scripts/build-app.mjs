@@ -152,8 +152,9 @@ const shipEstates = async (path) => {
 /** The flow's catalogue (ADR 0026 §10): each flow in its `catalogue` folder as its own document, shipped as
  * data/catalogue/<id>.json and listed in loads.json with what it gives and what it is built on. The page adds one to
  * the flow on screen, where it is built from the day's run: no data is made for it here. */
-const shipCatalogue = async (path) => {
-  const all = await readCatalogue(path);
+const shipCatalogue = async (path, storyPath = null) => {
+  // Read with the story's changes (ADR 0026 §7): each names the flows it reads as this page's document does.
+  const all = await readCatalogue(path, storyChanges(storyPath));
   if (all.length) mkdirSync(`${out}/data/catalogue`, { recursive: true });
   return all.map(({ entry, doc }) => {
     const bytes = Buffer.from(JSON.stringify(doc) + '\n');
@@ -229,7 +230,7 @@ writeFileSync(`${out}/bundles.json`, JSON.stringify(hashed, null, 2) + '\n');
   const flowEntry = await shipFlow(flowPath, bind.story ?? null);
   const flowEntries = await shipFlows(flowPath, bind.story ?? null);
   const estateEntries = await shipEstates(flowPath);
-  const catalogueEntries = await shipCatalogue(flowPath);
+  const catalogueEntries = await shipCatalogue(flowPath, bind.story ?? null);
   const histories = Object.fromEntries(watches.map((w) => [w, entry(historyName(w), readFileSync(join(work, historyName(w))), `${bind.generate}, scripts/data/history.mjs`)]));
   const samples = sampled ? Object.fromEntries(watches.map((w) => [w, entry(sampleName(w), readFileSync(join(work, sampleName(w))), `${bind.generate}, scripts/data/history.mjs --sample`)])) : {};
   const ranges = Object.fromEntries(watches.filter((w) => existsSync(join(work, rangesName(w)))).map((w) => [w, entry(rangesName(w), readFileSync(join(work, rangesName(w))), 'scripts/data/history.mjs --ranges')]));

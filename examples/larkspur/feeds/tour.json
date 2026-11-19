@@ -1,7 +1,7 @@
 {
   "format": "smaltfl-story/1",
   "flow": "feeds",
-  "note": "Evidence feeds' own page, on the tour's two months (ADR 0026 §6): the tour's story (examples/larkspur/tour.json) as far as it is about this flow's files. The same files sent again, the same decisions at the same times, each by the flow's owner; HR's file and its decision are HR organisation's, and not here. Wed Mar 27 is left to decide, as it is in the tour.",
+  "note": "Evidence feeds' own page, on the tour's two months (ADR 0026 §6): the tour's story (examples/larkspur/tour.json) as far as it is about this flow's files. The same files sent again, the same decisions at the same times, each by the flow's owner; HR's file and its decision are HR organisation's, and not here. The WAF's band, said on Fri Mar 22 for Mon Mar 25, is this flow's too, and the log pipelines' migration is written down as going on; the catalogue's new control is the estate's, and not here. Wed Mar 27 is left to decide, as it is in the tour.",
   "deliveries": [
     {
       "day": "2024-02-26",
@@ -89,6 +89,62 @@
         "from": "2024-03-24"
       },
       "reason": "The EDR console's Saturday export came through empty. Nothing is deployed at the weekend, so Sunday's file stands for Saturday too: carried back, marked as Sunday's"
+    }
+  ],
+  "changes": [
+    {
+      "id": "waf-band-tenth",
+      "from": "2024-03-25",
+      "recorded": "2024-03-22T16:30:00Z",
+      "by": "owner",
+      "why": "The control board's standard holds a day when more than a tenth of a WAF's applications fail. The band of 0 to 15% was looser than that: a tenth, from Monday",
+      "kind": "business",
+      "decided": {
+        "by": "Sloane Marsden",
+        "on": "2024-03-21"
+      },
+      "agreed": [
+        {
+          "by": "owner",
+          "at": "2024-03-22T16:30:00Z"
+        }
+      ],
+      "note": {
+        "saw": "A WAF fails 2 to 4% of its applications on a usual day, and the band let up to 15% pass",
+        "chose": "Hold the day when more than a tenth fail, as the board's standard says",
+        "turnedDown": "Keeping 15%: a WAF could fail one application in seven before anyone was asked",
+        "expect": "No hold in a usual quarter",
+        "lookAgain": "2024-06-24"
+      },
+      "edits": [
+        {
+          "op": "acceptBand",
+          "source": "waf",
+          "band": {
+            "column": "status",
+            "value": "fail",
+            "share": [
+              0,
+              0.1
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "id": "log-migration",
+      "name": "Log pipelines move to the cloud",
+      "from": "2024-03-05",
+      "until": "2024-03-05",
+      "kind": "migration",
+      "about": [
+        "logging_coverage"
+      ],
+      "note": "Planned for Monday night: the data centres' healthy applications send their logs through the cloud pipelines from Tuesday",
+      "recorded": "2024-03-05T08:20:00Z",
+      "by": "owner"
     }
   ]
 }

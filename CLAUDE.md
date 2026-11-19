@@ -738,6 +738,22 @@ release (smaltty ADR 0030).
   record keeps it: `register.ts` `checkWithoutCells` says a gate's toggle there, where no cell can be rewritten.
   `test/told.test.ts`, `test/audit.test.ts`; stops in `versions.json`, and `integrity.json`'s bag (tour.cjs's
   `expect.audit` takes a list of lines the audit's report must say).
+  Slice 10, the demo (§11; the tour's answer key moves, as §11 said). The tour's seventh scene: `LARKSPUR_TOUR_DAYS.sbom`
+  (Thu Mar 28) and `LARKSPUR_TOUR`'s `sbom` plant the catalogue's fifteenth control; `examples/larkspur/tour.json`
+  has `changes` (`waf-band-tenth`, recorded Fri Mar 22 for Mon Mar 25, the rule said ahead; `sbom-declared`, recorded
+  Thu Mar 28 09:10 and agreed to by `ciso` at 09:15), `events` (`dept-dissolved`, `log-migration`: the tour's own
+  world, no freeze and no push) and the `restatements` entry that publishes the day; `examples/larkspur/feeds/tour.json`
+  has the WAF's change and the migration too (`test/carry.test.ts` holds the two stories to each other, since a
+  decision carries only where the flow is the same on both pages). `scenes.json`: scene 7 and *A rule said ahead*
+  (its look Sat Mar 23, scene 6's day, so no run is added). The mappings file (`control_requirements`) grows with the
+  catalogue and is noted by its learned check for two days (no event excuses a lasting change: an excused day isn't
+  learned from). `sayRun` says *as declared* on the status line of a day whose lead is a declared change's own step.
+  The build reads the catalogue with the story's changes (`scripts/catalogue.ts` `readCatalogue(flowPath, changes)`:
+  a catalogue flow's own document holds the change sets about what it reads and names each flow it reads by the
+  hash that flow has with them), else a story's change to a read flow's file left the catalogue's flows built on
+  another flow than the page's, and unaddable. `test/larkspur.test.ts`, `test/larkspur-tour.test.ts` (13 tests),
+  `test/catalogue.test.ts`, `test/scenes.test.ts`; stops in `tour.json` (19 runs), `overview.json`, `tiers.json` and
+  `levels.json` (which steps to the day before the visitor's, since the day after has two versions).
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -755,7 +771,7 @@ release (smaltty ADR 0030).
   a stops file not listed, or a sum over the budget fails the regression. CI's `demos` and `browser` jobs run it.
   Amended on 2026-11-17 for ADR 0026's eleven sets (its §"Amended"; the budget raised with the maintainer's
   agreement, Q-246): 33 sets on five demos, 215 runs, 1,292 of 1,330 engine seconds then, and with ADR 0027's sets
-  and stops 35 sets, 243 runs, 1,315 of 1,330; the tour finds a set's opening
+  and stops 35 sets, 244 runs, 1,324 of 1,330 (the tour's seventh scene is one run more); the tour finds a set's opening
   day by the list's `slot`.
 - **State of the work:** [docs/HANDOFF.md](docs/HANDOFF.md) says what is built, how to check it and what is left, in
   priority order. Read it before starting. **What comes next:** [ADR 0011](docs/adr/0011-notebooks-as-the-step-surface.md),
@@ -859,11 +875,12 @@ release (smaltty ADR 0030).
   ontology's own change sets), slice 6 (reading across a change: each change's own step, the cuts, the adjusted
   line, a declared change as the new level), slice 7 (context that travels: three tables any cell can join to,
   published with the product), slice 8 (who decides: owners named in the ontology, agreement recorded on the
-  change set, the audit holding one to the other) and slice 9 (who hears, and the auditor: since you last looked,
-  a digest, a feed the build writes, the history as a page that prints and in the audit bag) are built (its §"As
-  built", which says what each leaves); slice 10, the demo's new scene, is next. Its Q-280 to Q-285 are proposed,
-  for the maintainers to confirm as each is built, and Q-286 to Q-332 are the choices slices 3 to 9 made as they
-  were built.
+  change set, the audit holding one to the other), slice 9 (who hears, and the auditor: since you last looked,
+  a digest, a feed the build writes, the history as a page that prints and in the audit bag) and slice 10 (the
+  demo: the tour's seventh scene, the catalogue's fifteenth control declared at the gate, a rule said ahead and
+  the story's events) are built (its §"As built", which says what each leaves): ADR 0027 is done. Its Q-280 to
+  Q-285 are proposed, for the maintainers to confirm, and Q-286 to Q-336 are the choices slices 3 to 10 made as
+  they were built.
 
 ## Rules for this repository
 

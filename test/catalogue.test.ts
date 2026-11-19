@@ -12,7 +12,8 @@ import { describe, expect, it } from 'vitest';
 import smaltfl from '../src/plugin/index.js';
 import { addFlow, addProblems, entryOf, takeOff, takeOffProblems } from '../src/core/catalogue.js';
 import { composeFlow, flowProblems, type FlowFiles } from '../src/core/compose.js';
-import { givesOf, validateDocument, type FlowDocument } from '../src/core/document.js';
+import { withOwnChanges } from '../src/core/attribute.js';
+import { givesOf, validateDocument, type ChangeSet, type FlowDocument } from '../src/core/document.js';
 import { nodeKey } from '../src/core/keys.js';
 import { notebookSectionId } from '../src/core/notebook.js';
 import { flowHash, translate, type FlowPlan } from '../src/core/plan.js';
@@ -22,6 +23,7 @@ import { versionTable } from '../src/plugin/store.js';
 import { pinFile, runFlow, verifyRun } from '../src/index.js';
 import { pinnedDdl, type DataBindings } from '../examples/sources.js';
 import { readCatalogue } from '../scripts/catalogue.js';
+import { readWithChanges } from '../scripts/flow.js';
 import { csvOf, DAILY_FILES, dayFile, fixedFiles, larkspur as larkspurEstate, LARKSPUR_SILVER } from './fixtures/larkspur.js';
 import { openEngine, SMALTDB } from './helpers/engine.js';
 import { loadFlowDir, ts } from './helpers/notebooks.js';
@@ -87,6 +89,34 @@ describe('a flow’s catalogue on disk', () => {
     expect(addProblems(doc, kit.doc)).toEqual(['Control by unit has open inputs (feed and owners): it is added as a use, with a dataset mapped onto each']);
     // A flow with no such folder has none.
     expect(await readCatalogue('examples/control-estate/flow.json')).toEqual([]);
+  });
+
+  it('is read with a story’s changes as the page’s own flows are: built on the same flows still, and added (ADR 0026 §7)', async () => {
+    const story = JSON.parse(readFileSync('examples/larkspur/tour.json', 'utf8')) as { changes: ChangeSet[] };
+    const { doc } = await readWithChanges('examples/larkspur/flow.json', story.changes);
+    // The tour's story changes a rule of a file Evidence feeds owns (the WAF's band): the page reads Evidence feeds by
+    // another hash than its folder gives.
+    const plain = await loadFlowDir(larkspur);
+    expect(doc.flows!.find((f) => f.id === 'feeds')!.hash).not.toBe(plain.flows!.find((f) => f.id === 'feeds')!.hash);
+    // Read as written, a catalogue flow is built on the folder's Evidence feeds, another flow than the page's.
+    const written = await readCatalogue('examples/larkspur/flow.json');
+    expect(addProblems(doc, written.find((x) => x.entry.id === 'certificates')!.doc)[0]).toMatch(/^Certificates reads Evidence feeds as [0-9a-f]{12}…, and Larkspur estate reads it as [0-9a-f]{12}…: they aren’t the same Evidence feeds$/);
+    // Read with the changes, each is built on the page's own flows and holds the change sets about what it reads, as a
+    // flow the page reads does: it can be added, and following the page's changes afterwards adds nothing to it.
+    const all = await readCatalogue('examples/larkspur/flow.json', story.changes);
+    expect(all.map((x) => x.entry.id)).toEqual(written.map((x) => x.entry.id));
+    for (const x of all.filter((y) => !y.entry.inputs)) {
+      expect(addProblems(doc, x.doc), x.entry.id).toEqual([]);
+      expect(x.entry.hash, x.entry.id).toBe(await flowHash(x.doc));
+      const mine = (x.doc.changes ?? []).map((c) => c.id);
+      expect(mine, x.entry.id).toContain('waf-band-tenth');
+      // The catalogue's new control is about the estate's own file, which neither reads.
+      expect(mine, x.entry.id).not.toContain('sbom-declared');
+      expect(withOwnChanges(x.doc, story.changes)).toBe(x.doc);
+      expect(validateDocument(addFlow(doc, x.doc, x.entry.path, x.entry.hash))).toEqual([]);
+    }
+    // A flow with open inputs reads no flow until it is used: it is as it was written.
+    expect(all.find((x) => x.entry.id === 'by_unit')!.doc).toEqual(written.find((x) => x.entry.id === 'by_unit')!.doc);
   });
 });
 

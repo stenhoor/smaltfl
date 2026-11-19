@@ -201,6 +201,8 @@ export const LARKSPUR_TOUR_DAYS = {
   weekend: '2024-03-23',
   /** Scene 6: the access reviews' export empty, left for the visitor to fill from the same weekday a week before. */
   missing: '2024-03-27',
+  /** Scene 7 (ADR 0027 §11): the catalogue lists a fifteenth control, which stops at the gate until it is declared. */
+  sbom: '2024-03-28',
 } as const;
 const TR = LARKSPUR_TOUR_DAYS;
 export const LARKSPUR_TOUR: readonly Trouble[] = [
@@ -214,6 +216,7 @@ export const LARKSPUR_TOUR: readonly Trouble[] = [
   { day: TR.ca, file: 'tls', kind: 'ca', ca: 'ca-int-2' },
   { day: TR.ca, file: 'logging_coverage', kind: 'ca', ca: 'ca-int-2' },
   { day: TR.missing, file: 'access_reviews', kind: 'empty' },
+  { day: TR.sbom, file: 'control_catalog', kind: 'sbom' },
 ];
 
 export const LARKSPUR_SILVER_TROUBLE: readonly Trouble[] = [

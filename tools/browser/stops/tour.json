@@ -8,8 +8,23 @@
     "full": true,
     "element": "#view-month .mo-scenes",
     "expect": {
-      "text": ["WHAT THIS DEMO SHOWS", "A normal day", "A warning, and what to do about it", "A written check holds a file", "An anomaly that was real", "An anomaly that was an issue", "Fills each way, and one file replaced", "MORE TO SEE", "One cause behind two controls"],
-      "count": { "#view-month .mo-scenes .sc-n": 6, "#view-month .mo-scenes .sc-look": 14 }
+      "text": [
+        "WHAT THIS DEMO SHOWS",
+        "A normal day",
+        "A warning, and what to do about it",
+        "A written check holds a file",
+        "An anomaly that was real",
+        "An anomaly that was an issue",
+        "Fills each way, and one file replaced",
+        "The business changes, and the ontology comes first",
+        "MORE TO SEE",
+        "One cause behind two controls",
+        "A rule said ahead"
+      ],
+      "count": {
+        "#view-month .mo-scenes .sc-n": 7,
+        "#view-month .mo-scenes .sc-look": 16
+      }
     }
   },
   {
@@ -20,8 +35,13 @@
     "full": true,
     "element": "#view-month",
     "expect": {
-      "text": ["February 2024", "March 2024", "27 of 29 on their own", "25 of 31 on their own"],
-      "count": { "#view-month .mo-card": 2, "#view-month .mo-card[aria-current][data-month=\"2024-03\"]": 1, "#view-month .mo-d": 31, "#view-month .mo-page.off": 1 }
+      "text": ["February 2024", "March 2024", "27 of 29 on their own", "24 of 31 on their own"],
+      "count": {
+        "#view-month .mo-card": 2,
+        "#view-month .mo-card[aria-current][data-month=\"2024-03\"]": 1,
+        "#view-month .mo-d": 31,
+        "#view-month .mo-page.off": 1
+      }
     }
   },
   {
@@ -156,6 +176,23 @@
     "expect": { "state": "done", "status": "^Sat Mar 23: filled from Sun 24", "pageText": ["Held: edr_coverage", "Filled from Sun 24", "Why: The EDR console"] }
   },
   {
+    "name": "tour-rule-ahead",
+    "what": "More to see, a rule said ahead (ADR 0027 §11): Sat Mar 23 again, by its link, so no day is run for it. A tighter band for a failing WAF was recorded on Fri Mar 22 for Mon Mar 25: the day's head says it is coming, a tap from its entry on the register",
+    "view": "month",
+    "viewFirst": true,
+    "clicks": [".sc-look[data-look=\"10/1\"]"],
+    "element": "#loads",
+    "expect": {
+      "status": "^Sat Mar 23: filled from Sun 24",
+      "textIn": {
+        "#loads .dh-rules-coming[data-change=\"waf-band-tenth\"]": ["coming", "Accepted a new band in waf: Status Fail between 0% and 10%", "Mon 25"]
+      },
+      "count": {
+        "#loads .dh-rules-coming": 1
+      }
+    }
+  },
+  {
     "name": "tour-scene6-sat23-record",
     "what": "The record after Sat 23 ran here: the fill from the day after staged and released as the build's decision says. A donor of a later day is judged by the history before the held day, so its release isn't refused",
     "view": "runs",
@@ -186,6 +223,116 @@
     "expect": { "state": "held", "pageText": ["Fill from Wed 20", "Wed 20 stands in: an estimate"], "enabled": [".vf-go"] }
   },
   {
+    "name": "tour-scene7",
+    "what": "Scene 7 (ADR 0027 §11), the business changes: Thu Mar 28 by its link. The catalogue's fifteenth control stopped at the gate as the day arrived; declared at 09:10 with the board's reason and agreed to at 09:15, the day ran again under it and went out restated. Its head says the change's own step, the status line that the day's lead is as declared, and its two versions say what stopped the first and who restated the second",
+    "view": "month",
+    "viewFirst": true,
+    "clicks": [".sc-look[data-look=\"7/1\"]"],
+    "full": true,
+    "expect": {
+      "state": "done",
+      "status": "^Thu Mar 28: More results: 21,321 \\(\\+10%\\), as declared",
+      "pageText": [
+        "Held: control_catalog_checked",
+        "Restated: published",
+        "new on this day: Declared sbom in control_catalog",
+        "run both ways: the change alone moved coverage by −8.3, from 99.1 to 90.8 ›",
+        "2 VERSIONS OF THE DAY",
+        "held: control_catalog_checked: not in the ontology: control_id sbom (1 row) · restated as version 2 before a decision",
+        "restated by Sloane Marsden",
+        "The catalogue's new control is the board's, declared from today: Thursday's posture goes out with it"
+      ],
+      "count": {
+        "#loads .dh-rules-step[data-step=\"sbom-declared\"]": 1,
+        "#loads .dv": 2,
+        "#loads .dh-gate": 0
+      }
+    }
+  },
+  {
+    "name": "tour-scene7-effective",
+    "what": "The dataset the change moved, on its first day: effective's News says first that what follows is the change's own step, declared, and that the day's data judged as it was had nothing to say; the checks learn from the new level from this day",
+    "day": "Thu 28",
+    "card": "effective",
+    "tab": "News",
+    "full": true,
+    "unfold": ["nb-posture"],
+    "expect": {
+      "textIn": {
+        "#sheet .verdict.declared": [
+          "as declared",
+          "The change’s own step",
+          "Declared sbom in control_catalog",
+          "The checks learn from the new level from this day."
+        ],
+        "#sheet": ["More results: 21,321 (+10%)"]
+      },
+      "count": {
+        "#sheet .verdict.declared": 1
+      }
+    }
+  },
+  {
+    "name": "tour-scene7-cut",
+    "what": "March's score, read across the change: coverage is cut on Thu Mar 28 with a flag that says the change's own step, eight points down, and the score isn't; the rule said ahead and the estate's relation moved nothing",
+    "view": "month/2024-03",
+    "viewFirst": true,
+    "element": "#view-month .mo-trend",
+    "expect": {
+      "textIn": {
+        "#view-month .mo-cuts": [
+          "Where a line is cut",
+          "Thu 28: Declared sbom in control_catalog",
+          "coverage by −8.3, from 99.1 to 90.8",
+          "The two sides of a cut aren’t one trend."
+        ],
+        "#view-month .mo-trend svg .step-flag": ["coverage −8.3 by the change"],
+        "#view-month .mo-step[data-step=\"sbom-declared\"]": ["its own step: coverage by −8.3, from 99.1 to 90.8; the score not at all"],
+        "#view-month .mo-step[data-step=\"waf-band-tenth\"]": ["its own step: none of 55 measures moved"],
+        "#view-month .mo-step[data-step=\"acting-leader\"]": ["its own step: none of 55 measures moved"]
+      },
+      "count": {
+        "#view-month .mo-cut": 1,
+        "#view-month .mo-cut[data-series=\"coverage\"]": 1,
+        "#view-month .mo-trend svg .step-flag": 1,
+        "#view-month .mo-step[data-step]": 3
+      }
+    }
+  },
+  {
+    "name": "tour-scene7-register",
+    "what": "The Ontology view's register on the tour: the control declared on Thu 28 with the board's reason, who decided and that the security lead agreed five minutes later, with its own step; the WAF's band said three days ahead, agreed to by its own author; the estate's relation; and what the story wrote down as going on, a migration and a reorganisation",
+    "view": "ontology",
+    "viewFirst": true,
+    "element": "#rules-time .rg-list",
+    "expect": {
+      "textIn": {
+        "#rules-time .rg-item[data-change=\"sbom-declared\"]": [
+          "From Thu 28 · recorded on its day",
+          "The control board added a software bill of materials",
+          "Decided by Sloane Marsden on Wed 27",
+          "Agreed by Sloane Marsden on Thu 28, 5 minutes later, who owns Larkspur estate.",
+          "Its own step, Thu 28.",
+          "the change alone moved coverage by −8.3, from 99.1 to 90.8",
+          "It didn’t move the score."
+        ],
+        "#rules-time .rg-item[data-change=\"waf-band-tenth\"]": [
+          "From Mon 25 · said Fri 22, 3 days ahead",
+          "Agreed by Owner, who also made it: one person held both roles.",
+          "Its own step, Mon 25.",
+          "Run both ways, it moved none of 55 measures."
+        ],
+        "#rules-time .rg-list": ["Log pipelines move to the cloud", "A department dissolved, its teams moved"]
+      },
+      "count": {
+        "#rules-time .rg-item[data-change]": 3,
+        "#rules-time .rg-item[data-event]": 2,
+        "#rules-time .rg-agree": 3,
+        "#rules-time .rg-item.rg-waiting": 0
+      }
+    }
+  },
+  {
     "name": "tour-presidents",
     "what": "Mon Feb 19, Presidents' Day, which the history has nothing like: a file's checks that read the history's ranges say not judged, never passed, and the day is published",
     "day": "Mon 19",
@@ -200,21 +347,33 @@
     "what": "More to see: Fri Feb 16 as it arrived, the dropped department's applications without their owner chain",
     "view": "month",
     "viewFirst": true,
-    "clicks": [".sc-look[data-look=\"7/1\"]"],
+    "clicks": [".sc-look[data-look=\"8/1\"]"],
     "waitFor": "#sheet:not([hidden]) .tab-panel:not([aria-busy])",
     "full": true,
     "element": "#sheet",
-    "expect": { "state": "held", "status": "^Fri Feb 16", "textIn": { "#sheet": ["app_owners", "95 of 2,400 rows broke owner_chain", "UNASSIGNED"] } }
+    "expect": {
+      "state": "held",
+      "status": "^Fri Feb 16",
+      "textIn": {
+        "#sheet": ["app_owners", "95 of 2,400 rows broke owner_chain", "UNASSIGNED"]
+      }
+    }
   },
   {
     "name": "tour-more-mon25",
     "what": "More to see: Mon Mar 18's platforms on their News, the certificate authority behind two controls named",
     "view": "month",
     "viewFirst": true,
-    "clicks": [".sc-look[data-look=\"8/1\"]"],
+    "clicks": [".sc-look[data-look=\"9/1\"]"],
     "waitFor": "#sheet:not([hidden]) .tab-panel:not([aria-busy])",
     "full": true,
     "element": "#sheet",
-    "expect": { "state": "done", "status": "^Mon Mar 18", "textIn": { "#sheet": ["platform_impact", "ca-int-2"] } }
+    "expect": {
+      "state": "done",
+      "status": "^Mon Mar 18",
+      "textIn": {
+        "#sheet": ["platform_impact", "ca-int-2"]
+      }
+    }
   }
 ]

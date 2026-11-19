@@ -26,8 +26,9 @@ detail, how to check it and what is left are in [where the work stands](../HANDO
 ## Demos
 
 - [The tour](/app/){target="_self"}: Larkspur, a fictional financial-services group, about 2,400 applications, its
-  organisation and shared platforms, on a February and March made to show what a flow does, in six scenes listed on
-  its month ([ADR 0023](../adr/0023-the-demo-as-a-tour)).
+  organisation and shared platforms, on a February and March made to show what a flow does, in seven scenes listed on
+  its month ([ADR 0023](../adr/0023-the-demo-as-a-tour); the seventh, a change to the ontology, is
+  [ADR 0027](../adr/0027-the-ontology-over-time)'s).
 - [Evidence feeds' own page](/feeds/){target="_self"}: one of the estate's flows as a page of its own on the tour's
   files; a paused day decided there or on the tour is carried to the other ([ADR 0026](../adr/0026-flows-in-flows) §6).
 - [Larkspur's planted month](/larkspur/){target="_self"}: the same group, six months of history and a planted March at

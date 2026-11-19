@@ -8,7 +8,7 @@ with trouble planted in March at every layer:
 - files that are fine alone but wrong together;
 - look-alikes: days that look like trouble and aren't, which must publish.
 
-Nothing that judges the days knows where the trouble is planted. The tour picks six scenes of what a flow does; this
+Nothing that judges the days knows where the trouble is planted. The tour picks seven scenes of what a flow does; this
 month has every planted day, and what happened next in its recorded story. It is also where the posture is read over
 the whole month, the rules change twice, a back-dated change restates two days and a what-if run is made the day's.
 

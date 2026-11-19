@@ -18,10 +18,15 @@
  * 6. Fills each way and one file replaced: Thu Mar 21, the TLS file's rows twice, only that file sent again; Sat Mar 23,
  *    the EDR export empty, filled back from Sun Mar 24; Wed Mar 27, the access reviews' export empty, left for the
  *    visitor.
+ * 7. Thu Mar 28, the business changes (ADR 0027 §11): the catalogue lists a fifteenth control, which the closed list
+ *    stops at the gate; declared with its reason at 09:10 and agreed to by the security lead at 09:15, the day runs
+ *    again under it and is published restated. The change's own step cuts coverage and leaves the score; the mappings
+ *    file, which grew with the catalogue and which no rule declares, is noted by its learned check the day after too.
  *
- * And two layering stories kept as more to see: a department dropped from the HR extract on Fri Feb 16, held in silver
- * and sent again; one certificate authority behind two controls on Mon Mar 18, told and published. Every other day is
- * published as it arrived.
+ * And three stories kept as more to see: a department dropped from the HR extract on Fri Feb 16, held in silver and
+ * sent again; one certificate authority behind two controls on Mon Mar 18, told and published; a rule said ahead, the
+ * WAF's band recorded on Fri Mar 22 for Mon Mar 25, its own step moving nothing. Every other day is published as it
+ * arrived.
  *
  * About ten minutes in CI, on four cores: `npm run test:tour`, and a CI job of its own (vitest.config.ts, TOUR). With
  * SMALTFL_TOUR_WORK naming a folder the month was made in already (the app build's cache of the tour's data), the answer
@@ -75,7 +80,7 @@ const decided = (day: string) => {
   return [...out.values()];
 };
 /** The days held on their first files, in order. */
-const SCENES = [D.dissolve, D.empty, D.migration, addDays(D.migration, 1), D.mislabel, D.double, D.weekend, D.missing];
+const SCENES = [D.dissolve, D.empty, D.migration, addDays(D.migration, 1), D.mislabel, D.double, D.weekend, D.missing, D.sbom];
 
 describe('the tour’s two months, as the demo records them (ADR 0023 §3, amendment 1)', () => {
   it('runs every day of February and March, and only the scenes’ days hold', () => {
@@ -159,6 +164,59 @@ describe('the tour’s two months, as the demo records them (ADR 0023 §3, amend
     expect(decided(D.missing)).toEqual([]);
   });
 
+  it('scene 7, Thu Mar 28: the catalogue’s fifteenth control stops at the gate, is declared and agreed to, and the day goes out restated with its own step (ADR 0027 §11)', () => {
+    const [first, again, ...more] = runsOf(D.sbom);
+    expect(more).toEqual([]);
+    // As it arrived: the closed list has no sbom, and what the catalogue reaches waits.
+    expect(about(first!).outcome).toBe('held');
+    expect(holdsOf(first!)).toEqual(['checks:control_catalog_checked']);
+    expect((about(first!).holds as Loose[])[0]).toMatchObject({ undeclared: true, said: 'not in the ontology: control_id sbom (1 row)' });
+    expect((about(first!).holds as Loose[])[0]!.reaches).toContain('posture_wide');
+    // The declaration is the flow's as shipped: recorded at 09:10, in force from the security lead's agreement at 09:15.
+    // The day had run by then, so it runs again under the rules with it, and the story's restatement publishes it.
+    expect(again!.at.slice(0, 16)).toBe(`${D.sbom}T09:15`);
+    expect(about(again!)).toMatchObject({ outcome: 'restated', restates: { changes: ['sbom-declared'] } });
+    const restated = month.entries.filter((e) => e.kind === 'restate' && (about(e).changes as string[]).includes('sbom-declared'));
+    expect(restated).toHaveLength(1);
+    expect(restated[0]!.at.slice(0, 16)).toBe(`${D.sbom}T09:25`);
+    expect(about(restated[0]!).days).toMatchObject([{ day: D.sbom, passes: true }]);
+    // Declared, not decided: no one chose among publishing as is, keeping back or filling.
+    expect(decided(D.sbom)).toEqual([]);
+    // Its own step, the day run both ways: the change alone cut coverage by about eight points and left the score.
+    const step = month.entries.find((e) => e.kind === 'step' && about(e).change === 'sbom-declared')!;
+    expect(about(step).day).toBe(D.sbom);
+    const moved = new Map((about(step).moved as Loose[]).map((m) => [m.measure as string, m]));
+    expect(moved.has('score')).toBe(false);
+    expect(moved.get('coverage')!.without - moved.get('coverage')!.with).toBeGreaterThan(7);
+    expect(moved.get('coverage')!.without - moved.get('coverage')!.with).toBeLessThan(10);
+    expect(moved.get('rows:dim_control')).toMatchObject({ without: 14, with: 15 });
+    expect((about(step).levels as Loose[]).map((l) => l.source)).toEqual(['effective']);
+    // Every day after is published as it arrived, at fifteen controls: effective is judged at the level the step
+    // declared, and isn't told as off again.
+    for (let d = addDays(D.sbom, 1); d <= LARKSPUR_TO; d = addDays(d, 1)) {
+      const run = runsOf(d)[0]!;
+      expect(about(run).outcome, d).toBe('ok');
+      expect(['wrong', 'unusual'], d).not.toContain(claimOf(run, 'effective')?.state);
+    }
+    // The mappings file grew with the catalogue, three rows the frameworks' mappings of the new control, and no rule
+    // declares that: its learned check notes the new size that day and the next, then has learned it.
+    for (const run of [first!, again!, runsOf(addDays(D.sbom, 1))[0]!]) expect(claimOf(run, 'control_requirements')).toMatchObject({ state: 'unusual', head: 'More mappings: 60 (+5%)' });
+    for (const d of [addDays(D.sbom, 2), addDays(D.sbom, 3)]) expect(claimOf(runsOf(d)[0]!, 'control_requirements')?.state, d).not.toBe('unusual');
+  });
+
+  it('keeps a rule said ahead and what was written down as going on: the WAF’s band recorded Fri Mar 22 for Mon Mar 25, its own step moving nothing', () => {
+    const step = month.entries.find((e) => e.kind === 'step' && about(e).change === 'waf-band-tenth')!;
+    expect(about(step)).toMatchObject({ day: '2024-03-25', moved: [] });
+    expect(about(step).measured).toBeGreaterThan(40);
+    // No day is run again for it (none it reaches had run), and none is held by it: the tour's WAFs fail a few in a hundred.
+    expect(month.entries.filter((e) => e.kind === 'restate').map((e) => about(e).changes)).toEqual([['sbom-declared']]);
+    for (let d = '2024-03-25'; d < D.missing; d = addDays(d, 1)) expect(runsOf(d).map((r) => about(r).outcome), d).toEqual(['ok']);
+    // The estate's own change (the relation Acted for by, from Mon Mar 11) has its step too.
+    expect(month.entries.filter((e) => e.kind === 'step').map((e) => about(e).change)).toEqual(['acting-leader', 'waf-band-tenth', 'sbom-declared']);
+    // What the story wrote down as going on, context for the days it covers: nothing a run is judged by.
+    expect(month.entries.filter((e) => e.kind === 'event').map((e) => [about(e).id, about(e).from, e.by.as])).toEqual([['dept-dissolved', D.dissolve, 'ciso'], ['log-migration', D.migration, 'ciso']]);
+  });
+
   it('keeps two layering stories: the dropped department held in silver and sent again (Fri Feb 16), one cause behind two controls told (Mon Mar 18)', () => {
     const [first, again] = runsOf(D.dissolve);
     expect(holdsOf(first!)).toEqual(['checks:app_owners', 'checks:org_chain']);
@@ -185,7 +243,8 @@ describe('the tour’s two months, as the demo records them (ADR 0023 §3, amend
     expect(about(weekend[1]!).carried.leaf).toBe(entryLeaf(weekend[0]!));
     expect(about(weekend[0]!).flow.hash).toMatch(/^[0-9a-f]{64}$/);
     // Every decision of the two months names a flow the estate reads, or carries one that does: the estate's own
-    // files and steps led no held day.
+    // files and steps led no held day that was decided. (The catalogue's stop on Thu Mar 28 is the estate's own, and
+    // was declared, not decided.)
     for (const d of month.entries.filter((e) => e.kind === 'decide')) expect(about(d).flow?.id ?? (about(d).carried ? 'carried' : 'own')).not.toBe('own');
   });
 
@@ -198,14 +257,14 @@ describe('the tour’s two months, as the demo records them (ADR 0023 §3, amend
   });
 
   it('keeps the days between the scenes calm: the steady world leaves a few notes, each a learned check’s (amendment 1)', () => {
-    // Every day a scene shows, or that follows from one (Thu Mar 7 is judged at the new level), is the scenes'; the other
-    // 48 are the calendar's calm days. In the answer key's world, its rhythms (due dates gathered on the quarter's dates,
+    // Every day a scene shows, or that follows from one (Thu Mar 7 is judged at the new level; the mappings file's new
+    // size is noted the day after Thu Mar 28), is the scenes'; the other 46 are the calendar's calm days. In the answer key's world, its rhythms (due dates gathered on the quarter's dates,
     // Patch Tuesday's findings falling due together) noted 13 of one month's; the steady world (amendment 1) leaves what
     // the judges' own false alarms make, five of the two months' when this was written: the forest, a day unlike the two
     // hundred before it on one of twenty files (three days), a share a row off its band on a small file (two), the
     // classifier once.
-    const scenes = new Set([D.empty, D.capitals, D.normal, D.dissolve, D.migration, addDays(D.migration, 1), addDays(D.migration, 2), D.mislabel, D.double, D.weekend, D.ca, D.missing]);
-    expect(TOUR.filter((d) => !scenes.has(d))).toHaveLength(48);
+    const scenes = new Set([D.empty, D.capitals, D.normal, D.dissolve, D.migration, addDays(D.migration, 1), addDays(D.migration, 2), D.mislabel, D.double, D.weekend, D.ca, D.missing, D.sbom, addDays(D.sbom, 1)]);
+    expect(TOUR.filter((d) => !scenes.has(d))).toHaveLength(46);
     const noted = TOUR.filter((d) => !scenes.has(d)).filter((d) => runsOf(d).some((r) => ((about(r).claims ?? []) as Loose[]).some((c) => c.state === 'wrong' || c.state === 'unusual')));
     expect(noted.length, noted.join(', ')).toBeLessThanOrEqual(6);
     for (const d of noted) for (const r of runsOf(d)) for (const c of (about(r).claims ?? []) as Loose[]) expect(c.state, `${d} ${String(c.source)}`).not.toBe('wrong');

@@ -1,9 +1,9 @@
 # ADR 0027: The ontology over time
 
 - **Status:** accepted, 2026-11-18: the maintainer's answers to Q-247 to Q-279, asked through the question prompt in
-  seven rounds once the research was in. It is built in the slices of §11: the first four are (§"As built"). The
-  choices the answers leave open are proposed here (Q-280 to Q-285), for the maintainers to confirm as each is built,
-  and those a slice made as it was built after them (Q-286 to Q-291, slice 3; Q-292 to Q-296, slice 4).
+  seven rounds once the research was in. Built in the slices of §11, all ten (§"As built", which says what each
+  leaves), 2026-11-18 and 2026-11-19. The choices the answers leave open are proposed here (Q-280 to Q-285), for the
+  maintainers to confirm, and those the slices made as they were built after them (Q-286 to Q-336, slices 3 to 10).
 - **Date:** 2026-11-18
 - **Builds on:**
   - [ADR 0006](0006-integrity.md): the record and the audit bag, which keep every change and decision this ADR adds.
@@ -1093,6 +1093,78 @@ made (`register.ts` `checkWithoutCells`); a test holds the kept document's telli
   run's entry doesn't keep the moment its rules were known at. Keeping it changes what the record keeps of a run,
   and wants its own decision.
 
+### Slice 10: the demo (2026-11-19)
+
+Larkspur's tour gains its seventh scene, a rule said ahead, and what its story writes down as going on (§11,
+Q-272). The scene moves the tour's answer key, as §11 said it would, and this is that decision: the days held on
+their first files are nine where they were eight, the calm days 46 where they were 48, and March reads *24 of 31
+days went out on their own* where it read 25.
+
+**The scene: Thu Mar 28** (Q-333). The tour's catalogue lists a fifteenth control from that day (`LARKSPUR_TOUR`'s
+`sbom`), the day after the one the tour leaves for its visitor, so no earlier scene's day is run at fifteen
+controls. The catalogue is a closed list: the first run stops at the gate, *not in the ontology: control_id sbom (1
+row)*, and the eleven outputs the catalogue reaches wait while the rest go out. The story declares the control at
+09:10 with the board's reason and describes the feed that will evidence it ahead of its data; the security lead,
+who owns the product's ontology, agrees at 09:15; the day runs again under it, and the story's restatement
+publishes it at 09:25. Nobody decided among publishing, keeping back and filling: it was declared. Its own step,
+the day run both ways: coverage by −8.3, from 99.1 to 90.8, the checks that apply from 19,326 to 21,321, the score
+not at all, and `effective` at a new level from that day. The month's trend is cut on Thu Mar 28 with its flag,
+the day's head says the step, and the status line says the day's lead is *as declared*.
+
+**A rule said ahead** (Q-334). The WAF's band tightened to a tenth, recorded on Fri Mar 22 for Mon Mar 25: coming
+on the three days between, which Sat Mar 23's head says (a day scene 6 already opens, so no run is added for it),
+in force from Monday, its own step moving none of 55 measures. The tour's WAFs fail two to four applications in a
+hundred, so it holds no day. It is Evidence feeds' rule, and Evidence feeds' own page has the same change set in its
+story: a decision is carried between the two pages only where the flow is the same on both, and a test holds the
+two stories to each other.
+
+**Going on** (Q-335). The tour's story writes down what its own world has: the department dissolved on Fri Feb 16,
+a reorganisation, and the log pipelines' migration on Tue Mar 5, written that morning before the day was published
+as is. Neither says what it excuses: scene 4 is still held by its learned check and decided by a person. The
+freeze and the push are the planted month's, in its story since slice 2. The tour's world is steady (ADR 0023
+amendment 1): it has neither, and an event nothing in the data bears out would mislead.
+
+**What the scene leaves in the data.** The file of framework mappings grows by three rows with the catalogue, and
+no rule declares that: its learned check notes *More mappings: 60 (+5%)* on Thu 28 and Fri 29, then has learned
+it. An event doesn't excuse it, on purpose (Q-336): what an event excuses is left out of what the checks learn, so
+excusing a lasting change would only put the note off.
+
+**In the app.** The scene list has the scene and a third story kept as more to see (*A rule said ahead*, on Sat
+Mar 23). A day whose lead is a declared change's own step says so on the status line (*More results: 21,321
+(+10%), as declared*), as its News and its brief did.
+
+**Found on the way: the catalogue.** With the WAF's change in the tour's story, the page reads Evidence feeds by
+another hash than its folder gives (ADR 0026 §7), and the catalogue's flows, read from their folders, were built on
+the folder's: *Add a flow* refused them, as not the same Evidence feeds. The build now reads a catalogue flow with
+the story's changes, as a flow the page reads is (`scripts/catalogue.ts` `readCatalogue`'s `changes`): its own
+document holds the change sets about what it has or reads and names each flow it reads by the hash that flow has
+with them. The planted month's story had such changes since ADR 0021, and its catalogue had been unaddable there
+unnoticed: no stop set builds on it.
+
+**The stops that moved.** `levels` stepped from the visitor's day to the next, which is now Thu Mar 28 with its two
+versions, two runs where the budget had one: it steps to the day before instead. Its flow sheet's check that a
+flow's day is never a score now reads the day's own part, since the sheet also lists the band changed for one of
+its files, in percent. `overview` and `tiers` say March as it is.
+
+**Checked.** `test/larkspur.test.ts` (the fifteenth control and its mappings from Thu Mar 28, every other file as
+it was), `test/catalogue.test.ts` (the catalogue read with the tour's changes: built on the page's own flows, and
+added), `test/larkspur-tour.test.ts` (the answer key: the gate, the declaration at its agreed moment, the
+restatement, the step, the days after, the rule said ahead and the events), `test/carry.test.ts` (Evidence feeds'
+story holds the tour's changes and events about its files), `test/scenes.test.ts` (seven scenes, three stories),
+and the browser regression: the tour's set makes 19 runs where it made 18, the new scene's day, at 1,324 of 1,330
+engine seconds (Q-246's budget, not raised).
+
+**What it leaves.**
+
+- **The gate isn't walked live on the tour.** The scene is the build's record of it; the gate's three decisions
+  are walked in a browser on the sign-ins (`gate.json`).
+- **Version 1 of Thu Mar 28 isn't opened by a stop:** it would be a run more than the budget has. The day's versions
+  list says what stopped it.
+- **The mappings file's note.** A file that grows with a declared change, and that no rule ties to it, is noted by
+  its learned check until it has learned the new size. Declaring the two together would need a rule that reads
+  one file by the other.
+- **The tour has no freeze and no push.** They are in the planted month's story.
+
 ## Consequences
 
 - **A flow can stop for a reason it never could:** the data is ahead of the ontology. That is the point of the gate,
@@ -1273,6 +1345,18 @@ Proposed with slice 9, as built:
   that leave the app's own furniture off the paper; the app makes no file of it.
 - **Q-332:** the export records the flow as kept before it names the record's head, where the record doesn't have
   it yet: the history names that document by its hash, and the offline check finds it in the bag.
+
+Proposed with slice 10, as built:
+
+- **Q-333:** the tour's new scene is on Thu Mar 28, after the day the tour leaves for its visitor: no earlier
+  scene's day is run at fifteen controls, and the cut has three days after it.
+- **Q-334:** the rule said ahead is the WAF's band, recorded Fri Mar 22 for Mon Mar 25, in the tour's story and in
+  Evidence feeds' own. It is looked at on Sat Mar 23, a day scene 6 opens, so it adds no run.
+- **Q-335:** the tour's events are those its own world has: the department dissolved and the log pipelines'
+  migration, neither excusing anything. The freeze and the push stay the planted month's.
+- **Q-336:** the mappings file's rise with the catalogue is left to its learned check, which notes it for two days.
+  No event excuses it: an excused day is left out of what the checks learn, so a lasting change would be noted
+  again once the event ended.
 
 ## The questions
 
