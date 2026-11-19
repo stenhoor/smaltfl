@@ -97,6 +97,15 @@ facts, each under a contract. On any other card, **Context** at the top of its s
 as known now: on Tue 12, *platform_impact* is reached by the WAF's monitor mode, through the WAF's file, written down
 that morning after the day had run, and it says so.
 
+Who decides is on the **Ontology** view, at the head of the register ([ADR 0027](../adr/0027-the-ontology-over-time)
+§10). **Who owns it** lists the ontology part by part: the estate's shared ontology and the posture product's own
+are the security lead's, Sloane Marsden's, and each flow the product reads is its owner's. Every change that asked for
+an owner's agreement says who gave it: the WAF's band was agreed to by the flow's owner, who wrote it and owns
+Evidence feeds, one person holding both roles; the catalogue's fifteenth control was written down by the flow's owner
+at 09:10 on Wed 27 and agreed to by the security lead five minutes later, the moment it is in force from. End
+something as the owner (the SBOM inventory's description, under *Described ahead of their data*) and the change waits:
+pick **Sloane Marsden** under **Viewing as**, and its entry offers **Agree**.
+
 ## One cause behind two controls
 
 **Mon 25.** The **tls** card warns: 8.9% of its applications fail, above their usual share. On its own, that is a rise

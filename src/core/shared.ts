@@ -13,7 +13,7 @@
  */
 import type { ChangeSet, FlowDocument } from './document.js';
 import { hashOf } from './hash.js';
-import type { ActionType, LinkType, NeedsDef, Noun, ObjectType, Ontology, PropertyType, Reference, RowsDef } from './ontology.js';
+import { ownersIssues, type ActionType, type LinkType, type NeedsDef, type Noun, type ObjectType, type Ontology, type Owner, type PropertyType, type Reference, type RowsDef } from './ontology.js';
 import type { FixKind, OntologyRule } from './rules.js';
 
 /** A rule as a shared file keeps it: its file is the shared file's. */
@@ -141,6 +141,10 @@ export interface EstateOntology {
   /** What the estate is called: "Larkspur estate". Named where a flow says a thing the estate already says. */
   name: string;
   description?: string;
+  /** Who owns the shared ontology (ADR 0027 §10, Q-276): whose agreement a change the business made to it waits for,
+   * in every flow that imports it. Each by the id the estate's flows know them by, with their name. None named: each
+   * flow's own owner, for that flow. */
+  owners?: Owner[];
   objectTypes?: ObjectType[];
   linkTypes?: LinkType[];
   actionTypes?: ActionType[];
@@ -166,9 +170,12 @@ export interface EstateFrom {
   name: string;
   path: string;
   hash: string;
+  /** The estate's owners, as its ontology names them (ADR 0027 §10): kept with the flow so that whether a change of
+   * the estate's has its agreement is said from the flow's document alone. Absent where it names none. */
+  owners?: Owner[];
 }
 
-const ESTATE_PARTS = ['smaltflOntology', 'name', 'description', 'objectTypes', 'linkTypes', 'actionTypes', 'properties', 'references', 'nouns', 'rows', 'needs', 'overwhelming', 'changes'] as const;
+const ESTATE_PARTS = ['smaltflOntology', 'name', 'description', 'owners', 'objectTypes', 'linkTypes', 'actionTypes', 'properties', 'references', 'nouns', 'rows', 'needs', 'overwhelming', 'changes'] as const;
 
 /** Whether a document read from an `ontology.import` path is an estate's ontology (and not one starting file's). */
 export const isEstate = (value: unknown): boolean => isRecord(value) && value.smaltflOntology === 2;
@@ -181,6 +188,9 @@ export function asEstate(value: unknown, path: string): EstateOntology {
   for (const k of ['objectTypes', 'linkTypes', 'actionTypes', 'properties', 'references', 'rows', 'needs'] as const) if (value[k] !== undefined && !Array.isArray(value[k])) throw new SharedOntologyError(`${path}: ${k} is a list`);
   for (const k of ['nouns', 'overwhelming'] as const) if (value[k] !== undefined && !isRecord(value[k])) throw new SharedOntologyError(`${path}: ${k} is a map, by dataset`);
   if (Array.isArray(value.properties) && value.properties.some((p) => isRecord(p) && 'override' in p)) throw new SharedOntologyError(`${path}: an override is a flow's, of what the estate says: the estate's ontology has none`);
+  // Its owners (ADR 0027 §10): each a principal by id, and by name, since an estate's ontology has no principals of its own.
+  const owners = ownersIssues(value.owners, true);
+  if (owners.length) throw new SharedOntologyError(`${path}: owners${owners[0]![0]}: ${owners[0]![1]}`);
   // Its own change sets (ADR 0027 §3): what each says is the document's to check once a flow has taken it; here, that
   // each edit is of what an estate's ontology says.
   if (value.changes !== undefined) {

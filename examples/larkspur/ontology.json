@@ -2,6 +2,9 @@
   "smaltflOntology": 2,
   "name": "Larkspur estate",
   "description": "What Larkspur’s datasets are and what their columns mean: its applications, organisational units, people, platforms and controls, the links between them, what a row of each file and table is, and what each column holds. Every flow of the estate imports it, and takes what is about the datasets it has or reads.",
+  "owners": [
+    { "id": "ciso", "name": "Sloane Marsden" }
+  ],
   "objectTypes": [
     {
       "id": "org_unit",
@@ -1777,6 +1780,7 @@
       "why": "With the reorganisation several posts stand vacant for a while: who acts for a unit is a relation of its own from Monday, so an owner chain can be read through whoever acts",
       "kind": "business",
       "decided": { "by": "Sloane Marsden", "on": "2024-03-08" },
+      "agreed": [{ "by": "ciso", "at": "2024-03-08T14:00:00Z" }],
       "edits": [
         { "op": "setLink", "link": { "id": "acted_for_by", "name": "Acted for by", "from": "org_unit", "to": "person", "on": [["acting_leader_id", "person_id"]], "cardinality": "many-to-one" } }
       ]

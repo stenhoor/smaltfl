@@ -252,7 +252,7 @@ kinds, relations and meanings over time, and the shared ontology's own changes; 
 context that travels; (8) who decides; (9) who hears, and the auditor; (10) the demo's new scene. Q-280 to Q-285 are
 the choices the answers leave open, proposed for the maintainers to confirm as each is built; Q-286 to Q-291 are the
 ones slice 3 made as it was built, Q-292 to Q-296 slice 4's, Q-297 to Q-303 slice 5's, Q-304 to Q-311 slice 6's,
-and Q-312 to Q-319 slice 7's.
+Q-312 to Q-319 slice 7's and Q-320 to Q-326 slice 8's.
 
 Built so far:
 
@@ -331,8 +331,25 @@ Built so far:
   compare tour` (the tables' own sheets, a card's context, the rows' marks, a day by day chart's; Larkspur's March
   still three restated days; a fill released as the record decided it).
 
-What comes next is slice 8: who decides (owners in the ontology, agreement recorded, the audit holding one to the
-other). The audit doesn't yet hold a run's context tables to the record (Q-313): it belongs with that slice.
+- **Slice 8, who decides:** the ontology names who owns each of its parts (an estate's shared ontology, `owners` in
+  its document; each flow's own, `ontology.owners`; none named, the flow's owner), and a change the business made, or
+  one that ends something, is in force only once an owner of every part it touches has agreed, from the moment of
+  the last agreement (`src/core/agree.ts`: `asksAgreement`, `partsOf`, `ownersOf`, `agreementOf`, `knownFrom`,
+  `agreeTo`, `agreedIssues`; `ChangeSet.agreed`). The rules in force follow a change from then (`changesOn`), so one
+  that waits is in force on no day; an author who owns what a change touches agrees by recording it, and the record
+  says one person held both roles. Larkspur's estate and its product are the security lead's: the catalogue's
+  control was written down at 09:10 on Wed 27 and is in force from her agreement at 09:15. In the app: **Who owns
+  it** at the head of the register, whose agreement a kind asks for in the form that asks why, a waiting change
+  first on the register with **Agree** for an owner of what it waits for, and who agreed on every entry. The audit
+  holds each agreement to the owners its flow document names and to whoever made the record's entry. How to check
+  it: `test/agree.test.ts`, `test/audit.test.ts` (the last block), `test/compose.test.ts` (owners travel with their
+  flow), and `npm run regress -- versions` on Larkspur (a change that ends something waits, the security lead
+  agrees, it is in force).
+
+What comes next is slice 9: who hears, and the auditor (since you last looked, the digest, the feed; the history as
+a page to print and in the audit bag). The audit holds neither a run's rules nor its context tables to the flow as
+kept (Q-313, Q-324): both need the moment a run's rules were known at, which a run's entry doesn't keep; it belongs
+with the auditor's history.
 
 Slice 6 left the app measuring no step of a change made in it (Q-311), and a first day held by its own
 change's step waiting for a person. Found on the way, and left: the brief of a day a restatement published (Larkspur's

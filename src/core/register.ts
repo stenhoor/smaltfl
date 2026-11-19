@@ -17,6 +17,7 @@
  *   change set gives, none on one made before kinds were asked for; the kind an edit is unless its author says
  *   otherwise; and how history reads across a change of a kind: cut, marked, or restated.
  */
+import { agreementOf, knownFrom, type Agreement, type OwnedDoc } from './agree.js';
 import { canonicalJSON } from './canonical.js';
 import type { ChangeKind, ChangeSet, FlowDocument, RuleEdit } from './document.js';
 import { applyEdit, changesOn, rulesInForce, versionRules, versionSaid } from './inforce.js';
@@ -173,7 +174,7 @@ export function defaultKind(edits: readonly RuleEdit[]): ChangeKind {
 export const kindReads = (kind: ChangeKind | null): 'cut' | 'mark' | 'restated' => (kind === 'business' ? 'cut' : kind === 'corrected' ? 'restated' : 'mark');
 
 /** Where a change stands for the day read from: not in force yet, in force, or over. */
-export type Tense = 'coming' | 'in force' | 'ended';
+export type Tense = 'waiting' | 'coming' | 'in force' | 'ended';
 /** How a change was said: before its first day, on it, or after it (back-dated). */
 export type How = 'ahead' | 'on' | 'back';
 
@@ -200,6 +201,11 @@ export interface Entry {
   recordedDay: string;
   /** The days between the day it was recorded and its first day: above zero, said ahead; below, back-dated. */
   lead: number;
+  /** Where it stands with the owners of what it touches (ADR 0027 §10), as known at the moment read from: an
+   * agreement given later isn't counted. */
+  agreement: Agreement;
+  /** The moment it took effect, as known then (ISO 8601): null while it waits for agreement. */
+  knownFrom: string | null;
 }
 
 const DAY = 86_400_000;
@@ -208,12 +214,17 @@ const dayNumber = (day: string) => Math.round(Date.parse(`${day.slice(0, 10)}T00
 export const dayAfter = (day: string): string => new Date((dayNumber(day) + 1) * DAY).toISOString().slice(0, 10);
 export const dayBefore = (day: string): string => new Date((dayNumber(day) - 1) * DAY).toISOString().slice(0, 10);
 
-/** A change set's edits replayed on the rules of its first day as known when it was made, one at a time. */
-function replay(doc: Pick<FlowDocument, 'changes'> & Partial<FlowDocument>, c: ChangeSet): (string | null)[] {
+/**
+ * A change set's edits replayed on the rules of its first day as known when it took effect, one at a time. One that
+ * waits for agreement (ADR 0027 §10) is replayed on those rules as known at the moment read from, as it would apply
+ * were it agreed to then.
+ */
+function replay(doc: Registered, c: ChangeSet, at: string | null): (string | null)[] {
   const { changes: all, ...base } = doc;
   let out = base as FlowDocument;
   const each: (string | null)[] = [];
-  for (const change of changesOn(doc, c.from, c.recorded)) {
+  const from = knownFrom(doc, c);
+  for (const change of from !== null ? changesOn(doc, c.from, from) : [...changesOn(doc, c.from, at).filter((x) => x.id !== c.id), c]) {
     const mine = change.id === c.id;
     for (const e of change.edits) {
       if (e.op === 'useVersion') {
@@ -234,6 +245,9 @@ function replay(doc: Pick<FlowDocument, 'changes'> & Partial<FlowDocument>, c: C
   return each;
 }
 
+/** A document the register is read from: its change sets, and what says who owns what (`agree.ts`). */
+export type Registered = OwnedDoc & Pick<FlowDocument, 'changes'> & Partial<FlowDocument>;
+
 export interface RegisterOptions {
   /** The day read from (YYYY-MM-DD): the last day that has arrived, or the day on screen. */
   today: string;
@@ -242,17 +256,28 @@ export interface RegisterOptions {
 }
 
 /**
- * The register (ADR 0027 §2): every change set known at the moment read from, what is coming first (the soonest on
- * top), then the rest by first day, newest first; change sets of one day in the order they were recorded, newest first.
- * `later` counts those recorded after the moment read from, which aren't listed.
+ * The register (ADR 0027 §2): every change set known at the moment read from, what waits for an owner's agreement
+ * first (§10: it is in force on no day until it has it), then what is coming (the soonest on top), then the rest by
+ * first day, newest first; change sets of one day in the order they were recorded, newest first. `later` counts those
+ * recorded after the moment read from, which aren't listed. An agreement given after that moment isn't counted: the
+ * change is listed as it stood then.
  */
-export function registerOf(doc: Pick<FlowDocument, 'changes'> & Partial<FlowDocument>, opts: RegisterOptions): { entries: Entry[]; later: number } {
+export function registerOf(given: Registered, opts: RegisterOptions): { entries: Entry[]; later: number } {
   const at = opts.asOf ? Date.parse(opts.asOf) : null;
   const today = opts.today.slice(0, 10);
+  // As known at the moment read from: each change set with the agreements it had by then.
+  const asThen = (c: ChangeSet): ChangeSet => {
+    if (at === null || !c.agreed?.some((a) => Date.parse(a.at) > at)) return c;
+    const { agreed, ...rest } = c;
+    const had = agreed.filter((a) => Date.parse(a.at) <= at);
+    return had.length ? { ...rest, agreed: had } : rest;
+  };
+  const doc: Registered = given.changes ? { ...given, changes: given.changes.map(asThen) } : given;
   const all = doc.changes ?? [];
   const known = all.filter((c) => at === null || Date.parse(c.recorded) <= at);
   const entries = known.map((c): Entry => {
-    const each = replay(doc, c);
+    const each = replay(doc, c, opts.asOf ?? null);
+    const agreement = agreementOf(doc, c);
     // A kind, a relation, what a row is or a dependency that the change adds is "added"; one it alters is "set".
     const short = (edit: RuleEdit, said: string | null): string =>
       (edit.op === 'setType' || edit.op === 'setLink' || edit.op === 'setRows' || edit.op === 'setNeeds') && said !== null && (said.startsWith('Added ') || said.startsWith('Said ')) ? 'added' : shortOf(edit);
@@ -264,16 +289,20 @@ export function registerOf(doc: Pick<FlowDocument, 'changes'> & Partial<FlowDocu
       kind: kindOf(c),
       edits,
       said: edits.flatMap((e) => (e.said ? [e.said] : [])),
-      tense: c.from > today ? 'coming' : c.until !== undefined && c.until < today ? 'ended' : 'in force',
+      tense: agreement.since === null ? 'waiting' : c.from > today ? 'coming' : c.until !== undefined && c.until < today ? 'ended' : 'in force',
       how: lead > 0 ? 'ahead' : lead < 0 ? 'back' : 'on',
       recordedDay,
       lead,
+      agreement,
+      knownFrom: agreement.since,
     };
   });
   const t = (e: Entry) => Date.parse(e.change.recorded);
-  const coming = entries.filter((e) => e.tense === 'coming').sort((a, b) => a.change.from.localeCompare(b.change.from) || t(a) - t(b));
-  const rest = entries.filter((e) => e.tense !== 'coming').sort((a, b) => b.change.from.localeCompare(a.change.from) || t(b) - t(a));
-  return { entries: [...coming, ...rest], later: all.length - known.length };
+  const soonest = (a: Entry, b: Entry) => a.change.from.localeCompare(b.change.from) || t(a) - t(b);
+  const waiting = entries.filter((e) => e.tense === 'waiting').sort(soonest);
+  const coming = entries.filter((e) => e.tense === 'coming').sort(soonest);
+  const rest = entries.filter((e) => e.tense !== 'coming' && e.tense !== 'waiting').sort((a, b) => b.change.from.localeCompare(a.change.from) || t(b) - t(a));
+  return { entries: [...waiting, ...coming, ...rest], later: all.length - known.length };
 }
 
 /** A run of days over which one change, or none, stood for a subject. */
@@ -305,7 +334,10 @@ export interface Life {
  */
 export function livesOf(entries: readonly Entry[], days: readonly string[], today: string): Life[] {
   const bySubject = new Map<string, { subject: Subject; begins: boolean; touches: { entry: Entry; short: string }[] }>();
-  const inOrder = [...entries].sort((a, b) => Date.parse(a.change.recorded) - Date.parse(b.change.recorded));
+  // In the order they took effect; one that waits for agreement stands on no day, and is listed after them: the days
+  // it was said on still show on its thing's row.
+  const effect = (e: Entry) => (e.knownFrom === null ? Infinity : Date.parse(e.knownFrom));
+  const inOrder = [...entries].sort((a, b) => effect(a) - effect(b) || Date.parse(a.change.recorded) - Date.parse(b.change.recorded));
   for (const entry of inOrder)
     for (const e of entry.edits) {
       // An entry of a closed list the ontology didn't have (ADR 0027 §4) begins with the change that first names it:
@@ -326,7 +358,7 @@ export function livesOf(entries: readonly Entry[], days: readonly string[], toda
     const spans: Span[] = [];
     for (const day of days) {
       const d = day.slice(0, 10);
-      const standing = touches.filter(({ entry: { change: c } }) => c.from <= d && (c.until === undefined || d <= c.until)).at(-1) ?? null;
+      const standing = touches.filter(({ entry: { change: c, knownFrom: known } }) => known !== null && c.from <= d && (c.until === undefined || d <= c.until)).at(-1) ?? null;
       if (!standing && begins) continue;
       const id = standing ? standing.entry.change.id : null;
       const last = spans.at(-1);
@@ -348,8 +380,8 @@ export function sinceOf(entries: readonly Entry[], key: string, day: string): En
   const k = key.toLowerCase();
   return (
     [...entries]
-      .filter((e) => e.change.from <= d && (e.change.until === undefined || d <= e.change.until) && e.edits.some((x) => x.subject.key === k && x.said !== null))
-      .sort((a, b) => Date.parse(a.change.recorded) - Date.parse(b.change.recorded))
+      .filter((e) => e.knownFrom !== null && e.change.from <= d && (e.change.until === undefined || d <= e.change.until) && e.edits.some((x) => x.subject.key === k && x.said !== null))
+      .sort((a, b) => Date.parse(a.knownFrom!) - Date.parse(b.knownFrom!))
       .at(-1) ?? null
   );
 }
@@ -363,7 +395,7 @@ export function comingOn(doc: Pick<FlowDocument, 'changes'>, day: string, asOf?:
 }
 
 /** A tense in words. */
-export const tenseSaid = (t: Tense): string => (t === 'coming' ? 'coming' : t === 'ended' ? 'ended' : 'in force');
+export const tenseSaid = (t: Tense): string => (t === 'waiting' ? 'waits for agreement' : t === 'coming' ? 'coming' : t === 'ended' ? 'ended' : 'in force');
 
 /** How a change was said, in words, with its days: "said 3 days ahead", "back-dated 24 days", "said on its day". */
 export function howSaid(e: Pick<Entry, 'how' | 'lead'>): string {

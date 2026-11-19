@@ -325,6 +325,14 @@ rules as events, which are context and no rule; an event may say what it excuses
   what was written down after the day's version ran said as such. A change also marks the charts of what it reaches,
   on the month's rows and on each day by day chart. The tables say what a run was read under and are no data of its
   day: a day whose data is the same under rules changed since isn't restated for them, and Compare lists them apart.
+- **Who decides.** The ontology names who owns each of its parts: an estate's shared ontology, and each flow's own
+  (**Who owns it**, at the head of the Ontology view's register). A change the business made, and one that ends
+  something, is in force only once an owner of each part it touches has agreed; a setting re-tuned, a mistake
+  corrected, a changed source and a first description need only their author. The form that asks why says whose
+  agreement the kind picked asks for. Where the person making the change owns what it touches, recording it is
+  agreeing to it, and the entry says one person held both roles. Otherwise it waits, first on the register and in
+  force on no day, until an owner agrees: pick them under **Viewing as** and the entry offers **Agree**. Every entry
+  says who agreed and when, and the offline audit holds each agreement to the owners the flow names.
 
 ## The record and verify
 

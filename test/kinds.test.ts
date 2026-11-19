@@ -63,7 +63,7 @@ const flow = (more: Record<string, unknown> = {}): FlowDocument =>
     ...more,
   }) as unknown as FlowDocument;
 const doc = (more?: Record<string, unknown>) => expandNotebooks(flow(more), ts);
-const set = (id: string, from: string, edits: RuleEdit[], more: Partial<ChangeSet> = {}): ChangeSet => ({ id, from, recorded: `${from}T09:00:00Z`, by: 'owner', why: 'The business said so', kind: 'business', edits, ...more });
+const set = (id: string, from: string, edits: RuleEdit[], more: Partial<ChangeSet> = {}): ChangeSet => ({ id, from, recorded: `${from}T09:00:00Z`, by: 'owner', why: 'The business said so', kind: 'business', edits, agreed: [{ by: 'owner', at: `${from}T09:00:00Z` }], ...more });
 
 describe('a kind of thing, changed by a dated edit', () => {
   it('is added, changed with what changed said, and passes over a flow without its dataset', async () => {
@@ -478,7 +478,7 @@ describe('an estate’s own change sets (Q-265)', () => {
     },
   });
   const acted: LinkType = { id: 'acted_for_by', name: 'Acted for by', from: 'team', to: 'person', on: [['acting_leader_id', 'person_id']] };
-  const CHANGE: ChangeSet = { id: 'acting', from: '2024-03-11', recorded: '2024-03-08T14:00:00Z', by: 'ciso', why: 'Posts are vacant for a while: who acts for a team is a relation of its own', kind: 'business', edits: [{ op: 'setLink', link: acted }, { op: 'redefine', column: 'tier', change: { description: 'How quickly it must be back' } }] };
+  const CHANGE: ChangeSet = { id: 'acting', from: '2024-03-11', recorded: '2024-03-08T14:00:00Z', by: 'ciso', why: 'Posts are vacant for a while: who acts for a team is a relation of its own', kind: 'business', edits: [{ op: 'setLink', link: acted }, { op: 'redefine', column: 'tier', change: { description: 'How quickly it must be back' } }], agreed: [{ by: 'owner', at: '2024-03-08T14:00:00Z' }] };
   const ESTATE: EstateOntology = { smaltflOntology: 2, name: 'Shop', objectTypes: [APP, TEAM, PERSON], linkTypes: [OWNED, LED], properties: [{ column: 'tier', title: 'Tier', description: 'How much the business depends on it' }], changes: [CHANGE] };
   const PARAMS = [{ name: 'day', type: 'text', default: null }];
   const nb = (body: string) => `import { cell } from 'smaltnb';\nimport { check, publish, source } from 'smaltfl/notebook';\n${body}\n`;

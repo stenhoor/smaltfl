@@ -698,6 +698,25 @@ release (smaltty ADR 0030).
   what was said after the version on screen ran, Q-319), `acrossColumn`'s marks for every change that
   reaches the dataset, the month's rows' `BarDay.changed` (viz.ts `dayBars`). `test/context.test.ts`; stops in
   `larkspur.json` and `month.json`.
+  Slice 8, who decides (§10; no hash tag moves). `src/core/agree.ts` (in what the data's cache is keyed by): `Owner`
+  (ontology.ts: a principal's id, a name, a card once known), named part by part (`EstateOntology.owners`, a flow's
+  `ontology.owners`; in a document read with its flows, `FlowPart.owners` and `EstateFrom.owners`; none named, the
+  flow's owner, `flowsOwner`), `partsIn`, `partsOf` (what a change touches: the estate for its own change, else the
+  flow of each file or step it is about), `ownersOf`, `asksAgreement` (kind `business`, or an `end` edit),
+  `agreementOf` (each part with who agreed, the parts that wait, the moment it took effect, whether one person held
+  both roles), `knownFrom`, `mayAgree`, `agreeTo`, `agreedIssues` (the document refuses an agreement by someone who
+  owns nothing the change touches). `ChangeSet.agreed` (`Agreed`: by, at, card). `inforce.ts` `changesOn` and
+  `versionRules` order change sets by when they came to be known, one that waits left out (a version that names it
+  applies it last); `register.ts` the tense `waiting`, an entry's `agreement` and `knownFrom`; `ruleversions.ts`
+  the moments versions change at; `timeline.ts` `timelineOf`'s `knownFrom`; the recorder's `knownAt`; `compose.ts`
+  and `catalogue.ts` keep each part's owners with it, and `flowProblems` holds them. `context_changes` has
+  `agreed_by` and `agreed_at`. The audit (`audit.ts`): each kept flow document's agreements against its owners, and
+  against who made the entry that brought them. The app: `keptChanges` (the change sets with what says who owns
+  what), `withOwnAgreement` (an author who owns what a change touches agrees by recording it), `agreeToChange`,
+  `agreedLine` and `ownersPart` on the register, `agreeHint` in `whyFields`, `waitsFor`, the day head's
+  `.dh-rules-waits`, a declaration at the gate that waits (`declaredWaiting`, `.gt-agree`). Larkspur's estate and its product are the security lead's (`ciso`), each read flow its owner's;
+  the story's `sbom-declared` is agreed to five minutes after it was recorded. `test/agree.test.ts`,
+  `test/audit.test.ts`, `test/compose.test.ts`; stops in `versions.json`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -817,10 +836,11 @@ release (smaltty ADR 0030).
   slice 1 (the register on screen), slice 2 (reasons, kinds and events), slice 3 (the gate, what an event excuses,
   document format 5), slice 4 (the two doors), slice 5 (kinds, relations and meanings over time, with the shared
   ontology's own change sets), slice 6 (reading across a change: each change's own step, the cuts, the adjusted
-  line, a declared change as the new level) and slice 7 (context that travels: three tables any cell can join to,
-  published with the product) are built (its §"As built", which says what each leaves); slice 8, who decides, is
-  next. Its Q-280 to Q-285 are proposed, for the maintainers to confirm as each is built, and Q-286
-  to Q-319 are the choices slices 3 to 7 made as they were built.
+  line, a declared change as the new level), slice 7 (context that travels: three tables any cell can join to,
+  published with the product) and slice 8 (who decides: owners named in the ontology, agreement recorded on the
+  change set, the audit holding one to the other) are built (its §"As built", which says what each leaves); slice
+  9, who hears and the auditor, is next. Its Q-280 to Q-285 are proposed, for the maintainers to confirm as each is
+  built, and Q-286 to Q-326 are the choices slices 3 to 8 made as they were built.
 
 ## Rules for this repository
 

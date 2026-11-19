@@ -281,12 +281,15 @@ describe('Larkspur’s ontology, the estate’s', () => {
     const top = await loadFlowDir(dir);
     expect(top.ontology!.estate).toHaveLength(1);
     const { hash } = top.ontology!.estate![0]!;
-    expect(top.ontology!.estate![0]).toEqual({ name: 'Larkspur estate', path: 'ontology.json', hash });
+    // Its owners travel with where it came from (ADR 0027 §10): who agrees to a change of the estate's is said from the
+    // flow's document alone.
+    const owners = [{ id: 'ciso', name: 'Sloane Marsden' }];
+    expect(top.ontology!.estate![0]).toEqual({ name: 'Larkspur estate', path: 'ontology.json', hash, owners });
     expect(top.ontology!.objectTypes.map((t) => t.id)).toEqual(['org_unit', 'person', 'application', 'platform', 'control']);
     for (const id of ['hr', 'inventory', 'feeds', 'applications']) {
       const own = await loadFlowDir(new URL(`${id}/`, dir));
       expect(validateDocument(own)).toEqual([]);
-      expect(own.ontology!.estate).toEqual([{ name: 'Larkspur estate', path: '../ontology.json', hash }]);
+      expect(own.ontology!.estate).toEqual([{ name: 'Larkspur estate', path: '../ontology.json', hash, owners }]);
       expect(top.flows!.find((f) => f.id === id)!.hash).toBe(await flowHash(own));
     }
     // HR has its units and its people, and nothing of the applications; the feeds, which read the inventory, have

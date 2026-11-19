@@ -85,7 +85,7 @@
   },
   {
     "name": "register-list",
-    "what": "The Ontology view's head as a register (ADR 0027 §9, slice 1): the four change sets as entries, newest first, each with its days and how it was said (the catalogue's new control declared on its day, Wed 27; the band said on Fri 15 for Mon 18, three days ahead; the estate's own change, a relation added from Mon 11 and said on Fri 8, marked as the estate's ontology's, which every flow that imports it follows; the values check recorded on Mon 25 and back-dated to Fri 1), what it did, why in its author's words, and the days it reached that had already run; each change of the business says its own step (ADR 0027 §7, Q-261): the control's first day run both ways, what it alone moved, what was left out as it was, the dataset it is the new level of, and the day both ways",
+    "what": "The Ontology view's head as a register (ADR 0027 §9, slice 1): the four change sets as entries, newest first, each with its days and how it was said (the catalogue's new control declared on its day, Wed 27; the band said on Fri 15 for Mon 18, three days ahead; the estate's own change, a relation added from Mon 11 and said on Fri 8, marked as the estate's ontology's, which every flow that imports it follows; the values check recorded on Mon 25 and back-dated to Fri 1), what it did, why in its author's words, and the days it reached that had already run; each change of the business says its own step (ADR 0027 §7, Q-261): the control's first day run both ways, what it alone moved, what was left out as it was, the dataset it is the new level of, and the day both ways. Each change that asked for an owner’s agreement says who gave it (ADR 0027 §10, Q-277): the band and the estate’s relation by their own authors, who own what each touches, one person holding both roles; the catalogue’s control by the security lead, who owns the product’s ontology, five minutes after the flow’s owner wrote it down. The mistake corrected asked for none",
     "day": "Thu 21",
     "view": "ontology",
     "viewFirst": true,
@@ -110,7 +110,10 @@
         "#rules-time .rg-item.rg-coming": 0,
         "#rules-time .rg-item[data-estate]": 1,
         "#rules-time .rg-step": 3,
-        "#rules-time .rg-item[data-change=\"findings-values-hold\"] .rg-step": 0
+        "#rules-time .rg-item[data-change=\"findings-values-hold\"] .rg-step": 0,
+        "#rules-time .rg-agree": 3,
+        "#rules-time .rg-agree.rg-waits": 0,
+        "#rules-time .rg-item[data-change=\"findings-values-hold\"] .rg-agree": 0
       },
       "textIn": {
         "#rules-time .rg-item[data-change=\"sbom-declared\"] .rg-step": [
@@ -122,7 +125,38 @@
           "The day both ways: 6 of 37 outputs differ"
         ],
         "#rules-time .rg-item[data-change=\"waf-band-tenth\"] .rg-step": ["Its own step, Mon 18.", "Run both ways, it moved none of 56 measures."],
-        "#rules-time .rg-item[data-change=\"acting-leader\"] .rg-step": ["Its own step, Mon 11.", "Run both ways, it moved none of 56 measures."]
+        "#rules-time .rg-item[data-change=\"acting-leader\"] .rg-step": ["Its own step, Mon 11.", "Run both ways, it moved none of 56 measures."],
+        "#rules-time .rg-item[data-change=\"waf-band-tenth\"] .rg-agree": ["Agreed by Owner, who also made it: one person held both roles."],
+        "#rules-time .rg-item[data-change=\"acting-leader\"] .rg-agree": ["Agreed by Sloane Marsden, who also made it: one person held both roles."],
+        "#rules-time .rg-item[data-change=\"sbom-declared\"] .rg-agree": ["Agreed by Sloane Marsden on Wed 27, 5 minutes later, who owns Larkspur estate."]
+      }
+    }
+  },
+  {
+    "name": "owners",
+    "what": "Who owns the ontology (ADR 0027 §10, Q-276), part by part, at the head of the register: the estate's shared ontology and the posture product's own are the security lead's, each flow read is its owner's; and what asks for their agreement",
+    "day": "Thu 21",
+    "view": "ontology",
+    "viewFirst": true,
+    "click": "#rules-time .rg-owners > summary",
+    "element": "#rules-time .rg-owners",
+    "expect": {
+      "textIn": {
+        "#rules-time .rg-owners": [
+          "Who owns it",
+          "6 parts, 2 owners",
+          "Larkspur estate’s ontology Sloane Marsden",
+          "HR organisation, a flow it reads Owner",
+          "Evidence feeds, a flow it reads Owner",
+          "Larkspur estate, this flow’s own Sloane Marsden",
+          "A change the business made, and one that ends something, takes effect only when an owner of each part it touches has agreed.",
+          "Until sharing is built one person may hold both roles, and the record says so."
+        ]
+      },
+      "count": {
+        "#rules-time .rg-owners[open]": 1,
+        "#rules-time .rg-owners-list li": 6,
+        "#rules-time .rg-owners .rg-owners-w": 0
       }
     }
   },
@@ -492,7 +526,7 @@
   },
   {
     "name": "described-ended",
-    "what": "A description written ahead ends while it still waits for its data (ADR 0027 §2, §5): the SBOM inventory's, from the next day to arrive, with its reason. Nothing is deleted: on Thu 21 it is still coming from Wed 27, and its line says the day it ends from, a tap from the change",
+    "what": "A description written ahead ends while it still waits for its data (ADR 0027 §2, §5): the SBOM inventory's, from the next day to arrive, with its reason. Ending something asks for an owner's agreement (§10, Q-277), and the product's ontology is the security lead's: written down by the flow's owner, it waits, in force on no day, and its line says it ends once agreed to",
     "view": "ontology",
     "viewFirst": true,
     "clicks": [
@@ -503,15 +537,67 @@
     "waitFor": "#rules-time .aw-item[data-awaited=\"sbom_inventory\"] .aw-ends",
     "element": "#rules-time .aw",
     "expect": {
-      "status": "^Ended the description of SBOM inventory, written ahead of its data, in force from Mon Apr 1\\. Recorded\\.",
+      "status": "^Ended the description of SBOM inventory, written ahead of its data, from Mon Apr 1 once agreed to\\. Recorded\\. It waits for the owner of Larkspur estate \\(Sloane Marsden\\) to agree: until then it is in force on no day\\.$",
       "textIn": {
-        "#rules-time .aw": ["SBOM inventory", "waiting for data", "Coming from Wed Mar 27 ›", "Ends from Mon Apr 1 ›"]
+        "#rules-time .aw": ["SBOM inventory", "waiting for data", "Coming from Wed Mar 27 ›", "Ends once agreed to ›"]
       },
       "count": {
         "#rules-time .aw-item.waiting": 1,
         "#rules-time .aw-item.ended": 0,
         "#rules-time .aw-item .aw-end": 0,
-        ".vf-detail .ef-form": 0
+        ".vf-detail .ef-form": 0,
+        "#rules-time .aw-ends.aw-ends-waits": 1
+      }
+    }
+  },
+  {
+    "name": "agree-waits",
+    "what": "The change that waits is first on the register, under its own heading: that it asks for an agreement and why, whose, that it is in force on no day until then; the flow's owner, who wrote it, owns nothing it waits for and is told so; the head counts it",
+    "view": "ontology",
+    "viewFirst": true,
+    "element": "#rules-time .rg-list",
+    "expect": {
+      "textIn": {
+        "#rules-time .rg-list": ["Waiting for agreement"],
+        "#rules-time .rg-item.rg-waiting": [
+          "From Mon Apr 1",
+          "Ended the description of SBOM inventory, written ahead of its data",
+          "Waits for agreement.",
+          "It asks for one (the business changed, and it ends something), from the owner of Larkspur estate (Sloane Marsden). Until then it is in force on no day.",
+          "Viewing as Owner, who owns no part it waits for.",
+          "in force on no day until it is agreed to"
+        ],
+        "#rules-time .rg-owners": ["1 change waits for agreement"]
+      },
+      "count": {
+        "#rules-time .rg-item.rg-waiting": 1,
+        "#rules-time .rg-agree-go": 0,
+        "#rules-time .rg-item.rg-waiting.on-screen": 0
+      }
+    }
+  },
+  {
+    "name": "agree-as-owner",
+    "what": "Viewing as the security lead, who owns the product's ontology, the entry offers Agree: agreed to, the change is in force from its day as known from that moment, recorded with who agreed, and its line says the day the description ends from",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      ["#viewer", "ciso"],
+      "#rules-time .rg-item.rg-waiting .rg-agree-go"
+    ],
+    "waitFor": "#rules-time .aw-ends:not(.aw-ends-waits)",
+    "element": "#rules-time .rg-list",
+    "expect": {
+      "status": "^Agreed to “Ended the description of SBOM inventory, written ahead of its data”, as an owner of Larkspur estate\\. Recorded: in force from Mon Apr 1\\. No recorded day moves\\.$",
+      "textIn": {
+        "#rules-time .aw": ["Ends from Mon Apr 1 ›"]
+      },
+      "count": {
+        "#rules-time .rg-item.rg-waiting": 0,
+        "#rules-time .rg-agree.rg-waits": 0,
+        "#rules-time .rg-agree": 4,
+        "#rules-time .rg-owners .rg-owners-w": 0,
+        "#rules-time .aw-ends.aw-ends-waits": 0
       }
     }
   }

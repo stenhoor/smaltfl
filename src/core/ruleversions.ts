@@ -12,6 +12,7 @@
  *
  * Pure: no DOM, no engine.
  */
+import { knownFrom, type OwnedDoc } from './agree.js';
 import { canonicalJSON } from './canonical.js';
 import type { ChangeSet, FlowDocument } from './document.js';
 import { LAYER_DEFAULTS, type CheckMode, type CheckName, type GateDef } from './gates.js';
@@ -34,8 +35,10 @@ export const versionKey = (changes: readonly string[]): string => changes.join('
  * some moment, as known then, with the spans it was in force; in the order each was first known (the rules as shipped
  * first), then by the days it is in force on. A flow without change sets has one version, the rules as shipped.
  */
-export function ruleVersions(doc: Pick<FlowDocument, 'changes'>, days: readonly string[]): RuleVersion[] {
-  const moments = [...new Set((doc.changes ?? []).map((c) => Date.parse(c.recorded)))].sort((a, b) => a - b);
+export function ruleVersions(doc: OwnedDoc & Pick<FlowDocument, 'changes'>, days: readonly string[]): RuleVersion[] {
+  // The moments the rules changed at: each change set's, from when it was known (ADR 0027 §10: one that asks for an
+  // owner's agreement, from when it had it; one that still waits makes no version).
+  const moments = [...new Set((doc.changes ?? []).flatMap((c) => { const from = knownFrom(doc, c); return from === null ? [] : [Date.parse(from)]; }))].sort((a, b) => a - b);
   const out = new Map<string, RuleVersion & { first: number }>();
   const add = (changes: string[], day: string, from: number | null, to: number | null) => {
     const k = versionKey(changes);
@@ -58,7 +61,7 @@ export function ruleVersions(doc: Pick<FlowDocument, 'changes'>, days: readonly 
 }
 
 /** The version in force on a day as known at a moment (none: now), by its key: the change sets in force then. */
-export const versionOn = (doc: Pick<FlowDocument, 'changes'>, day: string | null, asOf?: string | null): string => versionKey(changesOn(doc, day, asOf).map((c) => c.id));
+export const versionOn = (doc: OwnedDoc & Pick<FlowDocument, 'changes'>, day: string | null, asOf?: string | null): string => versionKey(changesOn(doc, day, asOf).map((c) => c.id));
 
 /** One thing two documents' rules in force differ in. */
 export type RuleDiff =

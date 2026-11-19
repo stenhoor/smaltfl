@@ -1141,7 +1141,7 @@ th .th-title { display: block; font-family: var(--font); font-size: 10.5px; font
 .rg-why { color: var(--ink-2); }
 .rg-by { color: var(--muted); }
 .rg-facts, .rg-later { color: var(--muted); font-size: 12px; margin: 0; }
-.mo-changes .linkish, .dh-rules-coming .linkish, .dh-events .linkish, .rg-item .linkish, .of-rule .of-since { background: none; border: 0; padding: 0; min-height: 28px; color: var(--smalt); font: inherit; font-weight: 600; cursor: pointer; text-align: left; overflow-wrap: anywhere; }
+.mo-changes .linkish, .dh-rules-coming .linkish, .dh-rules-waits .linkish, .dh-events .linkish, .rg-item .linkish, .of-rule .of-since { background: none; border: 0; padding: 0; min-height: 28px; color: var(--smalt); font: inherit; font-weight: 600; cursor: pointer; text-align: left; overflow-wrap: anywhere; }
 .rg-item .linkish { font-size: 12.5px; font-weight: 500; justify-self: start; }
 .rg-item .linkish[disabled] { color: var(--muted); cursor: default; }
 /* Why a change is made, and what was going on (ADR 0027 §2 and §6, slice 2). */
@@ -1151,6 +1151,23 @@ svg.viz.kind-mark { display: inline-block; vertical-align: -1.5px; margin-right:
 .rg-ev .rg-kind { color: var(--ink-2); }
 .rg-item.rg-ev { border-left-color: var(--ink-2); }
 .rg-led { color: var(--ink-2); font-size: 12.5px; }
+.wy-agree { margin: 0 0 8px; font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.wy-agree[data-waits="true"] { color: var(--ink); border-left: 3px dashed var(--warn); padding-left: 8px; }
+.rg-agree { color: var(--ink-2); font-size: 12.5px; overflow-wrap: anywhere; }
+.rg-agree.rg-waits { color: var(--ink); }
+.rg-agree.rg-waits b { color: var(--warn); }
+.rg-agree .rg-agree-go { margin: 6px 0 2px; display: block; }
+.rg-agree .rg-agree-how { color: var(--ink-2); }
+.rg-item.rg-waiting { border-left-color: var(--warn); border-left-style: dashed; }
+.rg-owners { margin: 0 0 10px; border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; background: var(--surface); }
+.rg-owners > summary { min-height: 40px; font-size: 13px; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
+.rg-owners .rg-owners-k { font-weight: 600; color: var(--ink); }
+.rg-owners .rg-owners-n { color: var(--ink-2); }
+.rg-owners .rg-owners-w { color: var(--warn); font-weight: 600; }
+.rg-owners-list { margin: 0 0 8px; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 13px; }
+.rg-owners-list li { overflow-wrap: anywhere; }
+.rg-owners-list .rg-owners-who { color: var(--ink-2); }
+.rg-owners-said { margin: 0 0 10px; }
 .rg-note { font-size: 12.5px; color: var(--ink-2); }
 .rg-note summary { cursor: pointer; min-height: 28px; display: flex; align-items: center; color: var(--smalt); font-weight: 500; }
 .rg-note dl { display: grid; grid-template-columns: minmax(0, 9.5em) minmax(0, 1fr); gap: 2px 10px; margin: 2px 0 4px; }
@@ -2406,6 +2423,7 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .dh-gate { display: grid; gap: 8px; min-width: 0; }
 .dh-gate .eyebrow, .gt-lead, .gt-waits { margin: 0; }
 .gt-lead { color: var(--muted); font-size: 14px; }
+.gt-agree { margin: 0; font-size: 13.5px; overflow-wrap: anywhere; } .gt-agree a { color: var(--smalt); font-weight: 600; }
 .gt-arrivals { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; min-width: 0; }
 .gt-arrival { display: flex; gap: 8px; align-items: flex-start; min-width: 0; padding: 8px 10px; border-left: 3px solid var(--bad); border-radius: 0 6px 6px 0; background: var(--bad-wash, var(--warn-wash)); overflow-wrap: anywhere; }
 .gt-arrival[data-how="changed"] { border-left-color: var(--warn); background: var(--warn-wash); }

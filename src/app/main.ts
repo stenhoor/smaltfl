@@ -16,13 +16,14 @@ import { canonicalJSON } from '../core/canonical.js';
 import type { ChangeSet, ContractDef, FlowDocument, GroupDef, NotebookOutline, OutlineCell, ProfileDef, RuleEdit, StepDef } from '../core/document.js';
 import { applyEdit, changesOn, inForce, resolve as resolveRules, ruleParts, rulesHash, rulesInForce, versionRules, withRuleParts, type RuleParts } from '../core/inforce.js';
 import { datedDiff, diffSaid, ontologyMap, ruleVersions, rulesDiff, versionKey, versionOn, type RuleVersion } from '../core/ruleversions.js';
+import { agreementOf, agreeTo, asksAgreement, asksWhy, knownFrom, mayAgree, ownersOf, ownersSaid, partsIn, type OwnedDoc } from '../core/agree.js';
 import { adjusted, asDeclared, changesReaching, cutsOf, declaredOf, declaredOn, followedThrough, moveSaid, redefinedOn, trialMoves, type TrialMove } from '../core/across.js';
 import { changeAbout, contextKnown, contextOf, contextRows, type ContextRows } from '../core/context.js';
 import { stepMeasures, stepsOf, type StepAbout, type StepMarks, type StepMeasure } from '../core/step.js';
 import { comingOn, dayAfter, dayBefore, defaultKind, KIND_NAMES, KIND_NOT_GIVEN, KINDS_ASKED, LANE_NAMES, livesOf, registerOf, sinceOf, type Entry as RegisterEntry, type Life } from '../core/register.js';
 import { covers as eventCovers, eventDay, EVENT_KINDS, EVENT_KIND_NAMES, eventTense, EXCUSABLE, EXCUSABLE_SAID, excusesFor, latestEvents, type ClaimExcuse, type EventKind, type Excusable, type Excuse, type FlowEvent } from '../core/events.js';
 import type { ChangeKind, ChangeNote } from '../core/document.js';
-import { contextTables, flowOf, givesOf, GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, usedName, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
+import { contextTables, editTargets, flowOf, givesOf, GROUP_COLORS, insertAfter, periodOf, sourceOf, takeOut, usedName, validateDocument, watchHistory, withoutDisplay, type CellRef } from '../core/document.js';
 import { notebookSectionId } from '../core/notebook.js';
 import { baseOf, carriedSaid, decidedElsewhere, givesWay, leadingHere, notCarriedSaid, originOf, pageOf, proofOf, type CarriedFrom, type CarryAbout, type Leading, type OtherRecord } from '../core/carry.js';
 import { holdGroups, loadRoles, possessive, waitingOn, whoseSaid, withRoles } from '../core/deciding.js';
@@ -3357,7 +3358,11 @@ function awaitedNow(): { dataset: AwaitedDataset; change: ChangeSet | null; boun
   const out = new Map<string, { dataset: AwaitedDataset; change: ChangeSet | null; ended: ChangeSet | null }>();
   for (const a of awaitedOf(ruleBase.ontology)) out.set(a.id.toLowerCase(), { dataset: a, change: null, ended: null });
   for (const c of [...ruleChanges].sort((x, y) => Date.parse(x.recorded) - Date.parse(y.recorded))) {
+    // A change that waits for an owner's agreement (ADR 0027 §10) describes nothing yet; one that ends a description
+    // is kept with it, and said as waiting.
+    const waits = waitsFor(c) !== null;
     for (const e of c.edits) {
+      if (e.op === 'describeAhead' && waits) continue;
       if (e.op === 'describeAhead') out.set(e.dataset.id.toLowerCase(), { dataset: e.dataset, change: c, ended: null });
       // A description that ended (ADR 0027 §2): kept, with the change that ended it; described again, it is one again.
       const had = e.op === 'end' && e.ended.what === 'awaited' ? out.get(e.ended.id.toLowerCase()) : undefined;
@@ -3716,7 +3721,9 @@ function awaitedPart(): HTMLElement | null {
       const coming = !!a.change && day !== null && a.change.from > day;
       // A description that ended (§2): kept, with the day it ended from; nothing binds to it. One whose end is
       // recorded for a later day still waits, and says the day.
-      const over = !!a.ended && (day === null || a.ended.from <= day);
+      // An end that waits for an owner's agreement (§10) has ended nothing yet.
+      const endWaits = !!a.ended && waitsFor(a.ended) !== null;
+      const over = !!a.ended && !endWaits && (day === null || a.ended.from <= day);
       if (a.ended && over && !a.bound) return h('article', { class: 'aw-item ended', 'data-awaited': d.id },
         h('p', { class: 'aw-name' }, h('b', {}, d.name), ' ', h('code', {}, d.id), h('span', { class: 'aw-state ended' }, 'ended')),
         h('p', { class: 'aw-row' }, `It was one row ${withArticle(d.row.one)}, by ${listed(d.key)}, and never had its data. `,
@@ -3727,7 +3734,7 @@ function awaitedPart(): HTMLElement | null {
         h('p', { class: 'aw-row' }, `One row is ${withArticle(d.row.one)}, by ${listed(d.key)}.`,
           a.change ? ' ' : ' Shipped with the flow.',
           a.change ? h('button', { type: 'button', class: 'linkish aw-since', onclick: () => openChange(a.change!.id) }, `${coming ? 'Coming' : 'Described'} from ${dayLabel(a.change.from)} ›`) : null,
-          a.ended && !a.bound ? h('button', { type: 'button', class: 'linkish aw-ends', onclick: () => openChange(a.ended!.id) }, ` Ends from ${dayLabel(a.ended.from)} ›`) : null),
+          a.ended && !a.bound ? h('button', { type: 'button', class: `linkish aw-ends${endWaits ? ' aw-ends-waits' : ''}`, onclick: () => openChange(a.ended!.id) }, endWaits ? ' Ends once agreed to ›' : ` Ends from ${dayLabel(a.ended.from)} ›`) : null),
         h('details', { class: 'aw-cols' }, h('summary', {}, `Its ${plural(d.columns.length, 'column')}`),
           h('dl', { class: 'aw-dl' }, ...d.columns.flatMap((c) => [h('dt', {}, h('code', {}, c.column), d.key.some((k) => k.toLowerCase() === c.column.toLowerCase()) ? h('span', { class: 'sf-iskey' }, 'key') : null), h('dd', {}, c.description)]))),
         a.bound
@@ -3820,10 +3827,14 @@ function comingOfKey(key: string, ending = false): HTMLElement | null {
   if (!ruleChanges.length) return null;
   const day = ontologyDay();
   const k = key.toLowerCase();
-  const e = registerNow().entries
-    .filter((x) => x.change.from > day && x.edits.some((y) => y.subject.key === k && y.said !== null && (y.edit.op === 'end') === ending))
+  const about = registerNow().entries.filter((x) => x.edits.some((y) => y.subject.key === k && y.said !== null && (y.edit.op === 'end') === ending));
+  const e = about
+    .filter((x) => x.tense !== 'waiting' && x.change.from > day)
     .sort((a, b) => a.change.from.localeCompare(b.change.from) || Date.parse(a.change.recorded) - Date.parse(b.change.recorded))[0];
-  return e ? h('button', { type: 'button', class: `linkish ${ending ? 'kd-ends' : 'kd-from'}`, 'data-change': e.change.id, onclick: () => openChange(e.change.id) }, `${ending ? 'ends' : 'from'} ${dayNear(e.change.from)} ›`) : null;
+  if (e) return h('button', { type: 'button', class: `linkish ${ending ? 'kd-ends' : 'kd-from'}`, 'data-change': e.change.id, onclick: () => openChange(e.change.id) }, `${ending ? 'ends' : 'from'} ${dayNear(e.change.from)} ›`);
+  // One that waits for an owner's agreement (ADR 0027 §10) has no day yet: it is said as waiting, never as coming.
+  const waits = about.find((x) => x.tense === 'waiting');
+  return waits ? h('button', { type: 'button', class: `linkish kd-waits`, 'data-change': waits.change.id, onclick: () => openChange(waits.change.id) }, `${ending ? 'ends' : 'changes'} once agreed to ›`) : null;
 }
 
 /** Whether an estate's ontology says what a dataset's rows are, or a dependency: the estate's to change. */
@@ -3990,8 +4001,8 @@ function datesCompared(days: readonly string[]): HTMLElement {
 
 let kindForms = 0;
 /** The fields every dated change of a kind or a relation ends with: when it takes effect, its kind and its reason. */
-function datedTail(go: HTMLButtonElement, err: HTMLElement): { why: ReturnType<typeof whyFields>; nodes: HTMLElement[] } {
-  const why = whyFields('business');
+function datedTail(go: HTMLButtonElement, err: HTMLElement, about: readonly string[] = [], ends = false): { why: ReturnType<typeof whyFields>; nodes: HTMLElement[] } {
+  const why = whyFields('business', about, ends);
   return { why, nodes: [fromBar(), why.el, err, h('div', { class: 'of-acts' }, go, h('button', { type: 'button', class: 'btn quiet', onclick: () => document.querySelector('.vf-detail-wrap')?.remove() }, 'Cancel'))] };
 }
 /** Send one dated edit of the ontology with what its form gave; says why where it can't be written. */
@@ -4120,7 +4131,7 @@ function endForm(what: EndedKind, id: string, called: string, of?: { file: strin
   const follows = h('div', { class: 'ef-follows', hidden: true }, first, second);
   const err = h('p', { class: 'of-err ef-err', role: 'alert', hidden: true });
   const go = h('button', { type: 'submit', class: 'btn primary sf-go ef-go' }, `End ${called}`) as HTMLButtonElement;
-  const tail = datedTail(go, err);
+  const tail = datedTail(go, err, what === 'entry' && of ? [of.file] : what === 'rows' ? [id] : [], true);
   const form = h('form', { class: 'of-form sf-form ef-form', 'aria-label': `End ${called}`, novalidate: true },
     h('fieldset', { class: 'of-vals ef-hows' }, h('legend', {}, 'What follows it'),
       how('', 'Nothing: it ends', true),
@@ -4196,7 +4207,7 @@ function rowsForm(dataset: string, had: RowsDef | null): void {
   const loose = h('input', { type: 'checkbox', class: 'wf-loose', ...(had?.ids === 'loose' ? { checked: 'checked' } : {}) }) as HTMLInputElement;
   const err = h('p', { class: 'of-err wf-err', role: 'alert', hidden: true });
   const go = h('button', { type: 'submit', class: 'btn primary sf-go wf-go' }, had ? 'Change what a row is' : 'Say what a row is') as HTMLButtonElement;
-  const tail = datedTail(go, err);
+  const tail = datedTail(go, err, [dataset]);
   const form = h('form', { class: 'of-form sf-form wf-form', 'aria-label': `What one row of ${dataset} is`, novalidate: true },
     h('div', { class: 'of-field' }, h('label', { for: of.id }, `One row of ${dataset} is`), of),
     h('div', { class: 'of-field' }, h('label', { for: key.id }, 'Named by the column'), key, h('p', { class: 'of-hint' }, 'The column of this dataset that holds the thing’s key. Left empty, it is the key’s own name.')),
@@ -4237,7 +4248,7 @@ function needsForm(dataset: string, had: NeedsDef | null): void {
   const then = conditionFields('nf-then', had?.then, 'a column', 'the values it may hold');
   const err = h('p', { class: 'of-err nf-err', role: 'alert', hidden: true });
   const go = h('button', { type: 'submit', class: 'btn primary sf-go nf-go' }, had ? 'Change the dependency' : 'Add the dependency') as HTMLButtonElement;
-  const tail = datedTail(go, err);
+  const tail = datedTail(go, err, [dataset]);
   const form = h('form', { class: 'of-form sf-form nf-form', 'aria-label': had ? `Change the dependency ${had.id}` : 'Add a dependency', novalidate: true },
     had ? null : h('div', { class: 'of-field' }, h('label', { for: called.id }, 'What it is called'), called, h('p', { class: 'of-hint' }, 'A few words: the ontology keeps it by this name.')),
     h('div', { class: 'of-field' }, h('label', { for: about.id }, 'Why it holds'), about),
@@ -4397,7 +4408,7 @@ async function testChange(c: ChangeSet, flow: string | null): Promise<void> {
       while (got > 1 && all[got - 1]?.restated) got--;
       const at = Math.max(1, plain.indexOf(all[got - 1]!) + 1);
       const files = Object.fromEntries(Object.keys(plain[at - 1]?.files ?? {}).map((id) => [id, at]));
-      const inForceThen = new Set(changesOn({ changes: ruleChanges }, day.slice(0, 10)).map((x) => x.id));
+      const inForceThen = new Set(changesOn(keptChanges(), day.slice(0, 10)).map((x) => x.id));
       const rules = ruleChanges.filter((x) => inForceThen.has(x.id) || x.id === c.id).map((x) => x.id);
       // What the version readers got came to, by the record: held by its own checks, or published.
       const recorded = runsOfVersions(k).filter((x) => x.v === wentWith(k)).at(-1)?.e.about as unknown as RunAbout | undefined;
@@ -4456,7 +4467,7 @@ function flowChangedPart(id: string): HTMLElement | null {
     const differ = got ? [...got.count.paused, ...got.count.freed, ...got.count.failed] : [];
     return h('li', { class: `fl-change${x.bearing === 'follows' ? ' fl-follows' : ''}`, 'data-change': c.id },
       h('p', { class: 'fl-change-what' }, h('b', {}, `From ${dayLabel(c.from)}${c.until ? ` to ${dayLabel(c.until)}` : ''}`), x.bearing === 'follows' ? ` · it follows ${listed(x.of.map(flowName))}` : '', `: ${changeSaid(c)}`),
-      h('p', { class: 'fl-change-who' }, `${shippedChange(c.id) ? 'Recorded' : 'Made here'} ${at(c.recorded)} by ${personName(c.by)}${c.why ? `: “${c.why}”` : ''} · ${stands(c)}`),
+      h('p', { class: 'fl-change-who' }, `${shippedChange(c.id) ? 'Recorded' : 'Made here'} ${at(c.recorded)} by ${personName(c.by)}${c.why ? `: “${c.why}”` : ''} · ${waitsFor(c) ?? stands(c)}`),
       got ? h('p', { class: 'fl-tested', role: 'status' }, testSaid(got.what, got.count, dayLabel), h('span', { class: 'fl-figures' }, trialFigures(got.moves, dayLabel))) : null,
       differ.length ? h('ul', { class: 'fl-tested-days' }, ...differ.map((t) => h('li', {}, h('a', { href: `#day/${t.day}` }, dayLabel(t.day)), t.now === 'failed' ? ': the run would have failed' : t.now === 'held' ? `: would have paused${t.holds.length ? `, held by ${listed(t.holds)}` : ''}` : ': would have been published'))) : null,
       busy ? h('p', { class: 'fl-testing', role: 'status' }, `Testing: ${testing!.done} of ${testing!.of} days run.`)
@@ -5308,6 +5319,12 @@ function baseDoc(): FlowDocument {
   return (ruleChanges.length ? { ...rest, changes: ruleChanges } : rest) as FlowDocument;
 }
 
+/** The flow's change sets with what says who owns what (ADR 0027 §10: its policies, its own ontology's owners and the
+ * estates', the flows it reads): what the change sets in force on a day are asked of, where the rules aren't needed. */
+function keptChanges(): OwnedDoc & Pick<FlowDocument, 'changes'> {
+  return { name: state.doc.name, ...(state.doc.policies ? { policies: state.doc.policies } : {}), ...(state.doc.flows ? { flows: state.doc.flows } : {}), ...(ruleBase.ontology ? { ontology: ruleBase.ontology } : {}), changes: ruleChanges };
+}
+
 /** The steps of the flow on screen that are context tables (ADR 0027 §8), by id. */
 const contextSteps = (): Set<string> => new Set(contextTables(state.doc));
 
@@ -5355,7 +5372,7 @@ function takeRules(doc: FlowDocument): void {
  */
 function resolveDoc(day: string | null, asOf: string | null, force = false): boolean {
   resolvedFor = { day, asOf };
-  const sets = changesOn({ changes: ruleChanges }, day, asOf).map((c) => c.id).join('\n');
+  const sets = changesOn(keptChanges(), day, asOf).map((c) => c.id).join('\n');
   if (!force && sets === resolvedSets) return false;
   state.doc = sets ? inForce(baseDoc(), day, asOf) : withRuleParts(state.doc, ruleBase);
   resolvedSets = sets;
@@ -5414,8 +5431,12 @@ const publishedLoad = (k: number): boolean => versionFacts(k).some((f) => f.publ
 /** The recorded days a change set reaches (ADR 0021 §5): from its day (to its last, ADR 0022 §1), whose version readers
  * got first ran before the change was recorded, so under rules that didn't have it. A change made here reaches every
  * recorded day from its day; one the build recorded (the story's) only the days run before it. */
-function reachedBy(c: Pick<ChangeSet, 'from' | 'until' | 'recorded'>): string[] {
-  const t = Date.parse(c.recorded);
+function reachedBy(c: ChangeSet): string[] {
+  // Known from when it was recorded, or, where it asks for an owner's agreement, from when it had it (ADR 0027 §10):
+  // one that still waits reaches no day.
+  const known = knownFrom(keptChanges(), c);
+  if (known === null) return [];
+  const t = Date.parse(known);
   const days = new Set<string>();
   loads.list.forEach((l, k) => {
     const day = l.day.slice(0, 10);
@@ -5480,6 +5501,118 @@ function fromBar(): HTMLElement {
   return box;
 }
 
+/** Whom a change waits for, in a few words, where it asks for an owner's agreement and hasn't it (ADR 0027 §10): what
+ * a list of changes says in place of where it stands. Null where it waits for no one. */
+function waitsFor(c: ChangeSet): string | null {
+  if (!asksAgreement(c)) return null;
+  const a = agreementOf(keptChanges(), c);
+  return a.waiting.length ? `waits for ${ownersSaid(a.parts.filter((p) => p.agreed === null))} to agree` : null;
+}
+
+/** This browser's identity card, by its fingerprint, where the record has one: what an agreement made here is signed by. */
+const cardNow = (): string | null => ledger?.identity.card.fingerprint ?? null;
+
+/**
+ * A change set made here with its author's own agreement (ADR 0027 §10, Q-277), where it asks for one and they own a
+ * part of the ontology it touches: until sharing is built one person may hold both roles, and the agreement says so by
+ * naming them. One whose author owns nothing it touches is as it was made, and waits.
+ */
+function withOwnAgreement(c: ChangeSet): ChangeSet {
+  if (!asksAgreement(c)) return c;
+  const got = agreeTo(keptChanges(), c, c.by, c.recorded, cardNow());
+  return 'change' in got ? got.change : c;
+}
+
+/**
+ * Agree to a change that waits (ADR 0027 §10): the viewer, an owner of a part of the ontology it touches, agrees now.
+ * With every part agreed for, it is in force from its day as known from this moment: recorded with who agreed, and the
+ * days it reaches that already ran are run again under it, as a change back-dated to them is. Whoever owns what it
+ * touches may agree, the flow's owner or not: it is the ontology's owners' to say.
+ */
+async function agreeToChange(id: string): Promise<void> {
+  const c = ruleChanges.find((x) => x.id === id);
+  if (!c) return;
+  if (state.running) return void setStatus('The flow is running. Agree again when the run has ended.', true);
+  const got = agreeTo(keptChanges(), c, state.viewer, new Date().toISOString(), cardNow());
+  if ('problem' in got) return void setStatus(got.problem, true);
+  const what = changeSaid(c);
+  ruleChanges = ruleChanges.map((x) => (x.id === id ? got.change : x));
+  // The change sets are named as they were and say something else: whatever is kept by their names is made again.
+  keptEpoch++;
+  registerKept = null;
+  const waits = agreementOf(keptChanges(), got.change).waiting;
+  const days = waits.length ? [] : reachedBy(got.change);
+  resolveDoc(resolvedFor.day, resolvedFor.asOf, true);
+  const said = `Agreed to “${what}”, as ${got.for.length === 1 ? 'an owner' : 'an owner of each'} of ${listed(got.for.map((p) => p.name))}`;
+  await flowEdited(said);
+  setStatus(waits.length ? `${said}. Recorded. It still waits for ${ownersSaid(waits.map((part) => ({ part, owners: ownersOf(keptChanges(), part) })))}.`
+    : `${said}. Recorded: in force from ${dayLabel(c.from)}. ${days.length ? `${plural(days.length, 'recorded day')} it reaches ${days.length === 1 ? 'is' : 'are'} run again under the new rules.` : 'No recorded day moves.'}`, false);
+  requestCanvas();
+  syncTitle();
+  for (const f of [...fromBars]) f();
+  if (state.selected) void renderSheet();
+  if (location.hash === '#ontology') void renderOntology();
+}
+
+/** How long after a moment another came, in words: "at once", "5 minutes later", "3 days later". */
+function laterSaid(from: string, to: string): string {
+  const ms = Date.parse(to) - Date.parse(from);
+  if (ms < 60_000) return 'at once';
+  const minutes = Math.round(ms / 60_000);
+  if (minutes < 60) return `${plural(minutes, 'minute')} later`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${plural(hours, 'hour')} later`;
+  return `${plural(Math.round(hours / 24), 'day')} later`;
+}
+
+/**
+ * Where a change stands with the owners of what it touches (ADR 0027 §10), as its entry on the register says it: who
+ * agreed, when, and whether one person held both roles; or whom it waits for, with **Agree** where the viewer is one
+ * of them. Nothing for a change that asks for no agreement.
+ */
+function agreedLine(e: RegisterEntry): HTMLElement | null {
+  const a = e.agreement;
+  if (!a.asked) return null;
+  const c = e.change;
+  const nameOf = (id: string) => a.parts.flatMap((p) => p.owners).find((o) => o.id === id)?.name ?? personName(id);
+  if (a.waiting.length) {
+    const may = monthView.at === null ? mayAgree(keptChanges(), c, state.viewer) : [];
+    const whose = ownersSaid(a.parts.filter((p) => p.agreed === null));
+    const had = a.parts.filter((p) => p.agreed !== null);
+    return h('span', { class: 'rg-agree rg-waits', 'data-waits': c.id },
+      h('b', {}, 'Waits for agreement. '),
+      `It asks for one (${asksWhy(c)}), from ${whose}. Until then it is in force on no day.`,
+      had.length ? ` ${listed(had.map((p) => `${nameOf(p.agreed!.by)} agreed for ${p.part.name}`))}.` : '',
+      may.length ? h('button', { type: 'button', class: 'btn small rg-agree-go', ...(state.running ? { disabled: 'disabled' } : {}), onclick: () => void agreeToChange(c.id) }, `Agree as ${personName(state.viewer)} ›`)
+        : monthView.at === null ? h('span', { class: 'rg-agree-how' }, ` Viewing as ${personName(state.viewer)}, who owns no part it waits for.`) : null);
+  }
+  const by = [...new Map(a.parts.map((p) => [p.agreed!.by, p.agreed!] as const)).values()];
+  // A change made here on a demo's days is agreed by this browser's clock, long after them: said by its date alone.
+  const when = (at: string) => (Math.abs(Date.parse(at) - Date.parse(`${c.from}T00:00:00Z`)) <= 92 * 86_400_000 ? `on ${dayShort(at.slice(0, 10))}` : `on ${dayLabel(new Date(Date.parse(at)).toISOString().slice(0, 10))}`);
+  if (a.same) return h('span', { class: 'rg-agree rg-same', 'data-agreed': by.map((x) => x.by).join(' ') }, `Agreed by ${nameOf(c.by)}, who also made it: one person held both roles.`);
+  return h('span', { class: 'rg-agree', 'data-agreed': by.map((x) => x.by).join(' ') },
+    `Agreed by ${listed(by.map((x) => `${nameOf(x.by)} ${when(x.at)}, ${laterSaid(c.recorded, x.at)}`))}${a.parts.length > 1 ? `, for ${listed(a.parts.map((p) => p.part.name))}` : `, who ${a.parts[0]!.owners.length === 1 ? 'owns' : 'is an owner of'} ${a.parts[0]!.part.name}`}.`);
+}
+
+/**
+ * Who owns the ontology (ADR 0027 §10, Q-276), part by part, at the head of the register: an estate's shared ontology,
+ * each flow read, the flow's own, each with its owners by name. The line under it says what asks for their agreement.
+ * Folded: who decides is looked up, not read every day.
+ */
+function ownersPart(): HTMLElement {
+  const doc = keptChanges();
+  const parts = partsIn(doc).map((part) => ({ part, owners: ownersOf(doc, part) }));
+  const everyone = new Set(parts.flatMap((p) => p.owners.map((o) => o.id)));
+  const waiting = ruleChanges.filter((c) => asksAgreement(c) && knownFrom(doc, c) === null).length;
+  return h('details', { class: 'fold rg-owners', ...(ownersOpen ? { open: '' } : {}), ontoggle: (e: Event) => (ownersOpen = (e.currentTarget as HTMLDetailsElement).open) },
+    h('summary', {}, h('span', { class: 'rg-owners-k' }, 'Who owns it'), h('span', { class: 'rg-owners-n' }, everyone.size === 1 ? `${parts[0]!.owners[0]!.name} owns every part` : `${plural(parts.length, 'part')}, ${plural(everyone.size, 'owner')}`), waiting ? h('span', { class: 'rg-owners-w' }, `${plural(waiting, 'change')} ${waiting === 1 ? 'waits' : 'wait'} for agreement`) : null),
+    h('ul', { class: 'rg-owners-list' }, ...parts.map(({ part, owners }) => h('li', { 'data-part': `${part.kind}:${part.id}` },
+      h('b', {}, part.kind === 'estate' ? part.name : part.id === '' ? `${part.name}, this flow’s own` : `${part.name}, a flow it reads`),
+      h('span', { class: 'rg-owners-who' }, ` ${listed(owners.map((o) => o.name))}`)))),
+    h('p', { class: 'foot rg-owners-said' }, 'A change the business made, and one that ends something, takes effect only when an owner of each part it touches has agreed. A setting re-tuned, a mistake corrected, a changed source and a first description need only their author. Until sharing is built one person may hold both roles, and the record says so.'));
+}
+let ownersOpen = false;
+
 let changeSeq = 0;
 /** A change set's name: when it was made, and its place among this visit's. */
 const changeId = () => `c-${Date.now().toString(36)}-${(++changeSeq).toString(36)}`;
@@ -5527,7 +5660,7 @@ async function editRules(edit: RuleEdit | readonly RuleEdit[], opts: { why?: str
   // Why (ADR 0027 §2, Q-256): a kind and a reason on every change. A form that asked for them gives them; any other
   // change is asked now, and closed without an answer it isn't made.
   const kind = opts.kind ?? defaultKind(edits);
-  const given: WhyGiven | null = opts.given ?? (why.trim() ? { why: why.trim(), kind } : await askWhy(words ?? saids.join('; '), kind));
+  const given: WhyGiven | null = opts.given ?? (why.trim() ? { why: why.trim(), kind } : await askWhy(words ?? saids.join('; '), kind, edits));
   if (!given) return false;
   if (state.running) {
     setStatus('The flow is running. Change the rule again when the run has ended.', true);
@@ -5535,11 +5668,16 @@ async function editRules(edit: RuleEdit | readonly RuleEdit[], opts: { why?: str
   }
   const from = fromDay();
   const { days } = reachedDays(from);
-  ruleChanges = [...ruleChanges, { id: changeId(), from, recorded: new Date().toISOString(), by: state.viewer, why: given.why, kind: given.kind, ...(given.note ? { note: given.note } : {}), ...(given.decided ? { decided: given.decided } : {}), ...(given.because ? { because: given.because } : {}), edits }];
+  const made = withOwnAgreement({ id: changeId(), from, recorded: new Date().toISOString(), by: state.viewer, why: given.why, kind: given.kind, ...(given.note ? { note: given.note } : {}), ...(given.decided ? { decided: given.decided } : {}), ...(given.because ? { because: given.because } : {}), edits });
+  ruleChanges = [...ruleChanges, made];
+  // One that asks for an owner's agreement its author can't give (ADR 0027 §10) is recorded and waits: in force on no
+  // day until an owner of what it touches agrees, from its entry on the register.
+  const waits = agreementOf(keptChanges(), made).waiting;
   const moved = resolveDoc(resolvedFor.day, resolvedFor.asOf, true) && rulesSaid(state.doc) !== rulesSaid(withRuleParts(state.doc, ruleBase));
-  const said = `${words ?? saids.join('; ')}, in force from ${dayLabel(from)}`;
+  const said = waits.length ? `${words ?? saids.join('; ')}, from ${dayLabel(from)} once agreed to` : `${words ?? saids.join('; ')}, in force from ${dayLabel(from)}`;
   await flowEdited(said);
-  setStatus(`${said}. Recorded. ${days.length ? `${plural(days.length, 'recorded day')} from ${dayLabel(from)} ${days.length === 1 ? 'is' : 'are'} run again under the new rules.` : moved ? 'The next run uses it.' : 'No recorded day moves.'}`, false);
+  setStatus(waits.length ? `${said}. Recorded. It waits for ${ownersSaid(waits.map((part) => ({ part, owners: ownersOf(keptChanges(), part) })))} to agree: until then it is in force on no day.`
+    : `${said}. Recorded. ${days.length ? `${plural(days.length, 'recorded day')} from ${dayLabel(from)} ${days.length === 1 ? 'is' : 'are'} run again under the new rules.` : moved ? 'The next run uses it.' : 'No recorded day moves.'}`, false);
   requestCanvas();
   syncTitle();
   for (const f of [...fromBars]) f();
@@ -5856,8 +5994,11 @@ function changeSaid(c: ChangeSet): string {
   // A version taken whole (ADR 0022 §1): said by the version, as the Ontology view numbers it, not its change sets' names.
   const v = c.edits.length === 1 && c.edits[0]!.op === 'useVersion' ? c.edits[0]!.changes : null;
   if (v) return `Took ${ruleVersionSaid(v)}${c.until ? ` for ${c.until === c.from ? `${dayShort(c.from)} only` : `${dayShort(c.from)} to ${dayShort(c.until)}`}` : ''}`;
-  const a = resolveRules(baseDoc(), c.from, c.recorded).applied.find((x) => x.change.id === c.id);
-  return a?.said.length ? a.said.join('; ') : 'nothing that applies to the rules of its day';
+  // On the rules of its first day as known when it took effect; one that waits for agreement (ADR 0027 §10) by what
+  // it would do were it agreed to, as the register replays it.
+  const known = knownFrom(keptChanges(), c);
+  const said = known === null ? (registerNow().entries.find((x) => x.change.id === c.id)?.said ?? []) : (resolveRules(baseDoc(), c.from, known).applied.find((x) => x.change.id === c.id)?.said ?? []);
+  return said.length ? said.join('; ') : 'nothing that applies to the rules of its day';
 }
 
 /**
@@ -5871,8 +6012,10 @@ function rulesLine(day: string, prev: string | null): HTMLElement | null {
   if (whatIf?.run && loads.list[whatIf.k]?.day.slice(0, 10) === day.slice(0, 10)) return h('p', { class: 'dh-rules' }, h('span', { class: 'dh-rules-k' }, 'Rules of the what-if'), ' ', hashCode(rulesHashOf(state.doc), 'dh-hash'));
   // What was on its way that day (ADR 0027 §9): said by its end, in force from a later day. The day's own run may be
   // earlier than the saying (a rule said that afternoon): it is said as said that day, not as known to the run.
-  const coming = ruleChanges.length ? comingOn({ changes: ruleChanges }, day, monthView.at) : [];
+  const coming = ruleChanges.length ? comingOn(keptChanges(), day, monthView.at) : [];
   const saidThatDay = (c: ChangeSet) => new Date(Date.parse(c.recorded)).toISOString().slice(0, 10) === day.slice(0, 10);
+  const waiting = new Set(ruleChanges.length ? registerNow().entries.filter((e) => e.tense === 'waiting').map((e) => e.change.id) : []);
+  const waitingHere = ruleChanges.filter((c) => waiting.has(c.id) && c.from <= day.slice(0, 10) && (c.until === undefined || day.slice(0, 10) <= c.until));
   // A change whose first day this is was run both ways (ADR 0027 §7): its own step, a tap from the change.
   const steps = stepsNow();
   const stepped = since.map((a) => a.change).filter((c) => steps.get(c.id)?.day === day.slice(0, 10));
@@ -5884,7 +6027,10 @@ function rulesLine(day: string, prev: string | null): HTMLElement | null {
       return h('span', { class: 'dh-rules-step', 'data-step': c.id }, ' · run both ways: ', h('button', { type: 'button', class: 'linkish', onclick: () => openChange(c.id) },
         `${on.length ? `the change alone moved ${on.map((m) => `${m === 'score' ? 'the score' : m} ${moveSaid(step, m)}`).join(' and ')}` : step.moved.length ? `the change alone moved ${plural(step.moved.length, 'measure')} of ${step.measured}, none of them the score` : `the change moved none of ${plural(step.measured, 'measure')}`} ›`));
     }),
-    ...coming.map((c) => h('span', { class: 'dh-rules-coming', 'data-change': c.id }, saidThatDay(c) ? ' · said this day, from ' : ' · coming ', h('button', { type: 'button', class: 'linkish', onclick: () => openChange(c.id) }, `${dayShort(c.from)}: ${changeSaid(c)} ›`))));
+    // One that waits for an owner's agreement (ADR 0027 §10) is in force on no day: said as waiting, on the days it
+    // would reach and before them, never as coming.
+    ...waitingHere.map((c) => h('span', { class: 'dh-rules-waits', 'data-change': c.id }, ' · waits for agreement: ', h('button', { type: 'button', class: 'linkish', onclick: () => openChange(c.id) }, `${changeSaid(c)} ›`))),
+    ...coming.map((c) => h('span', { class: waiting.has(c.id) ? 'dh-rules-waits' : 'dh-rules-coming', 'data-change': c.id }, waiting.has(c.id) ? ' · waits for agreement, from ' : saidThatDay(c) ? ' · said this day, from ' : ' · coming ', h('button', { type: 'button', class: 'linkish', onclick: () => openChange(c.id) }, `${dayShort(c.from)}: ${changeSaid(c)} ›`))));
 }
 
 // ------------------------------------------------------------------ why a change is made (ADR 0027 §2, slice 2)
@@ -5892,6 +6038,27 @@ function rulesLine(day: string, prev: string | null): HTMLElement | null {
 /** What a change says of itself beside its edits (ADR 0027 §2): a kind and a reason, both required, and what more its
  * author gives: who chose it and when, what led to it, the thinking behind it. */
 interface WhyGiven { why: string; kind: ChangeKind; note?: ChangeNote; decided?: { by: string; on?: string }; because?: { event: string } }
+
+/**
+ * Whose agreement a change of a kind asks for (ADR 0027 §10, Q-277), for the form that asks why: nothing more than its
+ * author's for a setting re-tuned, a mistake corrected, a changed source and a first description; an owner's of each
+ * part of the ontology it touches where the business changed or it ends something. Where the viewer owns every part,
+ * recording it is agreeing to it, and the record says one person held both roles; else it will wait, and for whom.
+ * `about` is the files and steps the change is about, as far as the form knows them.
+ */
+function agreeHint(kind: ChangeKind, about: readonly string[], ends = false): { text: string; waits: boolean } {
+  if (kind !== 'business' && !ends) return { text: `${KIND_NAMES[kind]}: it needs only its author, and is in force once recorded.`, waits: false };
+  const doc = keptChanges();
+  const parts = [...new Map((about.length ? about : ['']).map((d) => {
+    const f = d ? flowOf(state.doc, d) : undefined;
+    const part = f ? { kind: 'flow' as const, id: f.id, name: f.name } : { kind: 'flow' as const, id: '', name: doc.name };
+    return [part.id, part] as const;
+  })).values()].map((part) => ({ part, owners: ownersOf(doc, part) }));
+  const why = kind === 'business' ? (ends ? 'the business changed, and it ends something' : 'the business changed') : 'it ends something';
+  const others = parts.filter((p) => !p.owners.some((o) => o.id === state.viewer));
+  if (!others.length) return { text: `It asks for an owner’s agreement (${why}). You own ${listed(parts.map((p) => p.part.name))}: recording it says you agree, and the record says one person held both roles.`, waits: false };
+  return { text: `It asks for an owner’s agreement (${why}): recorded, it waits for ${ownersSaid(others)}, and is in force on no day until then.`, waits: true };
+}
 
 /** A kind's own mark, beside its words: never colour alone. */
 const kindEl = (kind: ChangeKind | null) => svgNode(kindMark((kind ?? 'none') as KindMark, 12));
@@ -5902,7 +6069,7 @@ let whyForms = 0;
  * picked; one line of why; and, folded, who decided and when, what led to it, and the note in four parts. `read`
  * gives what was written, or what is missing, in words.
  */
-function whyFields(kind: ChangeKind): { el: HTMLElement; read: () => WhyGiven | string; focus: () => void } {
+function whyFields(kind: ChangeKind, about: readonly string[] = [], ends = false): { el: HTMLElement; read: () => WhyGiven | string; focus: () => void } {
   const name = `wy-kind-${++whyForms}`;
   // A first description (closing a list on what it has always held) is offered where the edit is one: it is no change.
   const asked: readonly ChangeKind[] = kind === 'described' ? ['described', ...KINDS_ASKED] : KINDS_ASKED;
@@ -5925,8 +6092,20 @@ function whyFields(kind: ChangeKind): { el: HTMLElement; read: () => WhyGiven | 
   const down = field('wy-down', 'What we turned down');
   const expect = field('wy-expect', 'What we expect');
   const again = field('wy-again', 'Look again on', 'date');
+  // Whose agreement the kind picked asks for (ADR 0027 §10, Q-277), said as the kind is picked: before the change is
+  // recorded, its author knows whether it takes effect at once or waits for someone.
+  const agree = h('p', { class: 'wy-agree', role: 'status' });
+  const sayAgree = () => {
+    const picked = radios.find((r) => r.input.checked)?.k ?? first;
+    const said = agreeHint(picked, about, ends);
+    agree.textContent = said.text;
+    agree.dataset.waits = String(said.waits);
+  };
+  for (const r of radios) r.input.addEventListener('change', sayAgree);
+  sayAgree();
   const el = h('div', { class: 'wy' },
     h('div', { class: 'of-field wy-kinds', role: 'radiogroup', 'aria-label': 'What kind of change' }, h('label', {}, 'Kind'), h('div', { class: 'wy-kind-list' }, ...radios.map((r) => r.label))),
+    agree,
     h('div', { class: 'of-field' }, h('label', {}, 'Why'), why),
     h('details', { class: 'wy-more' }, h('summary', {}, 'Who decided, what led to it, the thinking'),
       by.row, on.row, h('div', { class: 'of-field' }, h('label', {}, 'Because of'), because), saw.row, chose.row, down.row, expect.row, again.row));
@@ -5948,9 +6127,9 @@ function whyFields(kind: ChangeKind): { el: HTMLElement; read: () => WhyGiven | 
 
 /** Ask why a change is made (ADR 0027 §2, Q-256), on a sheet of its own: what it is, from which day, and the fields
  * that say why. Null where it is closed without an answer: the change isn't made. */
-function askWhy(what: string, kind: ChangeKind): Promise<WhyGiven | null> {
+function askWhy(what: string, kind: ChangeKind, edits: readonly RuleEdit[] = []): Promise<WhyGiven | null> {
   return new Promise((resolve) => {
-    const f = whyFields(kind);
+    const f = whyFields(kind, edits.flatMap(editTargets), edits.some((e) => e.op === 'end'));
     const err = h('p', { class: 'of-err', role: 'alert', hidden: 'hidden' });
     const go = h('button', { type: 'button', class: 'btn small primary wy-go' }, 'Record the change') as HTMLButtonElement;
     let answered = false;
@@ -6137,7 +6316,7 @@ function registerNow(): { entries: RegisterEntry[]; later: number; today: string
 function entryWhen(e: RegisterEntry): string {
   const c = e.change;
   // What is coming has no month's heading over it: a day outside the month on screen is said with its month.
-  const dayOf = (d: string) => (e.tense === 'coming' ? dayNear(d) : dayShort(d));
+  const dayOf = (d: string) => (e.tense === 'coming' || e.tense === 'waiting' ? dayNear(d) : dayShort(d));
   const span = c.until ? (c.until === c.from ? `${dayOf(c.from)} only` : `${dayOf(c.from)} to ${dayOf(c.until)}`) : `From ${dayOf(c.from)}`;
   // A change made here on a demo's days is recorded by this browser's clock, long after them: said by its date alone.
   const near = Math.abs(e.lead) <= 92;
@@ -6335,7 +6514,7 @@ function trendAdjusted(points: readonly ScorePoint[], cuts: readonly (ScoreCut &
 function changeMarks(days: readonly string[]): { day: string; label: string; change: string }[] {
   if (!ruleChanges.length) return [];
   const have = new Set(days.map((d) => d.slice(0, 10)));
-  return registerNow().entries.filter((e) => e.tense !== 'coming' && have.has(e.change.from)).map((e) => ({ day: e.change.from, label: `${dayShort(e.change.from)}: ${changeSaid(e.change)}`, change: e.change.id })).reverse();
+  return registerNow().entries.filter((e) => e.tense !== 'coming' && e.tense !== 'waiting' && have.has(e.change.from)).map((e) => ({ day: e.change.from, label: `${dayShort(e.change.from)}: ${changeSaid(e.change)}`, change: e.change.id })).reverse();
 }
 
 /** The events that touch `days`, for a chart's bands (ADR 0027 §6): each over its days, one that goes on to the last day. */
@@ -6399,7 +6578,8 @@ function registerPart(): HTMLElement | null {
   const where = (c: ChangeSet) => (applied.has(c.id) ? 'in force on the day on screen' : day && c.from > day ? 'from a later day than the one on screen' : 'made after the version on screen ran');
   const item = (e: RegisterEntry) => {
     const c = e.change;
-    const reached = e.how === 'back' ? reachedBy(c) : [];
+    // The days it reaches that ran before it was known: said back-dated, or agreed to after its first day (§10).
+    const reached = e.tense === 'waiting' ? [] : reachedBy(c);
     const led = c.because?.event ? eventName.get(c.because.event) : undefined;
     const n = c.note;
     const parts: [string, string | undefined][] = n ? [['What we saw', n.saw], ['What we chose', n.chose], ['What we turned down', n.turnedDown], ['What we expect', n.expect], ['Look again', n.lookAgain ? dayLabel(n.lookAgain) : undefined]] : [];
@@ -6414,6 +6594,7 @@ function registerPart(): HTMLElement | null {
       h('span', { class: 'rg-what' }, changeSaid(c)),
       h('span', { class: 'rg-why' }, c.why ? `“${c.why}” ` : 'No reason given · ', h('span', { class: 'rg-by' }, personName(c.by))),
       c.decided ? h('span', { class: 'rg-led' }, `Decided by ${c.decided.by}${c.decided.on ? ` on ${dayShort(c.decided.on)}` : ''}`) : null,
+      agreedLine(e),
       led ? h('button', { type: 'button', class: 'linkish rg-because', 'data-event': c.because!.event!, onclick: () => openEvent(c.because!.event!) }, `Because of: ${led} ›`) : null,
       stepLine(c),
       noted.length ? h('details', { class: 'rg-note' }, h('summary', {}, 'The thinking'), h('dl', {}, ...noted.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)]))) : null,
@@ -6423,7 +6604,7 @@ function registerPart(): HTMLElement | null {
       trial ? h('span', { class: 'rg-trial' }, testSaid(trial.what, trial.count, dayShort), h('span', { class: 'rg-figures' }, trialFigures(trial.moves, dayShort)))
         : trying ? h('span', { class: 'rg-trial' }, h('span', { class: 'mini-wait' }), ` Trying it on ${testing!.of === 1 ? 'the day before' : `the ${testing!.of} days before`}: ${testing!.done} done.`)
         : owner && monthView.at === null && testDays(c).length && mayRun() ? h('button', { type: 'button', class: 'linkish rg-try', ...(state.running || testing ? { disabled: 'disabled' } : {}), onclick: () => void testChange(c, null) }, `Try it on the ${plural(testDays(c).length, 'recorded day')} before it ›`) : null,
-      h('span', { class: 'rg-facts' }, [where(c), reached.length ? `recorded after ${plural(reached.length, 'day')} it reaches had run: ${daysSaid(reached)}` : ''].filter(Boolean).join(' · ')));
+      h('span', { class: 'rg-facts' }, [e.tense === 'waiting' ? 'in force on no day until it is agreed to' : where(c), reached.length ? `${e.how === 'back' ? 'recorded' : 'agreed to'} after ${plural(reached.length, 'day')} it reaches had run: ${daysSaid(reached)}` : ''].filter(Boolean).join(' · ')));
   };
   const eventItem = (e: FlowEvent) => {
     const tense = eventTense(e, reg.today);
@@ -6438,16 +6619,17 @@ function registerPart(): HTMLElement | null {
       owner && mine && monthView.at === null ? h('button', { type: 'button', class: 'linkish rg-ev-edit', onclick: () => eventForm(e) }, 'Change it ›') : null);
   };
   const monthName = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-  // One list: what is coming on top, the soonest first; then by month, newest first, a change before an event of its day.
-  type Thing = { from: string; coming: boolean; el: () => HTMLElement };
+  // One list: what waits for an owner's agreement on top (ADR 0027 §10: someone has something to do), then what is
+  // coming, the soonest first; then by month, newest first, a change before an event of its day.
+  type Thing = { from: string; coming: boolean; waiting?: boolean; el: () => HTMLElement };
   const things: Thing[] = [
-    ...reg.entries.map((e): Thing => ({ from: e.change.from, coming: e.tense === 'coming', el: () => item(e) })),
+    ...reg.entries.map((e): Thing => ({ from: e.change.from, coming: e.tense === 'coming', waiting: e.tense === 'waiting', el: () => item(e) })),
     ...events.map((e): Thing => ({ from: e.from, coming: eventTense(e, reg.today) === 'coming', el: () => eventItem(e) })),
   ];
-  const ordered = [...things.filter((t) => t.coming).sort((a, b) => a.from.localeCompare(b.from)), ...things.map((t, i) => ({ t, i })).filter(({ t }) => !t.coming).sort((a, b) => b.t.from.localeCompare(a.t.from) || a.i - b.i).map(({ t }) => t)];
+  const ordered = [...things.filter((t) => t.waiting).sort((a, b) => a.from.localeCompare(b.from)), ...things.filter((t) => t.coming).sort((a, b) => a.from.localeCompare(b.from)), ...things.map((t, i) => ({ t, i })).filter(({ t }) => !t.coming && !t.waiting).sort((a, b) => b.t.from.localeCompare(a.t.from) || a.i - b.i).map(({ t }) => t)];
   const groups: { name: string; things: Thing[] }[] = [];
   for (const t of ordered) {
-    const name = t.coming ? 'Coming' : monthName(t.from.slice(0, 7));
+    const name = t.waiting ? 'Waiting for agreement' : t.coming ? 'Coming' : monthName(t.from.slice(0, 7));
     const g = groups.at(-1)?.name === name ? groups.at(-1)! : (groups.push({ name, things: [] }), groups.at(-1)!);
     g.things.push(t);
   }
@@ -6632,6 +6814,7 @@ function renderRulesTime(): void {
     h('p', { class: 'rt-head' }, h('b', {}, day ? `The rules in force on ${dayLabel(day)}` : 'The rules in force'), ' ', hashCode(rulesHashOf(state.doc), 'rt-hash'), ruleChanges.length ? ` · ${plural(ruleChanges.length, 'change set')}${baseEdited() ? '; names and labels edited here' : ''}` : baseEdited() ? ' · names and labels edited here' : ' · as shipped'),
     firstLine() ?? '',
     awaitedPart() ?? '',
+    ownersPart(),
     registerPart() ?? '',
     ruleVersionsPart() ?? '',
     kindsPart() ?? '',
@@ -6682,12 +6865,12 @@ const knownSaid = (from: string | null, to: string | null): string => {
 function ruleVersionsPart(): HTMLElement | null {
   if (!ruleChanges.length) return null;
   const days = [...new Set([...loads.list.map((l) => l.day.slice(0, 10)), nextDayToArrive()])].sort();
-  const vs = ruleVersions({ changes: ruleChanges }, days);
+  const vs = ruleVersions(keptChanges(), days);
   const day = resolvedFor.day;
   const keys = vs.map((v) => versionKey(v.changes));
   const shown = resolvedSets ?? '';
-  const now = day ? versionOn({ changes: ruleChanges }, day, null) : null;
-  const known = day && monthView.at ? versionOn({ changes: ruleChanges }, day, monthView.at) : null;
+  const now = day ? versionOn(keptChanges(), day, null) : null;
+  const known = day && monthView.at ? versionOn(keptChanges(), day, monthView.at) : null;
   const n = (k: string | null) => (k === null ? -1 : keys.indexOf(k));
   const label = (i: number) => (i >= 0 ? `Version ${i + 1}` : 'rules of its own');
   const what = (v: RuleVersion) => (v.changes.length ? v.changes.map((id) => ruleChanges.find((c) => c.id === id)).filter((c): c is ChangeSet => !!c).map((c) => `${changeSaid(c)} (from ${dayShort(c.from)})`).join('; ') : asShippedSaid('The rules as shipped'));
@@ -9393,6 +9576,7 @@ async function measureTableNews(insp: Inspection, i: number, id: string, who: st
   const handledBy = values.length ? downstreamOf(id).filter((st) => { const text = JSON.stringify(steps().get(st) ?? {}); return values.some((v) => text.includes(`'${v}'`)); }) : [];
   const told = tableNewsOf({
     noun: nounOf(id),
+    one: rowNoun(id).one,
     rows: q.rows,
     columns: q.profiles.map((p) => ({ name: p.name, present: p.facts.present, distinct: p.facts.distinct, added: added.has(p.name.toLowerCase()) })),
     keys, unmatched, placeholders, placeholderRows, exact: q.sample.length >= q.rows, handledBy, input,
@@ -10052,7 +10236,7 @@ function contextPart(id: string, day: string): HTMLElement | null {
  */
 function acrossColumn(dataset: string, column: string | undefined, value: string | undefined, days: readonly StripDay[]): { days: StripDay[]; marks: Partial<Record<VizMark, string>>; said: string; notes: (HTMLElement | null)[] } {
   const inStrip = (day: string) => days.some((d) => d.day.slice(0, 10) === day);
-  const known = registerNow().entries.filter((e) => e.tense !== 'coming').map((e) => e.change);
+  const known = registerNow().entries.filter((e) => e.tense !== 'coming' && e.tense !== 'waiting').map((e) => e.change);
   const redefs = column ? redefinedOn(known, dataset, column).filter((r) => inStrip(r.day)) : [];
   // Every other change that reaches the dataset marks its charts too (ADR 0027 §8): it is about it, or about something
   // it is built from.
@@ -14271,7 +14455,7 @@ function columnForm(f: FileSection, c: ColumnCard, seen: readonly string[], clos
     howBox.hidden = !meaningEdited();
     const on = redefining();
     if (on && !whyDated) {
-      whyDated = whyFields('business');
+      whyDated = whyFields('business', [f.id]);
       dated.append(fromBar(), whyDated.el, reach);
     }
     dated.hidden = !on;
@@ -16116,7 +16300,7 @@ function sourceFiles(k: number): Map<string, DayFile[]> {
 function rulesVersionsOf(): RuleVersion[] {
   if (!ruleChanges.length) return [{ changes: [], spans: [] }];
   const days = [...new Set([...loads.list.map((l) => l.day.slice(0, 10)), nextDayToArrive()])].sort();
-  return ruleVersions({ changes: ruleChanges }, days);
+  return ruleVersions(keptChanges(), days);
 }
 
 /** A version of the rules in words: its number, as the Ontology view gives it, and what its change sets did. */
@@ -16162,7 +16346,7 @@ function whatIfHow(): string | null {
   const day = l.day.slice(0, 10);
   const v = versionOfFiles(w.k, whatIfShas(w));
   const files = v ? `Its files are version ${v}’s` : 'No version of the day has these files: making it the day’s sends them again';
-  const rules = versionKey(w.rules) === versionOn({ changes: ruleChanges }, day, null)
+  const rules = versionKey(w.rules) === versionOn(keptChanges(), day, null)
     ? `its rules are those in force on ${dayShort(day)} now`
     : `its rules aren’t in force on ${dayShort(day)}: making it the day’s takes them for that day only, restated under one decision`;
   return `${files}; ${rules}.`;
@@ -16181,7 +16365,7 @@ function whatIfMakes(): { sent: string[]; rules: boolean; how: string; may: bool
   const day = l.day.slice(0, 10);
   const gotFiles = versionsOfLoad(w.k)[wentWith(w.k) - 1]?.files ?? {};
   const sent = Object.entries(whatIfShas(w)).filter(([id, sha]) => gotFiles[id]?.sha256 !== sha).map(([id]) => id).sort();
-  const rules = versionKey(w.rules) !== versionOn({ changes: ruleChanges }, day, null);
+  const rules = versionKey(w.rules) !== versionOn(keptChanges(), day, null);
   if (!sent.length && !rules) return null;
   const own = w.run.result.holds.filter((x) => x.by !== 'what-if');
   const held = own[0] ? `${own[0].origin}: ${own[0].said}` : null;
@@ -16252,7 +16436,7 @@ function whatIfSheet(k: number): void {
   const per = sourceFiles(k);
   const varied = [...per].filter(([, xs]) => xs.length > 1);
   const rv = rulesVersionsOf();
-  const nowKey = versionOn({ changes: ruleChanges }, day, null);
+  const nowKey = versionOn(keptChanges(), day, null);
   const was = whatIf?.k === k ? whatIf : null;
   // Each file first as the version on screen has it: this day, with what the what-if changes; else the last one's picks.
   const shown = versionsOfLoad(k)[(loads.pinned === k ? loads.pinnedVersion : wentWith(k)) - 1]?.files ?? {};
@@ -16758,13 +16942,35 @@ async function decideAtGate(k: number, stop: { step: string; rule: OntologyRule 
   const edits: RuleEdit[] = entries.map((e) => (how === 'declare' ? { op: 'declareEntry', file, rule: stop.rule.id, entry: [...e] } : { op: 'leaveOut', file, rule: stop.rule.id, key: e[0] ?? '' }));
   const names = listed(entries.map((e) => gateKey(stop.rule, e[0] ?? '')));
   gateForm = null;
-  const cs: ChangeSet = {
+  // Whoever declares and owns what the declaration touches agrees by recording it (ADR 0027 §10), as for any change.
+  const cs: ChangeSet = withOwnAgreement({
     id: changeId(), from: day, recorded: new Date().toISOString(), by: state.viewer, why: given.why, kind: how === 'declare' ? given.kind : 'source', edits,
     ...(given.note ? { note: given.note } : {}), ...(given.decided ? { decided: given.decided } : {}), ...(given.because ? { because: given.because } : {}),
-  };
+  });
   ruleChanges = [...ruleChanges, cs];
-  await flowEdited(how === 'declare' ? `Declared ${names} in ${file} from ${dayShort(day)} on` : `Left ${names} out of ${file} from ${dayShort(day)} until declared`);
+  const waits = waitsFor(cs);
+  await flowEdited(how === 'declare' ? `Declared ${names} in ${file} from ${dayShort(day)} ${waits ? 'once agreed to' : 'on'}` : `Left ${names} out of ${file} from ${dayShort(day)} until declared`);
+  // The business changed, and whoever declared owns no part of the ontology it touches: it waits for an owner, in force
+  // on no day, and the day stays stopped at the gate until they agree.
+  if (waits) {
+    setStatus(`Declared ${names} in ${file} from ${dayShort(day)} once agreed to. Recorded. It ${waits}: until then it is in force on no day, and ${dayShort(day)} stays as it is.`, false);
+    renderLoads();
+    if (location.hash === '#ontology') void renderOntology();
+    return;
+  }
   await rerunAndRestate(given.why);
+}
+
+/** The arrivals at the gate that a change still waiting for agreement declares (ADR 0027 §10), by key: whom each waits
+ * for. The day stays stopped until an owner agrees, and declaring again would say it twice. */
+function declaredWaiting(rule: OntologyRule): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const c of ruleChanges) {
+    const waits = c.edits.some((e) => e.op === 'declareEntry' && e.file === rule.file && e.rule === rule.id) ? waitsFor(c) : null;
+    if (!waits) continue;
+    for (const e of c.edits) if (e.op === 'declareEntry' && e.file === rule.file && e.rule === rule.id) out.set((e.entry[0] ?? '').toLowerCase(), waits);
+  }
+  return out;
 }
 
 /** A key left out, declared from the day on screen: its entry read from the rows the day's run left out. */
@@ -16804,7 +17010,7 @@ function gatePart(k: number): HTMLElement | null {
     const how = gateForm!.how;
     const rule = stop.rule;
     const names = listed(entries.map((e) => gateKey(rule, e[0] ?? '')));
-    const f = how === 'declare' ? whyFields('business') : null;
+    const f = how === 'declare' ? whyFields('business', [rule.file]) : null;
     const reason = how === 'leaveOut' ? (h('textarea', { class: 'cm-reason gt-reason', rows: '2', 'aria-label': `Why ${names} is left out`, placeholder: 'Why, in a sentence: the record keeps it.' }) as HTMLTextAreaElement) : null;
     const err = h('p', { class: 'of-err', role: 'alert', hidden: 'hidden' });
     const go = h('button', { type: 'button', class: 'btn small primary gt-go' }, how === 'declare' ? `Declare ${names}` : `Publish without ${names}`) as HTMLButtonElement;
@@ -16846,15 +17052,20 @@ function gatePart(k: number): HTMLElement | null {
       if (!entries.length) return void setStatus('Tick what is decided.', true);
       open(stop, how, entries);
     } }, label);
+    // What is declared already and waits for an owner's agreement (ADR 0027 §10): said, and not declared again.
+    const declared = declaredWaiting(rule);
+    const waitingKeys = stop.arrivals.map(([entry]) => entry[0] ?? '').filter((key) => declared.has(key.toLowerCase()));
+    const allDeclared = waitingKeys.length === stop.arrivals.length && stop.more === 0;
     return h('div', { class: 'cm-source held gt-stop', 'data-file': rule.file, 'data-rule': rule.id },
       h('p', { class: 'cm-said' }, h('b', {}, `${rule.file}: `), `${isList(rule) ? plural(stop.arrivals.length + stop.more, 'entry', 'entries') : plural(stop.arrivals.length + stop.more, 'value', 'values')} the ontology doesn’t have.`),
       h('ul', { class: 'gt-arrivals' }, ...stop.arrivals.map(([entry, n, changed], i) => h('li', { class: 'gt-arrival', 'data-key': entry[0] ?? '', 'data-how': changed ? 'changed' : 'new' },
         stop.arrivals.length > 1 && may && !forming ? ticks[i]! : '', h('span', {}, `${arrivalSaid(rule, entry, changed)}. ${plural(n, 'row carries', 'rows carry')} it.${endedAtGate(rule, entry[0] ?? '')}`)))),
       stop.more ? h('p', { class: 'foot' }, `And ${plural(stop.more, 'more')}, not named: that many at once is more likely a file gone wrong than the business changing.`) : '',
       stop.reaches.length ? h('p', { class: 'gt-waits' }, waits(stop.reaches)) : '',
+      waitingKeys.length ? h('p', { class: 'gt-agree' }, h('b', {}, `${listed(waitingKeys.map((key) => gateKey(rule, key)))} ${waitingKeys.length === 1 ? 'is' : 'are'} declared, `), `and the declaration ${declared.get(waitingKeys[0]!.toLowerCase())!}: until then it is in force on no day, and the day stays as it is. `, h('a', { href: '#ontology' }, 'On the register ›')) : '',
       forming ? formFor(stop, forming.entries)
         : may ? h('p', { class: 'cm-ask gt-ask' },
-          ask('declare', 'primary gt-declare', 'Declare it ›'),
+          allDeclared ? '' : ask('declare', 'primary gt-declare', 'Declare it ›'),
           ask('leaveOut', 'gt-without', 'Publish without it ›'),
           h('button', { type: 'button', class: 'btn small gt-dont', onclick: () => openDecision(l.day) }, 'Don’t publish ›'))
         : h('p', { class: 'foot' }, `${deciders()} ${deciders().includes(' and ') || deciders().includes(',') ? 'decide' : 'decides'}: declare it, publish without it, or don’t publish.`));
@@ -17562,7 +17773,7 @@ function renderMonth(): void {
   // A flow's row draws the days it only waited on another flow apart (ADR 0026 §5): nothing of its own was wrong.
   // The changes that reach each row, by the day they began (ADR 0027 §8): a change marks the month of anything built
   // from what it is about, as known at the moment the month is read at. A flow's own row isn't marked: its rows are.
-  const reaching: ChangeSet[] = registerNow().entries.filter((e) => e.tense !== 'coming').map((e) => e.change);
+  const reaching: ChangeSet[] = registerNow().entries.filter((e) => e.tense !== 'coming' && e.tense !== 'waiting').map((e) => e.change);
   const rowChanges = new Map<string, Map<string, ChangeSet[]>>();
   const changesOfRow = (r: HealthRow): Map<string, ChangeSet[]> => {
     let got = rowChanges.get(r.id);
@@ -17921,7 +18132,7 @@ function flowsKept(): Set<string> {
   if (keptFlows.key === key) return keptFlows.hashes;
   keptFlows.key = key;
   const days = [...new Set([...loads.list.map((l) => l.day.slice(0, 10)), nextDayToArrive()])];
-  const vs = ruleChanges.length ? ruleVersions({ changes: ruleChanges }, days) : [{ changes: [] as string[] }];
+  const vs = ruleChanges.length ? ruleVersions(keptChanges(), days) : [{ changes: [] as string[] }];
   void Promise.all(vs.map((v) => flowHash(versionDoc(v)))).then((hs) => {
     if (keptFlows.key !== key) return;
     keptFlows.hashes = new Set(hs);

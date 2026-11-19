@@ -5,11 +5,12 @@
  * Expressions are SQL expression text (smaltdb's SQL), so a visual step reads the way its SQL would. Steps refer to
  * their inputs, and SQL steps to their inputs' data, by the inputs' ids.
  */
+import { agreedIssues } from './agree.js';
 import { calendarProblems, EVERIES, isEvery, type CalendarDef, type Every } from './calendar.js';
 import type { AcceptedBand, ColumnChange, RuleInput } from './flowedit.js';
 import { CHECK_MODES, CHECK_NAMES, gateProblems, type CheckMode, type CheckName, type GateDef } from './gates.js';
 import { awaitedIssues } from './described.js';
-import { ENDED_KINDS, FOLLOWED, marksVerdicts, NEEDS_FIELDS, ROWS_FIELDS, type AwaitedDataset, type Ended, type LinkType, type NeedsDef, type ObjectType, type Ontology, type RowsDef } from './ontology.js';
+import { ENDED_KINDS, FOLLOWED, marksVerdicts, NEEDS_FIELDS, ownersIssues, ROWS_FIELDS, type AwaitedDataset, type Ended, type LinkType, type NeedsDef, type ObjectType, type Ontology, type Owner, type RowsDef } from './ontology.js';
 import { checkStepOf, FIX_KINDS, rulesIssues } from './rules.js';
 import { DECIDE, DECIDE_OPTIONS, type Policies } from './policy.js';
 import type { ParamType, ParamValue } from './sqltext.js';
@@ -365,9 +366,23 @@ export interface ChangeSet {
   /** The estate whose ontology's change it is (ADR 0027 §3, Q-265), by its name: brought in with the estate's ontology
    * when the flow is read, and followed by every flow that imports it. None on a flow's own change. */
   estate?: string;
+  /** Who agreed to it (ADR 0027 §10, Q-277): an owner of each part of the ontology it touches. A change the business
+   * made, and one that ends something, is in force only once it has them (`agree.ts`); any other needs only its
+   * author, and one given here says nothing more. In the order they were given. */
+  agreed?: Agreed[];
 }
 
-const CHANGE_FIELDS = ['id', 'from', 'until', 'recorded', 'by', 'why', 'edits', 'kind', 'note', 'decided', 'because', 'estate'];
+/** An owner's agreement to a change (ADR 0027 §10): who, by the id their part's owners are named by, and when (ISO
+ * 8601); their identity card's fingerprint where the record that carries it was signed by one. */
+export interface Agreed {
+  by: string;
+  at: string;
+  card?: string;
+}
+
+const AGREED_FIELDS = ['by', 'at', 'card'];
+
+const CHANGE_FIELDS = ['id', 'from', 'until', 'recorded', 'by', 'why', 'edits', 'kind', 'note', 'decided', 'because', 'estate', 'agreed'];
 
 export const REACHES = ['sources', 'downstream'] as const;
 export type Reach = (typeof REACHES)[number];
@@ -495,10 +510,13 @@ export interface FlowPart {
   /** A use of a flow (ADR 0026 §11): what it is a use of, and what this use maps and sets. Its `id` is the use's name,
    * its `hash` the use's own, its `path` the used flow's. Absent for a flow read as it is. */
   use?: FlowUse;
+  /** Who owns its own part of the ontology (ADR 0027 §10), as its own document names them: whose agreement a change
+   * the business made to what it has waits for. Absent where it names none: the reading flow's owner. */
+  owners?: Owner[];
 }
 
 /** A flow part's fields: any other is refused by name. */
-const FLOW_PART_FIELDS = ['path', 'id', 'name', 'description', 'hash', 'sources', 'steps', 'reads', 'direct', 'pin', 'use'];
+const FLOW_PART_FIELDS = ['path', 'id', 'name', 'description', 'hash', 'sources', 'steps', 'reads', 'direct', 'pin', 'use', 'owners'];
 
 /** An open input of a flow (ADR 0026 §11): a dataset it reads in place of a file of its own. A flow that uses it maps
  * one of its own datasets onto it, and the flow's steps read the columns named here and no other. */
@@ -987,6 +1005,11 @@ export function validateDocument(doc: unknown): Issue[] {
   validateGates(doc, add);
   validateContracts(doc, add);
   validateChanges(doc, add);
+  // Who agreed to each change set (ADR 0027 §10): an owner of what it touches. Said of a document whose change sets,
+  // owners and flows are shaped as they should be, since it reads all three.
+  if (!issues.some((i) => i.path.startsWith('$.changes') || i.path.startsWith('$.flows') || i.path.startsWith('$.ontology.owners') || i.path.startsWith('$.ontology.estate') || i.path.startsWith('$.policies') || i.path === '$.ontology' || i.path === '$.name')) {
+    for (const i of agreedIssues(doc as unknown as FlowDocument)) add(i.path, i.message);
+  }
   validatePublish(doc, params, add);
   if (doc.calendar !== undefined) for (const [path, message] of calendarProblems(doc.calendar)) add(`$.calendar${path}`, message);
   validateFills(doc, steps, add);
@@ -1125,6 +1148,25 @@ function validateChanges(doc: Record<string, unknown>, add: (path: string, messa
     if (doc.smaltfl === 5) {
       if (cs.kind === undefined) add(`${at}.kind`, `a format-5 change set says its kind: one of ${CHANGE_KINDS.join(', ')}`);
       if (typeof cs.why === 'string' && cs.why.trim() === '') add(`${at}.why`, 'a format-5 change set says why, in a line');
+    }
+    // Who agreed (ADR 0027 §10): each an owner by id, at a moment not before it was recorded. Whether each owns a
+    // part it touches is said once the whole document is read (`agreedIssues`).
+    if (cs.agreed !== undefined) {
+      if (!Array.isArray(cs.agreed) || cs.agreed.length === 0) add(`${at}.agreed`, 'who agreed to it: a list of one or more { by, at, card? }; absent while no one has');
+      else {
+        const who = new Set<string>();
+        cs.agreed.forEach((a: unknown, j: number) => {
+          const aa = `${at}.agreed[${j}]`;
+          if (!isRecord(a)) return add(aa, 'an agreement: { by, at, card? }');
+          for (const k of Object.keys(a)) if (!AGREED_FIELDS.includes(k)) add(`${aa}.${k}`, `not a field of an agreement (${AGREED_FIELDS.join(', ')})`);
+          if (!text(a.by)) add(`${aa}.by`, 'who agreed: an owner, by id');
+          else if (who.has(a.by as string)) add(`${aa}.by`, `${String(a.by)} agreed once already`);
+          else who.add(a.by as string);
+          if (typeof a.at !== 'string' || !/^\d{4}-\d{2}-\d{2}T/.test(a.at) || Number.isNaN(Date.parse(a.at))) add(`${aa}.at`, 'when they agreed: an ISO 8601 time');
+          else if (typeof cs.recorded === 'string' && Date.parse(a.at) < Date.parse(cs.recorded)) add(`${aa}.at`, 'before the change was recorded: an agreement is to a change written down');
+          if (a.card !== undefined && (typeof a.card !== 'string' || !/^[0-9a-f]{64}$/.test(a.card))) add(`${aa}.card`, 'their identity card’s fingerprint: 64 hex digits, or left out');
+        });
+      }
     }
     if (cs.note !== undefined) {
       if (!isRecord(cs.note)) add(`${at}.note`, `the thinking behind it: { ${NOTE_FIELDS.join(', ')} }, each a string`);
@@ -1429,6 +1471,15 @@ function validateFlows(doc: Record<string, unknown>, ids: Map<string, string>, a
     seen.set(part.id.toLowerCase(), at);
     for (const r of part.reads) if (!parts.some((p) => p.id === r)) add(`${at}.reads`, `${part.name} reads ${r}, which isn't listed before it: a flow comes after the flows it reads, and none reads itself`);
     if (part.pin !== undefined && (!strings(part.pin) || part.pin.length === 0)) add(`${at}.pin`, 'the flows that pin it, by id: a list of names, the document’s own flow by an empty one');
+    // Who owns its own ontology (ADR 0027 §10), as its own document names them: each a principal of the reading flow,
+    // or said by name where its policies don't have them (the flow's own `owner` needs none).
+    for (const [path, message] of ownersIssues(f.owners)) add(`${at}.owners${path}`, message);
+    if (Array.isArray(f.owners)) {
+      const principals = new Set(isRecord(doc.policies) && Array.isArray(doc.policies.principals) ? doc.policies.principals.flatMap((x: unknown) => (isRecord(x) && typeof x.id === 'string' ? [x.id] : [])) : ['owner']);
+      f.owners.forEach((w: unknown, k: number) => {
+        if (isRecord(w) && typeof w.id === 'string' && w.id !== '' && w.name === undefined && !principals.has(w.id)) add(`${at}.owners[${k}].name`, `what ${w.id} is called: the flow that reads ${part.name} has no principal of that id to take it from`);
+      });
+    }
     if (part.use !== undefined) {
       const problem = useProblem(part.use);
       if (problem) add(`${at}.use`, problem);
@@ -1537,6 +1588,21 @@ function validateExtras(doc: Record<string, unknown>, ids: Map<string, string>, 
   if (o !== undefined) {
     if (!isRecord(o) || !Array.isArray(o.objectTypes) || !Array.isArray(o.linkTypes) || !Array.isArray(o.actionTypes)) add('$.ontology', '{ objectTypes, linkTypes, actionTypes }');
     else {
+      // Who owns the flow's own part of the ontology (ADR 0027 §10, Q-276): principals by id. A flow with policies
+      // names its own principals; one without, read under another flow's, says each owner's name unless it is `owner`.
+      if (o.owners !== undefined) {
+        const principals = isRecord(doc.policies) && Array.isArray(doc.policies.principals) ? new Set(doc.policies.principals.flatMap((x: unknown) => (isRecord(x) && typeof x.id === 'string' ? [x.id] : []))) : null;
+        for (const [path, message] of ownersIssues(o.owners)) add(`$.ontology.owners${path}`, message);
+        if (Array.isArray(o.owners)) o.owners.forEach((w: unknown, i: number) => {
+          if (!isRecord(w) || typeof w.id !== 'string' || w.id === '') return;
+          if (principals) {
+            if (!principals.has(w.id)) add(`$.ontology.owners[${i}].id`, `${w.id} is no principal of the flow: an owner is someone its policies name`);
+          } else if (w.id !== 'owner' && w.name === undefined) add(`$.ontology.owners[${i}].name`, `what ${w.id} is called: the flow has no policies to take it from`);
+        });
+      }
+      if (Array.isArray(o.estate)) o.estate.forEach((x: unknown, i: number) => {
+        if (isRecord(x)) for (const [path, message] of ownersIssues(x.owners, true)) add(`$.ontology.estate[${i}].owners${path}`, message);
+      });
       o.objectTypes.forEach((t: unknown, i: number) => {
         if (!isRecord(t) || typeof t.id !== 'string' || !Array.isArray(t.key) || typeof t.title !== 'string') return add(`$.ontology.objectTypes[${i}]`, '{ id, name, dataset, key, title }');
         if (types.has(t.id)) add(`$.ontology.objectTypes[${i}].id`, `duplicate object type ${t.id}`);

@@ -180,7 +180,7 @@ describe('a dataset described before its data exists (ADR 0027 §5, Q-255)', () 
 
   it('is a dated change: in force from its day, as known when it was recorded, and part of the rules in force', async () => {
     expect(EDIT_OPS).toContain('describeAhead');
-    const change: ChangeSet = { id: 'sbom-described', from: '2024-03-27', recorded: '2024-03-27T09:10:00Z', by: 'owner', why: 'The board asked for it before any tool reports on it', kind: 'business', edits: [{ op: 'describeAhead', dataset: SBOM }] };
+    const change: ChangeSet = { id: 'sbom-described', from: '2024-03-27', recorded: '2024-03-27T09:10:00Z', by: 'owner', why: 'The board asked for it before any tool reports on it', kind: 'business', edits: [{ op: 'describeAhead', dataset: SBOM }], agreed: [{ by: 'owner', at: '2024-03-27T09:10:00Z' }] };
     expect(changesProblems([change])).toEqual([]);
     expect(changesProblems([{ ...change, edits: [{ op: 'describeAhead', dataset: { ...SBOM, key: [] } }] } as ChangeSet]).map((i) => `${i.path}: ${i.message}`))
       .toEqual(['$.changes[0].edits[0].dataset.key: the columns that tell one row from another: a list of one or more']);

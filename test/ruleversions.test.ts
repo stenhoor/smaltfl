@@ -15,6 +15,7 @@ const latency = (max: number): RuleEdit => ({ op: 'setRule', rule: { id: 'latenc
 
 // Larkspur's story in small: a band from Mon 18 recorded Fri 15, and a change back-dated to Fri 1 recorded Mon 25.
 const story = {
+  name: 'A flow',
   changes: [
     change('band', '2024-03-18', '2024-03-15T16:30:00Z', [latency(20_000)]),
     change('hold', '2024-03-01', '2024-03-25T09:40:00Z', [latency(10_000)]),
@@ -40,7 +41,7 @@ describe('the versions of the rules', () => {
     expect(vs[2]!.spans.map((s) => [s.day, s.from, s.to])).toEqual([['2024-03-04', '2024-03-25T09:40:00.000Z', null], ['2024-03-17', '2024-03-25T09:40:00.000Z', null]]);
     expect(vs[3]!.spans.map((s) => s.day)).toEqual(['2024-03-18', '2024-03-31']);
     // A flow without change sets has one version.
-    expect(ruleVersions({}, days)).toEqual([{ changes: [], spans: days.map((day) => ({ day, from: null, to: null })) }]);
+    expect(ruleVersions({ name: 'A flow' }, days)).toEqual([{ changes: [], spans: days.map((day) => ({ day, from: null, to: null })) }]);
   });
 
   it('says the version in force on a day as known at a moment', () => {

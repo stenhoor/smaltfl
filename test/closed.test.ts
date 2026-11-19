@@ -263,7 +263,7 @@ describe('the edits a decision at the gate makes', () => {
 
   it('draws a new entry’s life from the day it was first named, and a changed one’s from before, as shipped', async () => {
     const base = await doc();
-    const set = (id: string, from: string, edits: ChangeSet['edits']): ChangeSet => ({ id, from, recorded: `${from}T09:00:00Z`, by: 'ciso', why: 'because', kind: 'business', edits });
+    const set = (id: string, from: string, edits: ChangeSet['edits']): ChangeSet => ({ id, from, recorded: `${from}T09:00:00Z`, by: 'ciso', why: 'because', kind: 'business', edits, agreed: [{ by: 'owner', at: `${from}T09:00:00Z` }] });
     const withChanges = { ...base, changes: [
       set('left', '2024-03-04', [{ op: 'leaveOut', file: 'controls', rule: 'control_id_closed', key: 'sbom' }]),
       set('new', '2024-03-06', [{ op: 'declareEntry', file: 'controls', rule: 'control_id_closed', entry: ['sbom', '2', 'daily'] }]),

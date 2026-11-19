@@ -262,10 +262,53 @@ export interface Ended {
 export const AWAITED_FIELDS = ['id', 'name', 'description', 'row', 'key', 'columns'] as const;
 export const AWAITED_COLUMN_FIELDS = ['column', 'title', 'description'] as const;
 
+/**
+ * Someone who owns a part of the ontology (ADR 0027 §10, Q-276): a principal, by the id the flows know them by; their
+ * name, where the part's own document has no principal of that id to take it from (an estate's ontology, a flow read
+ * under another flow's policies); and their identity card's fingerprint once it is known (ADR 0002 §1, Q-31), which
+ * binds an agreement to their browser when sharing is built (Q-35).
+ */
+export interface Owner {
+  id: string;
+  name?: string;
+  card?: string;
+}
+
+/** An owner's settings: any other is refused by name. */
+export const OWNER_FIELDS = ['id', 'name', 'card'] as const;
+
+/**
+ * What is wrong with a list of owners as written, each as `[path, what]` (the path from the list itself): one or more,
+ * each a principal's id once, its name a non-empty string where it has one (`named`: required, where the document has
+ * no principals to take it from), its card a fingerprint (64 hex digits) where it has one.
+ */
+export function ownersIssues(value: unknown, named = false): [path: string, message: string][] {
+  if (value === undefined) return [];
+  const rec = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+  if (!Array.isArray(value) || value.length === 0) return [['', 'who owns it: a list of one or more { id, name?, card? }; absent where its flow’s owner does']];
+  const out: [string, string][] = [];
+  const seen = new Set<string>();
+  value.forEach((o: unknown, i: number) => {
+    const at = `[${i}]`;
+    if (!rec(o)) return void out.push([at, 'an owner: { id, name?, card? }']);
+    for (const k of Object.keys(o)) if (!(OWNER_FIELDS as readonly string[]).includes(k)) out.push([`${at}.${k}`, `not a field of an owner (${OWNER_FIELDS.join(', ')})`]);
+    if (typeof o.id !== 'string' || o.id === '') out.push([`${at}.id`, 'a principal’s id']);
+    else if (seen.has(o.id)) out.push([`${at}.id`, `${o.id} is named twice`]);
+    else seen.add(o.id);
+    if (o.name !== undefined ? typeof o.name !== 'string' || o.name.trim() === '' : named) out.push([`${at}.name`, named ? 'what they are called: this document has no principals to take it from' : 'what they are called, or left out']);
+    if (o.card !== undefined && (typeof o.card !== 'string' || !/^[0-9a-f]{64}$/.test(o.card))) out.push([`${at}.card`, 'their identity card’s fingerprint: 64 hex digits, or left out']);
+  });
+  return out;
+}
+
 export interface Ontology {
   objectTypes: ObjectType[];
   linkTypes: LinkType[];
   actionTypes: ActionType[];
+  /** Who owns this flow's own part of the ontology (ADR 0027 §10): whose agreement a change the business made to it,
+   * or one that ends something of it, waits for. None named: the flow's owner. What an estate says is the estate's
+   * owners' (`estate`), and what a flow it reads says is that flow's (`FlowPart.owners`). */
+  owners?: Owner[];
   /** What the columns mean. */
   properties?: PropertyType[];
   /** Where those meanings come from. */

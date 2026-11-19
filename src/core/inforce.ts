@@ -15,6 +15,7 @@
  *   Every run's manifest names it (`flow.rules`).
  * - `dayOf`: the day a run is of, from its parameters.
  */
+import { knownFrom, type OwnedDoc } from './agree.js';
 import { canonicalJSON } from './canonical.js';
 import { periodOf, type CellRef, type ChangeSet, type FlowDocument, type NotebookDef, type NotebookOutline, type RuleEdit, type StepDef } from './document.js';
 import { applyBand, declareEntry, declareKey, declareValues, describeAhead, endThing, leaveOut, mapColumn, nameColumn, redefine, removeRule, setLink, setNeeds, setRows, setRule, setType, switchRule } from './flowedit.js';
@@ -96,18 +97,33 @@ export function applyEdit(doc: FlowDocument, edit: RuleEdit): { doc: FlowDocumen
 const dayPart = (day: string) => day.slice(0, 10);
 
 /**
- * The change sets in force on a day, as known at a moment: from that day or before, recorded by then (`asOf`, an ISO
- * time; none: all of them), in the order they were recorded, change sets recorded at the same moment in the order the
- * document lists them. `day` null (a run of no day): every change set recorded by then.
+ * The change sets in force on a day, as known at a moment: from that day or before, known by then (`asOf`, an ISO
+ * time; none: all of them), in the order they came to be known, change sets known from the same moment in the order
+ * the document lists them. `day` null (a run of no day): every change set known by then. A change set is known from
+ * the moment it was recorded, or, where it asks for an owner's agreement (ADR 0027 §10, Q-277: the business changed,
+ * or it ends something), from the moment it had it (`agree.ts` `knownFrom`): one that still waits is in force on no
+ * day. Who owns what is the document's to say, so the document is given whole.
  */
-export function changesOn(doc: Pick<FlowDocument, 'changes'>, day: string | null, asOf?: string | null): ChangeSet[] {
+export function changesOn(doc: OwnedDoc & Pick<FlowDocument, 'changes'>, day: string | null, asOf?: string | null): ChangeSet[] {
   const at = asOf ? Date.parse(asOf) : null;
   // One with a last day (`until`) is of its days alone: on or before it, and never a run of no day's.
-  return (doc.changes ?? [])
-    .map((c, i) => ({ c, i, t: Date.parse(c.recorded) }))
+  return inOrder(doc, doc.changes ?? [])
     .filter(({ c, t }) => (day === null ? c.until === undefined : c.from <= dayPart(day) && (c.until === undefined || dayPart(day) <= c.until)) && (at === null || t <= at))
-    .sort((x, y) => x.t - y.t || x.i - y.i)
     .map(({ c }) => c);
+}
+
+/**
+ * Change sets in the order they came to be known, each with that moment. Those that wait for agreement are left out;
+ * or, where a version names them (`waiting`: a change tried as if it were agreed to now), come last, in the order
+ * listed.
+ */
+function inOrder(doc: OwnedDoc, changes: readonly ChangeSet[], waiting = false): { c: ChangeSet; t: number }[] {
+  return changes
+    .flatMap((c, i) => {
+      const from = knownFrom(doc, c);
+      return from === null ? (waiting ? [{ c, i, t: Infinity }] : []) : [{ c, i, t: Date.parse(from) }];
+    })
+    .sort((x, y) => (x.t === y.t ? 0 : x.t - y.t) || x.i - y.i);
 }
 
 /** A change set as it applied to a day's rules: what each of its edits did, in words, and how many didn't apply. */
@@ -157,17 +173,15 @@ export function resolve(doc: FlowDocument, day: string | null, asOf?: string | n
 export const versionSaid = (changes: readonly string[]): string => `Took the rules ${changes.length ? `of ${changes.join(', ')}` : 'as shipped'}`;
 
 /**
- * A version's rules (ADR 0022 §1): the base with these change sets, each edit applied in turn, in the order they were
- * recorded (those recorded at once in the order listed), whatever days they are of. A version taken inside one of them
- * is the base with its own (they were recorded before it, so this ends).
+ * A version's rules (ADR 0022 §1): the base with these change sets, each edit applied in turn, in the order they came
+ * to be known (those known from one moment in the order listed), whatever days they are of. A version taken inside one
+ * of them is the base with its own (they were recorded before it, so this ends).
  */
 export function versionRules(base: FlowDocument, changes: readonly ChangeSet[], ids: readonly string[], depth = 0): FlowDocument {
   if (depth > changes.length) return base;
-  const sets = changes
-    .map((c, i) => ({ c, i, t: Date.parse(c.recorded) }))
-    .filter(({ c }) => ids.includes(c.id))
-    .sort((x, y) => x.t - y.t || x.i - y.i)
-    .map(({ c }) => c);
+  // A version is the change sets it names, whatever stands between one of them and its owners: a change that waits
+  // for agreement, tried, is applied after those in force.
+  const sets = inOrder(base, changes.filter((c) => ids.includes(c.id)), true).map(({ c }) => c);
   let out = base;
   for (const c of sets)
     for (const e of c.edits) {

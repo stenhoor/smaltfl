@@ -47,7 +47,7 @@ const flow = (changes: ChangeSet[] = []): FlowDocument =>
     ...(changes.length ? { changes } : {}),
   }) as FlowDocument;
 const doc = (changes?: ChangeSet[]) => expandNotebooks(flow(changes), ts);
-const set = (id: string, from: string, edits: ChangeSet['edits'], more: Partial<ChangeSet> = {}): ChangeSet => ({ id, from, recorded: `${from}T09:10:00Z`, by: 'ciso', why: 'The control board added it', kind: 'business', edits, ...more });
+const set = (id: string, from: string, edits: ChangeSet['edits'], more: Partial<ChangeSet> = {}): ChangeSet => ({ id, from, recorded: `${from}T09:10:00Z`, by: 'ciso', why: 'The control board added it', kind: 'business', edits, agreed: [{ by: 'owner', at: `${from}T09:10:00Z` }], ...more });
 const SBOM = set('sbom-declared', '2024-03-27', [{ op: 'declareEntry', file: 'controls', rule: 'control_id_closed', entry: ['sbom', '2', 'daily'] }]);
 
 describe('the rules as they were, for a change’s first day', () => {

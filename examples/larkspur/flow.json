@@ -58,6 +58,9 @@
     "import": [
       "./ontology.json"
     ],
+    "owners": [
+      { "id": "ciso" }
+    ],
     "rules": [
       {
         "id": "control_id_closed",
@@ -1507,7 +1510,7 @@
     },
     "context_changes": {
       "id": "control-posture/context_changes",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "status": "active",
       "description": {
         "purpose": "The dated changes to the ontology in force on the day, one row a change and a dataset it reaches",
@@ -1604,6 +1607,18 @@
           "name": "decided_on",
           "type": "TEXT",
           "description": "The day it was chosen",
+          "classification": "internal"
+        },
+        {
+          "name": "agreed_by",
+          "type": "TEXT",
+          "description": "The owners of what it touches who agreed to it, where its kind asks for agreement",
+          "classification": "internal"
+        },
+        {
+          "name": "agreed_at",
+          "type": "TEXT",
+          "description": "When it had that agreement, and took effect",
           "classification": "internal"
         },
         {

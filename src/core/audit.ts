@@ -28,6 +28,7 @@
  * signer's fingerprint from its owner, and the data list from the data branch (`git show <commit>:MANIFEST.json`).
  * The script (scripts/audit.mjs) and the tests use this; nothing here needs a browser or the engine.
  */
+import { agreedIssues, agreementOf } from './agree.js';
 import { checkBag, readBagInfo, type BagFile } from './bag.js';
 import { contextTables, type FlowDocument } from './document.js';
 import { sha256Hex } from './hash.js';
@@ -725,6 +726,54 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
       a.same.length ? `${decides ? 'noted' : reasoned ? 'signed off' : 'noted at once (before ADR 0022 made a sign-off need a reason)'} ${days(a.same.length)} as the same` : null,
     ].filter((x): x is string => x !== null).join('; ');
     say(problems.length === 0, `${where}: under ${a.changes.join(', ')} from ${a.from}, by ${e.by.as}: ${what || 'no day'}${problems.length ? `: ${problems.join('; ')}` : ''}`);
+  }
+
+  // Who decides (ADR 0027 §10, Q-276, Q-277): the flow as the record kept it, each time it changed. Every agreement a
+  // change set carries is by an owner of what it touches, as that document names its owners; and a change set or an
+  // agreement that came with an entry of this record was made by whoever made the entry, so who made a change and who
+  // agreed to it are the record's to say, not the document's alone. The change sets the flow had when the record
+  // first saw it came with the flow: they are held to the names. An estate's own change sets are its file's.
+  {
+    let before: FlowDocument | null = null;
+    let last: { seq: number; doc: FlowDocument } | null = null;
+    for (const e of entries.filter((x) => x.kind === 'flow')) {
+      const a = e.about as { doc?: unknown } | null;
+      const f = typeof a?.doc === 'string' ? blobs.get(`flow-${a.doc}`) : undefined;
+      if (!f) continue;
+      let doc: FlowDocument;
+      try {
+        doc = JSON.parse(text(f.bytes)) as FlowDocument;
+      } catch {
+        continue;
+      }
+      const problems = agreedIssues(doc).map((i) => i.message);
+      if (before !== null) {
+        const had = new Map((before.changes ?? []).map((c) => [c.id, c] as const));
+        for (const c of doc.changes ?? []) {
+          if (c.estate !== undefined) continue;
+          const was = had.get(c.id);
+          if (!was && c.by !== e.by.as) problems.push(`${c.id} says ${c.by} made it, and ${e.by.as} recorded it`);
+          for (const g of c.agreed ?? []) {
+            if (was?.agreed?.some((x) => x.by === g.by && x.at === g.at)) continue;
+            if (g.by !== e.by.as) problems.push(`${c.id} says ${g.by} agreed to it, and ${e.by.as} recorded that`);
+            else if (g.card !== undefined && g.card !== e.by.card) problems.push(`${c.id} says ${g.by} agreed to it by the card ${shortHash(g.card)}, and the entry that recorded it was made by ${e.by.card === null ? 'no card' : shortHash(e.by.card)}`);
+            if (Date.parse(g.at) > Date.parse(e.at)) problems.push(`${c.id} says ${g.by} agreed to it after the entry that recorded it`);
+          }
+        }
+      }
+      if (problems.length) say(false, `the flow as kept at #${e.seq}: ${problems.join('; ')}`);
+      before = doc;
+      last = { seq: e.seq, doc };
+    }
+    if (last) {
+      const stand = (last.doc.changes ?? []).map((c) => ({ c, a: agreementOf(last!.doc, c) }));
+      const asked = stand.filter((x) => x.a.asked);
+      const waits = asked.filter((x) => x.a.waiting.length > 0);
+      const own = asked.filter((x) => x.a.same);
+      if (stand.length) {
+        say(true, `the flow as kept at #${last.seq}: ${stand.length} change set${stand.length === 1 ? '' : 's'}, ${asked.length} asking for an owner’s agreement${asked.length ? `: ${asked.length - waits.length} ${asked.length - waits.length === 1 ? 'has' : 'have'} it, each from an owner of what it touches${own.length ? ` (${own.length} from ${own.length === 1 ? 'its' : 'their'} own author, who held both roles)` : ''}${waits.length ? `; ${waits.length} ${waits.length === 1 ? 'waits' : 'wait'} (${waits.map((x) => x.c.id).join(', ')}), in force on no day` : ''}` : ''}`);
+      }
+    }
   }
 
   // Each dataset's proof: its run entry is in the record, and the run's manifest made that dataset with that content.

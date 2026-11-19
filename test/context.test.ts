@@ -55,7 +55,7 @@ const flow = (changes: ChangeSet[] = [], nb = NB): FlowDocument =>
     ...(changes.length ? { changes } : {}),
   }) as FlowDocument;
 const doc = (changes?: ChangeSet[], nb?: string) => expandNotebooks(flow(changes, nb), ts);
-const set = (id: string, from: string, edits: ChangeSet['edits'], more: Partial<ChangeSet> = {}): ChangeSet => ({ id, from, recorded: `${from}T09:10:00Z`, by: 'ciso', why: 'The control board added it', kind: 'business', edits, ...more });
+const set = (id: string, from: string, edits: ChangeSet['edits'], more: Partial<ChangeSet> = {}): ChangeSet => ({ id, from, recorded: `${from}T09:10:00Z`, by: 'ciso', why: 'The control board added it', kind: 'business', edits, agreed: [{ by: 'owner', at: `${from}T09:10:00Z` }], ...more });
 const SBOM = set('sbom-declared', '2024-03-27', [{ op: 'declareEntry', file: 'controls', rule: 'control_id_closed', entry: ['sbom', '2', 'daily'] }], { decided: { by: 'board', on: '2024-03-26' }, because: { event: 'audit' } });
 // A change about no dataset the flow has: a dataset described ahead of its data.
 const LINK = set('acting', '2024-03-11', [{ op: 'describeAhead', dataset: { id: 'sbom_inventory', name: 'SBOM inventory', row: { one: 'component list', many: 'component lists' }, key: ['app_id'], columns: [{ column: 'app_id', description: 'The application' }] } }], { recorded: '2024-03-08T14:00:00Z' });
@@ -101,7 +101,7 @@ describe('a run’s context tables', () => {
     const row = Object.fromEntries(CONTEXT_COLUMNS.changes.map(([name], k) => [name, rows.changes[1]![k]]));
     expect(row).toEqual({
       change: 'sbom-declared', dataset: 'controls', reach: 'direct', kind: 'business', from_day: '2024-03-27', until_day: null,
-      what: 'Declared sbom in controls', why: 'The control board added it', recorded_at: '2024-03-27T09:10:00Z', recorded_by: 'ciso', decided_by: 'board', decided_on: '2024-03-26', because_of: 'audit', estate: null,
+      what: 'Declared sbom in controls', why: 'The control board added it', recorded_at: '2024-03-27T09:10:00Z', recorded_by: 'ciso', decided_by: 'board', decided_on: '2024-03-26', agreed_by: 'owner', agreed_at: '2024-03-27T09:10:00Z', because_of: 'audit', estate: null,
       step_day: '2024-03-27', step_measured: 2, step_moved: 2, step: 'score: 77.78 → 63.64; rows:dim: 3 → 4',
     });
     expect(stepSaid({ moved: [] })).toBe('');

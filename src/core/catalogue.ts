@@ -116,7 +116,11 @@ export function addProblems(doc: FlowDocument, own: FlowDocument): string[] {
 /** An ontology with another's parts that it doesn't have yet: a thing both say is said once, the first one's. */
 function withOntology(a: Ontology | undefined, b: Ontology | undefined): Ontology | undefined {
   if (!b) return a;
-  if (!a) return b;
+  // Who owns the added flow's own ontology (ADR 0027 §10) stays with its part of the document, never the document's own.
+  if (!a) {
+    const { owners: _owners, ...rest } = b;
+    return rest;
+  }
   const byId = <T extends { id: string }>(xs: readonly T[] | undefined, ys: readonly T[] | undefined): T[] => [...(xs ?? []), ...(ys ?? []).filter((y) => !(xs ?? []).some((x) => x.id === y.id))];
   // A column's meaning: one already said for every dataset, or for each dataset the new one names, stands.
   const covered = (p: PropertyType) => (a.properties ?? []).some((x) => lower(x.column) === lower(p.column) && (same(x, p) || (x.datasets === undefined && p.datasets === undefined)
@@ -136,6 +140,7 @@ function withOntology(a: Ontology | undefined, b: Ontology | undefined): Ontolog
     objectTypes: byId(a.objectTypes, b.objectTypes),
     linkTypes: byId(a.linkTypes, b.linkTypes),
     actionTypes: byId(a.actionTypes, b.actionTypes),
+    ...(a.owners ? { owners: a.owners } : {}),
     ...(properties.length ? { properties } : {}),
     ...(references.length ? { references } : {}),
     ...(Object.keys(nouns).length ? { nouns } : {}),
@@ -189,6 +194,7 @@ export function addFlow(doc: FlowDocument, own: FlowDocument, path: string, hash
     reads: [...new Set([...(own.flows ?? []).filter((f) => f.direct).map((f) => f.id), ...Object.values(own.use?.inputs ?? {}).flatMap((x) => flowOf(doc, x.to)?.id ?? [])])],
     direct: true,
     ...(own.use ? { use: own.use } : {}),
+    ...(own.ontology?.owners ? { owners: own.ontology.owners } : {}),
   };
   return {
     ...doc,

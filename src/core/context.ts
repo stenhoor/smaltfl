@@ -5,7 +5,7 @@
  *
  * - `changes`: the dated changes in force on the day, a row a change and a dataset it reaches (the file or step it is
  *   about, and everything built from it), with its kind, its first and last day, what it did and why in its author's
- *   words, who recorded and who decided it, and its own step where one was measured.
+ *   words, who recorded it, who decided it and who agreed to it, and its own step where one was measured.
  * - `events`: what was going on that day, a row an event and a dataset it reaches, with which day of it this is and
  *   what it excuses there.
  * - `in_force`: a row a dataset of the day, with the version of the ontology it was read under (the rules in force, by
@@ -18,6 +18,7 @@
  *
  * Pure: no DOM, no engine.
  */
+import { agreementOf } from './agree.js';
 import { editTargets, flowOf, type ChangeSet, type ContextTable, type FlowDocument } from './document.js';
 import { covers, eventDay, latestEvents, type FlowEvent } from './events.js';
 import { resolve, rulesHash, type Applied } from './inforce.js';
@@ -31,7 +32,7 @@ export type ContextCell = string | number | null;
 export const CONTEXT_COLUMNS: Readonly<Record<ContextTable, readonly (readonly [name: string, type: 'text' | 'int'])[]>> = {
   changes: [
     ['change', 'text'], ['dataset', 'text'], ['reach', 'text'], ['kind', 'text'], ['from_day', 'text'], ['until_day', 'text'], ['what', 'text'], ['why', 'text'],
-    ['recorded_at', 'text'], ['recorded_by', 'text'], ['decided_by', 'text'], ['decided_on', 'text'], ['because_of', 'text'], ['estate', 'text'],
+    ['recorded_at', 'text'], ['recorded_by', 'text'], ['decided_by', 'text'], ['decided_on', 'text'], ['agreed_by', 'text'], ['agreed_at', 'text'], ['because_of', 'text'], ['estate', 'text'],
     ['step_day', 'text'], ['step_measured', 'int'], ['step_moved', 'int'], ['step', 'text'],
   ],
   events: [
@@ -141,10 +142,14 @@ export async function contextRows(kept: FlowDocument, day: string | null, asOf: 
     const c = a.change;
     const step = steps.get(c.id);
     const what = saidOf(a);
+    // Who agreed to it, where its kind asks for agreement (ADR 0027 §10): an owner of each part it touches, and the
+    // moment it had them all, from which it is in force.
+    const agreement = agreementOf(doc, c);
+    const agreedBy = agreement.asked ? [...new Set(agreement.parts.flatMap((p) => (p.agreed ? [p.agreed.by] : [])))].join(', ') || null : null;
     for (const r of reaches(doc, changeAbout(c))) {
       changes.push([
         c.id, r.dataset, r.reach, c.kind ?? null, c.from, c.until ?? null, what, c.why ?? null,
-        c.recorded, c.by, c.decided?.by ?? null, c.decided?.on ?? null, c.because?.event ?? null, c.estate ?? null,
+        c.recorded, c.by, c.decided?.by ?? null, c.decided?.on ?? null, agreedBy, agreement.asked ? agreement.since : null, c.because?.event ?? null, c.estate ?? null,
         step?.day ?? null, step ? step.measured : null, step ? step.moved.length : null, step ? stepSaid(step) || null : null,
       ]);
     }

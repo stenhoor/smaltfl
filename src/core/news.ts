@@ -959,6 +959,8 @@ const empty: ValueHistory = { values: [], first: [], last: [], days: [], rows: [
 export interface TableFacts {
   /** What its rows are, said: "zones", "rows". */
   noun: string;
+  /** What one of them is called, where it is known: a table of one row says "1 row", not "1 rows". */
+  one?: string;
   rows: number;
   columns: { name: string; present: number; distinct: number; added?: boolean }[];
   /** The columns a join reads it by, together, with the join: their values together should be on one row only, or the
@@ -1021,7 +1023,7 @@ export function tableNewsOf(f: TableFacts, names: Names): Finding[] {
       ...f.keys.map((k) => `each ${listed(k.columns.map(names.column))} once${k.columns.length > 1 ? ' together' : ''}`),
       ...f.unmatched.filter((u) => u.rows === 0).map((u) => (u.own ? `every row finds its match in ${u.own}` : `every row of ${u.by} finds its row here`)),
     ];
-    out.unshift({ key: 'calm', kind: 'calm', severity: 'ok', score: 0, title: 'Nothing out of the ordinary', detail: `${fmtInt(f.rows)} ${f.noun}${rest.length ? `: ${listed(rest)}` : ''}.`, look: 'columns', rows: f.rows, acts: [] });
+    out.unshift({ key: 'calm', kind: 'calm', severity: 'ok', score: 0, title: 'Nothing out of the ordinary', detail: `${fmtInt(f.rows)} ${f.rows === 1 && f.one ? f.one : f.noun}${rest.length ? `: ${listed(rest)}` : ''}.`, look: 'columns', rows: f.rows, acts: [] });
   }
   return out;
 }

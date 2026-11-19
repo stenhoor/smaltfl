@@ -941,6 +941,83 @@ what it comes through.
 - **Marks, not bands, on a dataset's own charts.** An event is said in the card's Context and drawn as a band on the
   month's trend only; the posture dashboard's sparklines and Explore's cards carry no mark.
 
+### Slice 8: who decides (2026-11-19)
+
+The ontology names who owns each of its parts, a change the business made waits for an owner's agreement, and the
+audit holds one to the other (§10, Q-276, Q-277). No hash tag gains a version: an owner named is part of the ontology
+it is written in, hashed with it as everything in it is, and a document that names none hashes as it did.
+
+**Owners** (`src/core/agree.ts`, Q-320). An ontology is owned part by part: an estate's shared ontology (`owners` in
+its document) and each flow's own (`ontology.owners` in its `flow.json`). An owner is a principal by the id the
+flows know them by, with a name where the part's document has no principal to take it from, and their identity
+card's fingerprint once it is known. A part that names none is its flow's owner's: the principals its policies mark
+as owning the flow, and `owner` in a flow with none. Reading flows together keeps each part's owners with it: a read
+flow's on its part of the document (`FlowPart.owners`), an estate's on where it came from (`EstateFrom.owners`),
+never merged into the reader's own, and verify's *flows* check holds a part's owners to the flow's own document.
+Larkspur's estate and its posture product are the security lead's; each flow it reads is its owner's.
+
+**Which changes ask** (`asksAgreement`, Q-321): one of kind *the business changed*, and one that ends something,
+whatever its kind. A setting re-tuned, a mistake corrected, a changed source and a first description need only
+their author. What a change touches (`partsOf`) is the estate's ontology for the estate's own change, and else the
+own ontology of each flow that has a file or step the change is about, the flow's own where it is about none.
+
+**Agreement is the change set's** (`ChangeSet.agreed`: who, when, and by which card where one signed). A change
+that asks is in force once an owner of every part it touches has agreed, **from the moment of the last of those
+agreements** (`agreementOf`, `knownFrom`, Q-322). The rules in force on a day as known at a moment are the change
+sets known from that moment or before, applied in the order they came to be known (`changesOn`), so one agreed to
+late comes after one recorded since. A change that still waits is in force on no day: no run has it, no version of
+the rules is made of it, and a version that names it (a trial) applies it last. The story's recorder places a
+change where it came to be known (`timelineOf`'s `knownFrom`), and the days it reaches that had already run are run
+again as for any change back-dated to them. A document refuses an agreement by someone who owns no part the change
+touches (`agreedIssues`), and holds an owner whose card is known to that card.
+
+**One person may hold both roles** (Q-323), until sharing is built (Q-35). Whoever makes a change and owns what it
+touches agrees by recording it: the agreement names them, and the register says *one person held both roles*.
+Larkspur's story has both cases: the WAF's band and the estate's relation were agreed to by their own authors; the
+catalogue's fifteenth control was written down by the flow's owner at 09:10 on Wed 27 and agreed to by the security
+lead at 09:15, the moment it is in force from.
+
+**In the app.** The Ontology view's register opens with **Who owns it**: each part with its owners, and the rule
+above in words. The form that asks why says, as the kind is picked, whose agreement it asks for: none; the
+viewer's own, given by recording it; or someone else's, in which case it will wait. A change that waits is first on
+the register under its own heading, with whose agreement it waits for and what it would do; the day's head and a
+flow's sheet say it waits, never that it is coming; a thing it would add, change or end says *once agreed to*.
+Viewing as an owner of a part it waits for, the entry offers **Agree** (`agreeToChange`): whoever owns the part may
+agree, the flow's owner or not, while making changes stays the flow's owner's (Q-325). An agreed change says who
+agreed, when and how long after it was recorded. A declaration at the gate is a change like any other: made by
+someone who owns what it touches, the day runs again under it at once; made by someone else, it waits, the day
+stays stopped, and the gate says whose agreement the declaration waits for in place of offering to declare it
+again. `context_changes` carries `agreed_by` and `agreed_at` (its
+contract at 1.1.0, Q-326).
+
+**The audit** (`audit.ts`, Q-324). For each flow document the record kept: every agreement is by an owner of what
+its change touches, as that document names its owners; and a change set or an agreement that came with an entry of
+the record was made by whoever made the entry (and by the card that signed it, where the agreement names one), so
+who made a change and who agreed to it are the record's to say. It reports how many change sets asked, how many
+have their agreement, how many of those from their own author, and which wait. The change sets a flow had when
+the record first saw it are held to the names alone.
+
+**What it leaves.**
+
+- **Cards don't bind yet.** An owner's card is held where the ontology gives one, and no demo gives one: between
+  several people's browsers it binds when sharing is built (Q-35), as §10 says.
+- **Owners are written in the files.** The app shows who owns each part and doesn't change it.
+- **A part, not a rule.** Ownership is of an estate's ontology or a flow's own, never of one dataset or one check.
+- **The audit doesn't make each run's rules again** from the flow as kept and the run's moment: a run that had a
+  change no owner had agreed to fails verify's rules hash in the engine, and isn't looked for offline. It still
+  doesn't hold a run's context tables to the record either (slice 7 left it, Q-313): both need the moment a run's
+  rules were known at, which a run's entry doesn't keep.
+- **A flow with no policies is `owner`'s.** A flow read under another's policies has none of its own, and its own
+  document, read alone, takes `owner` for its owner: it holds an agreement its reader's owner gave only where that
+  owner is called `owner`, as every demo's is, or where the flow names its owners itself.
+- **An agreement isn't withdrawn.** A later change says otherwise, and both stay on the register.
+- **A trial of a waiting change** runs under its rules and has it in no context table: the tables are the changes
+  in force.
+- **Events ask for no agreement:** they are context a person wrote down, and change nothing a run is judged by
+  but what they excuse.
+- **The story's agreements have no entry of their own** in the month the build records: they are the flow's as
+  shipped, on its change sets.
+
 ## Consequences
 
 - **A flow can stop for a reason it never could:** the data is ahead of the ontology. That is the point of the gate,
@@ -1080,6 +1157,27 @@ Proposed with slice 7, as built:
   data and lists a context table that differs apart.
 - **Q-319:** a card's Context is read as known at the moment the page reads at, and says what was written down or
   recorded after the version on screen ran. The published tables stay as the run knew them.
+
+Proposed with slice 8, as built:
+
+- **Q-320:** owners are named part by part, in each part's own document: an estate's ontology, and each flow's own.
+  An owner is a principal by id, a name where the document has no principal to take it from, and a card's
+  fingerprint once known. A part that names none is its flow's owner's. No finer than a part.
+- **Q-321:** a change asks for agreement where its kind is *the business changed*, and where one of its edits ends
+  something (§2, Q-264), whatever its kind. A rule taken off or a check switched off isn't an ending in that sense:
+  it asks by its kind.
+- **Q-322:** an agreed change is in force from the moment of the last agreement it needed, and the change sets in
+  force are applied in the order they came to be known. One that waits is in force on no day. `rules/1` is as it
+  was: the rules in force are what the change sets known make.
+- **Q-323:** one person may hold both roles until sharing is built: an author who owns what the change touches
+  agrees by recording it, the agreement names them, and the screen and the audit say so.
+- **Q-324:** the audit holds each agreement in each flow document the record kept to that document's owners, and
+  each change set and agreement that came with an entry to whoever made the entry. It doesn't make a run's rules
+  again from the flow as kept.
+- **Q-325:** whoever owns a part a change waits for may agree to it in the app, the flow's owner or not; making a
+  change stays the flow's owner's.
+- **Q-326:** the published `context_changes` says who agreed and when (`agreed_by`, `agreed_at`), a column added:
+  its contract is 1.1.0.
 
 ## The questions
 

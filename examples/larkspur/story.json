@@ -33,6 +33,7 @@
       "why": "After Tuesday's monitor mode, the security lead wants a WAF failing more than a tenth of its applications held, from Monday",
       "kind": "business",
       "decided": { "by": "Sloane Marsden", "on": "2024-03-14" },
+      "agreed": [{ "by": "owner", "at": "2024-03-15T16:30:00Z" }],
       "because": { "event": "waf-monitor-mode" },
       "note": {
         "saw": "ing-east-3 ran in monitor mode on Tue 12, and 59.6% of its applications failed WAF",
@@ -62,6 +63,7 @@
       "why": "The control board added a software bill of materials for every application we host: the catalogue lists it from today, before any tool reports on it, and the feed it will be evidenced by is described ahead",
       "kind": "business",
       "decided": { "by": "Sloane Marsden", "on": "2024-03-26" },
+      "agreed": [{ "by": "ciso", "at": "2024-03-27T09:15:00Z" }],
       "note": {
         "saw": "The GRC tool's catalogue listed a fifteenth control this morning, and the posture product stopped at the gate",
         "chose": "Declare it from today, with the weight the board gave it",

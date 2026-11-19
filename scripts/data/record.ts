@@ -73,6 +73,7 @@ import type { FileFacts } from '../../src/core/news.js';
 import { isPublish2, type FlowPlan } from '../../src/core/plan.js';
 import { policiesHash, type RunManifest } from '../../src/core/manifest.js';
 import { checkDecision } from '../../src/core/policy.js';
+import { knownFrom } from '../../src/core/agree.js';
 import { contextTables, fillStepOf, type ChangeSet } from '../../src/core/document.js';
 import { withRoles } from '../../src/core/deciding.js';
 import { storyProblems, timelineOf, type StoryFile, type StoryFill, type StoryRestatement } from '../../src/core/timeline.js';
@@ -790,13 +791,21 @@ async function main(): Promise<void> {
       }
       return got;
     };
+    /** The moment a change set is known from (ADR 0027 §10): when it was recorded, or, where it asks for an owner's
+     * agreement, when it had it; null while it waits. The flow's document says who owns what. */
+    const knownAt = (c: ChangeSet): string | null => knownFrom(flowDoc, (flowDoc.changes ?? []).find((x) => x.id === c.id) ?? c);
+    const isKnown = (c: ChangeSet, at: string): boolean => {
+      const known = knownAt(c);
+      return known !== null && Date.parse(known) <= Date.parse(at);
+    };
     /** The change sets a restatement took up. */
     const restatedChanges = (): Set<string> => new Set(entries.flatMap((e) => (e.kind === 'restate' ? (e.about as unknown as RestateAbout).changes : [])));
     /** The days a change set reaches: each day run so far, from its day (to its last, ADR 0022 §1), whose version
      * readers got ran before it was recorded, so under rules that didn't have it. */
     const reachedBy = (c: ChangeSet): string[] => [...made.keys()].filter((day) => {
       const g = day >= c.from && (c.until === undefined || day <= c.until) ? gotOf(day) : null;
-      return !!g && Date.parse(g.made.at) < Date.parse(c.recorded);
+      const known = knownAt(c);
+      return !!g && known !== null && Date.parse(g.made.at) < Date.parse(known);
     }).sort();
     const changesKey = (ids: readonly string[]) => [...ids].sort().join(',');
     /** A day's latest run again under these change sets, and its outcome against what readers got (`restatedOutcome`). */
@@ -819,7 +828,7 @@ async function main(): Promise<void> {
      */
     const changeOnce = async (c: ChangeSet, at: string): Promise<void> => {
       const taken = restatedChanges();
-      const pending = changes.filter((x) => Date.parse(x.recorded) <= Date.parse(at) && !taken.has(x.id) && reachedBy(x).length > 0);
+      const pending = changes.filter((x) => isKnown(x, at) && !taken.has(x.id) && reachedBy(x).length > 0);
       const reached = [...new Set(pending.flatMap((x) => reachedBy(x)))].sort();
       if (!pending.some((x) => x.id === c.id) || !reached.length) {
         console.log(`${c.id}: in force from ${c.from}, as known from ${at}; it reaches no day already run`);
@@ -878,7 +887,7 @@ async function main(): Promise<void> {
     // The month in time order (ADR 0021 §6): each day's first run when its files arrived, each delivery when it arrived,
     // each decision when it was taken, each change to the rules when it was recorded, each restatement when decided.
     const dayOf = new Map(days.map((d) => [d.slot, d]));
-    for (const ev of timelineOf(days.map((d) => d.slot), (day) => new Date(Date.parse(arrived(dayOf.get(day)!))).toISOString(), story)) {
+    for (const ev of timelineOf(days.map((d) => d.slot), (day) => new Date(Date.parse(arrived(dayOf.get(day)!))).toISOString(), story, knownAt)) {
       const at = new Date(Date.parse(ev.at)).toISOString();
       if (ev.kind === 'day') {
         const d = dayOf.get(ev.day)!;
@@ -892,7 +901,7 @@ async function main(): Promise<void> {
         // The day a change said ahead takes effect (ADR 0027 §7): run again as it was, for the change's own step.
         let stepAt = Date.parse(at);
         for (const c of flowDoc.changes ?? []) {
-          if (c.from === ev.day && Date.parse(c.recorded) <= Date.parse(at)) await stepOnce(c, new Date((stepAt += 1000)).toISOString());
+          if (c.from === ev.day && isKnown(c, at)) await stepOnce(c, new Date((stepAt += 1000)).toISOString());
         }
       } else if (ev.kind === 'delivery') {
         // A later delivery (ADR 0021 §2): the day's files with the one sent again in its place, run as a correction of the
