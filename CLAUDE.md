@@ -14,13 +14,13 @@ match smaltdb's `CLAUDE.md`.
 | `npm ci && npm run deps` | Installs dependencies, then the pinned builds of stenhoor's smalt repositories in `packed.json` (smaltdb, smaltql, the `@smaltdb/*` plugins, smaltnb, smaltkit) | First, and again after every `npm ci` or `npm install` |
 | `npm run deps:latest` | Moves every pin in `packed.json` to the latest commit of its repository's `main` and installs them (`-- --check` only says which are behind). See "The smalt repositories" | At the start of every session, before other work |
 | `npm run check` | `npm run typecheck` then `npm test` (vitest, under a minute on four cores) | Before every commit |
-| `npm run test:slow` | The month-long engine runs `npm test` leaves out (`SLOW` in `vitest.config.ts`: `test/estate-flow.test.ts`, about 90 s). CI runs it, and `npm run test:isolated` (every file in a fresh module graph), in a job beside `test` | Changes to the runtime, the gates or the estate |
-| `npm run test:tour` | The tour's answer key (`test/larkspur-tour.test.ts`, ADR 0023): Larkspur's tour, February and March, made at the demo's scale as the build makes it (`scripts/data/make.mjs`), about ten minutes in CI; a CI job of its own. `SMALTFL_TOUR_WORK=<folder>` checks a month made already (the build's cache) | Changes to the judge, the recorder, the generator or the tour's story |
+| `npm run test:slow` | The month-long engine runs `npm test` leaves out (`SLOW` in `vitest.config.ts`: `test/estate-flow.test.ts`, about 90 s). CI runs it in a job beside `test`, and `npm run test:isolated` (every file in a fresh module graph) in another | Changes to the runtime, the gates or the estate |
+| `npm run test:tour` | The tour's answer key (`test/larkspur-tour.test.ts`, ADR 0023): Larkspur's tour, February and March, made at the demo's scale as the build makes it (`scripts/data/make.mjs`), a quarter of an hour. `SMALTFL_TOUR_WORK=<folder>` checks a month made already (the build's cache), in half a second: what CI runs, on the data its tour demo is built from (a step of the tour's first shard, `.github/workflows/demo.yml`) | Changes to the judge, the recorder, the generator or the tour's story |
 | `npm run build` | `dist/`: the core (`index.js`), the runtime plugin (`plugin/index.js`) and their declarations | Packaging checks |
 | `npm run docs:dev` | The site (VitePress, `docs/`, the brand kit copied unchanged into `docs/.vitepress/theme/`); `.github/workflows/docs.yml` deploys it to GitHub Pages with Larkspur's tour at `/app/` (the demo, ADR 0023), Evidence feeds' own page at `/feeds/` (a flow the estate reads, on the tour's files, ADR 0026 §6), Larkspur's planted month at `/larkspur/` (ADR 0020), the control estate at `/estate/` and the sign-ins at `/signins/` (each build writes `index.html` beside `page.html`) | Docs and site changes |
 | `npm run bench` | The scenario benchmarks in `bench/`, written to `bench/results/node.json` | Changes that could affect speed |
-| `npm run build:app` | The app in `dist/app` on Larkspur (`examples/larkspur/`, its notebooks expanded, shipped as `data/flow.json`, its days generated from its seed); `-- --variant tour --out dist/app-tour` for its tour, February and March, the demo (ADR 0023, the data list's `variants`; its scenes listed on the month screen from `scenes.json`); `-- --flow examples/security-signins/flow.json --out dist/app-signins` for the sign-ins (its generator's `--demo` days from the data list's `generateArgs`); `-- --flow examples/larkspur/feeds/flow.json --out dist/app-feeds` for Evidence feeds' own page; `--page id=address[=name]` names the pages of the site that share a flow with it (ADR 0026 §6). Bundles are named by content (`bundles.json`). A generated flow's days, histories and samples are kept in `node_modules/.cache/smaltfl/data/<hash of what makes them>/`: after a change to the app alone the build takes seconds, not minutes (the docs deploy caches the same folder) | Changes to `src/app` |
-| `npm run regress` | The browser regression, in minutes ([ADR 0025](docs/adr/0025-the-browser-regression-in-minutes.md)): builds the five demos (their data cached) and runs every stop set (`tools/browser/sets.json`) once on a phone, as many at once as there are cores, checking each stop's layout at the other sizes by resizing the page; one table of what passed, seven and a half minutes on four cores. `-- overview tour` runs those sets; `-- overview --full --shots all` replays a set at every size with its screenshots; `-- --list` says what each set costs. CI replays every set at every size, a size a job | Before a PR that touches `src/app`; the set a change touches, `--full`, while iterating |
+| `npm run build:app` | The app in `dist/app` on Larkspur (`examples/larkspur/`, its notebooks expanded, shipped as `data/flow.json`, its days generated from its seed); `-- --variant tour --out dist/app-tour` for its tour, February and March, the demo (ADR 0023, the data list's `variants`; its scenes listed on the month screen from `scenes.json`); `-- --flow examples/security-signins/flow.json --out dist/app-signins` for the sign-ins (its generator's `--demo` days from the data list's `generateArgs`); `-- --flow examples/larkspur/feeds/flow.json --out dist/app-feeds` for Evidence feeds' own page; `--page id=address[=name]` names the pages of the site that share a flow with it (ADR 0026 §6). Bundles are named by content (`bundles.json`). A generated flow's days, histories and samples are kept in `node_modules/.cache/smaltfl/data/<hash of what makes them>/`: after a change to the app alone the build takes seconds, not minutes (the docs deploy caches the same folder, and CI keeps each by its hash for every run on every branch, `tools/browser/store.cjs`). `--data-key` prints that hash and stops; `--data-only` makes the data and stops | Changes to `src/app` |
+| `npm run regress` | The browser regression, in minutes ([ADR 0025](docs/adr/0025-the-browser-regression-in-minutes.md)): builds the five demos (their data cached; up to three side by side where it has to be made) and runs every stop set (`tools/browser/sets.json`) once on a phone, as many at once as there are cores, checking each stop's layout at the other sizes by resizing the page; one table of what passed, nine minutes on four cores (543 s with ADR 0027's stops, where 33 sets took seven and a half). `-- overview tour` runs those sets; `-- overview --full --shots all` replays a set at every size with its screenshots; `-- --demos tour --shard 1/2` runs one shard of a demo's sets, as CI does; `-- --list` says what each set costs. CI runs it on every push, a demo a pipeline and its sets dealt over shards, and replays every set at every size on main | Before a PR that touches `src/app`; the set a change touches, `--full`, while iterating |
 
 `npm run typecheck` runs on TypeScript 7: `typescript7`, an npm alias, run as `node node_modules/typescript7/bin/tsc`.
 The declarations `npm run build` emits stay on TypeScript 6.0.3 (`typescript`, so `npx tsc` is 6.0.3) for one more
@@ -582,7 +582,8 @@ release (smaltty ADR 0030).
   `notePage` and `pagesToRead` (which other records are worth reading: a note in the browser's storage, the flows
   read, the site's pages), `notCarried` said in `whoseLine`, `carriedOf` and `takenBy` on the receipt, `namePage`, `pagePeople`.
   `test/carry.test.ts`, `test/record-others.test.ts` (on `test/helpers/fake-idb.ts`);
-  `tools/browser/stops/carry.json` on the two apps served from one origin (tour.cjs's `page`).
+  `tools/browser/stops/carry.json`, `carry-rules.json` and `carry-fill.json` (its three stories, a set each since
+  2026-11-19) on the two apps served from one origin (tour.cjs's `page`).
 - The ontology over time (ADR 0027, docs/research/temporal-ontology.md): the ontology first, every change a dated
   record with a kind and a reason, events as context, a day read under what was in force. Slice 1, the register on
   screen, over the rule changes already dated (no hash moves): `src/core/register.ts` (pure, outside the data's cache
@@ -752,7 +753,8 @@ release (smaltty ADR 0030).
   a catalogue flow's own document holds the change sets about what it reads and names each flow it reads by the
   hash that flow has with them), else a story's change to a read flow's file left the catalogue's flows built on
   another flow than the page's, and unaddable. `test/larkspur.test.ts`, `test/larkspur-tour.test.ts` (13 tests),
-  `test/catalogue.test.ts`, `test/scenes.test.ts`; stops in `tour.json` (19 runs), `overview.json`, `tiers.json` and
+  `test/catalogue.test.ts`, `test/scenes.test.ts`; stops in `tour.json` and `tour-later.json` (19 runs between
+  them: the tour's set cut after scene 5 on 2026-11-19), `overview.json`, `tiers.json` and
   `levels.json` (which steps to the day before the visitor's, since the day after has two versions).
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
@@ -768,11 +770,32 @@ release (smaltty ADR 0030).
   `tools/browser/sets.json` is the manifest and the budget: each set's demo, sizes and the runs the engine may make
   for it (`runs`; on another demo of the same site its stops go to, `with`, counted apart: `carry` on the tour and
   Evidence feeds' page), each demo's cost of a run, `budget.engineSeconds` over their sum; a set that makes more runs,
-  a stops file not listed, or a sum over the budget fails the regression. CI's `demos` and `browser` jobs run it.
+  a stops file not listed, or a sum over the budget fails the regression.
   Amended on 2026-11-17 for ADR 0026's eleven sets (its §"Amended"; the budget raised with the maintainer's
   agreement, Q-246): 33 sets on five demos, 215 runs, 1,292 of 1,330 engine seconds then, and with ADR 0027's sets
   and stops 35 sets, 244 runs, 1,324 of 1,330 (the tour's seventh scene is one run more); the tour finds a set's opening
   day by the list's `slot`.
+  Amended on 2026-11-19, CI in minutes (its second §"Amended", Q-337 to Q-342). CI (`.github/workflows/ci.yml`) runs
+  on pushes, a commit once, a branch's newer push stopping its older run: `check` (the types, the package), `test`
+  (`npm test` over two machines, vitest's `--shard`), `slow`, `isolated`, and a pipeline a demo
+  (`.github/workflows/demo.yml`, called with the demo, the demos whose data its sets take and its shards; shared
+  steps in `.github/actions/setup` and `browser`, whose install is tried three times): `data` makes the demo's data
+  only where the store has none and keeps it there (`regress.cjs --data <demo> --keep`), and `browser` runs the
+  demo's sets a shard a machine (`--demos <demo> --shard K/N --build-only --stored`, then the same without the last
+  two), the tour's first shard holding its data to `npm run test:tour` as well. `sizes`, `ci.yml`'s own job after
+  every pipeline, replays every set at each of four sizes, a job a demo and size, on main or where a run started by
+  hand asks: the one check a branch's push lists as skipped. The store (`tools/browser/store.cjs`): each demo's data, the
+  folder the build keeps by a hash of what makes it (`scripts/build-app.mjs --data-key`, `--data-only`), as an
+  artifact named `data-<demo>-<key>-<place>` of the run that made it, thirty days, taken by any later run on any branch
+  (`kept`, `restore`, `pack`); only what a run of the repository itself made is taken (`pick`), and the site's deploy
+  keeps to main's own cache. The jobs and their shards (`tools/browser/shards.cjs`): `jobsOf` (a choice of sets,
+  demos and sizes), `weightOf` (fitted to a whole run's times), `shardsOf` (the heaviest first, each to the lightest
+  shard: every job in exactly one, the same on every machine), `dealingProblems`. `regress.cjs` also builds up to
+  three demos side by side (`--build-jobs`; each build's readers bundled to files of its own, generators taking
+  turns, `inTurn` in `scripts/data/make.mjs`) and makes data alone (`--data a,b|all`). The two longest sets are cut
+  where a new page began: 38 sets, the same 244 runs and 1,324 engine seconds. `test/regress.test.ts` holds the
+  dealing, the store's choice of an artifact, and CI's list of demos to `sets.json` (a demo with stop sets that
+  `ci.yml` doesn't name fails it: nothing would run its sets).
 - **State of the work:** [docs/HANDOFF.md](docs/HANDOFF.md) says what is built, how to check it and what is left, in
   priority order. Read it before starting. **What comes next:** [ADR 0011](docs/adr/0011-notebooks-as-the-step-surface.md),
   notebooks (smaltnb's `.nb.ts`) as the only step surface, in slices; its §"The slices" is the order of work. Then
@@ -855,7 +878,9 @@ release (smaltty ADR 0030).
   maintainer's request of 2026-11-16 (a regression of 26 minutes): `npm run regress`, minutes on four cores,
   budgeted in the engine's runs and run by CI at every size; built as proposed, for the maintainers to confirm (Q-226
   to Q-230). Its §"Not built" says what stands between five minutes and two (Q-229); its §"Amended" is ADR 0026's
-  sets brought in, seven and a half minutes with them (Q-246). **Now:**
+  sets brought in, seven and a half minutes with them (Q-246); its second, of 2026-11-19, is CI in minutes: each
+  demo's data made once and kept for every run on every branch, a pipeline a demo, its sets dealt over shards, the
+  replay at every size on main alone (Q-337 to Q-342). **Now:**
   [ADR 0026](docs/adr/0026-flows-in-flows.md), flows in flows (2026-11-17, the maintainer's answers Q-231 to Q-239): a
   flow reads other flows, each a card on its reader's canvas with its day's mark, entered to see its own flow, rolled
   up into the month, in the slices of its §12: the core and Larkspur cut into five; the canvas in levels; the month in
@@ -909,7 +934,8 @@ release (smaltty ADR 0030).
   already on its day, so it opens none: such a stop costs a third of a second. A stop that opens a day, decides,
   reloads or runs a what-if is a run: raise its set's `runs` by what it adds, and keep the sum under
   `budget.engineSeconds`, by taking a day out elsewhere if need be. Raising the budget itself is the maintainers' to
-  agree. A new stop set is listed in `sets.json` with its demo. A set stays on a day while it has stops there and
+  agree. A new stop set is listed in `sets.json` with its demo, and a new demo in `.github/workflows/ci.yml` too
+  (a line: the demo, the demos whose data its sets take, its shards), or CI runs none of its sets. A set stays on a day while it has stops there and
   doesn't come back to one it left (a day opened again is a run again); a dark stop is the same page, so it goes
   before the stop that changes what it looks at. No stop waits a fixed time, and `waitFor` is for what many runs
   draw.

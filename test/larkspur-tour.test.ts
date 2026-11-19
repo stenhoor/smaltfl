@@ -31,7 +31,7 @@
  * A quarter of an hour on four cores where it makes the two months itself: `npm run test:tour` (vitest.config.ts,
  * TOUR). With SMALTFL_TOUR_WORK naming a folder the month was made in already (the app build's cache of the tour's
  * data), the answer key is checked against it, nothing made again: what CI runs, on the data the tour demo's own jobs
- * are built from (.github/workflows/demo.yml, `answer key`).
+ * are built from (.github/workflows/demo.yml: a step of the tour's first shard).
  */
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';

@@ -151,6 +151,15 @@ describe('CI’s demos (.github/workflows/ci.yml)', () => {
     }
   });
 
+  it('replays at every size, on main, the same demos, at every size but the one the pass above starts at', () => {
+    // The `sizes` job's own lists: `demo: [signins, estate, larkspur, tour]` and `size: [tablet, …]`.
+    const list = (key: string) => (new RegExp(`^\\s+${key}: \\[([a-z, -]+)\\]\\s*$`, 'm').exec(ci)?.[1] ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+    expect(list('demo').sort()).toEqual(withSets);
+    expect(list('size')).toEqual(manifest.sizes.slice(1));
+    // Each of its jobs has something to run but where a set is held to some sizes only.
+    for (const demo of list('demo')) expect(plan.jobsOf(manifest, stopsOf, { demos: [demo], full: true, sizes: ['desktop'] }).length, demo).toBeGreaterThan(0);
+  });
+
   it('lists every stops file in the manifest, so each is some demo’s', () => {
     const files = readdirSync('tools/browser/stops').filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)).sort();
     expect(files).toEqual(Object.keys(manifest.sets).sort());

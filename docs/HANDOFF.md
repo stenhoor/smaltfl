@@ -209,8 +209,9 @@ npm run build                               # declarations; NOTE: wipes dist/, s
 npm run build:app                           # dist/app on Larkspur, its days generated; the bundles are named by content (app.<hash>.js), so a
                                             # browser never serves a stale build under the old name (bundles.json says which)
 npm run build:app -- --variant tour --out dist/app-tour   # the demo: the tour's two months and their scene list (ADR 0023)
-npm run regress                             # the browser regression (ADR 0025): the five demos built, every stop set run, seven
-                                            # and a half minutes on four cores; `-- tour` for one set, `-- tour --full` at every size
+npm run regress                             # the browser regression (ADR 0025): the five demos built, every stop set run, nine
+                                            # minutes on four cores; `-- tour` for one set, `-- tour --full` at every size
+npm run regress -- --demos tour --shard 1/2 # one shard of one demo's sets, as CI runs it (a demo a pipeline, its sets dealt over shards)
 npm run regress -- carry                    # one set: here the two pages that share a flow (ADR 0026 §6), the tour and
                                             # Evidence feeds' own page, built side by side as the site serves them
 ```
@@ -375,7 +376,7 @@ Built so far:
   check it: `test/larkspur.test.ts` (the tour's block), `npm run test:tour` (the answer key: 13 tests),
   `test/carry.test.ts` (the two stories), `test/scenes.test.ts`, and `npm run regress -- tour overview` (the scene
   by its link, the dataset as declared, the trend's cut, the register; the tour's set makes 19 runs, 1,324 of 1,330
-  engine seconds).
+  engine seconds; since 2026-11-19 it is two sets, `tour` and `tour-later`, of 10 and 9).
 
 ADR 0027 is done. What it leaves is in its §"As built" under each slice; the audit holds neither a run's rules nor
 its context tables to the flow as kept (Q-313, Q-324): both need the moment a run's rules were known at, which a
@@ -513,8 +514,8 @@ scheme), the rest the engine's 166 runs, done once a size. Built as proposed:
 - **The tour asks the page when it is at rest** (`window.__smaltflBusy`, and a count of what the page started), and
   never waits a fixed time.
 - **Each set is replayed once**, on a phone, and its page taken to the other four sizes by resizing it, the layout
-  checked at each. CI replays every set at every size, a size a job (`.github/workflows/ci.yml`, `demos` and
-  `browser`).
+  checked at each. CI replayed every set at every size, a size a job, on every push; since 2026-11-19 on main alone
+  (below).
 - **The budget** (`tools/browser/sets.json`): the runs each set may make, counted and held; a new stop that opens a
   day is paid for. CLAUDE.md's rule says how a stop is added.
 - **Not two minutes.** What is left is the engine: Larkspur's 76 days are 3.2 minutes by themselves on four cores.
@@ -530,6 +531,18 @@ scheme), the rest the engine's 166 runs, done once a size. Built as proposed:
   refused day fetched the file again, fixed; a fill can't be withdrawn in an engine that has run no other day, left
   (above). A set that goes to another demo of the site says its runs there (`"with"`), and no set leaves a day and
   comes back to it.
+- **Amended on 2026-11-19: CI in minutes** (its second §"Amended"; Q-337 to Q-342). The maintainer asked for CI as a
+  whole to be fast: it took 55 minutes on main and 67 on a pull request, a quarter of it the regression and the rest
+  the demos' data made again, three times a change. Now: each demo's data is made once and kept by the hash of what
+  makes it where every run on every branch can take it (`tools/browser/store.cjs`: artifacts, not GitHub's cache,
+  which is kept by branch); the tour's answer key is checked on that data; a demo is a pipeline of its own, its sets
+  dealt over shards (`regress.cjs --demos tour --shard 1/2`, `tools/browser/shards.cjs`); `tour` and `carry`, the
+  two longest sets, are cut where a new page began (38 sets, the same 244 runs); the replay at every size runs on
+  main, and by hand on a branch; a commit is checked once (pushes only); `npm test` is dealt over two machines.
+  The branch's first run, with nothing in the store, took 19 minutes from the push to its last check (`check` at 35 s,
+  `test` at a minute, the sign-ins' sets at 2¾ minutes, the estate's at 7). How to check it: `test/regress.test.ts` (the dealing, the store's choice of an artifact,
+  CI's list of demos held to `sets.json`), `node tools/browser/regress.cjs --list --demos tour --shard 1/2` (what a
+  shard holds and weighs), and a push: the `data` jobs say in their logs whether the store had each demo's data.
 
 **For the maintainers to confirm: [ADR 0024](adr/0024-the-month-at-a-glance.md), the month at a glance** (2026-11-16,
 Q-219 to Q-225). The maintainer looked at the tour's month and asked for research into how such a screen is best done,

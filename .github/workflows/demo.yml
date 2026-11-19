@@ -7,7 +7,8 @@ name: Demo
 # The data is made once (ADR 0025, amended 2026-11-19). `data` asks the store for each demo's data by the hash of what
 # makes it (tools/browser/store.cjs: an artifact named by it, made by any earlier run on any branch), makes it only
 # where the store has none (the tour's takes a quarter of an hour), and keeps what it made there for every later run.
-# The jobs after it take it from the store, so none of them makes it again.
+# The jobs after it take it from the store, so none of them makes it again. A job here is a check on every push, so
+# nothing here is left out on a branch: what only main runs is ci.yml's own (`sizes`).
 on:
   workflow_call:
     inputs:
@@ -27,10 +28,6 @@ on:
         description: An npm script that checks the demo's data against its answer key, given the data's folder as SMALTFL_TOUR_WORK
         type: string
         default: ''
-      sizes:
-        description: Replay every set at every size too (main, and a run started by hand that asks)
-        type: boolean
-        default: false
 
 jobs:
   data:
@@ -62,26 +59,6 @@ jobs:
           # The file is under node_modules/.cache: a folder whose name starts with a dot.
           include-hidden-files: true
 
-  # The demo's answer key, where it has one: the tour's two months as the build recorded them, held to
-  # test/larkspur-tour.test.ts (ADR 0023). On the build's own data, so nothing is made for it: it was a job that made
-  # the two months again, seventeen minutes.
-  answers:
-    name: answer key
-    if: inputs.answers != ''
-    needs: data
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-      - id: data
-        run: node tools/browser/regress.cjs --data ${{ inputs.demo }} --stored
-        env:
-          GH_TOKEN: ${{ github.token }}
-      - run: npm run ${{ inputs.answers }}
-        env:
-          SMALTFL_TOUR_WORK: ${{ steps.data.outputs.dir }}
-
   # The browser regression (ADR 0025) on this demo: each of its stop sets once on a phone, its layout at the other sizes
   # checked by resizing the page, as `npm run regress` runs it. Dealt over the shards its caller names, a machine each
   # (tools/browser/shards.cjs: every set in exactly one), so a demo's sets take the time of its longest shard. A job
@@ -105,41 +82,25 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
       - run: node tools/browser/regress.cjs $PICK
+      # The demo's answer key, where it has one: the tour's two months as the build recorded them, held to
+      # test/larkspur-tour.test.ts (ADR 0023). On the data this job has taken already, where it takes half a second, in
+      # the demo's first shard and whatever its stop sets said: it was a job of its own that made the two months again,
+      # seventeen minutes.
+      - id: data
+        if: ${{ !cancelled() && inputs.answers != '' && matrix.shard == 1 }}
+        run: node tools/browser/regress.cjs --data ${{ inputs.demo }} --stored
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Answer key (npm run ${{ inputs.answers }})
+        if: ${{ !cancelled() && inputs.answers != '' && matrix.shard == 1 }}
+        run: npm run ${{ inputs.answers }}
+        env:
+          SMALTFL_TOUR_WORK: ${{ steps.data.outputs.dir }}
       # What failed, to look at: each job's log and metrics, and a screenshot of every stop that reported a problem.
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: regress-${{ inputs.demo }}-${{ matrix.shard }}
-          path: node_modules/.cache/smaltfl/regress
-          retention-days: 7
-          include-hidden-files: true
-
-  # Every set replayed at one more size each, in a page of its own, as a person at that size reaches it (ADR 0018):
-  # on main and where a run started by hand asks, not on every push to a branch, where the pass above has already
-  # checked each stop's layout at every size by resizing its page.
-  sizes:
-    if: inputs.sizes
-    needs: data
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        size: [tablet, tablet-wide, desktop, wide]
-    env:
-      PICK: --demos ${{ inputs.demo }} --full --sizes ${{ matrix.size }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-      - uses: ./.github/actions/browser
-      - run: node tools/browser/regress.cjs $PICK --build-only --stored
-        env:
-          GH_TOKEN: ${{ github.token }}
-      - run: node tools/browser/regress.cjs $PICK
-      - if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: regress-${{ inputs.demo }}-${{ matrix.size }}
           path: node_modules/.cache/smaltfl/regress
           retention-days: 7
           include-hidden-files: true

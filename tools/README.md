@@ -9,19 +9,35 @@ They need Playwright with Chromium (`require('playwright')`), and Python 3 with 
 
 **The regression is one command: `npm run regress`** (ADR 0025). It builds the five demos into
 `node_modules/.cache/smaltfl/apps/` (seconds once their data is cached), side by side as a site serves them, and runs
-every stop set on the demo it is written for, seven and a half minutes on four cores. `npm run regress -- overview tour` runs those sets alone, and `npm run
+every stop set on the demo it is written for, nine minutes on four cores (543 s on 2026-11-19; demos whose data has to be made
+are built up to three side by side: 22½ minutes for all five where it was 38½). `npm run regress -- overview tour` runs those sets alone, and `npm run
 regress -- overview --full --shots all` replays one at every size with every stop's screenshot, to look at. For the
 tour by itself, build the app (`npm run build:app`, Larkspur by default; `-- --flow … --out …` for another flow)
 somewhere outside `dist/`, because `npm run build` wipes `dist/`, and pass **absolute** paths.
 
 | Command | What it does |
 |---|---|
-| `node tools/browser/regress.cjs [set[@sizes] ...]` | The regression (`npm run regress` is this with `--build`): each set the manifest lists (`sets.json`), or those named, its own `tour.cjs` process, up to one a core at once, the longest first; one line a job (its stops, its runs against its budget, its seconds) and the problems at the end (`regress.json`). By default a set is replayed **once**, at its smallest size, and its page is resized to its other sizes after each stop, the layout checked at each; `--full` replays it at every size. `--sizes phone,desktop` narrows the sizes, `--jobs N` the parallelism, `--shots all\|fail\|none` the screenshots (default: the stops that failed), `--apps DIR` and `--out DIR` where the demos are and the results go, `--list` prints each set's cost, `--timed` fails a whole run over the manifest's seconds. |
+| `node tools/browser/regress.cjs [set[@sizes] ...]` | The regression (`npm run regress` is this with `--build`): each set the manifest lists (`sets.json`), or those named, its own `tour.cjs` process, up to one a core at once, the longest first; one line a job (its stops, its runs against its budget, its seconds) and the problems at the end (`regress.json`). By default a set is replayed **once**, at its smallest size, and its page is resized to its other sizes after each stop, the layout checked at each; `--full` replays it at every size. `--sizes phone,desktop` narrows the sizes, `--demos tour,estate` the sets to those on these demos, `--shard 2/4` to the second of four shards (below), `--jobs N` the parallelism, `--shots all\|fail\|none` the screenshots (default: the stops that failed), `--apps DIR` and `--out DIR` where the demos are and the results go, `--list` prints each set's cost (the chosen jobs with their weights, where some are chosen), `--timed` fails a whole run over the manifest's seconds. `--build` and `--build-only` build the demos the chosen sets need, up to three side by side (`--build-jobs N`); `--data tour,feeds\|all` makes those demos' data alone and stops. In a workflow, `--stored` takes each demo's data from the store where it has it, and `--data <demo> --keep` makes sure the store has it (below). |
 | `node tools/browser/tour.cjs <appDir> <outDir> <stops.json>` | Serves the built app and drives it through the stops at phone size (390×844; `TOUR_DEVICE=tablet` 820×1180, `tablet-wide` 1180×820, `desktop` 1440×900, `wide` 2560×1440; `TOUR_SCALE=2` for screenshots a person will look at). It never waits a fixed time: it asks the page when it is at rest (`window.__smaltflBusy`, and a count of what the page started and hasn't finished). It fails any stop where the page or an open sheet scrolls sideways, at its own size and at each size in `TOUR_SWEEP=tablet,desktop` (the same page resized), saves `<name>.png` for each stop (`TOUR_SHOTS=fail` for the failed ones alone, `none`) and writes `metrics.json`: the status line, the visible text, word counts, charts, words before the first chart, and every failed `expect` as a problem. Its last lines are `problems: …` and `cost: {…}` (stops, the times the app was opened, the engine's runs, seconds). The stop format and the `expect` checks are documented at the top of the file: a stop's `tamper` changes a file on its way to the page from that stop on, `fresh` opens a new browser with nothing kept, and `expect.download` and `expect.audit` check what a stop downloaded (its name, and a bag's verdict from `node scripts/audit.mjs check`; a list in place of `true` also asks the audit's report to say each line). A stop's `page` goes to another app of the same site, by the name of its folder beside `<appDir>`: both are served from one origin, so they share the browser's records as a site's pages do (`carry.json`). `TOUR_STACK=1` reports a page error with where it was thrown (build with `SMALTFL_PROFILE=1` to read it by name). |
 | `python3 -I tools/browser/cvd.py <outDir> <png>…` | Greyscale and deuteranopia versions of screenshots (Machado et al. 2009), for the colour check. |
 | `python3 -I tools/browser/slices.py <in.png> <out.png> [height] [strips] [start]` | Slices a tall screenshot into side-by-side strips you can read in one image. |
 
 **Stop sets** (`browser/stops/`). The stops in a file run in one session, in order, and later stops depend on what earlier ones ran (which day readers keep, what was decided): run a whole file, not a few stops out of it. A set whose first stop names a day opens the app on that day. A set stays on a day while it has stops there, and doesn't come back to one it left: a day opened again is a run again, and the runs are what the regression is held to (`sets.json`). The other colour scheme is the same page, so a dark stop goes before the stop that changes what it looks at.
+
+**Shards, and the store** (ADR 0025, amended 2026-11-19). CI runs the regression a demo a pipeline
+(`.github/workflows/demo.yml`), each demo's sets dealt over the machines `ci.yml` gives it: `regress.cjs --demos tour
+--shard 1/2` is the first of the tour's two. `shards.cjs` deals the jobs: the heaviest first, each to the shard that
+weighs least so far, so every job is in exactly one shard and the same jobs give the same shards on every machine; a
+job's weight is about its seconds (its runs of the engine, and its stops at what a stop costs on its demo). `store.cjs`
+is where CI keeps each demo's generated data so it is made once: the folder the app build keeps by a hash of what
+makes it (`node scripts/build-app.mjs … --data-key`), as an artifact of the workflow run that made it, named
+`data-<demo>-<key>-<place>` (the place a short hash of where the folder stands, since the generators write full paths
+into it), which any later run on any branch finds by its name. A demo's `data` job runs `regress.cjs --data
+<demo> --keep` (nothing made where the store has it; else made, packed, and uploaded by the workflow), and the jobs
+after it `--build-only --stored` (the data taken from the store, the app built on it). Only an artifact a run of the
+repository itself made is taken, never a fork's. Outside a workflow neither option does anything: the data is made
+here, in `node_modules/.cache/smaltfl/data/`, as always. `test/regress.test.ts` holds the dealing, the store's choice
+and CI's list of demos.
 
 **The manifest and the budget** (`browser/sets.json`, ADR 0025 §5). Every stop set is listed with the demo it runs on
 (`tour`, `larkspur`, `estate`, `signins`), the sizes it is held to where not all, and `runs`: the runs the engine may
@@ -166,10 +182,12 @@ that makes more runs than it says, a stops file the manifest doesn't list, and a
   - used on a dataset of the estate's own, and inside that use the dataset itself feeding its input; the dark scheme.
 
   Its stops follow one another: what one adds, the next has. It must report `problems: none` at every size.
-- `carry.json`: a decision carried between two pages that share a flow (ADR 0026 §6, second step), on the tour and
-  Evidence feeds' own page, built side by side and each told where the other is (`sets.json`: the tour's and the
-  feeds demo's `build`, and the set's `"with": { "feeds": … }`, the runs it may make on the other page):
-  `npm run regress -- carry`. A stop's `"page"` goes to the other app of the site. It checks:
+- `carry.json`, `carry-rules.json`, `carry-fill.json`: a decision carried between two pages that share a flow (ADR
+  0026 §6, second step), on the tour and Evidence feeds' own page, built side by side and each told where the other is
+  (`sets.json`: the tour's and the feeds demo's `build`, and each set's `"with": { "feeds": … }`, the runs it may make
+  on the other page): `npm run regress -- carry carry-rules carry-fill`. Three sets since 2026-11-19, one a story:
+  each began in a browser of its own already (the second and third still say `"fresh": true` on their first stop), so
+  they run side by side. A stop's `"page"` goes to the other app of the site. They check:
   - the estate's page on the tour's Wed Mar 27: Evidence feeds' to decide, a link to that flow's own page on the
     sheet's head and on the flow's sheet;
   - Evidence feeds' own page: a file of Inventory's no step here reads, its month, *About this flow* naming the flow
@@ -179,13 +197,18 @@ that makes more runs than it says, a stops file the manifest doesn't list, and a
   - the other way: the decision changed on the estate's page (published as is after all), the estate's audit bag with
     the proof of the decision it carried and its own change of it held by the offline audit, then Evidence feeds'
     page taking the change in turn, its record citing the estate's entry and its bag held by the offline audit;
-  - in a new browser (`"fresh": true`): the flow edited on its own page, a day decided there under those rules, and
-    the estate's page not taking it, the sheet saying why;
-  - in another: the day filled on Evidence feeds' page, the estate's page making the same fill from its own offer of
+  - `carry-rules.json`: the flow edited on its own page, a day decided there under those rules, and the estate's
+    page not taking it, the sheet saying why;
+  - `carry-fill.json`: the day filled on Evidence feeds' page, the estate's page making the same fill from its own offer of
     it and publishing it; its bag held by the offline audit, and again once the page is opened in a new engine; the
     fill withdrawn on Evidence feeds' page, opened from its month, and the estate's page taking that too.
 
-  Its stops follow one another: what one decides, the next finds. It must report `problems: none` at every size.
+  Each set's stops follow one another: what one decides, the next finds. Each must report `problems: none` at every
+  size.
+- `tour.json`, `tour-later.json`: the tour's scenes from their links on the month screen (ADR 0023 §4), on the tour.
+  `tour.json` is the list of scenes, the two months and scenes 1 to 5; `tour-later.json` is Presidents' Day, scenes 6
+  and 7, the rule said ahead and the two stories kept as more to see. One set until 2026-11-19, cut after scene 5:
+  the second opens on a day (so it runs no day only to leave it) and opens the list of scenes again in its first look.
 - `voice.json`: the voice (ADR 0026 §12), on the tour (same build as `overview.json`):
   - a held day: the seal part says why it isn't sealed, and nothing playful;
   - a gold dataset's seal on a normal day: what the seal is, then *Worth its smalt.*;

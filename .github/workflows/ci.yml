@@ -4,9 +4,9 @@ name: CI
 # not once as a push and again as a pull request (what it would be merged into isn't checked before the merge: main's
 # own run checks it after). A push to a branch stops the run of the push before it; main's runs each go to their end.
 #
-# What reports, and about when (ADR 0025, amended 2026-11-19): `check` and `test` in a minute or two; `isolated` in
-# three; `slow` in seven; each demo's stop sets in five to eight where its data is in the store, and after its data is
-# made where it isn't (the tour's, a quarter of an hour: a change to the app alone never makes any).
+# What reports, and about when (ADR 0025, amended 2026-11-19): `check` and `test` in a minute or so; `isolated` in
+# three; `slow` in seven; each demo's stop sets in three to seven where its data is in the store, and after its data
+# is made where it isn't (the tour's, a quarter of an hour: a change to the app alone never makes any).
 on:
   push:
   workflow_dispatch:
@@ -65,9 +65,10 @@ jobs:
 
   # The demos the browser regression runs on (tools/browser/sets.json), a pipeline each (demo.yml): the demo's data
   # made once or taken from the store, then its stop sets in a real browser, dealt over its shards. `data` names the
-  # demos whose data its sets take (the tour's `carry` set goes to Evidence feeds' page too); `answers`, the npm script
-  # that holds the data to its answer key (the tour's two months, ADR 0023). A line a demo, as test/regress.test.ts
-  # reads them: it fails where a demo with stop sets isn't named here, since nothing would run its sets.
+  # demos whose data its sets take (the tour's `carry` sets go to Evidence feeds' page too); `answers`, the npm script
+  # that holds the data to its answer key (the tour's two months, ADR 0023), run in the demo's first shard. A line a
+  # demo, as test/regress.test.ts reads them: it fails where a demo with stop sets isn't named here, since nothing
+  # would run its sets.
   demo:
     name: ${{ matrix.demo }}
     strategy:
@@ -84,5 +85,37 @@ jobs:
       data: ${{ matrix.data }}
       shards: ${{ matrix.shards }}
       answers: ${{ matrix.answers || '' }}
-      # Every set at every size too: on main, and where a run started by hand asks for it.
-      sizes: ${{ github.ref == 'refs/heads/main' || inputs.sizes == true }}
+
+  # Every set replayed at one more size each, in a page of its own, as a person at that size reaches it (ADR 0018): on
+  # main, and where a run started by hand asks for it, not on every push to a branch, where the pass above has already
+  # checked each stop's layout at every size by resizing its page. After every demo's pipeline, and only where they all
+  # passed: a job a demo and size, each taking its demo's data from the store. The demos are those named above
+  # (test/regress.test.ts holds the two lists to each other).
+  sizes:
+    if: ${{ github.ref == 'refs/heads/main' || inputs.sizes == true }}
+    needs: demo
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        demo: [signins, estate, larkspur, tour]
+        size: [tablet, tablet-wide, desktop, wide]
+    env:
+      PICK: --demos ${{ matrix.demo }} --full --sizes ${{ matrix.size }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/browser
+      - run: node tools/browser/regress.cjs $PICK --build-only --stored
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - run: node tools/browser/regress.cjs $PICK
+      # What failed, to look at: each job's log and metrics, and a screenshot of every stop that reported a problem.
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regress-${{ matrix.demo }}-${{ matrix.size }}
+          path: node_modules/.cache/smaltfl/regress
+          retention-days: 7
+          include-hidden-files: true
