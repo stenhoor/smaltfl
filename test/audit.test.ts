@@ -19,6 +19,8 @@ import { repairDocument, type Repair } from '../src/core/fill.js';
 import { entryLeaf, type JSONValue, type LogEntry } from '../src/core/log.js';
 import { policiesHash, type RunManifest } from '../src/core/manifest.js';
 import { flowHash, type FlowPlan } from '../src/core/plan.js';
+import type { FlowEvent } from '../src/core/events.js';
+import { historyOf, type OntologyHistory } from '../src/core/told.js';
 import { sha256Hex } from '../src/core/hash.js';
 import { zip } from '../src/core/zip.js';
 import { findVersion, pointDataset } from '../src/plugin/store.js';
@@ -890,5 +892,55 @@ describe('an audit bag whose flow changed by the agreement of its owners (ADR 00
       `the flow as kept at #${forged.entry.seq}: b says ciso agreed to it, and owner recorded that`,
       `the flow as kept at #${other.entry.seq}: c says ciso made it, and owner recorded it; c says ciso agreed to it, and owner recorded that; c says ciso agreed to it after the entry that recorded it`,
     ]);
+  });
+
+  // The ontology's history for an auditor (Q-279): the bag carries it, and the check makes it again from the record.
+  const freeze: FlowEvent = { id: 'freeze', name: 'Change freeze', from: '2024-02-05', until: '2024-02-09', kind: 'freeze', note: 'Nothing ships this week', recorded: '2024-01-25T09:00:00Z', by: 'owner' };
+  /** A record whose flow has a change the ontology's owner agreed to, and an event written down; and the history of
+   * February made from them as the app's export makes it. */
+  async function withHistory() {
+    const { rec, r, doc } = await recorded();
+    const first = await flowEntry(rec, kept(doc, []), 'owner', null, null);
+    const waits = await flowEntry(rec, kept(doc, [change('paid-by')]), 'owner', 'Added the relation Paid by', first.hash);
+    const flow = kept(doc, [change('paid-by', { agreed: [{ by: 'ciso', at: '2024-01-20T10:05:00Z' }] })]);
+    const agreed = await flowEntry(rec, flow, 'ciso', 'Agreed to Added the relation Paid by', waits.hash);
+    await rec.append('event', 'owner', freeze as unknown as JSONValue, freeze.note ?? null);
+    const history = historyOf(withoutDisplay(flow) as FlowDocument, agreed.hash, '2024-02-01', '2024-02-29', { events: [freeze], steps: new Map() });
+    const bag = (h: unknown, tweak: (payload: BagFile[]) => void = () => {}) => bagOf(rec, r, (payload) => {
+      payload.push({ path: 'ontology/history.json', bytes: enc.encode(JSON.stringify(h, null, 2) + '\n') });
+      tweak(payload);
+    });
+    return { rec, r, doc, flow, agreed, history, bag };
+  }
+
+  it('holds the ontology’s history the bag carries: made again from the flow as kept and the record’s own events', async () => {
+    const { rec, agreed, history, bag } = await withHistory();
+    expect(history.changes.map((c) => [c.id, c.agreeing, c.agreed.map((a) => a.by)])).toEqual([['paid-by', 'agreed', ['Dana']]]);
+    expect(history.events.map((e) => e.id)).toEqual(['freeze']);
+    const said = (await auditBag(await bag(history), rec.latest())).lines;
+    expect(said.filter((l) => !l.ok)).toEqual([]);
+    expect(said.map((l) => l.what)).toContainEqual(`ontology/history.json: the ontology’s history from 2024-02-01 to 2024-02-29, made again from the flow as kept at #${agreed.entry.seq} and the record’s own events and steps: 1 change (1 asking for an owner’s agreement, which has it) and 1 event of the record’s own.`);
+    // What came with a build's data isn't the record's: it is counted, and not held.
+    const shipped: OntologyHistory = { ...history, shipped: { events: [{ ...history.events[0]!, id: 'push', what: ['Remediation push'] }], steps: [{ change: 'paid-by', day: '2024-02-01', measured: 4, moved: ['score: 80 → 82'] }] } };
+    const counted = (await auditBag(await bag(shipped), rec.latest())).lines;
+    expect(counted.filter((l) => !l.ok)).toEqual([]);
+    expect(counted.map((l) => l.what).find((w) => w.startsWith('ontology/history.json'))).toContain(' It also lists what came with the build’s data (1 event, 1 change’s own step): not this record’s, so not checked here.');
+  });
+
+  it('fails a history that isn’t the one the record makes: a change left out or reworded, an event the record doesn’t hold, another flow', async () => {
+    const { rec, history, bag } = await withHistory();
+    const says = async (h: unknown) => failed(await auditBag(await bag(h), rec.latest()));
+    expect(await says({ ...history, changes: [] })).toEqual(['ontology/history.json: it leaves out the change paid-by']);
+    expect(await says({ ...history, changes: [{ ...history.changes[0]!, why: 'Because' }] })).toEqual(["ontology/history.json: the change paid-by isn't as the flow and the record have it"]);
+    // An agreement the flow as kept doesn't carry, said by the history alone.
+    expect(await says({ ...history, changes: [{ ...history.changes[0]!, agreed: [...history.changes[0]!.agreed, { by: 'Owner', at: '2024-01-21T00:00:00Z' }] }] })).toEqual(["ontology/history.json: the change paid-by isn't as the flow and the record have it"]);
+    expect(await says({ ...history, events: [...history.events, { ...history.events[0]!, id: 'push' }] })).toEqual(["ontology/history.json: it has an event push the flow and the record don't have in the period"]);
+    expect(await says({ ...history, owners: [{ part: 'Everything', owners: ['Owner'] }] })).toEqual(["ontology/history.json: the owners it names aren't the flow's"]);
+    const other = 'f'.repeat(64);
+    expect(await says({ ...history, flow: { ...history.flow, hash: other } })).toEqual([`ontology/history.json says it was made from the flow ${other.slice(0, 16)}…, and no entry of the record says the flow was ever that`]);
+    expect(await says({ format: 'something-else' })).toEqual(["ontology/history.json isn't shaped as a history: it names no flow"]);
+    // Made before the event was written down, and saying so: it reads as known then, and holds without the event.
+    const early = historyOf(withoutDisplay((await withHistory()).flow) as FlowDocument, history.flow.hash, '2024-02-01', '2024-02-29', { asOf: '2024-01-24T00:00:00Z', events: [], steps: new Map() });
+    expect(early.events).toEqual([]);
   });
 });

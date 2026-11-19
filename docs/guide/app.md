@@ -333,6 +333,19 @@ rules as events, which are context and no rule; an event may say what it excuses
   agreeing to it, and the entry says one person held both roles. Otherwise it waits, first on the register and in
   force on no day, until an owner agrees: pick them under **Viewing as** and the entry offers **Agree**. Every entry
   says who agreed and when, and the offline audit holds each agreement to the owners the flow names.
+- **Who hears.** *Since you last looked:* the register opens with what is new and what has moved since whoever is
+  viewing last looked (a change agreed to, one now in force, an event over), each a tap from its entry; the home
+  screen says so in a line at its top, and a flow's sheet marks the change. **Got it** takes what is on screen as
+  seen. What you did yourself is no news to you, and the first look says nothing. *Pass it on,* under the register:
+  a digest of the month, the week or every day here, with what waits for someone, what is coming, what changed and
+  what was going on; copy it as text, as an image, or as a link that opens the same digest. *A feed:* each build
+  writes `feed.xml` beside the page, an Atom feed of the changes, what is coming and the events, each entry a link
+  to its place in the Ontology view.
+- **For an auditor.** **The history for an auditor, to print ›** (in *Pass it on*) shows, in place of the Ontology
+  view and over the period you pick, who owns each part of the ontology and every change with its kind, its reason,
+  who made it, who decided, who agreed, what it reached and its own step, then what was written down as going on.
+  **Print** prints it as it reads. **Export for audit** puts the same history, over every day here, in the bag
+  (`data/ontology/history.json`), and the offline check makes it again from the flow the record kept.
 
 ## The record and verify
 

@@ -93,6 +93,7 @@
 //   "download": "^smaltfl-audit-.*\.zip$" with "download": the file saved has this name (a regex) and isn't empty
 //   "audit": true                         with "download": the offline audit holds the bag downloaded
 //                                         (node scripts/audit.mjs check BAG.zip, what an auditor runs on it)
+//   "audit": ["…"]                        the same, and its report says each of these
 //
 // Writes <outDir>/<name>.png (TOUR_SHOTS) and <outDir>/metrics.json: per stop, the status line, the visible text of the
 // sheet (or the canvas page), its word count, its paragraphs of more than 25 words, the number of charts
@@ -636,9 +637,12 @@ function tracker() {
             const r = spawnSync(process.execPath, [path.join(repo, 'scripts', 'audit.mjs'), 'check', saved.path], { cwd: repo, encoding: 'utf8', timeout: 600000 });
             const said = `${r.stdout ?? ''}${r.stderr ?? ''}`;
             kept.audit = r.status !== 0 || !/The bag holds/.test(said) ? `the offline audit doesn't hold ${saved.name}: ${said.split('\n').filter((l) => /^FAIL|Error/.test(l)).slice(0, 3).join(' // ') || `exit ${r.status}`}` : null;
+            kept.auditSaid = said;
             if (kept.audit === null) console.log(`${stop.name}: the offline audit holds ${saved.name}`);
           }
           if (kept.audit) fail(kept.audit);
+          // Lines the audit must say of the bag (a list in place of true): what it checked, in its own words.
+          else for (const want of Array.isArray(x.audit) ? x.audit : []) if (!kept.auditSaid.includes(want)) fail(`the offline audit of ${saved.name} doesn't say "${want}"`);
         }
       }
     }

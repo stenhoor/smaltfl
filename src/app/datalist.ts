@@ -95,6 +95,9 @@ export interface DataList {
   /** What was going on (ADR 0027 §6, core/events.ts): the events the build's story names; none where it names none,
    * or they aren't good events (said in the console, never in the way). */
   events?: FlowEvent[];
+  /** The feed the build wrote beside the app (ADR 0027 §10, Q-278): the ontology's changes, what is coming and the
+   * events, as an Atom file, by its path from the page. None where the build wrote none. */
+  feed?: string;
   /** The pages of this site that share a flow with this one (ADR 0026 §6), by the flow's id, each with its address
    * from this page: a flow this one reads that has a page of its own, or a flow that reads this one (named, since this
    * page's document doesn't know it). A held day decided on one is carried to the other, and each links to the other.
@@ -215,6 +218,8 @@ export function readDataList(raw: unknown): DataList {
       ...(postureOf(index.posture) ? { posture: postureOf(index.posture)! } : {}),
       ...(scenesOf(index.scenes) ? { scenes: scenesOf(index.scenes)! } : {}),
       ...(eventsOf(index.events).length ? { events: eventsOf(index.events) } : {}),
+      // A feed is a file beside the page: a path, never an address somewhere else.
+      ...(typeof index.feed === 'string' && /^[\w.-]+$/.test(index.feed) ? { feed: index.feed } : {}),
       ...(pagesOf(index.pages) ? { pages: pagesOf(index.pages)! } : {}),
       loads, donors: loadSource ? sources[loadSource]!.donors ?? [] : [], files,
     };

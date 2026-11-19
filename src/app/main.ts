@@ -17,6 +17,7 @@ import type { ChangeSet, ContractDef, FlowDocument, GroupDef, NotebookOutline, O
 import { applyEdit, changesOn, inForce, resolve as resolveRules, ruleParts, rulesHash, rulesInForce, versionRules, withRuleParts, type RuleParts } from '../core/inforce.js';
 import { datedDiff, diffSaid, ontologyMap, ruleVersions, rulesDiff, versionKey, versionOn, type RuleVersion } from '../core/ruleversions.js';
 import { agreementOf, agreeTo, asksAgreement, asksWhy, knownFrom, mayAgree, ownersOf, ownersSaid, partsIn, type OwnedDoc } from '../core/agree.js';
+import { digestHead, digestOf, digestText, historyHead, historyOf as ontologyHistoryOf, historyText, historyTold, movedSaid as sinceMoved, periodSaid, reachSaid as toldReach, saidWhen, seenOf as seenNow, sinceSaid, sinceSeen, spanSaid, stepToldSaid, toldOf as tellOf, type OntologyHistory, type Seen, type SinceSeen, type Told as ToldThing } from '../core/told.js';
 import { adjusted, asDeclared, changesReaching, cutsOf, declaredOf, declaredOn, followedThrough, moveSaid, redefinedOn, trialMoves, type TrialMove } from '../core/across.js';
 import { changeAbout, contextKnown, contextOf, contextRows, type ContextRows } from '../core/context.js';
 import { stepMeasures, stepsOf, type StepAbout, type StepMarks, type StepMeasure } from '../core/step.js';
@@ -4459,6 +4460,12 @@ function flowChangedPart(id: string): HTMLElement | null {
   const applied = new Set(resolvedSets ? resolvedSets.split('\n') : []);
   const stands = (c: ChangeSet) => (applied.has(c.id) ? 'in force on the day on screen' : day && c.from > day ? `not in force yet on ${dayMid(day)}` : 'made after the version on screen ran');
   const at = (t: string) => new Date(t).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  // What whoever is viewing hasn't seen of them yet (ADR 0027 §10): said on the change, until Got it on the register.
+  const since = sinceNow();
+  const unseen = new Map<string, string>([
+    ...(since?.fresh ?? []).filter((t) => t.is === 'change').map((t) => [t.id, 'New since you last looked'] as const),
+    ...(since?.moved ?? []).filter((m) => m.told.is === 'change').map((m) => [m.told.id, `Since you last looked: ${sinceMoved(m)}`] as const),
+  ]);
   const item = (x: (typeof all)[number]) => {
     const c = x.change;
     const got = tested.get(c.id);
@@ -4466,6 +4473,7 @@ function flowChangedPart(id: string): HTMLElement | null {
     const busy = testing?.id === c.id;
     const differ = got ? [...got.count.paused, ...got.count.freed, ...got.count.failed] : [];
     return h('li', { class: `fl-change${x.bearing === 'follows' ? ' fl-follows' : ''}`, 'data-change': c.id },
+      unseen.has(c.id) ? h('p', { class: 'fl-since' }, unseen.get(c.id)!) : null,
       h('p', { class: 'fl-change-what' }, h('b', {}, `From ${dayLabel(c.from)}${c.until ? ` to ${dayLabel(c.until)}` : ''}`), x.bearing === 'follows' ? ` · it follows ${listed(x.of.map(flowName))}` : '', `: ${changeSaid(c)}`),
       h('p', { class: 'fl-change-who' }, `${shippedChange(c.id) ? 'Recorded' : 'Made here'} ${at(c.recorded)} by ${personName(c.by)}${c.why ? `: “${c.why}”` : ''} · ${waitsFor(c) ?? stands(c)}`),
       got ? h('p', { class: 'fl-tested', role: 'status' }, testSaid(got.what, got.count, dayLabel), h('span', { class: 'fl-figures' }, trialFigures(got.moves, dayLabel))) : null,
@@ -5545,6 +5553,7 @@ async function agreeToChange(id: string): Promise<void> {
   resolveDoc(resolvedFor.day, resolvedFor.asOf, true);
   const said = `Agreed to “${what}”, as ${got.for.length === 1 ? 'an owner' : 'an owner of each'} of ${listed(got.for.map((p) => p.name))}`;
   await flowEdited(said);
+  seeOwn('change', [id]);
   setStatus(waits.length ? `${said}. Recorded. It still waits for ${ownersSaid(waits.map((part) => ({ part, owners: ownersOf(keptChanges(), part) })))}.`
     : `${said}. Recorded: in force from ${dayLabel(c.from)}. ${days.length ? `${plural(days.length, 'recorded day')} it reaches ${days.length === 1 ? 'is' : 'are'} run again under the new rules.` : 'No recorded day moves.'}`, false);
   requestCanvas();
@@ -6192,6 +6201,7 @@ const eventSpan = (e: Pick<FlowEvent, 'from' | 'until'>): string => (e.until ===
 async function writeEvent(e: FlowEvent): Promise<void> {
   if (!ledger) return void setStatus('The record isn’t open: the event can’t be kept.', true);
   await ledger.append('event', state.viewer, e as unknown as JSONValue, e.note ?? null);
+  seeOwn('event', [e.id]);
   setStatus(e.withdrawn ? `${e.name}: taken back. Recorded.` : `${e.name}, ${eventSpan(e)}: written down. Recorded.`, false);
   renderRulesTime();
   renderLoads();
@@ -6286,6 +6296,330 @@ function openEvent(id: string): void {
   pendingEvent = id;
   if (location.hash === '#ontology') showChange();
   else location.hash = '#ontology';
+}
+
+// ------------------------------------------------------------------ who hears, and the auditor (ADR 0027 §10, slice 9)
+
+/** Everything told of the ontology (core/told.ts), as known at the moment the page reads at: every change set and every
+ * event, each with its days, its kind, why, who decided and agreed, what it reaches and its own step. */
+let toldKept: { key: string; told: ToldThing[] } | null = null;
+function toldNow(): ToldThing[] {
+  const events = everyEvent();
+  const steps = stepsNow();
+  const key = `${keptEpoch}|${ruleChanges.map((c) => `${c.id}:${c.agreed?.length ?? 0}`).join(',')}|${monthView.at ?? ''}|${registerToday()}|${events.length}|${steps.size}|${state.doc.id}`;
+  if (toldKept?.key !== key) toldKept = { key, told: tellOf(baseDoc(), { today: registerToday(), asOf: monthView.at, events, steps, name: (id) => pagePeople.get(id) }) };
+  return toldKept.told;
+}
+
+/** Where a browser keeps what each person last saw of a flow's register: by the flow and by who is viewing, the stand-in
+ * for people until sharing is built. */
+const seenPlace = (): string => `smaltfl:seen:${shippedDoc.id}:${state.viewer}`;
+function readSeen(): Seen | null {
+  try {
+    const kept = localStorage.getItem(seenPlace());
+    const v = kept ? (JSON.parse(kept) as unknown) : null;
+    return v && typeof v === 'object' && !Array.isArray(v) ? (v as Seen) : null;
+  } catch {
+    return null;
+  }
+}
+function writeSeen(seen: Seen): void {
+  try {
+    localStorage.setItem(seenPlace(), JSON.stringify(seen));
+  } catch {
+    // A browser that keeps nothing says everything again next time: nothing to do about it here.
+  }
+}
+
+/**
+ * What is new, and what has moved, since whoever is viewing last looked at the register (ADR 0027 §10, Q-278), as known
+ * now. Someone who never looked has everything as it stands for their starting point, and is told nothing; read as
+ * known at an earlier moment, nothing is said either.
+ */
+function sinceNow(): SinceSeen | null {
+  if (!toldReady || monthView.at !== null) return null;
+  const told = toldNow();
+  if (!told.length) return null;
+  const seen = readSeen();
+  if (seen === null) {
+    writeSeen(seenNow(told));
+    return null;
+  }
+  const since = sinceSeen(told, seen);
+  return since && (since.fresh.length || since.moved.length) ? since : null;
+}
+
+/** What whoever is viewing did themselves is no news to them: a change they made or agreed to, an event they wrote. */
+function seeOwn(is: ToldThing['is'], ids: readonly string[]): void {
+  const seen = readSeen();
+  if (seen === null || !ids.length) return;
+  toldKept = null;
+  const now = seenNow(toldNow().filter((t) => t.is === is && ids.includes(t.id)));
+  writeSeen({ ...seen, ...now });
+}
+
+/** The change sets the page has had since the flow was read in or last edited: one more is someone's own doing. */
+let changesHad = new Set<string>();
+/** Whether the page has what the telling is made of: its record open and the build's month read. Before that nothing
+ * is compared with what was seen, and nothing is kept as seen. */
+let toldReady = false;
+
+/** Since you last looked, at the head of the register: how much is new, each thing a tap from its entry, and **Got
+ * it**, which makes what is on screen the last thing seen. Null where nothing is new. */
+function sincePart(): HTMLElement | null {
+  const since = sinceNow();
+  if (!since) return null;
+  const go = (t: ToldThing) => (t.is === 'change' ? openChange(t.id) : openEvent(t.id));
+  const line = (t: ToldThing, said: string) => h('li', { [`data-${t.is}`]: t.id },
+    h('button', { type: 'button', class: 'linkish', onclick: () => go(t) }, `${t.what[0]}${t.what.length > 1 ? `, and ${plural(t.what.length - 1, 'more edit')}` : ''} ›`),
+    h('span', { class: 'rg-since-how' }, ` ${said}`));
+  const state1 = (t: ToldThing) => (t.tense === 'waiting' ? 'new · waits for agreement' : t.tense === 'coming' ? `new · ${spanSaid(t).replace(/^From /, 'from ')}` : `new · ${spanSaid(t).replace(/^From /, 'from ')}`);
+  return h('section', { class: 'rg-since', 'aria-label': 'Since you last looked' },
+    h('p', { class: 'rg-since-head' }, h('b', {}, 'Since you last looked. '), sinceSaid(since)),
+    h('ul', { class: 'rg-since-list' }, ...since.fresh.map((t) => line(t, state1(t))), ...since.moved.map((m) => line(m.told, sinceMoved(m)))),
+    h('button', { type: 'button', class: 'btn small rg-since-go', onclick: () => {
+      writeSeen(seenNow(toldNow()));
+      renderRulesTime();
+      if (!$('view-month').hidden) renderMonth();
+    } }, 'Got it'));
+}
+
+/** The same on the home screen, in a line: that the ontology changed since whoever is viewing last looked, a tap from
+ * the register. Null where nothing is new. */
+function sinceLine(): HTMLElement | null {
+  const since = sinceNow();
+  if (!since) return null;
+  return h('p', { class: 'mo-since' }, h('b', {}, 'The ontology changed since you last looked: '), h('a', { class: 'mo-since-go', href: '#ontology' }, `${sinceSaid(since).replace(/\.$/, '')} ›`));
+}
+
+/** What the Ontology view shows in place of itself, where a link or a button asked: a period's digest, or the history
+ * for an auditor, each over a period (both days in). */
+let toldView: { is: 'digest' | 'history'; from: string; to: string } | null = null;
+
+/** The periods a digest or a history is offered over: the month on screen, the week of the day on screen, and all the
+ * days the page has. */
+function toldPeriods(): { name: string; from: string; to: string }[] {
+  const days = [...new Set(loads.list.map((l) => l.day.slice(0, 10)))].sort();
+  if (!days.length) return [];
+  const day = (resolvedFor.day ?? registerToday()).slice(0, 10);
+  const month = day.slice(0, 7);
+  const last = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).toISOString().slice(0, 10);
+  const d = new Date(`${day}T00:00:00Z`);
+  const monday = new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86_400_000).toISOString().slice(0, 10);
+  const sunday = new Date(Date.parse(`${monday}T00:00:00Z`) + 6 * 86_400_000).toISOString().slice(0, 10);
+  return [
+    { name: `the month, ${periodSaid(`${month}-01`, last)}`, from: `${month}-01`, to: last },
+    { name: `the week, ${periodSaid(monday, sunday)}`, from: monday, to: sunday },
+    ...(days[0] !== `${month}-01` || days.at(-1) !== last ? [{ name: `every day here, ${periodSaid(days[0]!, days.at(-1)!)}`, from: days[0]!, to: days.at(-1)! }] : []),
+  ];
+}
+
+/** Text as an image, as a brief is copied as one: a title and lines on the page's own surface, wrapped to its width. */
+async function textImage(title: string, lines: readonly string[]): Promise<Blob> {
+  const W = 760;
+  const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const wrap = (text: string, width: number): string[] => {
+    const indent = /^\s*/.exec(text)![0];
+    const out: string[] = [];
+    let line = '';
+    for (const w of text.trim().split(/\s+/)) {
+      if ((line + ' ' + w).trim().length > width - indent.length) { out.push(indent + line.trim()); line = w; } else line = `${line} ${w}`;
+    }
+    if (line.trim()) out.push(indent + line.trim());
+    return out.length ? out : [''];
+  };
+  const root = getComputedStyle(document.documentElement);
+  const bg = root.getPropertyValue('--surface').trim() || '#fff';
+  const ink = root.getPropertyValue('--ink').trim() || '#151922';
+  const muted = root.getPropertyValue('--muted').trim() || '#5c6375';
+  const rows = lines.flatMap((l) => wrap(l, 92).map((text) => ({ text, head: /^[A-Z ]+$/.test(l) && l.trim() !== '' })));
+  const H = 64 + rows.length * 19 + 24;
+  const body = rows.map((r, i) => `<text x="${28 + (r.text.length - r.text.trimStart().length) * 7}" y="${72 + i * 19}" font-size="${r.head ? 11 : 13}" font-weight="${r.head ? 600 : 400}" fill="${r.head ? muted : ink}"${r.head ? ' letter-spacing="1"' : ''}>${esc(r.text.trim())}</text>`).join('');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="system-ui, sans-serif"><rect width="${W}" height="${H}" fill="${bg}"/><text x="28" y="40" font-size="20" font-weight="650" fill="${ink}">${esc(title)}</text>${body}</svg>`;
+  const img = new Image();
+  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error('the image couldn’t be drawn'));
+    img.src = url;
+  });
+  const canvas = document.createElement('canvas');
+  canvas.width = W * 2;
+  canvas.height = H * 2;
+  const ctx = canvas.getContext('2d')!;
+  ctx.scale(2, 2);
+  ctx.drawImage(img, 0, 0);
+  URL.revokeObjectURL(url);
+  return new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('the image couldn’t be made'))), 'image/png'));
+}
+
+/** Copy as text, as an image and as a link, as a day's brief has them (ADR 0012): each says it copied, or gives the
+ * thing itself where the browser has no clipboard for it. */
+function copyActs(o: { text: () => string; title: string; link: string }): HTMLElement {
+  const copy = h('button', { type: 'button', class: 'btn small tl-copy' }, 'Copy as text');
+  copy.addEventListener('click', () => {
+    const text = o.text();
+    navigator.clipboard?.writeText(text).then(() => { copy.textContent = 'Copied'; setTimeout(() => (copy.textContent = 'Copy as text'), 1500); }).catch(() => {
+      const ta = h('textarea', { class: 'brief-edit', rows: '8', 'aria-label': `${o.title} as text` }) as HTMLTextAreaElement;
+      ta.value = text;
+      copy.replaceWith(ta);
+      ta.select();
+    });
+  });
+  const image = h('button', { type: 'button', class: 'btn small tl-image' }, 'Copy as image');
+  image.addEventListener('click', () => {
+    image.textContent = 'Drawing…';
+    const [, ...lines] = o.text().split('\n');
+    void textImage(o.title, lines).then(async (blob) => {
+      try {
+        if (!('ClipboardItem' in window)) throw new Error('no clipboard images here');
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        image.textContent = 'Copied';
+        setTimeout(() => (image.textContent = 'Copy as image'), 1500);
+      } catch {
+        image.replaceWith(h('img', { class: 'brief-img', alt: `${o.title} as an image: press and hold to save it`, src: URL.createObjectURL(blob) }));
+      }
+    }).catch(() => { image.textContent = 'Couldn’t draw it'; });
+  });
+  const link = h('button', { type: 'button', class: 'btn small tl-link', 'data-link': o.link }, 'Copy link');
+  link.addEventListener('click', () => {
+    const url = `${location.href.split('#')[0]}${o.link}`;
+    navigator.clipboard?.writeText(url).then(() => { link.textContent = 'Copied'; setTimeout(() => (link.textContent = 'Copy link'), 1500); }).catch(() => { link.textContent = url; });
+  });
+  return h('div', { class: 'nb-actions tl-acts' }, copy, image, link);
+}
+
+/** Whether a period is one the page was asked for by a link, or one of those it offers. */
+const samePeriod = (a: { from: string; to: string }, b: { from: string; to: string }) => a.from === b.from && a.to === b.to;
+
+/**
+ * A digest to pass on (ADR 0027 §10, Q-278), under the register: a period's changes, what is coming, what waits for
+ * someone and what was going on, as text to copy, as an image, or as a link that opens the same digest. Folded, and
+ * open where a link asked for it. The feed the site publishes is a tap from it, and the history for an auditor.
+ */
+function digestPart(): HTMLElement | null {
+  const told = toldNow();
+  const periods = toldPeriods();
+  if (!told.length || !periods.length) return null;
+  const asked = toldView?.is === 'digest' ? toldView : null;
+  const offered = asked && !periods.some((p) => samePeriod(p, asked)) ? [{ name: periodSaid(asked.from, asked.to), from: asked.from, to: asked.to }, ...periods] : periods;
+  let at = Math.max(0, asked ? offered.findIndex((p) => samePeriod(p, asked)) : 0);
+  const out = h('div', { class: 'dg-out' });
+  const pick = h('select', { class: 'dg-period', 'aria-label': 'The period of the digest' }, ...offered.map((p, i) => h('option', { value: String(i), ...(i === at ? { selected: 'selected' } : {}) }, p.name))) as HTMLSelectElement;
+  const draw = () => {
+    const p = offered[at]!;
+    const d = digestOf(state.doc.name, told, p.from, p.to, registerToday());
+    const text = digestText(d);
+    out.replaceChildren(
+      h('p', { class: 'dg-head' }, digestHead(d)),
+      h('pre', { class: 'dg-text', tabindex: '0', 'aria-label': `The digest of ${periodSaid(p.from, p.to)}, as text` }, text.split('\n').slice(2).join('\n').trim() || 'Nothing to pass on.'),
+      copyActs({ text: () => text, title: `${state.doc.name}: the ontology, ${periodSaid(p.from, p.to)}`, link: `#ontology/digest/${p.from}..${p.to}` }));
+  };
+  pick.addEventListener('change', () => {
+    at = Number(pick.value);
+    draw();
+  });
+  draw();
+  const day = (resolvedFor.day ?? registerToday()).slice(0, 10);
+  return h('details', { class: 'fold rg-digest', ...(asked || digestOpen ? { open: '' } : {}), ontoggle: (e: Event) => (digestOpen = (e.currentTarget as HTMLDetailsElement).open) },
+    h('summary', {}, h('span', { class: 'dg-k' }, 'Pass it on'), h('span', { class: 'dg-n' }, 'a digest to copy, the feed, and the history for an auditor')),
+    h('label', { class: 'dg-row' }, h('span', { class: 'dg-row-k' }, 'A digest of'), pick),
+    out,
+    h('p', { class: 'foot dg-more' },
+      dataList?.feed ? h('span', { class: 'dg-feed' }, 'The site publishes the changes, what is coming and the events as a feed: ', h('a', { href: dataList.feed, class: 'dg-feed-go', type: 'application/atom+xml' }, `${dataList.feed} ›`), ' ') : null,
+      h('button', { type: 'button', class: 'linkish dg-history', onclick: () => {
+        const p = toldPeriods()[0];
+        toldView = { is: 'history', from: p?.from ?? day, to: p?.to ?? day };
+        void renderOntology();
+      } }, 'The history for an auditor, to print ›')));
+}
+let digestOpen = false;
+
+/** One thing told, as the history's page sets it out: its days and kind, then each fact on a line of its own. */
+function historyEntry(t: ToldThing & { shipped?: true }): HTMLElement {
+  const row = (k: string, v: string | null) => (v ? [h('dt', {}, k), h('dd', {}, v)] : []);
+  return h('article', { class: `hp-entry hp-${t.is}`, [`data-${t.is}`]: t.id },
+    h('p', { class: 'hp-when' }, t.is === 'change' ? kindEl(t.kind as ChangeKind | null) : null, `${spanSaid(t)} · ${t.kindSaid}${t.estate ? ` · ${t.estate}’s ontology` : ''}`),
+    h('p', { class: 'hp-what' }, t.what.join('; ')),
+    h('dl', { class: 'hp-facts' },
+      ...row('Why', t.why ? `“${t.why}”` : 'No reason given'),
+      ...row(t.is === 'event' ? 'Written down' : 'Recorded', `${whenSaid(t.recorded)}, by ${t.by} · ${saidWhen(t)}`),
+      ...row('Decided', t.decided ? `${t.decided.by}${t.decided.on ? `, on ${dayLabel(t.decided.on)}` : ''}` : null),
+      ...row('Agreed', t.is === 'event' ? null : t.agreeing === 'none' ? 'Asked for no agreement: a change of its kind needs only its author' : t.agreeing === 'waiting' ? `Waits for ${t.waitsFor}: in force on no day` : `${listed(t.agreed.map((a) => `${a.by}, ${whenSaid(a.at)}`))}${t.agreeing === 'same' ? ' · one person held both roles' : ''}`),
+      ...row('Because of', t.because ?? null),
+      ...row('Reaches', toldReach(t).replace(/^Reaches /, '').replace(/\.$/, '').replace(/^About the flow as a whole$/, 'The flow as a whole')),
+      ...row('Excuses', t.excuses ?? null),
+      ...row('Its own step', t.step ? stepToldSaid(t).replace(/^Its own step, /, '').replace(/\.$/, '') : null),
+      ...row('Stands', t.tense === 'waiting' ? 'Waiting for agreement' : t.tense === 'coming' ? 'Still to come at the end of the period' : t.tense === 'ended' ? (t.is === 'event' ? 'Over by the end of the period' : 'Ended by the end of the period') : t.is === 'event' ? 'Going on at the end of the period' : 'In force at the end of the period'),
+      ...row('From', t.shipped ? 'The build’s data: not in this browser’s record' : null)));
+}
+
+/** A history over a period, from everything the page knows: the flow as kept, the events and the steps of its record,
+ * and those that came with the build's data, kept apart. */
+async function historyNow(from: string, to: string, asOf: string | null = monthView.at, entries: readonly RecordEntry[] = ledger?.entries ?? []): Promise<OntologyHistory> {
+  // The flow as the record keeps it, without what is only for display: the offline check has that document and no other.
+  const doc = withoutDisplay(baseDoc()) as FlowDocument;
+  const at = asOf ? Date.parse(asOf) : null;
+  const known = entries.filter((e) => at === null || Date.parse(e.at) <= at);
+  const own = known.flatMap((e) => (e.kind === 'event' && e.about && typeof (e.about as { id?: unknown }).id === 'string' ? [e.about as unknown as FlowEvent] : []));
+  const builds = stepsOf(recordedEntries.filter((e) => at === null || Date.parse(e.at) <= at));
+  return ontologyHistoryOf(doc, await flowHash(doc), from, to, { asOf, events: own, steps: stepsOf(known), shipped: { events: dataList?.events ?? [], steps: builds } });
+}
+
+/**
+ * The history for an auditor (ADR 0027 §10, Q-279), in place of the Ontology view: over a chosen period, who owns the
+ * ontology, then every change with its kind, its reason, who decided, who agreed, what it reached and its own step,
+ * and what was written down as going on. It prints as it reads: the page's own furniture is left off the paper.
+ */
+async function renderHistoryPage(view: { from: string; to: string }): Promise<void> {
+  const page = $('history-page');
+  document.body.dataset.told = 'history';
+  page.hidden = false;
+  const hist = await historyNow(view.from, view.to);
+  // Asked for another period, or left, while it was being made.
+  if (toldView?.is !== 'history' || !samePeriod(toldView, view)) return;
+  const told = historyTold(hist);
+  const from = h('input', { type: 'date', class: 'hp-from', 'aria-label': 'From', value: view.from }) as HTMLInputElement;
+  const to = h('input', { type: 'date', class: 'hp-to', 'aria-label': 'To', value: view.to }) as HTMLInputElement;
+  const again = () => {
+    if (!from.value || !to.value || from.value > to.value) return;
+    toldView = { is: 'history', from: from.value, to: to.value };
+    void renderOntology();
+  };
+  from.addEventListener('change', again);
+  to.addEventListener('change', again);
+  const text = historyText(hist);
+  page.replaceChildren(
+    h('div', { class: 'hp-acts' },
+      h('button', { type: 'button', class: 'btn small hp-back', onclick: () => {
+        toldView = null;
+        void renderOntology();
+      } }, '‹ The Ontology view'),
+      h('label', { class: 'hp-pick' }, 'From ', from), h('label', { class: 'hp-pick' }, 'to ', to),
+      h('button', { type: 'button', class: 'btn small primary hp-print', onclick: () => window.print() }, 'Print'),
+      copyActs({ text: () => text, title: `${hist.flow.name}: the ontology’s history, ${periodSaid(view.from, view.to)}`, link: `#ontology/history/${view.from}..${view.to}` })),
+    h('h2', { class: 'hp-title' }, `${hist.flow.name}: the ontology’s history`),
+    h('p', { class: 'hp-period' }, `${periodSaid(view.from, view.to)}. ${historyHead(hist)}`),
+    h('p', { class: 'hp-made' }, `Made from the flow as kept, `, h('code', {}, hist.flow.hash.slice(0, 16)), `…${hist.asOf ? `, as known on ${whenSaid(hist.asOf)}` : ''}, as things stood on ${dayLabel(view.to)}. The audit export carries this history over every day here, and the offline check makes it again from the record.`),
+    h('h3', { class: 'hp-h' }, 'Who owns it'),
+    h('table', { class: 'hp-owners' }, h('thead', {}, h('tr', {}, h('th', { scope: 'col' }, 'Part of the ontology'), h('th', { scope: 'col' }, 'Owned by'))), h('tbody', {}, ...hist.owners.map((x) => h('tr', {}, h('th', { scope: 'row' }, x.part), h('td', {}, listed(x.owners)))))),
+    h('h3', { class: 'hp-h' }, `Changes · ${told.changes.length}`),
+    ...(told.changes.length ? told.changes.map(historyEntry) : [h('p', { class: 'hp-none' }, 'No change to the ontology in the period.')]),
+    h('h3', { class: 'hp-h' }, `Going on · ${told.events.length}`),
+    ...(told.events.length ? told.events.map(historyEntry) : [h('p', { class: 'hp-none' }, 'Nothing was written down as going on in the period.')]));
+}
+
+/** A link into the Ontology view (ADR 0027 §10): a change or an event by its id (the feed's entries), a period's digest,
+ * the history for an auditor. Each says what the view shows, and the link becomes the view's own. */
+function takeOntologyLink(): void {
+  const m = /^#ontology\/(change|event|digest|history)\/(.+)$/.exec(location.hash);
+  if (!m) return;
+  const [, what, arg] = m as unknown as [string, string, string];
+  const period = /^(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})$/.exec(arg);
+  if (what === 'change') pendingChange = decodeURIComponent(arg);
+  else if (what === 'event') pendingEvent = decodeURIComponent(arg);
+  else if (period && period[1]! <= period[2]!) toldView = { is: what as 'digest' | 'history', from: period[1]!, to: period[2]! };
+  window.history.replaceState(null, '', '#ontology');
 }
 
 // ------------------------------------------------------------------ the register (ADR 0027 §9, slice 1)
@@ -6814,8 +7148,10 @@ function renderRulesTime(): void {
     h('p', { class: 'rt-head' }, h('b', {}, day ? `The rules in force on ${dayLabel(day)}` : 'The rules in force'), ' ', hashCode(rulesHashOf(state.doc), 'rt-hash'), ruleChanges.length ? ` · ${plural(ruleChanges.length, 'change set')}${baseEdited() ? '; names and labels edited here' : ''}` : baseEdited() ? ' · names and labels edited here' : ' · as shipped'),
     firstLine() ?? '',
     awaitedPart() ?? '',
+    sincePart() ?? '',
     ownersPart(),
     registerPart() ?? '',
+    digestPart() ?? '',
     ruleVersionsPart() ?? '',
     kindsPart() ?? '',
     owner ? fromBar() : '');
@@ -7059,6 +7395,10 @@ const pinnedSaid = (datasets: readonly string[]): string | null => pinProblem(st
  * made again on the own document of the flow it belongs to.
  */
 async function flowEdited(said: string, name?: NameOp): Promise<void> {
+  // What whoever is viewing just did is no news to them (ADR 0027 §10): a change set the page didn't have is theirs.
+  const had = changesHad;
+  changesHad = new Set(ruleChanges.map((c) => c.id));
+  seeOwn('change', [...changesHad].filter((id) => !had.has(id)));
   storyCache.clear();
   planKindCache.doc = null;
   flowEdits = [...flowEdits, { at: new Date().toISOString(), said, ...(name ? { name } : {}) }];
@@ -7089,6 +7429,7 @@ async function backToShipped(): Promise<void> {
   // A section made here (a join's notebook, an added flow's) goes with what was in it.
   const back = asShipped(state.doc, shippedDoc);
   takeRules(back.groups ? { ...back, groups: back.groups.filter((g) => g.steps.length > 0 || !!shippedDoc.groups?.some((x) => x.id === g.id)) } : back);
+  changesHad = new Set(ruleChanges.map((c) => c.id));
   flowEdits = [];
   flowDropped = null;
   await followEdits();
@@ -14984,6 +15325,10 @@ async function renderOntology(): Promise<void> {
   await useLookups(state.viewer);
   await estateDocs.catch(() => []);
   if (stale()) return;
+  // The history for an auditor (ADR 0027 §10), where a link or a button asked for it: in place of the view.
+  if (toldView?.is === 'history') return void renderHistoryPage(toldView);
+  delete document.body.dataset.told;
+  $('history-page').hidden = true;
   // The rules over time (ADR 0021 §5), then the edits made to the flow here, with the way back to the flow as shipped.
   renderRulesTime();
   renderFlowEdits();
@@ -17982,7 +18327,9 @@ function renderMonth(): void {
           : 'Its own month: by what its files and steps came to.'))
     : null;
   box.classList.toggle('mo-few', months.length === 2 || months.length === 3);
-  box.replaceChildren(head, whose ?? '', scenes ?? '', waitPart ?? '', cards ?? '', summaryPart, calPanel, panel ?? '', logPart ?? '', healthPart ?? '', scorePart ?? '');
+  // The ontology changed since whoever is viewing last looked (ADR 0027 §10): said at the top of the home screen.
+  const since = mine === null ? sinceLine() : null;
+  box.replaceChildren(head, whose ?? '', since ?? '', scenes ?? '', waitPart ?? '', cards ?? '', summaryPart, calPanel, panel ?? '', logPart ?? '', healthPart ?? '', scorePart ?? '');
   if (focused) box.querySelector<HTMLElement>(`[data-fk="${focused.replace(/"/g, '')}"]`)?.focus({ preventScroll: true });
 }
 
@@ -21264,6 +21611,11 @@ async function exportAudit(): Promise<void> {
     setStatus('Checking the latest run before the export: recomputing it…');
     await verify(r, 'rerun');
   }
+  // The flow as it is kept now is in the record before the export names its head: the ontology's history is made from
+  // that document, and the offline check finds it by its hash.
+  const why = flowReason;
+  flowReason = null;
+  await recordFlowChange(why);
   await ledger.append('export', state.viewer, { size: ledger.entries.length, root: ledger.head().root });
   // The record as the bag names it, taken once: every proof below is against this head, whatever is appended after.
   const head = ledger.head();
@@ -21290,6 +21642,11 @@ async function exportAudit(): Promise<void> {
     // What the engine kept of the fills (ADR 0009 amendment 1 S11): derived runs, releases of them, withdrawals.
     if (named.repairs) payload.push({ path: 'engine/repairs.json', bytes: json(named.repairs) });
   }
+  // The ontology's history over every day here (ADR 0027 §10, Q-279), as known when the bag was made: from the flow as
+  // the record keeps it and the record's own events and steps, so the offline check makes it again and holds it to them.
+  const span = [...new Set(loads.list.map((l) => l.day.slice(0, 10)))].sort();
+  const hist = span.length ? await historyNow(span[0]!, span.at(-1)!, null, entries) : null;
+  if (hist) payload.push({ path: 'ontology/history.json', bytes: json(hist) });
   if (integrity.manifestBytes) payload.push({ path: 'data/MANIFEST.json', bytes: integrity.manifestBytes });
   if (integrity.data) payload.push({ path: 'data/commit.txt', bytes: enc.encode(`${integrity.data.commit}\n`) });
   // A proof for each dataset as published, what its name shows: by its run's entry, or, for a day published as is, by
@@ -21301,7 +21658,7 @@ async function exportAudit(): Promise<void> {
     const made = (state.runs.find((x) => x.result.hash === d.manifest) ?? derivedRuns.get(d.manifest))?.result.manifest.outputs[d.name];
     if (entry && made) payload.push({ path: `proofs/${d.name}.json`, bytes: json({ dataset: d.name, ...made, run: d.run, manifest: d.manifest, entry, inclusion: ledger.proofOf(entry.seq, head.size) }) });
   }
-  payload.push({ path: 'README.html', bytes: enc.encode(auditReadme(head, r)) });
+  payload.push({ path: 'README.html', bytes: enc.encode(auditReadme(head, r, hist)) });
   const name = `smaltfl-audit-${state.doc.id}-${head.size}`;
   const files = await buildBag({
     name,
@@ -21323,7 +21680,7 @@ async function exportAudit(): Promise<void> {
   renderRecord();
 }
 
-function auditReadme(head: { origin: string; size: number; root: string }, r: RunRecord | undefined): string {
+function auditReadme(head: { origin: string; size: number; root: string }, r: RunRecord | undefined, hist: OntologyHistory | null = null): string {
   const esc = (t: string) => t.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!);
   const files = r?.result.manifest.nodes.filter((n) => n.file).map((n) => `<li>${esc(n.origin)}: ${esc(n.file!.location)}, ${n.file!.bytes} bytes, sha256 <code>${n.file!.sha256}</code></li>`).join('') ?? '';
   return `<!doctype html><meta charset="utf-8"><title>smaltfl audit: ${esc(state.doc.name)}</title>
@@ -21336,7 +21693,9 @@ function auditReadme(head: { origin: string; size: number; root: string }, r: Ru
 <li><code>node scripts/audit.mjs consistent your-checkpoint.json this-bag.zip</code>: the record is a continuation of a checkpoint you kept, so nothing before it was rewritten.</li></ol>
 <h2>The latest run</h2>
 ${r ? `<p>Run ${runName(r)}, manifest <code>${r.result.hash}</code>${r.verified ? `, ${r.verified.ok ? 'verified' : 'failed verification'} at the ${r.verified.level} level` : ''}. It read:</p><ul>${files}</ul>` : '<p>No run yet.</p>'}
-<h2>What this proves, and what it doesn't</h2>
+${hist ? `<h2>The ontology’s history</h2>
+<p><code>data/ontology/history.json</code> is the ontology’s history over every day this page has, ${esc(periodSaid(hist.from, hist.to))}: who owns each part of it, and every change with its kind, its reason, who decided, who agreed, what it reached and its own step, and what was written down as going on. ${esc(historyHead(hist))} The check in step 2 makes it again from the flow as the record kept it (<code>${hist.flow.hash}</code>) and from the record’s own events and steps, and fails if it differs.${hist.shipped ? ' What it lists under <code>shipped</code> came with the build’s data and isn’t in this record: whoever vouches for the build vouches for it.' : ''}</p>
+` : ''}<h2>What this proves, and what it doesn't</h2>
 <p>Hashes and signatures prove that nothing in the bag changed after it was made, and that the record grew only by appending. Against someone who controls the browser that made it, only a checkpoint you kept elsewhere proves the record wasn't rewritten. Numbers the app computes on screen (profiles, odd rows, the news) are not in the bag; the stored datasets and the checks' counts are, by hash.</p>
 `;
 }
@@ -21474,7 +21833,13 @@ function openDay(day: string, version: number | null = null, level = false): voi
 }
 
 function showView(): void {
+  takeOntologyLink();
   const { view, day, version, look, month, level } = routeOf(location.hash);
+  // The history's page is the Ontology view's while it is on screen: any other view puts the page back as it was.
+  if (view !== 'ontology' && document.body.dataset.told) {
+    delete document.body.dataset.told;
+    toldView = null;
+  }
   if (look) pendingLook = look;
   if (month) monthView.month = month;
   // The month of a flow entered (ADR 0026 §5), as its link names it; any other link to the month is the whole flow's.
@@ -21553,6 +21918,7 @@ async function start(): Promise<void> {
   await restoreAdded();
   // The rules before any change set, and the change sets, kept apart from the document on screen (ADR 0021 §5).
   takeRules(state.doc);
+  changesHad = new Set(ruleChanges.map((c) => c.id));
   if (staleUses) saveFlow();
   // Each flow it reads as the edits kept here leave its own document (ADR 0026 §7): what the first run keeps.
   void followEdits();
@@ -21674,9 +22040,11 @@ async function start(): Promise<void> {
       if (isMonthFile(file) && file.flow === state.doc.id) {
         recorded = file;
         recordedEntries = layered(file);
+        toldReady = true;
         if (routeOf(location.hash).view === 'month') renderMonth();
       }
     }
+    toldReady = true;
     mark('recorded month');
     // A link to a day sent again later (ADR 0021 §2) runs its first files first, as every first day does, then the
     // version the link names or the one readers got.

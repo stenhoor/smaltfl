@@ -45,6 +45,9 @@ import { flowHash, planPeriod, watchesOf, type FlowPlan } from './plan.js';
 import { checkDecision, DECIDE_OPTIONS } from './policy.js';
 import { isHistory, type HistoryFile } from './history.js';
 import { isRestate, restatedOutcome, runDay } from './month.js';
+import type { FlowEvent } from './events.js';
+import { stepsOf } from './step.js';
+import { historyProblems, type OntologyHistory } from './told.js';
 import { retellClaims, toTell, type Retold } from './retell.js';
 import type { Story } from './story.js';
 
@@ -772,6 +775,50 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
       const own = asked.filter((x) => x.a.same);
       if (stand.length) {
         say(true, `the flow as kept at #${last.seq}: ${stand.length} change set${stand.length === 1 ? '' : 's'}, ${asked.length} asking for an owner’s agreement${asked.length ? `: ${asked.length - waits.length} ${asked.length - waits.length === 1 ? 'has' : 'have'} it, each from an owner of what it touches${own.length ? ` (${own.length} from ${own.length === 1 ? 'its' : 'their'} own author, who held both roles)` : ''}${waits.length ? `; ${waits.length} ${waits.length === 1 ? 'waits' : 'wait'} (${waits.map((x) => x.c.id).join(', ')}), in force on no day` : ''}` : ''}`);
+      }
+    }
+  }
+
+  // The ontology's history for an auditor (ADR 0027 §10, Q-279), where the bag carries one: made again from the flow
+  // document the record kept under the hash it names, and from the record's own events and changes' steps, it must come
+  // out the same. What it says came with the build's data isn't this record's: it is counted, and whoever vouches for
+  // the build vouches for it.
+  {
+    const f = file('data/ontology/history.json');
+    if (f) {
+      let h: unknown = null;
+      try {
+        h = JSON.parse(text(f.bytes));
+      } catch {
+        h = null;
+      }
+      const named = typeof (h as { flow?: { hash?: unknown } } | null)?.flow?.hash === 'string' ? (h as { flow: { hash: string } }).flow.hash : null;
+      const kept = named === null ? undefined : [...entries].reverse().find((e) => e.kind === 'flow' && (e.about as { after?: unknown } | null)?.after === named);
+      const blob = named === null ? undefined : flows.get(named);
+      let doc: FlowDocument | null = null;
+      try {
+        doc = blob ? (JSON.parse(text(blob.bytes)) as FlowDocument) : null;
+      } catch {
+        doc = null;
+      }
+      if (named === null) say(false, "ontology/history.json isn't shaped as a history: it names no flow");
+      else if (!kept || !doc) say(false, `ontology/history.json says it was made from the flow ${shortHash(named)}, and ${kept ? 'the bag has no document of that hash' : 'no entry of the record says the flow was ever that'}`);
+      else {
+        const asOf = typeof (h as { asOf?: unknown }).asOf === 'string' ? Date.parse((h as { asOf: string }).asOf) : null;
+        const known = entries.filter((e) => asOf === null || Date.parse(e.at) <= asOf);
+        const events = known.flatMap((e) => (e.kind === 'event' && e.about && typeof (e.about as { id?: unknown }).id === 'string' ? [e.about as unknown as FlowEvent] : []));
+        const problems = historyProblems(h, doc, named, { events, steps: stepsOf(known) });
+        const got = h as OntologyHistory;
+        const latest = [...entries].reverse().find((e) => e.kind === 'flow');
+        const shipped = (got.shipped?.events?.length ?? 0) + (got.shipped?.steps?.length ?? 0);
+        // What was held: the changes, with how many asked for an agreement, and the events the record itself holds.
+        const count = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
+        const asked = problems.length ? [] : got.changes.filter((c) => c.agreeing !== 'none');
+        const waits = asked.filter((c) => c.agreeing === 'waiting');
+        const held = problems.length ? '' : `${count(got.changes.length, 'change')}${asked.length ? ` (${asked.length} asking for an owner’s agreement, ${waits.length ? `${waits.length} still waiting` : asked.length === 1 ? 'which has it' : 'each with it'})` : ''} and ${count(got.events.length, 'event')} of the record’s own`;
+        say(problems.length === 0, problems.length
+          ? `ontology/history.json: ${problems.slice(0, 4).join('; ')}${problems.length > 4 ? `; and ${problems.length - 4} more` : ''}`
+          : `ontology/history.json: the ontology’s history from ${got.from} to ${got.to}, made again from the flow as kept at #${kept.seq}${latest && latest.seq !== kept.seq ? ` (the flow changed again at #${latest.seq})` : ''} and the record’s own events and steps: ${held}.${shipped ? ` It also lists what came with the build’s data (${[got.shipped?.events?.length ? count(got.shipped.events.length, 'event') : '', got.shipped?.steps?.length ? `${got.shipped.steps.length} change${got.shipped.steps.length === 1 ? '’s' : 's’'} own step${got.shipped.steps.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(', ')}): not this record’s, so not checked here.` : ''}`);
       }
     }
   }

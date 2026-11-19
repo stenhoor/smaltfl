@@ -1018,6 +1018,81 @@ the record first saw it are held to the names alone.
 - **The story's agreements have no entry of their own** in the month the build records: they are the flow's as
   shipped, on its change sets.
 
+### Slice 9: who hears, and the auditor (2026-11-19)
+
+The ontology's changes and what was going on are told once, and read four ways: what is new since someone last
+looked, a period's digest to pass on, a feed the site publishes, and a history for an auditor, on a page that prints
+and in the audit bag (§10, Q-278, Q-279). Nothing a run is judged by changes, so no hash moves and no data is made
+again.
+
+**Told once** (`src/core/told.ts`, pure). `toldOf` reads the flow as kept and the events written down, as known at
+a moment, and says each change set and each event the same way (`Told`): its days, its kind, what it did, why, who
+made it, who decided, who agreed and when (or whose agreement it waits for), what it reaches (the datasets it is
+about, and those built from them), what it excuses, where it stands, and its own step where the record has one.
+Everything below is that list, filtered and worded. A person is said by the name the flow's policies give them.
+
+**Since you last looked** (Q-327). A browser keeps, by flow and by who is viewing, how each thing stood when they
+last looked: its days, where it stood, who had agreed (`Seen`, `seenOf`). The next look says what is new and what
+has moved (`sinceSeen`): *agreed to since*, *in force now*, *ended since*. It is at the head of the register, each
+thing a tap from its entry, with **Got it**; in a line at the top of the home screen; and on a read flow's sheet,
+on the change itself. A first look says nothing and takes everything as seen; what someone did themselves (a
+change they made, an agreement they gave, an event they wrote) is no news to them; a rewording isn't a move; and
+nothing is said while the page reads as known at an earlier moment. In Larkspur's walk the flow's owner ends a
+description, the security lead agrees to it, and the owner, back, is told *1 that moved: agreed to since*.
+
+**A digest** (Q-328), under the register, behind **Pass it on**. Over the month on screen, the week of the day on
+screen, or every day the page has: what waits for someone's agreement, what is coming, what changed (began, was
+written down or was agreed to in the period, the newest first) and what was going on, each in full
+(`digestOf`, `digestText`). A digest of the period the page reads from is one passed on now, and says everything
+that waits or is coming whenever it was written down; one of a period gone by keeps to what was written down by its
+end. Copied as text, as an image, or as a link that opens the same digest (`#ontology/digest/<from>..<to>`), as a
+day's brief is.
+
+**A feed** (Q-329). The app's build writes `feed.xml` beside the page (`scripts/feed.ts`, `feedOf`): an Atom feed
+(RFC 4287) of every change and event, what waits and what is coming first, read from the last day the build
+recorded, from the flow as shipped, its story's events and the steps the build measured. An entry's id is made of
+the flow's id and the thing's own (`urn:smaltfl:<flow>:change:<id>`), so it is the same entry from build to build,
+and it is updated when the thing was last written down or agreed to. Each links into the Ontology view on its
+entry (`#ontology/change/<id>`, `#ontology/event/<id>`). The page links to it in its head, loads.json names it
+(`feed`), and the digest's fold shows it. The feed is not in what the data's cache is keyed by.
+
+**The history for an auditor** (Q-330, Q-331). `historyOf` makes it over a period, both days in, as things stood on
+its last day: who owns each part of the ontology, every change of the period with its kind, its reason, who made
+it, who decided, who agreed, what it reached and its own step, and what was written down as going on
+(`smaltfl-ontology-history/1`). What came with the build's data and isn't in the browser's record (the story's
+events, the steps the build measured) is kept apart, under `shipped`. *The page* takes the Ontology view's place
+(`#ontology/history/<from>..<to>`, or **The history for an auditor, to print ›**): a period picked by two dates,
+**Print**, and the same copies as a digest; the page's print rules leave the app's bar, the sheet and the buttons
+off the paper. *The bag* carries the history over every day the page has, as known when it was made
+(`data/ontology/history.json`), and its README says what it is. *The offline check* makes it again from the flow
+document the record kept under the hash the history names, which an entry of the record must say the flow was,
+and from the record's own events and steps (`historyProblems`): a change left out or reworded, an agreement the
+flow as kept doesn't carry, an event the record doesn't hold, other owners, or another flow fails it. What is
+listed as shipped is counted and not held. The export records the flow as it is kept before it names the record's
+head, so the document is in the bag (Q-332). The page tells the history from that same document, the flow without
+what is only for display, so that the check has what the page had. Such a document has no notebook cell to write a
+gate's toggle in, so the register says a toggle there from the gate itself, in the words the page used when it was
+made (`register.ts` `checkWithoutCells`); a test holds the kept document's telling to the whole document's.
+
+**What it leaves.**
+
+- **A browser and a viewer, not a person.** What was seen is kept in the browser by who is viewing, the stand-in for
+  people until sharing is built (Q-35): another device starts over. Naming readers for a change waits on sharing
+  too, as §10 says.
+- **The feed is the build's.** A change made in a browser, or an agreement given there, is in that browser's
+  register and its digest, and in no feed until the flow as shipped has it: a static site publishes what its
+  build knew.
+- **What came with the build isn't held offline.** The bag names the data's list, and the list names the recorded
+  month by its hash, but the month isn't in the bag: the audit counts a history's shipped events and steps and
+  holds none of them.
+- **The printed page isn't signed.** It names the hash of the flow it was made from; the history the offline check
+  holds is the bag's.
+- **A digest's image is its text drawn,** not a chart.
+- **One feed a page.** A read flow's own page has its own feed; a page has no feed of one part of its ontology.
+- **The audit still doesn't make each run's rules or context again** from the flow as kept (Q-313, Q-324): a
+  run's entry doesn't keep the moment its rules were known at. Keeping it changes what the record keeps of a run,
+  and wants its own decision.
+
 ## Consequences
 
 - **A flow can stop for a reason it never could:** the data is ahead of the ontology. That is the point of the gate,
@@ -1178,6 +1253,26 @@ Proposed with slice 8, as built:
   change stays the flow's owner's.
 - **Q-326:** the published `context_changes` says who agreed and when (`agreed_by`, `agreed_at`), a column added:
   its contract is 1.1.0.
+
+Proposed with slice 9, as built:
+
+- **Q-327:** what was seen is kept in the browser by flow and by who is viewing: each thing's days, where it stood
+  and who had agreed. A first look says nothing; one's own doings are no news; a rewording isn't a move; nothing is
+  said while reading as known at an earlier moment. **Got it** takes what is on screen as seen.
+- **Q-328:** a digest is offered over the month on screen, the week of the day on screen and every day the page
+  has, and holds what waits for agreement and what is coming whatever its days, what changed in the period and what
+  was going on in it. A link carries its period (`#ontology/digest/<from>..<to>`).
+- **Q-329:** the feed is Atom, `feed.xml` beside the page, written by the app's build as of the last day it
+  recorded. An entry's id is the flow's id and the thing's own, the same from build to build. What is done in a
+  browser isn't in it.
+- **Q-330:** the history is `smaltfl-ontology-history/1`: the flow by id, name and the hash of the flow as kept, the
+  period, the moment it reads as known at, the owners, the changes, the events, and what came with the build kept
+  apart. It is a report made again and compared, never hashed into a run: no hash tag is added. In the bag it is
+  `data/ontology/history.json`, over every day the page has.
+- **Q-331:** the history's page takes the Ontology view's place and is printed by the browser, with print rules
+  that leave the app's own furniture off the paper; the app makes no file of it.
+- **Q-332:** the export records the flow as kept before it names the record's head, where the record doesn't have
+  it yet: the history names that document by its hash, and the offline check finds it in the bag.
 
 ## The questions
 

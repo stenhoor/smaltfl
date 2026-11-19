@@ -20,6 +20,8 @@
 import { agreementOf, knownFrom, type Agreement, type OwnedDoc } from './agree.js';
 import { canonicalJSON } from './canonical.js';
 import type { ChangeKind, ChangeSet, FlowDocument, RuleEdit } from './document.js';
+import { toggledChecks } from './gatecell.js';
+import { gateChecksOf, layerOf } from './gates.js';
 import { applyEdit, changesOn, rulesInForce, versionRules, versionSaid } from './inforce.js';
 
 /** The lane a subject is drawn in: what we check, or what there is and what it means. */
@@ -234,7 +236,7 @@ function replay(doc: Registered, c: ChangeSet, at: string | null): (string | nul
         if (mine) each.push(same ? null : versionSaid(e.changes));
         continue;
       }
-      const r = applyEdit(out, e);
+      const r = applyEdit(out, e) ?? (e.op === 'setCheck' ? checkWithoutCells(out, e) : null);
       if (r) out = r.doc;
       if (mine) each.push(r ? r.said : null);
     }
@@ -243,6 +245,30 @@ function replay(doc: Registered, c: ChangeSet, at: string | null): (string | nul
   // One that isn't in force on its own first day as known then (it can't be: it is from that day, recorded by then).
   while (each.length < c.edits.length) each.push(null);
   return each;
+}
+
+/**
+ * A gate's check set in a document that has no notebook cell to write it in: the gate itself changed, and said as the
+ * app said it when it was made (`inforce.ts`). A flow document as a record keeps it has none of its display fields, the
+ * cells' places among them, so a gate's cell can't be rewritten there; the gate, which is hashed with the flow, can.
+ * What the offline audit reads of the ontology's history is told from such a document, in the words the page uses.
+ * Null in a document that has its cells (it was asked properly, and the edit changed nothing) and where the check
+ * already stands at that mode.
+ */
+function checkWithoutCells(doc: FlowDocument, e: Extract<RuleEdit, { op: 'setCheck' }>): { doc: FlowDocument; said: string } | null {
+  if (doc.cells !== undefined || doc.outline !== undefined) return null;
+  const was = gateChecksOf(doc, e.node)?.[e.check];
+  if (was === e.mode) return null;
+  const lower = e.node.toLowerCase();
+  const id = Object.keys(doc.gates ?? {}).find((k) => k.toLowerCase() === lower) ?? e.node;
+  const own = doc.gates?.[id];
+  const layer = own?.layer ?? layerOf({
+    source: (doc.sources ?? []).some((x) => x.id.toLowerCase() === lower),
+    watched: Object.keys(doc.publish?.watch ?? {}).some((w) => w.toLowerCase() === lower),
+    published: (doc.steps ?? []).some((x) => x.id.toLowerCase() === lower && x.dataset !== undefined),
+  });
+  const gate = { ...(own ?? { layer, checks: {} }), layer, checks: toggledChecks(own?.checks ?? {}, e.check, e.mode) };
+  return { doc: { ...doc, gates: { ...(doc.gates ?? {}), [id]: gate } }, said: `Set the ${e.check} check on ${e.node} to ${e.mode}${was ? ` (it was ${was})` : ''}` };
 }
 
 /** A document the register is read from: its change sets, and what says who owns what (`agree.ts`). */

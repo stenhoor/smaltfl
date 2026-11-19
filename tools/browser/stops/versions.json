@@ -600,5 +600,152 @@
         "#rules-time .aw-ends.aw-ends-waits": 0
       }
     }
+  },
+  {
+    "name": "since-moved",
+    "what": "Back as the flow's owner (ADR 0027 §10, Q-278): the register says at its head what moved since they last looked. The change they wrote down was agreed to by someone else since; what they did themselves (the event they wrote, the change itself) is no news to them",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      ["#viewer", "owner"],
+      "#rules-time .rg-since-head"
+    ],
+    "element": "#rules-time .rg-since",
+    "expect": {
+      "textIn": {
+        "#rules-time .rg-since": [
+          "Since you last looked.",
+          "1 that moved.",
+          "Ended the description of SBOM inventory, written ahead of its data ›",
+          "agreed to since",
+          "Got it"
+        ]
+      },
+      "count": {
+        "#rules-time .rg-since": 1,
+        "#rules-time .rg-since-list li": 1
+      }
+    }
+  },
+  {
+    "name": "since-month",
+    "what": "The home screen says it too, in a line at its top, a tap from the register",
+    "view": "month",
+    "element": "#view-month .mo-since",
+    "expect": {
+      "textIn": {
+        "#view-month .mo-since": ["The ontology changed since you last looked:", "1 that moved ›"]
+      },
+      "count": {
+        "#view-month .mo-since": 1
+      }
+    }
+  },
+  {
+    "name": "since-got-it",
+    "what": "Got it makes what is on screen the last thing seen: the strip goes, until something is new again",
+    "view": "ontology",
+    "viewFirst": true,
+    "click": "#rules-time .rg-since-go",
+    "element": "#rules-time .rg-list",
+    "expect": {
+      "count": {
+        "#rules-time .rg-since": 0,
+        "#rules-time .rg-item": 12
+      }
+    }
+  },
+  {
+    "name": "digest",
+    "what": "Pass it on (Q-278), under the register: a period's digest, the month by default, as text to copy, as an image or as a link that opens the same digest; the feed the site publishes; and the history for an auditor a tap away",
+    "view": "ontology",
+    "viewFirst": true,
+    "click": "#rules-time .rg-digest > summary",
+    "element": "#rules-time .rg-digest",
+    "expect": {
+      "textIn": {
+        "#rules-time .rg-digest": [
+          "Pass it on",
+          "A digest of",
+          "4 changes, 1 more coming and 7 things going on.",
+          "COMING",
+          "CHANGED",
+          "GOING ON",
+          "feed.xml ›",
+          "The history for an auditor, to print ›"
+        ]
+      },
+      "count": {
+        "#rules-time .rg-digest .tl-copy": 1,
+        "#rules-time .rg-digest .tl-image": 1,
+        "#rules-time .rg-digest .tl-link": 1,
+        "#rules-time .rg-digest .dg-feed-go": 1
+      }
+    }
+  },
+  {
+    "name": "history-page",
+    "what": "The history for an auditor (Q-279), in place of the Ontology view: who owns each part of the ontology, then every change of the period with its kind, its reason, who decided, who agreed, what it reached and its own step, and what was written down as going on. It prints as it reads",
+    "view": "ontology",
+    "viewFirst": true,
+    "click": "#rules-time .dg-history",
+    "waitFor": "#history-page .hp-title",
+    "full": true,
+    "expect": {
+      "textIn": {
+        "#history-page": [
+          "Larkspur estate: the ontology’s history",
+          "March 2024.",
+          "Who owns it",
+          "Print",
+          "Set the values check on findings to hold (it was warn)",
+          "coverage 99.1 → 90.8",
+          "checks that apply 19,320 → 21,314",
+          "4 changes to the ontology, 3 asking for an owner’s agreement, each with it; 7 events written down as going on.",
+          "The build’s data: not in this browser’s record"
+        ]
+      },
+      "count": {
+        "#history-page .hp-owners tbody tr": 6,
+        "#history-page .hp-change": 4,
+        "#history-page .hp-event": 7,
+        "#rules-time .rg-list": 0
+      },
+      "noTextIn": {
+        "#history-page": ["nothing that applies to the rules of its day"]
+      }
+    }
+  },
+  {
+    "name": "history-link",
+    "what": "A link opens the history over its own period (a week here): the same page, with the changes and events of those days; the way back is the Ontology view's",
+    "view": "ontology/history/2024-03-11..2024-03-17",
+    "viewFirst": true,
+    "waitFor": "#history-page .hp-title",
+    "element": "#history-page",
+    "expect": {
+      "textIn": {
+        "#history-page .hp-period": ["Mon Mar 11 to Sun Mar 17, 2024."]
+      },
+      "count": {
+        "#history-page .hp-change": 2,
+        "#history-page .hp-event": 4
+      }
+    }
+  },
+  {
+    "name": "history-back",
+    "what": "Opened again from Pass it on, the way back is the Ontology view as it was",
+    "view": "ontology",
+    "viewFirst": true,
+    "waitFor": "#rules-time .rg-list",
+    "element": "#rules-time .rg-list",
+    "expect": {
+      "count": {
+        "#history-page .hp-title": 0,
+        "#rules-time .rg-list": 1
+      }
+    },
+    "clicks": ["#rules-time .dg-history", "#history-page .hp-back"]
   }
 ]

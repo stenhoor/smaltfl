@@ -252,7 +252,7 @@ kinds, relations and meanings over time, and the shared ontology's own changes; 
 context that travels; (8) who decides; (9) who hears, and the auditor; (10) the demo's new scene. Q-280 to Q-285 are
 the choices the answers leave open, proposed for the maintainers to confirm as each is built; Q-286 to Q-291 are the
 ones slice 3 made as it was built, Q-292 to Q-296 slice 4's, Q-297 to Q-303 slice 5's, Q-304 to Q-311 slice 6's,
-Q-312 to Q-319 slice 7's and Q-320 to Q-326 slice 8's.
+Q-312 to Q-319 slice 7's, Q-320 to Q-326 slice 8's and Q-327 to Q-332 slice 9's.
 
 Built so far:
 
@@ -346,10 +346,24 @@ Built so far:
   flow), and `npm run regress -- versions` on Larkspur (a change that ends something waits, the security lead
   agrees, it is in force).
 
-What comes next is slice 9: who hears, and the auditor (since you last looked, the digest, the feed; the history as
-a page to print and in the audit bag). The audit holds neither a run's rules nor its context tables to the flow as
-kept (Q-313, Q-324): both need the moment a run's rules were known at, which a run's entry doesn't keep; it belongs
-with the auditor's history.
+- **Slice 9, who hears, and the auditor:** the ontology's changes and events are told once (`src/core/told.ts`
+  `toldOf`: each with its days, kind, what it did, why, who made, decided and agreed, what it reaches and its own
+  step) and read four ways. *Since you last looked:* a browser keeps, by flow and by who is viewing, how each thing
+  stood; the register's head, the home screen's top and a read flow's sheet say what is new and what moved, until
+  **Got it**. *A digest:* under the register, **Pass it on**, over a month, a week or every day, as text, an image
+  or a link. *A feed:* the app's build writes `feed.xml` beside the page (Atom; `scripts/feed.ts`), which the page
+  links to. *The history for an auditor:* a page in place of the Ontology view over a period picked, which prints
+  as it reads, and `data/ontology/history.json` in the audit bag, which the offline check makes again from the flow
+  document the record kept and the record's own events and steps. Nothing a run is judged by changes: no hash
+  moves, and no data is made again. How to check it: `test/told.test.ts` (the telling, the digest, since, the feed,
+  the history and its check; Larkspur's March and its feed), `test/audit.test.ts` (a bag's history held, and six
+  ways it fails), and `npm run regress -- versions` on Larkspur (the owner told what moved once the security lead
+  agreed, the digest, the history's page by a button and by a link); `integrity` exports a bag with the history.
+
+What comes next is slice 10: the demo's new scene on Larkspur's tour (the catalogue's fifteenth control stops at
+the gate, is declared with a reason and agreed to, and the score is cut with its own step), with the story's events.
+The audit holds neither a run's rules nor its context tables to the flow as kept (Q-313, Q-324): both need the
+moment a run's rules were known at, which a run's entry doesn't keep, and keeping it wants its own decision.
 
 Slice 6 left the app measuring no step of a change made in it (Q-311), and a first day held by its own
 change's step waiting for a person. Found on the way, and left: the brief of a day a restatement published (Larkspur's

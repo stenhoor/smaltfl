@@ -717,6 +717,27 @@ release (smaltty ADR 0030).
   `.dh-rules-waits`, a declaration at the gate that waits (`declaredWaiting`, `.gt-agree`). Larkspur's estate and its product are the security lead's (`ciso`), each read flow its owner's;
   the story's `sbom-declared` is agreed to five minutes after it was recorded. `test/agree.test.ts`,
   `test/audit.test.ts`, `test/compose.test.ts`; stops in `versions.json`.
+  Slice 9, who hears, and the auditor (§10; no hash moves). `src/core/told.ts` (pure, outside the data's cache key):
+  `Told` (a change set or an event told once: its days, kind, what it did, why, who made, decided and agreed, what
+  it reaches, what it excuses, its own step), `toldOf`, `inPeriod`, `toldLines`, `spanSaid`, `saidWhen`,
+  `agreedSaid`, `reachSaid`; a period's digest (`digestOf`, `digestHead`, `digestText`, `periodSaid`); since a
+  browser last looked (`Seen`, `seenOf`, `sinceSeen`, `movedSaid`, `sinceSaid`); the feed (`feedOf`: Atom, an
+  entry's id `urn:smaltfl:<flow>:<change|event>:<id>`); the history for an auditor (`smaltfl-ontology-history/1`:
+  `OntologyHistory`, `historyOf`, `historyTold`, `historyHead`, `historyText`, `historyProblems`; what came with the
+  build under `shipped`). `scripts/feed.ts` `feedFor`: the app's build writes `feed.xml` beside the page (loads.json
+  `feed`, `DataList.feed`; the page's `<link rel="alternate">`), from the flow as shipped, the story's events and
+  the month recorded; not in the data's cache key. The app: `toldNow`; `sinceNow` (kept by flow and viewer,
+  `seenPlace`, once `toldReady`; a first look says nothing; `seeOwn`, `changesHad`: one's own doings are no news),
+  `sincePart` (the register's head, **Got it**), `sinceLine` (the month's top), the mark on a read flow's sheet
+  (`flowChangedPart`'s `.fl-since`); `digestPart` (**Pass it on**; `toldPeriods`, `copyActs`, `textImage`);
+  `renderHistoryPage` (`#history-page` in place of the Ontology view, `body[data-told="history"]`, the page's
+  `@media print` rules), `historyNow`, `historyEntry`; links `#ontology/change|event|digest|history/…`
+  (`takeOntologyLink`); `exportAudit` records the flow as kept, then puts `ontology/history.json` in the bag
+  (`auditReadme` says what it is); `audit.ts` makes it again from the flow document the record kept under the hash
+  it names and the record's events and steps. The history is told from the flow without its display fields, as the
+  record keeps it: `register.ts` `checkWithoutCells` says a gate's toggle there, where no cell can be rewritten.
+  `test/told.test.ts`, `test/audit.test.ts`; stops in `versions.json`, and `integrity.json`'s bag (tour.cjs's
+  `expect.audit` takes a list of lines the audit's report must say).
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -837,10 +858,12 @@ release (smaltty ADR 0030).
   document format 5), slice 4 (the two doors), slice 5 (kinds, relations and meanings over time, with the shared
   ontology's own change sets), slice 6 (reading across a change: each change's own step, the cuts, the adjusted
   line, a declared change as the new level), slice 7 (context that travels: three tables any cell can join to,
-  published with the product) and slice 8 (who decides: owners named in the ontology, agreement recorded on the
-  change set, the audit holding one to the other) are built (its §"As built", which says what each leaves); slice
-  9, who hears and the auditor, is next. Its Q-280 to Q-285 are proposed, for the maintainers to confirm as each is
-  built, and Q-286 to Q-326 are the choices slices 3 to 8 made as they were built.
+  published with the product), slice 8 (who decides: owners named in the ontology, agreement recorded on the
+  change set, the audit holding one to the other) and slice 9 (who hears, and the auditor: since you last looked,
+  a digest, a feed the build writes, the history as a page that prints and in the audit bag) are built (its §"As
+  built", which says what each leaves); slice 10, the demo's new scene, is next. Its Q-280 to Q-285 are proposed,
+  for the maintainers to confirm as each is built, and Q-286 to Q-332 are the choices slices 3 to 9 made as they
+  were built.
 
 ## Rules for this repository
 
