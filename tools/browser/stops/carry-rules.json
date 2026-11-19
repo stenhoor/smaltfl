@@ -1,0 +1,67 @@
+[
+  {
+    "name": "carry-rules-edit",
+    "what": "A new browser: on Evidence feeds' own page the owner handles a column the estate describes its own way, so the flow there is no longer the flow the estate reads",
+    "fresh": true,
+    "page": "feeds",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      ".of-item[data-file=\"tls\"] .of-row",
+      ".of-item.open .of-col[data-column=\"issuer\"] .of-edit",
+      [
+        ".of-form input[id$=\"-name\"]",
+        "Certificate authority"
+      ],
+      [
+        ".of-form textarea[id$=\"-why\"]",
+        "The feed names the authority, not the certificate’s issuer field"
+      ],
+      ".of-form .of-save"
+    ],
+    "waitFor": ".of-item.open .of-col[data-column=\"issuer\"] .of-handled",
+    "expect": {
+      "count": {
+        ".of-item.open .of-col[data-column=\"issuer\"] .of-handled": 1
+      }
+    }
+  },
+  {
+    "name": "carry-rules-decides",
+    "what": "The day decided there, under the rules as they are there",
+    "page": "feeds",
+    "day": "Wed 27",
+    "clicks": [
+      "#loads .vf-decide-day",
+      ".vf-option[data-option=dont]",
+      ".vf-go"
+    ],
+    "full": true,
+    "expect": {
+      "loads": {
+        "Wed 27": ", not published"
+      }
+    }
+  },
+  {
+    "name": "carry-rules-not-carried",
+    "what": "The estate's page doesn't take it: the decision was made at a flow whose rules differ, by its hash. The day still waits here, and the sheet says what was decided there and why it isn't carried",
+    "page": "",
+    "day": "Wed 27",
+    "in": "",
+    "click": "#loads .vf-decide-day",
+    "waitFor": ".vf-detail .vf-not-carried",
+    "element": ".vf-detail",
+    "expect": {
+      "state": "held",
+      "textIn": {
+        ".vf-detail .vf-not-carried": [
+          "Decided on Evidence feeds’ page, where Evidence feeds isn’t as it is here: its rules differ, so that decision isn’t carried. Decide it here."
+        ]
+      },
+      "count": {
+        ".vf-detail .vf-option": 3
+      }
+    }
+  }
+]

@@ -20,6 +20,13 @@
 //                                         daily files (with the list's `generateArgs`) and the general builder writes
 //                                         the history. Every build ships its document as data/flow.json, and a
 //                                         folder's flow ships with its notebooks' sources and the steps derived from them
+//   node scripts/build-app.mjs [--flow F] [--variant V] --data-key
+//                                         prints what the flow's generated data is kept by (the name of its folder in
+//                                         node_modules/.cache/smaltfl/data/) and stops: nothing is built or written
+//   node scripts/build-app.mjs [--flow F] [--variant V] --data-only
+//                                         makes that data where it isn't made yet, and stops before the app is built:
+//                                         CI makes each demo's data once and keeps it by its key for every later run
+//                                         (tools/browser/store.cjs)
 import { build } from 'esbuild';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -28,10 +35,15 @@ import { basename, dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { dataNames, makeData } from './data/make.mjs';
 
+// `--data-key` and `--data-only` are about the generated data alone: neither touches `--out`.
+const keyOnly = process.argv.includes('--data-key');
+const dataOnly = process.argv.includes('--data-only');
 const outAt = process.argv.indexOf('--out');
 const out = outAt >= 0 ? process.argv[outAt + 1] : 'dist/app';
-rmSync(out, { recursive: true, force: true });
-mkdirSync(`${out}/data`, { recursive: true });
+if (!keyOnly && !dataOnly) {
+  rmSync(out, { recursive: true, force: true });
+  mkdirSync(`${out}/data`, { recursive: true });
+}
 const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
 const git = (...args) => execFileSync('git', args, { maxBuffer: 1 << 28 });
 // The commit the code is built from, which every run records (ADR 0006 §4): marked when the tree has changes on top.
@@ -87,17 +99,24 @@ const missingVariant = (name, listed) => {
   throw new Error(`${flowPath}'s data list has no variant ${name}: it has ${Object.keys(listed.variants ?? {}).join(', ') || 'none'}`);
 };
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
+// A script of this repository bundled for Node, to import here. Each build its own files, removed when it ends: several
+// demos are built side by side (tools/browser/regress.cjs), and none may import another's half-written bundle.
+const bundled = (name) => {
+  const file = `node_modules/.cache/smaltfl/${name}.${process.pid}.mjs`;
+  process.on('exit', () => rmSync(file, { force: true }));
+  return file;
+};
 // The flow reader (scripts/flow.ts), bundled for Node: a folder's flow.json comes back with its notebooks loaded and its
 // steps derived (ADR 0011); a .smaltfl.json as it is.
-const reader = 'node_modules/.cache/smaltfl/flow.mjs';
+const reader = bundled('flow');
 await build({ entryPoints: ['scripts/flow.ts'], bundle: true, platform: 'node', format: 'esm', target: 'node20', outfile: reader, logLevel: 'warning' });
 const { readFlow, readWithChanges, readEstates, bindingsPath, undescribedIn } = await import(pathToFileURL(reader).href);
 // The catalogue's reader (scripts/catalogue.ts), bundled the same way: the flows a flow's `catalogue` folder holds.
-const catalogueReader = 'node_modules/.cache/smaltfl/catalogue.mjs';
+const catalogueReader = bundled('catalogue');
 await build({ entryPoints: ['scripts/catalogue.ts'], bundle: true, platform: 'node', format: 'esm', target: 'node20', outfile: catalogueReader, logLevel: 'warning' });
 const { readCatalogue } = await import(pathToFileURL(catalogueReader).href);
 // The feed's writer (scripts/feed.ts), bundled the same way: the ontology's changes as a feed beside the page.
-const feedWriter = 'node_modules/.cache/smaltfl/feed.mjs';
+const feedWriter = bundled('feed');
 await build({ entryPoints: ['scripts/feed.ts'], bundle: true, platform: 'node', format: 'esm', target: 'node20', outfile: feedWriter, logLevel: 'warning' });
 const { feedFor } = await import(pathToFileURL(feedWriter).href);
 /** The feed the site publishes beside the page (ADR 0027 §10, Q-278): the ontology's changes, what is coming and what was
@@ -112,6 +131,18 @@ const shipFeed = async (path, storyPath, { events, monthPath, days, made }) => {
 };
 // A flow's bindings (ADR 0010 §9): each source's table, format and file name, which loads.json carries on.
 const bindingsOf = (doc) => JSON.parse(readFileSync(bindingsPath(doc), 'utf8'));
+/** The flow's data list as this build takes it: with a variant (`--variant`, the tour's: ADR 0023 §2), the variant's
+ * own generator arguments and story over the list's. */
+const bindOf = () => {
+  const listed = bindingsOf(flowPath);
+  const bind = variant ? { ...listed, ...(listed.variants?.[variant] ?? missingVariant(variant, listed)) } : listed;
+  if (!bind.generate) throw new Error(`${flowPath}'s data list names no generator for its files`);
+  return bind;
+};
+if (keyOnly) {
+  console.log(await dataKey(flowPath, bindOf()));
+  process.exit(0);
+}
 /** The document the build ships, as data/flow.json, and its entry in loads.json. With a recorded story (ADR 0021 §6), its
  * changes to the rules people set ship as the document's own change sets (ADR 0021 §5): the page reads them as it reads
  * one made there, and the month's runs were recorded under them. */
@@ -162,41 +193,42 @@ const shipCatalogue = async (path, storyPath = null) => {
     return { ...entry, file: `catalogue/${entry.id}.json`, sha256: sha256(bytes), bytes: bytes.length };
   });
 };
-// derive.js: the notebook parser, loaded the first time someone builds in the app (a join written as a cell).
-await build({ ...common, entryPoints: { app: 'src/app/main.ts', worker: 'src/app/worker.ts', inline: 'src/app/inline.ts', parse: 'src/app/parse.ts', derive: 'src/app/derive.ts' }, outdir: out });
-// The bundles named by their content (app.3f2a9c1d.js), so a new build is never served from a browser's cache of the
-// last one under the same name: the page's script tag and the page's references to the worker and the in-page engine
-// take the new names; so does its reference to the SQL parser, loaded when a screen asks where a column is used.
-const hashed = {};
-for (const name of ['worker', 'inline', 'parse', 'derive', 'app']) {
-  let js = readFileSync(`${out}/${name}.js`, 'utf8');
-  for (const [from, to] of Object.entries(hashed)) js = js.split(`./${from}.js`).join(`./${to}`);
-  const to = `${name}.${sha256(Buffer.from(js)).slice(0, 8)}.js`;
-  writeFileSync(`${out}/${to}`, js);
-  rmSync(`${out}/${name}.js`);
-  rmSync(`${out}/${name}.js.map`, { force: true });
-  hashed[name] = to;
+// The app itself: its bundles and its page. Before the data, so a page that doesn't build says so at once.
+if (!dataOnly) {
+  // derive.js: the notebook parser, loaded the first time someone builds in the app (a join written as a cell).
+  await build({ ...common, entryPoints: { app: 'src/app/main.ts', worker: 'src/app/worker.ts', inline: 'src/app/inline.ts', parse: 'src/app/parse.ts', derive: 'src/app/derive.ts' }, outdir: out });
+  // The bundles named by their content (app.3f2a9c1d.js), so a new build is never served from a browser's cache of the
+  // last one under the same name: the page's script tag and the page's references to the worker and the in-page engine
+  // take the new names; so does its reference to the SQL parser, loaded when a screen asks where a column is used.
+  const hashed = {};
+  for (const name of ['worker', 'inline', 'parse', 'derive', 'app']) {
+    let js = readFileSync(`${out}/${name}.js`, 'utf8');
+    for (const [from, to] of Object.entries(hashed)) js = js.split(`./${from}.js`).join(`./${to}`);
+    const to = `${name}.${sha256(Buffer.from(js)).slice(0, 8)}.js`;
+    writeFileSync(`${out}/${to}`, js);
+    rmSync(`${out}/${name}.js`);
+    rmSync(`${out}/${name}.js.map`, { force: true });
+    hashed[name] = to;
+  }
+  // The page's title is the flow's name: the artifact host and the browser tab show it.
+  const titleOf = (doc) => `${doc.name} · smaltfl`.replace(/[<&]/g, (c) => (c === '<' ? '&lt;' : '&amp;'));
+  // smaltkit's styles (its editor and grid, which the notebook's cells use), from the pinned package, in the page: the
+  // artifact host serves one page, so a stylesheet beside it would not load.
+  const kitCss = readFileSync('node_modules/smaltkit/dist/ui.css', 'utf8').replace(/<\/style/gi, '<\\/style');
+  const pageHtml = readFileSync('src/app/page.html', 'utf8')
+    .replace(/<style id="smaltkit-ui">[^<]*<\/style>/, () => `<style id="smaltkit-ui">\n${kitCss}</style>`)
+    .replace('src="app.js"', `src="${hashed.app}"`)
+    .replace(/<title>[^<]*<\/title>/, `<title>${titleOf(await readFlow(flowPath))}</title>`);
+  writeFileSync(`${out}/page.html`, pageHtml);
+  // The same page as a document of its own, for any static host (GitHub Pages serves it at the folder's address).
+  writeFileSync(`${out}/index.html`, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>[hidden]{display:none!important}body{margin:0}</style></head><body>\n${pageHtml}\n</body></html>\n`);
+  writeFileSync(`${out}/bundles.json`, JSON.stringify(hashed, null, 2) + '\n');
 }
-// The page's title is the flow's name: the artifact host and the browser tab show it.
-const titleOf = (doc) => `${doc.name} · smaltfl`.replace(/[<&]/g, (c) => (c === '<' ? '&lt;' : '&amp;'));
-// smaltkit's styles (its editor and grid, which the notebook's cells use), from the pinned package, in the page: the
-// artifact host serves one page, so a stylesheet beside it would not load.
-const kitCss = readFileSync('node_modules/smaltkit/dist/ui.css', 'utf8').replace(/<\/style/gi, '<\\/style');
-const pageHtml = readFileSync('src/app/page.html', 'utf8')
-  .replace(/<style id="smaltkit-ui">[^<]*<\/style>/, () => `<style id="smaltkit-ui">\n${kitCss}</style>`)
-  .replace('src="app.js"', `src="${hashed.app}"`)
-  .replace(/<title>[^<]*<\/title>/, `<title>${titleOf(await readFlow(flowPath))}</title>`);
-writeFileSync(`${out}/page.html`, pageHtml);
-// The same page as a document of its own, for any static host (GitHub Pages serves it at the folder's address).
-writeFileSync(`${out}/index.html`, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>[hidden]{display:none!important}body{margin:0}</style></head><body>\n${pageHtml}\n</body></html>\n`);
-writeFileSync(`${out}/bundles.json`, JSON.stringify(hashed, null, 2) + '\n');
 {
   // Its data list's generator writes its daily files (generated, never fetched), the general builder measures the
   // history from the days before the loads, and the document ships beside them (ADR 0010 §9). A variant of the data list
   // (`--variant`, the tour's: ADR 0023 §2) generates its own month with its own story.
-  const listed = bindingsOf(flowPath);
-  const bind = variant ? { ...listed, ...(listed.variants?.[variant] ?? missingVariant(variant, listed)) } : listed;
-  if (!bind.generate) throw new Error(`${flowPath}'s data list names no generator for its files`);
+  const bind = bindOf();
   const flowDoc = await readFlow(flowPath);
   // Ontology first (format 5, ADR 0027 §4): a flow whose sources aren't described isn't built. What a row is, and every
   // column its data's list declares, described or set aside.
@@ -222,6 +254,7 @@ writeFileSync(`${out}/bundles.json`, JSON.stringify(hashed, null, 2) + '\n');
   const { historyName, sampleName, rangesName } = dataNames(watches);
   const sampled = watches.length > 0;
   console.log(`${cached ? 'reused' : 'made'} the generated data and ${watches.length} histories (${key.slice(0, 12)}) in ${((Date.now() - t0) / 1000).toFixed(0)} s`);
+  if (dataOnly) process.exit(0);
   mkdirSync(`${out}/data/loads`, { recursive: true });
   const entry = (name, bytes, from) => {
     writeFileSync(`${out}/data/${name}`, bytes);

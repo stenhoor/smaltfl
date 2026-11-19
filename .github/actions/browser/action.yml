@@ -1,0 +1,19 @@
+name: Browser
+description: Playwright and its Chromium, for the job alone, after the set-up.
+runs:
+  using: composite
+  steps:
+    # The tools ask for `playwright` as a session has it, installed beside the project, not in it (tools/README.md).
+    # Its Chromium comes with the system packages and fonts it needs, from the runner's package mirror, which now and
+    # then doesn't answer (two jobs of the run of 2026-11-19 on main ended there, before a single stop): tried three
+    # times, a little longer apart each time.
+    - shell: bash
+      run: |
+        npm install -g playwright@1.63.0
+        echo "NODE_PATH=$(npm root -g)" >> "$GITHUB_ENV"
+        for try in 1 2 3; do
+          if playwright install --with-deps chromium; then exit 0; fi
+          echo "::warning::Playwright's Chromium didn't install (try $try of 3)"
+          sleep $((try * 20))
+        done
+        exit 1

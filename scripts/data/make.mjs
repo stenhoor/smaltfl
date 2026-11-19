@@ -10,7 +10,7 @@
 // `--more` adds arguments to the generator's.
 import { build } from 'esbuild';
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -32,8 +32,9 @@ export function dataNames(watches) {
  * fails or a history isn't written.
  */
 export async function makeData({ flowPath, flowDoc, work, generate, generateArgs = [], story = null, commit = 'dev' }) {
-  // The recorded story's later deliveries are written by the generator too (ADR 0021 §6).
-  execFileSync('node', [generate, work, ...generateArgs, ...(story ? ['--story', story] : [])], { stdio: 'inherit' });
+  // The recorded story's later deliveries are written by the generator too (ADR 0021 §6). One generator at a time
+  // where several demos are made side by side (below).
+  await inTurn(generate, () => execFileSync('node', [generate, work, ...generateArgs, ...(story ? ['--story', story] : [])], { stdio: 'inherit' }));
   // One history a watch (ADR 0013 §5): a control's from its own files (base.<watch>.json, else base.json), a watched
   // step's from a run of the flow on each day's files.
   const watches = Object.keys(flowDoc.publish?.watch ?? {});
@@ -95,6 +96,54 @@ export async function makeData({ flowPath, flowDoc, work, generate, generateArgs
   // A run that ended without writing its history is a broken build, never a finished one the next build reuses.
   const unwritten = watches.filter((w) => !existsSync(join(work, historyName(w))));
   if (unwritten.length) throw new Error(`no history written for ${unwritten.join(', ')}: ${work} is left unfinished, and is made again`);
+}
+
+/**
+ * Runs `go` when no other build is running the same generator. A generator's wrapper bundles itself to one file and
+ * imports it (scripts/data/larkspur.mjs writes node_modules/.cache/smaltfl/larkspur.mjs), so two that start together
+ * could read each other's half-written bundle: the demos are made side by side (tools/browser/regress.cjs), and three
+ * of them are Larkspur's. The wrapper is part of what the data is kept by, so the turn is taken here, by a folder made
+ * and removed: one left by a build that died (its process gone, or no process named after ten seconds) is taken over.
+ */
+async function inTurn(generate, go) {
+  const lock = join('node_modules/.cache/smaltfl', `${generate.replace(/[^A-Za-z0-9]+/g, '-')}.lock`);
+  mkdirSync(dirname(lock), { recursive: true });
+  const alive = (pid) => {
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch (e) {
+      return e.code === 'EPERM';
+    }
+  };
+  for (;;) {
+    try {
+      mkdirSync(lock);
+      break;
+    } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+      let holder = null;
+      try {
+        holder = Number(readFileSync(join(lock, 'pid'), 'utf8'));
+      } catch {
+        // Made a moment ago, its process not yet written: waited for, unless it has stood so for ten seconds.
+      }
+      let age = 0;
+      try {
+        age = Date.now() - statSync(lock).mtimeMs;
+      } catch {
+        continue;
+      }
+      if (holder !== null ? !alive(holder) : age > 10_000) rmSync(lock, { recursive: true, force: true });
+      else await new Promise((done) => setTimeout(done, 250));
+    }
+  }
+  writeFileSync(join(lock, 'pid'), String(process.pid));
+  try {
+    return go();
+  } finally {
+    rmSync(lock, { recursive: true, force: true });
+  }
 }
 
 /** Runs `go` over `items`, at most `n` at a time. */

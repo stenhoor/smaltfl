@@ -28,9 +28,10 @@
  * WAF's band recorded on Fri Mar 22 for Mon Mar 25, its own step moving nothing. Every other day is published as it
  * arrived.
  *
- * About ten minutes in CI, on four cores: `npm run test:tour`, and a CI job of its own (vitest.config.ts, TOUR). With
- * SMALTFL_TOUR_WORK naming a folder the month was made in already (the app build's cache of the tour's data), the answer
- * key is checked against it, nothing made again.
+ * A quarter of an hour on four cores where it makes the two months itself: `npm run test:tour` (vitest.config.ts,
+ * TOUR). With SMALTFL_TOUR_WORK naming a folder the month was made in already (the app build's cache of the tour's
+ * data), the answer key is checked against it, nothing made again: what CI runs, on the data the tour demo's own jobs
+ * are built from (.github/workflows/demo.yml, `answer key`).
  */
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';

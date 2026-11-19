@@ -1,0 +1,199 @@
+[
+  {
+    "name": "carry-fill-staged",
+    "what": "A new browser: on Evidence feeds' own page the day is to be filled from the day before; the fill is staged, and nothing is out yet",
+    "fresh": true,
+    "page": "feeds",
+    "day": "Wed 27",
+    "clicks": [
+      "#loads .vf-decide-day",
+      ".vf-option[data-option=fill]"
+    ],
+    "waitFor": ".vf-go:not([disabled])",
+    "waitForMs": 240000,
+    "expect": {
+      "state": "held",
+      "noPageText": [
+        "refused"
+      ]
+    }
+  },
+  {
+    "name": "carry-fill-decides",
+    "what": "Filled from Tue 26 there; the receipt says the estate's page takes it",
+    "page": "feeds",
+    "day": "Wed 27",
+    "clicks": [
+      "#loads .vf-decide-day",
+      ".vf-option[data-option=fill]",
+      ".vf-go"
+    ],
+    "waitFor": "#loads .vf-rc-taken",
+    "waitForMs": 240000,
+    "full": true,
+    "expect": {
+      "noPageText": [
+        "refused"
+      ],
+      "loads": {
+        "Wed 27": ", filled"
+      },
+      "textIn": {
+        "#loads .vf-rc-taken": [
+          "Carried to Larkspur estate’s page when the day runs there."
+        ]
+      }
+    }
+  },
+  {
+    "name": "carry-fill-carried",
+    "what": "The estate's page takes the fill: the same remedy, made here from this page's own offer of it (the same file of the same day, judged from this page's history), staged on its own run and published; the posture's own load is decided with the file's",
+    "scheme": "dark",
+    "page": "",
+    "day": "Wed 27",
+    "in": "",
+    "waitFor": "#loads .vf-rc-carried",
+    "waitForMs": 240000,
+    "full": true,
+    "expect": {
+      "textIn": {
+        "#loads .vf-rc-carried": [
+          "Decided on Evidence feeds’ page, and carried here: nobody was asked twice."
+        ]
+      },
+      "count": {
+        "#loads .vf-decide-day": 0
+      },
+      "noPageText": [
+        "refused"
+      ],
+      "loads": {
+        "Wed 27": ", filled"
+      }
+    }
+  },
+  {
+    "name": "carry-fill-record",
+    "what": "The estate's record: the fill's decision carried from Evidence feeds' page, its derived run made here, and its release",
+    "scheme": "dark",
+    "page": "",
+    "view": "runs",
+    "viewFirst": true,
+    "element": "#record",
+    "expect": {
+      "textIn": {
+        "#record": [
+          "filled from Tue 26",
+          "carried from Evidence feeds’ page, its #",
+          "· with #"
+        ]
+      },
+      "noTextIn": {
+        "#record": [
+          "refused"
+        ]
+      }
+    }
+  },
+  {
+    "name": "carry-fill-audit",
+    "what": "The estate's bag with a carried fill, held by the offline audit: the file's decision, the load that follows it, and the release of the derived run citing the file's",
+    "page": "",
+    "view": "runs",
+    "viewFirst": true,
+    "download": "#record button:has-text(\"Export for audit\")",
+    "expect": {
+      "download": "^smaltfl-audit-larkspur-\\d+\\.zip$",
+      "audit": true
+    }
+  },
+  {
+    "name": "carry-fill-again",
+    "what": "Opened again, in a new engine: the fill is made again from the decision as this record keeps it, and released again; the other page isn't asked twice",
+    "page": "",
+    "reload": true,
+    "day": "Wed 27",
+    "in": "",
+    "waitFor": "#loads .vf-rc-carried",
+    "waitForMs": 240000,
+    "full": true,
+    "expect": {
+      "count": {
+        "#loads .vf-decide-day": 0
+      },
+      "noPageText": [
+        "refused"
+      ],
+      "loads": {
+        "Wed 27": ", filled"
+      }
+    }
+  },
+  {
+    "name": "carry-fill-again-audit",
+    "what": "The bag again, from the new engine, which no longer holds its own judgement of the first fill's donor: the audit goes by the repair as recorded, told from this page's history",
+    "page": "",
+    "view": "runs",
+    "viewFirst": true,
+    "download": "#record button:has-text(\"Export for audit\")",
+    "expect": {
+      "download": "^smaltfl-audit-larkspur-\\d+\\.zip$",
+      "audit": true
+    }
+  },
+  {
+    "name": "carry-fill-month",
+    "what": "Evidence feeds' own page opened again, on its month, where its first day runs: the day picked says who filled it and from which day. The fill is withdrawn from here, in an engine that has a day before it to go back to",
+    "page": "feeds",
+    "view": "month",
+    "viewFirst": true,
+    "click": "#view-month .mo-d[data-day=\"2024-03-27\"]",
+    "element": "#view-month .mo-sum",
+    "expect": {
+      "textIn": {
+        "#view-month .mo-sum": [
+          "filled it from Tue Mar 26"
+        ]
+      }
+    }
+  },
+  {
+    "name": "carry-fill-withdrawn",
+    "what": "The fill is taken back on the flow's own page: readers see the day before again",
+    "page": "feeds",
+    "day": "Wed 27",
+    "clicks": [
+      "#loads .vf-change-c",
+      ".vf-option[data-option=dont]",
+      ".vf-go"
+    ],
+    "full": true,
+    "expect": {
+      "pageText": [
+        "Fill withdrawn"
+      ],
+      "noPageText": [
+        "refused"
+      ]
+    }
+  },
+  {
+    "name": "carry-fill-withdrawn-carried",
+    "what": "The estate's page takes that in turn: the decision not to publish amends the fill it had carried, and the day isn't published here either",
+    "page": "",
+    "day": "Wed 27",
+    "in": "",
+    "full": true,
+    "expect": {
+      "textIn": {
+        "#loads": [
+          "Fill withdrawn",
+          "Decided on Evidence feeds’ page, and carried here: nobody was asked twice."
+        ]
+      },
+      "noPageText": [
+        "refused"
+      ]
+    }
+  }
+]
