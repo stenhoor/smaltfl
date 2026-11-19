@@ -18,7 +18,8 @@ const SLOW = ['test/estate-flow.test.ts', 'test/larkspur-flow.test.ts', 'test/mo
 /**
  * The tour's two months at the demo's own scale (test/larkspur-tour.test.ts, ADR 0023 §2, amendment 1): its data made as
  * the app build makes it, the months recorded with their story, its answer key checked. Longer than every slow test together, so run by
- * `npm run test:tour` and by a CI job of its own.
+ * `npm run test:tour`; CI checks the answer key on the data its tour demo is built from (SMALTFL_TOUR_WORK,
+ * .github/workflows/demo.yml), where it takes half a second.
  */
 const TOUR = ['test/larkspur-tour.test.ts'];
 const only = process.env.SMALTFL_SLOW ? SLOW : process.env.SMALTFL_TOUR ? TOUR : null;
@@ -70,6 +71,10 @@ export default defineConfig({
     // The slow tests run as they always did: a process a file, each with its own heap (a world of engine runs is large).
     isolate: !!process.env.SMALTFL_ISOLATE || !!only,
     pool: only ? 'forks' : 'threads',
+    // A worker a core for `npm test`: vitest leaves one core free by default, and on four that is a quarter of them
+    // (62 s with three workers, 57 with four, on 2026-11-19). The slow sets are a few long files, and the benchmarks
+    // are timed: both as vitest runs them.
+    ...(only || process.env.SMALTFL_BENCH ? {} : { maxWorkers: '100%' }),
     sequence: { sequencer: LongestFirst },
   },
 });

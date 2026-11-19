@@ -1,152 +1,121 @@
 name: CI
 
+# Every push, on every branch: a pull request shows the checks of its branch's last push, so a commit is checked once,
+# not once as a push and again as a pull request (what it would be merged into isn't checked before the merge: main's
+# own run checks it after). A push to a branch stops the run of the push before it; main's runs each go to their end.
+#
+# What reports, and about when (ADR 0025, amended 2026-11-19): `check` and `test` in a minute or so; `isolated` in
+# three; `slow` in four to six; each demo's stop sets in three to five where its data is in the store, and after its
+# data is made where it isn't (the tour's, a quarter of an hour: a change to the app alone never makes any).
 on:
   push:
-  pull_request:
+  workflow_dispatch:
+    inputs:
+      sizes:
+        description: Replay every stop set at every size too, as main does
+        type: boolean
+        default: false
+
+# `actions: read` is for the store of the demos' data: a job finds the artifact an earlier run made (tools/browser/store.cjs).
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  test:
+  # The types, and the package as it would be published.
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      # smaltdb and sibling plugins are not on npm yet: build the commits pinned in packed.json and install them.
-      - uses: actions/cache@v4
-        with:
-          path: |
-            .cache/packed/*.tgz
-            .cache/packed/*-files
-          key: packed-${{ hashFiles('packed.json') }}
-      - run: node scripts/fetch-packed.mjs
+      - uses: ./.github/actions/setup
       - run: npm run typecheck
-      - run: npm test
       - run: npm run build
 
-  # Beside `test`, so neither waits on the other: the month-long runs `npm test` leaves out (vitest.config.ts, SLOW),
-  # then every file again in a fresh module graph, which rules out a test leaning on another file's state.
+  # `npm test`, its files dealt over two machines (vitest's own shards): the first word on a push.
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: npm test -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+
+  # Beside `test`, so neither waits on the other: the month-long runs `npm test` leaves out (vitest.config.ts, SLOW).
   slow:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - uses: actions/cache@v4
-        with:
-          path: |
-            .cache/packed/*.tgz
-            .cache/packed/*-files
-          key: packed-${{ hashFiles('packed.json') }}
-      - run: node scripts/fetch-packed.mjs
+      - uses: ./.github/actions/setup
       - run: npm run test:slow
+
+  # Every file of `npm test` again in a fresh module graph, which rules out a test leaning on another file's state.
+  isolated:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
       - run: npm run test:isolated
 
-  # Beside the others: the tour's two months at the demo's own scale (test/larkspur-tour.test.ts, ADR 0023), its data made
-  # as the app build makes it and its answer key checked. The demo's scale is the point: at the tests' smaller one a register
-  # of sixty rows moves by a twentieth when five exceptions are approved, which the demo's never does.
-  tour:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - uses: actions/cache@v4
-        with:
-          path: |
-            .cache/packed/*.tgz
-            .cache/packed/*-files
-          key: packed-${{ hashFiles('packed.json') }}
-      - run: node scripts/fetch-packed.mjs
-      - run: npm run test:tour
+  # The demos the browser regression runs on (tools/browser/sets.json), a pipeline each (demo.yml): the demo's data
+  # made once or taken from the store, then its stop sets in a real browser, dealt over its shards. `data` names the
+  # demos whose data its sets take (the tour's `carry` sets go to Evidence feeds' page too); `answers`, the npm script
+  # that holds the data to its answer key (the tour's two months, ADR 0023), run in the demo's first shard. A line a
+  # demo, as test/regress.test.ts reads them: it fails where a demo with stop sets isn't named here, since nothing
+  # would run its sets.
+  demo:
+    name: ${{ matrix.demo }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { demo: signins, data: '["signins"]', shards: '[1]' }
+          - { demo: estate, data: '["estate"]', shards: '[1]' }
+          - { demo: larkspur, data: '["larkspur"]', shards: '[1, 2]' }
+          - { demo: tour, data: '["tour", "feeds"]', shards: '[1, 2]', answers: 'test:tour' }
+    uses: ./.github/workflows/demo.yml
+    with:
+      demo: ${{ matrix.demo }}
+      data: ${{ matrix.data }}
+      shards: ${{ matrix.shards }}
+      answers: ${{ matrix.answers || '' }}
 
-  # The five demos the browser regression runs on (tools/browser/sets.json), built once for every job below. Their
-  # generated days and histories are kept by what makes them, as the docs deploy keeps them (docs.yml): a change to the
-  # app alone builds in seconds.
-  demos:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - uses: actions/cache@v4
-        with:
-          path: |
-            .cache/packed/*.tgz
-            .cache/packed/*-files
-          key: packed-${{ hashFiles('packed.json') }}
-      - run: node scripts/fetch-packed.mjs
-      - uses: actions/cache@v4
-        with:
-          path: node_modules/.cache/smaltfl/data
-          key: demo-data-${{ hashFiles('scripts/data/**', 'scripts/flow.ts', 'src/core/**', 'src/plugin/**', 'src/notebook.ts', 'src/index.ts', 'examples/**', 'test/fixtures/**', 'packed.json', 'package-lock.json') }}
-          restore-keys: demo-data-
-      - run: node tools/browser/regress.cjs --build-only
-      - run: tar -C node_modules/.cache/smaltfl -cf demos.tar apps
-      - uses: actions/upload-artifact@v4
-        with:
-          name: demos
-          path: demos.tar
-          retention-days: 1
-
-  # The browser regression (ADR 0025): every stop set in the built demos, in a real browser. `session` is the run a
-  # session makes before a PR (`npm run regress`: each set once on a phone, its layout at the other sizes by resizing
-  # the page); the others replay every set at one more size each, as a person at that size reaches it. A size a job, so
-  # the whole matrix takes the time of one pass: five to nine minutes of regression a job on these machines with the
-  # 22 sets of ADR 0025, ten and a half to fourteen with ADR 0026's eleven (629 to 834 s on 2026-11-17, a third apart
-  # from one machine to the next), and a job that takes thirty is stopped as failed (the sets' runs are budgeted in
-  # tools/browser/sets.json; this is the clock's say, raised from twenty with the budget, ADR 0025's amendment).
-  browser:
-    needs: demos
+  # Every set replayed at one more size each, in a page of its own, as a person at that size reaches it (ADR 0018): on
+  # main, and where a run started by hand asks for it, not on every push to a branch, where the pass above has already
+  # checked each stop's layout at every size by resizing its page. After every demo's pipeline, and only where they all
+  # passed: a job a demo and size, each taking its demo's data from the store. The demos are those named above
+  # (test/regress.test.ts holds the two lists to each other).
+  sizes:
+    if: ${{ github.ref == 'refs/heads/main' || inputs.sizes == true }}
+    needs: demo
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        pass: [session, tablet, tablet-wide, desktop, wide]
+        demo: [signins, estate, larkspur, tour]
+        size: [tablet, tablet-wide, desktop, wide]
+    env:
+      PICK: --demos ${{ matrix.demo }} --full --sizes ${{ matrix.size }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - uses: actions/cache@v4
-        with:
-          path: |
-            .cache/packed/*.tgz
-            .cache/packed/*-files
-          key: packed-${{ hashFiles('packed.json') }}
-      - run: node scripts/fetch-packed.mjs
-      # Playwright and its Chromium, for this job alone: the tools ask for `playwright` as a session has it, installed
-      # beside the project, not in it (tools/README.md).
-      - run: |
-          npm install -g playwright@1.63.0
-          echo "NODE_PATH=$(npm root -g)" >> "$GITHUB_ENV"
-          playwright install --with-deps chromium
-      - uses: actions/download-artifact@v4
-        with:
-          name: demos
-      - run: mkdir -p node_modules/.cache/smaltfl && tar -C node_modules/.cache/smaltfl -xf demos.tar
-      - if: matrix.pass == 'session'
-        run: node tools/browser/regress.cjs
-      - if: matrix.pass != 'session'
-        run: node tools/browser/regress.cjs --full --sizes ${{ matrix.pass }}
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/browser
+      - run: node tools/browser/regress.cjs $PICK --build-only --stored
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - run: node tools/browser/regress.cjs $PICK
       # What failed, to look at: each job's log and metrics, and a screenshot of every stop that reported a problem.
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: regress-${{ matrix.pass }}
+          name: regress-${{ matrix.demo }}-${{ matrix.size }}
           path: node_modules/.cache/smaltfl/regress
           retention-days: 7
+          include-hidden-files: true

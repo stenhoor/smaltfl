@@ -28,25 +28,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - uses: actions/cache@v4
-        with:
-          path: |
-            .cache/packed/*.tgz
-            .cache/packed/*-files
-          key: packed-${{ hashFiles('packed.json') }}
-      - run: node scripts/fetch-packed.mjs
+      - uses: ./.github/actions/setup
       # The demos' generated days and histories, kept by what makes them (scripts/build-app.mjs checks its own hash of the
       # same inputs, so a stale folder is never used): a change to the app alone deploys without measuring them again.
+      # Main's own cache, not the store CI's jobs share (tools/browser/store.cjs): what the site publishes is made by a
+      # run on main, never taken from a branch's.
       - uses: actions/cache@v4
         with:
           path: node_modules/.cache/smaltfl/data
           key: demo-data-${{ hashFiles('scripts/data/**', 'scripts/flow.ts', 'src/core/**', 'src/plugin/**', 'src/notebook.ts', 'src/index.ts', 'examples/**', 'test/fixtures/**', 'packed.json', 'package-lock.json') }}
           restore-keys: demo-data-
+      # Whatever of it has to be made, made three demos side by side (the builds below then find it made).
+      - run: node tools/browser/regress.cjs --data all
       - run: npm run docs:build
       - run: npm run build:app -- --variant tour --out docs/.vitepress/dist/app --page feeds=../feeds/
       - run: npm run build:app -- --flow examples/larkspur/feeds/flow.json --out docs/.vitepress/dist/feeds --page "larkspur=../app/=Larkspur estate"

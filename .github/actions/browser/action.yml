@@ -1,0 +1,48 @@
+name: Browser
+description: Playwright and its Chromium, for the job alone, after the set-up.
+runs:
+  using: composite
+  steps:
+    # The runner's image, by its version: the packages kept below are the ones fetched for it.
+    - id: image
+      shell: bash
+      run: echo "version=${ImageOS:-image}-${ImageVersion:-0}" >> "$GITHUB_OUTPUT"
+    # What Chromium is installed with from the runner's package mirror: nine font packages, 22 MB (every library it
+    # asks for is on the runner already). The mirror is the one thing here that is slow or gone now and then: on
+    # 2026-11-19 it served those 22 MB in a few seconds to most jobs and in one to four minutes to four of thirty-four,
+    # and it didn't answer at all for two jobs of main's run that morning. So the first job to fetch them for an image
+    # keeps them, and the jobs after it install them from what was kept and ask the mirror nothing.
+    - uses: actions/cache@v4
+      with:
+        path: ~/.cache/smaltfl-browser-packages
+        key: browser-packages-${{ steps.image.outputs.version }}-playwright-1.63.0
+    # The tools ask for `playwright` as a session has it, installed beside the project, not in it (tools/README.md).
+    - shell: bash
+      run: |
+        npm install -g playwright@1.63.0
+        echo "NODE_PATH=$(npm root -g)" >> "$GITHUB_ENV"
+        kept=~/.cache/smaltfl-browser-packages
+        if ls "$kept"/*.deb > /dev/null 2>&1; then
+          if sudo dpkg -i "$kept"/*.deb && playwright install chromium; then
+            echo "Chromium installed with the $(ls "$kept"/*.deb | wc -l) packages kept for this image: the mirror wasn't asked."
+            exit 0
+          fi
+          echo "::warning::The packages kept for this image didn't install: fetched from the mirror instead"
+          sudo dpkg --configure -a || true
+        fi
+        # From the mirror, tried three times, a little longer apart each time. What it fetches is kept for the next job:
+        # only what this install fetched, by a mark made before it (by when a file came to be here: apt gives what it
+        # fetches the mirror's own date).
+        echo 'APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/99-keep-fetched > /dev/null
+        mark=$(mktemp)
+        for try in 1 2 3; do
+          if playwright install --with-deps chromium; then
+            mkdir -p "$kept"
+            find /var/cache/apt/archives -maxdepth 1 -name '*.deb' -cnewer "$mark" -exec cp {} "$kept"/ \; 2> /dev/null || true
+            echo "Chromium installed from the mirror; $(ls "$kept"/*.deb 2> /dev/null | wc -l) packages kept for the jobs after this one."
+            exit 0
+          fi
+          echo "::warning::Playwright's Chromium didn't install (try $try of 3)"
+          sleep $((try * 20))
+        done
+        exit 1

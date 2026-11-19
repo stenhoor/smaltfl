@@ -2,7 +2,8 @@
 
 - **Status:** proposed, 2026-11-16, and built as proposed for the maintainers to confirm (Q-226 to Q-230). The
   maintainer asked for the regression to be fast again and to stay fast as stops are added. Amended on 2026-11-17,
-  when [ADR 0026](0026-flows-in-flows.md)'s eleven stop sets were brought in (§"Amended", Q-246).
+  when [ADR 0026](0026-flows-in-flows.md)'s eleven stop sets were brought in (§"Amended", Q-246), and on 2026-11-19,
+  when the maintainer asked the same of CI as a whole (§"Amended (2026-11-19)", Q-337 to Q-342).
 - **Date:** 2026-11-16
 - **Builds on:**
   - [ADR 0018](0018-phone-tablet-and-desktop.md): the five sizes, and the check a change to the app owes.
@@ -245,6 +246,126 @@ work for three minutes in a stop, and `follow`'s test of a changed flow takes lo
 the four larger sizes. A stop that says how long its own wait may take (`"waitForMs"`, which that stop always said) is
 now given that long to work; a stop that says nothing is held to three minutes, as before.
 
+## Amended (2026-11-19): CI in minutes, and data made once
+
+The maintainer, 2026-11-19, after [ADR 0027](0027-the-ontology-over-time.md)'s pull request took 67 minutes of CI and
+main took 55 more once it was merged:
+
+> The tests take like over 30 minutes to run. Is there really no way to speed this up so that we can iterate faster?
+> I'm hoping to get the tests down to like under a couple of minutes.
+
+**What it was**, read from main's run of that day, 55 minutes from the push to the last job:
+
+| Job | Took | What the time was |
+|---|---|---|
+| `test` | 3 min | a minute and a half building the pinned packages (their cache is kept by branch, and the pins had moved on the branch), `npm test` 79 s |
+| `slow` | 10½ min | the slow set 6, then every file again in a fresh module graph 2, one after the other |
+| `tour` | 19½ min | the tour's two months made from nothing, for an answer key that takes half a second on a month made already |
+| `demos` | 38 min | the five demos' data, one after another: the tour's 16 minutes, the planted month's 14, Evidence feeds' 5, the estate's 3, the sign-ins' half |
+| `browser`, five jobs | 10 to 16 min each, after `demos` | this ADR's regression: the session's pass, and the replay at each of four sizes |
+
+The regression this ADR was about was a quarter of it. The rest was data: made twice in the run (`demos` and `tour`
+each made the tour's), and the run made three times for one change, by the branch's push, by its pull request and by
+main after the merge. GitHub keeps a cache by branch: the pull request's run couldn't read what its own branch's push
+had made, nor main's what either had. A change to the app alone, which makes no data, was held up only where that
+cache missed; a change to the core, which is most changes, made every demo's data three times.
+
+**What changed.**
+
+1. **A demo's data is made once.** The app build already kept it in a folder named by a hash of what makes it
+   (`scripts/build-app.mjs`, whose `--data-key` now prints that hash and whose `--data-only` makes the data and
+   stops). CI keeps each folder as an artifact of the run that made it, named `data-<demo>-<key>-<place>`
+   (`tools/browser/store.cjs`). Artifacts are the repository's, whatever the branch, so a later run on any branch
+   asks for the name and takes it. Each demo has a `data` job that asks the store and makes the data only where the
+   store has none, then keeps it there, thirty days; the jobs after it take it. Only what a run of this repository
+   itself made is taken (a pull request from a fork runs in the same store and may upload under any name). The name's
+   last part is a short hash of where the folder stands: the generators write full paths into it, so data made in
+   another place is another artifact, never taken here. The site's deploy doesn't use the store: what it publishes is
+   made by a run on main, from main's own cache, as before.
+2. **The tour's answer key is checked on that data** (`SMALTFL_TOUR_WORK`, a step of the tour's first shard). The
+   job that made the two months again is gone.
+3. **A demo a pipeline** (`.github/workflows/demo.yml`, called once a demo by `ci.yml`): its data, then its stop
+   sets. The demos don't wait for each other: the sign-ins' sets report while the tour's data is still being made,
+   and a demo that doesn't build leaves the others' sets running.
+4. **A demo's sets are dealt over shards** (`regress.cjs --demos tour --shard 1/2`, `tools/browser/shards.cjs`): the
+   heaviest job first, each to the shard that weighs least so far, so every job is in exactly one shard and the same
+   jobs give the same shards on every machine. Larkspur's two demos have two shards each. A job's weight is fitted to
+   a whole run's times: its runs of the engine, and its stops at what a stop costs on its demo (a mean error of ten
+   seconds a set). The two longest sets are cut where they already began again, which §"Not built" had left: `tour`
+   after scene 5 (`tour-later` opens on a day, so no run is added: 10 and 9 runs where the one set made 19), and
+   `carry` into its three stories, each of which opened a browser of its own already (`carry`, `carry-rules`,
+   `carry-fill`: 2, 1 and 4 runs on the tour and 2, 2 and 4 on Evidence feeds' page, as the one set made). 38 sets,
+   244 runs, 1,324 of 1,330 engine seconds: the budget is as it was.
+5. **Every size, on main.** The replay of every set at each of four sizes (`--full`) ran on every push, four jobs of
+   ten to sixteen minutes. It runs on main, and on a branch where a run started by hand asks for it
+   (`workflow_dispatch`, `sizes`): a job a demo and size, after every demo's pipeline has passed. A push to a branch
+   runs the pass a session runs, which checks every stop's layout at every size by resizing its page (§3). This changes §6 and §7 ("CI: everything, at every size, on every push"),
+   and is the maintainer's choice of 2026-11-19 (Q-337). What a session owes a change to a screen is as it was (§7,
+   ADR 0018): the set it touches, at every size, looked at.
+6. **A commit is checked once.** CI runs on pushes, on every branch, and not again for the pull request: a pull
+   request shows the checks of its branch's last commit. What it would be merged into isn't checked before the merge;
+   main's own run checks it after. A push to a branch stops the run of the push before it (Q-338).
+7. **The unit tests report first.** `check` (the types and the package) and `test`, its files dealt over two
+   machines by vitest's own shards, are jobs of their own, as are `slow` and `isolated`. `npm test` runs a worker a
+   core (vitest leaves one free by default: 62 s became 57 on four). No test left `npm test` for the slow set (Q-340).
+8. **The browser's install is tried three times, and asks the runner's package mirror once an image.** Two jobs of
+   main's run ended in the install before a single stop: the mirror didn't answer. On the branch's runs the same
+   mirror answered, slowly: the 22 MB of font packages Chromium is installed with (every library it asks for is on
+   the runner already) took a few seconds on most jobs and 1¼ to 4 minutes on four of the first thirty-four. None
+   failed, so none was tried again, and a job's time moved by as much: what was left of chance in a browser job. So
+   the first job to fetch those packages for a runner image keeps them (`.github/actions/browser`, GitHub's cache,
+   by the image's version), and the jobs after it install them from what was kept and ask the mirror nothing.
+9. **On a session's machine,** `npm run regress` builds up to three demos side by side where their data has to be
+   made (`--build-jobs`): a demo's data is made on one core for most of its time, the month recorded a day after the
+   day before. Each build bundles its readers to files of its own, and generators take turns (`inTurn` in
+   `scripts/data/make.mjs`: their wrappers write one bundle each, and are part of what the data is kept by).
+   `--data tour,feeds|all` makes data alone.
+
+**What it gives**, measured:
+
+The branch's first run on these workflows, with nothing in the store, so every demo's data made (2026-11-19, GitHub's
+machines):
+
+| | Was | Is |
+|---|---|---|
+| The first word on a push | `test`, 3 min | `check` 35 s; `test` 59 s and 81 s, its two machines |
+| `isolated`, `slow` | one job, 10½ min | 2¾ min; 5½ min |
+| The sign-ins' seven sets | with everything, at 55 min | 2 min 38 s after the push (their data made in 50 s) |
+| The estate's seven | | 7 min (its data in 3¾) |
+| The planted month's nine | | 17¾ min (its data in 9¾; one shard waited four minutes on the runner's package mirror, below) |
+| The tour's fifteen, and its answer key | | 19 min (its data in 14, Evidence feeds' beside it in 4½) |
+| The whole run, every demo's data made | 55 min on main, 67 on the pull request, and three times a change | **19 min, once** |
+| One pass of the regression | 12¼ min on one machine | six shards on six: 33, 111, 239, 134, 200 and 174 s |
+
+Every job after a `data` job took its data from the store, in 3 to 10 seconds (11 to 85 MB a demo, 275 MB for all
+five).
+
+The second run, a push that made no data: every `data` job found its demo's in the store and was done in half a
+minute.
+
+| | Was | Is |
+|---|---|---|
+| The whole run | 18 min on a branch whose cache had the data, 55 on main | **5 min 10 s** |
+| `check`; `test` | | 30 s; 61 s and 89 s |
+| `isolated`; `slow` | | 2¾ min; 4 min |
+| The tour's fifteen sets and its answer key | | 4 min after the push |
+| The planted month's nine | | 5 min |
+| The estate's seven; the sign-ins' seven | | 5 min; 3½ min (2½ and 2 of them the mirror's fonts: their sets took 85 and 33 s) |
+
+The third, started by hand with every size, which is what main runs: the same pipelines, then the sixteen jobs of
+`sizes`, a demo and size each, every one taking its data from the store. **15 min 22 s** from its start to its last
+job, where the four replays of ten to sixteen minutes ran beside a session's pass on every push.
+
+On a session's four cores: the six shards take 29 to 149 s each with the machine to themselves, where the one
+pass took 543 s; the five demos' data is made in 22 min 37 s three side by side, where it took 38½ min one after
+another, and it is the same data (the days, the samples and the types byte for byte; a history names the moment it was
+built, and nothing else of it differs); `npm test` takes 57 s where it took 62.
+
+**What is still long.** A change to the core makes the data again, once, and the tour's quarter of an hour is then
+the time to the tour's last check. Three quarters of that is the month recorded, a day after the day before, on one
+core: the engine, which §"Not built" already names, and the place the next minutes are. Every other number above is
+setup and the browser, which more machines have bought.
+
 ## The questions, for the maintainers
 
 - **Q-226.** The run before a PR replays each set once and resizes for the other sizes; the replay at every size is
@@ -259,6 +380,24 @@ now given that long to work; a stop that says nothing is held to three minutes, 
 - **Q-246.** ADR 0026's eleven sets take the regression from 802 engine seconds to 1,292, and from five minutes to
   seven and a half. The budget raised to 1,330 (and 510 s for the whole run), or sets and days taken out to hold 840?
   Decided by the maintainer, 2026-11-17: raised (§"Amended").
+- **Q-337.** The replay of every set at every size: on every push, or on main? Decided by the maintainer,
+  2026-11-19: on main, and on a branch where a run started by hand asks; a push to a branch runs the pass that
+  resizes (§"Amended (2026-11-19)", 5).
+- **Q-338.** A commit checked once: CI on pushes alone, a pull request showing its branch's checks, a branch's newer
+  push stopping its older run. What a pull request would be merged into is checked by main after the merge, and a
+  pull request from a fork runs nothing until a maintainer pushes its branch here. Built so.
+- **Q-339.** The store: each demo's data an artifact named by the hash of what makes it, thirty days, taken only from
+  the repository's own runs; the site's deploy outside it, on main's own cache. Built so.
+- **Q-340.** The plan offered the five heaviest test files moved to the slow set, for a faster `npm test`. Not
+  moved: they are the judge's and the audit's answer keys, which `npm run check` is run for, and CI's two shards
+  give the minute back without them. A file is moved by naming it in `SLOW` (`vitest.config.ts`), if the
+  maintainers would have it so.
+- **Q-341.** The names of CI's checks changed with its jobs (`tour`, `demos` and `browser (session)` are gone; a demo's
+  are `tour / data (tour)`, `tour / browser (1)` and so on, and `sizes` is skipped on a branch). A branch rule that
+  requires checks by name has to name the new ones. For the maintainers: sessions can't see the repository's rules.
+- **Q-342.** After this, the time of a change to the core is the tour's data, a quarter of an hour, three quarters of
+  it the month recorded on one core. The next step under it is the recorder's (each day's claims told side by side,
+  or computed ahead, Q-229's first way). Not built.
 
 ## Not built
 
@@ -272,8 +411,10 @@ now given that long to work; a stop that says nothing is held to three minutes, 
     (ADR 0001 §12).
   - **Fewer Larkspur days in the sets:** the tour's set alone opens 18. It would take out more than half of them to
     reach two minutes, which is most of what the sets check.
-- **More cores** would do it without any of these: CI has them, a job a size. A session's machine has four.
+- **More cores** would do it without any of these: CI has them, a job a size. A session's machine has four. (Since
+  2026-11-19 CI deals each demo's sets over its machines: §"Amended (2026-11-19)".)
 - **Tables at a tablet's width in the session's run** (§3): the sweep reads them as the phone's cards. CI's replay
   reads them as tables.
 - **A long set split across pages.** The tour's set is the longest job (212 s); the run is not held up by it while
-  the sum is what it is.
+  the sum is what it is. (Done on 2026-11-19 for the two longest, once CI's shards made the longest set what a shard
+  waits for: §"Amended (2026-11-19)", 4.)
