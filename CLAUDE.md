@@ -880,7 +880,8 @@ release (smaltty ADR 0030).
   to Q-230). Its §"Not built" says what stands between five minutes and two (Q-229); its §"Amended" is ADR 0026's
   sets brought in, seven and a half minutes with them (Q-246); its second, of 2026-11-19, is CI in minutes: each
   demo's data made once and kept for every run on every branch, a pipeline a demo, its sets dealt over shards, the
-  replay at every size on main alone (Q-337 to Q-342). **Now:**
+  replay at every size on main alone (Q-337 to Q-342): a push is checked in 5 minutes where no data is made and in
+  19 where every demo's is, where it took 55. **Now:**
   [ADR 0026](docs/adr/0026-flows-in-flows.md), flows in flows (2026-11-17, the maintainer's answers Q-231 to Q-239): a
   flow reads other flows, each a card on its reader's canvas with its day's mark, entered to see its own flow, rolled
   up into the month, in the slices of its §12: the core and Larkspur cut into five; the canvas in levels; the month in

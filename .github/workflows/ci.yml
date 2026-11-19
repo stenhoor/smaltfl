@@ -5,8 +5,8 @@ name: CI
 # own run checks it after). A push to a branch stops the run of the push before it; main's runs each go to their end.
 #
 # What reports, and about when (ADR 0025, amended 2026-11-19): `check` and `test` in a minute or so; `isolated` in
-# three; `slow` in seven; each demo's stop sets in three to seven where its data is in the store, and after its data
-# is made where it isn't (the tour's, a quarter of an hour: a change to the app alone never makes any).
+# three; `slow` in four to six; each demo's stop sets in three to five where its data is in the store, and after its
+# data is made where it isn't (the tour's, a quarter of an hour: a change to the app alone never makes any).
 on:
   push:
   workflow_dispatch:

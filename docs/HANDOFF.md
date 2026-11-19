@@ -540,7 +540,8 @@ scheme), the rest the engine's 166 runs, done once a size. Built as proposed:
   two longest sets, are cut where a new page began (38 sets, the same 244 runs); the replay at every size runs on
   main, and by hand on a branch; a commit is checked once (pushes only); `npm test` is dealt over two machines.
   The branch's first run, with nothing in the store, took 19 minutes from the push to its last check (`check` at 35 s,
-  `test` at a minute, the sign-ins' sets at 2¾ minutes, the estate's at 7). How to check it: `test/regress.test.ts` (the dealing, the store's choice of an artifact,
+  `test` at a minute, the sign-ins' sets at 2¾ minutes, the estate's at 7); its second, with every demo's data in the
+  store, 5 minutes 10 seconds. How to check it: `test/regress.test.ts` (the dealing, the store's choice of an artifact,
   CI's list of demos held to `sets.json`), `node tools/browser/regress.cjs --list --demos tour --shard 1/2` (what a
   shard holds and weighs), and a push: the `data` jobs say in their logs whether the store had each demo's data.
 

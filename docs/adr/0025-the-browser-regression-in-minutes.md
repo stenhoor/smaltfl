@@ -309,7 +309,10 @@ cache missed; a change to the core, which is most changes, made every demo's dat
    machines by vitest's own shards, are jobs of their own, as are `slow` and `isolated`. `npm test` runs a worker a
    core (vitest leaves one free by default: 62 s became 57 on four). No test left `npm test` for the slow set (Q-340).
 8. **The browser's install is tried three times.** Two jobs of main's run ended in it before a single stop: the
-   runner's package mirror didn't answer.
+   runner's package mirror didn't answer. On the branch's runs the same mirror answered, slowly: the 22 MB of fonts
+   Chromium is installed with took a few seconds on most jobs and 1¼, 2 and 4 minutes on three of the first
+   fourteen. None failed, so none was tried again, and a job's time moved by as much: what is left of chance in a
+   browser job. Not built: those packages kept in a cache.
 9. **On a session's machine,** `npm run regress` builds up to three demos side by side where their data has to be
    made (`--build-jobs`): a demo's data is made on one core for most of its time, the month recorded a day after the
    day before. Each build bundles its readers to files of its own, and generators take turns (`inTurn` in
@@ -327,13 +330,31 @@ machines):
 | `isolated`, `slow` | one job, 10½ min | 2¾ min; 5½ min |
 | The sign-ins' seven sets | with everything, at 55 min | 2 min 38 s after the push (their data made in 50 s) |
 | The estate's seven | | 7 min (its data in 3¾) |
-| The planted month's nine | | 17¾ min (its data in 9¾; one shard's browser took three tries and 4½ min to install) |
+| The planted month's nine | | 17¾ min (its data in 9¾; one shard waited four minutes on the runner's package mirror, below) |
 | The tour's fifteen, and its answer key | | 19 min (its data in 14, Evidence feeds' beside it in 4½) |
 | The whole run, every demo's data made | 55 min on main, 67 on the pull request, and three times a change | **19 min, once** |
 | One pass of the regression | 12¼ min on one machine | six shards on six: 33, 111, 239, 134, 200 and 174 s |
 
 Every job after a `data` job took its data from the store, in 3 to 10 seconds (11 to 85 MB a demo, 275 MB for all
-five). On a session's four cores: the six shards take 29 to 149 s each with the machine to themselves, where the one
+five).
+
+The second run, a push that made no data: every `data` job found its demo's in the store and was done in half a
+minute.
+
+| | Was | Is |
+|---|---|---|
+| The whole run | 18 min on a branch whose cache had the data, 55 on main | **5 min 10 s** |
+| `check`; `test` | | 30 s; 61 s and 89 s |
+| `isolated`; `slow` | | 2¾ min; 4 min |
+| The tour's fifteen sets and its answer key | | 4 min after the push |
+| The planted month's nine | | 5 min |
+| The estate's seven; the sign-ins' seven | | 5 min; 3½ min (2½ and 2 of them the mirror's fonts: their sets took 85 and 33 s) |
+
+The third, started by hand with every size, which is what main runs: the same pipelines, then the sixteen jobs of
+`sizes`, a demo and size each, every one taking its data from the store. **15 min 22 s** from its start to its last
+job, where the four replays of ten to sixteen minutes ran beside a session's pass on every push.
+
+On a session's four cores: the six shards take 29 to 149 s each with the machine to themselves, where the one
 pass took 543 s; the five demos' data is made in 22 min 37 s three side by side, where it took 38½ min one after
 another, and it is the same data (the days, the samples and the types byte for byte; a history names the moment it was
 built, and nothing else of it differs); `npm test` takes 57 s where it took 62.
