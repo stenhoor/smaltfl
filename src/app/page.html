@@ -1755,6 +1755,22 @@ svg.viz { display: block; overflow: visible; max-width: 100%; height: auto; }
 .g-corr { fill: none; stroke: var(--ink-2); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .g-changed { fill: var(--smalt); }
 .redefined-on, .followed-on { margin: 6px 0 0; overflow-wrap: anywhere; }
+.viz .db-chg { stroke: var(--smalt); stroke-width: 1; stroke-dasharray: 2 2; opacity: 0.8; }
+.viz .db-chg-mark { fill: var(--smalt); }
+.mh-chg { color: var(--ink-2); }
+.ctx { margin: 0 0 10px; border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; background: var(--surface); }
+.ctx > summary { min-height: 40px; font-size: 13px; }
+.ctx .ctx-k { font-weight: 600; color: var(--ink); }
+.ctx .ctx-n { color: var(--ink-2); overflow-wrap: anywhere; }
+.ctx .ctx-sub { margin: 6px 0 2px; }
+.ctx-list { margin: 0 0 8px; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 13px; }
+.ctx-list li { display: grid; grid-template-columns: auto 1fr; gap: 0 6px; align-items: start; }
+.ctx-list li[data-event] { grid-template-columns: 1fr; }
+.ctx-list .linkish { display: inline; background: none; border: 0; padding: 0; color: var(--smalt); font: inherit; font-weight: 600; cursor: pointer; text-align: left; overflow-wrap: anywhere; }
+.ctx-list .ctx-how { grid-column: 1 / -1; color: var(--ink-2); font-size: 12.5px; overflow-wrap: anywhere; }
+.ctx-list .ctx-since { grid-column: 1 / -1; color: var(--ink-2); font-size: 12.5px; font-style: italic; overflow-wrap: anywhere; }
+.ctx-ran { margin: 0 0 6px; }
+.ctx-wide { margin: 0 0 10px; }
 .vf-option:disabled .g-level, .viz.off .g-level { stroke: var(--muted); } .vf-option:disabled .g-levdot, .viz.off .g-levdot { fill: var(--muted); }
 .vf-option:disabled .g-pub, .viz.off .g-pub { stroke: var(--muted); }
 .viz .cut-t { stroke: var(--ink-2); stroke-width: 1.2; }
@@ -2350,6 +2366,8 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .dc-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .dc-facts dd p { margin: 0 0 2px; }
 .dc-same { margin: 0; font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.dc-ctx-k { margin: 12px 0 2px; }
+.dc-ctx-said { margin: 0 0 4px; font-size: 12.5px; color: var(--ink-2); }
 .dc-outs { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
 .dc-out { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; font-size: 12.5px; min-width: 0; }
 .dc-out.open { border-color: var(--smalt); }

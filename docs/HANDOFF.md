@@ -226,7 +226,7 @@ Results on 2026-11-09, at `e42d9ec` on data `0ca4dd1`:
 ## What is not done
 
 **Now: [ADR 0027](adr/0027-the-ontology-over-time.md), the ontology over time** (designed 2026-11-18, the maintainer's
-answers Q-247 to Q-279; slices 1 to 6 of ten are built, its §"As built"). The maintainer asked for a temporal
+answers Q-247 to Q-279; slices 1 to 7 of ten are built, its §"As built"). The maintainer asked for a temporal
 ontology: how the ontology changes over time, why certain things apply on certain dates, what was going on and what
 was decided then, shown visually and carried with the data so that analysis is always aware of its context. The
 research is [research/temporal-ontology.md](research/temporal-ontology.md): temporal data models, ontologies and
@@ -251,7 +251,8 @@ smaltfl already dates; (2) reasons, kinds and events; (3) the gate, and document
 kinds, relations and meanings over time, and the shared ontology's own changes; (6) reading across a change; (7)
 context that travels; (8) who decides; (9) who hears, and the auditor; (10) the demo's new scene. Q-280 to Q-285 are
 the choices the answers leave open, proposed for the maintainers to confirm as each is built; Q-286 to Q-291 are the
-ones slice 3 made as it was built, Q-292 to Q-296 slice 4's, Q-297 to Q-303 slice 5's, and Q-304 to Q-311 slice 6's.
+ones slice 3 made as it was built, Q-292 to Q-296 slice 4's, Q-297 to Q-303 slice 5's, Q-304 to Q-311 slice 6's,
+and Q-312 to Q-319 slice 7's.
 
 Built so far:
 
@@ -311,8 +312,29 @@ Built so far:
   day and the day after, each entry's step, a trial's figures). The recorded steps themselves are in each demo's
   `data/month.json`, as entries of kind `step`.
 
-What comes next is slice 7: context that travels (three read-only tables any cell can join to, then published with
-the product). Slice 6 left the app measuring no step of a change made in it (Q-311), and a first day held by its own
+- **Slice 7, context that travels:** three tables any notebook cell can join to (`context('changes')`,
+  `context('events')`, `context('in_force')` from `smaltfl/notebook`): the dated changes in force on the run's day
+  with what each reaches, why and its own step; what was going on, with what each event reaches and excuses; and the
+  version of the ontology each dataset was read under. In the document each is a SQL step that reads nothing, marked
+  `context`; the run's rows are made from the flow as kept and the record (`src/core/context.ts` `contextRows`,
+  `contextKnown`) and carried by the plan, so the run publishes them like any output and verify recomputes them.
+  Larkspur's product publishes the three under contracts: 95 plan nodes and 40 outputs where it had 92 and 37. A
+  context table is no data of its day (Q-318): it differs wherever the rules do, so a day run again under rules
+  changed since is compared with what readers got by its other outputs (`restatedOutcome`'s `context`), and Compare
+  lists a context table that differs apart; counted as data, a back-dated change restated every day it reached. In
+  the app every card's sheet says its **Context** (what reaches it, through what, as known now, with what was said
+  after the version on screen ran marked as such), and a change marks the charts of what it reaches: the month's rows
+  and each day by day chart. How to check it: `test/context.test.ts` (the rows, the notebook's marker, a run through
+  the engine whose cell joins all three, verify, and a tampered plan failing it), `test/compose.test.ts` (Larkspur's
+  plan), `test/step.test.ts` (`changesReaching`), `test/month.test.ts` and `test/compare.test.ts` (the tables left
+  out of a restated day and of Compare's count), the tour's answer key, and `npm run regress -- larkspur month
+  compare tour` (the tables' own sheets, a card's context, the rows' marks, a day by day chart's; Larkspur's March
+  still three restated days; a fill released as the record decided it).
+
+What comes next is slice 8: who decides (owners in the ontology, agreement recorded, the audit holding one to the
+other). The audit doesn't yet hold a run's context tables to the record (Q-313): it belongs with that slice.
+
+Slice 6 left the app measuring no step of a change made in it (Q-311), and a first day held by its own
 change's step waiting for a person. Found on the way, and left: the brief of a day a restatement published (Larkspur's
 Wed 27, on the dataset the views follow) still says its outputs wait, since the run on screen is the restated run,
 which the browser's engine holds; the day's head and the month say it was published. And the offline audit doesn't

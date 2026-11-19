@@ -6,11 +6,15 @@
  * with its own names. Nothing here reads data or knows a dataset.
  */
 
+import type { ContextTable } from './document.js';
+
 export type StepOp = 'table' | 'sql' | 'filter' | 'formula' | 'select' | 'join' | 'aggregate' | 'expect' | 'fill';
 
 export interface StepFacts {
   op: StepOp;
   origin: string;
+  /** A context table (ADR 0027 §8), by which of the three: its rows are the run's, and its statement only writes them out. */
+  context?: ContextTable;
   /** What the rows are called (the ontology's noun), for the sentences. */
   noun?: { one: string; many: string };
   /** Each input and its rows (null: closed to the viewer). */
@@ -72,8 +76,16 @@ export function sqlDoes(sql: string): { joins: boolean; outer: boolean; groups: 
 }
 
 /** What each kind of step does, in a sentence, for any flow. */
-export function opDoes(f: Pick<StepFacts, 'op' | 'inputs' | 'join' | 'filter' | 'aggregate' | 'sql' | 'expect'> & Partial<Pick<StepFacts, 'added'>>): string {
+/** What each context table is (ADR 0027 §8), as its step's sheet says it does. */
+export const CONTEXT_DOES: Readonly<Record<ContextTable, string>> = {
+  changes: 'Made by the run, not by a query: the dated changes to the ontology in force on the day, one row a change and a dataset it reaches, with its kind, why it was made, who decided it and what it alone moved on its first day.',
+  events: 'Made by the run, not by a query: what was going on that day as people wrote it down, one row an event and a dataset it reaches, with which day of it this is and what it excuses.',
+  in_force: 'Made by the run, not by a query: one row a dataset of the day, with the version of the ontology it was read under.',
+};
+
+export function opDoes(f: Pick<StepFacts, 'op' | 'inputs' | 'join' | 'filter' | 'aggregate' | 'sql' | 'expect'> & Partial<Pick<StepFacts, 'added' | 'context'>>): string {
   const names = f.inputs.map((i) => i.name);
+  if (f.context) return CONTEXT_DOES[f.context];
   switch (f.op) {
     case 'join': return `Matches each row of ${names[0]} with ${names[1] ?? 'another dataset'} by ${f.join ? list(f.join.on.map(([l, r]) => (l === r ? l : `${l} = ${r}`))) : 'a key'}, and adds its columns. ${f.join?.how === 'left' ? 'A row with no match is kept, with those columns blank.' : 'A row with no match is left out.'}`;
     case 'filter': return `Keeps only the rows where ${f.filter?.where ?? 'its condition holds'}.`;

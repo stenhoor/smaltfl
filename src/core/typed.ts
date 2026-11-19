@@ -34,7 +34,11 @@ export interface TypesFile {
  * nodes the run needs, in order, and what executes them.
  */
 export function typesKey(plan: Pick<FlowPlan, 'nodes'>, needed: readonly number[], env: KeyEnv): Promise<string> {
-  return hashOf('types/0', { nodes: plan.nodes, needed: [...needed], engine: { smaltdb: env.smaltdb, smaltfl: env.smaltfl } });
+  // A context table's columns are its table's, whatever rows the day gives it (ADR 0027 §8): its rows stay out of the
+  // key, so the types computed ahead hold on a day with other changes in force or other events going on. A plan with
+  // no context table is keyed as it was.
+  const nodes = plan.nodes.map((n) => (n.op === 'sql' && n.context ? { ...n, sql: '', context: { of: n.context.of, rows: [] } } : n));
+  return hashOf('types/0', { nodes, needed: [...needed], engine: { smaltdb: env.smaltdb, smaltfl: env.smaltfl } });
 }
 
 /** A types file, checked to be one: anything else is refused, never half taken. A column's type is the engine's static

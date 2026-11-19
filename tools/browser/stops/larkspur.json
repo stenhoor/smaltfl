@@ -109,6 +109,68 @@
     }
   },
   {
+    "name": "lark-mar12-platform-context",
+    "what": "A card says its context (ADR 0027 §8): what reaches platform_impact on Tue 12, read as known now. The scanner's check put back to hold reaches it through the findings, and was recorded on Mon 25, after this version ran; the WAF's monitor mode reaches it through the WAF's file, and was written down that morning, after the day ran. Each says so, and that the version's own context tables haven't it; what is about the flow as a whole is counted, and said on the day's head",
+    "day": "Tue 12",
+    "card": "platform_impact",
+    "tab": "News",
+    "unfold": ["nb-posture"],
+    "click": "#sheet details.ctx > summary",
+    "element": "#sheet details.ctx",
+    "expect": {
+      "textIn": {
+        "#sheet details.ctx": [
+          "1 change in force and 1 event going on reach it on Tue 12",
+          "Fri 1: Set the values check on findings to hold (it was warn) ›",
+          "through findings, which it is built from",
+          "Recorded on Mon 25 at 09:40 UTC, after this version ran: it was read without it.",
+          "WAF in monitor mode on ing-east-3 ›",
+          "through waf, which it is built from",
+          "Written down on Tue 12 at 10:00 UTC, after this version ran.",
+          "This version’s own context tables were made when it ran: what was said since isn’t in them.",
+          "1 change and 2 events more are about the flow as a whole: on the day’s head."
+        ]
+      },
+      "count": {
+        "#sheet details.ctx[open]": 1,
+        "#sheet details.ctx li[data-change]": 1,
+        "#sheet details.ctx li[data-event]": 1,
+        "#sheet details.ctx li[data-since]": 2
+      }
+    }
+  },
+  {
+    "name": "lark-mar12-context-table",
+    "what": "The product publishes its context: context_changes on Tue 12, made by the run and not by a query, one row for the one change this version knew of, the estate's relation, about the flow as a whole",
+    "day": "Tue 12",
+    "card": "context_changes",
+    "tab": "What happened",
+    "full": true,
+    "unfold": ["nb-product"],
+    "expect": {
+      "text": [
+        "1 row out.",
+        "Made by the run, not by a query: the dated changes to the ontology in force on the day, one row a change and a dataset it reaches, with its kind, why it was made, who decided it and what it alone moved on its first day."
+      ],
+      "count": {
+        "#sheet details.ctx": 0
+      }
+    }
+  },
+  {
+    "name": "lark-mar12-context-news",
+    "what": "A context table's blanks are how it says none (no last day, no step measured, not an estate's): its News has nothing to look at",
+    "day": "Tue 12",
+    "card": "context_changes",
+    "tab": "News",
+    "full": true,
+    "unfold": ["nb-product"],
+    "expect": {
+      "text": ["Nothing out of the ordinary"],
+      "noText": ["is empty on every row", "things to look at"]
+    }
+  },
+  {
     "name": "lark-mar12-orgposture-data",
     "what": "Walk 1: gold's org_posture, the leaders' units, Data",
     "day": "Tue 12",
@@ -257,6 +319,47 @@
       "text": [
         "Platform_id ca-int-2"
       ]
+    }
+  },
+  {
+    "name": "lark-mar25-platform-context",
+    "what": "A week on, the WAF's band is in force: platform_impact's context on Mon 25 has it through the WAF's file, as its version knew it, beside the scanner's check, recorded that morning after the day ran",
+    "day": "Mon 25",
+    "card": "platform_impact",
+    "tab": "What happened",
+    "unfold": ["nb-posture"],
+    "element": "#sheet details.ctx",
+    "expect": {
+      "textIn": {
+        "#sheet details.ctx": [
+          "2 changes in force reach it on Mon 25",
+          "Mon 18: Accepted a new band in waf: Status Fail between 0% and 10% ›",
+          "through waf, which it is built from",
+          "After Tuesday's monitor mode, the security lead wants a WAF failing more than a tenth of its applications held, from Monday",
+          "Recorded on Mon 25 at 09:40 UTC, after this version ran: it was read without it.",
+          "This version’s own context tables were made when it ran: the change said since isn’t in them."
+        ]
+      },
+      "count": {
+        "#sheet details.ctx li[data-change]": 2,
+        "#sheet details.ctx li[data-change][data-since]": 1,
+        "#sheet details.ctx li[data-event]": 0
+      }
+    }
+  },
+  {
+    "name": "lark-mar25-context-table",
+    "what": "The same day's context_changes, as published: the band a row for the WAF's file and for each dataset built from it, eighteen in all, and the estate's relation one row for the flow",
+    "day": "Mon 25",
+    "card": "context_changes",
+    "tab": "Data",
+    "unfold": ["nb-product"],
+    "element": "#sheet",
+    "expect": {
+      "text": ["First 19 of 19"],
+      "textIn": {
+        "#sheet": ["acting-leader", "waf-band-tenth", "downstream", "direct"]
+      }
     }
   },
   {

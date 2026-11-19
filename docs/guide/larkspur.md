@@ -88,6 +88,15 @@ Its **Contract** tab, like every gold dataset's, says what its consumers rely on
 - each column: its type, whether it is part of the key or required, its classification and its values;
 - its service levels: daily, available by 07:00 UTC.
 
+The product carries its context too ([ADR 0027](../adr/0027-the-ontology-over-time) §8). In **product**, open
+**context_changes**: one row a change to the ontology in force that day and a dataset it reaches, with its kind, the
+day it began, what it did and why in its author's words, who decided it and its own step. **context_events** is what
+was going on, with what each event reaches and excuses, and **context_in_force** the version of the ontology each
+dataset was read under. The run makes the three for its day, so they are hashed, verified and published with the
+facts, each under a contract. On any other card, **Context** at the top of its sheet says the same of that dataset,
+as known now: on Tue 12, *platform_impact* is reached by the WAF's monitor mode, through the WAF's file, written down
+that morning after the day had run, and it says so.
+
 ## One cause behind two controls
 
 **Mon 25.** The **tls** card warns: 8.9% of its applications fail, above their usual share. On its own, that is a rise

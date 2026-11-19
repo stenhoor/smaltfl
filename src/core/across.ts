@@ -12,10 +12,13 @@
  *   is marked with from then.
  * - `followedThrough`: a value of a closed list or column through an ending (§2, Q-264): what it ended into, and what
  *   ended into it, so its series can be followed to its successor.
+ * - `changesReaching`: the changes that reach a dataset (§8): each about it or about something it is built from, which
+ *   mark every chart of the dataset on the day they began.
  *
  * Pure, and no part of what the build's data is made from: no DOM, no engine.
  */
-import type { ChangeSet } from './document.js';
+import { changeAbout, reachOf } from './context.js';
+import type { ChangeSet, FlowDocument } from './document.js';
 import type { LogEntry } from './log.js';
 import type { Ended, FollowedHow, Ontology } from './ontology.js';
 import { stepsOf, type StepAbout, type StepLevel, type StepMeasure } from './step.js';
@@ -220,4 +223,31 @@ export function followedThrough(o: Pick<Ontology, 'ended'> | undefined, file: st
   const carries = all.filter((e) => e.id !== value && e.then?.by.includes(value)).map((e) => ({ key: e.id, how: e.then!.how }));
   if (!own && !carries.length) return null;
   return { ended: own ? { then: own.then ? { how: own.then.how, by: [...own.then.by] } : null } : null, carries };
+}
+
+/** A change that reaches a dataset: how, and through which of the datasets it is about. */
+export interface Reaching<C> {
+  change: C;
+  reach: 'direct' | 'downstream';
+  /** The datasets the change is about that this one is built from; empty where the change is about the dataset itself. */
+  through: string[];
+}
+
+/**
+ * The changes that reach a dataset (ADR 0027 §8): each change set about it, or about something it is built from,
+ * however far up and in whichever flow it is read from, in the order given. A change about no dataset of the flow (a
+ * relation, a meaning for every dataset) is the flow's as a whole, and isn't one dataset's.
+ */
+export function changesReaching<C extends Pick<ChangeSet, 'edits'>>(doc: Pick<FlowDocument, 'sources' | 'steps'>, changes: readonly C[], dataset: string): Reaching<C>[] {
+  const lower = dataset.toLowerCase();
+  const out: Reaching<C>[] = [];
+  for (const change of changes) {
+    const about = changeAbout(change);
+    const hit = reachOf(doc, about).find((r) => r.dataset.toLowerCase() === lower);
+    if (!hit) continue;
+    // The ones it is built from: each dataset the change is about whose own reach has this one.
+    const through = hit.reach === 'direct' ? [] : about.filter((a) => reachOf(doc, [a]).some((r) => r.dataset.toLowerCase() === lower));
+    out.push({ change, reach: hit.reach, through });
+  }
+  return out;
 }

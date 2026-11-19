@@ -76,7 +76,10 @@ the exceptions) and its notebooks:
   - the organisation, the applications and the controls;
   - each pair's status, and the findings;
   - a scorecard an application, and the posture a unit;
-  - the exceptions and the remediation queue.
+  - the exceptions and the remediation queue;
+  - its context ([ADR 0027](../adr/0027-the-ontology-over-time) §8): the changes to the ontology in force that day
+    with what each reaches and why (`context_changes`), what was going on (`context_events`), and the version of the
+    ontology each dataset was read under (`context_in_force`). The run makes them; any cell can join to them.
 
   Each dataset has a contract.
 

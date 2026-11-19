@@ -19,6 +19,22 @@ export interface EmitContext {
   columns(node: number): readonly string[];
 }
 
+/** A cell of a table written out in the statement: text, a whole number, or nothing. */
+export type RowCell = string | number | null;
+
+/**
+ * A table written out in the statement (ADR 0027 §8): its columns with their types, and its rows as they are. Every
+ * cell is cast to its column's type, so the table has its types with no rows too. A text is one line: a line break in
+ * it is written as a space.
+ */
+export function emitRows(columns: readonly (readonly [name: string, type: 'text' | 'int'])[], rows: readonly (readonly RowCell[])[]): string {
+  const type = (t: 'text' | 'int') => (t === 'int' ? 'INTEGER' : 'TEXT');
+  const cell = (v: RowCell, t: 'text' | 'int') => (v === null ? 'NULL' : t === 'int' ? String(Math.trunc(Number(v))) : `'${String(v).replace(/\s*[\r\n]+\s*/g, ' ').replace(/'/g, "''")}'`);
+  const row = (r: readonly RowCell[], named: boolean) => `SELECT ${columns.map(([name, t], k) => `CAST(${cell(r[k] ?? null, t)} AS ${type(t)})${named ? ` AS ${q(name)}` : ''}`).join(', ')}`;
+  if (!rows.length) return `${row(columns.map(() => null), true)} WHERE 1 = 0`;
+  return rows.map((r, i) => row(r, i === 0)).join('\nUNION ALL\n');
+}
+
 /** The common table expression a folded node becomes. */
 export const cteName = (node: number): string => `_smaltfl_n${node}`;
 

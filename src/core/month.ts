@@ -180,9 +180,11 @@ export interface RestatedOutcome {
  * so it carries (a hold that says anything new is decided again). The day's outcome would change where it would be
  * published and wasn't, or the other way round, or where both publish and any output's content differs; a day whose
  * outcome doesn't change is noted, not decided again. A later delivery's and a restated run's own holds are never the
- * data's, and aren't compared.
+ * data's, and aren't compared. Nor are the flow's context tables (`context`, by name; ADR 0027 §8): they say what a
+ * run was read under, the rules in force among it, so they differ wherever the rules do, and a day whose data is the
+ * same under other rules is noted, not restated.
  */
-export function restatedOutcome(got: { published: boolean; holds: readonly Hold[]; contents: Readonly<Record<string, string>> | null }, run: { holds: readonly Hold[]; contents: Readonly<Record<string, string>> | null }): RestatedOutcome {
+export function restatedOutcome(got: { published: boolean; holds: readonly Hold[]; contents: Readonly<Record<string, string>> | null }, run: { holds: readonly Hold[]; contents: Readonly<Record<string, string>> | null }, context: ReadonlySet<string> = new Set()): RestatedOutcome {
   const own = ownHolds(run.holds);
   const before = ownHolds(got.holds);
   const known = new Set(before.map(holdSaid));
@@ -191,7 +193,7 @@ export function restatedOutcome(got: { published: boolean; holds: readonly Hold[
   const passes = own.length === 0 || carried;
   const a = got.contents;
   const b = run.contents;
-  const differ = a && b ? [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((n) => a[n] !== b[n]).length : null;
+  const differ = a && b ? [...new Set([...Object.keys(a), ...Object.keys(b)])].filter((n) => !context.has(n) && a[n] !== b[n]).length : null;
   return { passes, carried, changed: got.published !== passes || (passes && differ !== 0), differ, fresh };
 }
 

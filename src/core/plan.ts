@@ -8,9 +8,10 @@
  */
 import { canonicalJSON } from './canonical.js';
 import { calendarListProblems, calendarProblems, EVERIES, isEvery, isSlotOf, resolveCalendar, type Calendar, type Every } from './calendar.js';
-import type { DonorRule, FlowDocument, HoldKind, Meanwhile, Missing, ParameterDef, StepDef, Until, WatchDef } from './document.js';
+import type { ContextTable, DonorRule, FlowDocument, HoldKind, Meanwhile, Missing, ParameterDef, StepDef, Until, WatchDef } from './document.js';
 import { DONOR_RULES, HOLD_KINDS, isGeneralWatch, MEANWHILES, missingProblem, periodOf, UNTILS, validateDocument, withoutDisplay } from './document.js';
-import { emitMatch } from './emit.js';
+import { CONTEXT_COLUMNS, contextRows, type ContextGiven, type ContextRows } from './context.js';
+import { emitMatch, emitRows } from './emit.js';
 import { hashOf } from './hash.js';
 import { dayOf, inForce } from './inforce.js';
 import { CHECK_NAMES, gateChecksOf, hasGates, overwhelmingOf, writtenRules, type GateChecks } from './gates.js';
@@ -70,6 +71,11 @@ export interface SqlNode extends NodeBase {
   op: 'sql';
   names: string[];
   sql: string;
+  /**
+   * A context table (ADR 0027 §8): which one, and the day's rows, which `sql` writes out and nothing else. Only on a
+   * step the document marks as one, so every other plan is as it was.
+   */
+  context?: { of: ContextTable; rows: ContextRows[ContextTable] };
 }
 
 export interface FilterNode extends NodeBase {
@@ -392,8 +398,13 @@ export function forDay(doc: FlowDocument, values: Readonly<Record<string, ParamV
  * Translate a flow document into its flow plan, filling in parameter values (`values`, else each parameter's
  * default). The same document and values always give the same plan. A document with change sets is translated as the
  * run of its day reads it (`forDay`, as known at `options.asOf`), so its plan's flow hash is of the rules in force.
+ *
+ * A flow with a context table (ADR 0027 §8) has the day's rows in its plan: `options.context` is the rows as the
+ * caller made them (context.ts `contextRows`, from the flow as kept and the record), or what the record adds, for the
+ * rows to be made here from the document given; without either they are made from the document given alone, its change
+ * sets and no event. A flow with no context table doesn't read it, and its plan is as it was.
  */
-export async function translate(given: FlowDocument, values: Readonly<Record<string, ParamValue>> = {}, options: { asOf?: string | null } = {}): Promise<FlowPlan> {
+export async function translate(given: FlowDocument, values: Readonly<Record<string, ParamValue>> = {}, options: { asOf?: string | null; context?: ContextRows | ContextGiven } = {}): Promise<FlowPlan> {
   const doc = forDay(given, values, options.asOf);
   const issues = validateDocument(doc);
   if (issues.length > 0) throw new PlanError(`the flow document has ${issues.length} problem${issues.length === 1 ? '' : 's'}: ${issues[0]!.path}: ${issues[0]!.message}`, issues);
@@ -417,6 +428,11 @@ export async function translate(given: FlowDocument, values: Readonly<Record<str
       throw e;
     }
   };
+
+  // The context tables' rows for the day (ADR 0027 §8), only where a step is one.
+  const wantsContext = doc.steps.some((s) => s.kind === 'sql' && s.context !== undefined);
+  const isRows = (c: ContextRows | ContextGiven | undefined): c is ContextRows => !!c && Array.isArray((c as ContextRows).in_force);
+  const context = !wantsContext ? null : isRows(options.context) ? options.context : await contextRows(given, dayOf(given, values), options.asOf ?? null, options.context ?? {});
 
   const nodes: PlanNode[] = [];
   const index = new Map<string, number>();
@@ -442,7 +458,7 @@ export async function translate(given: FlowDocument, values: Readonly<Record<str
       throw new PlanError(`${at}: ${message}`, [{ path: at, message }]);
     }
     const enforced = enforcedBy(doc, step);
-    nodes.push(translateStep(step, base, at, bind, typeof day === 'string' ? day : null, enforced));
+    nodes.push(translateStep(step, base, at, bind, typeof day === 'string' ? day : null, enforced, context));
     // The lists and columns the ontology closes (ADR 0027 §4), by the check step that enforces each: what the run names
     // the undeclared arrivals by.
     const shut = enforced.filter((r) => r.kind === 'closed');
@@ -563,10 +579,15 @@ function watchPlan(w: string | WatchDef, source: string, period: string | null, 
 
 type Base = Pick<NodeBase, 'origin' | 'inputs' | 'storage'>;
 
-function translateStep(step: StepDef, base: Base, at: string, bind: (sql: string, path: string) => string, day: string | null, ontologyRules: readonly OntologyRule[] = []): PlanNode {
+function translateStep(step: StepDef, base: Base, at: string, bind: (sql: string, path: string) => string, day: string | null, ontologyRules: readonly OntologyRule[] = [], context: ContextRows | null = null): PlanNode {
   const named = (c: string | { name: string; expr: string }, path: string): Named => (typeof c === 'string' ? [c, quoteIdent(c)] : [c.name, bind(c.expr, path)]);
   switch (step.kind) {
     case 'sql':
+      // A context table is its day's rows, written out (ADR 0027 §8): the step's own statement says its columns only.
+      if (step.context !== undefined) {
+        const rows = context?.[step.context] ?? [];
+        return { op: 'sql', ...base, names: [], sql: emitRows(CONTEXT_COLUMNS[step.context], rows), context: { of: step.context, rows } };
+      }
       return { op: 'sql', ...base, names: [...step.inputs], sql: bind(withoutTrailingSemicolons(step.sql), `${at}.sql`) };
     case 'filter':
       return { op: 'filter', ...base, where: bind(step.where, `${at}.where`) };

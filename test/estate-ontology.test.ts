@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { composeFlow, type FlowFiles } from '../src/core/compose.js';
+import { contextRows } from '../src/core/context.js';
 import { validateDocument, type FlowDocument } from '../src/core/document.js';
 import { resolve, rulesHash } from '../src/core/inforce.js';
 import { propertyOf, rowsOf } from '../src/core/ontology.js';
@@ -325,7 +326,18 @@ describe('Larkspur’s ontology, the estate’s', () => {
     expect(feeds.changes!.map((c) => c.id)).toEqual(['acting-leader']);
     expect(await rulesHash(resolve(feeds, '2024-03-11').doc)).toBe(await rulesHash(resolve(feeds, '2024-03-10').doc));
     expect(await rulesHash(resolve(hr, '2024-03-11').doc)).not.toBe(await rulesHash(resolve(hr, '2024-03-10').doc));
-    // A relation is no step: the day's plan is the plan it was before the relation was known.
-    expect((await translate(top, { day: '2024-03-11' })).nodes).toEqual((await translate(top, { day: '2024-03-11' }, { asOf: '2024-03-08T09:00:00Z' })).nodes);
+    // A relation is no step: the day's plan is the plan it was before the relation was known, but for the tables of
+    // the product's context (ADR 0027 §8), which say the change and the version of the rules it makes.
+    const nodesOf = async (asOf?: string) => (await translate(top, { day: '2024-03-11' }, asOf ? { asOf } : {})).nodes;
+    const [known, before] = [await nodesOf(), await nodesOf('2024-03-08T09:00:00Z')];
+    const plain = (nodes: typeof known) => nodes.filter((n) => !(n.op === 'sql' && n.context));
+    expect(plain(known)).toEqual(plain(before));
+    expect(plain(known)).toHaveLength(known.length - 3);
+    const changes = (nodes: typeof known) => (nodes.find((n) => n.origin === 'context_changes') as { context: { rows: unknown[][] } }).context.rows.map((r) => r[0]);
+    expect(changes(known)).toEqual(['acting-leader']);
+    expect(changes(before)).toEqual([]);
+    // The feeds have no part in the relation: it is no change of theirs, and their context has none.
+    expect((await contextRows(feeds, '2024-03-11', null)).changes).toEqual([]);
+    expect((await contextRows(hr, '2024-03-11', null)).changes.map((r) => r[0])).toEqual(['acting-leader']);
   });
 });

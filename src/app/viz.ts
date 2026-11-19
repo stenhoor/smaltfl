@@ -827,20 +827,25 @@ export function dayStrip(o: { days: readonly StripDay[]; w?: number; h?: number;
   // are, a day with no usual of its own, and each mark on its days with its word.
   const extra = o.key && o.more ? stripKeyRow(o.days, o.more, w) : '';
   const keyH = o.key ? (extra ? 32 : 16) : 0;
-  const h = (o.h ?? 64) + keyH + (marks ? 4 : 0);
   // With an axis printed, its 0 sits in a gutter of its own, clear of the first day's band.
   // A strip given its axis's words (`axis`: a share's "2.5%", a count's "8k") prints its top too, as one with a unit does.
   const scaled = !!(o.unit || o.axis);
   const gx = o.zero || scaled ? 12 : 0;
   const cw = (w - gx) / Math.max(1, n);
   const bw = Math.min(14, cw - 2);
-  const top = 14 + keyH + (marks ? 4 : 0);
-  const base = h - 14;
   // A share's strip given its axis is a printed zoom, from 0 to just past its largest band end or value (Extras $5.00 at
   // 0–40%); without one, as it was (a count from 1, a share on 0–100%).
   const most = Math.max(0, ...o.days.flatMap((d) => [d.high ?? 0, d.v ?? 0]));
   const raw = o.axis ? (most > 0 ? most : 1) : Math.max(1, most);
   const ymax = scaled ? niceMax(raw * 1.02) : raw * 1.06;
+  const thousands = (v: number) => (v >= 1000 ? `${Number((v / 1000).toPrecision(3))}k` : String(v));
+  const axisTop = scaled ? (o.axis ? o.axis(ymax) : `${thousands(ymax)}${o.unit ?? ''}`) : '';
+  // The axis's top is written at the left, above the plot, where a mark on one of the first days stands too (a change
+  // that began on the chart's first day): with both, the plot starts lower and the words sit between the mark and it.
+  const room = scaled && o.days.some((d, i) => (d.mark || d.marks?.length || d.unlearned) && gx + i * cw + cw / 2 - 9 < axisTop.length * 6) ? 12 : 0;
+  const h = (o.h ?? 64) + keyH + (marks ? 4 : 0) + room;
+  const top = 14 + keyH + (marks ? 4 : 0) + room;
+  const base = h - 14;
   const y = (v: number) => base - (v / ymax) * (base - top);
   const last = o.days[n - 1];
   const wd = last ? new Date(`${last.day}T00:00:00Z`).getUTCDay() : -1;
@@ -888,10 +893,7 @@ export function dayStrip(o: { days: readonly StripDay[]; w?: number; h?: number;
     if (o.bandLabel && last.high !== null) s += `<text x="${f1(lx - cw / 2 - 4)}" y="${f1(y(last.high) + 4)}" text-anchor="end" class="lbl-m lbl-halo">${esc(o.bandLabel)}</text>`;
   }
   if (gx) s += `<text x="0" y="${base}" class="tick" aria-hidden="true">0</text>`;
-  if (scaled) {
-    const k = (v: number) => (v >= 1000 ? `${Number((v / 1000).toPrecision(3))}k` : String(v));
-    s += `<line class="hair" x1="${gx}" x2="${w}" y1="${f1(y(ymax)) + 0.5}" y2="${f1(y(ymax)) + 0.5}"/><text x="0" y="${f1(y(ymax) - 3)}" class="tick" aria-hidden="true">${esc(o.axis ? o.axis(ymax) : `${k(ymax)}${o.unit ?? ''}`)}</text>`;
-  }
+  if (scaled) s += `<line class="hair" x1="${gx}" x2="${w}" y1="${f1(y(ymax)) + 0.5}" y2="${f1(y(ymax)) + 0.5}"/><text x="0" y="${f1(y(ymax) - 3)}" class="tick" aria-hidden="true">${esc(axisTop)}</text>`;
   for (const [i, t, anchor] of o.labels ?? []) s += `<text x="${f1(gx + i * cw + cw / 2)}" y="${h - 2}" text-anchor="${anchor ?? 'middle'}" class="tick" aria-hidden="true">${esc(t)}</text>`;
   return `${s}</svg>`;
 }
@@ -2010,6 +2012,9 @@ export interface BarDay {
   done?: boolean;
   /** What pointing at the day says. */
   title?: string;
+  /** A change to the rules that reaches the row began on this day (ADR 0027 §8): a rule at the day's left edge, where
+   * it began, with a diamond at its head. */
+  changed?: boolean;
 }
 
 /**
@@ -2040,6 +2045,12 @@ export function dayBars(o: { days: readonly BarDay[]; w?: number; h?: number; pi
     const monday = isMonday(d.day);
     if (d.day === o.pick) s += `<rect class="db-pick" x="${f1(i * cw)}" y="0" width="${f1(cw)}" height="${f1(base)}" rx="2"/>`;
     if (monday && i > 0) s += `<line class="db-week" x1="${f1(i * cw)}" x2="${f1(i * cw)}" y1="${f1(base - 2)}" y2="${f1(base + 3)}"/>`;
+    // Where a change that reaches the row began (ADR 0027 §8): a dashed rule at the day's left edge, and a diamond at
+    // its head, set in from the row's own edge on its first day.
+    if (d.changed) {
+      const cx = Math.max(2.5, i * cw);
+      s += `<line class="db-chg" x1="${f1(cx)}" x2="${f1(cx)}" y1="0" y2="${f1(base)}"/><path class="db-chg-mark" d="M${f1(cx)} 0l2.5 2.8l-2.5 2.8l-2.5 -2.8z"/>`;
+    }
     const hgt = height[d.level];
     if (hgt > 0) {
       const hollow = d.level === 'unjudged' || d.level === 'waited' || (d.level === 'bad' && d.done);

@@ -103,7 +103,7 @@
   },
   {
     "name": "month-rows-steps",
-    "what": "The top flow's own row opened beside it: its three files (the catalogue held on Wed 27, at the gate), the steps with a day of their own, and those that only followed a file folded",
+    "what": "The top flow's own row opened beside it: its three files (the catalogue held on Wed 27, at the gate), the steps with a day of their own, and those that only followed a file folded. A row is marked where a change to the rules that reaches it began (ADR 0027 §8): the catalogue on Wed 27, platform_impact on the three days a change about what it is built from began, and the key says the mark",
     "view": "month",
     "viewFirst": true,
     "click": "#view-month .mh-row[data-row=\"flow:\"] .mh-flow-name",
@@ -114,13 +114,21 @@
         "Incoming files. 1 of 3 held a day, and 2 more were unusual on one.",
         "control_catalog",
         "held on Wed 27",
-        "Steps the flow builds. 4 of 25 had a day of their own to report: trouble no file they read accounts for. 3 steps held or were unusual only where a file they read was.",
+        "Steps the flow builds. 4 of 28 had a day of their own to report: trouble no file they read accounts for. 3 steps held or were unusual only where a file they read was.",
         "failing_by_unit",
         "3 steps that followed a file",
-        "18 steps with nothing to report"
+        "21 steps with nothing to report"
       ],
       "count": {
-        "#view-month .mh-row.mh-flow.open": 2
+        "#view-month .mh-row.mh-flow.open": 2,
+        "#view-month .mh-key .mh-chg": 1,
+        "#view-month .mh-row[data-row*=\"control_catalog\"] .db-chg-mark": 1,
+        "#view-month .mh-row[data-row*=\"platform_impact\"] .db-chg-mark": 3,
+        "#view-month .mh-row[data-row*=\"dim_app\"] .db-chg-mark": 0,
+        "#view-month .mh-row[data-row=\"flow:hr\"] .db-chg-mark": 0
+      },
+      "textIn": {
+        "#view-month .mo-health": ["a change to the rules that reaches it began"]
       }
     }
   },
@@ -205,7 +213,7 @@
         "WHAT HELD IT",
         "not in the ontology: control_id sbom (1 row)",
         "WHAT IT HELD BACK",
-        "11 of 37 outputs",
+        "11 of 40 outputs",
         "Held by control_catalog: nothing built from it was published.",
         "Sloane Marsden restated the day: published under the rules changed since.",
         "SCORE 92.7"
@@ -421,6 +429,36 @@
         "#sheet .verdict.declared": 0
       },
       "text": ["A normal Thursday"]
+    }
+  },
+  {
+    "name": "day-thu28-amount",
+    "what": "effective's amount, day by day, read across the changes that reach it (ADR 0027 §8): a mark on each day one began, the key's word for it, and a line a change under the chart, a tap from its entry: the catalogue's new control through the catalogue, the WAF's band through the WAF's file, the scanner's check through the findings",
+    "day": "Thu 28",
+    "card": "effective",
+    "tab": "News",
+    "unfold": ["nb-posture"],
+    "click": "#sheet .vf-health .vf-cell[aria-label^=\"Amount\"]",
+    "waitFor": ".vf-detail .changed-on",
+    "element": ".vf-detail",
+    "expect": {
+      "textIn": {
+        ".vf-detail": [
+          "the rules changed",
+          "From Wed 27:",
+          "Declared sbom in control_catalog",
+          "It reaches this through control_catalog.",
+          "From Mon 18:",
+          "Accepted a new band in waf: Status Fail between 0% and 10% ›",
+          "It reaches this through waf.",
+          "From Fri 1:",
+          "Set the values check on findings to hold (it was warn) ›",
+          "It reaches this through findings."
+        ]
+      },
+      "count": {
+        ".vf-detail .changed-on": 3
+      }
     }
   },
   {

@@ -72,6 +72,17 @@ describe('the helpers', () => {
     expect(sqlDoes('SELECT sum(x) OVER (PARTITION BY y) FROM a').sums).toBe(false);
     expect(opDoes({ op: 'aggregate', inputs: [{ name: 'a', rows: 1 }], aggregate: { groupBy: ['unit'], measures: ['n'] } })).toBe('Groups the rows by unit and works out n for each group.');
   });
+  it('says a context table is made by the run, whatever its statement (ADR 0027 §8)', () => {
+    const made = opDoes({ op: 'sql', inputs: [], sql: "SELECT CAST('x' AS TEXT) AS \"change\"", context: 'changes' });
+    expect(made).toMatch(/^Made by the run, not by a query: the dated changes to the ontology in force on the day/);
+    expect(opDoes({ op: 'sql', inputs: [], context: 'events' })).toMatch(/what was going on that day as people wrote it down/);
+    expect(opDoes({ op: 'sql', inputs: [], context: 'in_force' })).toMatch(/the version of the ontology it was read under/);
+    // Its story counts its rows, with nothing in and no row flow to draw.
+    const story = stepStory({ op: 'sql', origin: 'context_changes', inputs: [], rowsOut: 21, added: [], removed: [], replaced: [], context: 'changes' });
+    expect(story.head).toBe('21 rows out.');
+    expect(story.flow).toBeNull();
+    expect(story.does).toBe(made);
+  });
   it('says times, usual rows and usual time', () => {
     expect(msSaid(0.4)).toBe('under 1 ms');
     expect(msSaid(1234)).toBe('1.2 s');

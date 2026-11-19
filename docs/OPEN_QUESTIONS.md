@@ -36,7 +36,7 @@ things apply at certain dates, what was going on and what was decided at the tim
 data so that analysis is always aware of its context; *"I want you to interview me and go back and forth on the design
 decisions as much as we need."* The research is [research/temporal-ontology.md](research/temporal-ontology.md). Asked
 through the question prompt in seven rounds, each question with its recommendation first
-([adr/0027-the-ontology-over-time.md](adr/0027-the-ontology-over-time.md)). Slices 1 to 6 of its §11 are built (its §"As built").
+([adr/0027-the-ontology-over-time.md](adr/0027-the-ontology-over-time.md)). Slices 1 to 7 of its §11 are built (its §"As built").
 
 | ID | Question | The maintainer's answer | Status |
 | --- | --- | --- | --- |
@@ -110,6 +110,14 @@ The choices those answers leave open, proposed in ADR 0027 for the maintainers t
 | Q-309 | How is a declared change’s first day read? | The record keeps what each run was told. The month reads a dataset the change moved as the run as it was judged it, for the runs of the day on the files the step was measured on, and says the rest is the change’s own | proposed, built |
 | Q-310 | What of a day published again with another score? | It keeps what it first published beside it, so a chart shows the line as corrected with the first a tap away | proposed, built |
 | Q-311 | Does the app run a change made here both ways? | Not yet: the build measures a recorded change, and one made in the app says its step isn’t measured. To be decided with the regression’s budget: on request from the change’s entry, or at once when its first day has already run. A first day held by its own change’s step also still waits for a person | proposed |
+| Q-312 | What is a context table, in the document and the plan? | A SQL step that reads nothing, marked `context` in the document, whose own statement is the table with no rows; the plan has the day’s rows in its place, and beside it as rows. No plan version and no node kind: ADR 0027 §12 said only that the tables are outputs of the run, hashed like any dataset, and they are | proposed, built |
+| Q-313 | Where do a context table’s rows come from, and who holds them to it? | From the flow as kept (its change sets, with their reasons) and the record (the events, each change’s own step), as known at the run’s moment: not from the document the run keeps, which is its rules in force. They are the run’s input. Verify holds each table’s statement to the rows the plan carries and recomputes the output; whether the rows are the record’s is the audit’s to hold, and it doesn’t yet | proposed, built |
+| Q-314 | What is one row of a context table? | A change, or an event, and a dataset it reaches: one it is about, or one built from that, however far. One row with no dataset where it is about the flow as a whole. `in_force` is a row a dataset, with the rules in force by their hash | proposed, built |
+| Q-315 | Which changes and events are a day’s context? | Those in force and going on that day, as known when its run was made. A change still to come isn’t the day’s context; an event written after a run isn’t in that run’s rows; a change set none of whose edits applies to the flow isn’t a change of it | proposed, built |
+| Q-316 | Do the context tables count in a change’s own step? | No: they say the change itself, and differ between the two runs by what they are. They are kept out of the step’s measures, a trial’s figures and *the day both ways* | proposed, built |
+| Q-317 | Does the flow’s hash move with the day’s context? | No: the document keeps each table’s columns only. The plan’s hash and the three outputs’ do, as any output’s does with its rows | proposed, built |
+| Q-318 | Is a day restated where its context tables alone differ under rules changed since? | No. A context table says what a run was read under, so it differs wherever the rules do: counted as data, every day a back-dated change reaches would be a restated day (22 of Larkspur’s March where three had moved). A restated day is compared with what readers got by its other outputs, and one whose data is the same is noted, as before: readers keep their version, whose context tables say the rules it was made under. Compare counts the outputs that are data and lists a context table that differs apart | proposed, built |
+| Q-319 | As known when is a card’s Context read? | At the moment the page reads at, as the day’s head reads what was going on: an event written down after the version on screen ran, or a change recorded since, is shown and says so. The published tables stay as the run knew them (Q-315) | proposed, built |
 
 ## Flows in flows: the maintainer's answers of 2026-11-17 (ADR 0026)
 

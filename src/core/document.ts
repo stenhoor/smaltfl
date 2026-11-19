@@ -248,6 +248,46 @@ export type RuleEdit =
 
 export const EDIT_OPS = ['setRule', 'removeRule', 'switchRule', 'nameColumn', 'acceptBand', 'setCheck', 'useVersion', 'mapColumn', 'declareValues', 'declareKey', 'declareEntry', 'leaveOut', 'describeAhead', 'setType', 'setLink', 'setRows', 'setNeeds', 'redefine', 'end'] as const;
 
+/** The datasets an edit is about: the file or step it names. A version's rules taken whole (`useVersion`) name none. */
+export function editTargets(edit: RuleEdit): string[] {
+  switch (edit.op) {
+    case 'setRule':
+      return [edit.rule.file];
+    case 'removeRule':
+    case 'switchRule':
+    case 'nameColumn':
+    case 'mapColumn':
+    case 'declareValues':
+    case 'declareKey':
+    case 'declareEntry':
+    case 'leaveOut':
+      return [edit.file];
+    case 'acceptBand':
+      return [edit.source];
+    case 'setCheck':
+      return [edit.node];
+    case 'useVersion':
+      return [];
+    // A dataset described ahead of its data is no file or step yet: the change is the flow's that wrote it.
+    case 'describeAhead':
+      return [];
+    // A kind is about the dataset its rows are; what a row is and a dependency, about theirs. A relation and a meaning
+    // for every dataset are the ontology's own: the flow's that wrote them.
+    case 'setType':
+      return [edit.type.dataset];
+    case 'setRows':
+      return [edit.rows.dataset];
+    case 'setNeeds':
+      return [...edit.needs.datasets];
+    case 'redefine':
+      return [...(edit.datasets ?? [])];
+    case 'setLink':
+      return [];
+    case 'end':
+      return edit.ended.what === 'entry' && edit.ended.of ? [edit.ended.of.file] : edit.ended.what === 'rows' ? [edit.ended.id] : [];
+  }
+}
+
 /** What is wrong with a record that a thing ended, each as a path under it and a sentence; none, and it is one. */
 export function endedIssues(x: unknown): [path: string, message: string][] {
   if (!isRecord(x)) return [['', 'what ended: { what, id, of?, then? }']];
@@ -651,10 +691,27 @@ export interface NamedExpr {
   expr: string;
 }
 
+/**
+ * The context tables a cell can join to (ADR 0027 §8): the changes in force on the run's day, the events going on,
+ * and the version of the ontology each dataset was read under.
+ */
+export const CONTEXT_TABLES = ['changes', 'events', 'in_force'] as const;
+export type ContextTable = (typeof CONTEXT_TABLES)[number];
+
+/** A flow's context tables (ADR 0027 §8), by the ids of the steps that are one: the names their rows are published
+ * under. They say what a run was read under, and are no data of its day. */
+export const contextTables = (doc: { steps: readonly StepDef[] }): string[] => doc.steps.filter((s) => s.kind === 'sql' && s.context !== undefined).map((s) => s.id);
+
 export interface SqlStep extends StepBase {
   kind: 'sql';
   /** One SELECT over the inputs, which it names by their ids. */
   sql: string;
+  /**
+   * A context table (ADR 0027 §8): the step reads nothing, and its rows are made by the run from the flow's dated
+   * changes, the events written down and the rules in force on its day (core/context.ts). `sql` is the table with no
+   * rows, so the document says its columns; the plan has the day's rows in its place.
+   */
+  context?: ContextTable;
 }
 
 export interface FilterStep extends StepBase {
@@ -1817,6 +1874,10 @@ function validateConfig(s: Record<string, unknown>, at: string, add: (path: stri
   switch (s.kind) {
     case 'sql':
       sqlText(s.sql, `${at}.sql`);
+      if (s.context !== undefined) {
+        if (!(CONTEXT_TABLES as readonly unknown[]).includes(s.context)) add(`${at}.context`, `one of ${CONTEXT_TABLES.join(', ')}`);
+        if (Array.isArray(s.inputs) && s.inputs.length) add(`${at}.inputs`, 'a context table reads nothing: its rows are made by the run');
+      }
       break;
     case 'filter':
       sqlText(s.where, `${at}.where`);

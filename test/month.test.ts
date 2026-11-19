@@ -215,6 +215,17 @@ describe('a day run again under rules changed since, against what readers got (A
     expect(restatedOutcome({ published: true, holds: [], contents: null }, { holds: [restated], contents: out })).toMatchObject({ passes: true, changed: true, differ: null });
   });
 
+  it('never counts the flow’s context tables: they say the rules a run was read under, and differ wherever the rules do (ADR 0027 §8)', () => {
+    const context = new Set(['context_in_force', 'context_changes']);
+    const was = { ...out, context_in_force: 'r1', context_changes: 'k1' };
+    // The same data under other rules: the context tables alone differ, and the day is noted, not restated.
+    expect(restatedOutcome({ published: true, holds: [], contents: was }, { holds: [restated], contents: { ...out, context_in_force: 'r2', context_changes: 'k2' } }, context)).toEqual({ passes: true, carried: false, changed: false, differ: 0, fresh: [] });
+    // Without the names, they are outputs like any other.
+    expect(restatedOutcome({ published: true, holds: [], contents: was }, { holds: [restated], contents: { ...out, context_in_force: 'r2', context_changes: 'k2' } })).toMatchObject({ changed: true, differ: 2 });
+    // The day's own data moved too: restated, by what moved.
+    expect(restatedOutcome({ published: true, holds: [], contents: was }, { holds: [restated], contents: { ...out, b: 'c3', context_in_force: 'r2', context_changes: 'k2' } }, context)).toMatchObject({ passes: true, changed: true, differ: 1 });
+  });
+
   it('changes a published day the new rules hold, saying what holds it', () => {
     expect(restatedOutcome({ published: true, holds: [], contents: out }, { holds: [band, restated], contents: out })).toEqual({ passes: false, carried: false, changed: true, differ: 0, fresh: [band] });
   });

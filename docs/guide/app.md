@@ -315,6 +315,16 @@ rules as events, which are context and no rule; an event may say what it excuses
 - **A column through its changes.** A finding's day by day carries a diamond on the day its column's meaning was
   redefined, with the change a tap away. A value that ended is followed through: what it was replaced by, merged into
   or split into, and from which day.
+- **Context that travels.** A notebook cell writes `context('changes')`, `context('events')` or
+  `context('in_force')` (from `smaltfl/notebook`) and has a table any cell after it can join to: the dated changes in
+  force on the run's day, a row a change and a dataset it reaches, with why, who decided and its own step; what was
+  going on, with what each event reaches and excuses; and, for each dataset, the version of the ontology it was read
+  under. The run makes their rows, so they are published, hashed and verified like any output: a product that
+  publishes them hands its readers the context with the data. Every card's sheet says the same of its dataset under
+  **Context**: what is in force and going on that reaches it, through which dataset, and why, read as known now, with
+  what was written down after the day's version ran said as such. A change also marks the charts of what it reaches,
+  on the month's rows and on each day by day chart. The tables say what a run was read under and are no data of its
+  day: a day whose data is the same under rules changed since isn't restated for them, and Compare lists them apart.
 
 ## The record and verify
 

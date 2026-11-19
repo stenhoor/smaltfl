@@ -855,6 +855,92 @@ there (ADR 0021 §5). The day's head and the month say it was published.
 - **A file's series is never a declared level.** Data that changes with the business is data: it is told, and
   accepted by a person.
 
+### Slice 7: context that travels (2026-11-18)
+
+A slice of data knows its context (§8): three tables any cell can join to, published with the product, and every
+card saying what reaches it. §12 said the tables are outputs of the run, hashed like any dataset. They are, and
+nothing else is new in what a run names: no plan version, no node kind, no hash tag.
+
+**The three tables** (`src/core/context.ts`). A notebook cell writes `context('changes')`, `context('events')` or
+`context('in_force')` (`smaltfl/notebook`), and is a step like any other: a cell after it reads it by its name, and
+`publish()` publishes it.
+
+- **changes:** the dated changes in force on the run's day, a row a change and a dataset it reaches: its kind, its
+  first and last day, what it did and why in its author's words, when and by whom it was recorded, who decided it and
+  when, the event that led to it, the estate whose change it is, and its own step (the day it was run both ways, how
+  many measures were read, how many it moved, and each of them as it was and with the change).
+- **events:** what was going on that day, a row an event and a dataset it reaches: its name, its kind, its days, which
+  day of it this is and of how many, its author's note, and what it excuses of that dataset.
+- **in_force:** a row a dataset of the day, a file or a step, with the flow it belongs to, the rules in force by their
+  hash, how many changes that version is made of, and the day the latest of them began.
+
+**What reaches a dataset** (`reachOf`): a change or an event is about the files and steps it names, and reaches each
+of them (`direct`) and every step built from one, however far and in whichever flow it is read from (`downstream`).
+One about no dataset of the flow (a relation, a dataset described ahead, an event about the whole flow) is one row
+with no dataset, the flow's (`flow`). A change set none of whose edits applies to a flow (an estate's, about what
+another of its flows has) is no change of it, and isn't listed. Only what is in force on the day is the day's
+context: a change still to come isn't.
+
+**How a run has them** (Q-312, Q-313). In the document a context table is a SQL step that reads nothing, marked
+`context`, whose own statement is the table with no rows: it says the columns, and the flow's hash doesn't move with
+the day. The rows are made for the run (`contextRows`) from the flow as kept (its change sets, with their reasons),
+the day, the moment the rules are known at, and what the record adds: the events written down and each change's own
+step, as known then (`contextKnown`, which the build's recorder and the page both ask, so a day run again in a browser
+has the context its recorded run had). `translate` puts them in the plan, as that step's statement and beside it as
+rows (`SqlNode.context`), so the run builds, hashes and publishes them as it does any output, and verify recomputes
+them. Verify also translates the kept document again with the rows the plan carries: a table whose statement isn't
+exactly its rows written out fails the *flow* check. The rows are in each table's column order, the changes as the
+rules were resolved, the datasets of each by name, so the same flow gives one plan whatever order its steps are
+written in. The types computed ahead for a first day (ADR 0019) are keyed without a context table's rows.
+
+**Published with the product.** Larkspur's Control Posture v1 publishes the three, each under a contract of its own
+(`context_changes`, `context_events`, `context_in_force`): the product is thirteen datasets where it was ten, the
+estate's plan 95 nodes and 40 outputs where it was 92 and 37.
+
+**A context table is no data of its day** (Q-316, Q-318). It says what a run was read under, so it differs wherever
+the rules do, by what it is. Counted as data it would make every day a back-dated change reaches a restated day:
+the first data made with the tables had Larkspur's March at 22 restated days where three had moved. So a day run
+again under rules changed since is compared with what readers got by its other outputs (`restatedOutcome`'s
+`context`, the names from `contextTables`; the recorder, the page and the offline audit ask the same), and a day
+whose data is the same is noted, as before: readers keep the version they had, and that version's context tables
+say the rules it was made under. The tables are kept out of a change's own step, of a trial's figures and of *the
+day both ways* for the same reason, and **Compare** counts the outputs that are data and lists a context table
+that differs apart, under *Read under another context*, its rows a tap away like any output's. A run checked
+against its record is held to all of them: a day run here has the context its recorded run had, or the page says
+it differs.
+
+**A fill's own run** (a derived run, ADR 0009) has the context of its own document, the donor it reads among its
+datasets, under the rules its held run had, with the events and the steps known at the moment it was made: the
+moment the record has it at, for a fill the record decided, so the page makes the same run and releases it.
+
+**In the app.** Every card's sheet, on the tabs that tell its day, has **Context**: the changes in force that reach
+the dataset, each with its kind's mark, the day it began, what it did, through which dataset it reaches this one and
+why, a tap from its entry; and the events going on that reach it, each with which day of it this is and what it
+excuses here. Those about the flow as a whole are counted, and are on the day's head. It is read as known at the
+moment the page reads at, as the day's head reads what was going on (Q-319): an event written down after the
+version on screen ran, or a change recorded since, is what a reader of the day needs, and each says so, with a line
+that the version's own context tables, made when it ran, haven't it. A context table's own sheet says it is made by
+the run and not by a query, and its blanks are no news: a blank is how it says *none* (no last day, no step
+measured, not an estate's). **A change marks the charts of what it reaches:** on the month, each
+file's and step's row has a dashed rule with a diamond where a change that reaches it began; a day by day chart in a
+finding's or a cause's detail, and the amount's, has the diamond on that day and a line that names the change and
+what it comes through.
+
+**What it leaves.**
+
+- **The audit doesn't hold a run's context to the record.** The bag carries the plan with the rows, and an auditor
+  can read them; `audit.ts` doesn't yet make them again from the flow as kept and the record's events and steps
+  (slice 8 holds owners and agreement to the record, and this belongs beside it).
+- **Decisions aren't a table.** What was decided of a day comes after its run: it is on the day's head and in the
+  record, not in the day's own outputs.
+- **One version a run.** A run reads one document, so every dataset of a day has the same rules: `in_force` says
+  which, for each, and will differ between datasets only once a flow run on its own is read by another (ADR 0026's
+  "Not built").
+- **Only Larkspur's product publishes them.** Any notebook flow can write the three cells; the other demos don't.
+- **Explore doesn't offer them as joins,** and a context table has no gate and no learned check.
+- **Marks, not bands, on a dataset's own charts.** An event is said in the card's Context and drawn as a band on the
+  month's trend only; the posture dashboard's sparklines and Explore's cards carry no mark.
+
 ## Consequences
 
 - **A flow can stop for a reason it never could:** the data is ahead of the ontology. That is the point of the gate,
@@ -973,6 +1059,27 @@ Proposed with slice 6, as built:
 - **Q-310:** a day published again with another score keeps what it first published beside it.
 - **Q-311:** the app doesn't run a change made here both ways. To be decided with the regression's budget: on request
   from the change's entry, or at once when the change's first day has already run.
+
+Proposed with slice 7, as built:
+
+- **Q-312:** a context table is a SQL step that reads nothing, marked in the document, with the day's rows in its
+  plan. No plan version, no node kind: a build that doesn't know the mark runs the statement, which has the rows.
+- **Q-313:** the rows are the run's input, made from the flow as kept and the record, not from the document the run
+  keeps (its rules in force, which have no reasons and no events). Verify holds each table's statement to the rows
+  the plan carries, and recomputes the output. Whether the rows are the record's is the audit's to hold, and it
+  doesn't yet.
+- **Q-314:** the grain is a change (or an event) and a dataset it reaches, directly or downstream, with one row and
+  no dataset where it is about the flow as a whole; `in_force` is a row a dataset.
+- **Q-315:** a day's context is what is in force and going on that day, as known when its run was made: a change
+  still to come isn't in it, and an event written afterwards isn't in that run's rows.
+- **Q-316:** the context tables stay out of a change's own step, a trial's figures and *the day both ways*: they
+  differ by what they are.
+- **Q-317:** the flow's hash doesn't move with the day's context. The plan's does, and the three outputs' do.
+- **Q-318:** a day isn't restated where its context tables alone differ under rules changed since: it is compared
+  with what readers got by its other outputs, and noted where they are the same. Compare counts the outputs that are
+  data and lists a context table that differs apart.
+- **Q-319:** a card's Context is read as known at the moment the page reads at, and says what was written down or
+  recorded after the version on screen ran. The published tables stay as the run knew them.
 
 ## The questions
 

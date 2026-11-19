@@ -23,6 +23,7 @@
  */
 import type { Database } from 'smaltdb/engine';
 import { canonicalJSON } from '../core/canonical.js';
+import type { ContextRows } from '../core/context.js';
 import type { FlowDocument } from '../core/document.js';
 import type { EmitContext } from '../core/emit.js';
 import { createTable, emitSelect } from '../core/emit.js';
@@ -118,7 +119,11 @@ export async function verifyRun(db: Database, runId: number, options: VerifyOpti
     if (manifest.flow.ontology !== undefined && manifest.flow.ontology !== (await ontologyHash(doc.ontology))) notes.push("the ontology isn't the document's");
     if (manifest.flow.rules !== undefined && manifest.flow.rules !== (await rulesHash(doc))) notes.push("the rules in force aren't the document's");
     try {
-      const again = await translate(doc, typedParameters(doc, plan.parameters));
+      // A context table's rows (ADR 0027 §8) are the run's own, which the plan carries: the document is translated again
+      // with them, so each such step's statement must be those rows written out, and nothing else.
+      const context: ContextRows = { changes: [], events: [], in_force: [] };
+      for (const n of plan.nodes) if (n.op === 'sql' && n.context) context[n.context.of] = n.context.rows;
+      const again = await translate(doc, typedParameters(doc, plan.parameters), { context });
       const strip = (p: FlowPlan) => ({ ...p, nodes: p.nodes.map(({ schema: _schema, ...rest }) => rest) });
       if (!same(strip(again), strip(plan))) notes.push("the document doesn't translate to the plan");
     } catch (e) {

@@ -66,13 +66,14 @@ import { entryLeaf, type JSONValue, type LogEntry } from '../../src/core/log.js'
 import { appendPeriods, settingsFor, tailBefore, type Measures } from '../../src/core/measures.js';
 import { asItWas, declaredLevels, STEP_KIND, stepMeasures, toldDay, type StepAbout, type StepMarks, type ToldDay } from '../../src/core/step.js';
 import { inForce, ruleParts } from '../../src/core/inforce.js';
+import { contextKnown } from '../../src/core/context.js';
 import { dayOfSlot } from '../../src/core/calendar.js';
 import { MONTH_FORMAT, restatedOutcome, restatedRuns, type MonthFile, type PostureMark, type RestateAbout } from '../../src/core/month.js';
 import type { FileFacts } from '../../src/core/news.js';
 import { isPublish2, type FlowPlan } from '../../src/core/plan.js';
 import { policiesHash, type RunManifest } from '../../src/core/manifest.js';
 import { checkDecision } from '../../src/core/policy.js';
-import { fillStepOf, type ChangeSet } from '../../src/core/document.js';
+import { contextTables, fillStepOf, type ChangeSet } from '../../src/core/document.js';
 import { withRoles } from '../../src/core/deciding.js';
 import { storyProblems, timelineOf, type StoryFile, type StoryFill, type StoryRestatement } from '../../src/core/timeline.js';
 import { excusesFor, type FlowEvent } from '../../src/core/events.js';
@@ -441,6 +442,12 @@ async function main(): Promise<void> {
       return { parameters, dayDoc, claims, told, stories, tell, kept };
     };
 
+    /** The context a run made at a moment takes (ADR 0027 §8): the events and the changes' own steps recorded by then.
+     * A flow with no context table doesn't read it. */
+    const contextAt = (at: string) => contextKnown(entries, entries.filter((e) => e.kind === 'event').map((e) => e.about as unknown as FlowEvent), at);
+    /** The context tables' own datasets: what the run makes of the changes, never what a change moved. */
+    const contextSteps = new Set(contextTables(flowDoc));
+
     const runOnce = async (d: Day, at: string, shas: Record<string, string>, opts: { correction?: { of: { run: number; manifest: string }; sources: string[] }; restates?: { of: string; changes: string[] }; sources?: Made['sources']; eventsAt?: string } = {}): Promise<void> => {
       const { correction, restates } = opts;
       const day = d.slot;
@@ -449,7 +456,7 @@ async function main(): Promise<void> {
       const read = { ...(opts.sources ?? sources) };
       try {
         await defineTables(forDay(flowDoc, parameters, at));
-        const r = await runFlow(db, flowDoc, { smaltdb: SMALTDB, parameters, data: null, asOf: at, ...(claims.length ? { claims } : {}), ...(Object.keys(tell).length ? { tell } : {}), sources: read, ...(correction ? { correction } : {}), ...(restates ? { restates } : {}) });
+        const r = await runFlow(db, flowDoc, { smaltdb: SMALTDB, parameters, data: null, asOf: at, ...(claims.length ? { claims } : {}), ...(Object.keys(tell).length ? { tell } : {}), sources: read, ...(correction ? { correction } : {}), ...(restates ? { restates } : {}), context: contextAt(at) });
         if (!correction && !restates) {
           for (const m of r.measures ?? []) {
             const rows = kept.get(m.source);
@@ -579,7 +586,7 @@ async function main(): Promise<void> {
       const tell: Record<string, { skip: string[]; levels: ReturnType<typeof levelsOf> }> = {};
       for (const w of watches) if (plan.nodes.some((x) => x.origin === w && x.op !== 'table')) tell[w] = { skip: skipOf(entries, period), levels: levelsOf(entries, w) };
       const read = { ...target.sources, [donorIdOf(fill.source)]: { path: repair.donor!.file.path, ...(bind.generate ? { from: bind.generate } : {}), at, sha256: sha } };
-      const r = await runFlow(db, repairDocument(flowDoc, repair), { smaltdb: SMALTDB, parameters, data: null, asOf: at, claims: [...target.claims, donorClaim], ...(Object.keys(tell).length ? { tell } : {}), sources: read, stage: true, from: { run: target.run, manifest: target.manifest } });
+      const r = await runFlow(db, repairDocument(flowDoc, repair), { smaltdb: SMALTDB, parameters, data: null, asOf: at, claims: [...target.claims, donorClaim], ...(Object.keys(tell).length ? { tell } : {}), sources: read, stage: true, from: { run: target.run, manifest: target.manifest }, context: contextAt(at) });
       manifests[r.hash] = r.manifest;
       const typed = db.query('SELECT plan FROM _smaltfl_plans WHERE hash = ?', [r.manifest.plan]).rows[0];
       const typedPlan = typed ? (JSON.parse(String(typed[0])) as FlowPlan) : null;
@@ -692,7 +699,9 @@ async function main(): Promise<void> {
     /** What a run published, as a step reads it: the product's marks from its own versions, and each output's rows. */
     const marksOf = (m: RunManifest): StepMarks => {
       const p = postureOf((n) => m.outputs[n]?.key);
-      const rows = Object.fromEntries(Object.keys(m.outputs).flatMap((n) => {
+      // A context table says what changed (ADR 0027 §8): it differs between the two runs by what it is, and is no
+      // measure of what the change moved.
+      const rows = Object.fromEntries(Object.keys(m.outputs).filter((n) => !contextSteps.has(n)).flatMap((n) => {
         const count = m.nodes.find((x) => x.origin === n)?.rows;
         return count === undefined ? [] : [[n, count]];
       }));
@@ -725,7 +734,7 @@ async function main(): Promise<void> {
         const shas = await pinDay(withIt.files, at, daily, true);
         const { parameters, dayDoc, claims, tell } = await tellDay(withIt.files, at, shas, was.doc, withIt.excusedAt);
         await defineTables(dayDoc);
-        const r = await runFlow(db, was.doc, { smaltdb: SMALTDB, parameters, data: null, asOf: at, ...(claims.length ? { claims } : {}), ...(Object.keys(tell).length ? { tell } : {}), sources: withIt.sources, whatIf: true });
+        const r = await runFlow(db, was.doc, { smaltdb: SMALTDB, parameters, data: null, asOf: at, ...(claims.length ? { claims } : {}), ...(Object.keys(tell).length ? { tell } : {}), sources: withIt.sources, whatIf: true, context: contextAt(at) });
         // The run as it was is no entry of the record (a what-if never is); its manifest is kept, so the day can be
         // read both ways from the two.
         manifests[r.hash] = r.manifest;
@@ -795,7 +804,7 @@ async function main(): Promise<void> {
       const run = made.get(day)?.filter((m) => m.restates && changesKey(m.restates.changes) === changesKey(ids)).at(-1);
       const got = gotOf(day);
       if (!run || !got) return null;
-      return { day, run, outcome: restatedOutcome({ published: got.published, holds: got.made.holds, contents: got.made.contents }, { holds: run.holds, contents: run.contents }) };
+      return { day, run, outcome: restatedOutcome({ published: got.published, holds: got.made.holds, contents: got.made.contents }, { holds: run.holds, contents: run.contents }, contextSteps) };
     };
     const restateEntry = (at: string, by: string, about: RestateAbout, reason: string | null) => {
       entries.push({ smaltflLog: 1, origin, seq: entries.length, kind: 'restate', at, by: { card: null, as: by }, about: about as unknown as JSONValue, reason, amends: null, nonce: nonce(`restate:${about.changes.join(',')}`, entries.length) });

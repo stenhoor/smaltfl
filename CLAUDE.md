@@ -443,7 +443,7 @@ release (smaltty ADR 0030).
   check holds the run's document to them (`flowProblems`). A fill's derived document names its donor in the flow that
   owns the file (`repairDocument`). The app's build ships each read flow (`data/flows/<id>.json`, loads.json `flows`,
   `DataList.flows`). Larkspur is five flows: `hr/`, `inventory/`, `feeds/`, `applications/` and the posture product at
-  the root, which lists the four (the same 92 plan nodes, 37 outputs where it had 19; the ontology the estate's own
+  the root, which lists the four (the same 92 plan nodes, 37 outputs where it had 19, and 95 and 40 since ADR 0027's context tables; the ontology the estate's own
   document since slice 7); `test/compose.test.ts`. Slice 2, the canvas in levels: `src/core/levels.ts` (pure, not in what the
   data's cache is keyed by): `levelDoc` is the document one flow's canvas lays out, its own files, steps and sections and
   a card a flow it reads itself (`flowCard`, `cardFlow`, `readHere`; a card joined to every flow its flow lists and to
@@ -676,6 +676,28 @@ release (smaltty ADR 0030).
   in `testChange`), `acrossColumn` (the redefinition marks and `followedPart`, `rawValue`, in `findingDetail` and
   `causeDetail`), the brief's status *as declared*. `test/step.test.ts`,
   `test/viz.test.ts`; stops in `month.json`, `versions.json` and `follow.json` (Larkspur).
+  Slice 7, context that travels (§8; no plan version, no node kind, no hash tag). `src/core/context.ts` (in what the
+  data's cache is keyed by): the three tables' columns (`CONTEXT_COLUMNS`), `contextRows` (a run's rows, from the flow
+  as kept, the day, the moment the rules are known at and a `ContextGiven`), `contextKnown` (the events and the
+  changes' own steps recorded by a moment: the recorder and the page both ask it), `reachOf` (the datasets a change
+  or an event reaches: `direct`, `downstream`, else the `flow`'s), `changeAbout`, `datasetsOf`, `contextOf` (what
+  reaches one dataset, for the page), `stepSaid`. In the document a context table is a `SqlStep` with `context`
+  (`CONTEXT_TABLES`, `ContextTable`; its `sql` the table with no rows, `emit.ts` `emitRows`); `context()` in
+  `src/notebook.ts`, classified and derived in `core/notebook.ts`; `translate`'s `context` option puts the day's rows
+  in the plan (`SqlNode.context`), `runFlow`'s passes them; verify translates the kept document again with the rows
+  the plan carries; `typed.ts` `typesKey` leaves a context table's rows out. `editTargets` is `document.ts`'s
+  (re-exported by `attribute.ts`). The recorder: `contextAt`, `contextSteps` (kept out of `marksOf`). Larkspur's
+  product publishes `context_changes`, `context_events` and `context_in_force` under contracts (95 plan nodes, 40
+  outputs). A context table is no data of its day (Q-318): `contextTables` (document.ts) names them, `restatedOutcome`
+  (month.ts) leaves them out of what makes a restated day changed (the recorder, the page and the audit pass the
+  names), and `compareSummary`'s `context` lists them apart. Outside the key: `across.ts` `changesReaching`;
+  `silver.ts` `CONTEXT_DOES`, `StepFacts.context`. The app:
+  `contextForRun` (the rows a run here takes, a what-if's from the change sets picked, a fill's derived run's from its
+  own document as known when it was made), `contextSteps`,
+  `contextPart` (a card's **Context**, on the tabs that tell its day, as known at the moment the page reads at, saying
+  what was said after the version on screen ran, Q-319), `acrossColumn`'s marks for every change that
+  reaches the dataset, the month's rows' `BarDay.changed` (viz.ts `dayBars`). `test/context.test.ts`; stops in
+  `larkspur.json` and `month.json`.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).
@@ -794,10 +816,11 @@ release (smaltty ADR 0030).
   say what they excuse; a day is read under what was in force and carries that context. In the slices of its §11:
   slice 1 (the register on screen), slice 2 (reasons, kinds and events), slice 3 (the gate, what an event excuses,
   document format 5), slice 4 (the two doors), slice 5 (kinds, relations and meanings over time, with the shared
-  ontology's own change sets) and slice 6 (reading across a change: each change's own step, the cuts, the adjusted
-  line, a declared change as the new level) are built (its §"As built", which says what each leaves); slice 7,
-  context that travels, is next. Its Q-280 to Q-285 are proposed, for the maintainers to confirm as each is built, and Q-286
-  to Q-311 are the choices slices 3, 4, 5 and 6 made as they were built.
+  ontology's own change sets), slice 6 (reading across a change: each change's own step, the cuts, the adjusted
+  line, a declared change as the new level) and slice 7 (context that travels: three tables any cell can join to,
+  published with the product) are built (its §"As built", which says what each leaves); slice 8, who decides, is
+  next. Its Q-280 to Q-285 are proposed, for the maintainers to confirm as each is built, and Q-286
+  to Q-319 are the choices slices 3 to 7 made as they were built.
 
 ## Rules for this repository
 

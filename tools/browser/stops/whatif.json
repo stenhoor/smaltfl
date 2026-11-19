@@ -50,12 +50,23 @@
   },
   {
     "name": "whatif-compare",
-    "what": "Compared with version 2, what readers got (restated, not published): the same files under another plan, what held each (nothing held the what-if; the logged-in band held v2), and what each became",
+    "what": "Compared with version 2, what readers got (restated, not published): the same files under another plan, what held each (nothing held the what-if; the logged-in band held v2), and what each became. The context each side was read under differs with the rules, and is listed apart, never counted among the outputs that changed (ADR 0027 §8, Q-318)",
     "day": "Sat 16",
     "clicks": ["#loads .wi-compare"],
     "element": "#loads .dh-compare",
     "expect": {
-      "text": ["The same files", "Another plan", "the what-if by nothing; v2 by findings: Credentialed no: 4.1% (band 0%–2%)", "the what-if a what-if, never published; v2 restated by Sloane Marsden, not published"]
+      "text": [
+        "The same files",
+        "Another plan",
+        "the what-if by nothing; v2 by findings: Credentialed no: 4.1% (band 0%–2%)",
+        "the what-if a what-if, never published; v2 restated by Sloane Marsden, not published"
+      ],
+      "textIn": {
+        "#loads .dh-compare": ["Read under another context", "no data of the day", "context_in_force"]
+      },
+      "count": {
+        "#loads .dh-compare .dc-outs:not(.dc-ctx) li[data-output^=\"context_\"]": 0
+      }
     }
   },
   {

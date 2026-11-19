@@ -1,13 +1,13 @@
 /**
- * What a flow's notebook imports (ADR 0011): the markers that make a smaltnb cell a source binding, a check or a fill
- * step of the flow. smaltfl reads them from the notebook's code without running it (src/core/notebook.ts); in a
+ * What a flow's notebook imports (ADR 0011): the markers that make a smaltnb cell a source binding, a context table, a
+ * check or a fill step of the flow. smaltfl reads them from the notebook's code without running it (src/core/notebook.ts); in a
  * notebook run outside a flow they are plain functions that hand their input through, so the notebook typechecks and
  * the cells after them keep their types.
  */
-import type { ExpectationRule } from './core/document.js';
+import type { ContextTable, ExpectationRule } from './core/document.js';
 import type { CheckMode, CheckName, Layer } from './core/gates.js';
 
-export type { ExpectationRule } from './core/document.js';
+export type { ContextTable, ExpectationRule } from './core/document.js';
 export type { CheckMode, CheckName, Layer } from './core/gates.js';
 
 /** A source of the flow, by its id in the flow document: `const auth = source('auth')`. */
@@ -32,6 +32,25 @@ export class Input {
  */
 export function input(id: string): Input {
   return new Input(id);
+}
+
+/** A context table of the flow (ADR 0027 §8), by which of the three it is: `const changes = context('changes')`. */
+export class Context {
+  constructor(readonly table: ContextTable) {}
+}
+
+/**
+ * Binds a name to one of the run's context tables, which any cell can join to and a flow can publish with its product:
+ *
+ * - `context('changes')`: the dated changes in force on the run's day, a row a change and a dataset it reaches, with
+ *   its kind, its days, what it did and why, who decided it, and its own step.
+ * - `context('events')`: what was going on that day, a row an event and a dataset it reaches, with what it excuses.
+ * - `context('in_force')`: a row a dataset of the day, with the version of the ontology it was read under.
+ *
+ * The run makes their rows from the flow's own changes and the record. A `sql` cell reads one as `${changes}`.
+ */
+export function context(table: ContextTable): Context {
+  return new Context(table);
 }
 
 /** A check's settings: the rules, and how much may be dropped (0 to 1) before the run fails or holds. */

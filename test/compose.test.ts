@@ -403,7 +403,9 @@ describe('Larkspur, cut into the flows it is made of (ADR 0026 §12)', () => {
     expect(givesOf(doc, 'inventory')).toEqual(['cmdb_apps_checked', 'cloud_assets_checked']);
     expect(givesOf(doc, 'feeds')).toHaveLength(13);
     expect(givesOf(doc, 'applications')).toEqual(['apps', 'app_owners', 'shadow_assets']);
-    expect(givesOf(doc)).toHaveLength(15);
+    // The product's own, the three tables of its context among them (ADR 0027 §8).
+    expect(givesOf(doc)).toHaveLength(18);
+    expect(givesOf(doc).filter((x) => x.startsWith('context_'))).toEqual(['context_changes', 'context_events', 'context_in_force']);
     // Every flow brings its own watches: together, the twenty-eight datasets the estate is judged by.
     expect(Object.keys(doc.publish!.watch!)).toHaveLength(28);
   });
@@ -430,10 +432,30 @@ describe('Larkspur, cut into the flows it is made of (ADR 0026 §12)', () => {
     expect(repairDocument(doc, { ...repair, kind: 'complete', donor: null }).flows).toEqual(doc.flows);
   });
 
-  it('runs as one flat plan: the same 92 nodes, 37 of them published', async () => {
+  it('runs as one flat plan: 95 nodes, 40 of them published', async () => {
+    // The 92 nodes and 37 outputs the estate had as one flow, and the three tables of the product's context (ADR 0027
+    // §8), which read nothing and are published with it.
     const plan = await translate(await loadFlowDir(dir), { day: '2024-03-12' });
-    expect(plan.nodes).toHaveLength(92);
-    expect(plan.outputs).toHaveLength(37);
+    expect(plan.nodes).toHaveLength(95);
+    expect(plan.outputs).toHaveLength(40);
     expect(plan.smaltflPlan).toBe(4);
+    const context = plan.nodes.filter((n) => n.op === 'sql' && n.context);
+    expect(context.map((n) => [n.origin, n.inputs.length])).toEqual([['context_changes', 0], ['context_events', 0], ['context_in_force', 0]]);
+    // The flow as shipped has one change in force on Tue 12, its estate's own (the relation that began on Mon 11, about
+    // no one dataset), and no event; every dataset is read under the one version of the rules that makes.
+    const rows = (name: string) => (context.find((n) => n.origin === name) as { context: { rows: unknown[][] } }).context.rows;
+    expect(rows('context_changes').map((r) => [r[0], r[1], r[2], r[3], r[4], r[13]])).toEqual([['acting-leader', null, 'flow', 'business', '2024-03-11', 'Larkspur estate']]);
+    expect(rows('context_events')).toEqual([]);
+    expect(rows('context_in_force')).toHaveLength(95);
+    // By name, each dataset with the flow it belongs to; the product's own with none.
+    expect(rows('context_in_force')[0]!.slice(0, 4)).toEqual(['access_reviews', 'file', 'feeds', '2024-03-12']);
+    expect(rows('context_in_force').find((r) => r[0] === 'hr_org_units')!.slice(1, 4)).toEqual(['file', 'hr', '2024-03-12']);
+    expect(rows('context_in_force').find((r) => r[0] === 'control_catalog')!.slice(1, 4)).toEqual(['file', null, '2024-03-12']);
+    expect(rows('context_in_force')[0]!.slice(5)).toEqual([1, '2024-03-11']);
+    expect(new Set(rows('context_in_force').map((r) => r[4])).size).toBe(1);
+    expect(rows('context_in_force').find((r) => r[0] === 'waf')!.slice(1, 3)).toEqual(['file', 'feeds']);
+    // Before the relation began, nothing is in force but the flow as written.
+    const before = await translate(await loadFlowDir(dir), { day: '2024-03-08' });
+    expect((before.nodes.find((n) => n.origin === 'context_changes') as { context: { rows: unknown[][] } }).context.rows).toEqual([]);
   });
 });

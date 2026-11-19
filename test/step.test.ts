@@ -11,7 +11,7 @@ import { inForce } from '../src/core/inforce.js';
 import type { LogEntry } from '../src/core/log.js';
 import { expandNotebooks } from '../src/core/notebook.js';
 import { closedOf, type OntologyRule } from '../src/core/rules.js';
-import { adjusted, asDeclared, cutsOf, declaredOf, declaredOn, followedThrough, moveSaid, redefinedOn, stepIn, trialMoves } from '../src/core/across.js';
+import { adjusted, asDeclared, changesReaching, cutsOf, declaredOf, declaredOn, followedThrough, moveSaid, redefinedOn, stepIn, trialMoves } from '../src/core/across.js';
 import { findingsOf } from '../src/core/overview.js';
 import { metricKey, type Metric } from '../src/core/history.js';
 import { asItWas, declaredLevels, isStep, seriesIn, stepMeasures, stepsOf, STEP_KIND, type StepAbout, type ToldDay } from '../src/core/step.js';
@@ -275,6 +275,22 @@ describe('a chart built on a column across its changes (§2, §3)', () => {
     expect(through('password')).toBeNull();
     expect(followedThrough({ ended }, 'signins', ['another_rule'], 'passkey')).toBeNull();
     expect(followedThrough(undefined, 'signins', ['method_closed'], 'passkey')).toBeNull();
+  });
+});
+
+describe('the changes that reach a dataset (ADR 0027 §8)', () => {
+  it('are those about it and those about something it is built from, said through what', async () => {
+    const d = await doc();
+    const band = set('band', '2024-03-18', [{ op: 'acceptBand', source: 'evidence', column: 'status', value: 'fail', share: [0, 0.1] } as never]);
+    const link = set('link', '2024-03-11', [{ op: 'setLink', link: { id: 'x', name: 'X', from: 'a', to: 'b', on: [['a', 'b']] } } as never]);
+    const of = (dataset: string) => changesReaching(d, [SBOM, band, link], dataset).map((r) => [r.change.id, r.reach, r.through]);
+    // The score is built from the catalogue's check and from the evidence: both changes reach it, each through its file.
+    expect(of('score')).toEqual([['sbom-declared', 'downstream', ['controls']], ['band', 'downstream', ['evidence']]]);
+    expect(of('Controls')).toEqual([['sbom-declared', 'direct', []]]);
+    expect(of('controls_checked')).toEqual([['sbom-declared', 'downstream', ['controls']]]);
+    expect(of('evidence')).toEqual([['band', 'direct', []]]);
+    // A change about no dataset of the flow is the flow's as a whole, and no one dataset's.
+    expect(changesReaching(d, [link], 'score')).toEqual([]);
   });
 });
 

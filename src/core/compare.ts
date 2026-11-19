@@ -50,17 +50,24 @@ export interface CompareSummary {
   same: number;
   /** The plans' hashes, where they differ: another flow, or other rules in force. */
   plan: { a: string; b: string } | null;
-  /** Every output either built, those that changed first, then by name. */
+  /** Every output either built, those that changed first, then by name. The flow's context tables aren't among them. */
   outputs: OutputChange[];
   /** How many outputs changed. */
   changed: number;
+  /** The flow's context tables (ADR 0027 §8), where it has any: what each version was read under, compared as the
+   * outputs are and counted apart. They are no data of the day. */
+  context: OutputChange[];
 }
 
 const filesOf = (m: ManifestSide): Map<string, FileSide> =>
   new Map(m.nodes.filter((n) => n.op === 'table').map((n) => [n.origin, { sha256: n.file?.sha256 ?? n.content ?? '', rows: n.status === 'refused' ? null : (n.rows ?? null), refused: n.status === 'refused' }]));
 
-/** Two versions' summary, from their runs' manifests: `a` the one compared, `b` the one it is compared with. */
-export function compareSummary(a: ManifestSide, b: ManifestSide): CompareSummary {
+/**
+ * Two versions' summary, from their runs' manifests: `a` the one compared, `b` the one it is compared with. `context`
+ * names the flow's context tables (ADR 0027 §8): they say what a version was read under, the rules in force and what
+ * was going on, so they are listed apart and never counted among the outputs that changed.
+ */
+export function compareSummary(a: ManifestSide, b: ManifestSide, context: ReadonlySet<string> = new Set()): CompareSummary {
   const fa = filesOf(a);
   const fb = filesOf(b);
   const files: FileChange[] = [];
@@ -72,14 +79,15 @@ export function compareSummary(a: ManifestSide, b: ManifestSide): CompareSummary
     else files.push({ source, a: x, b: y });
   }
   const side = (r: RunManifest['outputs'][string] | undefined): OutputSide | null => (r ? { rows: r.rows, content: r.content } : null);
-  const outputs = [...new Set([...Object.keys(a.outputs), ...Object.keys(b.outputs)])]
+  const every = [...new Set([...Object.keys(a.outputs), ...Object.keys(b.outputs)])]
     .map((name): OutputChange => {
       const x = side(a.outputs[name]);
       const y = side(b.outputs[name]);
       return { name, a: x, b: y, changed: !x || !y || x.content !== y.content };
     })
     .sort((p, q) => Number(q.changed) - Number(p.changed) || (p.name < q.name ? -1 : p.name > q.name ? 1 : 0));
-  return { files, same, plan: a.plan === b.plan ? null : { a: a.plan, b: b.plan }, outputs, changed: outputs.filter((o) => o.changed).length };
+  const outputs = every.filter((o) => !context.has(o.name));
+  return { files, same, plan: a.plan === b.plan ? null : { a: a.plan, b: b.plan }, outputs, changed: outputs.filter((o) => o.changed).length, context: every.filter((o) => context.has(o.name)) };
 }
 
 /**

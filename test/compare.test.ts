@@ -35,6 +35,18 @@ describe('two versions summarised from their manifests', () => {
     expect(s.plan).toEqual({ a: 'p0', b: 'p1' });
     expect(s.outputs.every((o) => o.a === null && o.changed)).toBe(true);
   });
+
+  it('lists the flow’s context tables apart and never counts them: what a version was read under is no data of the day (ADR 0027 §8)', () => {
+    const under = (m: ManifestSide, rules: string, events: string): ManifestSide => ({ ...m, outputs: { ...m.outputs, context_in_force: { key: `key-${rules}`, rows: 95, content: rules }, context_events: { key: `key-${events}`, rows: 3, content: events } } });
+    const context = new Set(['context_in_force', 'context_events']);
+    const s = compareSummary(under(v1, 'r1', 'e1'), under(v3, 'r2', 'e1'), context);
+    expect(s.outputs.map((o) => o.name)).toEqual(['fact_control_status', 'failing_by_unit', 'dim_org']);
+    expect(s.changed).toBe(2);
+    expect(s.context.map((o) => [o.name, o.changed])).toEqual([['context_in_force', true], ['context_events', false]]);
+    // The same versions with no name given: outputs like any other.
+    expect(compareSummary(under(v1, 'r1', 'e1'), under(v3, 'r2', 'e1')).changed).toBe(3);
+    expect(compareSummary(v1, v3).context).toEqual([]);
+  });
 });
 
 describe('the key an output’s rows are matched by', () => {

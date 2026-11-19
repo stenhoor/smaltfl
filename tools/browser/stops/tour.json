@@ -161,7 +161,7 @@
     "view": "runs",
     "element": "#record",
     "expect": {
-      "textIn": { "#record": ["Made Sat Mar 23 filled from Sun 24, staged", "Released 37 outputs of run"] },
+      "textIn": { "#record": ["Made Sat Mar 23 filled from Sun 24, staged", "Released 40 outputs of run"] },
       "noTextIn": { "#record": ["refused"] }
     }
   },

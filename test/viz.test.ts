@@ -347,6 +347,21 @@ describe('the news’s charts', () => {
     expect(svg).toMatch(/class="tick" aria-hidden="true">0<\/text>/);
   });
 
+  it('keeps its axis’s words clear of a mark on one of its first days: the plot starts lower, the words between the two', () => {
+    const days = (marked: number) => Array.from({ length: 28 }, (_, i) => ({ day: `2024-03-${String(i + 1).padStart(2, '0')}`, v: 21_000, low: 20_000, high: 22_000, ...(i === marked ? { marks: ['changed' as const] } : {}) }));
+    const heightOf = (svg: string) => Number(/viewBox="0 0 \d+ (\d+)"/.exec(svg)![1]);
+    const tickY = (svg: string) => Number(/<text x="0" y="([\d.]+)" class="tick" aria-hidden="true">25k\/day<\/text>/.exec(svg)![1]);
+    const first = dayStrip({ days: days(0), unit: '/day', aria: 'Results by day' });
+    const late = dayStrip({ days: days(20), unit: '/day', aria: 'Results by day' });
+    // A mark on the first day stands where the words are: twelve more of height, and the words under the mark's row.
+    expect(heightOf(first)).toBe(heightOf(late) + 12);
+    expect(tickY(first)).toBe(tickY(late) + 12);
+    // The mark's glyph is 14 tall from the top of the chart: the words start below it.
+    expect(tickY(first) - 9).toBeGreaterThanOrEqual(14);
+    // With no unit there are no words to keep clear of.
+    expect(heightOf(dayStrip({ days: days(0), aria: 'Results by day' }))).toBe(heightOf(dayStrip({ days: days(20), aria: 'Results by day' })));
+  });
+
   it('labels the value a story is about in a 100% bar, and gives a value gone today no width but its name', () => {
     const svg = composition({ moved: '0', bars: [
       { label: 'usual', parts: [{ name: '1', share: 0.75, text: 'Credit card' }, { name: '4', share: 0.19, text: 'Cash' }, { name: '0', share: 0.06, text: 'Flex Fare trip', callout: 'Flex Fare 6.2%' }] },
@@ -1075,6 +1090,18 @@ describe('a row of days as bars (dayBars; ADR 0024 §4, §5)', () => {
 
   it('escapes what it is given', () => {
     expect(dayBars({ days: [{ day: '2024-03-01', level: 'ok', title: 'a<b>&"c"' }], aria: 'x<y> & z' })).toContain('<title>a&lt;b&gt;&amp;&quot;c&quot;</title>');
+  });
+
+  it('marks where a change that reaches the row began: a dashed rule at the day’s left edge, a diamond at its head (ADR 0027 §8)', () => {
+    const three = [{ day: '2024-03-26', level: 'ok' as const }, { day: '2024-03-27', level: 'bad' as const, changed: true }, { day: '2024-03-28', level: 'ok' as const }];
+    const svg = dayBars({ days: three, w: 30, h: 16, aria: 'x' });
+    expect(svg.match(/class="db-chg"/g)).toHaveLength(1);
+    expect(svg.match(/class="db-chg-mark"/g)).toHaveLength(1);
+    // At the second day's left edge, the whole height of the row.
+    expect(svg).toContain('<line class="db-chg" x1="10" x2="10" y1="0" y2="17"/>');
+    // On the first day the rule is set in from the row's own edge, so its diamond is whole.
+    expect(dayBars({ days: [{ day: '2024-03-27', level: 'ok', changed: true }], w: 10, h: 16, aria: 'x' })).toContain('<line class="db-chg" x1="2.5" x2="2.5"');
+    expect(dayBars({ days: three.map(({ changed: _changed, ...d }) => d), w: 30, h: 16, aria: 'x' })).not.toContain('db-chg');
   });
 });
 

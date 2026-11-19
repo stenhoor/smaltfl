@@ -29,7 +29,7 @@
  * The script (scripts/audit.mjs) and the tests use this; nothing here needs a browser or the engine.
  */
 import { checkBag, readBagInfo, type BagFile } from './bag.js';
-import type { FlowDocument } from './document.js';
+import { contextTables, type FlowDocument } from './document.js';
 import { sha256Hex } from './hash.js';
 import { daysBetween } from './calendar.js';
 import { DONOR_WINDOW, levelStray, levelWays, repairDocument, type Repair } from './fill.js';
@@ -703,7 +703,9 @@ export async function auditBag(files: readonly BagFile[], kept?: unknown, trust:
       }
       const ofAbout = of.entry.about as { outcome?: string; holds?: unknown };
       const published = ofAbout.outcome === 'ok' || entries.some((x) => x.kind === 'release' && x.seq < e.seq && isRecord(x.about) && x.about.manifest === m.restates!.of && x.about.outcome === 'applied');
-      const outcome = restatedOutcome({ published, holds: Array.isArray(ofAbout.holds) ? (ofAbout.holds as Hold[]) : [], contents: contentsOf(of.manifest) }, { holds: Array.isArray(about.holds) ? (about.holds as Hold[]) : [], contents: contentsOf(m) });
+      // The run's own context tables are no data of its day (ADR 0027 §8): named by its flow's document.
+      const aside = new Set(doc ? contextTables(doc) : []);
+      const outcome = restatedOutcome({ published, holds: Array.isArray(ofAbout.holds) ? (ofAbout.holds as Hold[]) : [], contents: contentsOf(of.manifest) }, { holds: Array.isArray(about.holds) ? (about.holds as Hold[]) : [], contents: contentsOf(m) }, aside);
       if (as === 'notes' && outcome.changed) problems.push(`${d.day} would change, and it notes it as the same`);
       else if (as !== 'notes' && !outcome.changed) problems.push(`${d.day} comes out the same, and it ${as} it`);
       else if (as === 'restates' && (d as { passes: boolean }).passes !== outcome.passes) problems.push(`it says readers get ${d.day}'s restated run ${(d as { passes: boolean }).passes ? 'published' : 'held'}, and it comes out ${outcome.passes ? 'published' : 'held'}`);
