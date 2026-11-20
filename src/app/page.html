@@ -227,7 +227,7 @@ section.view { display: grid; gap: 14px; }
 /* From 820 px: a phone's flow is read panned sideways, and a chip there would sit on its cards. */
 .canvas-more { display: none; }
 @media (min-width: 820px) { .canvas-more { display: block; } }
-.canvas-more { position: absolute; z-index: 2; padding: 3px 10px; min-height: 30px; border: 1px solid var(--smalt); border-radius: 999px; background: var(--surface); color: var(--smalt); font: 600 12px/1 var(--font); white-space: nowrap; box-shadow: 0 1px 4px rgb(0 0 0 / 0.2); cursor: pointer; }
+.canvas-more { position: absolute; z-index: 2; padding: 3px 10px; min-height: 30px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font: 600 12px/1 var(--font); white-space: nowrap; box-shadow: 0 1px 4px rgb(0 0 0 / 0.2); cursor: pointer; }
 .canvas-more[data-side="right"] { right: 10px; top: 50%; transform: translateY(-50%); }
 .canvas-more[data-side="left"] { left: 10px; top: 50%; transform: translateY(-50%); }
 .canvas-more[data-side="up"] { top: 54px; left: 50%; transform: translateX(-50%); }
@@ -240,7 +240,7 @@ section.view { display: grid; gap: 14px; }
 .section.drop rect.frame, .section.selected rect.frame { stroke: var(--smalt); stroke-width: 2.5; }
 .section.lifted rect.frame { stroke: var(--smalt); stroke-width: 3; }
 .card.summary rect.box { stroke: var(--s, var(--ink-2)); }
-.section .toggle { font-family: var(--mono); font-size: 11px; fill: var(--smalt); }
+.section .toggle { font-family: var(--mono); font-size: 11px; fill: var(--ink-2); }
 .section .hit { fill: transparent; cursor: pointer; }
 .card.closed rect.box { fill: var(--sunk); stroke: var(--line); stroke-dasharray: 2 3; }
 .card.closed .name, .card.closed .what { fill: var(--muted); }
@@ -2409,6 +2409,18 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .dh-meta .dh-story summary { color: var(--ink-2); font-weight: 600; }
 .dh-meta .dh-story[open] { flex-basis: 100%; order: 9; font-size: 13px; }
 .dh-meta .about-flow { margin: 0 0 0 auto; }
+/* Colour as a signal (the maintainer, 2026-11-20): on the day screen, colour says how things stand (green done, amber
+   unusual, red wrong) and the accent marks what is chosen and the one thing to do next (Decide, Done, a selected card);
+   moving about (the month, the neighbours, The news, What if…, the build bar, Arrange, the edge chips, a level up, the
+   sheet's days) is in plain ink, the accent on hover. */
+#loads .dh-back, .crumb-up { color: var(--ink-2); }
+#loads .dh-back:hover, .crumb-up:hover { color: var(--smalt); }
+#loads .dh-head .btn.small:not(.primary), #view-flow .build-bar .btn.small, .day-pick .btn.small:not(.day-first) { color: var(--ink); }
+#loads .dh-head .btn.small:not(.primary):hover, #view-flow .build-bar .btn.small:hover, .day-pick .btn.small:not(.day-first):hover { color: var(--smalt); }
+.canvas-tools button.accent { color: var(--ink); border-color: var(--line); }
+.canvas-tools button.accent:hover { color: var(--smalt); border-color: var(--smalt); }
+.dh-meta .dh-rec.ok, .dh-meta .dh-rec.ok b { color: var(--ink-2); }
+.dh-meta .dh-tick { color: var(--teal); font-weight: 700; }
 .dh-meta .about-flow > summary { min-height: 0; font-size: 12px; }
 .dh-meta .about-flow[open] { flex-basis: 100%; order: 10; margin: 4px 0 0; }
 .dh-meta .about-flow[open] > summary { margin-bottom: 6px; }

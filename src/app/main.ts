@@ -16025,7 +16025,7 @@ function recordLine(day: string): HTMLElement | null {
   if (c === 'flow') return rec('', 'flow', `${head} Run here under the flow as edited in this browser, so it isn’t compared with the record.`, 'Run on the flow as edited here · not compared with the record');
   if (c === 'inputs') return rec('', 'inputs', `${head} Run here on other files than the record’s, so it isn’t compared.`, 'Run on other files · not compared with the record');
   if (!c) return rec('', null, head, 'Recorded by the build');
-  if (c.matches) return rec('ok', 'matches', `${head} Run here: the same datasets and holds as the record.`, h('b', {}, 'Matches the record ✓'));
+  if (c.matches) return rec('ok', 'matches', `${head} Run here: the same datasets and holds as the record.`, h('b', {}, 'Matches the record'), ' ', h('span', { class: 'dh-tick', 'aria-hidden': 'true' }, '✓'));
   const parts = [
     c.plan ? 'another plan' : null,
     c.differs.length ? `${c.differs.length} ${c.differs.length === 1 ? 'dataset differs' : 'datasets differ'} (${c.differs.slice(0, 3).map((x) => x.origin).join(', ')}${c.differs.length > 3 ? '…' : ''})` : null,
