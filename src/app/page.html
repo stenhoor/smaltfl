@@ -122,7 +122,7 @@ section.view { display: grid; gap: 14px; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); margin: 0; padding: 0; list-style: none; }
 .legend li { display: flex; align-items: center; gap: 6px; }
 .swatch { width: 14px; height: 10px; border-radius: 3px; border: 1.5px solid var(--line); background: var(--surface); }
-.swatch.built { border-color: var(--teal); background: var(--teal-wash); }
+.swatch.built { border-color: color-mix(in srgb, var(--teal) 60%, var(--surface)); background: color-mix(in srgb, var(--teal-wash) 35%, var(--surface)); }
 .swatch.reused { border-color: var(--muted); }
 .swatch.folded { background: var(--bg); }
 .swatch.drop { border-color: var(--warn); background: var(--warn-wash); border-radius: 999px; }
@@ -188,7 +188,9 @@ section.view { display: grid; gap: 14px; }
 .card rect.box { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
 .card.source rect.box { stroke: var(--smalt); }
 .card.dataset rect.box { stroke: var(--teal); }
-.card.built rect.box { fill: var(--teal-wash); stroke: var(--teal); }
+/* Built this run: a quiet tint, not a green fill (the maintainer, 2026-11-20: colour as a signal): on a normal day every
+   card is built, and a canvas of green read as news. A card's news, a hold and a failure keep their colours. */
+.card.built rect.box { fill: color-mix(in srgb, var(--teal-wash) 35%, var(--surface)); stroke: color-mix(in srgb, var(--teal) 60%, var(--surface)); }
 .card.folded rect.box { fill: var(--bg); }
 .card.failed rect.box { fill: var(--bad-wash); stroke: var(--bad); }
 .card.selected rect.box { stroke: var(--smalt); stroke-width: 2.5; }
