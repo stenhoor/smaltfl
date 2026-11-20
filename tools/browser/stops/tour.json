@@ -63,7 +63,7 @@
     "view": "month",
     "viewFirst": true,
     "clicks": [".sc-look[data-look=\"1/1\"]"],
-    "expect": { "state": "done", "status": "^Wed Feb 7: A normal Wednesday", "pageText": ["Published", "the same datasets and holds as the record"], "noPageText": ["Held:"] }
+    "expect": { "state": "done", "status": "^Wed Feb 7: A normal Wednesday", "pageText": ["Published", "Matches the record"], "noPageText": ["Held:"] }
   },
   {
     "name": "tour-scene2",

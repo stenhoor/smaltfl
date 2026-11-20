@@ -148,6 +148,40 @@ section.view { display: grid; gap: 14px; }
 .canvas-tools button.accent { color: var(--smalt); border-color: var(--smalt); }
 .canvas-tools button.primary { background: var(--smalt); border-color: var(--smalt); color: var(--surface); }
 .canvas-hint { position: absolute; left: 12px; right: 12px; top: 8px; margin: 0; font-size: 11.5px; color: var(--muted); pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The two groups of tools are one row at the canvas's foot on a phone, as they always were; the zoom's readout is
+   shown from 820 px, where the zoom is a stack of its own. */
+.canvas-tools .cz, .canvas-tools .ce { display: contents; }
+.cz-level { display: none; }
+.canvas-wrap { display: grid; gap: 14px; min-width: 0; }
+/* From 820 px the day screen is one window tall (the maintainer, 2026-11-20: the canvas's tools were below the fold):
+   the day's head, then the canvas taking what is left, so its edges and its tools are on screen as the page lands. The
+   build bar sits on the canvas's top left, what arranges it on its top right, the zoom at its bottom left and the key at
+   its bottom right; the hint is a pill at its foot that fades once read. A head too tall for the window pushes the
+   canvas down to its least height, and the page scrolls, as before. */
+@media (min-width: 820px) {
+  main:has(> #view-flow:not([hidden])) { padding-bottom: 16px; }
+  #view-flow:not([hidden]) { display: flex; flex-direction: column; min-height: calc(100dvh - var(--head, 170px) - 30px); }
+  #view-flow:not([hidden]) > .canvas-wrap { flex: 1 0 380px; position: relative; display: flex; flex-direction: column; }
+  #view-flow #canvas { flex: 1 1 auto; height: auto; min-height: 380px; }
+  .canvas-wrap > .build-bar { position: absolute; z-index: 2; top: 10px; left: 10px; margin: 0; pointer-events: none; }
+  .canvas-wrap > .build-bar > * { pointer-events: auto; }
+  .canvas-wrap > .build-bar .build-made { padding: 2px 8px; border-radius: 999px; background: var(--surface); font-size: 12px; color: var(--ink-2); }
+  .canvas-tools { top: 10px; display: block; }
+  .canvas-tools .cz { display: flex; position: absolute; left: 0; bottom: 0; align-items: stretch; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: 0 1px 4px rgb(0 0 0 / 0.18); overflow: hidden; pointer-events: auto; }
+  .canvas-tools .cz button { border: 0; border-radius: 0; min-width: 38px; height: 36px; }
+  .canvas-tools .cz button + button, .canvas-tools .cz .cz-level + button { border-left: 1px solid var(--line); }
+  .canvas-tools .cz button:hover, .canvas-tools .ce button:hover { background: var(--sunk); }
+  .cz-level { display: flex; align-items: center; justify-content: center; min-width: 48px; border-left: 1px solid var(--line); font: 600 12px/1 var(--mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .canvas-tools .ce { display: flex; position: absolute; right: 0; top: 0; gap: 6px; }
+  .canvas-tools .ce button { height: 34px; box-shadow: 0 1px 4px rgb(0 0 0 / 0.18); }
+  .canvas-tools .canvas-key { position: absolute; right: 0; bottom: 0; }
+  .canvas-hint { top: auto; bottom: 14px; left: 50%; right: auto; transform: translateX(-50%); max-width: calc(100% - 420px); padding: 4px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); }
+  .canvas-hint.fades { animation: hint-out 0.6s ease 12s forwards; }
+  .canvas-wrap:has(#canvas.arranging) > .build-bar { display: none; }
+  #canvas.arranging .canvas-hint { top: 10px; bottom: auto; max-width: calc(100% - 360px); }
+}
+@keyframes hint-out { to { opacity: 0; visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { .canvas-hint.fades { animation-duration: 0s; } }
 #canvas.arranging { border-color: var(--smalt); box-shadow: inset 0 0 0 1px var(--smalt); }
 #canvas.arranging .canvas-hint { color: var(--smalt); font-weight: 600; }
 #canvas.arranging .card, #canvas.arranging .section .hit { cursor: move; }
@@ -2341,6 +2375,27 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .dh-nav { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 8px; }
 .dh-back { font-size: 13px; font-weight: 600; color: var(--smalt); text-decoration: none; }
 .dh-step { display: flex; gap: 6px; }
+/* The day's head in two lines (the maintainer, 2026-11-20): the day, its neighbours, its lifecycle and its acts; then,
+   small and quiet, the record, the rules, the day's story and About this flow. Each wraps on a phone. */
+.dh-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.dh-head .dh-title { margin: 0; }
+.dh-head .dh-back { flex-basis: 100%; }
+.dh-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.dh-acts:empty { display: none; }
+.dh-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; min-width: 0; }
+.dh-meta .dh-rec, .dh-meta .dh-rules { font-size: 12px; color: var(--muted); }
+.dh-meta .dh-rec.ok b { font-weight: 600; }
+.dh-meta .dh-story { font-size: 12px; }
+.dh-meta .dh-story summary { color: var(--ink-2); font-weight: 600; }
+.dh-meta .dh-story[open] { flex-basis: 100%; order: 9; font-size: 13px; }
+.dh-meta .about-flow { margin: 0 0 0 auto; }
+.dh-meta .about-flow > summary { min-height: 0; font-size: 12px; }
+.dh-meta .about-flow[open] { flex-basis: 100%; order: 10; margin: 4px 0 0; }
+.dh-meta .about-flow[open] > summary { margin-bottom: 6px; }
+@media (min-width: 820px) {
+  .dh-head .dh-back { flex-basis: auto; }
+  .loads { padding: 10px 14px; gap: 6px; }
+}
 .dh-title { display: flex; align-items: center; gap: 8px; margin: 2px 0 0; }
 .dh-title h2 { margin: 0; font-size: 20px; }
 /* Where you are, inside a flow the page's flow reads (ADR 0026 §4): the flows entered, each a link back, then what the
@@ -2518,8 +2573,6 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .cm-form { display: grid; gap: 8px; min-width: 0; padding: 10px; border: 1px solid var(--muted); border-radius: 8px; background: var(--bg); }
 .cm-how { margin: 0; overflow-wrap: anywhere; }
 .cm-reason { box-sizing: border-box; width: 100%; min-width: 0; min-height: 66px; border: 1px solid var(--muted); border-radius: 8px; padding: 9px 10px; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; line-height: 1.35; }
-.dh-whatif-ask { margin: 0; font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
-.wi-open { border: 0; background: none; padding: 0; min-height: 28px; color: var(--smalt); font: inherit; font-weight: 600; cursor: pointer; }
 .wi-file, .wi-rules { min-height: 44px; max-width: 100%; min-width: 0; border: 1px solid var(--muted); border-radius: 8px; padding: 6px 8px; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 16px; }
 /* Explore (ADR 0026 §9): what a row is, a card a column counted over every row, a part picked and lit in every other
    column, how it joins, and its rows against another day's. A phone's column of cards; where the sheet has room for
@@ -2828,8 +2881,10 @@ div.fl-row.fl-given > .fl-row-go { align-self: center; padding-right: 10px; }
     </details>
     <div id="loads" class="loads" hidden></div>
     <nav id="crumbs" class="crumbs" aria-label="Where you are in the flow" hidden></nav>
+    <div class="canvas-wrap">
     <div id="build-bar" class="build-bar" role="group" aria-label="Building in the app" hidden></div>
     <div id="canvas" tabindex="0" aria-label="The flow canvas. Arrow keys move around, plus and minus zoom."></div>
+    </div>
   </section>
 
   <section class="view" id="view-ontology" aria-label="Ontology" hidden>

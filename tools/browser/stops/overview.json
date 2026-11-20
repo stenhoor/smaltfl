@@ -304,7 +304,7 @@
     "day": "Tue 6",
     "waitFor": ".dh-rec[data-check=\"matches\"]",
     "element": "#loads",
-    "expect": { "state": "done", "text": ["Tue Feb 6", "Run here: the same datasets and holds as the record"] }
+    "expect": { "state": "done", "text": ["Tue Feb 6", "Matches the record"] }
   },
   {
     "name": "overview-same-once-run",
