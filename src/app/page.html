@@ -217,7 +217,22 @@ section.view { display: grid; gap: 14px; }
 .card.lifted { opacity: 0.94; }
 .card.lifted rect.box { stroke: var(--smalt); stroke-width: 3; }
 .card { cursor: pointer; }
-.edge { fill: none; stroke: var(--muted); stroke-width: 1.4; opacity: 0.7; }
+.edge { fill: none; stroke: var(--muted); stroke-width: 1.4; opacity: 0.5; transition: opacity 0.15s, stroke-width 0.15s; }
+/* A card looked at (selected, or hovered with a mouse): its lines stand out, the rest fade (focusEdges). */
+#world.focusing .edge:not(.trail) { opacity: 0.18; }
+#world.focusing .edge-dot { opacity: 0.25; }
+#world.focusing .edge.on { opacity: 1; stroke: var(--smalt); stroke-width: 2; }
+#world.focusing .edge-dot.on { opacity: 1; fill: var(--smalt); }
+/* What lies past an edge (syncEdgeCues): a chip at the middle of that edge, a tap from it. */
+/* From 820 px: a phone's flow is read panned sideways, and a chip there would sit on its cards. */
+.canvas-more { display: none; }
+@media (min-width: 820px) { .canvas-more { display: block; } }
+.canvas-more { position: absolute; z-index: 2; padding: 3px 10px; min-height: 30px; border: 1px solid var(--smalt); border-radius: 999px; background: var(--surface); color: var(--smalt); font: 600 12px/1 var(--font); white-space: nowrap; box-shadow: 0 1px 4px rgb(0 0 0 / 0.2); cursor: pointer; }
+.canvas-more[data-side="right"] { right: 10px; top: 50%; transform: translateY(-50%); }
+.canvas-more[data-side="left"] { left: 10px; top: 50%; transform: translateY(-50%); }
+.canvas-more[data-side="up"] { top: 54px; left: 50%; transform: translateX(-50%); }
+.canvas-more[data-side="down"] { bottom: 58px; left: 50%; transform: translateX(-50%); }
+.canvas-more:hover, .canvas-more:focus-visible { background: var(--smalt); color: var(--surface); }
 .section rect.frame { fill: var(--f, var(--sunk)); stroke: var(--s, var(--line)); stroke-width: 1.2; }
 .section .label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.07em; fill: var(--t, var(--ink-2)); font-weight: 600; }
 .section.empty rect.frame { stroke-dasharray: 6 5; }
@@ -1363,6 +1378,11 @@ body[data-told="history"] #view-ontology > :not(#history-page) { display: none; 
 .rf-day[hidden] { display: none; }
 .rf-reach { margin: 0; font-size: 12.5px; font-weight: 400; color: var(--muted); overflow-wrap: anywhere; }
 .rf-later { margin: 0; font-size: 12.5px; color: var(--ink-2); overflow-wrap: anywhere; }
+.rf-later > summary { cursor: pointer; color: var(--muted); }
+.rf-later ul { margin: 4px 0 0; padding-left: 18px; display: grid; gap: 2px; }
+@media (min-width: 820px) {
+  .rf-when, .rf-day { min-height: 36px; padding: 4px 8px; }
+}
 /* A column's names edited in place on its card (amendment 1): a quiet Edit in the card's head, 44 px to the touch
    without making the head taller; the form takes the card's place while it is open. Fields are 16 px, so a phone
    doesn't zoom into them. */
