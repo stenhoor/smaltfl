@@ -1270,6 +1270,52 @@ function applyView(): void {
   svg.querySelector('#world')!.setAttribute('transform', `translate(${view.x} ${view.y}) scale(${view.k})`);
   svg.querySelector('#dots')!.setAttribute('patternTransform', `translate(${view.x} ${view.y}) scale(${view.k})`);
   syncZoomLevel();
+  requestEdgeCues();
+}
+
+/**
+ * What lies past the canvas's edges (the maintainer, 2026-11-20): where cards are off screen, a chip at that edge says
+ * how many, and a tap pans that way. The flow opens at a size its cards read at (startView), so a long flow runs past an
+ * edge, and this says so.
+ */
+let edgeCueFrame = 0;
+let canvasResized: ResizeObserver | null = null;
+function requestEdgeCues(): void {
+  if (!edgeCueFrame) edgeCueFrame = requestAnimationFrame(() => ((edgeCueFrame = 0), syncEdgeCues()));
+}
+const CUE_SIDES = [['left', '‹ ', ''], ['right', '', ' ›'], ['up', '↑ ', ''], ['down', '↓ ', '']] as const;
+function syncEdgeCues(): void {
+  const host = document.getElementById('canvas');
+  if (!host || !host.querySelector('svg')) return;
+  const r = host.getBoundingClientRect();
+  const n = { left: 0, right: 0, up: 0, down: 0 };
+  if (r.width > 0) for (const g of drawn.cards.values()) {
+    const c = g.getBoundingClientRect();
+    if (!c.width) continue;
+    if (c.right < r.left + 8) n.left++;
+    else if (c.left > r.right - 8) n.right++;
+    else if (c.bottom < r.top + 8) n.up++;
+    else if (c.top > r.bottom - 8) n.down++;
+  }
+  for (const [side, before, after] of CUE_SIDES) {
+    let cue = host.querySelector<HTMLButtonElement>(`.canvas-more[data-side="${side}"]`);
+    if (!n[side]) {
+      cue?.remove();
+      continue;
+    }
+    if (!cue) {
+      cue = h('button', { type: 'button', class: 'canvas-more', 'data-side': side, onclick: () => {
+        const dx = side === 'left' ? 1 : side === 'right' ? -1 : 0;
+        const dy = side === 'up' ? 1 : side === 'down' ? -1 : 0;
+        view.x += dx * host.clientWidth * 0.6;
+        view.y += dy * host.clientHeight * 0.6;
+        applyView();
+      } }) as HTMLButtonElement;
+      host.append(cue);
+    }
+    cue.textContent = `${before}${n[side]} more${after}`;
+    cue.setAttribute('aria-label', `${plural(n[side], 'card')} ${side === 'up' ? 'above' : side === 'down' ? 'below' : `to the ${side}`}: move the canvas to show ${n[side] === 1 ? 'it' : 'them'}`);
+  }
 }
 
 function fitView(): void {
@@ -1415,6 +1461,8 @@ function setUpCanvas(host: HTMLElement): SVGSVGElement {
   svg.append(defs, s('rect', { class: 'grid-bg', x: 0, y: 0, width: '100%', height: '100%', fill: 'url(#dots)' }), s('g', { id: 'world' }));
   host.replaceChildren(svg, h('div', { class: 'canvas-tools' }), h('p', { class: 'canvas-hint', 'aria-live': 'polite' }));
   renderTools();
+  // The canvas resized (the window, the workspace opened beside it, the day's head grown): what lies past its edges again.
+  if (!canvasResized) (canvasResized = new ResizeObserver(() => requestEdgeCues())).observe(host);
 
   const pointers = new Map<number, { x: number; y: number }>();
   let gesture: 'none' | 'press' | 'pan' | 'drag' | 'pinch' = 'none';
@@ -2492,11 +2540,42 @@ function renderCanvas(): void {
   world.replaceChildren(...parts);
   canvasSealed = sealed;
   syncCanvasKey();
+  wireEdgeFocus();
   renderCrumbs();
   const refocus = focused?.card ? drawn.cards.get(focused.card) : focused?.head ? drawn.heads.get(focused.head) : undefined;
   (refocus as SVGElement | undefined)?.focus({ preventScroll: true });
   if (!view.ready && host.clientWidth > 0) startView(layout);
   applyView();
+}
+
+/**
+ * The lines on the canvas are quiet until a card is looked at (the maintainer, 2026-11-20: long lines crossed the whole
+ * canvas at one weight): the selected card's lines, or a hovered one's with a mouse, stand out and the rest fade.
+ */
+function focusEdges(key: string | null): void {
+  const world = document.querySelector('#canvas #world');
+  if (!world) return;
+  world.classList.toggle('focusing', key !== null);
+  for (const e of drawn.edges) {
+    const on = key !== null && (e.from === key || e.to === key);
+    e.path.classList.toggle('on', on);
+    e.dot.classList.toggle('on', on);
+  }
+}
+
+/** The selected card's key on the canvas, if it is drawn there. */
+const selectedKey = (): string | null => [...drawn.cards].find(([, g]) => g.classList.contains('selected'))?.[0] ?? null;
+
+function wireEdgeFocus(): void {
+  for (const [key, g] of drawn.cards) {
+    g.addEventListener('pointerenter', (e) => {
+      if ((e as PointerEvent).pointerType === 'mouse' && !moving) focusEdges(key);
+    });
+    g.addEventListener('pointerleave', (e) => {
+      if ((e as PointerEvent).pointerType === 'mouse') focusEdges(selectedKey());
+    });
+  }
+  focusEdges(selectedKey());
 }
 
 function select(id: string | null): void {
@@ -2511,6 +2590,31 @@ function select(id: string | null): void {
   }
   renderCanvas();
   void renderSheet();
+  if (id) revealSelected();
+}
+
+/**
+ * The card opened stays on screen (the maintainer, 2026-11-20): opening the workspace beside the canvas narrows it, and
+ * a card near its right edge went out of sight behind its own sheet. Once the canvas has its new size, it pans just far
+ * enough to show the card whole, the zoom as it was.
+ */
+function revealSelected(): void {
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const host = document.getElementById('canvas');
+    const key = selectedKey();
+    const g = key ? drawn.cards.get(key) : undefined;
+    if (!host || !g || host.offsetParent === null) return;
+    const r = host.getBoundingClientRect();
+    const c = g.getBoundingClientRect();
+    if (!c.width || !r.width) return;
+    const pad = 24;
+    const dx = c.right > r.right - pad ? r.right - pad - c.right : c.left < r.left + pad ? r.left + pad - c.left : 0;
+    const dy = c.bottom > r.bottom - pad ? r.bottom - pad - c.bottom : c.top < r.top + pad ? r.top + pad - c.top : 0;
+    if (!dx && !dy) return;
+    view.x += dx;
+    view.y += dy;
+    applyView();
+  }));
 }
 
 // ------------------------------------------------------------------ flows in flows: the canvas in levels (ADR 0026 §3, §4)
@@ -5528,7 +5632,9 @@ function fromBar(): HTMLElement {
     // The changes not in force on the day on screen yet (from a later day): said here, where a switch would look unmoved.
     const later = screen ? ruleChanges.filter((c) => c.from > screen) : [];
     box.replaceChildren(h('label', { class: 'rf-row' }, h('span', { class: 'rf-k' }, 'Edits take effect from'), pick, date), h('p', { class: 'rf-reach' }, reachSaid(fromDay())),
-      later.length ? h('p', { class: 'rf-later' }, `Not in force on ${dayLabel(screen!)}: ${later.map((c) => `from ${dayLabel(c.from)}, ${changeSaid(c)}`).join('; ')}.`) : '');
+      // Folded to a line (the maintainer, 2026-11-20): on a clean day it stood above the checks as a paragraph.
+      later.length ? h('details', { class: 'rf-later' }, h('summary', {}, `${plural(later.length, 'change')} in force only from a later day`),
+        h('ul', {}, ...later.map((c) => h('li', {}, h('b', {}, `From ${dayLabel(c.from)}: `), changeSaid(c))))) : '');
   };
   fromBars.add(draw);
   draw();
