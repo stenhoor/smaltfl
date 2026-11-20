@@ -77,12 +77,13 @@ describe('a level of the canvas', () => {
       ],
     });
     expect(stock.groups!.map((g) => g.id)).toEqual([FLOWS_SECTION, 'nb-stock']);
-    // One flow read: its card leads the canvas all the same, above the level's own files.
+    // One flow read: its card leads the canvas all the same, left of the level's own files (the flows read stand in
+    // one column at the left, the maintainer, 2026-11-20).
     const one: FlowDocument = { ...ESTATE, flows: ESTATE.flows!.map((f) => (f.id === 'stock_flow' ? { ...f, reads: ['prices_flow'] } : f)), steps: ESTATE.steps.map((s) => (s.id === 'stock' ? sql('stock', ['stock_priced'], true) : s)) };
     const lone = levelDoc(one, 'stock_flow');
     expect(lone.groups!.map((g) => [g.id, g.steps])).toEqual([[FLOWS_SECTION, [flowCard('prices_flow')]], ['nb-stock', ['stock_priced', 'stock']]]);
     const placed = gridLayout(lone, new Set(['nb-stock']));
-    expect(placed.cards.get(flowCard('prices_flow'))!.y).toBeLessThan(placed.cards.get('stock_file')!.y);
+    expect(placed.cards.get(flowCard('prices_flow'))!.x).toBeLessThan(placed.cards.get('stock_file')!.x);
     expect(stock.layout).toBeUndefined();
     // A flow that reads none is its files and steps alone.
     expect(ids(levelDoc(ESTATE, 'orders_flow'))).toEqual({ sources: ['orders_file', 'returns_file'], steps: [['orders_clean', ['orders_file', 'returns_file']], ['orders', ['orders_clean']]] });
@@ -102,15 +103,19 @@ describe('a level of the canvas', () => {
     }
   });
 
-  it('keeps a line from one flow’s card clear of the cards after it', () => {
-    // Orders is read by Stock and by the report's own step; Stock by that step too. On one row the line from Orders to
-    // the step would run behind Stock's card: Stock sits a row down.
+  it('stands the flows read in one column, in the order they read each other, clear of each other’s lines', () => {
+    // Orders is read by Stock and by the report's own step; Stock by that step too. The flows read stand in one column
+    // at the left (the maintainer, 2026-11-20), Stock below Orders, which it reads: the line from Orders to the step
+    // leaves to the right, behind no card.
     const d = levelDoc(ESTATE);
     const l = gridLayout(d, new Set((d.groups ?? []).map((g) => g.id)));
     const orders = l.cards.get(flowCard('orders_flow'))!;
     const stock = l.cards.get(flowCard('stock_flow'))!;
-    expect(stock.x).toBeGreaterThan(orders.x);
+    expect(stock.x).toBe(orders.x);
     expect(stock.y).toBeGreaterThan(orders.y);
+    // Every other card the layout places (a card placed by hand stays where it was put) stands right of them.
+    const others = [...l.cards].filter(([k]) => !k.startsWith(flowCard('')) && !(k in (d.layout ?? {}))).map(([, p]) => p.x);
+    expect(Math.min(...others)).toBeGreaterThan(orders.x);
   });
 
   it('leaves a flow that reads none as it is, and takes a flow it doesn’t read for the top', () => {

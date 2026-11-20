@@ -85,6 +85,21 @@ export function gridLayout(doc: FlowDocument, collapsed: ReadonlySet<string>, wr
     col.set(id, cs.length ? Math.min(...cs.map(colOf)) - 1 : end);
   }
   for (const id of order) if (inputs.get(id)!.length) col.set(id, Math.max(...inputs.get(id)!.map(colOf)) + 1);
+  // The flows a level reads stand in one column at the left, in the order they read each other (the maintainer,
+  // 2026-11-20): they are where the level's data comes from, as its files are, and a staircase of them pushed the rest
+  // of the flow right and down. The rest is placed again after them.
+  const readFlows = new Set((doc.groups ?? []).find((g) => g.id === FLOWS_SECTION)?.steps.filter((m) => known.has(m)) ?? []);
+  if (readFlows.size) {
+    for (const id of readFlows) col.set(id, 0);
+    const rest = order.filter((id) => !readFlows.has(id));
+    for (const id of rest) col.set(id, Math.max(0, ...inputs.get(id)!.map(colOf)) + 1);
+    const last = Math.max(1, ...rest.map(colOf));
+    for (const id of [...rest].reverse()) {
+      const cs = consumers.get(id)!;
+      col.set(id, cs.length ? Math.min(...cs.map(colOf)) - 1 : last);
+    }
+    for (const id of rest) col.set(id, inputs.get(id)!.length ? Math.max(...inputs.get(id)!.map(colOf)) + 1 : Math.max(1, colOf(id)));
+  }
 
   // The cards of the flows a level reads (ADR 0026 §3) are placed as a section's are, and drawn with no frame.
   const declared = (doc.groups ?? []).map((g) => ({ id: g.id, name: g.name, color: g.color, members: g.steps.filter((m) => known.has(m)), frame: g.id !== FLOWS_SECTION }));
@@ -93,7 +108,7 @@ export function gridLayout(doc: FlowDocument, collapsed: ReadonlySet<string>, wr
   const grouped = new Set(groups.flatMap((g) => g.members));
   for (const id of ids) if (!grouped.has(id)) groups.push({ id: `_${id}`, name: id, color: undefined, members: [id], frame: false });
   const groupOf = new Map(groups.flatMap((g, gi) => g.members.map((m) => [m, gi] as const)));
-  for (const g of groups) g.members.sort((a, b) => colOf(a) - colOf(b) || ids.indexOf(a) - ids.indexOf(b));
+  for (const g of groups) g.members.sort((a, b) => colOf(a) - colOf(b) || order.indexOf(a) - order.indexOf(b));
   const folded = (gi: number) => groups[gi]!.frame && collapsed.has(groups[gi]!.id);
   const outside = (gi: number) => (id: string) => groupOf.get(id) !== gi;
   const span = groups.map((g, gi) => {
