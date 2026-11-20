@@ -1269,6 +1269,7 @@ function applyView(): void {
   if (!svg) return;
   svg.querySelector('#world')!.setAttribute('transform', `translate(${view.x} ${view.y}) scale(${view.k})`);
   svg.querySelector('#dots')!.setAttribute('patternTransform', `translate(${view.x} ${view.y}) scale(${view.k})`);
+  syncZoomLevel();
 }
 
 function fitView(): void {
@@ -1292,12 +1293,24 @@ function zoomAt(factor: number, cx: number, cy: number): void {
 
 const HINT = {
   look: 'Drag to move around · pinch to zoom · hold a card to move it',
+  // With a mouse or a trackpad (ADR 0018): the wheel pans and Ctrl with it zooms, as the canvas's wheel handler does.
+  lookFine: 'Drag or scroll to move around · Ctrl + scroll to zoom · hold a card to move it',
   arrange: 'Drag steps and sections · drop a step on a section to move it in · tap a section’s name to edit it',
 };
 
 function setHint(text?: string): void {
   const el = document.querySelector('#canvas .canvas-hint');
-  if (el) el.textContent = text ?? (state.arranging ? HINT.arrange : isOwner() ? HINT.look : `As ${personName(state.viewer)} sees it · closed parts left out · drag, pinch`);
+  if (!el) return;
+  const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
+  el.textContent = text ?? (state.arranging ? HINT.arrange : isOwner() ? (fine ? HINT.lookFine : HINT.look) : `As ${personName(state.viewer)} sees it · closed parts left out · ${fine ? 'drag, scroll' : 'drag, pinch'}`);
+  // From 820 px the hint is a pill that fades once read (page.html, `.canvas-hint.fades`); arranging keeps it.
+  el.classList.toggle('fades', !text && !state.arranging);
+}
+
+/** The zoom on screen, in the zoom stack's readout (from 820 px). */
+function syncZoomLevel(): void {
+  const el = document.querySelector('#canvas .cz-level');
+  if (el) el.textContent = `${Math.round(view.k * 100)}%`;
 }
 
 function renderTools(): void {
@@ -1306,11 +1319,20 @@ function renderTools(): void {
   if (!tools) return;
   const zoom = (f: number) => zoomAt(f, host.clientWidth / 2, host.clientHeight / 2);
   const b = (label: string, onclick: () => void, attrs: Record<string, string> = {}) => h('button', { type: 'button', onclick, ...attrs }, label);
+  // Two groups: the zoom (bottom left from 820 px, a stack with its level) and what changes the canvas (top right, beside
+  // the build bar). On a phone both are one row at the canvas's foot, as before (page.html).
   tools.replaceChildren(
-    ...(state.arranging
-      ? [b('Fit', fitView), b('+ Section', addSection), resetButton(), b('Done', () => setArranging(false), { class: 'primary' })]
-      : [b('−', () => zoom(1 / 1.25), { 'aria-label': 'Zoom out' }), b('+', () => zoom(1.25), { 'aria-label': 'Zoom in' }), b('Fit', fitView), ...(isOwner() && !state.level.length ? [b('Tidy', tidy), b('Arrange', () => setArranging(true), { class: 'accent' })] : [])]),
+    h('div', { class: 'cz', role: 'group', 'aria-label': 'Zoom' },
+      b('−', () => zoom(1 / 1.25), { 'aria-label': 'Zoom out' }),
+      h('span', { class: 'cz-level', 'aria-hidden': 'true' }),
+      b('+', () => zoom(1.25), { 'aria-label': 'Zoom in' }),
+      b('Fit', fitView, { title: 'Fit the whole flow on screen' })),
+    h('div', { class: 'ce', role: 'group', 'aria-label': 'Arrange the canvas' },
+      ...(state.arranging
+        ? [b('+ Section', addSection), resetButton(), b('Done', () => setArranging(false), { class: 'primary' })]
+        : isOwner() && !state.level.length ? [b('Tidy', tidy, { title: 'Put every card back where the layout puts it' }), b('Arrange', () => setArranging(true), { class: 'accent' })] : [])),
   );
+  syncZoomLevel();
   host.classList.toggle('arranging', state.arranging);
   setHint();
   syncCanvasKey();
@@ -15884,23 +15906,26 @@ function recordLine(day: string): HTMLElement | null {
   // Run again here under rules changed since (ADR 0021 §5, a column read by another name, ADR 0022 §2): the build
   // recorded the day under the rules it first ran under, not this run.
   const first = !e && shown?.result.manifest.restates ? recordedRunOf(day, inputsOf(shown.result.manifest).files, null) : undefined;
-  if (first) return h('p', { class: 'dh-rec', 'data-check': 'restated' }, `Recorded by the build, ${whenMin(first.at, day)}.`, ' Run here again under rules changed since, so it isn’t compared with the record.');
-  if (!e) return ran && recorded ? h('p', { class: 'dh-rec' }, 'Run in this browser: the build recorded no run of this day.') : null;
+  // Said short, the build's time and the whole sentence in its title (the maintainer, 2026-11-20); a run that differs
+  // from the record says how in full, since that is news.
+  const rec = (cls: string, check: string | null, title: string, ...text: (string | HTMLElement)[]) => h('p', { class: `dh-rec${cls ? ` ${cls}` : ''}`, ...(check ? { 'data-check': check } : {}), title }, ...text);
+  if (first) return rec('', 'restated', `Recorded by the build, ${whenMin(first.at, day)}. Run here again under rules changed since, so it isn’t compared with the record.`, 'Run here again under rules changed since · not compared with the record');
+  if (!e) return ran && recorded ? rec('', null, 'Run in this browser: the build recorded no run of this day.', 'Run here · the build recorded no run of this day') : null;
   const head = `Recorded by the build, ${whenMin(e.at, day)}.`;
   const c = recordChecks.get(day);
-  if (!ran) return h('p', { class: 'dh-rec', 'data-check': 'waiting' }, head, ' ', state.running ? 'Running it here to check it…' : 'Not run here yet.');
+  if (!ran) return rec('', 'waiting', head, state.running ? 'Recorded by the build · checking it here…' : 'Recorded by the build · not run here yet');
   // Run again under rules changed since (ADR 0021 §5): another plan than the record's, on purpose.
-  if (c === 'flow' && shown?.result.manifest.restates) return h('p', { class: 'dh-rec', 'data-check': 'restated' }, head, ' Run here again under rules changed since, so it isn’t compared with the record.');
-  if (c === 'flow') return h('p', { class: 'dh-rec', 'data-check': 'flow' }, head, ' Run here under the flow as edited in this browser, so it isn’t compared with the record.');
-  if (c === 'inputs') return h('p', { class: 'dh-rec', 'data-check': 'inputs' }, head, ' Run here on other files than the record’s, so it isn’t compared.');
-  if (!c) return h('p', { class: 'dh-rec' }, head);
-  if (c.matches) return h('p', { class: 'dh-rec ok', 'data-check': 'matches' }, head, ' ', h('b', {}, 'Run here: the same datasets and holds as the record ✓'));
+  if (c === 'flow' && shown?.result.manifest.restates) return rec('', 'restated', `${head} Run here again under rules changed since, so it isn’t compared with the record.`, 'Run here again under rules changed since · not compared with the record');
+  if (c === 'flow') return rec('', 'flow', `${head} Run here under the flow as edited in this browser, so it isn’t compared with the record.`, 'Run on the flow as edited here · not compared with the record');
+  if (c === 'inputs') return rec('', 'inputs', `${head} Run here on other files than the record’s, so it isn’t compared.`, 'Run on other files · not compared with the record');
+  if (!c) return rec('', null, head, 'Recorded by the build');
+  if (c.matches) return rec('ok', 'matches', `${head} Run here: the same datasets and holds as the record.`, h('b', {}, 'Matches the record ✓'));
   const parts = [
     c.plan ? 'another plan' : null,
     c.differs.length ? `${c.differs.length} ${c.differs.length === 1 ? 'dataset differs' : 'datasets differ'} (${c.differs.slice(0, 3).map((x) => x.origin).join(', ')}${c.differs.length > 3 ? '…' : ''})` : null,
     c.holds.recorded.join() !== c.holds.here.join() ? `its holds differ (${c.holds.recorded.length} recorded, ${c.holds.here.length} here)` : null,
   ].filter(Boolean);
-  return h('p', { class: 'dh-rec bad', 'data-check': 'differs' }, head, ' ', h('b', {}, `Run here, it differs from the record: ${parts.join('; ')}.`));
+  return rec('bad', 'differs', head, h('b', {}, `Run here, it differs from the record: ${parts.join('; ')}.`));
 }
 
 /**
@@ -17466,9 +17491,15 @@ function whatIfPart(k: number): HTMLElement | null {
         h('button', { type: 'button', class: 'btn small wi-again', onclick: () => whatIfSheet(k) }, 'Another what-if…'),
         h('button', { type: 'button', class: 'btn small primary wi-back', onclick: () => closeWhatIf() }, 'Back to the day')));
   }
-  if (state.running || !mayRun()) return null;
+  return null;
+}
+
+/** What if… on the day's head: run the day on other files or rules, apart from the record (ADR 0021 §4). */
+function whatIfAsk(k: number): HTMLElement | null {
+  const l = loads.list[k];
+  if (!l || !state.doc.publish || (whatIf?.k === k && whatIf.run) || state.running || !mayRun()) return null;
   const varied = [...sourceFiles(k).values()].some((xs) => xs.length > 1) || rulesVersionsOf().length > 1;
-  return varied ? h('p', { class: 'dh-whatif-ask' }, h('button', { type: 'button', class: 'linkish wi-open', onclick: () => whatIfSheet(k) }, 'What if… ›'), ' Run this day on other files or rules, apart from the record.') : null;
+  return varied ? h('button', { type: 'button', class: 'btn small wi-open', title: 'Run this day on other files or rules, apart from the record', onclick: () => whatIfSheet(k) }, 'What if… ›') : null;
 }
 
 /** What happened to a day, as a short line of steps (ADR 0021 §4): arrived, checked, held or published, decided. */
@@ -17576,7 +17607,7 @@ function storyOfDay(day: string): HTMLElement | null {
     const sent = a.correction?.sources?.length ? ` on ${a.correction.sources.join(', ')} sent again${v ? ` (version ${v})` : ''}` : a.outcome === 'restated' ? ` again under rules changed since${v ? ` (version ${v})` : ''}` : v ? ` (version ${v})` : '';
     lines.push(li(e, `${who} ran the day${sent}: ${said}.`));
   }
-  return h('details', { class: 'dh-story' }, h('summary', {}, `The day’s story · ${lines.length} ${lines.length === 1 ? 'entry' : 'entries'}`), h('ol', {}, ...lines));
+  return h('details', { class: 'dh-story' }, h('summary', {}, `The day’s story · ${lines.length}`), h('ol', {}, ...lines));
 }
 
 /** A file's or step's state on a day, in words: what pointing at its bar says. */
@@ -18354,6 +18385,9 @@ function renderLoads(): void {
   renderMonth();
   if (loads.list.length < 2) {
     box.hidden = true;
+    // About this flow lives in the day's head (below); with no head, back above where it was.
+    const about = document.querySelector('details.about-flow');
+    if (about && about.parentElement !== box.parentElement) box.before(about);
     return;
   }
   box.hidden = false;
@@ -18393,15 +18427,26 @@ function renderLoads(): void {
   const replacedBy = own ? supersededBy(own) : null;
   const onVersion = own ? versionOfRun(own) : null;
   const gotVersion = loads.at >= 0 ? correctedOf(loads.at)?.got.v ?? null : null;
+  // The day's head in two lines (the maintainer, 2026-11-20: "a little too wordy"): the day, its neighbours, what
+  // became of it and what can be done with it; then, small, how it stands against the record and under which rules,
+  // with the day's story and About this flow folded at its end. What a held or corrected day needs says itself in full
+  // below them: on those days the words are the point.
+  const about = document.querySelector<HTMLDetailsElement>('details.about-flow');
   box.replaceChildren(
-    h('div', { class: 'dh-nav' },
+    h('div', { class: 'dh-head' },
       // Back to the month: inside a flow, that flow's own (ADR 0026 §5).
       h('a', { class: 'dh-back', href: `${now && monthsOf(days).length > 1 ? `#month/${now.day.slice(0, 7)}` : '#month'}${state.level.length ? `/in/${state.level.join('/')}` : ''}` }, `‹ ${now && monthsOf(days).length > 1 ? monthName(now.day.slice(0, 7)) : loads.span}`),
-      h('div', { class: 'dh-step' }, step(prev, 'The day before', `‹ ${prev ? dayShort(prev) : ''}`), step(next, 'The day after', `${next ? dayShort(next) : ''} ›`))),
-    now ? h('div', { class: 'dh-title' }, h('h2', {}, dayLabel(now.day)), f ? outcomeMark(outcomeOf(f).outcome, 16) : null) : '',
-    (now ? lifecycleOf(now.day) : null) ?? '',
-    (now ? recordLine(now.day) : null) ?? '',
-    (now ? rulesLine(now.day, prev) : null) ?? '',
+      now ? h('div', { class: 'dh-title' }, h('h2', {}, dayLabel(now.day)), f ? outcomeMark(outcomeOf(f).outcome, 16) : null) : '',
+      h('div', { class: 'dh-step' }, step(prev, 'The day before', `‹ ${prev ? dayShort(prev) : ''}`), step(next, 'The day after', `${next ? dayShort(next) : ''} ›`)),
+      (now ? lifecycleOf(now.day) : null) ?? '',
+      h('div', { class: 'dh-acts' },
+        lens && top && visible(src!) ? h('button', { type: 'button', class: 'btn small', onclick: () => openTab(lens, 'news') }, 'The news ›') : null,
+        (loads.at >= 0 ? whatIfAsk(loads.at) : null) ?? '')),
+    h('div', { class: 'dh-meta' },
+      (now ? recordLine(now.day) : null) ?? '',
+      (now ? rulesLine(now.day, prev) : null) ?? '',
+      (now ? storyOfDay(now.day) : null) ?? '',
+      about ?? ''),
     (now ? eventsLine(now.day) : null) ?? '',
     (loads.at >= 0 ? restateLine(loads.at) : null) ?? '',
     (loads.at >= 0 ? versionsPart(loads.at) : null) ?? '',
@@ -18421,9 +18466,7 @@ function renderLoads(): void {
       after ? h('p', { class: `loads-pause after${waitingDay ? ' waiting' : ''}` }, h('b', {}, afterParts(after))) : null,
       h('div', { class: 'loads-acts' },
         pl?.verb && own && !replacedBy ? h('button', { type: 'button', class: 'btn small primary vf-decide-day', 'aria-label': `Decide what readers get for ${dayMid(now!.day)}`, onclick: () => decisionSheet(own, storyFor(now!.day)) }, `${pl.verb}${decideAt(own)} ›`) : null,
-        waitingDay && after?.verb ? h('button', { type: 'button', class: 'btn small primary vf-decide-day', 'aria-label': `Decide what readers get for ${dayMid(waitingDay)}`, onclick: () => decideDay(waitingDay) }, `${after.verb} ›`) : null,
-        lens && top && visible(src!) ? h('button', { type: 'button', class: 'btn small', onclick: () => openTab(lens, 'news') }, 'The news ›') : null)),
-    (now ? storyOfDay(now.day) : null) ?? '');
+        waitingDay && after?.verb ? h('button', { type: 'button', class: 'btn small primary vf-decide-day', 'aria-label': `Decide what readers get for ${dayMid(waitingDay)}`, onclick: () => decideDay(waitingDay) }, `${after.verb} ›`) : null)));
   if (now) $('tab-flow').setAttribute('href', levelHash(state.level));
 }
 

@@ -153,7 +153,7 @@
     "waitFor": ".dh-rec[data-check=\"matches\"]",
     "expect": {
       "status": "waf: Status fail",
-      "text": ["‹ March 2024", "Tue Mar 12", "Held: waf", "Decided: published as is", "Recorded by the build", "the same datasets and holds as the record"],
+      "text": ["‹ March 2024", "Tue Mar 12", "Held: waf", "Decided: published as is", "Matches the record"],
       "count": {
         ".dh-rec[data-check=\"matches\"]": 1
       }
@@ -166,7 +166,7 @@
     "click": ".dh-story summary",
     "element": "#loads",
     "expect": {
-      "text": ["Mon Mar 18", "The build ran the day (version 1): held: org_chain", "The build ran the day on hr_org_units sent again (version 2)", "Sloane Marsden decided version 2 at HR organisation: published", "Published version 2.", "Run here: the same datasets and holds as the record"]
+      "text": ["Mon Mar 18", "The build ran the day (version 1): held: org_chain", "The build ran the day on hr_org_units sent again (version 2)", "Sloane Marsden decided version 2 at HR organisation: published", "Published version 2.", "Matches the record"]
     }
   },
   {
@@ -347,7 +347,7 @@
     "element": "#loads",
     "expect": {
       "state": "held",
-      "text": ["Version 1, as it arrived: replaced by version 2", "hr_org_units sent again", "Readers got version 2", "Run here: the same datasets and holds as the record"],
+      "text": ["Version 1, as it arrived: replaced by version 2", "hr_org_units sent again", "Readers got version 2", "Matches the record"],
       "count": {
         ".vf-decide-day": 0,
         ".dh-versions .dv.on": 1
@@ -402,7 +402,7 @@
     "element": "#loads",
     "expect": {
       "state": "held",
-      "text": ["Thu Mar 28", "Held: org_chain", "waiting on a decision", "Run here: the same datasets and holds as the record"]
+      "text": ["Thu Mar 28", "Held: org_chain", "waiting on a decision", "Matches the record"]
     }
   },
   {

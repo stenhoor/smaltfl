@@ -5,7 +5,7 @@
     "day": "Sat 16",
     "element": "#loads",
     "expect": {
-      "pageText": ["What if… ›", "Run this day on other files or rules, apart from the record."]
+      "pageText": ["What if… ›"]
     }
   },
   {
@@ -110,7 +110,7 @@
     "expect": {
       "state": "done",
       "status": "^Thu Mar 21: A normal Thursday",
-      "pageText": ["Run here: the same datasets and holds as the record ✓"],
+      "pageText": ["Matches the record ✓"],
       "noPageText": ["NOT RECORDED, NEVER PUBLISHED", "815 apps repeat a key"]
     }
   },
