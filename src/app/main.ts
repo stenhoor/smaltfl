@@ -362,7 +362,36 @@ function setStatus(text: string, bad = false, run?: { n: number; state: 'done' |
     el.dataset.run = String(run.n);
     el.dataset.state = run.state;
   }
+  syncSaid();
   syncHead();
+}
+
+/**
+ * The status line's sentence about the day on screen, said in the day's head instead (the maintainer, 2026-11-20: the
+ * header said the date the head says): "Thu Feb 1: A normal Thursday" becomes the head's "A normal Thursday", and the
+ * header's line is kept for screen readers and tools only (`data-said="day"`, page.html). Anything else the line says
+ * (starting, a run under way, a failure, another tab's news) stays in the header.
+ */
+function syncSaid(): void {
+  const el = document.getElementById('status');
+  const box = document.getElementById('loads');
+  if (!el || !box) return;
+  const meta = box.querySelector('.dh-meta');
+  const l = loads.list[loads.at];
+  const prefix = l ? `${dayLabel(l.day).replace(/, \d{4}$/, '')}: ` : null;
+  const text = el.textContent ?? '';
+  const said = !!meta && !box.hidden && !!prefix && !!el.dataset.run && text.startsWith(prefix) ? text.slice(prefix.length) : null;
+  if (said === null) {
+    delete el.dataset.said;
+    box.querySelector('.dh-said')?.remove();
+    return;
+  }
+  el.dataset.said = 'day';
+  const tone = el.classList.contains('bad') ? ' bad' : el.classList.contains('warn') ? ' warn' : '';
+  let p = meta!.querySelector<HTMLElement>('.dh-said');
+  if (!p) meta!.prepend((p = h('p', { class: 'dh-said', 'aria-hidden': 'true' })));
+  p.className = `dh-said${tone}`;
+  p.textContent = said;
 }
 
 /** Runs started, done or not: the status line's data-run, so a tool sees each one end. */
@@ -18574,6 +18603,7 @@ function renderLoads(): void {
         pl?.verb && own && !replacedBy ? h('button', { type: 'button', class: 'btn small primary vf-decide-day', 'aria-label': `Decide what readers get for ${dayMid(now!.day)}`, onclick: () => decisionSheet(own, storyFor(now!.day)) }, `${pl.verb}${decideAt(own)} ›`) : null,
         waitingDay && after?.verb ? h('button', { type: 'button', class: 'btn small primary vf-decide-day', 'aria-label': `Decide what readers get for ${dayMid(waitingDay)}`, onclick: () => decideDay(waitingDay) }, `${after.verb} ›`) : null)));
   if (now) $('tab-flow').setAttribute('href', levelHash(state.level));
+  syncSaid();
 }
 
 
