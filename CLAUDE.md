@@ -762,7 +762,9 @@ release (smaltty ADR 0030).
   `src/app/page.html` with smalt the one action color (cerulean in the mark, teal and violet out of the interface,
   canvas sections frames and labels); seven text sizes and three weights; plain view names (Overview, Pipeline, Data
   model, Outputs, Access, Audit log); five panel tabs on every card; the Ontology page as Data model, the map first.
-  Built in the phases of its §10. A change to a screen says which principle it serves.
+  Built in the phases of its §10; phase 1 is the role tokens, the type scale and the shared button and link styles in
+  `src/app/page.html`, held by `test/style-system.test.ts` (a new font size, weight or raw color fails it). A change to
+  a screen says which principle it serves.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).

@@ -179,7 +179,35 @@ color-budget measure, words before the first picture, and ADR 0012's two-minute 
 
 ### Phase 1 (2026-11-21)
 
-Filled in when built.
+The foundation, in `src/app/page.html`, with no change to any screen's structure or words:
+
+- **Colors by role.** The light block and both dark blocks define `--action` and `--action-wash` (smalt),
+  `--edge-control` and `--ok-wash` beside the neutrals and statuses that were there. Every `var(--smalt…)` reads
+  `--action`; the mark's letters read `--mark-body`. Teal's 71 uses were mapped by meaning: a check passed or something
+  confirmed to `--ok` and `--ok-wash`; normal, steady, new, and structure (built cards, outputs, inputs, ports,
+  datasets, the policy shield) to neutral ink and `--sunk`; a series being read and what is selected to `--action`.
+  Violet's last uses (holiday marks) are neutral. A selected segment, the Recommended chip and the scenes' numbers no
+  longer look like primary buttons.
+- **Sections are frames.** All seven `.c-*` classes draw the slate frame; the section sheets' color picker is gone
+  (`main.ts`); a stored `color` stays in the document and reads as before.
+- **Links** are underlined where they sit in text (`.linkish`, and links in a paragraph, item, definition or cell).
+- **Type.** Text in 12, 13, 15, 17, 20, 24 and 32 px; drawings (canvas cards, charts, mini charts in table heads) in
+  10 and 11, canvas text only ever rounded down so cards fit as they did; weights 400, 500 and 600, the browser's own
+  bold pinned to 600 and links at 500. Uppercase labels are set in the interface's sans; their case changes with the
+  words (phase 5), since the stop sets read that text.
+- **Buttons.** One primary style for the thirteen filled classes (the action fill, a 6 px radius, weight 500), one
+  secondary for `.btn` and the outlined ones (surface, ink, `--edge-control`), and quiet (`.btn.quiet`), appended as one
+  block at the end of the style sheet over today's class names.
+- **The test.** `test/style-system.test.ts` holds the style sheet to the sizes and weights, every role in all three
+  token blocks, no teal, violet or smalt reference, no color outside the token blocks but black and white for shadows,
+  masks, overlays and print, sections as one frame, links underlined, and the primaries drawn alike.
+
+Measured on the tour at desktop size: the Month screen renders 9 font sizes where it rendered 16 and 20 link-blue
+controls where it had 39; a paused day shows two saturated hues (rose on what is paused, smalt on the button) where it
+showed four; no text token changed, so contrast is as it was. `npm run check` passes (1,758 tests), and the browser
+regression's tour sets pass at every size.
+
+Left for phase 2: Run is still a second filled button in the header; the header, the page anatomy and the words.
 
 ## Consequences
 
