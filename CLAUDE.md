@@ -756,6 +756,13 @@ release (smaltty ADR 0030).
   `test/catalogue.test.ts`, `test/scenes.test.ts`; stops in `tour.json` and `tour-later.json` (19 runs between
   them: the tour's set cut after scene 5 on 2026-11-19), `overview.json`, `tiers.json` and
   `levels.json` (which steps to the day before the visitor's, since the day after has two versions).
+- One visual system (ADR 0028, docs/research/ui-design-review.md, the maintainer's answers Q-343 to Q-350 of
+  2026-11-21): eight principles (one page anatomy, color as a signal, one primary action, two levels on demand, plain
+  words once, size and weight for hierarchy, one kit of components, never color alone); color by role in
+  `src/app/page.html` with smalt the one action color (cerulean in the mark, teal and violet out of the interface,
+  canvas sections frames and labels); seven text sizes and three weights; plain view names (Overview, Pipeline, Data
+  model, Outputs, Access, Audit log); five panel tabs on every card; the Ontology page as Data model, the map first.
+  Built in the phases of its §10. A change to a screen says which principle it serves.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).

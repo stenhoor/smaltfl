@@ -3,8 +3,8 @@
 A review of the app's visual design asked for by the maintainer on 2026-11-21: research on color and hierarchy, every
 screen of the tour demo captured and critiqued against the same principles, and a plan. The full review, with 74
 screenshots and sketches of the redesign, is a private claude.ai page (https://claude.ai/artifact/6Yki3eSvu4Q3kWm9QCfrMf);
-this file is its text for the repository. Nothing here is decided: the plan's phase 0 is an ADR written from the
-maintainer's answers to the questions at the end.
+this file is its text for the repository. The maintainer's answers to its questions (Q-343 to Q-350) are
+[ADR 0028](../adr/0028-one-visual-system.md), *One visual system*.
 
 **How it was made.** `npm run build:app -- --variant tour` from `main` at 8f240d4 (smaltdb moved to f383dd4), driven
 by `tools/browser/tour.cjs` through 85 stops at desktop (1440×900) and phone (390×844) size, light and dark, at twice
@@ -156,15 +156,14 @@ same PR.
 6. **The rest.** Results colored by status with the recorded trend; Access transposed; Audit log; catalogue rows;
    smaltkit's `--sk-*` mapped to the tokens. Closes r1–r3, b1, b2.
 
-## Questions for the maintainer
+## The maintainer's answers (2026-11-21, Q-343 to Q-350, ADR 0028)
 
-1. Who is the first screen for: the owner who decides and edits, a leader reading the brief, or both?
-2. The action color: smalt alone with teal and violet retired, cerulean, or the current mix?
-3. The words: plain conventional names (Overview, Pipeline, Data model, Outputs, Access, Audit log), the house
-   vocabulary with definitions, or as it is?
-4. The Ontology page's first job: understand the model, act on what needs review, audit changes, or edit rules?
-5. Calmer screens with more behind a click; five fixed tabs; no painted sections?
-6. ADR 0028 and phase 1 next, or the key screens drawn in more detail first?
+1. The first screen is for **the owner who acts**, and explains it upward.
+2. **Smalt alone** is the action color; cerulean stays in the mark; teal and violet leave the interface.
+3. **Plain names**: Overview, Pipeline, Data model, Outputs, Access, Audit log; one status vocabulary.
+4. The Ontology page's first job is to **understand the model**: the map leads, review items become a count.
+5. **Calm first, depth on click**; **the same five tabs** on every panel; canvas sections as **frames and labels only**.
+6. **ADR 0028, then phase 1.**
 
 ## Sources
 

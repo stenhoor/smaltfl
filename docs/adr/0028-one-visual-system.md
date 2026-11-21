@@ -1,0 +1,203 @@
+# ADR 0028: One visual system
+
+- **Status:** accepted, 2026-11-21: the maintainer's answers to Q-343 to Q-350, asked through the question prompt after
+  a design review of every screen ([docs/research/ui-design-review.md](../research/ui-design-review.md), and the full
+  review with its screenshots on a private claude.ai page). Built in the phases of §10; phase 1 is built
+  (§"As built").
+- **Date:** 2026-11-21
+- **Builds on:**
+  - [ADR 0002](0002-second-round-decisions.md) §4 and Q-22: a visual builder without a UI framework, in plain DOM and SVG.
+  - [ADR 0008](0008-visual-first-news.md) and [ADR 0012](0012-visual-first-in-two-minutes.md): one cause a day, word
+    budgets, the brief, and the measure of the app: an owner finds a problem and explains it to leadership in two
+    minutes.
+  - [ADR 0016](0016-the-mark.md): the mark and the product color, deep cerulean, in the user-tool layer.
+  - [ADR 0018](0018-phone-tablet-and-desktop.md): phone, tablet and desktop, phone rules the base.
+  - [ADR 0024](0024-the-month-at-a-glance.md): five marks with words, and color for the day that waits.
+- **Amends:** Q-28 and ADR 0016 §2 as the interface uses them (cerulean stays the mark's chip; the interface's one
+  action color is smalt); the canvas sections' colors (`GROUP_COLORS`), which no longer paint.
+
+## Context
+
+The maintainer, on 2026-11-21: *"go out and do research on color and UI design, like color theory, what types of
+colors to add, looking at the color wheel, how much of each different type of color, the accent color, the action
+color […] how to prioritize a hierarchy where the important things are at the top, and you scroll down into the
+details that you can expand to explore more into. And then I want you to go page by page, take screenshots, and
+critique the current design […] I know the ontology page is just a word salad soup thing. I can't even make heads or
+tails of what I'm supposed to do. […] Make sure that your rationality and reasoning carries out throughout the entire
+app so it feels like one cohesive thing, not separate pages that are disjointed."*
+
+The review (research notes and measurements in docs/research/ui-design-review.md) found the app legible (every text
+color passes WCAG AA in both themes), calm by area (89 to 98% of each first screen neutral, under 3% saturated) and
+robust to color blindness (statuses differ by glyph, fill and height). What made it feel like separate pages:
+
+- **No shared parts.** 1,121 class names in about 30 feature namespaces; the text-link style written 17 times; about
+  27 button classes; 23 font sizes and six weights; the Month screen alone draws 11 button styles and 24 uppercase
+  monospace labels.
+- **Seven hues with shifting meanings.** Teal, the brand color ADR 0016 replaced, still meant built, output, ok, new,
+  decided and data at once; sections could be painted the status colors.
+- **The deepest detail first.** Hashes, rule versions and provenance on the first lines of the Day head, the Ontology
+  page, the Data tab and Results.
+- **Everything said several times, in house words.** A paused day said five ways in one header; one empty file told as
+  two issues with three Decide buttons; the Ontology page 3,053 words long with its map of kinds 2,400 px down.
+
+## Decisions
+
+### 1. Eight principles
+
+Every screen is held to them, and a change to a screen says which it serves.
+
+| | Principle |
+|---|---|
+| P1 | **One page anatomy**: where am I, the verdict, what needs me, why, details (§5) |
+| P2 | **Color is a signal**: about nine tenths neutral, one action blue, status hues only on status (§2) |
+| P3 | **One primary action per screen**, and some screens have none |
+| P4 | **Two levels, on demand**: the few things that matter first, the rest in place or in the side panel; no third level |
+| P5 | **Plain words, once**: the conclusion first, one name per thing, labels a newcomer understands (§6) |
+| P6 | **Size and weight make the hierarchy**: seven sizes, three weights, bold rare (§3) |
+| P7 | **Same thing, same look**: one kit of components, shared by every page (§4) |
+| P8 | **Never color alone**: a glyph and a word on every status; 4.5:1 text, 3:1 controls and marks; links underlined |
+
+### 2. Color roles (Q-344, Q-349)
+
+**Smalt is the only action color** (Q-344): primary button fill, links (underlined), the selected tab, focus. Cerulean
+stays in the mark. Teal and violet leave the interface. Every color is a role token in `src/app/page.html`, light and
+dark; components use roles, never hues.
+
+| Role | Light | Dark | Job |
+|---|---|---|---|
+| `--bg` | `#f4f5f8` | `#0f131a` | the page |
+| `--surface` | `#ffffff` | `#171c25` | cards, panels |
+| `--sunk` | `#eceff5` | `#1e2430` | hover, table heads, chips |
+| `--line` | `#d6dbe4` | `#434955` | dividers |
+| `--edge-control` | `#7a8295` | `#8a93a6` | input and secondary-button borders (3:1 or more) |
+| `--muted` / `--ink-2` / `--ink` | `#5c6375` / `#3f4656` / `#151922` | `#98a1b3` / `#c3c9d6` / `#e8ebf1` | text 3 / 2 / 1 |
+| `--action` | `#003399` | `#8fa8ff` | act here |
+| `--action-wash` | `#e0e6f3` | `#1d2742` | selected |
+| `--bad` on `--bad-wash` | `#a3195b` on `#f8e3ec` | `#ff86b5` on `#3a1828` | paused, needs a decision |
+| `--warn` on `--warn-wash` | `#8a5a12` on `#f8eedb` | `#e3b55f` on `#33280f` | unusual |
+| `--ok` on `--ok-wash` | `#1d6b3a` on `#e2f0e6` | `#67d391` on `#142a1c` | passed, confirmed |
+
+- **Budgets** for each first screen: at least 85% neutral pixels, at most 3% saturated, at most three saturated hues
+  (the action blue and the statuses present). A normal day shows no status color.
+- **Charts and drawings**: context in neutral, the series being read in the action blue, anomalies in their status
+  color, expected bands as a pale neutral; one drawing for a column's distribution.
+- **Canvas sections are frames and labels** (Q-349): a section's stored color (`color`, `GROUP_COLORS`) no longer
+  paints it, and the picker is gone. Color on the canvas only ever means status.
+
+### 3. Type (Q-345)
+
+Seven steps for text, on a scale of about 1.2, in Geist; three weights (400, 500, 600). Monospace only for identifiers,
+values and code. Labels in sentence case.
+
+| Step | Size / line | Weight | For |
+|---|---|---|---|
+| caption | 12 / 16 | 400–500 | meta lines, badges, chart labels |
+| small | 13 / 18 | 400 | table cells, secondary lines |
+| body | 15 / 22 | 400 | sentences |
+| title S | 17 / 24 | 600 | card and section titles |
+| title M | 20 / 28 | 600 | page sections; the side panel's title |
+| title L | 24 / 32 | 600 | the page title |
+| figure | 32 / 40 | 600 | key numbers |
+
+Inside an SVG drawing (a canvas card, a chart) two smaller sizes are allowed, 10 and 11 px, as chart labels are.
+
+### 4. One kit of components
+
+Button (primary: filled, at most one in a screen's first view; secondary: outlined, ink text; quiet: text only), link
+(action blue, underlined), status badge (glyph, word and role color: Normal, Unusual, Paused, Decided, Not published,
+Not judged), chip (filters and metadata, never actions), card, section header (a title and a one-line summary), key
+figure, list row, tabs, side panel, banner, disclosure, table, form field, empty state. A page never invents its own.
+
+### 5. The page anatomy
+
+Month, Day, Ontology, Results, Policies, Record and every side panel have the same five bands, in order:
+
+1. **Where am I**: one breadcrumb line (flow › level · the day or month · as of).
+2. **The verdict**: the title with one status badge, and one sentence, the conclusion first.
+3. **What needs me**: at most one primary button and two secondary ones; nothing when nothing waits.
+4. **Why**: three to five facts or one picture.
+5. **Details**: sections with a heading and a one-line summary, opened on demand; tables, history and code; hashes,
+   provenance and the audit last, behind *Details*.
+
+The decision sheet (options drawn as what readers get, one recommended, the button waking when one is picked) and a
+flow's panel are the patterns to copy.
+
+### 6. Words (Q-345)
+
+Plain, conventional names. The views: **Overview** (the month), **Pipeline** (the day and its canvas), **Data model**
+(the ontology), **Outputs** (results), **Access** (policies), **Audit log** (the record). One status vocabulary, the
+month's: Normal, Unusual, Paused, Decided, Not published, Not judged; "held", "waiting" and "paused" are one state,
+Paused, and its call to action is *Decide*. No ADR or question numbers in the product's copy. A glossary goes with the
+words phase (§10).
+
+### 7. Calm first, depth on click (Q-346)
+
+Each screen leads with its verdict, one action and three to five facts. Tables, history, code and audit detail open
+on demand, at most two levels deep. The audience is **the owner who acts** (Q-343): screens lead with what needs them;
+what leadership reads is one tap away and written to be passed on.
+
+### 8. The side panel: five tabs on every card (Q-347)
+
+**Summary, Data, Checks, History, Details**, the same on every card and in that order; an empty one says so in a line.
+
+- **Summary**: the verdict, the issues grouped by cause (one card a cause, its checks as evidence), what happened, one
+  Decide where a decision waits. Today's What happened, News and Quality.
+- **Data**: rows and columns (one view switch), exploring, the rows left out. Today's Data, Columns, Explore, Dropped
+  and Odd rows.
+- **Checks**: every check and rule with its mode and today's state, the contract, the models, suggestions behind a
+  link. Today's Checks, Rules, Contract, Models and Quality's list.
+- **History**: days, versions, compare.
+- **Details**: the notebook's code, integrity, provenance, about.
+
+### 9. The Ontology page becomes Data model, the map first (Q-348)
+
+Its first job is to **understand the model**. Its first view: the title, one sentence and a status line (files, made
+datasets, kinds of thing, changes this month), then the map of kinds of thing and their relations, large, each kind
+with its count and opening in the side panel. Then four views behind one switch: **Map**, **Files and datasets** (a
+table with today's status, problems first), **Rules**, **Changes** (the timeline with three marks, the register,
+versions and compare, events, the digest and the history for an auditor, the estate's provenance). Items needing
+review are a count in the status line, not the head of the page. One vocabulary: kinds of thing and relations.
+
+### 10. The phases (Q-350)
+
+Each its own change, checked with the browser regression at every size, the squint test, the contrast and
+color-budget measure, words before the first picture, and ADR 0012's two-minute test.
+
+0. **Decide**: this ADR.
+1. **Foundation, no structural change**: the role tokens and the retired hues (§2), sections as frames, links
+   underlined, the type scale and weights (§3), the shared button and link styles (§4) over today's class names, and a
+   test that holds the style sheet to them.
+2. **Shell, Overview and Pipeline on the anatomy** (§5, §6): the header with a menu and the renamed views, Run in the
+   Pipeline toolbar, the Overview's key figures, the day head's badge, sentence, button and Details.
+3. **The side panel** (§8).
+4. **Data model** (§9).
+5. **Words**: the glossary and the rename table across every screen; word budgets per screen in the stop sets.
+6. **The rest**: Outputs colored by status with the recorded trend, Access transposed, the Audit log with the shared
+   marks, the catalogue, smaltkit's `--sk-*` mapped to the roles.
+
+## As built
+
+### Phase 1 (2026-11-21)
+
+Filled in when built.
+
+## Consequences
+
+- The stop sets assert text; the words phase (5) and the panel (3) change strings they check, and update them in the
+  same change.
+- The test of §10's phase 1 makes a new font size, a raw color outside the token blocks, or a new weight a failure, so
+  the vocabulary stays small as features are added.
+- A section's stored color stays in the document (old flows read as before) and no longer shows.
+
+## The questions, answered
+
+| ID | Question | Answer |
+|---|---|---|
+| Q-343 | Who is the first screen for? | The owner who acts, and explains it upward (§7) |
+| Q-344 | The action color? | Smalt alone; cerulean in the mark; teal and violet retired (§2) |
+| Q-345 | How should the app talk? | Plain names (§6) |
+| Q-346 | How dense? | Calm first, depth on click (§7) |
+| Q-347 | The side panel's tabs? | The same five on every card (§8) |
+| Q-348 | The Ontology page's first job? | Understand the model (§9) |
+| Q-349 | Canvas sections? | Frames and labels only (§2) |
+| Q-350 | What next? | This ADR, then phase 1 (§10) |
