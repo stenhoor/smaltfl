@@ -2423,6 +2423,12 @@ table.data th.meta .th-name, table.data th.meta .th-code { display: block; } tab
 .canvas-tools button.accent:hover { color: var(--smalt); border-color: var(--smalt); }
 .dh-meta .dh-rec.ok, .dh-meta .dh-rec.ok b { color: var(--ink-2); }
 .dh-meta .dh-tick { color: var(--teal); font-weight: 700; }
+/* The day's sentence in its head (syncSaid); the header's copy of it kept for screen readers and tools, out of sight on
+   the day screen only. */
+.dh-meta .dh-said { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink); }
+.dh-meta .dh-said.bad { color: var(--bad); }
+.dh-meta .dh-said.warn { color: var(--warn); }
+body:has(#view-flow:not([hidden])) #status[data-said="day"] { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .dh-meta .about-flow > summary { min-height: 0; font-size: 12px; }
 .dh-meta .about-flow[open] { flex-basis: 100%; order: 10; margin: 4px 0 0; }
 .dh-meta .about-flow[open] > summary { margin-bottom: 6px; }

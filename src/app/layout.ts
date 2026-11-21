@@ -126,6 +126,21 @@ export function gridLayout(doc: FlowDocument, collapsed: ReadonlySet<string>, wr
     return { s: at, e: at };
   });
 
+  // A file only folded sections read sits just before the first of them, not before the step inside it: its edge is
+  // drawn to the section's card, wherever the section's card stands (the maintainer, 2026-11-20: a file left at the
+  // bottom left, its one line across the canvas). Files that land in one column stack there (below).
+  const lone = (gi: number) => !groups[gi]!.frame && groups[gi]!.id !== FLOWS_SECTION && groups[gi]!.members.length === 1;
+  for (const [gi, g] of groups.entries()) {
+    if (!lone(gi)) continue;
+    const id = g.members[0]!;
+    const readers = consumers.get(id)!;
+    if (inputs.get(id)!.length || !readers.length || !readers.every((r) => folded(groupOf.get(r)!))) continue;
+    const at = Math.min(...readers.map((r) => span[groupOf.get(r)!]!.s)) - 1;
+    if (at <= colOf(id)) continue;
+    col.set(id, at);
+    span[gi] = { s: at, e: at };
+  }
+
   const links = groups.map(() => new Set<number>());
   for (const [id, ins] of inputs) {
     for (const i of ins) {
@@ -172,6 +187,29 @@ export function gridLayout(doc: FlowDocument, collapsed: ReadonlySet<string>, wr
     return Math.max(...g.members.map((m) => row.get(m)!)) + 1;
   });
 
+  // Lone cards in one column share a lane where it has rows to spare (a taller section beside them), one under the
+  // next, rather than each opening a lane of its own further down.
+  const stack = new Map<number, number>();
+  const laneRows = (l: number) => Math.max(1, ...lanes[l]!.map((gi) => rows[gi]!));
+  for (let l = 1; l < lanes.length; l++) {
+    for (const gi of [...lanes[l]!]) {
+      if (!lone(gi)) continue;
+      for (let k = 0; k < l; k++) {
+        const there = lanes[k]!.filter((gj) => span[gj]!.s <= span[gi]!.s && span[gj]!.e >= span[gi]!.s);
+        if (!there.length || !there.every(lone) || there.length >= laneRows(k)) continue;
+        lanes[l] = lanes[l]!.filter((gj) => gj !== gi);
+        lanes[k]!.push(gi);
+        laneOf.set(gi, k);
+        stack.set(gi, there.length);
+        break;
+      }
+    }
+  }
+  for (let l = lanes.length - 1; l >= 0; l--) if (!lanes[l]!.length) {
+    lanes.splice(l, 1);
+    for (const [gi, at] of laneOf) if (at > l) laneOf.set(gi, at - 1);
+  }
+
   const { cardW, cardH, gapX, gapY, pad, head, groupGapX, groupGapY } = GRID;
   const laneTop: number[] = [];
   let y = 0;
@@ -195,7 +233,7 @@ export function gridLayout(doc: FlowDocument, collapsed: ReadonlySet<string>, wr
   const frames: GridFrame[] = [];
   for (const [gi, g] of groups.entries()) {
     const top = laneTop[laneOf.get(gi)!]!;
-    for (const m of g.members) cards.set(m, { x: xs[index.get(shownCol(m))!]!, y: top + head + (folded(gi) ? 0 : row.get(m)! * (cardH + gapY)) });
+    for (const m of g.members) cards.set(m, { x: xs[index.get(shownCol(m))!]!, y: top + head + (folded(gi) ? 0 : (row.get(m)! + (stack.get(gi) ?? 0)) * (cardH + gapY)) });
     if (!g.frame) continue;
     const x0 = xs[index.get(span[gi]!.s)!]!;
     const n = rows[gi]!;
