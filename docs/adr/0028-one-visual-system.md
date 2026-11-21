@@ -204,8 +204,8 @@ The foundation, in `src/app/page.html`, with no change to any screen's structure
 
 Measured on the tour at desktop size: the Month screen renders 9 font sizes where it rendered 16 and 20 link-blue
 controls where it had 39; a paused day shows two saturated hues (rose on what is paused, smalt on the button) where it
-showed four; no text token changed, so contrast is as it was. `npm run check` passes (1,758 tests), and the browser
-regression's tour sets pass at every size.
+showed four; no text token changed, so contrast is as it was. `npm run check` passes (1,758 tests), and all 38 of the
+browser regression's stop sets pass at every size (488 stops).
 
 Left for phase 2: Run is still a second filled button in the header; the header, the page anatomy and the words.
 
