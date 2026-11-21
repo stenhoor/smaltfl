@@ -30,6 +30,18 @@ research behind the proposals is in [research/ecosystem-survey.md](research/ecos
 | Q-41 | How do row rules pass through aggregates? | An aggregated row is visible only when every row behind it is. A dataset whose rows mix what a viewer may and may not see is closed to that viewer, and the app says why and offers the fix (group it by the rule's column): A7 shows this for `airport_times`. v1 applies rules by column name and closes a dataset without the rule's column; exact inheritance waits for bound plans | open |
 | Q-34 | Verified runs and speed: parallel execution can change a floating-point sum in its last digit | Verification is bit-exact: runs pin the engine settings that affect results (no parallel aggregation of floating-point values), and the cost is measured. Revisit if it is large. A fold that changes the order of a floating-point sum is a new result (ADR 0004); order-independent sums in smaltdb would make it free, to discuss with stenhoor | open |
 
+## UX beyond the visuals: the maintainer's answers of 2026-11-21 (ADR 0028 amendment 1)
+
+The maintainer then asked for a deep dive on UX as a whole (docs/research/ux-deep-dive.md). The app was measured against
+it; these were the decisions it raised.
+
+| ID | Question | Answer | Status |
+| --- | --- | --- | --- |
+| Q-351 | A day switch takes 11.7 s because the browser re-runs the flow to verify the recorded result. Show it first or verify first? | **Show the record, verify behind it**: the day opens at once on the record, marked so, the same verification runs in the background with real progress, then *Verified here* or a flagged mismatch; finished runs kept; nothing run on first load (ADR 0028 §11) | decided 2026-11-21 |
+| Q-352 | Search? | **A Ctrl K command palette and header search** over datasets, columns, rules, days, scenes and actions, shortcuts shown; a search box on Data model (ADR 0028 §12) | decided 2026-11-21 |
+| Q-353 | Hold accessibility in the browser regression with axe-core (a new dev dependency)? | **Yes**: WCAG 2.2 A/AA violations on a stop are problems; the five found are fixed first, with a skip link and 24/44 px targets (ADR 0028 §13) | decided 2026-11-21 |
+| Q-354 | Who tests the redesign? | **The judge panels for now**, on the owner's six jobs, until real users are available (ADR 0028 §14) | decided 2026-11-21 |
+
 ## One visual system: the maintainer's answers of 2026-11-21 (ADR 0028)
 
 The maintainer asked for research on color and hierarchy, a page-by-page critique of the app from screenshots, and a

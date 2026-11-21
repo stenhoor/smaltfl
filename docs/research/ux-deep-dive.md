@@ -101,6 +101,14 @@ back, forward and reload; a tampered file (tour.cjs's `tamper`); the brief's lin
   satisfaction; the two-minute explanation as the headline); budgets in the regression for time to show a day, steps
   per job, words before the first picture, accessibility issues and the color budget.
 
+## The maintainer's answers (Q-351 to Q-354, ADR 0028 amendment 1)
+
+1. **Show the record, verify behind it**: a day opens at once on the record, the same verification runs in the
+   background with progress, then *Verified here* or a flagged mismatch.
+2. **A Ctrl K palette and header search.**
+3. **axe-core in the browser regression**, after fixing the five issues found.
+4. **The judge panels for now**, on the six jobs, until real users are available.
+
 ## Sources
 
 NN/g: [ten heuristics](https://www.nngroup.com/articles/ten-usability-heuristics/),

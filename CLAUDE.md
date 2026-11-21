@@ -764,7 +764,9 @@ release (smaltty ADR 0030).
   model, Outputs, Access, Audit log); five panel tabs on every card; the Ontology page as Data model, the map first.
   Built in the phases of its §10; phase 1 is the role tokens, the type scale and the shared button and link styles in
   `src/app/page.html`, held by `test/style-system.test.ts` (a new font size, weight or raw color fails it). A change to
-  a screen says which principle it serves.
+  a screen says which principle it serves. Amendment 1 (UX beyond the visuals, docs/research/ux-deep-dive.md, Q-351 to
+  Q-354): a day shown at once from the record and verified behind it, a Ctrl K palette and search, axe-core holding
+  WCAG 2.2 AA in the regression, the judge panels on the owner's six jobs.
 - `tools/`: not part of the package or the tests. `tools/browser/` drives the built app at phone, tablet or desktop size (`tour.cjs`, `TOUR_DEVICE`;
   with stop sets and `expect` checks, colour-blind and slicing helpers);
   `tools/judges/` holds the Workflow scripts that judged the views in rounds (tools/README.md).

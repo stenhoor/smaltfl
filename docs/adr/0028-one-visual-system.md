@@ -1,6 +1,6 @@
 # ADR 0028: One visual system
 
-- **Status:** accepted, 2026-11-21: the maintainer's answers to Q-343 to Q-350, asked through the question prompt after
+- **Status:** accepted, 2026-11-21: the maintainer's answers to Q-343 to Q-350 (and, in amendment 1, Q-351 to Q-354), asked through the question prompt after
   a design review of every screen ([docs/research/ui-design-review.md](../research/ui-design-review.md), and the full
   review with its screenshots on a private claude.ai page). Built in the phases of §10; phase 1 is built
   (§"As built").
@@ -209,6 +209,53 @@ regression's tour sets pass at every size.
 
 Left for phase 2: Run is still a second filled button in the header; the header, the page anatomy and the words.
 
+## Amendment 1: UX beyond the visuals (2026-11-21, Q-351 to Q-354)
+
+The maintainer asked for a deep dive on UX as a whole, not only color, hierarchy and interaction
+([docs/research/ux-deep-dive.md](../research/ux-deep-dive.md)). Measured on the tour after phase 1: accessibility strong
+(axe-core finds 5 issues in 7 views; focus rings everywhere; Escape returns focus to the card), but a day switch takes
+11.7 s with no progress, the first load runs a day nobody asked for, nothing can be searched, a panel can't be linked or
+survive a reload, and the brief's link fails silently on the tour. The answers, through the question prompt:
+
+### 11. Show the record, verify behind it (Q-351)
+
+A day opens at once on what the record says of it, marked as the record's, while the browser runs the same
+verification it runs today, in the background, with real progress (files pinned, steps run, time elapsed). When it ends
+the day says *Verified here*, or flags a mismatch as loudly as a hold. No check is weakened or skipped: what changes is
+that the page stops waiting for it before showing anything, and says which it shows. Finished runs are kept for the
+session, so a day opened again is instant, and nothing runs on first load until a day is opened.
+
+### 12. Search, and a command palette (Q-352)
+
+A command palette on Ctrl K (Cmd K) and a search field in the header over datasets, columns, rules, days, scenes and
+actions, each action with its shortcut shown; a result opens the shared side panel. Data model has its own search box.
+
+### 13. Accessibility held by the regression (Q-353)
+
+axe-core joins the dev dependencies (the maintainer's agreement to a new package), and the browser regression reports
+any WCAG 2.2 A or AA violation on a stop as a problem, as it reports a page that scrolls sideways. First the five issues
+found are fixed, a skip link is added, and every control is at least 24 px, 44 px on touch screens.
+
+### 14. Testing with simulated judges for now (Q-354)
+
+Each phase is judged on the owner's six jobs (tell me if anything needs me; decide a paused day; understand why and
+explain it upward; find a dataset and what depends on it; change a rule safely; prove it to an auditor) by the
+repository's judge panels (`tools/judges`), with the two-minute explanation as the headline measure, until real users
+are available; the regression holds budgets for what can be counted (time to show a day, steps per job, words before the
+first picture, accessibility issues, the color budget).
+
+### 15. The workstreams, attached to the phases
+
+| Workstream | With | What |
+|---|---|---|
+| A. Time | phase 2 | §11 |
+| B. Finding | phase 4 | §12; "used by" lists for impact |
+| C. Sharing | phase 3 | the level, card and tab in the address; Copy link; a Brief button on the day head; the brief's link fixed |
+| D. Access | first, then the regression | §13 |
+| E. Learning | phase 5 | a help panel (the model in one picture, the glossary, shortcuts, the guides); glyphs always with words; the two clocks explained once |
+| F. Errors and safety | every phase | no silent dead ends; "Try it first" beside every change; a decision said to be permanent before it is made |
+| G. Knowing it works | every phase | §14 |
+
 ## Consequences
 
 - The stop sets assert text; the words phase (5) and the panel (3) change strings they check, and update them in the
@@ -229,3 +276,7 @@ Left for phase 2: Run is still a second filled button in the header; the header,
 | Q-348 | The Ontology page's first job? | Understand the model (§9) |
 | Q-349 | Canvas sections? | Frames and labels only (§2) |
 | Q-350 | What next? | This ADR, then phase 1 (§10) |
+| Q-351 | A day takes 11.7 s to verify: show it first, or verify first? | Show the record, verify behind it (§11) |
+| Q-352 | Search? | A Ctrl K palette and header search (§12) |
+| Q-353 | Hold accessibility in the regression with axe-core, a new dev dependency? | Yes (§13) |
+| Q-354 | Who tests the redesign? | The judge panels for now (§14) |
