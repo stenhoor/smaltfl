@@ -8,7 +8,8 @@ A prototype of smaltfl's **Data model** screen on Larkspur's tour data, in plain
 - a paused day and its Decide panel;
 - building Larkspur from its 22 files and then playing its days.
 
-It is not part of the package, the tests or the build. It was built in rounds in a session's scratch space and is kept
+It is published as it is beside the demos, at `/explorer/` on the project's site (`.github/workflows/docs.yml`). It is
+not part of the package, the tests or the build. It was built in rounds in a session's scratch space and is kept
 here so later sessions can carry on.
 
 The last four rounds were peer rounds. Five reviewers (builder, owner, designer, newcomer, data quality) each built a

@@ -5,13 +5,13 @@ name: Docs
 # reads, as a page of its own on the tour's files at /feeds/ (ADR 0026 §6: a paused day decided on either page is
 # carried to the other, since both are one origin's and share the browser's records; `--page` tells each where the
 # other is); Larkspur's planted month at /larkspur/ (ADR 0020's answer key); the control estate at /estate/ (ADR 0014's
-# answer key, kept as a regression, Q-169) and the sign-in log at /signins/. Each demo's data is generated from its
+# answer key, kept as a regression, Q-169), the sign-in log at /signins/ and the Data model explorer prototype at /explorer/. Each demo's data is generated from its
 # fixed seed by the build (scripts/data/larkspur.mjs, scripts/data/estate.ts, scripts/data/security.ts), its histories
 # measured on the runtime.
 on:
   push:
     branches: [main]
-    paths: ['docs/**', 'src/**', 'examples/**', 'scripts/**', 'test/fixtures/**', 'packed.json', 'package.json', 'package-lock.json', '.github/workflows/docs.yml']
+    paths: ['docs/**', 'src/**', 'examples/**', 'scripts/**', 'test/fixtures/**', 'tools/explorer/app/**', 'packed.json', 'package.json', 'package-lock.json', '.github/workflows/docs.yml']
   workflow_dispatch:
 
 permissions:
@@ -46,12 +46,15 @@ jobs:
       - run: npm run build:app -- --flow examples/larkspur/flow.json --out docs/.vitepress/dist/larkspur
       - run: npm run build:app -- --flow examples/control-estate/flow.json --out docs/.vitepress/dist/estate
       - run: npm run build:app -- --flow examples/security-signins/flow.json --out docs/.vitepress/dist/signins
+      # The Data model explorer, a static prototype on Larkspur's tour data (tools/explorer/README.md), copied as it is.
+      - run: cp -r tools/explorer/app docs/.vitepress/dist/explorer
       # Every page and file the demos load answers: a demo that can't load its data is a broken site.
       - run: |
           for d in app feeds larkspur estate signins; do
             test -f docs/.vitepress/dist/$d/index.html
             test -f docs/.vitepress/dist/$d/data/flow.json
           done
+          for f in index.html explore.js build.js build.json model.json; do test -f docs/.vitepress/dist/explorer/$f; done
       - uses: actions/configure-pages@v5
         with:
           enablement: true
