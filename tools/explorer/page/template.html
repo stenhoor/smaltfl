@@ -1,0 +1,245 @@
+<title>Data Model Explorer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: pictures first. Each level of the explorer as a large screenshot with one line under it, then the zoom as
+   a filmstrip, the estate at ten times the size, the phone, and the judges' marks. Neutrals, one action blue, status
+   colors only on status, as the explorer itself. */
+:root {
+  --bg: #eef1f6; --surface: #ffffff; --sunk: #f3f5f9; --line: #dde2ea; --line-2: #c3c9d4;
+  --text: #151922; --text-2: #3f4656; --text-3: #5c6375;
+  --action: #003399; --action-hover: #00297a; --action-wash: #e3e9f5; --on-action: #ffffff;
+  --bad: #a3195b; --ok: #1d6b3a; --scrim: rgba(15, 19, 26, .82);
+  --shadow: 0 1px 2px rgba(21, 25, 34, .05), 0 12px 32px -8px rgba(21, 25, 34, .16);
+  --font: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #0d1117; --surface: #171c25; --sunk: #1d232e; --line: #2d3440; --line-2: #434955; --text: #e8ebf1; --text-2: #c3c9d6; --text-3: #98a1b3; --action: #8fa8ff; --action-hover: #a9bcff; --action-wash: #1d2742; --on-action: #0f131a; --bad: #ff86b5; --ok: #67d391; --scrim: rgba(0,0,0,.86); --shadow: 0 12px 32px -8px rgba(0,0,0,.6); color-scheme: dark; } }
+:root[data-theme="dark"] { --bg: #0d1117; --surface: #171c25; --sunk: #1d232e; --line: #2d3440; --line-2: #434955; --text: #e8ebf1; --text-2: #c3c9d6; --text-3: #98a1b3; --action: #8fa8ff; --action-hover: #a9bcff; --action-wash: #1d2742; --on-action: #0f131a; --bad: #ff86b5; --ok: #67d391; --scrim: rgba(0,0,0,.86); --shadow: 0 12px 32px -8px rgba(0,0,0,.6); color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--text); font: 15px/1.5 var(--font); -webkit-text-size-adjust: 100%; background-image: radial-gradient(circle, color-mix(in srgb, var(--text) 10%, transparent) 1px, transparent 1.3px); background-size: 22px 22px; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+a { color: var(--action); text-underline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+p { margin: 0; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 88px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 44px; }
+.wrap > * { min-width: 0; }
+.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.hero { display: grid; gap: 14px; }
+.hero h1 { font-size: 34px; line-height: 1.15; font-weight: 600; letter-spacing: -.01em; }
+.lede { font-size: 17px; color: var(--text-2); max-width: 62ch; }
+.acts { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn { display: inline-flex; align-items: center; min-height: 42px; padding: 0 18px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--surface); color: var(--text); font: 500 15px var(--font); text-decoration: none; }
+.btn.primary { background: var(--action); border-color: var(--action); color: var(--on-action); }
+.btn.primary:hover { background: var(--action-hover); }
+section > h2 { font-size: 24px; font-weight: 600; line-height: 1.25; margin-bottom: 6px; }
+section > .sub { color: var(--text-2); margin-bottom: 14px; max-width: 70ch; }
+.shot { margin: 0; display: grid; gap: 8px; min-width: 0; }
+.shot button { display: block; width: 100%; padding: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); cursor: zoom-in; box-shadow: var(--shadow); }
+.shot button:hover { border-color: var(--action); }
+.shot img { display: block; width: 100%; height: auto; }
+.shot figcaption { font-size: 14px; color: var(--text-2); }
+.shot figcaption b { color: var(--text); font-weight: 600; }
+.levels { display: grid; gap: 28px; }
+.steps { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); counter-reset: step; }
+@media (min-width: 900px) { .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.h3s { margin: 24px 0 10px; font-size: 16px; font-weight: 600; }
+.setup .steps { align-items: start; } .steps .shot.tall button { max-width: 380px; margin: 0 auto; } .steps .shot.tall figcaption { max-width: 380px; margin: 0 auto; }
+.setup .acts { margin: 4px 0 16px; }
+.steps .shot figcaption b::before { counter-increment: step; content: counter(step) ". "; }
+.loopcard { margin-top: 16px; }
+.walks .wgrid { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) { .walks .wgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.walk { margin: 0; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.walk video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; border-radius: 12px; border: 1px solid var(--line); box-shadow: var(--shadow); background: var(--surface); }
+.walk figcaption { display: grid; gap: 6px; font-size: 14px; color: var(--text-2); }
+.walk .wt { display: flex; gap: 8px; align-items: baseline; } .walk .wt b { color: var(--text); font-weight: 600; font-size: 16px; } .walk .wt span { color: var(--text-3); font-variant-numeric: tabular-nums; }
+.walk p { margin: 0; }
+.walk .wl { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.walk .wl li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 4px; }
+.walk .wl .ok span { color: var(--ok, #1d6b3a); font-weight: 600; } .walk .wl .fx span { color: var(--action); font-weight: 600; }
+.walk .wtry { justify-self: start; color: var(--action); font-weight: 500; }
+.wmarks { margin-top: 20px; } .wnote { margin: 8px 0 0; font-size: 13px; color: var(--text-2); }
+.movie { margin: 0; display: grid; gap: 10px; }
+.movie video { display: block; width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--line); box-shadow: var(--shadow); background: var(--surface); }
+.movie figcaption { font-size: 14px; color: var(--text-2); } .movie figcaption b { color: var(--text); font-weight: 600; }
+.changed { border-width: 1px; border-color: var(--line); } .changed ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; color: var(--text-2); } .changed b { color: var(--text); font-weight: 600; }
+.swatches { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 760px) { .swatches { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1100px) { .swatches { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.sw { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 12px; align-items: center; }
+.chip2 { width: 56px; height: 56px; border-radius: 10px; overflow: hidden; display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); }
+.chip2 span { display: grid; place-items: center; font-weight: 600; font-size: 15px; }
+.sw b { font-weight: 600; display: block; } .sw .u { font-size: 13px; color: var(--text-2); } .sw .cr { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; margin-top: 2px; }
+.motion { display: grid; gap: 10px; margin-top: 14px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 760px) { .motion { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.mo { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 4px; } .mo b { font-weight: 600; } .mo span { font-size: 13px; color: var(--text-2); }
+.two { display: grid; gap: 16px; }
+@media (min-width: 900px) { .two { grid-template-columns: 1fr 1fr; } }
+.film { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 900px) { .film { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.phones { display: flex; gap: 16px; flex-wrap: wrap; }
+.phones .shot { flex: 0 1 220px; }
+.marks { display: grid; gap: 16px; }
+@media (min-width: 900px) { .marks { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); align-items: start; } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; display: grid; gap: 10px; min-width: 0; box-shadow: var(--shadow); }
+.card h3 { font-size: 13px; font-weight: 600; color: var(--text-3); }
+.rkey { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--text-2); }
+.rk { display: inline-flex; align-items: center; gap: 6px; } .rk i { width: 12px; height: 8px; border-radius: 2px; display: inline-block; }
+.mrow { display: grid; grid-template-columns: minmax(0, 170px) minmax(0, 1fr); gap: 10px; align-items: center; font-size: 14px; color: var(--text-2); }
+.mb { display: grid; gap: 3px; } .rb { display: grid; grid-template-columns: minmax(0, 1fr) 30px; gap: 8px; align-items: center; }
+.r0 { background: var(--line-2) !important; } .r1 { background: color-mix(in srgb, var(--text-2) 40%, var(--surface)) !important; } .r2 { background: color-mix(in srgb, var(--text-2) 58%, var(--surface)) !important; } .r3 { background: color-mix(in srgb, var(--text-2) 78%, var(--surface)) !important; } .r4 { background: var(--action) !important; }
+@media (max-width: 520px) { .mrow { grid-template-columns: minmax(0, 1fr); } }
+.track { height: 8px; border-radius: 4px; background: var(--sunk); position: relative; overflow: hidden; }
+.fill { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: var(--text-2); }
+.rb .n { text-align: right; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; font-size: 13px; }
+.card ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; color: var(--text-2); }
+.quote { border-left: 3px solid var(--line-2); padding-left: 10px; color: var(--text); font-size: 14px; } .quote span { display: block; font-size: 12px; color: var(--text-3); margin-top: 2px; }
+.stwrap { overflow-x: auto; } table.scores { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+table.scores caption { text-align: left; font-size: 13px; font-weight: 600; color: var(--text-3); padding-bottom: 8px; }
+table.scores th, table.scores td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+table.scores thead th { font-size: 12px; font-weight: 600; color: var(--text-3); }
+table.scores tbody th { font-weight: 500; color: var(--text-2); } table.scores tbody th span { margin-left: 6px; font-size: 11px; font-weight: 600; color: var(--action); background: var(--action-wash); border-radius: 999px; padding: 1px 7px; }
+table.scores td { position: relative; min-width: 84px; } table.scores td b { position: relative; font-weight: 600; color: var(--text); }
+table.scores .sbar { position: absolute; left: 8px; top: 50%; height: 6px; width: calc((100% - 44px) * var(--w) / 100); transform: translate(26px, -50%); border-radius: 3px; background: var(--line-2); }
+table.scores tr.latest td .sbar { background: var(--action); } table.scores tr.latest th, table.scores tr.latest td b { color: var(--text); font-weight: 600; }
+.card table.scores + .quote, .card .stwrap + .stwrap { margin-top: 12px; }
+.ideas { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 760px) { .ideas { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.idea { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 4px; }
+.idea b { font-weight: 600; } .idea span { font-size: 13px; color: var(--text-3); }
+.ask { background: var(--surface); border: 2px solid var(--action); border-radius: 12px; padding: 16px 20px; display: grid; gap: 10px; }
+.ask h2 { font-size: 20px; font-weight: 600; }
+.ask ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; color: var(--text-2); }
+.ask b { color: var(--text); }
+.src { font-size: 12px; color: var(--text-3); } .src a { color: var(--text-3); }
+.viewer { position: fixed; inset: 0; z-index: 20; background: var(--scrim); display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.viewer[hidden] { display: none !important; }
+.vbar { display: flex; align-items: center; gap: 12px; padding: calc(10px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); color: #fff; font-size: 14px; }
+.vbar span { flex: 1; min-width: 0; }
+.vbar button { min-height: 36px; padding: 0 14px; border-radius: 6px; border: 1px solid rgba(255,255,255,.5); background: transparent; color: #fff; font: 500 14px var(--font); cursor: pointer; }
+.vbody { overflow: auto; padding: 0 max(16px, env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.vbody img { display: block; margin: 0 auto; max-width: min(100%, 1600px); height: auto; border-radius: 8px; }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">Stage 1 · the Data model, as a map you explore · round 12</div>
+    <h1>Start at the whole estate. Open what interests you.</h1>
+    <p class="lede">The kinds of thing your data describes and how they connect. Open one and it fills the view, its neighbours waiting at the edges. Open a dataset and you see what it joins, what it holds up and what it is evidence for. Today’s state shows at every level, and the same map holds ten times as much.</p>
+    <div class="acts"><a class="btn primary" href="explore/index.html">Open the explorer ›</a><a class="btn" href="#walks">Watch the walkthroughs</a><a class="btn" href="#setup">Build it from nothing</a><a class="btn" href="#ask">Your call</a></div>
+  </header>
+
+  <section>
+    <figure class="movie">
+      <video src="media/explorer9.webm" poster="media/poster9.jpg" autoplay muted loop playsinline controls aria-label="The explorer in use: Ctrl K with its preview, answers as you type, a month with its real counts, looking inside with Tab, deciding in pictures, then the larger estate pointed at kind by kind"></video>
+      <figcaption><b>In use, about a minute.</b> Ctrl K with its preview; an answer as you type; a month with its real counts; looking inside with Tab; deciding, each choice acting out what it does; then the larger estate pointed at, each card making room for its sentence.</figcaption>
+    </figure>
+  </section>
+
+  <section class="walks" id="walks">
+    <h2>Five walkthroughs, recorded raw</h2>
+    <p class="sub">Each recorded straight through the prototype, the step pointed at with a ring. ✓ what works; ↻ what the peer reviewers found hard, and what changed for it.</p>
+    <div class="wgrid">%WALK%</div>
+    <div class="card wmarks">%WALK_MARKS%<p class="wnote">The videos show the explorer after two peer rounds: five reviewers each built a working fix, reviewed the others’ until three of four agreed, and the agreed fixes were merged.</p></div>
+  </section>
+
+  <section class="setup" id="setup">
+    <h2>From nothing to the demo</h2>
+    <p class="sub">%SETUP_SUB%</p>
+    <div class="acts"><a class="btn primary" href="explore/index.html#build-new">Build Larkspur yourself ›</a></div>
+    <div class="steps">%SETUP%</div>
+    <h3 class="h3s">On a phone</h3>
+    <div class="phones">%SETUP_PHONE%</div>
+    <div class="card">%SETUP_MARKS%</div>
+  </section>
+
+  <section class="ask changed">
+    <h2>What changed since you looked</h2>
+    <ul>%CHANGED%</ul>
+  </section>
+
+  <section class="levels">
+    %LEVELS%
+  </section>
+
+  <section>
+    <h2>Fixing the problem, step by step</h2>
+    <p class="sub">Crimson is the problem, amber is what still needs you, green is settled, and smalt blue is only ever what you can press. Each step changes only what it has to, and each can be undone, one at a time.</p>
+    <div class="steps">%FIX%</div>
+  </section>
+
+  <section>
+    <h2>Exploring the data</h2>
+    <p class="sub">Ctrl K leads with what to do now, answers questions from the page’s data with the buttons to act on them, and finds any kind, dataset or column by a word; every dataset has Explore rows, with its columns and what each one means.</p>
+    <div class="two">%EXPLORE%</div>
+  </section>
+
+  <section>
+    <h2>Pointing shows what carries a link</h2>
+    <p class="sub">Point at a neighbour, or tap what carries its link, and the datasets behind it light up; point at a dataset and the kinds it reaches light up.</p>
+    <div class="two">%POINT%</div>
+  </section>
+
+  <section>
+    <h2>Opening a kind, frame by frame</h2>
+    <p class="sub">Application grows into its panel; its neighbours' datasets fly back into their squares as the tiles slide to the sides; the lines wait for the move to end, then draw themselves in and their words follow. Half a second; none for people who ask for less motion.</p>
+    <div class="film">%FILM%</div>
+  </section>
+
+  <section>
+    <h2>Ten times the size</h2>
+    <p class="sub">A generated estate of 22 kinds and 212 datasets, drawn at nine tenths of full size on a 1440 × 900 window. Each area places the kinds that relate side by side, and the whole is arranged so the links between areas run straight through the gaps.</p>
+    <div class="two">%BIG%</div>
+  </section>
+
+  <section>
+    <h2>Colour and motion</h2>
+    <p class="sub">Neutrals with a slight lean toward smalt blue; one action colour; two status colours, each with its own mark so colour is never the only signal. Every pair below meets WCAG 2.2 AA in both themes.</p>
+    <div class="swatches">%SWATCHES%</div>
+    <div class="motion">%MOTION%</div>
+    %DARK%
+  </section>
+
+  <section>
+    <h2>On a phone and a tablet</h2>
+    <p class="sub">The same levels, stacked on a phone: the headline first, each kind a card with its relations as sentences, the neighbours above an opened kind; Decide and Ctrl K fit the width. On a tablet a dataset puts what it joins on the left and what it builds below, and an opened kind sets its neighbours two to a row. Nothing scrolls sideways.</p>
+    <div class="phones">%PHONES%</div>
+  </section>
+
+  <section>
+    <h2>What fresh judges made of it, round by round</h2>
+    <p class="sub">%JUDGE_INTRO%</p>
+    <div class="marks">%MARKS%</div>
+  </section>
+
+  <section>
+    <h2>What it is built on</h2>
+    <div class="ideas">%IDEAS%</div>
+    <p class="src" style="margin-top:10px">%SOURCES%</p>
+  </section>
+
+  <section class="ask" id="ask">
+    <h2>Your call</h2>
+    <ol>%QUESTIONS%</ol>
+  </section>
+</div>
+
+<div class="viewer" id="viewer" hidden role="dialog" aria-modal="true" aria-label="Screenshot, full size">
+  <div class="vbar"><span id="vcap"></span><button type="button" id="vclose">Close</button></div>
+  <div class="vbody" id="vbody"><img id="vimg" alt=""></div>
+</div>
+<script>
+(() => {
+  const v = document.getElementById('viewer'), img = document.getElementById('vimg');
+  let from = null;
+  const close = () => { v.hidden = true; img.removeAttribute('src'); if (from) from.focus(); };
+  document.querySelectorAll('[data-full]').forEach((b) => b.addEventListener('click', () => { from = b; img.src = b.dataset.full; img.alt = b.dataset.cap || ''; document.getElementById('vcap').textContent = b.dataset.cap || ''; v.hidden = false; document.getElementById('vbody').scrollTop = 0; document.getElementById('vclose').focus(); }));
+  document.getElementById('vclose').addEventListener('click', close);
+  v.addEventListener('click', (e) => { if (e.target === v || e.target.id === 'vbody') close(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !v.hidden) close(); });
+})();
+</script>
