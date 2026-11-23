@@ -2300,9 +2300,6 @@ function renderNotebookSheet(g: GroupDef, o: NotebookOutline): void {
     editSection(g.id, (x) => ({ ...x, name: v }));
   });
   name.addEventListener('keydown', (e) => e.key === 'Enter' && name.blur());
-  const color = g.color ?? 'slate';
-  const swatches = h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': 'Colour' },
-    ...GROUP_COLORS.map((c) => h('button', { type: 'button', class: `swatch-btn c-${c}`, role: 'radio', 'aria-checked': String(c === color), 'aria-label': c, title: c, onclick: () => (editSection(g.id, (x) => ({ ...x, color: c })), renderSheet()) })));
   // Source: the whole .nb.ts file in one read-only editor, as smaltnb's Source shows it.
   const cellsHost = h('div', { class: 'nbc-list' }, ...notebookCells(o));
   const source = state.doc.notebooks?.find((n) => n.path === o.path)?.source ?? '';
@@ -2341,7 +2338,6 @@ function renderNotebookSheet(g: GroupDef, o: NotebookOutline): void {
       isOwner() ? h('details', { class: 'about-flow' }, h('summary', {}, 'The box on the canvas'),
         h('div', { class: 'sheet-body' },
           h('div', { class: 'field' }, h('label', { for: name.id }, 'Name'), name),
-          h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Colour'), swatches),
           h('p', { class: 'foot' }, 'The box only changes how the flow looks: never what it computes, or its hashes. The notebook is what runs.'))) : ''));
   sheet.hidden = false;
 }
@@ -13721,11 +13717,6 @@ function renderSectionSheet(focusName = false): void {
     editSection(g.id, (x) => ({ ...x, name: v }));
   });
   name.addEventListener('keydown', (e) => e.key === 'Enter' && name.blur());
-  const color = g.color ?? 'slate';
-  const swatches = h('div', { class: 'swatches', role: 'radiogroup', 'aria-label': 'Colour' },
-    ...GROUP_COLORS.map((c) =>
-      h('button', { type: 'button', class: `swatch-btn c-${c}`, role: 'radio', 'aria-checked': String(c === color), 'aria-label': c, title: c, onclick: () => (editSection(g.id, (x) => ({ ...x, color: c })), renderSectionSheet()) }),
-    ));
   const members = g.steps.length
     ? h('div', { class: 'chips' }, ...g.steps.map((m) => h('button', { type: 'button', class: 'chip', onclick: () => select(m) }, m)))
     : h('p', { class: 'foot' }, 'No steps yet. In Arrange, drag a step onto it, or choose it under Section in a step’s sheet.');
@@ -13743,7 +13734,6 @@ function renderSectionSheet(focusName = false): void {
     h('div', { class: 'sheet-head' }, h('div', { style: 'flex:1;min-width:0' }, h('p', { class: 'eyebrow' }, 'SECTION'), title), h('button', { class: 'close', type: 'button', 'aria-label': 'Close', onclick: () => select(null) }, '×')),
     h('div', { class: 'sheet-body' },
       h('div', { class: 'field' }, h('label', { for: name.id }, 'Name'), name),
-      h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Colour'), swatches),
       h('div', { class: 'field' }, h('span', { class: 'field-label' }, `Steps · ${g.steps.length}`), members),
       h('div', { class: 'row' }, fold, del),
       h('p', { class: 'foot' }, 'Sections only change how the flow looks: never what it computes, or its hashes. This browser keeps your arrangement.'),

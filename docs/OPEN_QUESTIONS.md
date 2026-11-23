@@ -15,7 +15,8 @@ bronze layer in [adr/0015-the-bronze-layer.md](adr/0015-the-bronze-layer.md), th
 [adr/0024-the-month-at-a-glance.md](adr/0024-the-month-at-a-glance.md), the browser regression in minutes in
 [adr/0025-the-browser-regression-in-minutes.md](adr/0025-the-browser-regression-in-minutes.md), flows in flows in
 [adr/0026-flows-in-flows.md](adr/0026-flows-in-flows.md), the ontology over time in
-[adr/0027-the-ontology-over-time.md](adr/0027-the-ontology-over-time.md). The
+[adr/0027-the-ontology-over-time.md](adr/0027-the-ontology-over-time.md), one visual system in
+[adr/0028-one-visual-system.md](adr/0028-one-visual-system.md). The
 research behind the proposals is in [research/ecosystem-survey.md](research/ecosystem-survey.md).
 
 **Who decides:** the maintainers, together (ADR 0001 §1).
@@ -28,6 +29,36 @@ research behind the proposals is in [research/ecosystem-survey.md](research/ecos
 | Q-29 | The mark: round 3 leans into waves (M12–M18), all curved | **The Twin (M13), with a small chip,** picked and approved by stenhoor on 2026-11-11 (ADR 0016) | decided |
 | Q-41 | How do row rules pass through aggregates? | An aggregated row is visible only when every row behind it is. A dataset whose rows mix what a viewer may and may not see is closed to that viewer, and the app says why and offers the fix (group it by the rule's column): A7 shows this for `airport_times`. v1 applies rules by column name and closes a dataset without the rule's column; exact inheritance waits for bound plans | open |
 | Q-34 | Verified runs and speed: parallel execution can change a floating-point sum in its last digit | Verification is bit-exact: runs pin the engine settings that affect results (no parallel aggregation of floating-point values), and the cost is measured. Revisit if it is large. A fold that changes the order of a floating-point sum is a new result (ADR 0004); order-independent sums in smaltdb would make it free, to discuss with stenhoor | open |
+
+## UX beyond the visuals: the maintainer's answers of 2026-11-21 (ADR 0028 amendment 1)
+
+The maintainer then asked for a deep dive on UX as a whole (docs/research/ux-deep-dive.md). The app was measured against
+it; these were the decisions it raised.
+
+| ID | Question | Answer | Status |
+| --- | --- | --- | --- |
+| Q-351 | A day switch takes 11.7 s because the browser re-runs the flow to verify the recorded result. Show it first or verify first? | **Show the record, verify behind it**: the day opens at once on the record, marked so, the same verification runs in the background with real progress, then *Verified here* or a flagged mismatch; finished runs kept; nothing run on first load (ADR 0028 §11) | decided 2026-11-21 |
+| Q-352 | Search? | **A Ctrl K command palette and header search** over datasets, columns, rules, days, scenes and actions, shortcuts shown; a search box on Data model (ADR 0028 §12) | decided 2026-11-21 |
+| Q-353 | Hold accessibility in the browser regression with axe-core (a new dev dependency)? | **Yes**: WCAG 2.2 A/AA violations on a stop are problems; the five found are fixed first, with a skip link and 24/44 px targets (ADR 0028 §13) | decided 2026-11-21 |
+| Q-354 | Who tests the redesign? | **The judge panels for now**, on the owner's six jobs, until real users are available (ADR 0028 §14) | decided 2026-11-21 |
+
+## One visual system: the maintainer's answers of 2026-11-21 (ADR 0028)
+
+The maintainer asked for research on color and hierarchy, a page-by-page critique of the app from screenshots, and a
+plan that makes it *"feel like one cohesive thing, not separate pages that are disjointed"*, singling out the Ontology
+page (*"just a word salad soup thing"*). The review is docs/research/ui-design-review.md; the answers were given through
+the question prompt in two rounds.
+
+| ID | Question | Answer | Status |
+| --- | --- | --- | --- |
+| Q-343 | Who is the first screen (and every screen's first glance) designed for? | **The owner who acts**: who decides paused days and edits rules, and explains it upward. Screens lead with what needs them; what leadership reads is one tap away (ADR 0028 §7) | decided 2026-11-21 |
+| Q-344 | Which color means "you can act here"? | **Smalt alone**: buttons, underlined links, selection and focus. Cerulean stays in the mark; teal and violet leave the interface; status keeps rose, amber and green (ADR 0028 §2) | decided 2026-11-21 |
+| Q-345 | How should the app talk? | **Plain, conventional names**: Overview, Pipeline, Data model, Outputs, Access, Audit log; one status vocabulary (Normal, Unusual, Paused, Decided, Not published, Not judged) (ADR 0028 §6) | decided 2026-11-21 |
+| Q-346 | How dense? | **Calm first, depth on click**: a verdict, one action and three to five facts; the rest on demand, two levels at most (ADR 0028 §7) | decided 2026-11-21 |
+| Q-347 | The side panel's tabs? | **The same five on every card**: Summary, Data, Checks, History, Details (ADR 0028 §8) | decided 2026-11-21 |
+| Q-348 | What should someone do in their first 30 seconds on the Ontology page? | **Understand the model**: the map of kinds of thing and their relations leads; review items become a count (ADR 0028 §9) | decided 2026-11-21 |
+| Q-349 | Canvas sections, which could be painted the status colors? | **Frames and labels only**: color on the canvas only means status (ADR 0028 §2) | decided 2026-11-21 |
+| Q-350 | What next? | **ADR 0028, then phase 1**: the foundation (role tokens, type scale, shared components, a test holding the style sheet to them) with no structural change (ADR 0028 §10) | decided 2026-11-21 |
 
 ## The ontology over time: the maintainer's answers of 2026-11-18 (ADR 0027)
 

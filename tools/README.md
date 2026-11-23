@@ -3,6 +3,12 @@
 Checks and judging tools used to build and test the app's views (see [docs/HANDOFF.md](../docs/HANDOFF.md)). They
 are not part of the package, the tests or the build.
 
+## explorer/
+
+A prototype of the Data model screen on Larkspur's tour data: the estate map, Ctrl K, a paused day's Decide panel and
+building Larkspur from its files. It has its walkthrough videos and checks, and the peer-review process that iterated on
+it. See [explorer/README.md](explorer/README.md); the plan for its next round is `explorer/peer/plan-tomorrow.md`.
+
 ## browser/
 
 They need Playwright with Chromium (`require('playwright')`), and Python 3 with Pillow for the two image scripts.
