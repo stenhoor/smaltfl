@@ -360,7 +360,7 @@
     const rebuilt = new Set(datasets.filter((d) => d.replaced).flatMap((d) => d.builds));
     const openDay = open ? st[open.id]?.day : null;
     Object.assign(M, {
-      estate: 'Larkspur estate', day: today() || DATA.day0, kinds, datasets, joins, relations,
+      estate: 'Larkspur estate', day: today() || DATA.day0, todayIso: today(), /* peer:design */ kinds, datasets, joins, relations,
       outputs: B.product ? FULL.outputs.map((o) => ({ ...o, waiting: wait.has(o.id), released: rel.get(o.id), rebuilt: rebuilt.has(o.id) })) : [],
       month: monthOfEstate(), markers: [], dayCtx: openDay ? ctxOf(openDay) : today() ? ctxOf(today()) : undefined,
       latest: openDay && today() > openDay ? { iso: today(), label: dayLabel(today()) } : null,
@@ -438,9 +438,10 @@
   }
   function tuneLine(H) {
     const out = [];
-    for (const [fid, l] of Object.entries(B.limitFrom || {})) for (const c of l) if (c.from === H) out.push(`<p class="bd-out tuned"><span class="om">✓</span><span><b>You changed ${esc(poss(nameOf(fid)))} limit: ±${c.was}% → ±${c.L}% from ${esc(dShort(c.from))}</b> · ${esc(youStamp(c.at).replace(' · this replay', ''))} · “${esc(c.note)}” <i>${c.by === 'smaltfl' ? 'smaltfl’s reading, agreed' : 'your words'}</i></span></p>`);
-    for (const [fid, l] of Object.entries(B.levelFrom || {})) for (const c of l) if (c.on === H) out.push(`<p class="bd-out tuned"><span class="om">✓</span><span><b>You accepted ${esc(poss(nameOf(fid)))} new level from ${esc(dShort(c.from))}</b> · your limit kept · at ${esc(youStamp(c.at).replace(' · this replay', ''))} · “${esc(c.note)}” <i>${c.by === 'smaltfl' ? 'smaltfl’s reading, agreed' : 'your words'}</i></span></p>`);
-    return out.join('');
+    const tw = (c) => (c.note ? `<details class="tl-q"><summary>${c.by === 'smaltfl' ? 'smaltfl’s reading' : 'your words'}</summary><q>${esc(c.note)}</q></details>` : '<span class="tl-none">no reason given</span>'); // peer:owner (r4)
+    for (const [fid, l] of Object.entries(B.limitFrom || {})) for (const c of l) if (c.from === H) out.push(tlRow({ day: tlDay(c.from), mark: '✓', cls: 'dec tuned', what: `Changed ${esc(poss(nameOf(fid)))} limit: ±${c.was}% → ±${c.L}%`, who: 'You', words: tw(c) }));
+    for (const [fid, l] of Object.entries(B.levelFrom || {})) for (const c of l) if (c.on === H) out.push(tlRow({ day: tlDay(c.on), mark: '✓', cls: 'dec tuned', what: `Accepted ${esc(poss(nameOf(fid)))} new level from ${esc(dShort(c.from))}`, who: 'You · your limit kept', words: tw(c) }));
+    return out.length ? `<div class="bd-tl tuned"><ol>${out.join('')}</ol></div>` : ''; // peer:owner (r4)
   }
   function undoLast() {
     let at = null, H0 = null, lim = null;
@@ -1136,15 +1137,52 @@
     const ms = ks.map((k) => linkModeOf(k)), main = ms.includes('hold') ? 'hold' : ['new', 'all'].some((m) => ms.includes(m)) ? 'warn' : ms.includes('note') ? 'note' : 'off';
     return `<li class="gaps"><span class="ckm ${main}" aria-hidden="true">${MODE_MARK[main]}</span><span class="ckn"><b>Blanks</b><span class="ckq">Blank columns and missing first versions you described while reading the files</span><small>${ks.map((k) => `${esc(nameOf(k.split('.')[0]))} ${esc(GAP_TAG[k].replace(/^Your check on /, ''))}: ${ruleOnGap(k) ? `your rule, ${esc(myRuleSaid(ruleOnGap(k)))} (${esc((MODE_SAID[ruleOnGap(k).mode] || 'Warn').toLowerCase())})` : esc(GAP_WORD[linkModeOf(k)] || 'off')}`).join(' · ')}</small>${B.known ? `<small>Accepted as known by you, ${esc(youStamp(B.known.at))}</small>` : ''}<button type="button" class="link" data-act="go" data-to="files">Change them on the files ›</button></span></li>`;
   }
-  // the 56 days in one strip: a paused day red, a warned one brown; each paused day named by what paused it
-  function pausedStrip(rec) {
-    const days = DATA.days.filter((y) => y.day <= LAST), byDay = {};
-    const PLAINQ = { schema: 'columns', fresh: 'freshness', amount: 'row count', key: 'duplicate ids', scope: 'coverage', values: 'unknown codes', learned: 'value mix', links: 'links' };
-    for (const [c] of CHECKS) for (const d of rec[c].paused) (byDay[d] ||= []).push(PLAINQ[c] || c);
-    const warned = new Set(Object.values(rec).flatMap((r) => [...r.warned])), all = pausedDays();
-    for (const d of all) if (!byDay[d]) byDay[d] = ['an output’s own rule'];
-    const PLAIN = { '2024-02-16': 'Org units lost a department', '2024-02-26': 'MFA arrived empty', '2024-03-05': 'Logging moved 691 apps', '2024-03-06': 'Logging stayed moved', '2024-03-11': 'Backups mislabelled', '2024-03-21': 'TLS came twice', '2024-03-23': 'EDR arrived empty', '2024-03-27': 'Access reviews arrived empty' };
-    return `<div class="pdx"><b class="ps-h">${all.length} of ${days.length} days paused, Feb 1 to Mar 27</b><span class="ps-strip" aria-hidden="true">${days.map((y) => `<i class="${byDay[y.day] ? 'p' : warned.has(y.day) ? 'w' : ''}" title="${esc(md(y.day))}"></i>`).join('')}</span><span class="ps-ax"><i>Feb 1</i><i>Mar 1</i><i>Mar 27</i></span><span class="ps-leg"><span><i class="p"></i>paused</span><span><i class="w"></i>warned</span><span><i></i>went out as usual</span></span>${(() => { const ow = days.filter((y) => !byDay[y.day] && !warned.has(y.day) && (y.finds || []).some((f) => !f.file && outModeOf(f.source) === 'warn')); return ow.length ? `<small class="ps-out">The files’ checks. Outputs’ own checks, set in the next step, warn on ${plural(ow.length, 'more day')}: ${ow.map((y) => md(y.day)).join(', ')}.</small>` : ''; })()}<ul class="ps-days">${all.map((d) => { const fid = ISSUES[d] && (ISSUES[d].demo ? 'access_reviews' : ISSUES[d].file), ck = (CHECKS.find(([c]) => rec[c].paused.has(d)) || ['amount'])[0]; return `<li>${fid ? `<button type="button" class="psd" data-act="cellpick" data-f="${fid}" data-c="${ck}" title="Open ${esc(nameOf(fid))}’s check">` : ''}<b>${esc(md(d))}</b>${esc(PLAIN[d] || '')}<small>${esc(byDay[d].join(' and '))}</small>${fid ? '</button>' : ''}</li>`; }).join('')}</ul></div>`;
+  // peer:dq r4 — what each check would have done on each of the 56 days, under the settings on screen. Each finding of
+  // the record counts by its own file's mode: pause, paused; pause at ¼, paused where the record held the file and warned
+  // where it didn't; warn, warned; note or off, nothing. Under Larkspur's settings this is the record itself, finding for
+  // finding (peer/r4/dq/work/rec-check.cjs), so a control changed here redraws its row and stays true to the data. Links,
+  // and the blanks you described, count as the day player counts them (linkFindings); Rows adds the days past its limit.
+  function liveChecks() {
+    const out = Object.fromEntries([...CHECKS.map(([c]) => c), 'gaps'].map((c) => [c, { paused: new Set(), warned: new Set() }]));
+    for (const x of DATA.days) {
+      if (x.day > LAST) break;
+      const holds = new Set((x.holds || []).map((h) => h.replace(/_checked$/, '')));
+      for (const f of x.finds || []) {
+        if (!f.file) continue;
+        const file = fileOf(f.source), ks = /arrived empty/.test(f.said) && file?.scope ? ['amount', 'scope'] : /repeat a key/.test(f.said) ? ['key', 'amount'] : [checkKindOf(f.said)];
+        for (const k of ks) { const m = file ? checkOf(file, k) : null, held = holds.has(f.source); const o = m == null ? (held ? 'paused' : 'warned') : m === 'hold' ? 'paused' : m === 'learn' ? (held ? 'paused' : 'warned') : ['warn', 'new', 'all'].includes(m) ? 'warned' : ''; if (o) out[k][o].add(x.day); }
+      }
+      const lf = linkFindings(x).filter((l) => !l.quiet), lk = lf.filter((l) => !GAP_KEYS.has(l.k)), gp = lf.filter((l) => GAP_KEYS.has(l.k));
+      if (lk.some((l) => l.pause)) out.links.paused.add(x.day); else if (lk.length) out.links.warned.add(x.day);
+      if (gp.some((l) => l.pause)) out.gaps.paused.add(x.day); else if (gp.length) out.gaps.warned.add(x.day);
+    }
+    for (const d of Object.keys(rowsBeyond(rowsLimit()))) out.amount.paused.add(d);
+    for (const r of Object.values(out)) for (const d of r.paused) r.warned.delete(d);
+    return out;
+  }
+  // peer:dq r4 — the checks step as one grid: a row a check, a column a day, one date axis over all of them. A tall crimson
+  // bar is a day the check would have paused, a half-height amber one a day it would have warned; each row's control at
+  // its end as one quiet word ("Pause ›"), so the marks outweigh the controls; the word or the name opens the row: its
+  // four-way control and its sentence (its question, its files, its days in words, Rows' limit), one row at a time.
+  const PLAINQ = { schema: 'columns', fresh: 'freshness', amount: 'row count', key: 'duplicate ids', scope: 'coverage', values: 'unknown codes', learned: 'value mix', links: 'links' };
+  const DAY_PLAIN = { '2024-02-16': 'Org units lost a department', '2024-02-26': 'MFA arrived empty', '2024-03-05': 'Logging moved 691 apps', '2024-03-06': 'Logging stayed moved', '2024-03-11': 'Backups mislabelled', '2024-03-21': 'TLS came twice', '2024-03-23': 'EDR arrived empty', '2024-03-27': 'Access reviews arrived empty' };
+  function checksGrid(rows, rec) {
+    const days = DATA.days.filter((y) => y.day <= LAST), m1 = days.findIndex((y) => y.day.slice(5) === '03-01'), sd = X().smDay;
+    const lab = (iso) => esc(sd ? sd.text(iso, md(iso)) : md(iso));
+    // the day itself: paused where any row would pause it, or where only an output's own rule did (set in the next step)
+    const P = new Set(rows.flatMap((r) => [...r.paused])), W = new Set(rows.flatMap((r) => [...r.warned])), byDay = {};
+    for (const r of rows) if (PLAINQ[r.key]) for (const d of r.paused) (byDay[d] ||= []).push(PLAINQ[r.key]);
+    const outOnly = pausedDays().filter((d) => !CHECKS.some(([c]) => rec[c].paused.has(d)));
+    for (const d of outOnly) { P.add(d); (byDay[d] ||= []).push('an output’s own rule, set in the next step'); }
+    for (const d of P) W.delete(d);
+    const cells = (p, w, say) => days.map((y, i) => { const k = p.has(y.day) ? 'p' : w.has(y.day) ? 'w' : ''; return `<i class="${k}${i === m1 ? ' m1' : ''}" title="${esc(say(y.day, k))}"></i>`; }).join('');
+    const said = (n, p, w) => `${n}: ${[p.size ? `paused ${datesOf(p)}` : '', w.size ? `warned ${datesOf(w)}` : ''].filter(Boolean).join('; ') || 'never triggered'}`;
+    const row = (r) => { const open = B.ckRow === r.key; return `<li class="ckx-row ${r.cls || ''}${open ? ' open' : ''}" data-c="${r.key}"><button type="button" class="ckx-n" data-act="ckrow" data-c="${r.key}" aria-expanded="${open}" title="${open ? 'Close' : 'What it checks, and its days in words'}"><b>${esc(r.name)}</b>${r.sub ? `<small>${esc(r.sub)}</small>` : ''}</button><span class="ckx-d" role="img" aria-label="${esc(said(r.aria || r.name, r.paused, r.warned))}">${cells(r.paused, r.warned, (d, k) => `${md(d)}${k === 'p' ? ': paused' : k === 'w' ? ': warned' : ''}`)}</span><span class="ckx-c">${r.word ? `<button type="button" class="ckx-mode" data-act="ckrow" data-c="${r.key}" aria-expanded="${open}" aria-label="${esc(r.name)}: ${esc(r.word)}. Change it">${esc(r.word)}</button>` : r.ctl}</span>${open ? `<div class="ckx-more">${r.word ? `<span class="ckx-full2">${r.ctl}</span>` : ''}${r.more}</div>` : ''}</li>`; };
+    const dayRow = `<li class="ckx-row day"><span class="ckx-n"><b>The day</b></span><span class="ckx-d" role="img" aria-label="${esc(said('The day', P, W))}">${cells(P, W, (d, k) => `${md(d)}${k === 'p' ? `: paused${DAY_PLAIN[d] ? ' · ' + DAY_PLAIN[d] : ''} (${(byDay[d] || []).join(' and ')})` : k === 'w' ? ': warned' : ''}`)}</span><span class="ckx-c"></span></li>`;
+    const axis = `<li class="ckx-row ax" aria-hidden="true"><span class="ckx-n"></span><span class="ckx-d"><i style="grid-column: 1">${lab(days[0].day)}</i>${m1 > 0 ? `<i style="grid-column: ${m1 + 1}">${lab(days[m1].day)}</i>` : ''}<i class="end" style="grid-column: ${days.length}">${lab(days[days.length - 1].day)}</i></span><span class="ckx-c"></span></li>`;
+    const ow = days.filter((y) => !P.has(y.day) && !W.has(y.day) && (y.finds || []).some((f) => !f.file && outModeOf(f.source) === 'warn'));
+    const why = `<details class="ckx-why"><summary>Why each paused day paused ›</summary><ul class="ps-days">${[...P].sort().map((d) => { const fid = ISSUES[d] && (ISSUES[d].demo ? 'access_reviews' : ISSUES[d].file), ck = (CHECKS.find(([c]) => rec[c].paused.has(d)) || ['amount'])[0]; return `<li>${fid ? `<button type="button" class="psd" data-act="cellpick" data-f="${fid}" data-c="${ck}" title="Open ${esc(nameOf(fid))}’s check">` : ''}<b>${esc(md(d))}</b>${esc(DAY_PLAIN[d] || '')}<small>${esc((byDay[d] || []).join(' and '))}</small>${fid ? '</button>' : ''}</li>`; }).join('')}</ul>${ow.length ? `<small class="ps-out">Outputs’ own checks, set in the next step, warn on ${plural(ow.length, 'more day')}: ${ow.map((y) => md(y.day)).join(', ')}.</small>` : ''}</details>`;
+    return `<div class="pdx ckx" style="--n: ${days.length}"><p class="ckx-h"><b class="ps-h">${P.size} of ${days.length} days paused</b><span class="ckx-key" aria-hidden="true"><i class="p"></i>paused<i class="w"></i>warned</span></p><ul class="ck-kinds ckx-rows">${axis}${dayRow}${rows.map(row).join('')}</ul>${why}</div>`;
   }
   // the cell picked in the matrix: its four words, and for links or gaps each column it covers, set one by one
   function cellBar() {
@@ -1166,10 +1204,12 @@
       return `<li class="mine"><span class="ckm ${mm}" aria-hidden="true">${MODE_MARK[mm]}</span><span class="ckn"><b>Your rule · ${esc(nameOfFile(fid))}</b><span class="ckq">${esc(myRuleSaid(r))}</span><small>Feb 1 to Mar 27: ${bd.size ? `${mm === 'hold' ? 'pauses' : mm === 'note' ? 'notes' : 'warns'} on ${plural(bd.size, 'day')}` : 'never broke'}</small><span class="ckstrip" aria-hidden="true">${days.map((y, k) => `<i class="${bd.has(k) ? (mm === 'hold' ? 'p' : 'w') : ''}"></i>`).join('')}</span></span>${seg4({ label: 'Your rule: what it does', now: mm, act: 'myrule-mode', data: `data-f="${fid}" data-i="${i}"` })}</li>`; }).join('');
   }
   function rulesView() {
-    const cells = checkCells(), count = (m) => cells.filter((x) => x === m).length, rec = recordOfChecks();
-    const control = (c, n, main, mixed) => seg4({ label: `${n}: what it does`, now: main, mixed, act: 'kindmode', data: `data-c="${c}"`, pauseQual: c === 'learned' ? 'at ¼: when a quarter of the rows change' : '', warnSub: c === 'links', lark: c === 'links' ? 'new' : c === 'learned' ? 'learn' : 'hold' });
+    const cells = checkCells(), count = (m) => cells.filter((x) => x === m).length, rec = recordOfChecks(), live = liveChecks(); // peer:dq r4: live, each row as set
+    const control = (c, n, main, mixed) => seg4({ label: `${n}: what it does`, now: main, mixed, act: 'kindmode', data: `data-c="${c}"`, lark: c === 'links' ? 'new' : c === 'learned' ? 'learn' : 'hold' }); // peer:dq r4: its qualifiers are in the row's sentence
+    const said = (r) => [r.paused.size ? `paused ${datesOf(r.paused)}` : '', r.warned.size ? `warned ${datesOf(r.warned)}` : ''].filter(Boolean).join(' · ') || 'never triggered';
+    // peer:dq r4: each check a row of the grid; what it says in words opens from its name
     const rows = CHECKS.map(([c, n]) => {
-      const files = B.added.map(fileOf).filter((f) => checkOf(f, c)); if (!files.length) return '';
+      const files = B.added.map(fileOf).filter((f) => checkOf(f, c)); if (!files.length) return null;
       const modes = c === 'links' ? files.flatMap((f) => linksOf(f).map((j) => linkModeIn(f.id, linkKey(f.id, j.col)))) : files.map((f) => checkOf(f, c));
       const tally = {}; modes.forEach((m) => (tally[m] = (tally[m] || 0) + 1));
       const order = Object.entries(tally).sort((a, b) => b[1] - a[1]), main = order[0][0], mixed = order.length > 1;
@@ -1178,27 +1218,28 @@
       const apart = c === 'links' ? [] : files.filter((f) => checkOf(f, c) !== main);
       const mixedSaid = mixed ? `Mixed: ${(c === 'links' ? fileOrder.map(([m, k]) => `${plural(k, 'file')} ${m === 'warn' ? 'warn' : m === 'note' ? 'note quietly' : 'off'}`) : order.map(([m, k]) => `${k} ${SEG_WORD[m]}`)).join(', ')}` : '';
       const apartFold = apart.length === 1 ? `<span class="ckap1"><b>${esc(nameOfFile(apart[0].id))}</b> set apart: ${esc(SEG_WORD[checkOf(apart[0], c)])}${SET_APART_WHY[`${apart[0].id}.${c}`] ? ` (${esc(SET_APART_WHY[`${apart[0].id}.${c}`])})` : ', as Larkspur set it'}</span>` : apart.length ? `<details class="ckap"><summary>${plural(apart.length, 'file')} set apart ›</summary><ul>${apart.map((f) => `<li><b>${esc(nameOfFile(f.id))}</b> ${esc(SEG_WORD[checkOf(f, c)])}${SET_APART_WHY[`${f.id}.${c}`] ? `: ${esc(SET_APART_WHY[`${f.id}.${c}`])}` : ', as Larkspur set it'}</li>`).join('')}</ul></details>` : '';
-      const r = rec[c], did = [r.paused.size ? `paused ${datesOf(r.paused)}` : '', r.warned.size ? `warned ${datesOf(r.warned)}` : ''].filter(Boolean).join(' · ') || 'never triggered';
+      const r = live[c];
       const rb = c === 'amount' ? rowsBeyond(rowsLimit()) : null, rbDays = rb ? Object.keys(rb) : [];
-      const strip = `<span class="ckstrip" aria-hidden="true">${DATA.days.filter((y) => y.day <= LAST).map((y) => `<i class="${r.paused.has(y.day) || (rb && rb[y.day]) ? 'p' : r.warned.has(y.day) ? 'w' : ''}"></i>`).join('')}</span>`;
       const limCtl = c === 'amount' ? `<span class="limctl"><span class="ll">Pauses beyond</span><button type="button" class="lb" data-act="rowslim" data-d="-1" aria-label="Tighter" ${rowsLimit() === ROWS_STEPS[0] ? 'disabled' : ''}>−</button><b>±${rowsLimit()}%</b><button type="button" class="lb" data-act="rowslim" data-d="1" aria-label="Looser" ${rowsLimit() === ROWS_STEPS[ROWS_STEPS.length - 1] ? 'disabled' : ''}>+</button><span class="lw">of a file’s usual size: <b>${plural(rbDays.length, 'day')}</b> of ${dayIdx(LAST) + 1} would pause${rowsLimit() !== 5 ? ' (Larkspur’s ±5%: 4)' : ''}</span></span>` : '';
-      const markMode = c === 'links' ? (main === 'note' ? 'note' : main === 'off' ? 'off' : 'warn') : main;
-      return `<li class="${c === 'links' ? 'wide' : ''}"><span class="ckm ${markMode}" aria-hidden="true">${MODE_MARK[markMode]}</span><span class="ckn"><b>${esc(n)}</b><span class="ckq">${esc(KIND_Q[c])}</span>${mixed ? `<span class="ckmix"><i class="mixtag">Mixed</i> ${esc(mixedSaid.replace(/^Mixed: /, ''))}</span>` : ''}${apartFold}<small>${plural(files.length, 'file')}${c === 'links' ? `, ${plural(modes.length, 'link')} (each evidence file’s app_id is checked by Scope instead)` : ''} · Feb 1 to Mar 27: ${esc(did)}</small>${strip}${limCtl}</span>${control(c, n, main, mixed)}</li>`;
-    }).join('');
+      const warnWhen = c === 'links' && !mixed && ['new', 'all'].includes(main) ? `<span class="segsub"><span class="sl">Warn when:</span>${[['new', 'a new one appears'], ['all', 'every day']].map(([m, t]) => `<button type="button" class="${main === m ? 'on' : ''}" data-act="kindmode" data-c="links" data-m="${m}">${t}</button>`).join('')}</span>` : '';
+      const more = `<p class="ckx-q">${esc(KIND_Q[c])}</p><small>${plural(files.length, 'file')}${c === 'links' ? `, ${plural(modes.length, 'link')} (each evidence file’s app_id is checked by Scope instead)` : ''} · Feb 1 to Mar 27: ${esc(said(r))}</small>${mixed ? `<span class="ckmix"><i class="mixtag">Mixed</i> ${esc(mixedSaid.replace(/^Mixed: /, ''))}</span>` : ''}${apartFold}${c === 'learned' && main === 'learn' ? '<small>Its Pause is at ¼: it pauses when a quarter of the rows change, and warns under that</small>' : ''}${warnWhen}${limCtl}`;
+      return { key: c, name: n, sub: mixed ? 'mixed' : c === 'learned' && main === 'learn' ? 'pauses at ¼' : '', word: mixed ? 'Mixed' : cap(asWord(main)), paused: r.paused, warned: r.warned, ctl: control(c, n, main, mixed), more };
+    }).filter(Boolean);
+    const ks = gapsOn(), gaps = ks.length ? { key: 'gaps', name: 'Blanks', cls: 'gaps', paused: live.gaps.paused, warned: live.gaps.warned, ctl: '<button type="button" class="link ckx-go" data-act="go" data-to="files">On the files ›</button>', more: `<p class="ckx-q">Blank columns and missing first versions you described while reading the files, each set on its own</p><small>${ks.map((k) => `${esc(nameOf(k.split('.')[0]))} ${esc(GAP_TAG[k].replace(/^Your check on /, ''))}: ${ruleOnGap(k) ? `your rule, ${esc(myRuleSaid(ruleOnGap(k)))} (${esc((MODE_SAID[ruleOnGap(k).mode] || 'Warn').toLowerCase())})` : esc(GAP_WORD[linkModeOf(k)] || 'off')}`).join(' · ')} · Feb 1 to Mar 27: ${esc(said(live.gaps))}</small>${B.known ? `<small>Accepted as known by you, ${esc(youStamp(B.known.at))}</small>` : ''}` } : null;
     const mine = Object.entries(B.limits || {}).map(([k, L]) => `${esc(L.said)} (yours, from ${esc(dayLabel(L.from))})`);
     const wafSaid = () => { const a = B.applied['waf-band-tenth']; return a === true ? 'at most 10% of a firewall’s applications from Mon Mar 25 (15% before)' : a === 'skip' ? 'at most 15% of a firewall’s applications (10% left out)' : 'at most 15% of a firewall’s applications; 10% from Mon Mar 25 is proposed, yours to decide on Fri Mar 22'; };
-    const limits = `<li class="lim"><span class="ckm ${B.limitMode === 'off' ? 'off' : B.limitMode === 'warn' ? 'warn' : B.limitMode === 'note' ? 'note' : 'hold'}" aria-hidden="true">${MODE_MARK[B.limitMode === 'pause' || !B.limitMode ? 'hold' : B.limitMode]}</span><span class="ckn"><b>Limits</b><span class="ckq">Shares Larkspur wrote down that no day may go past</span><small>${[...LIMITS.map(([a, b]) => `${esc(a)}: ${esc(a === 'WAF failing' ? wafSaid() : b)}`), ...mine].join(' · ')} · Feb 1 to Mar 27: never triggered</small></span>${seg4({ label: 'Limits: what they do', now: B.limitMode || 'pause', act: 'limitmode', data: '' })}</li>`;
+    const limits = { key: 'lim', name: 'Limits', cls: 'lim', word: cap(B.limitMode || 'pause'), paused: new Set(), warned: new Set(), ctl: seg4({ label: 'Limits: what they do', now: B.limitMode || 'pause', act: 'limitmode', data: '' }), more: `<p class="ckx-q">Shares Larkspur wrote down that no day may go past</p><small>${[...LIMITS.map(([a, b]) => `${esc(a)}: ${esc(a === 'WAF failing' ? wafSaid() : b)}`), ...mine].join(' · ')} · Feb 1 to Mar 27: never triggered</small>` };
+    // your own rules, beside Larkspur's checks: each with the days of the replay it broke (a note marks no day)
+    const yours = Object.entries(B.myRules || {}).filter(([fid]) => isAdded(fid)).flatMap(([fid, rl]) => rl.map((r0, i) => { const bd = new Set((brokeOn(fid, r0, true) || []).filter((k) => DATA.days[k] && DATA.days[k].day > '2024-02-01' && DATA.days[k].day <= LAST)), mm = r0.mode === 'hold' ? 'hold' : r0.mode === 'note' ? 'note' : 'warn', P = new Set(), W = new Set(); for (const k of bd) (mm === 'hold' ? P : mm === 'warn' ? W : new Set()).add(DATA.days[k].day); const s0 = bd.size ? `${mm === 'hold' ? 'pauses' : mm === 'note' ? 'notes' : 'warns'} on ${plural(bd.size, 'day')}` : 'never broke'; return { key: `mine-${fid}-${i}`, name: 'Your rule', sub: nameOfFile(fid), cls: 'mine', word: cap(asWord(mm)), aria: `Your rule on ${nameOfFile(fid)}`, paused: P, warned: W, ctl: seg4({ label: 'Your rule: what it does', now: mm, act: 'myrule-mode', data: `data-f="${fid}" data-i="${i}"` }), more: `<p class="ckx-q">${esc(myRuleSaid(r0))}</p><small>Feb 1 to Mar 27: ${esc(s0)}</small>` }; }));
     const gapCell = (f) => { const k = gapsOn().find((g) => g.startsWith(f.id + '.')); if (!k) return '<td class="na" aria-label="no known gap"></td>'; const m = linkModeOf(k), mm = m === 'new' || m === 'all' ? 'warn' : m; return `<td><button type="button" class="ck ${mm}${B.cell && B.cell.f === f.id && B.cell.c === 'gaps' ? ' sel' : ''}" data-act="cellpick" data-f="${f.id}" data-c="gaps" aria-label="${esc(nameOfFile(f.id))}, ${esc(GAP_TAG[k].replace(/^Your check on /, ''))}: ${esc(GAP_WORD[m] || 'off')}">${MODE_MARK[mm]}</button></td>`; };
     const grid = B.added.map(fileOf).map((f) => `<tr><th scope="row">${esc(nameOfFile(f.id))}</th>${CHECKS.map(([c, n]) => { const m = checkOf(f, c); return m ? `<td><button type="button" class="ck ${m}${B.modes[`${f.id}.${c}`] || (c === 'amount' && (B.rowsLimitOf || {})[f.id]) ? ' mine' : ' def'}${B.cell && B.cell.f === f.id && B.cell.c === c ? ' sel' : ''}" data-act="cellpick" data-f="${f.id}" data-c="${c}" aria-label="${esc(nameOfFile(f.id))}, ${n}: ${MODE_WORD[m]}">${MODE_MARK[m]}</button></td>` : '<td class="na" aria-label="doesn’t apply"></td>'; }).join('')}${gapCell(f)}</tr>`).join('');
     return {
       body: `<p class="bp-lead">Every file is checked before anything is built from it. ${FROM('as Larkspur set them')}<span class="pk-key"><i class="pk-dot" aria-hidden="true"></i>Larkspur’s pick</span>${'' /* peer:design: the pick dot named once on the checks step */}</p>
         <ul class="ck-sum def" hidden>${[['hold', PZ2, 'Pause', 'What’s built from the file is held; readers keep the day before until someone chooses', count('hold') + count('learn'), count('learn') ? `${count('learn')} of them pause only if a quarter of the rows change, and warn under that` : ''], ['warn', '◆', 'Warn', 'The day goes out, marked ◆', count('warn')], ['note', '○', 'Note', 'The day goes out unmarked; it’s listed under known gaps', count('note')], ['off', '–', 'Off', 'Not checked', count('off')]].filter(([m, , , , k]) => k || m === 'hold' || m === 'warn').map(([m, g, n, t, k, q]) => `<li class="${m}"><span class="cs-h"><i>${g}</i><b>${n}</b><em>${k}</em></span><small>${esc(t)}</small>${q ? `<small class="cs-q">${esc(q)}</small>` : ''}</li>`).join('')}</ul>
-        ${pausedStrip(rec)}
-
-                <ul class="ck-kinds">${rows}${gapsRow()}${limits}${myRulesRow()}</ul>
+        ${checksGrid([...rows, gaps, limits, ...yours].filter(Boolean), rec) /* peer:dq r4 */}
         <details class="ck-how"><summary>How the checks work ›</summary><p class="ck-band"><b>Learned’s usual range</b>: each value’s share over the file’s last 28 days; a share outside it warns, and pauses once a quarter of the rows have moved. <b>Two models</b> only warn: one when the day as a whole is unlike its last 28 (an isolation forest), one when today’s rows can be told apart from earlier days’ (a classifier, from an AUC of 0.70).</p><p><b>${checkCount()}</b> checks on the files: ${count('hold') + count('learn')} pause, ${count('warn')} warn, ${count('note')} note. Beside them, ${LIMITS.length} limits Larkspur wrote down, and ${WATCHED.length + 1} outputs checked like files (next step).</p><p><b>Learned</b> also runs two models, which only warn: one asks whether the day as a whole is unlike the 28 before it, the other whether today’s rows can be told apart from earlier days’. Feb 1 to Mar 27 they warned on ${DATA.days.filter((y) => y.day <= LAST && (y.finds || []).some((f) => /unlike earlier days/.test(f.said))).length} days.</p></details>
         <details class="ck-more"${B.ckOpen ? ' open' : ''}><summary>Each file’s checks, to change one</summary><p class="ck-tap">Tap a cell to set it; a Rows cell also sets that file’s own limit. Faded: as Larkspur set it · full colour: changed by you. Limits and Outputs are set for all files at once.</p><p class="ck-key"><span><b class="ck hold">${PZ2}</b>pause</span><span><b class="ck learn">${PZ2}<sup>¼</sup></b>pause at ¼</span><span><b class="ck warn">◆</b>warn</span><span><b class="ck note">○</b>note</span><span><b class="ck off">–</b>off</span><span><i class="na-key"></i>doesn’t apply</span></p><div class="ck-wrap"><table class="ck-grid"><thead><tr><th></th>${CHECKS.map(([c, n]) => `<th scope="col" title="${esc(n)}"><span class="ck-h">${esc(n)}</span></th>`).join('')}<th scope="col" title="Blanks"><span class="ck-h">Blanks</span></th></tr></thead><tbody>${grid}</tbody></table></div>${cellBar()}</details>
-        <p class="bp-note">On the map, each file counts its checks the same four ways; a dashed file isn’t added yet.</p>`,
+`, // peer:dq r4: the note on the map's counts went; the map's own key says them
       foot: B.rules ? `<button class="btn primary" data-act="go" data-to="product">Next: what Larkspur publishes ›</button>` : `<button class="btn" data-act="go" data-to="history">‹ Back</button><button class="btn primary" data-act="rules">Use these checks ›</button>`,
     };
   }
@@ -1486,6 +1527,7 @@
   }
   // a decided day, first: what readers see now
   function readersNow(H) {
+    if (tlRows(H)) return ''; // peer:owner (r4): said on the timeline's rows, under the eye
     const s = standing(H); if (!s || s.skipped || (s.open && s.state === 'waiting')) return '';
     const I = ISSUES[H], ch = (s.ch || []).filter((c) => c.how !== 'stay'), first = ch[0], last = ch[ch.length - 1]; if (!last) return '';
     const was = { fill: `${I.fillFromWd || 'another day'}’s ${I.noun || 'rows'}, marked filled`, keep: `${wdLong(before(H))}’s data`, asis: `${wdLong(H)}’s file as it arrived`, accept: `${wdLong(H)}’s file as it arrived` };
@@ -1551,18 +1593,47 @@
       if (e.kind === 'delivery') items.push({ at: e.at, html: `<b>A corrected file came:</b> ${esc(dot(e.why))} <span class="bd-okt">It passed every check.</span>` });
     }
     decs.forEach((e, k) => { if (k < mine.length || e.pseudo) items.push({ at: e.at, lane: 'record', html: e.pseudo ? `<span class="lane rec">Larkspur’s record</span> <b>Nobody decided on Saturday</b> · the day waited for Sunday’s file` : `<span class="lane rec">Larkspur’s record</span> <b>${esc(cap(OPTION[recHow(e)]))}</b> · ${esc(whoRole(e.by))}${whyTap(e.reason, `${who(e.by)}’s reason`)}` }); });
-    mine.forEach((c, k) => { const e = decs[k], same = e && recHow(e) === c.how; items.push({ at: e && e.at.slice(0, 10) === c.on ? `${e.at}~` : `${c.on}T23:59`, t: 'You', when: c.at && !c.auto ? youStamp(c.at) : '', lane: 'you', html: `<span class="lane you">This replay</span> <b>${esc(e && e.pseudo && c.how === 'wait' ? 'Kept it paused: waited for Sunday’s file' : YOU[c.how])}</b>${e ? (e.pseudo ? (same ? ' · as Larkspur did' : '') : same ? ` · the same as ${esc(who(e.by))}` : ` · ${esc(who(e.by))} ${esc(OPTION[recHow(e)])}`) : ''}${c.on !== H ? ` · on ${esc(dShort(c.on))}` : ''}${c.agreed ? ` · agreed with ${esc(c.agreed.who)} (${esc(c.agreed.at)})${whyTap(c.agreed.quote, `${c.agreed.who}’s reason, quoted`)}` : ''}${whyTap(c.note, 'Your reason')}` }); });
+    mine.forEach((c, k) => { const e = decs[k], same = e && recHow(e) === c.how; items.push({ at: e && e.at.slice(0, 10) === c.on ? `${e.at}~` : `${c.on}T23:59`, t: dShort(c.on || H) /* peer:owner (r4): one clock */, when: '', lane: 'you', html: `<span class="lane you">This replay</span> <b>${esc(e && e.pseudo && c.how === 'wait' ? 'Kept it paused: waited for Sunday’s file' : YOU[c.how])}</b>${e ? (e.pseudo ? (same ? ' · as Larkspur did' : '') : same ? ` · the same as ${esc(who(e.by))}` : ` · ${esc(who(e.by))} ${esc(OPTION[recHow(e)])}`) : ''}${c.on !== H ? ` · on ${esc(dShort(c.on))}` : ''}${c.agreed ? ` · agreed with ${esc(c.agreed.who)} (${esc(c.agreed.at)})${whyTap(c.agreed.quote, `${c.agreed.who}’s reason, quoted`)}` : ''}${whyTap(c.note, 'Your reason')}` }); });
     return items.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0)).map((it) => `<li class="${it.lane || ''}"><span class="bd-t">${esc(it.t || whenSaid(it.at, H))}</span><span>${it.html}${it.when ? `<small class="bd-when">${esc(it.when)}</small>` : ''}</span></li>`).join('');
   }
   const recSaid = (s) => `<b>${esc(whoRole(s.by))}</b> ${esc(OPTION[recHow(s)])} · ${esc(dayLabel(s.at.slice(0, 10)))}, ${esc(hhmm(s.at))}${whyTap(s.reason, `${who(s.by)}’s reason`)}`;
-  // what was decided, first: you, when the owners did the same, and whose reason it carries
+  // peer:owner (r4): the day's receipts as timeline rows, on the story's one clock and oldest first, as "The day, in
+  // order" is. Each row: when (the day, and the time where the record has one), what happened or was decided, who, in
+  // whose words, and what readers saw. A decision made in this replay is dated by the story's day it was made on; the
+  // replay's wall clock stays out of view, so waiting on Monday and publishing on Tuesday read a day apart. What readers
+  // see and the corrected file, once blocks of their own, are rows here.
+  const FIX_BA = { '2024-02-16': ['4 teams in Payments Engineering, gone', '4 teams in Payments Operations (DEP-16)'], '2024-02-26': ['0 rows', '2,318 rows'], '2024-03-11': ['COMPLETED 950', 'COMPLETED 1,427'], '2024-03-21': ['1,630 rows, each twice', '815 rows, each once'] };
+  const fixPassed = (H) => (H === '2024-02-16' ? 'Org units passes every check; App owners and Org chain clear. People still warns: P-0087 works in the gone department.' : 'It passes every check.');
+  const TL_EYE = '<svg class="eyemk" viewBox="-9 -6 18 12" aria-hidden="true"><path d="M-8 0c2.4-3.4 5-5 8-5s5.6 1.6 8 5c-2.4 3.4-5 5-8 5s-5.6-1.6-8-5z"/><circle r="2.2"/></svg>';
+  // whether a day has receipts to show: a decision of yours, or a corrected file in
+  function tlRows(H, upTo = today()) {
+    const s = standing(H, upTo); if (!s || s.skipped) return null;
+    const x = DATA.days[dayIdx(H)], mine = (s.ch || []).filter((c) => c.how !== 'stay');
+    const files = (x.story || []).filter((e) => e.kind === 'delivery' && e.at && e.at.slice(0, 10) <= upTo);
+    return mine.length || files.length ? { s, x, mine, files } : null;
+  }
+  // the day a row happened, named as the rest of the app names it (Today, else Mon 26)
+  const tlDay = (iso) => (X().smDay ? X().smDay.text(iso, dShort(iso)) : dShort(iso));
+  // what readers saw after each choice, by date, in the Decide panel's words
+  const tlSees = (H, how) => { const I = ISSUES[H] || {}; return { wait: dayLabel(before(H)), keep: dayLabel(before(H)), fill: `${dayLabel(H)}, ${I.noun || 'rows'} from ${I.fillFromD || 'another day'}`, asis: `${dayLabel(H)} as it arrived`, accept: `${dayLabel(H)} as it arrived`, fix: `${dayLabel(H)}, corrected` }[how] || ''; };
+  const tlRow = ({ day, time, mark, cls, what, who, whoHtml, whoFull, sees, words, note }) => `<li class="tl-r${cls ? ' ' + cls : ''}"${note ? ` title="${esc(note)}"` : ''}><span class="tl-when"><b>${esc(day)}</b>${time ? `<small>${esc(time)}</small>` : ''}</span><span class="tl-mk" aria-hidden="true">${mark}</span><span class="tl-body"><span class="tl-what"><b>${what}</b>${who || whoHtml ? ` <span class="tl-who"${whoFull && whoFull !== who ? ` title="${esc(whoFull)}"` : ''}>· ${whoHtml || esc(who)}</span>` : ''}</span>${sees ? `<span class="tl-sees" title="What readers saw">${TL_EYE}${esc(sees)}</span>` : ''}${words ? `<span class="tl-words">${words}</span>` : ''}</span></li>`;
   function outcomeOf(H, upTo = today()) {
-    const s = standing(H, upTo); if (!s || s.skipped || (s.open && s.state === 'waiting' && !(s.ch || []).some((c) => c.how === 'wait'))) return '';
-    const mine = (s.ch || []).filter((c) => c.how !== 'stay'); if (!mine.length) return '';
-    const said = (c) => (c.agreed ? `“${esc(c.agreed.quote)}” <i>${esc(c.agreed.who)}’s reason, agreed</i>` : c.note ? `“${esc(c.note)}” <i>${c.from === 'smaltfl' ? 'smaltfl’s reading, agreed' : 'your words'}</i>` : '<i>no reason given</i>');
-    const rows = mine.map((c, k) => { const last = k === mine.length - 1, mark = c.how === 'wait' ? X().HOURGLASS : last && s.open ? X().HALF : last && s.filled ? '◧' : '✓';
-      return `<p class="bd-out${last && s.open ? ' owed' : ''}${c.how === 'wait' ? ' waiting' : ''}"><span class="om">${mark}</span><span><b>${c.by ? `Decided by ${esc(c.by)}` : 'You decided'}: ${esc(YOU[c.how].toLowerCase())}</b> · ${c.on && c.on !== H ? `on ${esc(dayLabel(c.on))} of the replay, ` : ''}${c.at && !c.auto ? `at ${esc(youStamp(c.at).replace(' · this replay', ''))}` : ''} · ${said(c)}${last && upTo === today() ? ` <button type="button" class="link" data-act="redo" data-day="${H}">Change this decision</button>` : ''}</span></p>`; });
-    return `<div class="bd-receipts">${rows.join('')}</div>`;
+    const t = tlRows(H, upTo); if (!t) return '';
+    const { s, x, mine, files } = t, items = [], n = waitsOf(H).length;
+    // the day paused when its files arrived; readers kept the day before
+    items.push({ at: x.runAt || `${H}T00:00:00.000Z`, html: tlRow({ day: tlDay(H), time: x.runAt ? hhmm(x.runAt) : '', mark: X().PAUSE, cls: 'paused', what: 'Paused', whoHtml: `<span class="tl-n">${X().HOURGLASS}${n}</span> held`, sees: dayLabel(before(H)) }) });
+    // a corrected file: what changed in it, whether it passed, and who sent it again and why
+    for (const e of files) { const d = e.at.slice(0, 10), ba = FIX_BA[H], ok = H === '2024-02-16' ? 'one warning left' : 'every check passed';
+      items.push({ at: e.at, html: tlRow({ day: tlDay(d), time: hhmm(e.at), mark: '<b class="tl-ok">↻</b>', cls: 'file', what: `Corrected file in${ba ? ` <span class="tl-ba"><s>${esc(ba[0])}</s> → ${esc(ba[1])}</span>` : ''}`, who: '', sees: '', words: `<span class="tl-pass" title="${esc(fixPassed(H))}">${esc(ok)}</span>${s.open && !s.replaced ? ' · not out until you choose' : ''}`, note: e.why ? dot(e.why) : '' }) }); } // who sent it again, and why, on hover
+    // each of your decisions, dated by the story's day it was made on, after that day's events
+    mine.forEach((c, k) => {
+      const last = k === mine.length - 1, mark = c.how === 'wait' ? X().HOURGLASS : last && s.open ? X().HALF : last && s.filled ? '◧' : '✓';
+      const by = c.by ? String(c.by).split(',')[0].trim() : 'You', mineWords = c.by ? `${by}’s words` : 'your words';
+      const words = c.agreed ? `<details class="tl-q"><summary>${esc(c.agreed.who)}’s words</summary><q>${esc(c.agreed.quote)}</q> <small>${esc(whoRole(c.agreed.who))}${c.agreed.at ? `, ${esc(/,/.test(c.agreed.at) ? c.agreed.at : `${dShort(H)}, ${c.agreed.at}`)}` : ''} · agreed</small></details>` : c.note ? `<details class="tl-q"><summary>${c.from === 'smaltfl' ? 'smaltfl’s reading' : esc(mineWords)}</summary><q>${esc(c.note)}</q>${c.from === 'smaltfl' ? ' <small>agreed</small>' : ''}</details>` : '<span class="tl-none">no reason given</span>';
+      items.push({ at: `${c.on || H}T23:59:59.${String(k).padStart(3, '0')}Z`, html: tlRow({ day: tlDay(c.on || H), time: '', mark, cls: `dec${c.how === 'wait' ? ' waiting' : ''}${last && s.open ? ' owed' : ''}`, what: esc(YOU[c.how] || c.how), who: by, whoFull: c.by || '', sees: tlSees(H, c.how), words }) });
+    });
+    const redo = mine.length && upTo === today() ? `<p class="tl-foot"><button type="button" class="link" data-act="redo" data-day="${H}">Change this decision</button></p>` : '';
+    return `<div class="bd-receipts bd-tl" role="group" aria-label="What was decided, in order"><ol>${items.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0)).map((it) => it.html).join('')}</ol>${redo}</div>`;
   }
   function lasting(H) {
     const s = H === '2024-02-16' ? standing(H) : null; if (!s || !s.replaced) return '';
@@ -1570,10 +1641,11 @@
     return `<p class="bd-lasting"><b>Still wrong after it:</b> People lists P-0087 in Payments Engineering, which is gone. Its check ${m === 'all' ? 'warns every day now' : m === 'new' ? 'warns of new ones only, so it says nothing tomorrow' : m === 'note' ? 'notes it quietly' : 'is off'}.${m === 'new' ? ' <button type="button" class="link" data-act="gapmode" data-k="hr_people.org_unit_id" data-m="all">Warn every day ›</button>' : ''}</p>`;
   }
   function fixLine(H) {
+    if (tlRows(H)) return ''; // peer:owner (r4): the corrected file is a row of the timeline
     const I = ISSUES[H], s = standing(H); if (!I || !s || s.skipped || !s.fixIn || !I.fixAt) return '';
     const ev = DATA.days[dayIdx(H)].evidence, said = ev && EVIDENCE[H] ? EVIDENCE[H](ev) : I.diff || '';
-    const passed = H === '2024-02-16' ? 'Org units passes every check; App owners and Org chain clear. People still warns: P-0087 works in the gone department.' : 'It passes every check.';
-    const BA = { '2024-02-16': ['4 teams in Payments Engineering, gone', '4 teams in Payments Operations (DEP-16)'], '2024-02-26': ['0 rows', '2,318 rows'], '2024-03-11': ['COMPLETED 950', 'COMPLETED 1,427'], '2024-03-21': ['1,630 rows, each twice', '815 rows, each once'] }[H];
+    const passed = fixPassed(H); // peer:owner (r4): shared with the timeline's row
+    const BA = FIX_BA[H]; // peer:owner (r4): shared with the timeline's row
     return `<div class="bd-fixline${s.replaced ? ' past' : ''}"><b>${s.replaced ? '↻ Corrected file' : 'New: a corrected file'}, ${esc(I.fixAt)}</b>${BA ? `<span class="ba"><span class="b4">${esc(BA[0])}</span><span class="ar">→</span><span class="af">${esc(BA[1])}</span></span>` : ''}<span class="bd-hint">${esc(passed)}${!s.replaced ? ' Not published until you choose.' : ''}</span></div>`;
   }
   // the call to decide: only what the footer's button doesn't say
@@ -1591,7 +1663,7 @@
     const head = s.needs ? (s.state === 'decided' ? 'Still open: its corrected file is in' : 'Still waiting for you') : s.open && s.state === 'waiting' ? 'Still paused' : s.open ? 'Decided for now' : 'Decided';
     const ch = chainOf(K), n = waitsOf(K).length;
     const stand = s.needs || (s.open && s.state === 'waiting') ? 'still' : s.open ? 'owed' : 'done';
-    return `<article class="bd-card carried ${stand}"><p class="bd-still">${stand === 'done' ? '✓ ' : stand === 'owed' ? `${X().HALF} ` : ''}${esc(head)}</p><header><span class="bd-d">${dayLabel(K)}</span></header><h3>${esc(TITLES[K] || '')}</h3>${outcomeOf(K)}${ch && s.open && s.state === 'waiting' ? chainHtml(ch, `${X().HOURGLASS} ${n} of that day’s outputs held · readers see ${esc(dayLabel(today()))}`) : ''}${readersNow(K)}${fixLine(K)}${issueBox(K)}${s.needs ? `<ul class="bd-s">${timelineOf(K)}</ul>` : ''}</article>`;
+    return `<article class="bd-card carried ${stand}"><p class="bd-still">${stand === 'done' ? '✓ ' : stand === 'owed' ? `${X().HALF} ` : ''}${esc(head)}</p><header><span class="bd-d">${dayLabel(K)}</span></header><h3>${esc(TITLES[K] || '')}</h3>${outcomeOf(K)}${ch && s.open && s.state === 'waiting' ? ((s.ch || []).some((c) => c.how === 'wait') ? `<details class="bd-was"><summary>Why it paused ›</summary>${chainHtml(ch, `${X().HOURGLASS} ${n} of that day’s outputs held · readers see ${esc(dayLabel(today()))}`, true)}</details>` /* peer:owner (r4) */ : chainHtml(ch, `${X().HOURGLASS} ${n} of that day’s outputs held · readers see ${esc(dayLabel(today()))}`)) : ''}${readersNow(K)}${fixLine(K)}${issueBox(K)}</article>`; // peer:owner (r4): the day in order is its timeline's rows
   }
   // the changes Larkspur's owners recorded: drawn, said in a line, each choice's consequence, who decided and recorded it
   function wafPic(inForce, upTo) {
@@ -1636,9 +1708,10 @@
     const yours = s?.yours ? `<p class="bd-in">Larkspur’s checks paused this day. With yours, the check that paused it ${yoursOff(H) ? 'is off, so it went out unmarked' : 'only warns, so it went out marked ◆'}.</p>` : '';
     const quiet = s?.skipped && !s.yours ? '<p class="bd-in">You accepted logging’s new level on Tue Mar 5, so Wednesday’s file was a usual day.</p>' : '';
     const decidedNow = s && !s.skipped && !waiting && (s.ch || []).some((c) => c.how !== 'stay');
-    const chainPart = !ch ? '' : waiting ? chainHtml(ch, tail, false) : `<details class="bd-was"><summary>${replaced ? `First file, replaced ${esc(replaced)}` : 'Why it paused'} ›</summary>${chainHtml(ch, tail, true)}</details>`;
+    const waited = (s?.ch || []).some((c) => c.how === 'wait'); // peer:owner (r4)
+    const chainPart = !ch ? '' : waiting && !waited ? chainHtml(ch, tail, false) : `<details class="bd-was"><summary>${replaced ? `First file, replaced ${esc(replaced)}` : 'Why it paused'} ›</summary>${chainHtml(ch, tail, true)}</details>`;
     const fl = quiet || findsList(x, replaced, ch), [flTop, flGaps] = fl.split('<!--gaps-->'), moreInside = `${checksToday(x)}${flGaps || ''}${tl ? `<h5>The day, in order</h5><ul class="bd-s">${tl}</ul>` : ''}`;
-    return `<article class="bd-card"><header><span class="bd-d">${dayLabel(H)}</span>${asksChange ? '<span class="bd-m ask">a change to decide</span>' : markOf[cls] || markOf.ok}${cls === 'held' ? sevChip(H) : ''}</header><h3>${esc(title)}</h3>${decidedNow ? '' : dayLine(x)}${outcomeOf(H)}${tuneLine(H)}${readersNow(H)}${yours}${chainPart}${fixLine(H)}${lasting(H)}${mixIn ? '' : mixBox(H)}${changeBox(x)}${inForceBox(x)}${flTop || ''}${I && !s?.skipped && !peek ? issueBox(H) : ''}<details class="bd-more"><summary>More about this day ›</summary>${moreInside}</details></article>`;
+    return `<article class="bd-card"><header><span class="bd-d">${X().smDay ? X().smDay.html(H, dayLabel(H)) /* peer:design */ : dayLabel(H)}</span>${asksChange ? '<span class="bd-m ask">a change to decide</span>' : markOf[cls] || markOf.ok}${cls === 'held' ? sevChip(H) : ''}</header><h3>${esc(title)}</h3>${decidedNow ? '' : dayLine(x)}${outcomeOf(H)}${tuneLine(H)}${readersNow(H)}${yours}${chainPart}${fixLine(H)}${lasting(H)}${mixIn ? '' : mixBox(H)}${changeBox(x)}${inForceBox(x)}${flTop || ''}${I && !s?.skipped && !peek ? issueBox(H) : ''}<details class="bd-more"><summary>More about this day ›</summary>${moreInside}</details></article>`;
   }
   // every check's result on a day: the files' checks, their links and gaps, the limits
   const CHECK_NOTES = { '2024-02-20|learned': 'Learned ✓: the same shares once case is set aside; rows only respelled don’t count as moved' };
@@ -1787,6 +1860,7 @@
     if (a === 'history') { B.history = true; B.step = 'rules'; B.said = 'Learned from 184 days'; save(); refreshMap(); drawPanel(); return; }
     if (a === 'rules') { B.rules = true; B.step = 'product'; B.said = `${checkCount()} file checks, ${LIMITS.length} limits and 2 models in use`; save(); refreshMap(); drawPanel(); return; }
     if (a === 'kindmode') { for (const f of B.added.map(fileOf)) { if (!checkOf(f, d.c)) continue; if (d.c === 'links') { for (const j of linksOf(f)) B.linkMode[linkKey(f.id, j.col)] = d.m === 'warn' ? 'new' : d.m === 'pause' ? 'hold' : d.m; delete B.modes[`${f.id}.links`]; } else B.modes[`${f.id}.${d.c}`] = d.m === 'pause' ? (d.c === 'learned' ? 'learn' : 'hold') : d.m; } save(); refreshMap(); drawPanel(true); return; }
+    if (a === 'ckrow') { B.ckRow = B.ckRow === d.c ? null : d.c; save(); drawPanel(true); return; } // peer:dq r4
     if (a === 'limitmode') { B.limitMode = d.m === 'pause' ? undefined : d.m; save(); drawPanel(true); return; }
     if (a === 'cellpick') { B.cell = B.cell && B.cell.f === d.f && B.cell.c === d.c ? null : { f: d.f, c: d.c }; B.ckOpen = true; save(); drawPanel(true); return; }
     if (a === 'cellclose') { B.cell = null; save(); drawPanel(true); return; }

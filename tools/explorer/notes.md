@@ -75,3 +75,17 @@ setup 364 → 326.
 
 Next, as the reviewers agree: setup's Checks step (474 words) as one checks × days grid, and the decision receipts as
 timeline rows.
+
+## Peer rounds 3 and 4 (2026-11-23)
+
+Run as `peer/plan-tomorrow.md` planned:
+
+- The owner's screenshots and comments became seven pass/fail tests.
+- A sixth journey starts where the owner starts.
+- One owner per screen, two reviewers who must agree, one revision at most.
+- Fresh eyes rotated in round 4.
+- Every fix ran all six walkthroughs with no page errors. The old checks (exbuild3, exq, fitcheck) were updated for the
+  new Decide; fitcheck now holds "the recommended choice and its one button in view".
+
+Results are in `peer/r3/status.md` and `peer/r4/status.md`, and the before-and-after sheets in `peer/r3/` and
+`peer/r4/`.

@@ -66,7 +66,7 @@ const server = http.createServer((req, res) => { const u = decodeURIComponent(re
     if (SHOOT.has(day)) { await shot('day-' + day); await panel('day-' + day); SHOOT.delete(day); }
     if (!peeked && day === '2024-03-08') { await click('#buildpanel .bd-g .c.dec >> visible=true'); await shot('peek-past-day'); await click('#buildpanel [data-act="peek-off"]'); peeked = true; continue; }
     if (a === 'decide') {
-      await click(main); await p.waitForSelector('.panel .opts'); await p.waitForTimeout(1400);
+      await click(main); await p.waitForSelector('.panel .opts', { state: 'attached' }); await p.waitForTimeout(1400); if (await p.locator('.panel .dk-more > summary').count() && !(await p.locator('.panel .opts').isVisible())) { await p.locator('.panel .dk-more > summary').click(); await p.waitForTimeout(500); } // r38: choices behind More
       if (day === '2024-03-27') { await shot(`decide-${day}`, '.panel'); await p.keyboard.press('Escape'); await p.waitForTimeout(500); await click('#buildpanel .bp-foot [data-act="end"]'); break; }
       if (day === '2024-02-16') await shot(`decide-open-${day}`, '.panel');
       // nothing is chosen for you: pick what Larkspur's owners chose, then confirm

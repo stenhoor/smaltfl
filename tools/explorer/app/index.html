@@ -2164,6 +2164,554 @@ table.rows th.tap { box-shadow: inset 0 -2px 0 var(--action); }
 /* The Decide panel repeats the banner; behind the panel the banner's lower half was cut by its edge */
 body:has(#layer .panel.decide) #canvas .alertslot { visibility: hidden; }
 /* integrator r1 end */
+/* peer:design start */
+/* Round 3, the owner's first screen. A count is an hourglass and a number, its list a tip; a link is a few words, its
+   sentences a tip; the day is Today, its date small; what the marks mean is a "?" by the title. One tip for all of them,
+   from the tokens: the raised surface, one border, one radius, one shadow, 150 ms in. */
+.smtip { position: fixed; z-index: 25; max-width: 320px; padding: var(--sp-2) var(--sp-3); background: var(--surface-raised); color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: var(--r-2); box-shadow: var(--shadow-2); font-size: var(--fs-3); line-height: 18px; text-align: left; pointer-events: none; animation: smtipIn .15s var(--ease-out) both; }
+.smtip.pinned { pointer-events: auto; }
+@keyframes smtipIn { from { opacity: 0; transform: translateY(-2px); } }
+@media (prefers-reduced-motion: reduce) { .smtip { animation: none; } }
+.smtip p { margin: 0; }
+.smtip .tiph { display: flex; align-items: center; gap: var(--sp-1); font-weight: 600; }
+.smtip .tiph svg.pz { width: 12px; height: 12px; flex: none; }
+.smtip ul { list-style: none; margin: var(--sp-1) 0 0; padding: 0; color: var(--text-secondary); }
+.smtip li { padding: 1px 0; }
+.smtip .tipg { margin-top: var(--sp-2); font-size: var(--fs-2); color: var(--text-muted); }
+.smtip .tipg + ul { margin-top: 0; }
+.smtip .tl { display: block; } .smtip .tl + .tl { margin-top: var(--sp-2); }
+.smtip .tl i { display: block; font: 400 var(--fs-1)/16px var(--mono); font-style: normal; color: var(--text-muted); }
+.smtip .tipkey { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-2); color: var(--text-secondary); }
+.smtip .tipkey > span { display: inline-flex; align-items: center; gap: var(--sp-1); } .smtip .tipkey svg.pz { width: 11px; height: 11px; }
+.smtip .tipn { margin-top: var(--sp-2); font-size: var(--fs-2); color: var(--text-muted); }
+
+/* the count: one button language, wherever it sits (a kind's corner, an opened kind, the banner); its number the one
+   weight in it, the hourglass grey: what waits is a consequence, not the cause */
+.kind > button.kwait, .ostate button.st.waits, .alert .awn { display: inline-flex; align-items: center; gap: 3px; margin: 0; font-family: var(--font); font-weight: 500; color: var(--text-secondary); background: var(--surface-raised); border: 1px solid var(--edge); border-radius: 999px; cursor: pointer; white-space: nowrap; }
+.kind > button.kwait { padding: 1px 8px; }
+.ostate button.st.waits { padding: 2px 9px; font-size: var(--fs-2); pointer-events: auto; }
+.alert .awn { padding: 0 8px; min-height: 22px; font-size: var(--fs-3); line-height: 20px; vertical-align: 1px; }
+.kwn { font-weight: 600; color: var(--text-primary); }
+.alert .awn .awl { margin-left: 2px; }
+.kind > button.kwait svg.pz, .ostate button.st.waits svg.pz, .alert .awn svg.pz { width: 12px; height: 12px; }
+.kind > button.kwait:hover, .ostate button.st.waits:hover, .alert .awn:hover,
+.kind > button.kwait[aria-expanded="true"], .ostate button.st.waits[aria-expanded="true"], .alert .awn[aria-expanded="true"] { border-color: var(--action); color: var(--action); }
+.kind > button.kwait:hover .kwn, .kind > button.kwait[aria-expanded="true"] .kwn, .alert .awn:hover .kwn, .alert .awn[aria-expanded="true"] .kwn, .ostate button.st.waits[aria-expanded="true"] .kwn { color: var(--action); }
+
+/* the banner: the day said once, Today with its date small; the file and what came in; the count; the one button */
+.alert:not(.short) .at { font-size: var(--fs-4); color: var(--text-secondary); }
+.alert .aday { white-space: nowrap; }
+.alert .tdate { font-size: var(--fs-2); font-weight: 400; color: var(--text-muted); white-space: nowrap; }
+.alert .asep { margin: 0 var(--sp-2); color: var(--text-muted); }
+.alert .awhy { color: var(--text-primary); }
+.alert .askd { margin-left: 0; }
+
+/* Today, with its date small, wherever a screen says the day */
+.today { white-space: nowrap; } .today .tdate { font-size: var(--fs-2); font-weight: 400; color: var(--text-muted); }
+.waits .tdate { font-size: var(--fs-1); font-weight: 400; }
+
+/* a link at rest: its few words, quieter than the kinds they join; pointing at one shows its sentences */
+.lab.few { font-weight: 500; color: var(--text-secondary); }
+.lab.few[aria-expanded="true"] { background: var(--surface-raised) !important; border-color: var(--action) !important; color: var(--action); }
+
+/* the key: a "?" by the title, as on a phone before; its tip says what the marks mean */
+.mapkey { flex: none; display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0; margin-left: calc(-1 * var(--sp-1)); border-radius: 50%; border: 1px solid var(--edge); background: var(--surface-raised); color: var(--text-secondary); font: 600 var(--fs-3)/1 var(--font); cursor: pointer; }
+.mapkey:hover, .mapkey[aria-expanded="true"] { border-color: var(--action); color: var(--action); }
+body.building .mapkey { display: none; } body.building.hasdays.hasmarks .mapkey { display: inline-grid; }
+body:has(#layer .panel.decide) .trailbar .mapkey { visibility: hidden; }
+@media (max-width: 760px) { .trailbar:has(.mapkey) .trail { flex: 0 1 auto; } .mapkey { margin-left: 0; } }
+
+/* + Add a dataset: a quiet text action, so Decide is the one filled button on the screen */
+.tools #add { border-color: transparent; background: none; color: var(--action); padding: 0 var(--sp-2); }
+.tools #add:hover { background: var(--action-wash); border-color: transparent; }
+/* peer:design end */
+/* peer:owner start */
+/* Round 3. Decide has one focal point, for the owner between meetings: "the decide side panel feels very busy and I
+   don't know what to immediately focus on … I don't know why a lot of the info is there". One question; two pictures of
+   what readers see now and after the chosen choice (the recommended one, chosen and ready); the one button under them.
+   Everything else waits behind More, and the page behind steps back (inspiration §3.5 one focal point, §3.7 the answer
+   first, §7 one primary per view; ADR 0028 one primary action, two levels on demand, never colour alone). Last in the
+   page, so where it meets the panel's earlier rules it wins; tokens only. */
+
+/* A card the size of what it holds: one column, 640 px at most, seated right below the bar from 761 px (a tablet held
+   upright too, where a full-height sheet left the button far below the answer). */
+@media (min-width: 761px) {
+  #layer .panel.decide { top: 72px; right: 24px; bottom: auto; width: min(640px, calc(100vw - 48px)) !important; height: fit-content; max-height: calc(100vh - 96px); margin: 0; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-3); overflow: hidden; }
+  #layer .panel.decide .pb { min-height: 0; }
+}
+#layer .panel.decide .pb { gap: var(--sp-4); }
+
+/* The head: which file, then the question, the day small beside it. */
+#layer .panel.decide .ph .ctx { font-size: var(--fs-3); }
+#layer .panel.decide .ph h2 .dk-date, #layer .panel.decide .ph h2 .tdate { margin-left: var(--sp-1); font-size: var(--fs-3); font-weight: 400; color: var(--text-muted); white-space: nowrap; }
+
+/* The state and its one number, one line: a badge where the day has a severity (shape, word and colour), else the mark. */
+#layer .panel.decide .dk-state { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); margin: 0; font-size: var(--fs-3); line-height: 18px; color: var(--text-secondary); }
+#layer .panel.decide .dk-state b { font-weight: 600; color: var(--text-primary); }
+#layer .panel.decide .dk-pz { display: inline-flex; }
+#layer .panel.decide .dk-pz svg.pz { width: 15px; height: 15px; vertical-align: 0; }
+#layer .panel.decide .dk-sev { display: inline-flex; align-items: center; gap: 5px; padding: 1px 9px 1px 6px; border-radius: 999px; font-size: var(--fs-2); font-weight: 600; line-height: 18px; }
+#layer .panel.decide .dk-sev::before { content: ''; flex: none; width: 12px; height: 12px; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M8 .5a7.5 7.5 0 1 0 0 15A7.5 7.5 0 0 0 8 .5zM4.9 5.6a1.2 1.2 0 0 1 2.4 0v4.8a1.2 1.2 0 0 1-2.4 0zM8.7 5.6a1.2 1.2 0 0 1 2.4 0v4.8a1.2 1.2 0 0 1-2.4 0z'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M8 .5a7.5 7.5 0 1 0 0 15A7.5 7.5 0 0 0 8 .5zM4.9 5.6a1.2 1.2 0 0 1 2.4 0v4.8a1.2 1.2 0 0 1-2.4 0zM8.7 5.6a1.2 1.2 0 0 1 2.4 0v4.8a1.2 1.2 0 0 1-2.4 0z'/%3E%3C/svg%3E") center / contain no-repeat; }
+#layer .panel.decide .dk-sev.serious { background: var(--bad); color: var(--surface); }
+#layer .panel.decide .dk-sev.mild { background: var(--warn-wash); color: var(--warn); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 40%, transparent); }
+
+/* Now → After: the same two days drawn twice, the eye under the day readers see. After is the focal point: the chosen
+   state, framed in smalt; Now is quiet grey. Under each picture, the day readers see, then one line. */
+#layer .panel.decide .dk-hero { display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1.55fr); align-items: stretch; gap: 0 var(--sp-1); }
+#layer .panel.decide .dk-now, #layer .panel.decide .dk-after { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); min-width: 0; padding: var(--sp-3); border-radius: var(--r-2); }
+#layer .panel.decide .dk-now { background: var(--surface-sunk); }
+#layer .panel.decide .dk-after { background: color-mix(in srgb, var(--action) 6%, var(--surface)); box-shadow: inset 0 0 0 1.5px var(--action); }
+#layer .panel.decide .dk-after.risk { background: color-mix(in srgb, var(--bad) 6%, var(--surface)); box-shadow: inset 0 0 0 1.5px var(--bad); }
+#layer .panel.decide .dk-lab { font-size: var(--fs-1); font-weight: 600; line-height: 16px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+#layer .panel.decide .dk-after .dk-lab { color: var(--action); }
+#layer .panel.decide .dk-after.risk .dk-lab { color: var(--bad); }
+#layer .panel.decide .dk-hero .pic { width: 100%; max-width: 220px; height: auto; margin: 2px 0; border-radius: var(--r-1); background: var(--surface); }
+#layer .panel.decide .dk-hero .pic text.day { font-size: 14px; }
+#layer .panel.decide .dk-hero .pic .who { display: none; }
+#layer .panel.decide .dk-arrow { align-self: center; display: grid; place-items: center; color: var(--text-muted); }
+#layer .panel.decide .dk-arrow svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#layer .panel.decide .dk-sees { display: flex; align-items: center; gap: 6px; font-size: var(--fs-4); line-height: 20px; color: var(--text-primary); }
+#layer .panel.decide .dk-sees b { min-width: 0; font-weight: 600; }
+#layer .panel.decide .dk-fate { display: block; font-size: var(--fs-3); line-height: 22px; color: var(--text-secondary); }
+#layer .panel.decide .dk-fate > * { vertical-align: middle; }
+#layer .panel.decide .dk-fate > * + * { margin-left: 5px; }
+#layer .panel.decide .dk-fate svg.pz, #layer .panel.decide .dk-fate svg.half { width: 14px; height: 14px; }
+#layer .panel.decide .dk-fate .tm, #layer .panel.decide .dk-fate .dk-pz { font-style: normal; display: inline-flex; }
+#layer .panel.decide .dk-count { display: inline-flex; align-items: center; gap: 3px; height: 22px; padding: 0 8px 0 6px; border: 0; border-radius: 999px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); font: 600 var(--fs-3) var(--font); color: var(--text-primary); cursor: pointer; }
+#layer .panel.decide .dk-count svg.pz { width: 13px; height: 13px; }
+#layer .panel.decide .dk-count:hover { box-shadow: inset 0 0 0 1px var(--edge); }
+#layer .panel.decide .dk-count:focus-visible { outline: 2px solid var(--action); outline-offset: 1px; }
+#layer .panel.decide .dk-why { display: flex; align-items: flex-start; gap: 6px; margin-top: 2px; font-size: var(--fs-3); line-height: 18px; color: var(--text-secondary); }
+#layer .panel.decide .dk-why b { font-weight: 600; color: var(--text-primary); }
+#layer .panel.decide .dk-cost { display: flex; align-items: flex-start; gap: 6px; font-size: var(--fs-3); line-height: 18px; color: var(--text-secondary); } /* what the choice costs, on its card */
+#layer .panel.decide .dk-quote { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin: 0 0 0 26px; font-size: var(--fs-3); line-height: 18px; font-style: italic; color: var(--text-secondary); quotes: '“' '”'; } /* her words under her name: two lines at most, all of them on hover and in the record */
+#layer .panel.decide .dk-why .av { flex: none; display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--ink-2); color: var(--surface); font-size: var(--fs-1); font-weight: 600; font-style: normal; line-height: 1; }
+#layer .panel.decide .dk-why .mc { flex: none; width: 20px; text-align: center; font-style: normal; font-weight: 600; color: var(--text-muted); }
+#layer .panel.decide .dk-ok { font-weight: 600; color: var(--ok); }
+#layer .panel.decide .dk-x { font-weight: 600; color: var(--bad); }
+#layer .panel.decide .dk-after.none { justify-content: center; }
+
+/* More: one quiet link. Open, each block is there for one thing: another choice, the evidence, what waits, your name. */
+#layer .panel.decide .dk-more { display: block; }
+#layer .panel.decide .dk-more > .dk-in { display: grid; gap: var(--sp-5); margin-top: var(--sp-4); }
+#layer .panel.decide .dk-more > summary { display: inline-flex; align-items: baseline; gap: var(--sp-2); list-style: none; cursor: pointer; font-size: var(--fs-3); line-height: 20px; }
+#layer .panel.decide .dk-more > summary .dk-mo { font-weight: 500; color: var(--action); }
+#layer .panel.decide .dk-more > summary .dk-hint { font-size: var(--fs-2); color: var(--text-muted); }
+#layer .panel.decide .dk-more[open] > summary .dk-hint { display: none; }
+#layer .panel.decide .dk-more > summary::-webkit-details-marker { display: none; }
+#layer .panel.decide .dk-more > summary .dk-mo::after { content: '›'; display: inline-block; margin-left: 5px; transition: transform .2s var(--ease-out); }
+#layer .panel.decide .dk-more[open] > summary .dk-mo::after { transform: rotate(90deg); }
+#layer .panel.decide .dk-more > summary:hover .dk-mo { text-decoration: underline; text-underline-offset: 2px; }
+#layer .panel.decide .dk-more > summary:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; border-radius: 4px; }
+#layer .panel.decide .dk-sec { display: grid; gap: var(--sp-2); min-width: 0; }
+#layer .panel.decide .dk-sec:empty { display: none; }
+#layer .panel.decide .dk-h { margin: 0; font-size: var(--fs-2); font-weight: 600; line-height: 16px; color: var(--text-muted); }
+#layer .panel.decide .dk-h svg.pz { width: 12px; height: 12px; vertical-align: -1px; }
+#layer .panel.decide .dk-rec { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--action-wash); color: var(--action); font-size: var(--fs-1); font-weight: 600; line-height: 16px; vertical-align: 1px; }
+#layer .panel.decide .dk-by { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) 6px; margin: 0; font-size: var(--fs-2); }
+#layer .panel.decide .dk-by .dk-h { margin-right: 2px; }
+#layer .panel.decide .dk-month { display: grid; gap: var(--sp-1); }
+#layer .panel.decide .dk-month .strip { display: grid; grid-template-columns: repeat(27, minmax(0, 1fr)); gap: 3px; }
+#layer .panel.decide .dk-month .strip i, #layer .panel.decide .dk-month .stripkey i { aspect-ratio: 1; display: grid; place-items: center; border-radius: 3px; background: var(--sunk-2); }
+#layer .panel.decide .dk-month .strip i.w, #layer .panel.decide .dk-month .stripkey i.w { background: var(--warn); transform: rotate(45deg) scale(.7); border-radius: 2px; }
+#layer .panel.decide .dk-month .strip i.d, #layer .panel.decide .dk-month .stripkey i.d { background: linear-gradient(90deg, var(--ink-2) 50%, var(--surface) 50%); border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--ink-2); transform: scale(.82); }
+#layer .panel.decide .dk-month .strip i.p, #layer .panel.decide .dk-month .stripkey i.p { background: none; }
+#layer .panel.decide .dk-month .strip i.p svg.pz, #layer .panel.decide .dk-month .stripkey i.p svg.pz { width: 100%; height: 100%; vertical-align: 0; }
+#layer .panel.decide .dk-month .striplab { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2); font-size: var(--fs-1); color: var(--text-muted); }
+#layer .panel.decide .dk-month .stripkey { display: inline-flex; gap: var(--sp-2); } #layer .panel.decide .dk-month .stripkey span { display: inline-flex; align-items: center; gap: 4px; } #layer .panel.decide .dk-month .stripkey i { width: 10px; }
+#layer .panel.decide .dk-waits p { margin: 0; font-size: var(--fs-3); line-height: 20px; color: var(--text-secondary); }
+#layer .panel.decide .dk-tools { gap: var(--sp-2); }
+#layer .panel.decide .dk-tools .whoas { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-2); color: var(--text-muted); }
+#layer .panel.decide .dk-tools .whoas input { flex: 1 1 auto; min-width: 0; max-width: 280px; height: 32px; padding: 0 var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface); font: var(--fs-3) var(--font); color: var(--text-primary); }
+#layer .panel.decide .dk-ask { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); margin: 0; }
+#layer .panel.decide .dk-ask .link { border: 0; background: none; padding: 0; cursor: pointer; font: 500 var(--fs-3) var(--font); color: var(--action); }
+#layer .panel.decide .dk-ask .link::after { content: '\00a0›'; }
+#layer .panel.decide .dk-ask .link:hover { text-decoration: underline; text-underline-offset: 2px; }
+#layer .panel.decide .dk-tools .pdraft2 { margin: 0; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-1); background: var(--surface-sunk); font-size: var(--fs-2); line-height: 17px; color: var(--text-secondary); }
+/* the choices, inside More: one list, each a line (round 2's rows); the recommended one marked by a word, not a colour */
+#layer .panel.decide .dk-choices .opts.tiles.rows { margin: 0; }
+
+/* The footer: what goes on record with your tap on the left, the one button on the right; the box for your own words
+   above them only while it is needed (another choice that needs a reason, or "Write your own reason"). */
+#layer .panel.decide .dfoot.dk-foot { display: grid !important; grid-template-columns: minmax(0, 1fr) auto !important; grid-template-areas: none !important; gap: var(--sp-2) var(--sp-4) !important; align-items: center !important; }
+#layer .panel.decide .dfoot.dk-foot > * { grid-area: auto !important; order: 0 !important; }
+#layer .panel.decide .dfoot.dk-foot > .whyrow { grid-column: 1 / -1 !important; grid-row: auto !important; }
+#layer .panel.decide .dfoot.dk-foot > .dk-record { grid-column: 1 !important; display: grid; justify-items: start; gap: 2px; min-width: 0; }
+#layer .panel.decide .dfoot.dk-foot > .dacts { grid-column: 2 !important; grid-row: auto !important; align-self: center !important; justify-self: end !important; display: flex; }
+#layer .panel.decide .dfoot.dk-foot .dk-record > * { grid-area: auto !important; order: 0 !important; text-align: start; }
+#layer .panel.decide .dfoot.dk-foot .dk-record > .ownwords { order: 1 !important; }
+#layer .panel.decide .dfoot.dk-foot .onrec { margin: 0; font-size: var(--fs-2); line-height: 17px; color: var(--text-secondary); }
+#layer .panel.decide .dfoot.dk-foot .onrec b { font-weight: 500; color: var(--text-secondary); }
+#layer .panel.decide .dfoot.dk-foot .ownwords { font-size: var(--fs-2); }
+
+/* The page behind steps back. Over a file's own view the panel would cut its card in half and leave its columns and the
+   list of what is built from it in view: while you decide, they give way to the dimmed canvas (the panel names the file,
+   and the list is one tap away in it: ⧗ 11). Over the map (the build), round 2's quiet diagram stays. */
+body:has(#layer .panel.decide) #stage[data-level="dataset"] > * { visibility: hidden; }
+/* Polish: the bar's tools (the estate's mini map, "+ Add a dataset") showed their edge beside the panel, and "Esc steps
+   back" isn't what Esc does while the panel is open (it closes it): both give way while Decide is open. */
+body:has(#layer .panel.decide) .trailbar .tools,
+body:has(#layer .panel.decide) .trail .eschint { visibility: hidden; }
+
+/* A phone's full-height sheet: the record and the button sit at its foot, in reach of a thumb, not mid-sheet. */
+@media (max-width: 760px) { #layer .panel.decide .pb { flex: 1 1 auto; grid-template-rows: auto auto 1fr auto; } }
+/* A phone: one pane, the same order. Now above After, each a row: the picture, then the day readers see and its line;
+   the arrow points down; the button takes the footer's width. */
+@media (max-width: 760px) {
+  #layer .panel.decide .dk-hero { grid-template-columns: minmax(0, 1fr); gap: 2px 0; }
+  #layer .panel.decide .dk-now, #layer .panel.decide .dk-after { display: grid; grid-template-columns: 128px minmax(0, 1fr); grid-template-areas: "lab lab" "pic sees" "fate fate" "cost cost" "why why"; align-items: center; gap: 2px var(--sp-3); padding: 10px var(--sp-3); }
+  #layer .panel.decide .dk-lab { grid-area: lab; } #layer .panel.decide .dk-hero .pic { grid-area: pic; margin: 0; }
+  #layer .panel.decide .dk-sees { grid-area: sees; align-self: center; } #layer .panel.decide .dk-quote { grid-column: 1 / -1; } #layer .panel.decide .dk-fate { grid-area: fate; line-height: 20px; margin-top: 2px; } #layer .panel.decide .dk-cost { grid-area: cost; } #layer .panel.decide .dk-why { grid-area: why; margin-top: var(--sp-1); }
+  #layer .panel.decide .dk-hero .pic text.day { font-size: 18px; }
+  #layer .panel.decide .dk-arrow { transform: rotate(90deg); height: 18px; }
+  #layer .panel.decide .dk-arrow svg { width: 16px; height: 16px; }
+  #layer .panel.decide .dfoot.dk-foot { grid-template-columns: minmax(0, 1fr) !important; }
+  #layer .panel.decide .dfoot.dk-foot > .dacts { grid-column: 1 !important; justify-self: stretch !important; }
+  #layer .panel.decide .dfoot.dk-foot > .dacts .btn { flex: 1 1 auto; }
+}
+/* peer:owner end */
+/* peer:newcomer r3 start */
+/* Ctrl K answers lead with their picture (today against usual as dq's two bars, the month's strip, what waits), then
+   one line, then Full answer › (the owner's tests 1, 5 and 6). Sizes from design's scale, colour by role: grey for usual,
+   the pause colour only for the paused day, smalt only for Full answer. */
+.ap { margin: 0; display: grid; gap: 4px; min-width: 0; }
+.ap .apx { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 11px; line-height: 14px; color: var(--muted); white-space: nowrap; }
+.ap .today { font-size: 12px; font-weight: 600; color: var(--ink); } .ap .tdate { font-size: 11px; font-weight: 400; color: var(--muted); }
+/* today against usual: dq's two labelled bars (dq r3, .dqnow), copied as they are so the merge keeps one set */
+/* peer:dq start */
+/* r3, the look-inside (Ctrl K, Tab on a file): what it is and whether it is fine today, and no more (the owner: “I like
+   the what is this … I would rather discover the more in detail stuff”). The state chip, with a paused file's count of
+   what waits beside it (⧗ 11, the list on hover, a tap asks for it); today's rows against a usual day as two bars on one
+   scale from zero, each labelled where it ends; what it is, in two lines at most. Its month, columns, joins and what is
+   built from it are one line away in the list beside it (inspiration §3.5 one focal point, §3.6 one scale, labelled
+   directly, §3.7 the answer first, the evidence one tap away). Sizes, spacing and colours from the page's tokens. */
+.pprev .dqstate, .pres .dqsum .dqstate { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); }
+.dqwait { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; height: 22px; padding: 0 var(--sp-2); border-radius: 999px; font-size: var(--fs-2); font-weight: 600; color: var(--text-secondary); background: var(--surface-raised); box-shadow: inset 0 0 0 1px var(--border-subtle); font-variant-numeric: tabular-nums; }
+.dqwait svg.pz { width: 12px; height: 12px; }
+.dqwait:hover, .dqwait:focus-visible { color: var(--action); box-shadow: inset 0 0 0 1px var(--action); }
+.dqnow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-1) 10px; font-size: var(--fs-2); line-height: 16px; }
+.dqnow .dqk { color: var(--text-muted); white-space: nowrap; }
+.dqnow .dqb { position: relative; height: 8px; }
+.dqnow .dqb i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; }
+.dqnow .dqt, .dqnow .dqt0 { background: var(--ink-2); }
+.dqnow .dqt.bad, .dqnow .dqt0.bad { background: var(--bad); } .dqnow .dqt.warn, .dqnow .dqt0.warn { background: var(--warn); }
+.dqnow .dqt0 { width: 3px; } .dqnow .dqt, .dqnow .dqu { min-width: 2px; }
+.dqnow .dqu { background: color-mix(in srgb, var(--edge) 38%, var(--surface)); }
+.dqnow .dqv { justify-self: end; font-size: var(--fs-3); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.dqnow b.dqv { color: var(--text-primary); font-weight: 600; }
+/* the month's strip reuses the page's .strip markup: scoped to the palette so the older .pprev, .pcard and .pa strip rules
+   don't reach in (the same strip in the preview, the phone's card and the full answer) */
+.palette .pbox .ap.apmonth .strip { display: grid; grid-template-columns: repeat(var(--n, 27), minmax(0, 1fr)); gap: 2px; margin: 0; }
+.palette .pbox .ap.apmonth .strip i { aspect-ratio: 1; border-radius: 2px; background: color-mix(in srgb, var(--edge) 30%, var(--surface)); box-shadow: none; transform: none; display: grid; place-items: center; }
+.palette .pbox .ap.apmonth .strip i.w { background: var(--warn); transform: rotate(45deg) scale(.7); }
+.palette .pbox .ap.apmonth .strip i.d { background: linear-gradient(90deg, var(--ink-2) 50%, var(--surface) 50%); border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--ink-2); transform: scale(.82); }
+.palette .pbox .ap.apmonth .strip i.p { background: none; } .palette .pbox .ap.apmonth .strip i.p svg.pz { width: 100%; height: 100%; vertical-align: 0; }
+.palette .pbox .ap.apmonth .strip i:last-child:not(.p) { box-shadow: 0 0 0 1.5px var(--ink); }
+.apnotes { position: relative; height: 15px; }
+.apnotes span { position: absolute; top: 0; display: inline-flex; align-items: center; gap: 3px; font-size: 11px; line-height: 15px; color: var(--ink-2); white-space: nowrap; }
+.apnotes i { font-style: normal; } .apnotes i.w, .apline .apm.w { color: var(--warn); } .apnotes svg, .apline .apm svg { width: 10px; height: 10px; }
+.apfan { grid-template-columns: auto 36px minmax(0, 1fr); align-items: center; gap: 0; }
+.apfan .apsrc { display: inline-flex; align-items: center; gap: 4px; max-width: 120px; padding: 3px 8px; border-radius: var(--r-1, 6px); background: var(--sunk-2); font-size: 12px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.apfan .apsrc.off { background: var(--bad-wash); color: var(--bad); } .apfan .apsrc svg.pz { width: 12px; height: 12px; }
+.apfan > svg { display: block; width: 36px; } .apfan > svg path { fill: none; stroke: color-mix(in srgb, var(--edge) 60%, transparent); stroke-width: 1.2; } .apfan > svg circle { fill: var(--edge); }
+.palette .pbox .ap.apfan ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 0; min-width: 0; }
+.palette .pbox .ap.apfan ul li { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 22px; padding-left: 4px; font-size: 12px; line-height: 22px; color: var(--ink-2); } .palette .pbox .ap.apfan ul li::before { content: none; display: none; }
+.apfan li span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.apfan li b { display: inline-flex; align-items: center; gap: 3px; font-weight: 600; color: var(--ink); white-space: nowrap; } .apfan li b svg.pz { width: 12px; height: 12px; }
+.apline { margin: 0; font-size: 13px; line-height: 20px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.apline b { font-weight: 600; color: var(--ink); } .apline .bad { color: var(--bad); } .apline .okt { color: var(--ok); } .apline .owedt { color: var(--ink-2); }
+.apline svg.pz, .apline svg.half { width: 12px; height: 12px; vertical-align: -1px; margin-right: 3px; } .apline .apm { font-style: normal; margin-right: 3px; }
+.apline .apm.o { display: inline-block; width: 9px; height: 9px; border-radius: 2px; background: color-mix(in srgb, var(--edge) 30%, var(--surface)); vertical-align: 0; }
+.apline code { font: 12px var(--mono); background: var(--sunk); border-radius: 4px; padding: 0 4px; color: var(--ink); }
+.apw { display: inline-flex; align-items: center; gap: 3px; margin-left: 4px; padding: 0 8px; border: 1px solid var(--edge); border-radius: 999px; background: var(--surface); color: var(--ink-2); font: 500 12px/18px var(--font); vertical-align: 1px; cursor: pointer; }
+.apw .apgo { color: var(--action); font-weight: 600; } .apw:hover, .apw:focus-visible { border-color: var(--action); color: var(--action); } .apw svg.pz { width: 12px; height: 12px; margin: 0; } .apw:hover svg.pz.hg > path, .apw:focus-visible svg.pz.hg > path { stroke: var(--action); }
+.apfull { justify-self: start; display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; padding: 2px 0; font: 600 13px var(--font); color: var(--action); cursor: pointer; }
+.apfull:hover { text-decoration: underline; text-underline-offset: 3px; } .apfull kbd { font: 500 11px var(--mono); }
+.pprev .pvans { gap: 8px; } .pprev .apfull { margin-top: -2px; }
+.pres li.pcard .pcb { gap: 6px; } .pres li.pcard .pcb .apfull { padding: 0; }
+.pa .ap, .pa .dqnow { max-width: 520px; } .pa .apline { white-space: normal; }
+/* peer:newcomer r3 end */
+.dqnow .dqt0 { width: 3px; } .dqnow .dqt, .dqnow .dqu { min-width: 2px; } /* a bar never vanishes beside one ten times longer */
+.dqnow .dqu { background: color-mix(in srgb, var(--edge) 38%, var(--surface)); }
+.dqnow .dqv { justify-self: end; font-size: var(--fs-3); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.dqnow b.dqv { color: var(--text-primary); font-weight: 600; }
+.pprev .dqwhat, .pres .dqsum .dqwhat { margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.pprev .dqcols li small { flex: 1 1 0; min-width: 0; } .pprev .dqcols li .pty { flex: none; white-space: nowrap; }
+/* a screen too narrow for the preview pane: the line that opens the file carries the same three things */
+.pres li .dqsum { grid-column: 2 / -1; display: grid; gap: var(--sp-2); max-width: 420px; padding: 2px 0; font-size: var(--fs-3); line-height: 19px; color: var(--text-secondary); }
+.pres .dqsum .pvs { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-2); font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--surface-raised); color: var(--text-secondary); border: 1px solid var(--border-subtle); }
+.pres .dqsum .pvs.bad { color: var(--bad); background: var(--bad-wash); border-color: transparent; } .pres .dqsum .pvs.warn { color: var(--warn); }
+.pres .dqsum .pvs svg { width: 13px; height: 13px; flex: none; }
+@media (min-width: 1000px) {
+  .pres li .dqsum { display: none; }
+  /* the preview is a pane the height of the list beside it: its tone and its one divider run to the bottom, where they
+     stopped with the preview's own content (sticky, so it stays in view while a long list scrolls) */
+  .pbody:not(.answering):has(> .pprev:not(:empty)) { background: linear-gradient(to left, var(--sunk) 371px, var(--line) 371px 372px, transparent 372px); }
+}
+/* peer:dq end */
+/* peer:builder start */
+/* Round 3, the file's view (5-today 09 and 10): the file, its state and one number first; each link said by what it
+   means in two to four words with its number, the sentence on hover; what uses it as one count with what that means;
+   the columns and the list of outputs a tap away. Sizes from the scale (11 12 13 20), weights 400 500 600, colour by
+   role: smalt only on the one action and what a tap opens. */
+.node.focus .fhead { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-3) 14px; border-bottom: 0; overflow: hidden; }
+.node.focus .fhead .ft { flex: none; height: 28px; }
+.node.focus .fhead .ft .fs { flex: none; margin-left: auto; }
+.node.focus .fhead .fst { flex: none; height: 24px; display: flex; align-items: center; }
+.node.focus .fhead .fd { flex: none; font-size: var(--fs-2); line-height: 16px; color: var(--text-secondary); display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; text-wrap: balance; }
+.node.focus .fhead .fm { flex: none; height: 18px; line-height: 18px; font-size: var(--fs-3); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.node.focus .fhead .fm b { font-weight: 600; color: var(--text-primary); }
+.node.focus .fhead .fa { flex: none; margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; align-content: flex-start; gap: 6px; }
+.node.focus .fhead .fa .sp { flex: 1 1 0; flex-basis: auto; height: auto; }
+.node.focus .fhead .fa .askd { font-size: var(--fs-2); color: var(--text-muted); }
+/* the columns, one tap: a quiet row along the card's foot, its chevron the only smalt */
+.fcols { display: flex; align-items: center; justify-content: space-between; width: 100%; height: 40px; padding: 0 14px; border: 0; border-top: 1px solid var(--border-subtle); background: none; font: 500 var(--fs-3)/1 var(--font); color: var(--text-secondary); cursor: pointer; }
+.fcols:hover { background: var(--surface-sunk); color: var(--text-primary); }
+.fcols .fch { font-weight: 400; color: var(--text-muted); }
+.fcols:focus-visible { outline: 2px solid var(--action); outline-offset: -2px; }
+.fcols .chev { color: var(--action); font-size: var(--fs-4); transition: transform .2s var(--ease-out); }
+.fcols[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.fcols[aria-expanded="true"] { border-bottom: 1px solid var(--border-subtle); }
+/* a link: what it means on top, quiet; then the file or control it reaches, with its number */
+.ds.nb.lk { display: grid; align-content: center; gap: 2px; padding: var(--sp-2) var(--sp-3); background: var(--surface-raised); border: 1px solid var(--border-subtle); box-shadow: var(--shadow-1); border-radius: var(--r-2); }
+.ds.nb.lk:hover { box-shadow: var(--shadow-2); }
+.ds.nb.lk:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; }
+.ds.nb.lk .eb { font-size: var(--fs-2); line-height: 16px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds.nb.lk .nl { display: flex; align-items: center; gap: 6px; min-width: 0; height: 20px; }
+.ds.nb.lk .ki { flex: none; display: grid; place-items: center; width: 16px; height: 16px; }
+.ds.nb.lk .ki svg { width: 16px; height: 16px; fill: none; stroke: var(--text-muted); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.ds.nb.lk .dn { flex: 1 1 auto; min-width: 0; font-size: var(--fs-3); font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds.nb.lk .nm { flex: none; font-size: var(--fs-2); color: var(--text-secondary); white-space: nowrap; font-variant-numeric: tabular-nums; } .ds.nb.lk .nm .nd { color: var(--text-muted); }
+/* what uses it: one count and its meaning; tapped, the list by name */
+.node.outs header { padding: 10px 12px 8px; gap: 2px; font-weight: 400; }
+.node.outs .ohd { display: flex; align-items: center; gap: 8px; width: 100%; height: 20px; padding: 0; border: 0; background: none; font: 600 var(--fs-3)/20px var(--font); color: var(--text-primary); text-align: left; cursor: pointer; }
+.node.outs .ohd:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; border-radius: 4px; }
+.node.outs .ohd .ot { flex: 1 1 auto; min-width: 0; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.node.outs .ohd .oc { font-size: var(--fs-4); font-variant-numeric: tabular-nums; } .node.outs .ohd .oc svg.pz, .node.outs .ohd .oc svg.half { width: 14px; height: 14px; vertical-align: -2px; margin-right: 3px; } .node.outs .ohd .oc.ok { color: var(--ok); }
+.node.outs .ohd .chev { flex: none; color: var(--action); font-size: var(--fs-4); line-height: 1; transition: transform .2s var(--ease-out); }
+.node.outs.open .ohd .chev { transform: rotate(90deg); }
+.node.outs .osub { font-size: var(--fs-2); line-height: 16px; color: var(--text-secondary); } .node.outs .osub svg.pz { width: 12px; height: 12px; vertical-align: -1px; }
+.node.outs .osub.then { color: var(--text-muted); }
+.node.outs.shut { cursor: pointer; } .node.outs.shut:hover { box-shadow: var(--shadow-2); }
+.node.outs .og { height: 26px; padding: 10px 12px 2px; line-height: 14px; }
+.node.outs ul { padding: 0 6px; } .node.outs li button { height: 26px; padding: 0 6px; align-items: center; } .node.outs li button i { margin-top: 0; }
+/* peer:builder end */
+/* peer:owner start */
+/* Round 4. The decision receipts as timeline rows: what was decided, by whom, when, and what readers saw, in order.
+   One clock (the story's), oldest first, one row a thing: the day and time on the left on a line of marks, what
+   happened or was decided in bold with who beside it, what readers saw on the right under an eye, and in whose words
+   one tap away (inspiration §3.6 label directly, §3.7 the answer first, §5 Vercel's deploys as a timeline; ADR 0028 never
+   colour alone: each mark has its own shape). Tokens only. */
+.bd-tl { margin: var(--sp-1) 0 var(--sp-1); }
+.bd-tl ol { list-style: none; margin: 0; padding: 0; display: grid; }
+.bd-tl .tl-r { display: grid; grid-template-columns: 50px 18px minmax(0, 1fr); column-gap: var(--sp-2); padding: 5px 0; }
+.bd-tl .tl-when { display: grid; align-content: start; font-size: var(--fs-2); line-height: 18px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bd-tl .tl-when b { font-weight: 600; color: var(--text-secondary); }
+.bd-tl .tl-when small { font-size: var(--fs-1); line-height: 14px; }
+/* the marks on one line: each row's mark, joined to the next by a hairline */
+.bd-tl .tl-mk { position: relative; display: flex; justify-content: center; align-items: flex-start; padding-top: 2px; font-size: var(--fs-3); line-height: 14px; color: var(--text-secondary); }
+.bd-tl .tl-mk svg.pz, .bd-tl .tl-mk svg.half { width: 14px; height: 14px; vertical-align: 0; flex: none; }
+.bd-tl .tl-r:not(:last-child) .tl-mk::after { content: ''; position: absolute; top: 20px; bottom: -7px; left: 50%; width: 1px; background: var(--line); }
+.bd-tl .tl-ok { font-weight: 600; color: var(--ok); }
+.bd-tl .tl-r.dec .tl-mk { font-weight: 600; color: var(--text-primary); }
+/* what, who, what readers saw; in whose words under it */
+.bd-tl .tl-body { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--sp-3); min-width: 0; font-size: var(--fs-3); line-height: 18px; color: var(--text-secondary); }
+.bd-tl .tl-what { flex: 1 1 auto; min-width: 0; }
+.bd-tl .tl-what > b { font-weight: 600; color: var(--text-primary); }
+.bd-tl .tl-who { color: var(--text-secondary); }
+.bd-tl .tl-n { display: inline-flex; align-items: center; gap: 2px; font-weight: 600; color: var(--text-primary); } .bd-tl .tl-n svg.pz { width: 12px; height: 12px; }
+.bd-tl .tl-ba { font-weight: 400; color: var(--text-secondary); white-space: nowrap; }
+.bd-tl .tl-ba s { color: var(--text-muted); }
+.bd-tl .tl-sees { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-weight: 500; color: var(--text-primary); white-space: nowrap; }
+.bd-tl .eyemk { flex: none; width: 15px; height: 11px; overflow: visible; }
+.bd-tl .eyemk path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
+.bd-tl .eyemk circle { fill: currentColor; }
+.bd-tl .tl-words { flex: 1 1 100%; min-width: 0; font-size: var(--fs-2); line-height: 17px; color: var(--text-muted); }
+.bd-tl .tl-pass { color: var(--ok); font-weight: 500; }
+.bd-tl .tl-none { font-style: italic; }
+.bd-tl .tl-q { display: inline; }
+.bd-tl .tl-q > summary { display: inline; list-style: none; cursor: pointer; font-weight: 500; color: var(--action); }
+.bd-tl .tl-q > summary::-webkit-details-marker { display: none; }
+.bd-tl .tl-q > summary::after { content: '\00a0›'; }
+.bd-tl .tl-q[open] > summary::after { content: '\00a0‹'; }
+.bd-tl .tl-q > summary:hover { text-decoration: underline; text-underline-offset: 2px; }
+.bd-tl .tl-q > summary:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; border-radius: 3px; }
+.bd-tl .tl-q[open] { display: block; }
+.bd-tl .tl-q q { display: block; margin: 2px 0 0; font-size: var(--fs-3); line-height: 18px; font-style: italic; color: var(--text-secondary); quotes: '“' '”'; }
+.bd-tl .tl-q small { font-size: var(--fs-1); color: var(--text-muted); }
+.bd-tl .tl-foot { margin: 2px 0 0 76px; }
+.bd-tl .tl-foot .link { font-size: var(--fs-2); font-weight: 500; color: var(--action); text-decoration: none; } /* polish (design): the app's one link style */
+.bd-tl .tl-foot .link:hover { text-decoration: underline; text-underline-offset: 2px; }
+.bd-tl .tl-foot .link:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; border-radius: 3px; }
+#buildpanel .bd-card.carried { border-radius: var(--r-2); } /* polish (design): the decided card on the radius scale, 10 px */
+/* the build panel's own receipt styles step aside for the rows */
+.bd-tl.bd-receipts { gap: 0; }
+/* A phone: the same rows; what readers saw drops under what happened when the line is full */
+@media (max-width: 760px) {
+  .bd-tl .tl-r { grid-template-columns: 46px 16px minmax(0, 1fr); column-gap: 6px; }
+  .bd-tl .tl-foot { margin-left: 68px; }
+}
+/* peer:owner end */
+/* peer:builder start */
+/* Round 4, Ctrl K with fresh eyes. A month's two odd days near each other take a line each. What feeds an output is the
+   fan the other way round: its files by kind, into it. The look inside's picture answers "What is X?", so its chip,
+   state row and sentence are styled in a full answer and in a phone's answer card too, as they are in the preview. */
+.apnotes.two { height: 30px; } .apnotes.two span:not(.hi) { top: 15px; }
+.palette .pbox .ap.apfan.apfeed { grid-template-columns: minmax(0, 1fr) 36px auto; }
+.palette .pbox .ap.apfan.apfeed ul li { padding-left: 0; padding-right: var(--sp-1); }
+.apfan .apsrc.held { color: var(--text-secondary); } .apfan .apsrc.held svg.pz { width: 12px; height: 12px; }
+.pa .dqstate, .pcb .dqstate { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); }
+.pa .pvs, .pcb .pvs { justify-self: start; display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-2); font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--surface-raised); color: var(--text-secondary); border: 1px solid var(--border-subtle); }
+.pa .pvs.bad, .pcb .pvs.bad { color: var(--bad); background: var(--bad-wash); border-color: transparent; } .pa .pvs.warn, .pcb .pvs.warn { color: var(--warn); }
+.pa .pvs svg, .pcb .pvs svg { width: 13px; height: 13px; flex: none; }
+.pa .dqwhat { margin: 0; } .pcb .dqwhat { margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; } /* whole in a full answer */
+/* one count pill in Ctrl K, the map's: the same values as design's shared rule, so nothing differs once both are in */
+.palette .apw, .palette .dqwait { display: inline-flex; align-items: center; gap: 3px; box-sizing: border-box; height: 22px; padding: 0 8px 0 6px; border: 0; border-radius: 999px; background: var(--surface-raised); box-shadow: inset 0 0 0 1px var(--edge); font: 600 var(--fs-2)/20px var(--font); color: var(--text-primary); font-variant-numeric: tabular-nums; white-space: nowrap; vertical-align: middle; cursor: pointer; }
+.palette .apw svg.pz, .palette .dqwait svg.pz { width: 12px; height: 12px; margin: 0; } .palette .apw { margin-left: 4px; } .palette .apw .kwn { font-weight: inherit; color: inherit; }
+.palette .apw:hover, .palette .apw:focus-visible, .palette .dqwait:hover, .palette .dqwait:focus-visible { color: var(--action); box-shadow: inset 0 0 0 1px var(--action); }
+/* peer:builder end */
+/* peer:newcomer r4 start */
+/* An opened kind, said simply: each neighbour's link is a few words you can tap to light the files that carry it, its
+   sentences on hover; a section's join on hover. Sizes and colours from the page's scale and tokens. */
+.kind.compact .krels button.kphr { pointer-events: auto; justify-self: start; border: 0; background: none; padding: 0; font: 500 13px/16px var(--font); color: var(--ink); text-align: left; cursor: pointer; text-decoration: underline dotted color-mix(in srgb, var(--edge) 70%, transparent); text-underline-offset: 3px; }
+.kind.compact .krels button.kphr:hover, .kind.compact .krels button.kphr:focus-visible, .kind.compact .krels button.kphr[aria-pressed="true"] { color: var(--action); text-decoration-color: currentColor; }
+.node.gname[title] { pointer-events: auto; cursor: help; }
+/* polish: on a tablet (761–1279 px) the bar's pill keeps its words, "Today is paused · Decide ›", where it said only
+   "Decide ›"; the date small beside Today from 1100 px, where the bar has the room. Below that the search is its ⌕, as
+   on a phone (Ctrl K still opens it), so the pill never squeezes it; the estate's name wraps evenly where it must. */
+@media (min-width: 761px) and (max-width: 1279px) { .waits .wl { display: inline; } .bar-in button.est { text-wrap: balance; } }
+@media (min-width: 761px) and (max-width: 1099px) { .waits .wl .tdate { display: none; } .bar .search { flex: none; } .bar .search .kbd { display: none; } }
+/* peer:newcomer r4 end */
+/* peer:dq start */
+/* r4, setup's Checks step as one checks × days grid ("which checks would have stopped which days, at a glance"): a row a
+   check, a column a day, one date axis over them all (inspiration §3.6 one scale, labelled directly; §5 the uptime strip).
+   A tall crimson bar is a day it would have paused, a half-height amber bar a day it would have warned (shape and colour:
+   never colour alone), a hairline a day it let through. Each row's control at its end: pill-sized from 761 px, and on its
+   own line at the kit's size where the panel is narrow. A row's sentence opens from its name. The rows share their
+   columns (subgrid), so every day sits under its date. Sizes, spacing and colours from the page's tokens. */
+#buildpanel .pdx.ckx { gap: var(--sp-2); padding: var(--sp-3); container-type: inline-size; }
+#buildpanel .ckx-h { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--sp-1) var(--sp-3); margin: 0; }
+#buildpanel .ckx-h .ps-h { font-size: var(--fs-4); font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+#buildpanel .ckx-key { font-size: var(--fs-1); color: var(--text-secondary); white-space: nowrap; }
+#buildpanel .ckx-key i { display: inline-block; width: 4px; height: 11px; margin: 0 4px 0 10px; border-radius: 1px; vertical-align: -1px; background: var(--bad); }
+#buildpanel .ckx-key i.w { height: 6px; background: var(--warn); }
+#buildpanel ul.ck-kinds.ckx-rows { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: var(--sp-3); row-gap: 0; margin: 0; padding: 0; list-style: none; border: 0; border-radius: 0; overflow: visible; }
+#buildpanel ul.ckx-rows > li.ckx-row { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid !important; align-items: center; gap: 6px var(--sp-3); padding: 6px 0; border: 0; border-top: 1px solid var(--border-subtle); }
+#buildpanel ul.ckx-rows > li.ckx-row.ax { padding: 0 0 2px; border: 0; }
+#buildpanel ul.ckx-rows > li.ckx-row.day { border-top: 0; padding-bottom: 8px; }
+#buildpanel ul.ckx-rows > li.ckx-row.day + li { border-top: 1px solid var(--edge); }
+#buildpanel .ckx-n { all: unset; box-sizing: border-box; display: grid; min-width: 0; line-height: 16px; }
+#buildpanel button.ckx-n { cursor: pointer; border-radius: 4px; }
+#buildpanel .ckx-n b { font-size: var(--fs-3); font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+#buildpanel button.ckx-n b::after { display: inline-block; margin-left: 4px; color: var(--text-muted); font-weight: 400; transition: transform .2s var(--ease-out); }
+#buildpanel li.open > button.ckx-n b::after { transform: rotate(90deg); }
+#buildpanel .ckx-n small { font-size: var(--fs-1); line-height: 14px; color: var(--text-muted); white-space: nowrap; }
+#buildpanel button.ckx-n:hover b, #buildpanel button.ckx-n:focus-visible b { color: var(--action); }
+#buildpanel button.ckx-n:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; }
+#buildpanel li.mine > .ckx-n b { color: var(--action); }
+#buildpanel .ckx-d { display: grid; grid-template-columns: repeat(var(--n, 56), minmax(0, 1fr)); column-gap: 1px; align-items: end; height: 14px; min-width: 0; }
+#buildpanel .ckx-d i { display: block; height: 2px; border-radius: 1px; background: color-mix(in srgb, var(--edge) 32%, var(--surface)); }
+#buildpanel .ckx-d i.p { height: 100%; background: var(--bad); }
+#buildpanel .ckx-d i.w { height: 50%; background: var(--warn); }
+#buildpanel li.day .ckx-d { height: 18px; }
+#buildpanel li.ax .ckx-d { height: auto; }
+#buildpanel li.ax .ckx-d i { height: auto; background: none; font-style: normal; font-size: var(--fs-1); line-height: 14px; color: var(--text-secondary); white-space: nowrap; justify-self: start; }
+#buildpanel li.ax .ckx-d i.end { justify-self: end; }
+#buildpanel .ckx-c { grid-column: 1 / -1; justify-self: start; min-width: 0; }
+#buildpanel .ckx-c:empty { display: none; }
+#buildpanel .ckx-go { font-size: var(--fs-2); }
+#buildpanel .ckx-more { grid-column: 1 / -1; display: grid; gap: 2px; padding: 2px 0 4px; font-size: var(--fs-2); line-height: 17px; color: var(--text-secondary); }
+#buildpanel .ckx-more .ckx-q { margin: 0; font-size: var(--fs-3); color: var(--text-primary); }
+#buildpanel .ckx-more small { font-size: var(--fs-2); }
+#buildpanel .ckx-more .limctl { margin-top: 4px; }
+#buildpanel details.ckx-why > summary { cursor: pointer; width: fit-content; font-size: var(--fs-2); font-weight: 600; color: var(--action); }
+#buildpanel details.ckx-why .ps-days { margin-top: 6px; }
+/* polish (the reviewers): at every width each row is one line, its setting one quiet word at its end that opens the
+   row, where its four-way control sits (pill-sized from 761 px, the kit's 44 px on a phone): the marks outweigh it */
+#buildpanel ul.ck-kinds.ckx-rows { grid-template-columns: max-content minmax(0, 1fr) max-content; }
+#buildpanel .ckx-c { grid-column: 3; justify-self: end; }
+#buildpanel .ckx-mode { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; min-height: 32px; padding: 0 2px 0 6px; cursor: pointer; font-size: var(--fs-2); color: var(--text-secondary); white-space: nowrap; }
+#buildpanel .ckx-mode::after { content: '›'; margin-left: 4px; color: var(--text-muted); }
+#buildpanel .ckx-mode:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; border-radius: 4px; }
+#buildpanel .ckx-more .ckx-full2 { display: block; margin-bottom: 4px; }
+#buildpanel .ckx-more .ckx-full2 .segwrap { justify-items: start; }
+@media (min-width: 761px) {
+  #buildpanel .ckx-mode { min-height: 24px; } /* a pointer needs no more; a phone keeps 32 px to tap */
+  #buildpanel .ckx-rows .seg { grid-auto-columns: auto !important; }
+  #buildpanel .ckx-rows .seg button { height: 24px; padding: 0 8px; font-size: var(--fs-2); }
+}
+/* peer:dq end */
+/* peer:design start */
+/* Round 4, fresh eyes on Decide and the file's view, and the seams between round 3's five screens, so they read as one
+   system:
+   - one count badge;
+   - one today-against-usual picture (Ctrl K's two bars) and one month strip;
+   - one tip;
+   - the type scale kept inside charts;
+   - one cost mark, and one mark for smaltfl's voice;
+   - two radii: --r-1 for controls, --r-2 for cards and sheets.
+   Tokens only; last in the page, so where it meets an earlier rule it wins. */
+
+/* 1. One count badge: an hourglass and a number in the same pill everywhere a count stands. That is a kind's corner, an
+   opened kind, the banner, Ctrl K's answer and look-inside, and Decide's Now. Its edge is --edge, so it reads as a
+   control; its number is the one weight in it; a chevron would make one of them look different. */
+.kind > button.kwait, .ostate button.st.waits, .alert .awn, .palette .apw, .palette .dqwait, #layer .panel.decide .dk-count {
+  display: inline-flex; align-items: center; gap: 3px; box-sizing: border-box; height: 22px; padding: 0 8px 0 6px;
+  border: 0; border-radius: 999px; background: var(--surface-raised); box-shadow: inset 0 0 0 1px var(--edge);
+  font: 600 var(--fs-2)/20px var(--font); color: var(--text-primary); font-variant-numeric: tabular-nums; white-space: nowrap;
+  vertical-align: middle; cursor: pointer;
+}
+.kind > button.kwait svg.pz, .ostate button.st.waits svg.pz, .alert .awn svg.pz, .palette .apw svg.pz, .palette .dqwait svg.pz, #layer .panel.decide .dk-count svg.pz { width: 12px; height: 12px; margin: 0; }
+.kind > button.kwait .kwn, .ostate button.st.waits .kwn, .alert .awn .kwn, #layer .panel.decide .dk-count b { font-weight: inherit; color: inherit; }
+.alert .awn .awl { margin-left: 2px; font-weight: 500; color: var(--text-secondary); }
+.palette .apw { margin-left: 4px; } .palette .apw .apgo { display: none; }
+.kind > button.kwait:hover, .ostate button.st.waits:hover, .alert .awn:hover, .palette .apw:hover, .palette .dqwait:hover, #layer .panel.decide .dk-count:hover,
+.kind > button.kwait[aria-expanded="true"], .ostate button.st.waits[aria-expanded="true"], .alert .awn[aria-expanded="true"] { color: var(--action); box-shadow: inset 0 0 0 1px var(--action); }
+.alert .awn:hover .awl, .alert .awn[aria-expanded="true"] .awl { color: var(--action); }
+
+/* 2. Today against usual: the two bars Ctrl K draws, in Decide's head under the cause and on the file's card in place
+   of the sentence. They sit as wide as Ctrl K's preview, so the same counts draw the same lengths. */
+#layer .panel.decide .dk-top { display: grid; gap: var(--sp-2); }
+#layer .panel.decide .dk-top .dqnow, .node.focus .fhead .fm.fbars .dqnow { max-width: 360px; }
+.node.focus .fhead .fm.fbars { height: 36px; line-height: 16px; white-space: normal; overflow: visible; }
+.node.focus .fhead .fm.fbars .dqk { color: var(--text-muted); }
+
+/* 3. The month in Decide's More: the strip Ctrl K's answer draws (Fri Mar 1 … Today), then its one line. */
+#layer .panel.decide .dk-month .ap.apmonth { gap: var(--sp-1); }
+#layer .panel.decide .ap.apmonth .strip { display: grid; grid-template-columns: repeat(var(--n, 27), minmax(0, 1fr)); gap: 2px; margin: 0; }
+#layer .panel.decide .ap.apmonth .strip i { aspect-ratio: 1; border-radius: 2px; background: color-mix(in srgb, var(--edge) 30%, var(--surface)); box-shadow: none; transform: none; display: grid; place-items: center; }
+#layer .panel.decide .ap.apmonth .strip i.w { background: var(--warn); transform: rotate(45deg) scale(.7); }
+#layer .panel.decide .ap.apmonth .strip i.d { background: linear-gradient(90deg, var(--ink-2) 50%, var(--surface) 50%); border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--ink-2); transform: scale(.82); }
+#layer .panel.decide .ap.apmonth .strip i.p { background: none; } #layer .panel.decide .ap.apmonth .strip i.p svg.pz { width: 100%; height: 100%; vertical-align: 0; }
+#layer .panel.decide .ap.apmonth .strip i:last-child:not(.p) { box-shadow: 0 0 0 1.5px var(--ink); }
+#layer .panel.decide .dk-month .apline { white-space: normal; }
+
+/* 4. Type inside the pictures. More's evidence chart was drawn 320 wide for the Build panel, and scaled to the sheet
+   its labels grew to 18–22 px. At 352 they land on the scale: 11 px labels, 13 px values. Its verdict reads as a heading
+   inside More (15 px), not as the page's title. The two Now and After pictures are one size, so their day names match
+   (13 px). */
+#layer .panel.decide .decfig .ufig.dq { max-width: 352px; }
+#layer .panel.decide .decfig .ufig .uv b { font-size: var(--fs-4); line-height: 20px; }
+#layer .panel.decide .decfig .ufig .uv span { font-size: var(--fs-3); }
+#layer .panel.decide .decfig .ufig .u-v, #layer .panel.decide .decfig .ufig .u-bv { font-weight: 600; }
+#layer .panel.decide .dk-hero .pic { width: 186px; max-width: 100%; }
+@media (max-width: 760px) { #layer .panel.decide .dk-hero .pic { width: 100%; } }
+.palette .pprev .pvq b { font-size: var(--fs-4); }
+
+/* 5. One cost mark: what a choice costs is a grey ✕, on its card as in the Choices list. Crimson stays for a risk (a
+   risky choice's card) and for the pause. */
+#layer .panel.decide .dk-cost .dk-x { color: var(--text-muted); font-weight: 600; }
+#layer .panel.decide .dk-why.mach .mc { color: var(--text-muted); font-weight: 500; }
+
+/* 6. Two radii: controls --r-1, cards and sheets --r-2. */
+@media (min-width: 761px) { #layer .panel.decide { border-radius: var(--r-2); } }
+#layer .panel.decide .opts.tiles.rows, #layer .panel.decide label.opt.tile { border-radius: var(--r-2); }
+.node.focus, .node.outs, .alert, .palette .pbox, .palette .pprev .pvans, .palette .pprev .pvm, .palette .pprev .pvpic, .palette .pprev table.pvt { border-radius: var(--r-2); }
+.node.focus .btn.sm, .palette .pres li, .palette .pico { border-radius: var(--r-1); }
+
+/* 7. One tip: a card that goes somewhere when tapped says its sentence in the same tip on hover and focus. */
+.smtip .tips { margin: 0; color: var(--text-secondary); }
+/* peer:design end */
 </style>
 </head>
 <body>

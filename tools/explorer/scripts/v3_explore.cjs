@@ -10,8 +10,9 @@ const { session } = require('./vxkit.cjs');
   await glide('[data-id="k:org_unit"]'); await wait(2400); await glide('[data-id="k:control"]'); await wait(2200);
   await say('Open a kind: its files, with the kinds it relates to at its sides.', 3); await tap('[data-id="k:application"]', { hold: 600 }); await wait(2600);
   await say('Open a file: TLS on exposed endpoints.', 4); await tap('[data-id="d:tls"]', { hold: 700 }); await wait(2400);
+  await tap('.node.focus [data-cols]', { hold: 500 }); await p.waitForFunction(() => document.querySelector('li.col[data-col="status"]') && !document.querySelector('#links.off')); // peer:builder: the file's columns are one tap away now; on once the canvas has settled
   await say('Each column with what it means; what one row is; what it is built into.', 5); await ring('.node.focus', 4); await wait(3000); await unring();
-  await say('Used by 10 outputs. They are held today, but by Access reviews, not by TLS.', 5); await ring('.node.outs header').catch(() => {}); await wait(3200); await unring();
+  await say('Used by 11 outputs; 10 are held today, by Access reviews, not by TLS.', 5); await ring('.node.outs header').catch(() => {}); await wait(3200); await unring();
   await say('Tap a column for its values: TLS status, pass or fail.', 6); await tap('li.col[data-col="status"]', { hold: 600 }); await wait(3000);
   await say('Its rows, as they arrived today, opened on the column you tapped.', 7); await tap('[data-rows]', { hold: 600 }); await wait(3400);
   await p.keyboard.press('Escape'); await wait(900);

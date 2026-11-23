@@ -84,6 +84,23 @@
     const noun = (kid, word) => (kid === focus ? `<b>${esc(word)}</b>` : esc(word));
     return `${noun(v.from, cap(v.subj || PL(v.from)))} ${esc(v.verb)} ${v.obj ? esc(v.obj) : noun(v.to, PL(v.to))}${since}`;
   }
+  // peer:design: a link said in two to four words, read along its line from the kind on its left, or above it ("an
+  // organisational unit is made up of people"); its sentences, and what carries each, are its tip. Each relation has its
+  // words both ways; between two kinds, the one first in this list leads.
+  const SAY = [['works in', 'works in', 'made up of'], ['owned by', 'owned by', 'owns'], ['runs on', 'runs on', 'hosts'], ['evidence for', 'checks', 'checked by'], ['approve exceptions to', 'approves exceptions to', 'exceptions approved by'], ['led by', 'led by', 'leads'], ['tagged with', 'tagged with', 'tagged on'], ['have exceptions to', 'has exceptions to', 'exceptions for'], ['acted for by', 'acted for by', 'acts for'], ['about', 'names', 'named by']];
+  const sayOf = (r) => { const v = relView(r), key = /exceptions/.test(v.verb) ? v.verb : r.name, i = SAY.findIndex((s) => s[0] === key); return { r, from: v.from, to: v.to, fwd: i < 0 ? r.name : SAY[i][1], back: i < 0 ? null : SAY[i][2], rank: i < 0 ? SAY.length : i }; };
+  const leadOf = (rels) => rels.map(sayOf).sort((x, y) => x.rank - y.rank)[0] || null;
+  const sayFrom = (lead, kid) => (lead.from === kid ? lead.fwd : lead.back || lead.fwd);
+  function shortOf(e, A, B) {
+    const lead = e.rels && leadOf(e.rels); if (!lead || !A || !B) return null;
+    const gx = Math.max(B.x - (A.x + A.w), A.x - (B.x + B.w)), gy = Math.max(B.y - (A.y + A.h), A.y - (B.y + B.h));
+    const first = gx >= gy ? (A.x <= B.x ? e.a : e.b) : (A.y <= B.y ? e.a : e.b);
+    return sayFrom(lead, first.slice(2));
+  }
+  const linkTips = new Map();
+  // peer:design r4: a card that goes somewhere when tapped says its sentence in the same tip on hover and focus (data-tipgo)
+  const sayTips = new Map(), sayTip = (el, id, t) => { el.removeAttribute('title'); delete el.dataset.tip; if (!t) return; sayTips.set(id, esc(t)); el.dataset.tip = 'say:' + id; el.dataset.tipgo = ''; };
+  const linkTipOf = (e) => e.blocks.map((bk) => `<span class="tl">${esc(bk.s)}${bk.via ? `<i>${esc(bk.via)}</i>` : ''}</span>`).join('');
   // words broken into lines no wider than a width, as the browser draws them
   function wrapLines(text, font, width) {
     if (!isFinite(width)) return [text];
@@ -124,13 +141,32 @@
   const CAUSE = '<i class="cw causeo" aria-hidden="true">◆</i>';
   const HALF = '<svg class="half" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.8" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6 1.2a4.8 4.8 0 0 0 0 9.6z" fill="currentColor"/></svg>';
   const waitingDs = () => M.datasets.find((d) => d.state === 'waiting');
-  const waitBadge = (kid) => { const n = (waitsBy()[kid] || []).length, w0 = waitingDs(); return n && w0 && !M.quietBanner ? `<span class="kwait" role="button" data-reach title="${n} output${n === 1 ? '' : 's'} about ${esc(PL(kid))} built from ${esc(w0.short)}: see them">${HOURGLASS} ${n} <span class="kgo" aria-hidden="true">›</span></span>` : ''; };
+  // peer:design: a count is an hourglass and a number; what waits is its tip, on hover, focus or a tap
+  const waitBadge = (kid) => { const n = (waitsBy()[kid] || []).length, w0 = waitingDs(); return n && w0 && !M.quietBanner ? `<button type="button" class="kwait" data-tip="wait:${esc(kid)}" aria-expanded="false" aria-label="${outputsWait(n)} on ${esc(w0.short)}: ${n === 1 ? 'it is' : 'they are'} about ${esc(PL(kid))}">${HOURGLASS}<span class="kwn">${n}</span></button>` : ''; };
   function waitsBy() { const w0 = M.datasets.find((d) => d.state === 'waiting'), by = {}; if (!w0) return by; for (const o of M.outputs) if (o.waiting) { let kk = outKind(o.id); if (kk === 'check') kk = w0.kind; if (kk && kk !== 'context') (by[kk] ||= []).push(o); } return by; }
   const decidedDs = () => M.datasets.find((d) => d.state === 'decided');
   const replacedDs = () => M.datasets.find((d) => d.replaced);
   // the day on screen: Wed Mar 27 in the demo, the build's day while building (M.dayCtx)
   const DC0 = { iso: '2024-03-27', today: 'Wed Mar 27', prev: 'Tue Mar 26', wd: 'Wednesday', pwd: 'Tuesday', d: 'Wed 27', pd: 'Tue 26', first: 'Fri Mar 1' };
   const DC = () => ({ ...DC0, ...((M && M.dayCtx) || {}) });
+  // peer:design: the demo's current day said "Today", its date small beside it: one helper for every screen, the data
+  // kept in the past. Today is the model's day (Wed Mar 27 in the demo) and, while building, the latest day played.
+  //   smDay.is(iso)        whether iso is today
+  //   smDay.text(iso, d)   "Today", else the date (or d): plain text, for a heading, a button, a title or aria
+  //   smDay.mid(iso, d)    "today" inside a sentence, else the date (or d)
+  //   smDay.html(iso, d)   "Today" with the date small after it, else the date (or d), escaped: a label on its own
+  //   smDay.small(iso)     the date small, on today only, for after a phrase that begins with smDay.text
+  //   smDay.date(iso)      the date as the app says it: Wed Mar 27
+  const smDay = {
+    now: () => (M ? (M.todayIso !== undefined ? M.todayIso : M.day) || null : null),
+    is: (iso) => !!iso && iso === smDay.now(),
+    date: (iso) => (iso ? new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }).replace(',', '') : ''),
+    text: (iso, d) => (smDay.is(iso) ? 'Today' : d ?? smDay.date(iso)),
+    mid: (iso, d) => (smDay.is(iso) ? 'today' : d ?? smDay.date(iso)),
+    html: (iso, d) => (smDay.is(iso) ? `<span class="today">Today <small class="tdate">${esc(smDay.date(iso))}</small></span>` : esc(d ?? smDay.date(iso))),
+    small: (iso) => (smDay.is(iso) ? ` <small class="tdate">${esc(smDay.date(iso))}</small>` : ''),
+  };
+  window.smDay = smDay;
   const issueDs = () => waitingDs() || decidedDs();
   // what a paused file's choices say: the demo's empty file, unless the dataset brings its own issue (the build's days)
   // a tap on the dimmed map beside an open sheet: the sheet closes and what was under the tap still acts
@@ -140,7 +176,7 @@
     const from = I0.fillFrom || c.prev, fromWd = I0.fillFromWd || c.pwd;
     const base = {
       kind: 'empty', why: 'arrived empty', title: `${c.wd}’s file arrived empty`, sub: `0 rows${d && d.rowsUsual ? ` · usually about ${fmt(usualN(d.rowsUsual))}` : ''}`,
-      options: ['keep', 'fill', 'wait', 'asis'], suggest: 'keep', sugText: (!d || !d.issue || d.issue.demo) && M.demoSugText ? M.demoSugText : 'Keep, not Fill: one whole day for readers', sugEvidence: !d || !d.issue || d.issue.demo ? M.demoSugEvidence || '' : '', sugWord: 'suggested', risky: ['asis'], owes: true, ask: true, fillFrom: from, fillFromD: I0.fillFromD || c.pd, noun,
+      options: ['keep', 'fill', 'wait', 'asis'], suggest: 'keep', sugText: (!d || !d.issue || d.issue.demo) && M.demoSugText ? M.demoSugText : `Keep, not Fill: one whole day, ${c.pwd}’s`, /* peer:design r4: which whole day */ sugEvidence: !d || !d.issue || d.issue.demo ? M.demoSugEvidence || '' : '', sugWord: 'suggested', risky: ['asis'], owes: true, ask: true, fillFrom: from, fillFromD: I0.fillFromD || c.pd, noun,
       pros: { keep: `Readers keep real, checked data: ${c.pwd}’s`, fill: `${c.wd} goes out, with today’s other files`, wait: 'Nothing uncertain goes out', asis: 'Readers see exactly what arrived', accept: 'The new level counts as usual from today', fix: 'Readers see the day as it really was', stay: 'Readers keep what you decided' },
       cons: { keep: `The ${n} outputs show ${c.pwd}, other files included`, fill: `A real ${c.wd} failure wouldn’t show`, wait: `The ${n} outputs keep waiting`, asis: 'Never empty since Aug 1, so this is a fault: failing reviews would show as no data', accept: 'Were it a mistake, it would become the usual', fix: 'None: it passed every check', stay: 'The corrected file waits, unpublished' },
       fileThen: { keep: 'Done for now · reopens if a file comes', fill: 'Done for now · reopens if a file comes', wait: 'Stays on your list', asis: 'Done for now · reopens if a file comes', accept: 'Done with this day', fix: 'Done with this day', stay: 'Stays on your list' },
@@ -454,7 +490,7 @@
     for (const k of M.kinds.slice().sort((a, b) => need(a) - need(b))) {
       const extra = selfShown().some((r) => r.from === k.id) ? 22 : 0;
       const n = k.datasets.length, c = 2, rows = Math.ceil(n / c), cw = (w - 28 - 8) / 2, h = 70 + extra + rows * 40 + 10;
-      const says = relPairs().filter((r) => relView(r).from === k.id).map((r) => sentence(r, false));
+      const says = neighbours(k.id).map((o) => { const lead = leadOf(relPairs().filter((r) => (r.from === k.id && r.to === o) || (r.from === o && r.to === k.id))); return lead ? `${sayFrom(lead, k.id)} ${PL(o)}` : null; }).filter(Boolean); // peer:design: a link in a few words
       const sh = says.length ? says.length * 18 + 8 : 0;
       L.set('k:' + k.id, { x, y, w, h: h + sh, s: 1, v: 'kind-estate', o: 1, says });
       k.datasets.forEach((d, i) => L.set('d:' + d, { x: x + 14 + (i % c) * (cw + 8), y: y + 64 + extra + sh + Math.floor(i / c) * 40, w: cw, h: 34, s: 1, v: 'chip', o: 1 }));
@@ -476,6 +512,18 @@
     }
     return [[`The register: every ${K.noun || K.name.toLowerCase()}`, [reg]], [`About each ${K.noun || K.name.toLowerCase()}${key ? ' · joined on ' + key : ''}`, list.slice(1)]];
   }
+  // peer:newcomer (r4) — a neighbour's link said in two to four words from its own side, in design's link words
+  // ("owns applications", "hosts applications", "checks applications"); its sentences, and what carries each, on hover;
+  // a tap on it still lights the files that carry it. A relation the words can't say from its side keeps its sentence,
+  // still without what carries it (that is on hover too).
+  function nbPhrase(k, o) {
+    const rs = relPairs().filter((r) => (r.from === k && r.to === o) || (r.from === o && r.to === k)), lead = leadOf(rs);
+    if (!lead) return null;
+    const tip = rs.map((r) => { const v = viaParts(r).filter((x) => !/^since/.test(x)).join(' · '); return sentence(r, false) + (v ? ` (${v})` : ''); }).join('\n');
+    return { s: lead.from !== o && !lead.back ? sentence(lead.r, false) : `${sayFrom(lead, o)} ${PL(k)}`, tip, phrase: true };
+  }
+  // a section's label without "joined on <column>": the column on hover (columns and joins wait for a tap or a hover)
+  const groupSaid = (g) => { const m = / · joined on (\S+)$/.exec(g || ''); return m ? { text: g.slice(0, m.index), tip: `Each is joined to the register on ${m[1]}` } : { text: g, tip: '' }; };
   function layoutKind(W, H) {
     const k = S.kind, L = new Map(), E = estateWorld(), nb = neighbours(k), K = kindOf(k);
     const groups = groupsOf(k);
@@ -484,8 +532,9 @@
     for (const e of edges) { const o = e.a === 'k:' + k ? e.b : e.a; relOf[o] = [...(relOf[o] || []), ...e.sents]; blocksOf[o] = [...(blocksOf[o] || []), ...e.blocks]; e.level = true; e.label = null; const cs = [...carriers(k, o.slice(2))]; if (cs.length === 1) e.carrier = cs[0]; }
     if (narrow() || W < 1100) return stackKind(W, groups, nb, relOf);
     const CW = 158, CH = 32, CG = 8, SG = 22, SXG = 28, PAD = 22, HEAD = 86, GAP = 64, TW = 300;
-    const slotH = (o) => tileH(o, TW) + relsH(blocksOf['k:' + o], TW) + 6;
-    const labW = Math.max(0, ...groups.map(([g, l]) => (g ? tw((g + (l.length > 3 ? ` · ${l.length}` : '')).toUpperCase(), '600 11px Geist') * 1.08 + 6 : 0)));
+    const saysOf = (o) => { const ph = nbPhrase(k, o); return ph ? [ph] : blocksOf['k:' + o]; }; // peer:newcomer (r4)
+    const slotH = (o) => tileH(o, TW) + relsH(saysOf(o), TW) + 6;
+    const labW = Math.max(0, ...groups.map(([g, l]) => (g ? tw((groupSaid(g).text + (l.length > 3 ? ` · ${l.length}` : '')).toUpperCase(), '600 11px Geist') * 1.08 + 6 : 0)));
     // the panel: every way of setting its themes in columns, kept to the one that lets the whole view be drawn largest
     const sideH = (list) => list.reduce((a, o) => a + slotH(o) + 12, 0) + 60;
     const half = Math.ceil(nb.length / 2), colNeed = Math.max(sideH(nb.slice(0, half)), sideH(nb.slice(half)));
@@ -507,7 +556,7 @@
     L.set('k:' + k, { ...P(0, 0), w: pw, h: ph, s: sc, v: 'kind-open', o: 1 });
     for (const sec of at) {
       const x0 = PAD + sec.ci * (secW + SXG); let y0 = sec.y;
-      if (sec.g) { L.set('g:' + k + ':' + sec.g, { ...P(x0, y0), w: secW, h: 18, s: sc, v: 'group', o: 1, text: sec.g + (sec.list.length > 3 ? ` · ${sec.list.length}` : '') }); y0 += 26; }
+      if (sec.g) { const gs = groupSaid(sec.g); L.set('g:' + k + ':' + sec.g, { ...P(x0, y0), w: secW, h: 18, s: sc, v: 'group', o: 1, text: gs.text + (sec.list.length > 3 ? ` · ${sec.list.length}` : ''), tip: gs.tip }); y0 += 26; } // peer:newcomer (r4)
       sec.list.forEach((d, i) => L.set('d:' + d.id, { ...P(x0 + (i % cc) * (CW + CG), y0 + Math.floor(i / cc) * (CH + CG)), w: CW, h: CH, s: sc, v: 'chip', o: 1 }));
     }
     // neighbours keep the side they had on the map; on each side grouped by area, in the order the map gives them
@@ -535,7 +584,7 @@
       for (const it of items) {
         const pos = P(x, Math.max(-(th - ph) / 2, y0) + it.y);
         if (it.area) L.set('a:' + side + ':' + it.area, { ...pos, w: TW, h: 18, s: sc, v: 'area', o: 1, text: M.domains.find((d) => d.id === it.area).name });
-        else L.set('k:' + it.o, { ...pos, w: TW, h: it.h, s: sc, v: 'kind-compact', o: 1, rel: relOf['k:' + it.o], says: blocksOf['k:' + it.o] });
+        else L.set('k:' + it.o, { ...pos, w: TW, h: it.h, s: sc, v: 'kind-compact', o: 1, rel: relOf['k:' + it.o], says: saysOf(it.o) }); // peer:newcomer (r4)
       }
     }
     return { nodes: L, edges, scroll: H };
@@ -545,22 +594,23 @@
   // how tall a tile's sentences stand: each sentence, then the quieter line of what carries it
   function relsH(blocks, W) { return (blocks || []).reduce((a, b) => a + (typeof b === 'string' ? wrapLines(b, '400 13px Geist', W - 66).length * 16 : wrapLines(b.s, '500 13px Geist', W - 66).length * 16 + (b.via ? wrapLines(b.via, '400 12px Geist', W - 66).length * 15 : 0)) + 4, 0); }
   function stackKind(W, groups, nb, relOf) {
+    // peer:newcomer (r4): the kind you opened comes first, its paused file on the first screen; then what it relates to
     const L = new Map(), k = S.kind; let y = 16; const x = 16, w = W - 32, nc = W >= 700 ? 2 : 1, cc = W >= 700 ? 4 : 2, nw = (w - (nc - 1) * 12) / nc;
-    for (let i = 0; i < nb.length; i += nc) {
-      const row = nb.slice(i, i + nc), hs = row.map((o) => tileH(o, nw) + relsH(relOf['k:' + o] || [], nw) + 6), rh = Math.max(...hs);
-      row.forEach((o, j) => { const rel = relOf['k:' + o] || []; L.set('k:' + o, { x: x + j * (nw + 12), y, w: nw, h: nc > 1 ? rh : hs[j], s: 1, v: 'kind-compact', o: 1, rel, says: rel }); });
-      y += rh + 8;
-    }
-    y += 8;
     const top = y; y += W >= 700 ? 96 : 112;
     const cw = (w - 32 - (cc - 1) * 8) / cc, items = [];
     for (const [g, list] of groups) {
-      if (g) { const t = g + (list.length > 3 ? ` · ${list.length}` : ''), two = tw(t.toUpperCase(), '600 11px Geist') * 1.08 > w - 32; items.push(['g:' + k + ':' + g, { x: x + 16, y, w: w - 32, h: two ? 36 : 18, s: 1, v: 'group', o: 1, text: t }]); y += two ? 44 : 26; }
+      if (g) { const gs = groupSaid(g), t = gs.text + (list.length > 3 ? ` · ${list.length}` : ''), two = tw(t.toUpperCase(), '600 11px Geist') * 1.08 > w - 32; items.push(['g:' + k + ':' + g, { x: x + 16, y, w: w - 32, h: two ? 36 : 18, s: 1, v: 'group', o: 1, text: t, tip: gs.tip }]); y += two ? 44 : 26; }
       list.forEach((d, i) => items.push(['d:' + d.id, { x: x + 16 + (i % cc) * (cw + 8), y: y + Math.floor(i / cc) * 40, w: cw, h: 32, s: 1, v: 'chip', o: 1 }]));
       y += Math.ceil(list.length / cc) * 40 + 14;
     }
     L.set('k:' + k, { x, y: top, w, h: y - top + 4, s: 1, v: 'kind-open', o: 1 });
     for (const [id, r] of items) L.set(id, r);
+    y += 16;
+    for (let i = 0; i < nb.length; i += nc) {
+      const row = nb.slice(i, i + nc), says = row.map((o) => { const ph = nbPhrase(k, o); return ph ? [ph] : relOf['k:' + o] || []; }), hs = row.map((o, j) => tileH(o, nw) + relsH(says[j], nw) + 6), rh = Math.max(...hs);
+      row.forEach((o, j) => { const rel = relOf['k:' + o] || []; L.set('k:' + o, { x: x + j * (nw + 12), y, w: nw, h: nc > 1 ? rh : hs[j], s: 1, v: 'kind-compact', o: 1, rel, says: says[j] }); });
+      y += rh + 8;
+    }
     return { nodes: L, edges: [], scroll: y + 40 };
   }
   function neighbourhood(id) {
@@ -570,49 +620,115 @@
     const outs = (d.builds || []).map((o) => M.outputs.find((x) => x.id === o) || { id: o });
     return { d, out, inc, outs };
   }
+  // peer:builder — the file's view (r3). First what the file is, its state and one number; then what it links to, each
+  // link said by what it means in two to four words with its number (one row per application · CMDB · 100% match;
+  // evidence for · Quarterly access review), the full sentence on hover; what uses it as one count with what that
+  // means, said once, its list a tap away; its columns a tap away too (S.colsOpen, kept from file to file). No kind
+  // tile above it: the trail names the kind, and the file's own link to its register says what one row is.
+  const FOLD_H = 40, LINK_H = 60;
+  const whatOf = (d) => (d.description ? descOf(d) : ''); // r1: dq's look-inside sentence, so a file reads the same in its preview and its view
+  const descLines = (d, fw) => (whatOf(d) ? Math.min(2, wrapLines(whatOf(d), '400 12px Geist', fw - 28).length) : 0);
+  const hasNum = (d) => d.rowsToday != null || !!d.awaited;
+  const barsOn = (d) => d.rowsToday != null && !!d.rowsUsual; // peer:design r4: today against usual drawn, two rows tall
+  // the file's own buttons, as its card draws them
+  function fileActs(d) {
+    const st = d.state, rows = (t) => (M.noRows ? [] : [[t, 'rows']]);
+    if (st === 'waiting') return [...rows(`See ${DC().prev}’s rows`), ['Decide ›', 'decide']];
+    if (st === 'decided') return [['Undo', 'undo'], ...rows('Rows'), ...(d.pendingFix || M.replaceable !== false ? [[d.pendingFix ? 'Publish it ›' : 'Replace file ›', 'replace']] : [])];
+    if (d.replaced) return [['Undo', 'undo'], ...rows('Explore rows ›')];
+    if (d.awaited) return [];
+    return rows('Explore rows ›');
+  }
+  // the state's chip sits beside the name, or with the buttons where the two don't fit on one line (a phone, a long state)
+  const chipSaid = (d) => (d.state === 'waiting' ? 'Paused today' : d.state === 'decided' ? `${HOW[d.how]?.pill || 'Decided'} · file owed` : d.replaced ? 'Corrected file in' : d.state === 'warn' ? 'Unusual today' : d.awaited ? 'First file Thu Mar 28' : '');
+  const chipW = (d) => tw(chipSaid(d), '600 12px Geist') + 38;
+  const chipLow = (d, fw) => !!chipSaid(d) && 36 + tw(d.short, '600 20px Geist') + 8 + chipW(d) > fw - 28;
+  const askedSaid = (d) => (d.asked && (d.state === 'waiting' || d.state === 'decided') ? `Asked for the file ${hhmm(d.asked)}` : '');
+  // the buttons' rows, packed as the browser wraps them
+  const actsRows = (d, fw) => {
+    const ask = askedSaid(d), ws = [...(ask ? [tw(ask, '400 12px Geist') + 40] : []), ...fileActs(d).map(([t]) => tw(t, '500 13px Geist') + 28)]; if (!ws.length) return 0;
+    let rows = 1, x = 0; for (const w of ws) { if (x && x + 6 + w > fw - 28 - 6) { rows++; x = w; } else x += (x ? 6 : 0) + w; } return rows;
+  };
+  const headH = (d, fw) => { const L = descLines(d, fw), ar = actsRows(d, fw); return 12 + 28 + (chipLow(d, fw) ? 4 + 24 : 0) + (L ? 4 + L * 16 : 0) + (hasNum(d) ? 4 + (barsOn(d) ? 36 : 18) : 0) + (ar ? 10 + ar * 32 + (ar - 1) * 6 : 0) + 12; };
+  // a link, said by what it means: its words, its number, and the whole sentence for hover
+  const prevIso = (iso) => new Date(Date.parse(iso + 'T12:00:00Z') - 864e5).toISOString().slice(0, 10);
+  const isoSaid = (iso) => (!iso ? '' : iso === DC().iso ? 'today' : iso === prevIso(DC().iso) ? DC().prev : new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }).replace(',', ''));
+  const pctSaid = (m) => { if (!m || !m.rows) return ''; const p = (100 * m.hit) / m.rows; return (p >= 99.95 ? '100' : p >= 99 ? p.toFixed(1) : String(Math.round(p))) + '%'; };
+  function linkOf(d, js) {
+    const T = dsOf(js[0].to), tk = T.kind, noun = nounOf(tk), reg = tk === d.kind && kindOf(d.kind).datasets[0] === T.id, per = reg && !!d.one && d.one.startsWith('one ' + nounOf(d.kind));
+    const said = js.map((j) => {
+      const about = j.rel === 'about' || j.rel === 'in' || j.rel === 'on', eb = about ? (per ? (d.one.includes(':') ? `one per in-scope ${noun}` : `one row per ${noun}`) : `about ${article(noun)}`) : j.rel; // r1: in scope, as the rows entry says
+      const m = j.match, pct = pctSaid(m), when = m && m.day && m.day !== DC().iso ? isoSaid(m.day) : '';
+      const scope = per && d.one.includes(':') ? plainScope(d.one.slice(d.one.indexOf(':') + 1).trim()) : null;
+      const tip = `${per ? `Each row is one ${noun} in ${T.short}` : `Each row is ${about ? 'about' : j.rel} ${article(noun)} in ${T.short}`}, matched on ${j.col}${j.toCol && j.toCol !== j.col ? ' → ' + j.toCol : ''}${pct ? `: ${fmt(m.hit)} of ${fmt(m.rows)} rows ${when ? 'on ' + when : 'today'}` : ''}.${scope ? ` Only ${PL(d.kind)} ${scope}.` : ''}`;
+      return { eb, pct, when, tip };
+    });
+    return { eb: said.map((x) => x.eb).join(' · '), nm: said[0].pct ? `${said[0].pct} match` : '', nd: said[0].pct && said[0].when ? said[0].when : '', tip: said.map((x) => x.tip).join(' '), icon: kindOf(tk).icon };
+  }
+  // a file's rows that point to other rows of the same file: another unit, another person
+  const selfOf = (d, js) => { const noun = nounOf(d.kind), pct = pctSaid(js[0].match); return { eb: js.map((j) => j.rel).join(' · '), title: `another ${noun}`, nm: pct ? `${pct} match` : '', nd: '', tip: js.map((j) => `Each ${noun} ${j.rel} another ${noun} in ${d.short}, on ${j.col}${j.match && j.match.rows ? `: ${fmt(j.match.hit)} of ${fmt(j.match.rows)} rows` : ''}.`).join(' '), icon: kindOf(d.kind).icon }; };
+  const evidenceOf = (d, ev) => { const name = d.controlName || ev.value || dsOf(ev.to).short; return { eb: 'evidence for', title: name, nm: '', tip: `${d.short} is the evidence for the control ${name}: whether each ${nounOf(d.kind)} it applies to passes.`, icon: 'control' }; };
+  // what uses the file: one count and what it means, said once; the list a tap away
+  function outsSaid(d, list) {
+    const n = list.length, w = list.filter((o) => o.waiting).length, wd = waitingDs(), here = !!(wd && wd.id === d.id), pl = (k) => (k === 1 ? '' : 's');
+    const rel = list.filter((o) => o.released).length, how = (list.find((o) => o.released) || {}).released, reb = list.filter((o) => o.rebuilt).length, I = issueOf(issueDs() || d);
+    const value = 'If this file is wrong, these show wrong numbers';
+    if (w && here) return { title: `<span class="oc">${HOURGLASS} ${w === n ? '' : `${w} of `}${n}</span> waiting`, sub: `Readers see ${esc(DC().prev)} until you decide`, more: '', tip: `${w === n ? 'All' : w} of the ${n} output${pl(n)} built from ${d.short} wait for your decision: readers see ${DC().prev} until you decide.` }; // r1: held, not wrong; the banner's words
+    if (w) return { title: `Used by <span class="oc">${n}</span> output${pl(n)}`, sub: `${HOURGLASS} ${w === n ? 'All' : w} held today by ${esc(wd ? wd.short : 'another file')}`, more: value, tip: `${n} output${pl(n)} built from ${d.short}. ${value}. Today ${w === n ? 'they wait' : `${w} wait`} on ${wd ? wd.short : 'another file'}.` };
+    if (rel && how === 'keep') return { title: `<span class="oc">${HALF} ${rel}</span> output${pl(rel)} stay on ${esc(DC().prev)}`, sub: 'until the corrected file', more: value, tip: `${value}.` };
+    if (rel) return { title: `<span class="oc ok">✓ ${rel}</span> output${pl(rel)} published`, sub: how === 'asis' ? (I.kind === 'empty' ? `with no ${esc(I.noun)}` : 'as it arrived') : how === 'accept' ? 'at the new level' : `with ${esc(I.fillFrom)}’s rows, marked filled`, more: value, tip: `${value}.` };
+    if (reb) return { title: `<span class="oc ok">✓ ${reb}</span> output${pl(reb)} rebuilt`, sub: `with ${esc(DC().wd)}’s file`, more: value, tip: `${value}.` };
+    return { title: `Used by <span class="oc">${n}</span> output${pl(n)}`, sub: value, more: '', tip: `${n} output${pl(n)} built from ${d.short}. ${value}.` };
+  }
+  const subLines = (html, w) => wrapLines(plainOf(html), '400 12px Geist', w - 24 - (/<svg/.test(html) ? 18 : 2)).length;
+  function outsBox(d, list, w, open) {
+    const s = outsSaid(d, list), head = 10 + 20 + 2 + subLines(s.sub, w) * 16 + (open && s.more ? 2 + subLines(s.more, w) * 16 : 0) + 8;
+    return { s, h: (open ? head + outGroups(list).length * 26 + list.length * 26 + 8 : head) + 2 }; // and its border
+  }
   function layoutDataset(W, H) {
     const { d, out, inc, outs } = neighbourhood(S.ds), L = new Map();
-    const colsShown = d.columns.slice(0, 12), fw0 = narrow() ? W - 32 : 460;
-    const row1 = firstRowOf(d); // peer:newcomer
+    const open = !!S.colsOpen, fw0 = narrow() ? W - 32 : 460, hh = headH(d, fw0);
+    const colsShown = open ? d.columns.slice(0, 12) : [], row1 = open ? firstRowOf(d) : null; // peer:newcomer
     const rowH = colsShown.map((c, i) => (colTwo(c, fw0, row1 ? cvW(cvSaid(c, row1[i])) : undefined) ? 46 : 30));
-    const rowY = {}; let acc = (narrow() ? HEAD_H + 40 : HEAD_H) + (row1 ? CVH : 0); colsShown.forEach((c, i) => { rowY[c.name] = acc; acc += rowH[i]; });
-    const fh = acc + (d.columns.length > 12 ? 30 : 0) + 8;
-    if (narrow()) return stackDataset(W, d, out, inc, outs, fh);
-    const mid = W < 1180, fw = 460, K2 = kindOf(d.kind), TWk = Math.max(248, 74 + tw(K2.name, '600 15px Geist') + tw(fmt(K2.count), '400 13px Geist') + 8 + (paused(d.kind).length ? 96 : 0)), th2 = tileH(d.kind, TWk);
+    const rowY = {}; let acc = hh + FOLD_H + (row1 ? CVH : 0) + 4; colsShown.forEach((c, i) => { rowY[c.name] = acc; acc += rowH[i]; });
+    const fh = (open ? acc + 4 + (d.columns.length > 12 ? 30 : 0) : hh + FOLD_H) + 2; // and the card's border
+    const byTo = new Map(); for (const j of out) { if (!byTo.has(j.to)) byTo.set(j.to, []); byTo.get(j.to).push(j); }
+    const links = [...byTo.values()], self = M.joins.filter((j) => j.from === d.id && j.to === d.id);
+    if (narrow()) return stackDataset(W, d, links, inc, outs, fh, self);
+    const mid = W < 1180, fw = 460, ev = (links.find((js) => js[0].rel === 'evidence for') || [])[0];
+    const targets = [...links.filter((js) => js[0].rel !== 'evidence for').map((js) => ({ id: 'd:' + js[0].to, col: js[0].col, k: linkOf(d, js) })), ...(self.length ? [{ id: 'sf:' + d.id, col: self[0].col, k: selfOf(d, self) }] : [])];
+    const leftN = targets.length + (inc.length ? 1 : 0) + (mid && ev ? 1 : 0), oOpen = S.outsOpen === d.id, ob = outs.length ? outsBox(d, outs, mid ? fw : 300, oOpen) : null;
     let total = Math.max(H, fh + 140);
-    const F = mid ? { x: Math.max(16, Math.min(W - fw - 16, 312)), y: Math.max(100, th2 + 74), w: fw, h: fh } : { x: Math.round(W * 0.5 - fw / 2 - (outs.length ? 60 : 0)), y: Math.max(76 + 24, (total - fh) / 2 + 12), w: fw, h: fh };
-    L.set('d:' + d.id, { ...F, s: 1, v: 'focus', o: 1 });
-    L.set('k:' + d.kind, { x: F.x + fw / 2 - TWk / 2, y: Math.max(12, F.y - th2 - 58), w: TWk, h: th2, s: 1, v: 'kind-compact', o: 1, sub: 'me:' + d.id });
-    const targets = [...new Map(out.filter((j) => j.rel !== 'evidence for').map((j) => [j.to, j])).values()];
-    const ev = out.find((j) => j.rel === 'evidence for');
-    const left = mid ? 16 : F.x - 300;
-    // what it joins, each card level with its column where it can be, the cards never on top of each other
-    let below = 12;
-    const placed = targets.map((j) => ({ j, want: F.y + (rowY[j.col] ?? 76) - 20 })).sort((x, y) => x.want - y.want);
-    for (const it of placed) { it.y = Math.max(below, it.want); below = it.y + 56 + 10; }
+    const groupH = fh + (ev ? 56 + LINK_H : 0); // the card and the control under it, a little above the middle
+    const F = mid ? { x: leftN ? Math.max(16, Math.min(W - fw - 16, 312)) : Math.max(16, Math.round((W - fw) / 2)), y: 40, w: fw, h: fh } : { x: Math.round(W * 0.5 - fw / 2 - (outs.length ? 60 : 0)), y: Math.max(32, Math.round((total - groupH) / 2) - 32), w: fw, h: fh };
+    L.set('d:' + d.id, { ...F, s: 1, v: 'focus', o: 1, cols: open, hh });
+    const left = mid ? 16 : F.x - 300, mid0 = Math.round(hh / 2), at = (c) => (open && rowY[c] != null ? rowY[c] + 15 : mid0);
+    // what it links to, each card level with its column where the columns show, the cards never on top of each other
+    let below = mid ? F.y : 12;
+    const placed = targets.map((t) => ({ ...t, want: F.y + at(t.col) - LINK_H / 2 })).sort((x, y) => x.want - y.want);
+    for (const it of placed) { it.y = Math.max(below, it.want); below = it.y + LINK_H + 10; }
     const over = below - 10 - (Math.max(H, fh + 140) - 12); if (over > 0 && !mid) for (const it of placed) it.y -= over;
-    const yOf = new Map(placed.map((it) => [it.j.to, it.y]));
-    targets.forEach((j) => {
-      L.set('d:' + j.to, { x: Math.max(16, left), y: Math.max(12, yOf.get(j.to)), w: 240, h: 56, s: 1, v: 'nb', o: 1, sub: `${j.rel === 'about' || j.rel === 'in' || j.rel === 'on' ? 'joined on' : j.rel} ${j.col}${j.toCol && j.toCol !== j.col ? ' → ' + j.toCol : ''}` });
-    });
+    for (const it of placed) L.set(it.id, { x: Math.max(16, left), y: Math.max(12, it.y), w: 240, h: LINK_H, s: 1, v: 'nb', o: 1, ...it.k });
     if (inc.length) {
       const names = [...new Set(inc.map((j) => j.from))], iy = Math.max(F.y + fh - 70, below);
       L.set('in:' + d.id, { x: Math.max(16, left), y: iy, w: 240, h: 64, s: 1, v: 'inc', o: 1, list: names, col: inc[0].toCol }); below = Math.max(below, iy + 64 + 12);
     }
-    if (ev) L.set('d:' + ev.to, mid ? { x: 16, y: Math.max(below, F.y + fh - 56), w: 240, h: 56, s: 1, v: 'nb', o: 1, sub: `the control: ${d.controlName || ev.value}` } : { x: F.x + fw / 2 - 130, y: F.y + fh + 56, w: 260, h: 56, s: 1, v: 'nb', o: 1, sub: `the control: ${d.controlName || ev.value}` });
-    if (outs.length) {
-      const oh = outsH(outs, heldElsewhere(d.id, outs)); // peer:newcomer
-      L.set('o:' + d.id, mid ? { x: F.x, y: F.y + fh + 52, w: fw, h: oh, s: 1, v: 'outs', o: 1, list: outs } : { x: F.x + fw + 90, y: Math.max(12, F.y + (fh - oh) / 2), w: 320, h: oh, s: 1, v: 'outs', o: 1, list: outs });
-      if (mid) total = Math.max(total, F.y + fh + 52 + oh + 32);
+    if (ev) {
+      const ey = mid ? Math.max(below, F.y + Math.min(fh, hh + FOLD_H) - LINK_H) : F.y + fh + 56;
+      L.set('d:' + ev.to, mid ? { x: 16, y: ey, w: 240, h: LINK_H, s: 1, v: 'nb', o: 1, ...evidenceOf(d, ev) } : { x: F.x + fw / 2 - 130, y: ey, w: 260, h: LINK_H, s: 1, v: 'nb', o: 1, ...evidenceOf(d, ev) });
+      if (mid) below = ey + LINK_H + 12; else total = Math.max(total, ey + LINK_H + 24);
+    }
+    if (ob) {
+      const r = mid ? { x: F.x, y: F.y + fh + 52, w: fw, h: ob.h } : { x: F.x + fw + 90, y: Math.max(12, oOpen ? F.y + (fh - ob.h) / 2 : F.y + mid0 - ob.h / 2), w: 300, h: ob.h };
+      L.set('o:' + d.id, { ...r, s: 1, v: 'outs', o: 1, list: outs, open: oOpen });
+      total = Math.max(total, r.y + r.h + 32);
     }
     if (mid) total = Math.max(total, below + 24, F.y + fh + 40);
     const edges = [];
-    for (const j of targets) edges.push({ a: 'd:' + d.id, b: 'd:' + j.to, aY: (rowY[j.col] ?? 76) + 15, aCol: j.col, aSide: 'left', label: null, arrow: false });
-    if (ev) edges.push({ a: 'd:' + d.id, b: 'd:' + ev.to, label: mid ? null : 'is evidence for', arrow: false });
-    const scope = d.one && d.one.includes(':') ? plainScope(d.one.slice(d.one.indexOf(':') + 1).trim()) : null; // peer:newcomer: in plain words
-    edges.push({ a: 'd:' + d.id, b: 'k:' + d.kind, label: scope ? `one row per ${nounOf(d.kind)}` : `one row is ${d.one ? d.one.split(':')[0] : 'one ' + nounOf(d.kind)}`, via: scope ? [`only those ${scope}`] : null, dash: true });
-    if (inc.length) { const kc = (colsShown.find((c) => c.role === 'key') || colsShown[0]).name; edges.push({ a: 'in:' + d.id, b: 'd:' + d.id, bY: (rowY[kc] ?? 76) + 15, bCol: kc, bSide: 'left', label: `join on ${inc[0].toCol}`, arrow: false }); }
-    if (outs.length) edges.push({ a: 'd:' + d.id, b: 'o:' + d.id, label: 'built from it', bad: outs.some((o) => o.waiting) && d.state === 'waiting', arrow: true });
+    for (const it of placed) edges.push({ a: 'd:' + d.id, b: it.id, aY: at(it.col), aCol: it.col, aSide: 'left', label: null, arrow: false });
+    if (ev) edges.push({ a: 'd:' + d.id, b: 'd:' + ev.to, label: null, arrow: false });
+    if (inc.length) { const kc = (d.columns.find((c) => c.role === 'key') || d.columns[0]).name; edges.push({ a: 'in:' + d.id, b: 'd:' + d.id, bY: at(kc), bCol: kc, bSide: 'left', label: null, arrow: false }); }
+    if (ob) edges.push({ a: 'd:' + d.id, b: 'o:' + d.id, label: null, bad: outs.some((o) => o.waiting) && d.state === 'waiting', arrow: true });
     return { nodes: L, edges, scroll: total };
   }
   // a column's meaning takes a second line where it doesn't fit beside its name and its kind
@@ -638,13 +754,14 @@
   const tyOf = (c) => (c.role === 'key' ? 'key' : c.role === 'date' ? 'date' : c.role === 'number' ? 'number' : c.role === 'category' ? 'code' : 'text');
   function colTwo(c, fw, vw) { const right = vw !== undefined ? Math.min(cvMax(fw), vw) : tw(tyOf(c), '400 12px Geist') + (c.role === 'key' ? 12 : 0); /* peer:newcomer: vw, the day's value's width, as the row's grid lays it out */ const room = fw - 28 - 20 - tw(c.name, '400 13px "Geist Mono"') - right - (vw !== undefined ? 2 : 20); return tw(c.meaning || '', '400 12px Geist') > room; }
   const outsH = (outs, one) => (one ? 42 : 58) + outs.reduce((a, o) => a + (one || !o.about ? 26 : tw(o.about, '400 11px Geist') > 250 ? 54 : 40), 0) + new Set(outs.map((o) => outKind(o.id) || 'other')).size * 26 + 12; // peer:newcomer: one, a line each
-  function stackDataset(W, d, out, inc, outs, fh) {
+  // peer:builder — on a phone, one card under another: the file, what uses it, then what it links to, each saying how
+  function stackDataset(W, d, links, inc, outs, fh, self) {
     const L = new Map(); let y = 16; const x = 16, w = W - 32;
-    { const th2 = tileH(d.kind, w); L.set('k:' + d.kind, { x, y, w, h: th2, s: 1, v: 'kind-compact', o: 1, sub: 'me:' + d.id }); y += th2 + 12; }
-    L.set('d:' + d.id, { x, y, w, h: fh, s: 1, v: 'focus', o: 1 }); y += fh + 14;
-    for (const j of [...new Map(out.map((j) => [j.to, j])).values()]) { L.set('d:' + j.to, { x, y, w, h: 56, s: 1, v: 'nb', o: 1, sub: j.rel === 'evidence for' ? `evidence for · ${d.controlName || ''}` : `joined on ${j.col}` }); y += 64; }
+    L.set('d:' + d.id, { x, y, w, h: fh, s: 1, v: 'focus', o: 1, cols: !!S.colsOpen, hh: headH(d, w) }); y += fh + 14;
+    if (outs.length) { const op = S.outsOpen === d.id, ob = outsBox(d, outs, w, op); L.set('o:' + d.id, { x, y, w, h: ob.h, s: 1, v: 'outs', o: 1, list: outs, open: op }); y += ob.h + 10; }
+    for (const js of links) { L.set('d:' + js[0].to, { x, y, w, h: LINK_H, s: 1, v: 'nb', o: 1, ...(js[0].rel === 'evidence for' ? evidenceOf(d, js[0]) : linkOf(d, js)) }); y += LINK_H + 10; }
+    if (self.length) { L.set('sf:' + d.id, { x, y, w, h: LINK_H, s: 1, v: 'nb', o: 1, ...selfOf(d, self) }); y += LINK_H + 10; }
     if (inc.length) { L.set('in:' + d.id, { x, y, w, h: 64, s: 1, v: 'inc', o: 1, list: [...new Set(inc.map((j) => j.from))], col: inc[0].toCol }); y += 72; }
-    if (outs.length) { const oh = outsH(outs, heldElsewhere(d.id, outs)); /* peer:newcomer */ L.set('o:' + d.id, { x, y, w, h: oh, s: 1, v: 'outs', o: 1, list: outs }); y += oh + 12; }
     return { nodes: L, edges: [], scroll: y + 30 };
   }
   function layout() {
@@ -653,8 +770,9 @@
   }
 
   // ------------------------------------------------------------------ painting a node for its role at this level
+  const linkHtml = (r, name) => `<span class="eb">${esc(r.eb)}</span><span class="nl"><span class="ki" aria-hidden="true">${ICON[r.icon] || ICON.app}</span><span class="dn">${esc(name)}</span>${r.nm ? `<span class="nm">${esc(r.nm)}${r.nd ? `<span class="nd"> · ${esc(r.nd)}</span>` : ''}</span>` : ''}</span>`; // peer:builder
   function paint(el, id, r) {
-    const sig = r.v + (r.sub || '') + (r.text || '') + (r.rel ? r.rel.join() : '') + (r.says ? JSON.stringify(r.says) : '') + '#' + S.ver;
+    const sig = r.v + (r.sub || '') + (r.text || '') + (r.rel ? r.rel.join() : '') + (r.says ? JSON.stringify(r.says) : '') + (r.eb || '') + (r.nm || '') + (r.nd || '') + (r.title || '') + (r.cols ? '|c' : '') + (r.open ? '|o' : '') + (r.hh || '') + '#' + S.ver; // peer:builder
     if (el.dataset.v === sig) return;
     el.dataset.v = sig;
     const [type, key] = [id.split(':')[0], id.slice(id.indexOf(':') + 1)];
@@ -664,14 +782,14 @@
       el.classList.add('kind', 'hit'); if (port) el.classList.add('port'); el.classList.toggle('ghost', !!k.ghost); el.classList.toggle('pointed', !!k.pointed); // peer:builder
       if (r.v === 'kind-compact') {
         el.classList.add('compact');
-        el.innerHTML = `${waitBadge(k.id)}<div class="khead"><span class="kicon">${ICON[k.icon] || ICON.app}</span><span class="kname">${esc(k.name)} <span class="kn">${fmt(k.count)}</span></span>${bad ? `<span class="kbad">${PAUSE} ${bad} paused</span>` : ''}</div><div class="mosaic">${k.datasets.map((x) => `<i class="${dsOf(x).state}${r.sub === 'me:' + x ? ' me' : ''}"></i>`).join('')}<span class="mc">${dsWord(k.datasets.length)}</span></div>${(() => { const mb = 44 + Math.ceil((k.datasets.length + 7) / tilePer(r.w)) * 11, self = selfShown().filter((x) => x.from === k.id), stacked = !!(r.says && r.says.length); return self.map((x) => `<div class="kself"${stacked ? ` style="top:${mb + 2}px;bottom:auto"` : ''}>↻ ${esc(x.name)} another ${esc(k.noun || k.name.toLowerCase())}</div>`).join('') + (!stacked && S.level === 'estate' ? (() => { const fl = k.datasets.map(dsOf).filter((x) => ['waiting', 'warn', 'decided'].includes(x.state)); if (!fl.length) return ''; const mark = (x) => (x.state === 'waiting' ? PAUSE : x.state === 'decided' ? HALF : '◆'); return `<div class="kflags" style="top:${mb + 2}px">${fl.slice(0, 2).map((x) => `<span class="${x.state}">${mark(x)} ${esc(x.short)}</span>`).join('')}${fl.length > 2 ? `<span>+${fl.length - 2}</span>` : ''}</div>`; })() : '') + (stacked ? `<div class="krels" style="top:${mb + 4 + (self.length ? 18 : 0)}px">${r.says.map((t) => typeof t === 'string' ? `<span class="ks">${esc(t)}</span>` : `<span class="ks">${esc(t.s)}</span>${t.via ? (S.level === 'kind' ? `<button type="button" class="kv" data-carry aria-pressed="${S.pin === id}" title="${esc([...carriers(S.kind, k.id)].map((x) => dsOf(x)?.short).filter(Boolean).join(', '))}">${esc(t.via)}</button>` : `<span class="kv">${esc(t.via)}</span>`) : ''}`).join('')}</div>` : ''); })()}`;
+        el.innerHTML = `${waitBadge(k.id)}<div class="khead"><span class="kicon">${ICON[k.icon] || ICON.app}</span><span class="kname">${esc(k.name)} <span class="kn">${fmt(k.count)}</span></span>${bad ? `<span class="kbad">${PAUSE} ${bad} paused</span>` : ''}</div><div class="mosaic">${k.datasets.map((x) => `<i class="${dsOf(x).state}${r.sub === 'me:' + x ? ' me' : ''}"></i>`).join('')}<span class="mc">${dsWord(k.datasets.length)}</span></div>${(() => { const mb = 44 + Math.ceil((k.datasets.length + 7) / tilePer(r.w)) * 11, self = selfShown().filter((x) => x.from === k.id), stacked = !!(r.says && r.says.length); return self.map((x) => `<div class="kself"${stacked ? ` style="top:${mb + 2}px;bottom:auto"` : ''}>↻ ${esc(x.name)} another ${esc(k.noun || k.name.toLowerCase())}</div>`).join('') + (!stacked && S.level === 'estate' ? (() => { const fl = k.datasets.map(dsOf).filter((x) => ['waiting', 'warn', 'decided'].includes(x.state)); if (!fl.length) return ''; const mark = (x) => (x.state === 'waiting' ? PAUSE : x.state === 'decided' ? HALF : '◆'); return `<div class="kflags" style="top:${mb + 2}px">${fl.slice(0, 2).map((x) => `<span class="${x.state}">${mark(x)} ${esc(x.short)}</span>`).join('')}${fl.length > 2 ? `<span>+${fl.length - 2}</span>` : ''}</div>`; })() : '') + (stacked ? `<div class="krels" style="top:${mb + 4 + (self.length ? 18 : 0)}px">${r.says.map((t) => typeof t === 'string' ? `<span class="ks">${esc(t)}</span>` : t.phrase ? `<button type="button" class="ks kphr" data-carry aria-pressed="${S.pin === id}" title="${esc(t.tip)}">${esc(t.s)}</button>` /* peer:newcomer (r4) */ : `<span class="ks">${esc(t.s)}</span>${t.via ? (S.level === 'kind' ? `<button type="button" class="kv" data-carry aria-pressed="${S.pin === id}" title="${esc([...carriers(S.kind, k.id)].map((x) => dsOf(x)?.short).filter(Boolean).join(', '))}">${esc(t.via)}</button>` : `<span class="kv">${esc(t.via)}</span>`) : ''}`).join('')}</div>` : ''); })()}`;
         el.setAttribute('role', 'button'); el.tabIndex = 0; el.setAttribute('aria-label', `${k.name}: ${fmt(k.count)} ${k.plural}, ${k.datasets.length} datasets${bad ? `, ${bad} paused` : ''}`);
         return;
       }
       if (r.v === 'kind-open') {
         el.classList.add('open'); el.classList.remove('hit');
         const warn = k.datasets.filter((x) => dsOf(x).state === 'warn').length;
-        el.innerHTML = `<div class="ophead"><span class="kicon">${ICON[k.icon] || ICON.app}</span><div class="opt"><div class="oname">${esc(k.name)}</div><div class="osub">${fmt(k.count)} ${esc(k.plural)} · ${k.datasets.length} datasets</div></div><div class="ostate">${bad ? `<span class="st bad">${PAUSE} ${bad} paused</span>` : ''}${(waitsBy()[k.id] || []).length ? `<span class="st waits">${(waitsBy()[k.id] || []).length} outputs wait on ${esc(waitingDs()?.short || '')}</span>` : ''}${warn ? `<span class="st warn">◆ ${warn} unusual</span>` : ''}</div></div>`;
+        el.innerHTML = `<div class="ophead"><span class="kicon">${ICON[k.icon] || ICON.app}</span><div class="opt"><div class="oname">${esc(k.name)}</div><div class="osub">${fmt(k.count)} ${esc(k.plural)} · ${k.datasets.length} datasets</div></div><div class="ostate">${bad ? `<span class="st bad">${PAUSE} ${bad} paused</span>` : ''}${(waitsBy()[k.id] || []).length ? `<button type="button" class="st waits" data-tip="wait:${esc(k.id)}" aria-expanded="false" aria-label="${outputsWait((waitsBy()[k.id] || []).length)} on ${esc(waitingDs()?.short || '')}">${HOURGLASS}<span class="kwn">${(waitsBy()[k.id] || []).length}</span></button>` /* peer:design */ : ''}${warn ? `<span class="st warn">◆ ${warn} unusual</span>` : ''}</div></div>`;
         el.removeAttribute('role'); el.tabIndex = -1; return;
       }
       const wn = (waitsBy()[k.id] || []).length;
@@ -680,44 +798,49 @@
       if (r.v === 'kind-open') { el.classList.remove('hit'); el.removeAttribute('role'); el.tabIndex = -1; }
     } else if (type === 'd') {
       const d = dsOf(key), st = d.state;
+      el.removeAttribute('title'); // peer:builder: a link's sentence stays with the link
       el.classList.add('ds', st); el.classList.toggle('ghost', !!d.ghost); el.classList.toggle('pointed', !!d.pointed); // peer:builder
       el.setAttribute('role', 'button'); el.tabIndex = 0; el.setAttribute('aria-label', `${d.short}${st === 'waiting' ? (d.causeOnly ? ', the cause of today’s pause' : ', paused today') : ''}`);
       const tag = st === 'waiting' ? (d.causeOnly ? CAUSE : PAUSE) : st === 'decided' ? HALF : d.replaced ? '✓' : st === 'warn' ? '◆' : d.awaited ? '◌' : '';
       if (st === 'waiting' && d.causeOnly) el.classList.add('cause');
       if (st === 'decided') el.setAttribute('aria-label', `${d.short}, decided for now: ${HOW[d.how]?.said || ''}, corrected file owed`); if (d.replaced) { el.classList.add('fixed'); el.setAttribute('aria-label', `${d.short}, corrected file in`); }
       if (st === 'warn') el.setAttribute('aria-label', `${d.short}, unusual today`);
-      if (r.v === 'chip') { el.innerHTML = `<span class="dn">${esc(d.short)}</span>${d.badge ? `<span class="db">${d.badge}</span>` : ''}${tag ? `<span class="dt">${tag}</span>` : ''}`; el.title = `${d.short}${d.description ? ': ' + d.description.replace(/^[^:]*:\s*/, '') : ''}\n${d.rowsToday != null ? `${fmt(d.rowsToday)} rows · ` : ''}${d.columns.length} columns${st === 'waiting' && (d.builds || []).length ? ` · ${d.builds.length} wait on it` : ''}`; }
+      if (r.v === 'chip') { el.innerHTML = `<span class="dn">${esc(d.short)}</span>${d.badge ? `<span class="db">${d.badge}</span>` : ''}${tag ? `<span class="dt">${tag}</span>` : ''}`; el.title = `${d.short}${d.description ? ': ' + d.description.replace(/^[^:]*:\s+/, '') : ''}\n${d.rowsToday != null ? `${fmt(d.rowsToday)} rows · ` : ''}${d.columns.length} columns${st === 'waiting' && (d.builds || []).length ? ` · ${d.builds.length} wait on it` : ''}`; }
       else if (r.v === 'card') { el.classList.add('card'); if (r.h < 56) el.classList.add('sm'); const narrowCard = r.w < 200; el.innerHTML = `<span class="dn">${esc(d.short)}</span><span class="dt">${st === 'waiting' ? (narrowCard ? PAUSE : PAUSE + ' Paused') : st === 'warn' ? (narrowCard ? '◆' : '◆ Unusual') : d.awaited ? (narrowCard ? '◌' : '◌ Planned') : ''}</span><span class="dm">${st === 'waiting' && (d.builds || []).length ? `${fmt(d.rowsToday || 0)} rows · <b>holds up ${d.builds.length} outputs</b>` : d.rowsToday != null ? fmt(d.rowsToday) + ' rows · ' + d.columns.length + ' columns' : d.awaited ? 'first file Thu Mar 28 · ' + d.columns.length + ' columns' : d.columns.length + ' columns'}</span>`; }
+      else if (r.v === 'nb' && r.eb) { el.classList.add('nb', 'lk'); sayTip(el, id, r.tip); /* peer:design r4 */ el.setAttribute('aria-label', `${r.eb}: ${r.title || d.short}${r.nm ? ', ' + r.nm : ''}. ${r.tip || ''}`); el.innerHTML = linkHtml(r, r.title || d.short); } // peer:builder
       else if (r.v === 'nb') { el.classList.add('nb'); el.innerHTML = `<span class="dn">${esc(d.short)}</span><span class="dm">${esc(r.sub || kindOf(d.kind).name)}</span>`; }
       else if (r.v === 'focus') {
+        // peer:builder — what it is, its state and one number, its buttons; its columns behind one tap
         el.className = 'node focus' + (st === 'waiting' ? ' waiting' : '');
-        const shown = d.columns.slice(0, 12), joinCols = new Set(M.joins.filter((j) => j.from === d.id).map((j) => j.col));
+        const open = !!r.cols, shown = open ? d.columns.slice(0, 12) : [], joinCols = new Set(M.joins.filter((j) => j.from === d.id).map((j) => j.col));
         const ty = (c) => tyFull(c);
-        const row1 = firstRowOf(d), cvOf = (c, i) => cvSaid(c, row1[i]); // peer:newcomer: one real row, read down
+        const row1 = open ? firstRowOf(d) : null, cvOf = (c, i) => cvSaid(c, row1[i]); // peer:newcomer: one real row, read down
         const cvTitle = (c, p) => `${c.name} · ${tyFull(c)} · today’s first row: ${p.raw}${p.label ? ` (${p.label})` : ''}`; // the kind of column it replaced, on hover (builder)
         const stateHtml = st === 'waiting' ? `<span class="fs">${PAUSE} Paused today</span>` : st === 'decided' ? `<span class="fs owed">${HALF} ${esc(HOW[d.how]?.pill || 'Decided')} · file owed</span>` : d.replaced ? '<span class="fs done">✓ Corrected file in</span>' : st === 'warn' ? '<span class="fs warn">◆ Unusual today</span>' : d.awaited ? '<span class="fs aw">◌ First file Thu Mar 28</span>' : '';
-        const rowsB = (t) => (M.noRows ? '' : `<button class="btn sm" data-rows>${t}</button>`);
-        const actHtml = st === 'waiting' ? `${rowsB(`See ${esc(DC().prev)}’s rows`)}<button class="btn primary sm" data-decide>Decide ›</button>` : st === 'decided' ? `<button class="btn sm" data-undo>Undo</button>${rowsB('Rows')}${d.pendingFix || M.replaceable !== false ? `<button class="btn primary sm" data-replace>${d.pendingFix ? 'Publish it ›' : 'Replace file ›'}</button>` : ''}` : d.replaced ? `<button class="btn sm" data-undo>Undo</button>${rowsB('Explore rows ›')}` : d.awaited ? '' : rowsB('Explore rows ›');
-        el.innerHTML = `<div class="fhead"><div class="ft"><span class="kicon" style="width:28px;height:28px">${ICON[kindOf(d.kind).icon]}</span><span class="fn">${esc(d.short)}</span></div><div class="fm">${d.rowsToday != null ? fmt(d.rowsToday) + ' rows today' + (d.rowsUsual ? ` · usually about ${fmt(usualN(d.rowsUsual))}` : '') : d.awaited ? 'Described ahead of its first file' : ''}</div><div class="fa">${stateHtml}${d.asked && (st === 'waiting' || st === 'decided') ? `<span class="askd">Asked for the file ${hhmm(d.asked)}</span>` : ''}<span class="sp"></span>${actHtml}</div></div>
-          ${row1 ? `<div class="cvhead"><span>Tap a column for all its values</span><span>Today’s first row</span></div>` : ''}<ul class="cols">${shown.map((c, i) => `<li class="col${joinCols.has(c.name) ? ' join' : ''}${colTwo(c, r.w, row1 ? cvW(cvOf(c, i)) : undefined) ? ' two' : ''}" data-col="${esc(c.name)}"><span class="cn">${esc(c.name)}</span><span class="cm">${esc(c.meaning || (c.title && c.title.toLowerCase() !== c.name.replace(/_/g, ' ') ? c.title : ''))}</span>${row1 ? `<span class="cv${c.role === 'key' ? ' k' : ''}${row1[i] == null || row1[i] === '' ? ' blank' : ''}" style="max-width:${cvMax(r.w)}px" title="${esc(cvTitle(c, cvOf(c, i)))}">${esc(cvOf(c, i).raw)}${cvOf(c, i).label ? `<span class="cvl"> · ${esc(cvOf(c, i).label)}</span>` : ''}</span>` : `<span class="ty${c.role === 'key' ? ' kb' : ''}">${ty(c)}</span>`}</li>`).join('')}</ul>${d.columns.length > 12 ? `<div class="more">and ${d.columns.length - 12} more columns</div>` : ''}`;
+        const BTN = { rows: 'btn sm" data-rows', decide: 'btn primary sm" data-decide', undo: 'btn sm" data-undo', replace: 'btn primary sm" data-replace' };
+        const L2 = descLines(d, r.w), ar = actsRows(d, r.w), ask = askedSaid(d), n = d.columns.length;
+        el.innerHTML = `<div class="fhead" style="height:${r.hh || headH(d, r.w)}px"><div class="ft"><span class="kicon" style="width:28px;height:28px">${ICON[kindOf(d.kind).icon]}</span><span class="fn">${esc(d.short)}</span>${chipLow(d, r.w) ? '' : stateHtml}</div>${chipLow(d, r.w) ? `<div class="fst">${stateHtml}</div>` : ''}${L2 ? `<div class="fd" style="height:${L2 * 16}px;-webkit-line-clamp:${L2}" title="${esc(d.description)}">${esc(whatOf(d))}</div>` : ''}${hasNum(d) ? `<div class="fm${barsOn(d) ? ' fbars' : ''}">${barsOn(d) ? nowBars(d) /* peer:design r4 */ : d.rowsToday != null ? `<b>${fmt(d.rowsToday)}</b> rows today` : 'Described ahead of its first file'}</div>` : ''}${ar ? `<div class="fa" style="height:${ar * 32 + (ar - 1) * 6}px">${ask ? `<span class="askd">${esc(ask)}</span>` : ''}<span class="sp"></span>${fileActs(d).map(([t, k]) => `<button class="${BTN[k]}>${esc(t)}</button>`).join('')}</div>` : ''}</div>`
+          + `<button type="button" class="fcols" data-cols aria-expanded="${open}"><span>${n} column${n === 1 ? '' : 's'}${open && !row1 ? '<span class="fch"> · tap one for its values</span>' : ''}</span><span class="chev" aria-hidden="true">›</span></button>`
+          + (open ? `${row1 ? `<div class="cvhead"><span>Tap a column for all its values</span><span>Today’s first row</span></div>` : ''}<ul class="cols">${shown.map((c, i) => `<li class="col${joinCols.has(c.name) ? ' join' : ''}${colTwo(c, r.w, row1 ? cvW(cvOf(c, i)) : undefined) ? ' two' : ''}" data-col="${esc(c.name)}"><span class="cn">${esc(c.name)}</span><span class="cm">${esc(c.meaning || (c.title && c.title.toLowerCase() !== c.name.replace(/_/g, ' ') ? c.title : ''))}</span>${row1 ? `<span class="cv${c.role === 'key' ? ' k' : ''}${row1[i] == null || row1[i] === '' ? ' blank' : ''}" style="max-width:${cvMax(r.w)}px" title="${esc(cvTitle(c, cvOf(c, i)))}">${esc(cvOf(c, i).raw)}${cvOf(c, i).label ? `<span class="cvl"> · ${esc(cvOf(c, i).label)}</span>` : ''}</span>` : `<span class="ty${c.role === 'key' ? ' kb' : ''}">${ty(c)}</span>`}</li>`).join('')}</ul>${n > 12 ? `<div class="more">and ${n - 12} more columns</div>` : ''}` : '');
         el.removeAttribute('role'); el.tabIndex = -1;
       }
-    } else if (type === 'g') { el.className = 'node gname'; el.textContent = r.text; }
+    } else if (type === 'g') { el.className = 'node gname'; el.textContent = r.text; if (r.tip) el.title = r.tip; else el.removeAttribute('title'); /* peer:newcomer (r4) */ }
     else if (type === 'a') { el.className = 'node gname area'; el.textContent = r.text; }
     else if (type === 'dm') { el.className = 'node domain'; el.innerHTML = `<span class="dmn">${esc(r.text)}</span>`; }
     else if (type === 'r') { const d = dsOf(key); el.className = 'node reach'; el.setAttribute('role', 'button'); el.tabIndex = 0; el.innerHTML = `<span class="ri">${HOURGLASS}</span><b>${outputsWait((d.builds || []).length)}</b><span>built from ${esc(d.short)}</span><u>See which ›</u>`; }
     else if (type === 'm') { el.className = 'node more'; el.setAttribute('role', 'button'); el.tabIndex = 0; el.innerHTML = `<b>${esc(r.text)}</b>`; el.setAttribute('aria-label', `${r.text}: ${r.sub}`); }
     else if (type === 'o') {
-      el.className = 'node outs';
-      const w = r.list.filter((o) => o.waiting).length, shown = r.list.slice(0, 12);
-      const released = r.list.filter((o) => o.released).length, gl = outGroups(r.list), groups = new Map(gl), order = gl.map(([g]) => g), NAME = Object.fromEntries(gl.map(([g]) => [g, groupName(g)]));
-      const rebuilt = r.list.filter((o) => o.rebuilt).length, how = (r.list.find((o) => o.released) || {}).released;
-      const one = heldElsewhere(key, r.list); // peer:newcomer: the header says why they all wait; each line is its name
-      const allHeld = one && w === r.list.length; // peer:newcomer: every one waits: the header's ⧗ says it, not each row's
-      el.innerHTML = `<header>${w ? `<span class="waitt">${w === r.list.length ? `All ${w} outputs` : `${w} outputs`} ${(() => { const wd = waitingDs(), me = dsOf(key); return wd && me && wd.id !== me.id ? 'use it' : 'wait on it'; })()}</span>${(() => { const wd = waitingDs(), me = dsOf(key); return wd && me && wd.id !== me.id ? `<span class="hint2">${HOURGLASS} Held today: ${esc(wd.short)} paused, not this file</span>` : ''; })()}${one ? '' : `<span class="hint2">Readers see ${esc(DC().prev)} until it is decided</span>`}` : released ? (how === 'keep' ? `<span class="owedt">${HALF} ${released} stay on ${esc(DC().prev)}</span><span class="hint2">until the corrected file</span>` : `<span class="okt">✓ ${released} published</span><span class="hint2">${how === 'asis' ? (issueOf(issueDs() || dsOf(S.ds)).kind === 'empty' ? `with no ${esc(issueOf(issueDs() || dsOf(S.ds)).noun)}` : 'as it arrived') : how === 'accept' ? 'at the new level' : `with ${esc(issueOf(issueDs() || dsOf(S.ds)).fillFrom)}’s rows, marked filled`}</span>`) : rebuilt ? `<span class="okt">✓ ${rebuilt} rebuilt</span><span class="hint2">with ${esc(DC().wd)}’s file</span>` : `<span>Built from it · ${r.list.length}</span>`}</header>${order.filter((g) => groups.has(g)).map((g) => `<div class="og">${esc(NAME[g] || 'Other')}</div><ul>${groups.get(g).map((o) => `<li class="${o.waiting ? 'w' : o.released === 'keep' ? 'kept' : o.released || o.rebuilt ? 'rel' : ''}"><button type="button" data-out="${esc(o.id)}" title="${esc(o.id)}${o.waiting ? ' · held today' : o.released === 'keep' ? ` · readers stay on ${esc(DC().prev)}` : ' · published'}"><i>${o.waiting && !allHeld ? HOURGLASS : ''}</i><span class="on">${esc(plain(o.id))}${o.about && !one ? `<small>${esc(o.about)}</small>` : ''}</span>${o.waiting && !one ? '<span class="wword">waits</span>' : ''}<span class="go">›</span></button></li>`).join('')}</ul>`).join('')}`;
+      // peer:builder — one count and what it means, said once; tapped, the list: each output by name, its line on hover
+      const d0 = dsOf(key), s = outsSaid(d0, r.list), allHeld = r.list.every((o) => o.waiting);
+      el.className = 'node outs ' + (r.open ? 'open' : 'shut');
+      el.innerHTML = `<header><button type="button" class="ohd" data-outs aria-expanded="${!!r.open}" data-tip="say:${esc(id)}" data-tipgo>${sayTips.set(id, esc(s.tip)) && ''}<span class="ot">${s.title}</span><span class="chev" aria-hidden="true">›</span></button><span class="osub">${s.sub}</span>${r.open && s.more ? `<span class="osub then">${s.more}</span>` : ''}</header>`
+        + (r.open ? outGroups(r.list).map(([g, l]) => `<div class="og">${esc(groupName(g))}</div><ul>${l.map((o) => `<li class="${o.waiting ? 'w' : o.released === 'keep' ? 'kept' : o.released || o.rebuilt ? 'rel' : ''}"><button type="button" data-out="${esc(o.id)}" title="${esc(o.about || o.id)}${o.waiting ? ' · held today' : o.released === 'keep' ? ` · readers stay on ${esc(DC().prev)}` : ''}"><i>${o.waiting && !allHeld ? HOURGLASS : ''}</i><span class="on">${esc(plain(o.id))}</span><span class="go">›</span></button></li>`).join('')}</ul>`).join('') : '');
+    } else if (type === 'sf') { el.className = 'node ds nb lk'; sayTip(el, id, r.tip); /* peer:design r4 */ el.innerHTML = linkHtml(r, r.title); // peer:builder: rows that point to rows of the same file
     } else if (type === 'in') {
-      el.className = 'node ds nb';
-      el.innerHTML = `<span class="dn">${r.list.length} datasets join here</span><span class="dm">${esc(r.list.slice(0, 4).map((x) => dsOf(x).short).join(', '))}${r.list.length > 4 ? '…' : ''}</span>`;
+      // peer:builder — the files whose rows point to this one, in three words; their names on hover
+      const n = r.list.length, names = r.list.map((x) => dsOf(x)?.short || plain(x));
+      el.className = 'node ds nb'; el.title = `${n} dataset${n === 1 ? '' : 's'} point to this one, on ${r.col}: ${names.join(', ')}`;
+      el.innerHTML = `<span class="dn">${n} dataset${n === 1 ? ' points' : 's point'} to it</span><span class="dm">${esc(names.slice(0, 4).join(', '))}${n > 4 ? '…' : ''}</span>`;
     }
   }
   function place(el, r) {
@@ -776,6 +899,7 @@
     return d + `L${pts[pts.length - 1][0]} ${pts[pts.length - 1][1]}`;
   }
   let grown = [];
+  let tipKind = null; // peer:design: the kind whose count the pointer is on: the kind keeps its lines unlit meanwhile
   function drawEdges(enter) {
     if (moving) return;
     const HV = S.hover || S.spotPin, spotOn = S.level === 'estate' && !!HV && !!estateWorld().compact;
@@ -870,11 +994,13 @@
         const cands = [{ x: (longest.p[0] + longest.q[0]) / 2, y: (longest.p[1] + longest.q[1]) / 2, h: longest.p[1] === longest.q[1] }, ...[0.5, 0.36, 0.64, 0.24, 0.76, 0.15, 0.85, 0.3, 0.7, 0.1, 0.9].map(atLen)];
         const side = (e.lanes || 1) > 1 ? Math.sign((e.lane || 0) - ((e.lanes || 1) - 1) / 2) : 0;
         const ekey = e.a + '|' + e.b, quiet = S.level === 'estate' && !lit && !(S.viaOn || new Set()).has(ekey); // peer:builder: a why shows always, a whyHov when pointed at (below)
+        const few = quiet && e.blocks ? shortOf(e, A, B) : null; // peer:design: at rest a link is its few words, pointed at its sentences
         if (show && e.blocks) for (const W of [Infinity, 230, 170, 128, 100]) {
           const rows = [];
-          e.blocks.forEach((bk, i) => { if (i) rows.push(null); for (const t of wrapLines(bk.s, '500 12px Geist', W)) rows.push({ t, v: 0 }); const v = !bk.via ? 0 : bk.why ? 4 : bk.hov ? (quiet ? 5 : 4) : quiet ? 0 : 1; if (v) for (const t of wrapLines(bk.via, v >= 4 ? '400 11px Geist Mono' : '400 11px Geist', W)) rows.push({ t, v }); }); // peer:builder: columns in mono; 5 shows when pointed at
+          if (few) { rows.push({ t: few, v: 0 }); const lead = leadOf(e.rels); e.blocks.forEach((bk, i) => { if (!(bk.why && bk.via)) return; if (e.rels[i] !== lead.r) for (const t of wrapLines(bk.s, '500 12px Geist', W)) rows.push({ t, v: 0 }); for (const t of wrapLines(bk.via, '400 11px Geist Mono', W)) rows.push({ t, v: 4 }); }); } else // peer:design: what reading a file shows stays under them, with its own relation where another leads
+          e.blocks.forEach((bk, i) => { if (i) rows.push(null); for (const t of wrapLines(bk.s, '500 12px Geist', W)) rows.push({ t, v: 0 }); const v = !bk.via ? 0 : bk.why ? 4 : bk.hov ? (quiet ? 5 : 4) : quiet || (S.level === 'estate' && !(S.viaOn || new Set()).has(ekey)) ? 0 : 1; /* peer:newcomer (r4): pointed at, a link is its sentences; what carries it on a tap */ if (v) for (const t of wrapLines(bk.via, v >= 4 ? '400 11px Geist Mono' : '400 11px Geist', W)) rows.push({ t, v }); }); // peer:builder: columns in mono; 5 shows when pointed at
           const lw = Math.max(...rows.filter(Boolean).map((r) => tw(r.t, r.v >= 4 ? '400 11px Geist Mono' : r.v ? '400 11px Geist' : '500 12px Geist'))) + 22, lh = rows.reduce((a, r) => a + (r ? 15 : 5), 0) + 8;
-          for (const c of cands) { const q = { x: c.x, y: c.y }, ov = overlap(q, lw, lh); if (!best || ov < best.a - 1) best = { ...q, a: ov, rows, lw, lh }; if (ov === 0) break; }
+          for (const c of cands) { const q = { x: c.x, y: c.y }, ov = overlap(q, lw, lh); if (!best || ov < best.a - 1) best = { ...q, a: ov, rows, lw, lh, few }; if (ov === 0) break; }
           if (best.a === 0) break;
         }
         const texts = e.blocks ? [] : e.via && e.via.length && !quiet ? [[e.label, e.via.join(' · ')], [e.label, ...e.via], [e.label]] : [[e.label]];
@@ -887,8 +1013,9 @@
       parts.push(`<path class="ln${e.bundle ? ' bundle' : ''}${e.bad ? ' bad' : ''}${e.dash || e.ghost ? ' dash' : ''}${e.ghost ? ' ghost' : ''}${lit}" d="${d}" ${e.dash || e.ghost ? '' : 'pathLength="1"'} ${e.arrow ? `marker-end="url(#${e.bad ? 'ahb' : 'ah'})"` : ''}/>`);
       if (best) {
         placedLabels.push({ x: best.x, y: best.y, w: best.lw, h: best.lh });
-        const tapVia = S.level === 'estate' && e.blocks && e.blocks.some((bk) => bk.via) && !e.opens;
-        const l = document.createElement(e.opens || tapVia ? 'button' : 'div'); l.className = 'lab' + (e.bad ? ' bad' : '') + (e.ghost ? ' ghost' : '') + (e.opens ? ' opens' : '') + (tapVia ? ' taps' : '') + (enter ? ' enter' : '') + lit;
+        const tapVia = S.level === 'estate' && e.blocks && e.blocks.some((bk) => bk.via) && !e.opens && !best.few;
+        const l = document.createElement(e.opens || tapVia || best.few ? 'button' : 'div'); l.className = 'lab' + (e.bad ? ' bad' : '') + (e.ghost ? ' ghost' : '') + (e.opens ? ' opens' : '') + (tapVia || best.few ? ' taps' : '') + (best.few ? ' few' : '') + (enter ? ' enter' : '') + lit;
+        if (best.few) { const ek = e.a + '|' + e.b; linkTips.set(ek, linkTipOf(e)); l.type = 'button'; l.dataset.tip = 'link:' + ek; l.setAttribute('aria-expanded', 'false'); l.setAttribute('aria-label', `${best.few}: ${e.blocks.map((bk) => bk.s).join('; ')}`); } // peer:design: its sentences are its tip
         if (tapVia) { const ek = e.a + '|' + e.b; l.type = 'button'; l.title = 'What carries this link'; l.setAttribute('aria-expanded', String((S.viaOn || new Set()).has(ek))); l.onclick = (ev) => { ev.stopPropagation(); S.viaOn ||= new Set(); S.viaOn.has(ek) ? S.viaOn.delete(ek) : S.viaOn.add(ek); drawEdges(); }; } l.innerHTML = best.rows ? best.rows.map((r) => (r ? `<span class="${r.v === 5 ? 'lw lwhy hov' : r.v === 4 ? 'lw lwhy' /* peer:builder */ : r.v === 3 ? 'lv lp' : r.v === 2 ? 'lm' : r.v ? 'lw' : 'lv'}">${esc(r.t)}</span>` : '<span class="lsep"></span>')).join('') : Array.isArray(best.txt) ? best.txt.map((x, i) => `<span class="${i ? 'lw' : 'lv'}">${esc(x)}</span>`).join('') : best.txt.split('\n').map(esc).join('<br>'); l.style.left = best.x + 'px'; l.style.top = best.y + 'px'; stage.append(l); labels.push(l);
         if (e.opens) { l.type = 'button'; l.setAttribute('aria-label', `The relations between ${M.domains.find((x) => x.id === e.opens[0]).name} and ${M.domains.find((x) => x.id === e.opens[1]).name}`); l.onclick = (ev) => { ev.stopPropagation(); openRelations(e.opens[0], e.opens[1]); }; }
       }
@@ -907,6 +1034,7 @@
       l.style.left = B.x + 4 + 'px'; l.style.top = B.y + 8 + 'px'; l.style.width = B.w - 8 + 'px'; stage.append(l); labels.push(l);
     }
     svg.innerHTML = parts.join('');
+    tipSync(); // peer:design: a tip stays with its link when the map draws it again
   }
   // ------------------------------------------------------------------ pointing at a kind: a line from it to each kind it relates to, round every other kind
   class Heap {
@@ -1026,7 +1154,7 @@
   // the standard curve: away gently, a long settle
   const bez = (x1, y1, x2, y2) => { const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx, cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by; const X = (t) => ((ax * t + bx) * t + cx) * t, Y = (t) => ((ay * t + by) * t + cy) * t, dX = (t) => (3 * ax * t + 2 * bx) * t + cx; return (x) => { if (x <= 0 || x >= 1) return Math.min(1, Math.max(0, x)); let t = x; for (let i = 0; i < 8; i++) { const e = X(t) - x, d = dX(t); if (Math.abs(e) < 1e-5 || !d) break; t -= e / d; } t = Math.min(1, Math.max(0, t)); return Y(t); }; };
   const ease = bez(0.4, 0, 0.2, 1);
-  const parentOf = (id) => { const [t, k] = [id.split(':')[0], id.slice(id.indexOf(':') + 1)]; if (t === 'd') return 'k:' + dsOf(k)?.kind; if (t === 'g' || t === 'm') return 'k:' + k.split(':')[0]; if (t === 'o' || t === 'in' || t === 'r') return 'd:' + k; return null; };
+  const parentOf = (id) => { const [t, k] = [id.split(':')[0], id.slice(id.indexOf(':') + 1)]; if (t === 'd') return 'k:' + dsOf(k)?.kind; if (t === 'g' || t === 'm') return 'k:' + k.split(':')[0]; if (t === 'o' || t === 'in' || t === 'r' || t === 'sf') return 'd:' + k; /* peer:builder: sf */ return null; };
   let anim = 0, moving = false;
   function render(instant) {
     const T = layout();
@@ -1091,14 +1219,17 @@
   function renderChrome() {
     document.querySelectorAll('.alert, .mini, .hint, .mini-x, .eschint').forEach((x) => x.remove());
     const w = waitingDs(), dd = decidedDs(), rd = replacedDs();
-    const top = $('#waits'); if (top) { top.classList.toggle('ok', !w && !dd); top.classList.toggle('owed', !w && !!dd); top.innerHTML = w ? `${PAUSE} <span class="wl">${esc(DC().today)} is paused · </span><u>Decide ›</u>` : dd ? `${HALF} <span class="wl">${esc(DC().today)}: file owed · </span><u>${dd.pendingFix ? 'Publish it ›' : M.replaceable === false ? 'See it ›' : 'Replace ›'}</u>` : '✓ All files in'; top.hidden = S.level === 'estate' || (S.level === 'dataset' && !!w && S.ds === w.id); }
+    const top = $('#waits'); if (top) { top.classList.toggle('ok', !w && !dd); top.classList.toggle('owed', !w && !!dd); top.innerHTML = w ? `${PAUSE} <span class="wl">${esc(smDay.text(DC().iso, DC().today))} is paused${smDay.small(DC().iso)} · </span><u>Decide ›</u>` : dd ? `${HALF} <span class="wl">${esc(smDay.text(DC().iso, DC().today))}: file owed${smDay.small(DC().iso)} · </span><u>${dd.pendingFix ? 'Publish it ›' : M.replaceable === false ? 'See it ›' : 'Replace ›'}</u>` : '✓ All files in'; top.hidden = S.level === 'estate' || (S.level === 'dataset' && !!w && S.ds === w.id); }
     if (S.level === 'estate' && w) {
       const n = (w.builds || []).length;
       const a = document.createElement('div'); a.className = 'alert';
       const wi = issueOf(w);
       if (M.shortBanner) a.classList.add('short');
-      a.innerHTML = M.shortBanner ? `<span class="ai">${w.waited && !w.pendingFix ? HOURGLASS : PAUSE}</span><span class="at"><b>${esc(DC().today)} ${w.waited && !w.pendingFix ? 'waits for its file' : 'is paused'}</b>${wi.sev && !w.waited ? ` · <span class="sev ${wi.sev.level}">${esc(wi.sev.said)}</span>` : ''} · ${outputsWait(n)}${w.pendingFix ? ' · <span class="okn"><b class="okm" aria-hidden="true">↻</b> corrected file in</span>' : ''}${w.waited && !w.pendingFix ? ` · your call${w.waited.at ? `, ${new Date(w.waited.at).toTimeString().slice(0, 5)}` : ''}` : ''}</span><button type="button" class="link decidelink" data-decide>Decide ›</button>` : `<span class="ai">${PAUSE}</span><span class="at"><b>${esc(DC().today)} is paused.</b> ${narrow() ? `${esc(w.short)} ${esc(wi.why)}; ${n} outputs wait.` : `${esc(w.short)} ${esc(wi.why)}, so the ${n} outputs built from it wait${wi.bannerWait ? `: ${esc(wi.bannerWait)}` : ' for your decision'}.`}${w.pendingFix ? ` <span class="okn"><b class="okm" aria-hidden="true">✓</b> A corrected file came${wi.fixAt ? ` at ${esc(wi.fixAt)}` : ''} and passed every check:</span> publishing it is your call.` : ''} <button class="link" data-see>See what’s built from it</button>${w.waited ? ` <span class="askd">You chose to wait${w.waited.at ? ` at ${hhmm(w.waited.at)}` : ''}${w.waited.note && !M.quietBanner ? `: “${esc(w.waited.note)}”` : ''}</span>` : ''}${w.asked ? ` <span class="askd">You asked for the file at ${hhmm(w.asked)}</span>` : ''}</span>${M.quietBanner ? '' : '<button class="btn primary" data-decide>Decide ›</button>'}`;
-      if (narrow()) { document.querySelector('.alertslot').append(a); const lg = document.createElement('div'); lg.className = 'legend mob mini-x'; lg.innerHTML = legendHtml('', false) + '<button type="button" class="lghelp" aria-label="What the marks mean">?</button>'; $('#trail').after(lg); lg.querySelector('.lghelp').onclick = () => { openSearch(); window.__palette?.help(); }; } else canvas.prepend(a);
+      // peer:design: the day once, as Today with its date small; what came in; what waits as a count whose tip lists it
+      const dayB = `<b class="aday">${esc(smDay.text(DC().iso, DC().today))} ${w.waited && !w.pendingFix ? 'waits for its file' : 'is paused'}</b>${smDay.small(DC().iso)}`;
+      const waitN = n ? `<button type="button" class="awn" data-tip="waits" aria-expanded="false" aria-label="${outputsWait(n)} on ${esc(w.short)}">${HOURGLASS}<span class="kwn">${n}</span><span class="awl">${M.heldWord ? 'held' : 'waiting'}</span></button>` : '';
+      a.innerHTML = M.shortBanner ? `<span class="ai">${w.waited && !w.pendingFix ? HOURGLASS : PAUSE}</span><span class="at">${dayB}${wi.sev && !w.waited ? ` · <span class="sev ${wi.sev.level}">${esc(wi.sev.said)}</span>` : ''}${waitN ? ` · ${waitN}` : ''}${w.pendingFix ? ' · <span class="okn"><b class="okm" aria-hidden="true">↻</b> corrected file in</span>' : ''}${w.waited && !w.pendingFix ? ` · your call${'' /* peer:owner (r4): one clock: no replay time beside the story's day */}` : ''}</span><button type="button" class="link decidelink" data-decide>Decide ›</button>` : `<span class="ai">${PAUSE}</span><span class="at">${dayB}<span class="asep">·</span><span class="awhy">${esc(w.short)} ${esc(wi.why)}</span>${waitN ? `<span class="asep">·</span>${waitN}` : ''}${w.pendingFix ? `<span class="asep">·</span><span class="okn"><b class="okm" aria-hidden="true">✓</b> its corrected file passed every check${wi.fixAt ? `, ${esc(wi.fixAt)}` : ''}</span>` : ''}${w.waited ? `<span class="asep">·</span><span class="askd">You chose to wait${w.waited.at ? `, ${hhmm(w.waited.at)}` : ''}</span>` : ''}${w.asked ? `<span class="asep">·</span><span class="askd">You asked for the file, ${hhmm(w.asked)}</span>` : ''}</span>${M.quietBanner ? '' : '<button class="btn primary" data-decide>Decide ›</button>'}`;
+      if (narrow()) document.querySelector('.alertslot').append(a); else canvas.prepend(a); // peer:design: the marks' key is the "?" by the title, on a phone too
       const see = a.querySelector('[data-see]') || document.createElement('button');
       const sync = () => { S.reach = !!(S.reachPin || S.reachHover); see.textContent = S.reachPin ? 'Hide what’s built from it' : 'See what’s built from it'; see.setAttribute('aria-pressed', String(!!S.reachPin)); lightUp(); };
       see.onmouseenter = () => { S.reachHover = true; sync(); }; see.onmouseleave = () => { S.reachHover = false; sync(); };
@@ -1110,7 +1241,7 @@
       const a = document.createElement('div'); a.className = 'alert owed';
       const dc = DC(), di = issueOf(dd);
       if (M.shortBanner) a.classList.add('short');
-      a.innerHTML = M.shortBanner ? `<span class="ai">${HALF}</span><span class="at"><b>${esc(dc.today)}: decided for now</b> · ${dd.how === 'keep' ? `readers see ${esc(dc.prev)}` : dd.how === 'fill' ? `filled from ${esc(di.fillFrom)}` : 'published as it arrived'} · ${dd.pendingFix ? '<b class="next">✓ its corrected file is in, for your OK</b>' : 'its corrected file is still to come'}</span>` : `<span class="ai">${HALF}</span><span class="at"><b>${esc(dc.today)} is decided for now:</b> ${dd.how === 'keep' ? `readers see ${esc(dc.prev)} for ${esc(dd.short)} and the ${(dd.builds || []).length} built from it.` : dd.how === 'fill' ? `${esc(dc.wd)} is published with ${esc(di.fillFrom)}’s ${esc(dd.short)}, marked as filled.` : `${esc(dc.wd)} is published as it arrived.`} ${dd.pendingFix ? `<b class="next">A corrected file passed its checks and waits for your OK.</b>` : `<b class="next">Next: the corrected file${di.nextFile ? `, ${esc(di.nextFile)}` : ''}.</b>${dd.asked ? ` <span class="askd">You asked for it at ${hhmm(dd.asked)}</span>` : ''}`}${dd.note && !M.quietBanner ? ` <span class="noted">“${esc(dd.note)}”</span>` : ''}</span>${M.quietBanner ? '' : '<button class="btn" data-undo>Undo: pause again</button>'}${!M.quietBanner && (dd.pendingFix || M.replaceable !== false) ? `<button class="btn primary" data-replace>${dd.pendingFix ? 'Publish it ›' : 'Replace file ›'}</button>` : ''}`;
+      a.innerHTML = M.shortBanner ? `<span class="ai">${HALF}</span><span class="at"><b>${esc(smDay.text(dc.iso, dc.today))}: decided for now</b>${smDay.small(dc.iso)} · ${dd.how === 'keep' ? `readers see ${esc(dc.prev)}` : dd.how === 'fill' ? `filled from ${esc(di.fillFrom)}` : 'published as it arrived'} · ${dd.pendingFix ? '<b class="next">✓ its corrected file is in, for your OK</b>' : 'its corrected file is still to come'}</span>` : `<span class="ai">${HALF}</span><span class="at"><b>${esc(smDay.text(dc.iso, dc.today))} is decided for now</b>${smDay.small(dc.iso)}<span class="asep">·</span>${dd.how === 'keep' ? `readers see ${esc(dc.prev)}` : dd.how === 'fill' ? `published, ${esc(dd.short)} filled from ${esc(di.fillFrom)}` : 'published as it arrived'}<span class="asep">·</span>${dd.pendingFix ? '<b class="next">its corrected file is in, for your OK</b>' : `<b class="next">next: the corrected file</b>${dd.asked ? `<span class="asep">·</span><span class="askd">asked for at ${hhmm(dd.asked)}</span>` : ''}`}</span>${M.quietBanner ? '' : '<button class="btn" data-undo>Undo: pause again</button>'}${!M.quietBanner && (dd.pendingFix || M.replaceable !== false) ? `<button class="btn primary" data-replace>${dd.pendingFix ? 'Publish it ›' : 'Replace file ›'}</button>` : ''}`;
       if (narrow()) document.querySelector('.alertslot').append(a); else canvas.prepend(a);
       const und = a.querySelector('[data-undo]'); if (und) und.onclick = () => undo();
       const rpl = a.querySelector('[data-replace]'); if (rpl) rpl.onclick = () => { if (dd.pendingFix) return replaceFile(dd.id, dd.pendingFix); go({ level: 'dataset', ds: dd.id, kind: dd.kind }); setTimeout(() => openReplace(dd.id), 560); };
@@ -1118,27 +1249,22 @@
     if (S.level === 'estate' && !w && !dd && rd) {
       const a = document.createElement('div'); a.className = 'alert done';
       if (M.shortBanner) a.classList.add('short');
-      a.innerHTML = M.shortBanner ? `<span class="ai">✓</span><span class="at"><b>${esc(DC().today)} is decided</b> · its corrected ${esc(rd.short)} file went out${M.doneNote ? ` · <span class="still">${esc(M.doneNote)}</span>` : ', every check passed'} · ${outputsWait((rd.builds || []).length).replace(/ held$/, '')} rebuilt${laterSaid() ? ` · readers stay on ${esc(laterSaid())}` : ''}</span>` : `<span class="ai">✓</span><span class="at"><b>${esc(DC().today)} is complete.</b> The corrected ${esc(rd.short)} file (${fmt(rd.replaced.rows)} rows) passed all ${(rd.checks || []).length} checks; the ${(rd.builds || []).length} built from it are rebuilt${laterSaid() ? `, and readers stay on ${esc(laterSaid())}, the latest day` : ` and readers now see ${esc(DC().today)}`}.</span>${M.quietBanner ? '' : '<button class="btn" data-undo>Undo: back to file owed</button>'}`;
+      a.innerHTML = M.shortBanner ? `<span class="ai">✓</span><span class="at"><b>${esc(smDay.text(DC().iso, DC().today))} is decided</b>${smDay.small(DC().iso)} · its corrected ${esc(rd.short)} file went out${M.doneNote ? ` · <span class="still">${esc(M.doneNote)}</span>` : ', every check passed'} · ${outputsWait((rd.builds || []).length).replace(/ held$/, '')} rebuilt${laterSaid() ? ` · readers stay on ${esc(smDay.mid(M.latest.iso, laterSaid()))}` : ''}</span>` : `<span class="ai">✓</span><span class="at"><b>${esc(smDay.text(DC().iso, DC().today))} is complete</b>${smDay.small(DC().iso)}<span class="asep">·</span>The corrected ${esc(rd.short)} file (${fmt(rd.replaced.rows)} rows) passed all ${(rd.checks || []).length} checks; the ${(rd.builds || []).length} built from it are rebuilt${laterSaid() ? `, and readers stay on ${esc(smDay.mid(M.latest.iso, laterSaid()))}, the latest day` : ` and readers now see ${esc(smDay.mid(DC().iso, DC().today))}`}.</span>${M.quietBanner ? '' : '<button class="btn" data-undo>Undo: back to file owed</button>'}`;
       if (narrow()) document.querySelector('.alertslot').append(a); else canvas.prepend(a);
       const und2 = a.querySelector('[data-undo]'); if (und2) und2.onclick = () => undo();
     }
     const hintAt = (t) => { if (narrow()) return; const h = document.createElement('span'); h.className = 'maphint mini-x'; h.innerHTML = t; document.querySelector('.tools').before(h); };
-    if (S.level === 'estate' && !estateWorld().compact && !narrow()) {
-      const lg = document.createElement('div'); lg.className = 'legend inbar mini-x'; lg.innerHTML = legendHtml(''); $('#trail').after(lg); hintAt('Point at a kind, or Tab to one · tap a sentence to see what carries it');
+    // peer:design: what the marks mean is one tap away by the title, not a row of its own; how to point is said there too
+    if (S.level === 'estate' && !estateWorld().compact) {
+      const kb = document.createElement('button'); kb.type = 'button'; kb.className = 'mapkey mini-x'; kb.dataset.tip = 'key'; kb.setAttribute('aria-expanded', 'false'); kb.setAttribute('aria-label', 'What the marks mean'); kb.textContent = '?'; $('#trail').after(kb);
     }
     if (S.level === 'estate' && estateWorld().compact) {
       const lg = document.createElement('div'); lg.className = 'legend inbar mini-x'; lg.innerHTML = legendHtml('', true); $('#trail').after(lg); hintAt('Point at a kind, or Tab to one, for all its relations');
     }
-    if (S.level !== 'estate' && !narrow()) {
-      const E = estateWorld(), sc = Math.min(120 / E.box.w, 34 / E.box.h);
-      const mini = document.createElement('div'); mini.className = 'mini';
-      const at = S.level === 'kind' ? S.kind : dsOf(S.ds).kind;
-      mini.innerHTML = `<span class="cap">Estate</span><svg width="${E.box.w * sc + 4}" height="${E.box.h * sc + 4}">${relPairs().map((r) => { const a = E.rect[r.from], b = E.rect[r.to]; return `<line class="ml" x1="${(a.x + a.w / 2 - E.box.x) * sc + 2}" y1="${(a.y + a.h / 2 - E.box.y) * sc + 2}" x2="${(b.x + b.w / 2 - E.box.x) * sc + 2}" y2="${(b.y + b.h / 2 - E.box.y) * sc + 2}"/>`; }).join('')}${M.kinds.map((k) => { const r = E.rect[k.id]; return `<rect class="mk${k.id === at ? ' on' : ''}${paused(k.id).length ? ' bad' : ''}" data-k="${k.id}" x="${(r.x - E.box.x) * sc + 2}" y="${(r.y - E.box.y) * sc + 2}" width="${Math.max(6, r.w * sc)}" height="${Math.max(4, r.h * sc)}" rx="2"><title>${esc(k.name)}</title></rect>`; }).join('')}</svg>`;
-      document.querySelector('.tools').prepend(mini);
-      mini.querySelectorAll('[data-k]').forEach((x) => (x.onclick = () => go({ level: 'kind', kind: x.dataset.k })));
-      const h = document.createElement('span'); h.className = 'eschint'; h.innerHTML = '<kbd>Esc</kbd> steps back'; $('#trail').append(h);
-      // peer:newcomer — a file showing its first row says how to read it on the card itself; no key of marks it doesn't show
-      if (!(S.level === 'dataset' && firstRowOf(dsOf(S.ds)))) { const lg = document.createElement('div'); lg.className = 'legend inbar mini-x'; lg.innerHTML = legendHtml(''); $('#trail').after(lg); hintAt(S.level === 'kind' ? 'Point at a neighbour to light the datasets that carry it' : 'Click a column for its values'); }
+    // peer:newcomer (r4), peer:design r4 rev 1: an opened kind and a file keep the estate's "?" (the marks, how to point,
+    // Esc), not a row of marks, a hint, "Esc steps back" and a little diagram of the estate: the breadcrumb says where you are
+    if ((S.level === 'kind' || S.level === 'dataset') && !narrow()) {
+      const kb = document.createElement('button'); kb.type = 'button'; kb.className = 'mapkey mini-x'; kb.dataset.tip = 'key'; kb.setAttribute('aria-expanded', 'false'); kb.setAttribute('aria-label', 'What the marks mean'); kb.textContent = '?'; $('#trail').after(kb);
     }
   }
 
@@ -1148,6 +1274,8 @@
     el.addEventListener('click', (ev) => {
       ev.stopPropagation();
       const col = ev.target.closest('[data-col]');
+      if (t === 'd' && ev.target.closest('[data-cols]')) { S.colsOpen = !S.colsOpen; return render(); } // peer:builder: the columns, a tap away
+      if (t === 'o' && (ev.target.closest('[data-outs]') || (!ev.target.closest('[data-out]') && S.outsOpen !== key))) { S.outsOpen = S.outsOpen === key ? null : key; return render(); } // peer:builder: the list, a tap away
       if (t === 'd' && ev.target.closest('[data-decide]')) return openPanel(key, null, true);
       if (t === 'd' && ev.target.closest('[data-undo]')) return undo();
       if (t === 'd' && ev.target.closest('[data-replace]')) return openReplace(key);
@@ -1167,7 +1295,7 @@
       el.addEventListener('mouseleave', () => { if (S.level !== 'kind') return; S.hoverCard = null; lightUp(); });
     }
     if (t === 'k') {
-      el.addEventListener('mouseenter', () => { if (!(S.level === 'estate' || (S.level === 'kind' && key !== S.kind))) return; S.hover = id; lightUp(); });
+      el.addEventListener('mouseenter', () => { if (!(S.level === 'estate' || (S.level === 'kind' && key !== S.kind))) return; if (tipKind === id) return; /* peer:design: pointing at its count is about the count */ S.hover = id; lightUp(); });
       el.addEventListener('mouseleave', () => { if (S.level === 'dataset') return; S.hover = null; lightUp(); });
       // the keyboard points too: a kind with focus shows its relations as one pointed at does
       el.addEventListener('focus', () => { if (S.level !== 'estate') return; S.hover = id; lightUp(); });
@@ -1209,7 +1337,9 @@
     else lt.textContent = 'Point at a kind, or Tab to one, for all its relations';
   }
   function go(next) {
+    const ds0 = S.ds; // peer:builder
     Object.assign(S, next);
+    if (S.ds !== ds0 || S.level !== 'dataset') S.outsOpen = null; // peer:builder
     if (S.colSeen && S.colSeen.id !== S.ds) S.colSeen = null; // peer:newcomer
     if (S.level === 'estate') { S.kind = null; S.ds = null; }
     if (S.level === 'kind') S.ds = null;
@@ -1266,7 +1396,7 @@
   const hhmm = (t) => t.toTimeString().slice(0, 5);
   const usualN = (u) => Math.round((u[0] + u[1]) / 2);
   const UNDO = { keep: 'change it later', fill: 'change it later', asis: 'change it later', wait: 'Decide whenever you are ready', accept: 'change it later', fix: 'change it later', stay: 'Decide whenever you are ready' };
-  function decidePic(k, dd) {
+  function decidePic(k, dd, dayLab) { // peer:owner (r3): dayLab names the paused day's card (Today) where the caller asks
     const c = DC(), I = issueOf(dd || issueDs()), T = 24, D = 120, cx = (x) => x + 28;
     const bars = (x, cls, ws = [42, 34, 40, 28], bad = []) => ws.map((w, i) => `<rect class="${cls}${bad.includes(i) ? ' bad' : ''}" style="--i:${i}" x="${x + 7}" y="${28 + i * 7}" width="${w}" height="3.5" rx="1.75"/>`).join('');
     // the day's file as it arrived: empty, with wrong values, its rows twice, at a new level, or short
@@ -1285,7 +1415,7 @@
     const said = (cls, t) => `<text class="cap ${cls}" x="${cx(D)}" y="76.5" text-anchor="middle">${t}</text>`;
     const hg = `<g class="hgp" transform="translate(${D + 39} 45) scale(.8)"><path class="hc" d="M3.2 1.6h9.6M3.2 14.4h9.6"/><path d="M4.6 1.6c0 3.6 2.6 4.8 2.6 6.4s-2.6 2.8-2.6 6.4M11.4 1.6c0 3.6-2.6 4.8-2.6 6.4s2.6 2.8 2.6 6.4"/><path class="hs" d="M5.6 13.6c.6-1.9 1.6-2.7 2.4-3.2.8.5 1.8 1.3 2.4 3.2zM6.1 4.4h3.8c-.4.9-1.1 1.5-1.9 2.1-.8-.6-1.5-1.2-1.9-2.1z"/></g>`;
     const back = k === 'fill' && I.fillAfter, sees = { keep: T, wait: T, fill: D, asis: D, accept: D, fix: D, stay: I.nowHow === 'fill' || I.nowHow === 'asis' ? D : T }[k], ring = sees != null ? `<rect class="seen" x="${sees - 3}" y="16" width="62" height="48" rx="8"/>` : '';
-    const base = `${ring}<text class="day" x="${cx(T)}" y="12" text-anchor="middle">${k === 'fill' && !back ? I.fillFromD : c.pd}</text><text class="day" x="${cx(D)}" y="12" text-anchor="middle">${c.d}</text>${card(T)}${bars(T, 'bar')}`;
+    const base = `${ring}<text class="day" x="${cx(T)}" y="12" text-anchor="middle">${k === 'fill' && !back ? I.fillFromD : c.pd}</text><text class="day" x="${cx(D)}" y="12" text-anchor="middle">${dayLab ? esc(dayLab) : c.d}</text>${card(T)}${bars(T, 'bar')}`;
     const from = back ? `<g class="from"><path d="M${D + 72} 40h-9m3-3-3 3 3 3"/><text class="day" x="${D + 74}" y="44">${I.fillFromD}</text></g>` : '';
     const later = `<rect class="card later" x="${D + 7}" y="25" width="56" height="42" rx="6"/>`;
     const pz = I.kind === 'empty' ? pause : pauseC, risky = I.risky.includes('asis');
@@ -1307,16 +1437,20 @@
   function stopPics() { clearInterval(picTimer); picTimer = null; }
   // a choice acts out what it does: once when the choices are shown, when pointed at, and now and then while it is chosen
   function replay(el) { if (!el || matchMedia('(prefers-reduced-motion: reduce)').matches) return; el.style.setProperty('--pd', '0ms'); el.classList.remove('play'); void el.getBoundingClientRect(); el.classList.add('play'); }
+  // peer:owner (r3): the day named as design's Today helper names it (window.smDay) where the page has it; otherwise the
+  // same calls by this panel's own rule: today is the day on screen, unless readers are already on a later day
+  const DK_DAY = { is: (iso) => !!iso && iso === (laterSaid() ? M.latest.iso : DC().iso), date: (iso) => (iso === DC().iso ? DC().today : M.latest && iso === M.latest.iso ? M.latest.label : iso), text: (iso, d) => (DK_DAY.is(iso) ? 'Today' : d ?? DK_DAY.date(iso)), mid: (iso, d) => (DK_DAY.is(iso) ? 'today' : d ?? DK_DAY.date(iso)), small: (iso) => (DK_DAY.is(iso) ? ` <small class="tdate">${esc(DK_DAY.date(iso))}</small>` : '') };
+  const dkDay = () => window.smDay || DK_DAY;
   function openPanel(id, col, decide) {
     closeToasts(); const d = dsOf(id); S.panel = { id, col }; if (col) S.colSeen = { id, col }; // peer:newcomer
     const L = layer();
-    let body = '';
+    let body = ''; let dkAfter = null; // peer:owner (r3): the After column, drawn again when the choice changes
     const n = (d.builds || []).length;
     if (decide) {
       const I = issueOf(d), dc = DC(), fails = I.stoppedBy ? I.stoppedBy.map((says) => ({ says })) : (d.checks || []).filter((c) => c.mode === 'stops' && !c.column);
       const waits = outGroups(M.outputs.filter((o) => (d.builds || []).includes(o.id))).flatMap(([, l]) => l);
       const agree0 = !!(I.sugBy && I.noteOffer && I.note && I.agreeWho) && I.options.includes(I.suggest); // peer:owner: a named owner's pick comes chosen, her reason agreed
-      const pre = (k) => (I.preselect !== false || agree0) && k === I.suggest, k0 = I.preselect === false && !agree0 ? null : I.suggest, btnOf = (k) => (I.buttons || {})[k] || HOW[k].button;
+      const k0 = I.options.includes(I.suggest) ? I.suggest : null, pre = (k) => k === k0, btnOf = (k) => (I.buttons || {})[k] || HOW[k].button; // peer:owner (r3): the recommended choice comes chosen and ready, whoever recommends it
       const chainHtml = (ch) => { const cc = (c) => `<span class="cc ${c.mark}">${c.mark === 'pause' ? PAUSE : c.mark === 'warn' ? '<i class="cw" aria-hidden="true">◆</i>' : ''}<span><b>${esc(c.name)}</b> ${esc(c.says)}</span></span>`, [c0, ...rest] = ch; return `<div class="chain v">${cc(c0)}${rest.length ? `<i class="cv">↓ caught by</i><div class="cgrp">${rest.map(cc).join('')}</div>` : ''}</div>`; };
       const thenMark = (t) => (/^Done for now/.test(t) ? `<i class="tm owed">${HALF}</i>` : /^Stays/.test(t) ? `<i class="tm stays">${HOURGLASS}</i>` : '<i class="tm then">↳</i>');
       const optsOrder = I.suggest && I.options.includes(I.suggest) ? [I.suggest, ...I.options.filter((k) => k !== I.suggest)] : I.options;
@@ -1325,16 +1459,52 @@
       // peer:owner: what readers see after each choice, the day its picture puts the eye under; looking back where readers are on a later day
       const EYE = '<svg class="eyemk" viewBox="-9 -6 18 12" aria-hidden="true"><path d="M-8 0c2.4-3.4 5-5 8-5s5.6 1.6 8 5c-2.4 3.4-5 5-8 5s-5.6-1.6-8-5z"/><circle r="2.2"/></svg>';
       const seesOf = (k) => { const later = laterSaid(), what = { wait: dc.prev, keep: later ? `${dc.prev}’s data` : dc.prev, fill: `${later ? '' : dc.today + ', '}${d.short || 'the file'} from ${I.fillFrom}`, asis: later ? 'the file as it arrived' : `${dc.today} as it arrived`, accept: later ? 'the file as it arrived' : `${dc.today} as it arrived`, fix: later ? 'the corrected file' : `${dc.today}, corrected`, stay: 'what you decided' }[k]; return what ? `<span class="sees" title="${later ? 'What ' + esc(dc.today) + ' shows when someone looks back' : 'What readers see'}">${EYE}${later ? `${esc(dc.today)} shows ` : k === optsOrder[0] ? 'Readers see ' : ''}${esc(what)}</span>` : ''; }; // peer:owner: the first choice says "Readers see" once; the others keep the eye
-      const recChip = `<span class="recchip${ownerRec ? ' owner' : I.sugBy ? ' record' : ' machine'}">${ownerRec ? `<i class="av" aria-hidden="true">${esc(initials(I.agreeWho))}</i>Recommended by ${esc(I.agreeWho)}${I.agreeRole ? `, ${esc(I.agreeRole)}` : ''}${I.agreeAt ? ` · ${esc(I.agreeAt)}` : ''}` : I.sugBy ? esc(I.sugText || 'What Larkspur did') : '<i class="mc" aria-hidden="true">≈</i>smaltfl’s reading of the evidence'}</span>`;
+      const recChip = `<span class="recchip${ownerRec ? ' owner' : I.sugBy ? ' record' : ' machine'}">${ownerRec ? `<i class="av" aria-hidden="true">${esc(initials(I.agreeWho))}</i>Recommended by ${esc(I.agreeWho)}${I.agreeRole ? `, ${esc(I.agreeRole)}` : ''}${I.agreeAt ? ` · ${esc(I.agreeAt)}` : ''}` : I.sugBy ? esc(I.sugText || 'What Larkspur did') : '<i class="mc" aria-hidden="true">✦</i>smaltfl’s reading of the evidence'}</span>`;
       const recWhy = ownerRec ? `<span class="sugwhy">“${esc(I.note)}”</span>${I.noteEvidence && !I.fig ? '<span class="sugev mini">The evidence behind it is beside the cause</span>' : ''}` : !I.sugBy && sugWhy0 ? `<span class="sugwhy mach">${esc(sugWhy0)}</span>${I.sugEvidence ? `<span class="sugev mach">${I.sugEvidence}</span>` : ''}` : '';
-      body = `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><pattern id="pichatch" width="3.2" height="3.2" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect class="hp" width="1.5" height="3.2"/></pattern></defs></svg>`
-        + `<div class="dcols"><div class="dleft"><div class="nowpic${I.nowHow ? ' settled' : ''}">${decidePic(I.nowHow || 'now', d)}<div class="nowt"><b>${I.nowHow ? HALF : PAUSE} ${esc(I.title)}</b>${I.sev && !I.nowHow ? (() => { const sv = I.sev.said, at = sv.indexOf(':'); return `<span class="sev ${I.sev.level}"><b class="sevw">${esc(cap(at < 0 ? sv : sv.slice(0, at)))}</b>${at < 0 ? '' : ` <span class="sevr">${esc(sv.slice(at + 1).trim())}</span>`}</span>`; })() : ''}${I.fig ? '' : `<span>${esc(I.sub)}</span>`}<span>${I.nowSaid ? esc(I.nowSaid) : d.pendingFix && !I.chain ? `<b class="okt">↻ A corrected file came${I.fixAt ? ` at ${esc(I.fixAt)}` : ''} and passed every check</b>` : laterSaid() ? `${esc(dc.today)} shows nothing yet · readers are on ${esc(laterSaid())}` : `Readers see ${esc(dc.prev)} until you decide`}</span></div>${(d.days || []).length ? `<div class="nowmonth"><span class="nml">This month: ${stripSaid(d.days)}</span>${strip(d.days, true)}</div>` : ''}</div>` // peer:owner: the severity as a badge (level, reason)
-        + (ownerRec && I.noteEvidence && !I.fig ? `<div class="decev"><h4>Behind ${esc(I.agreeWho)}’s reason</h4>${I.noteEvidence}</div>` : '')
-        + (I.fig ? `<div class="decfig">${I.fig}${I.rowsDiff || ''}${I.tune ? `<details class="tunefold"><summary>If it keeps happening ›</summary><div class="tune"><p>${I.tune.html}</p><div class="tuneacts">${I.tune.level ? `<button type="button" class="btn sm" data-level>${esc(I.tune.level)}</button>` : ''}<button type="button" class="btn sm" data-tune>${esc(I.tune.button)}</button></div>${I.tune.levelSaid ? `<small class="tunesaid">${esc(I.tune.levelSaid)}</small>` : ''}</div></details>` : ''}</div>` : '') // peer:owner: a mild day's limit tools under "If it keeps happening ›"
-        + (d.pendingFix && I.chain ? (() => { const fs = I.fixSaid || 'It passed every check', m = fs.match(/^([\s\S]*?)[.;]?\s*(It passed every check)\.?$/), more = m ? m[1].trim() : ''; return `<div class="fixchip"><b>↻ A corrected file came${I.fixAt ? ` at ${esc(I.fixAt)}` : ''}</b> · <span>${esc(m ? m[2] : fs)}</span>${more ? `<details class="fixmore"><summary>How it compares ›</summary><p>${esc(more)}.</p></details>` : ''}</div>`; })() : '') // peer:owner: the answer, then how it compares
-        + `<div class="stopby${I.chain && !(I.chainFold && I.fig) ? ' open' : ''}">${I.chain ? (I.chainFold && I.fig ? `<details class="whyp"><summary>Why it paused ›</summary>${I.chainHtml || chainHtml(I.chain)}</details>` : I.chainHtml || chainHtml(I.chain)) : fails.length ? `<span class="sbl">Paused by</span>${fails.map((c) => `<span class="sbc">${esc(c.says)}</span>`).join('')}` : ''}<details class="waitlist"><summary><b>${I.nowHow ? esc(I.outSaid || `${n} outputs went out`) : `${HOURGLASS} ${outputsWait(n)} on it`}</b><span class="sw">See which</span></summary><p>${waits.map((o) => `<span title="${esc(o.about || '')}">${esc(plain(o.id))}</span>`).join(' · ')}</p></details></div>`
-        + `</div><div class="dright">${laterSaid() ? `<p class="qsub top">Readers are on ${esc(laterSaid())}, the latest day. What you choose here is what ${esc(dc.today)} shows when someone looks back.</p>` : ''}<h3 class="qrow"><span title="Readers: the people who use the outputs">What should readers see${laterSaid() ? ` for ${esc(dc.today)}` : ''}? <small class="nch">${optsOrder.length} choices</small></span>${I.owes && I.options.some((k) => k === 'keep' || (k === 'fill' && I.fillOwes !== false) || k === 'asis') ? `<span class="owedline"><b class="owedt">${HALF}</b> decided for now · file to come</span>` : ''}</h3><div class="opts tiles rows" role="radiogroup" aria-label="What readers see">${optsOrder.map((k, i) => `<label class="opt tile play${pre(k) ? ' on' : ''}${k === I.suggest ? ' sug' : ''}${I.risky.includes(k) ? ' risk' : ''}" data-k="${k}" style="--pd:${260 + i * 180}ms"><input type="radio" name="dec" value="${k}" ${pre(k) ? 'checked' : ''}>${decidePic(k, d)}<span class="rtx"><b><i class="rd" aria-hidden="true"></i>${esc(btnOf(k))}<kbd class="tk" aria-hidden="true">${i + 1}</kbd></b>${seesOf(k)}${k === I.suggest ? recChip + recWhy : ''}<span class="pro">${esc(I.pros[k])}</span>${I.cons[k] ? `<span class="con">${esc(I.cons[k])}</span>` : ''}${(I.changes || {})[k] ? `<span class="chg">${esc(I.changes[k])}</span>` : ''}${I.fileThen[k] ? `<span class="tfile">${thenMark(I.fileThen[k])}${esc(cap(I.fileThen[k].replace(/^Done for now · /, '').replace(/^Stays on your list$/, 'Stays yours to decide')))}</span>` : ''}</span></label>`).join('')}</div>` // peer:owner: each choice's eye line; the file's fate said short
-        + `</div></div><div class="dfoot"><div class="afterbox"><p class="after" aria-live="polite">${k0 ? `After this: <b>${HOW[k0].after(n)}.</b> <span class="undoable">${owesAfter(I, k0) ? 'Late file waits for your OK · ' : ''}${(k0 === 'accept' && I.acceptUndo ? I.acceptUndo : UNDO[k0].replace('You can undo this', 'undo anytime'))}</span>` : `<b>Nothing changes until you pick.</b> <span class="undoable">You can change it later; the record keeps both</span>`}</p>${I.ask && !d.pendingFix ? `<label class="askfile"${owesAfter(I, I.suggest) ? '' : ' hidden'}><input type="checkbox" id="dec-ask"${k0 && owesAfter(I, k0) ? ' checked' : ''}><span>Copy a request for the file, to send</span><button type="button" class="link" data-draft>Read it</button></label><p class="pdraft2" hidden>${esc(requestText(d))}</p>` : ''}</div><label class="whyrow"><span class="whyfrom" hidden></span><button type="button" class="userec" data-userec hidden></button><textarea id="dec-note" class="why two" rows="2" aria-label="Why: kept with the decision and your name" placeholder="Why? Pick a choice first"></textarea></label><p class="onrec" aria-live="polite"></p><button type="button" class="link ownwords" data-ownwords hidden>Write your own reason</button><label class="whoas"><span>Deciding as</span><input id="dec-who" type="text" value="${esc(M.me || '')}" placeholder="your name and role" autocomplete="name"></label><div class="dacts"><button class="btn" data-close>Cancel <kbd class="tk" aria-hidden="true">Esc</kbd></button><button class="btn primary${k0 && I.risky.includes(k0) ? ' risk' : ''}" data-confirm${k0 ? '' : ' disabled'}>${esc(k0 ? btnOf(k0) : 'Choose one')} <kbd class="tk" aria-hidden="true">↵</kbd></button></div></div>`; // peer:owner: the request box ticked where the chosen choice owes a file; a link to your own words · (r2) the request box in fewer words
+      // peer:owner (r3): one focal point, for the owner between meetings ("I don't know what to immediately focus on"). The
+      // state and its one number; what readers see now and after the chosen choice, the recommended one chosen and ready;
+      // one button. Everything else waits behind More: the choices, the evidence, what waits, your name, the request.
+      const later = laterSaid(), pf = d.pendingFix || null, dayLab = dkDay().text(dc.iso, dc.d); // the pictures name today: Today, not Wed 27
+      const sevW = I.sev && !I.nowHow ? (() => { const sv = I.sev.said, at = sv.indexOf(':'); return { word: cap(at < 0 ? sv : sv.slice(0, at)), why: at < 0 ? '' : sv.slice(at + 1).trim() }; })() : null;
+      const cause = I.kind === 'rows' && sevW && sevW.why ? cap(sevW.why) : cap(String(I.why || ''));
+      const nums = d.rowsToday != null ? `${fmt(d.rowsToday)} rows${d.rowsUsual ? `, usually about ${fmt(usualN(d.rowsUsual))}` : ''}` : '';
+      // peer:design r4: today against usual in the one picture the app draws it with (Ctrl K's answer, look inside, the file)
+      const bars = nowBars(d, { label: dkDay().is(dc.iso) ? 'rows today' : `rows ${dc.d}`, tone: I.sev && I.sev.level === 'mild' ? 'warn' : undefined });
+      const state = `<div class="dk-top"><p class="dk-state">${sevW ? `<span class="dk-sev ${esc(I.sev.level)}">${esc(sevW.word)}</span>` : `<span class="dk-pz">${PAUSE}</span>`}<span>${esc(cause)}${nums && !bars ? ` · <b>${esc(nums)}</b>` : ''}</span></p>${bars}</div>`;
+      // counts are icons: ⧗ 11, its list on hover and behind a tap
+      const countB = `<button type="button" class="dk-count" data-waits title="${esc(`${outputsWait(n)}: ${waits.map((o) => plain(o.id)).join(', ')}`)}" aria-label="${esc(`${outputsWait(n)}: see which`)}">${HOURGLASS}<b>${n}</b></button>`;
+      const nowSees = I.nowHow ? String(I.nowSaid || '').replace(/^Readers see /, '') : later ? 'Nothing yet' : dc.prev; // looking back, the question names the day
+      const nowFate = I.nowHow ? `${HALF}<span>${esc(I.outSaid || `${n} outputs went out`)}</span>` : `<span class="dk-pz">${PAUSE}</span><span>Paused</span>${countB}`; // looking back, where readers are is said beside the question
+      const afterSees = (k) => (later ? { wait: 'Nothing yet', keep: `${dc.prev}’s data`, fill: `${d.short || 'The file'} from ${I.fillFrom}`, asis: 'The file as it arrived', accept: 'The file as it arrived', fix: 'The corrected file', stay: 'What you decided' } : { wait: dc.prev, keep: dc.prev, fill: `${dc.today}, ${d.short || 'the file'} from ${I.fillFrom}`, asis: `${dc.today} as it arrived`, accept: `${dc.today} as it arrived`, fix: `${dc.today}, corrected`, stay: 'What you decided' })[k] || '';
+      const afterFate = (k) => (k === 'fix' ? `<b class="dk-ok" aria-hidden="true">↻</b><span>${pf && pf.rows != null ? `${fmt(pf.rows)} rows · ` : ''}passed every check</span>`
+        : I.risky.includes(k) && I.cons[k] ? `<b class="dk-x" aria-hidden="true">✕</b><span>${esc(I.cons[k])}</span>`
+        : I.fileThen[k] ? `${thenMark(I.fileThen[k])}<span>${esc(cap(I.fileThen[k].replace(/^Stays on your list$/, 'Stays yours to decide')))}</span>` : '');
+      // what it costs, on the card itself (a risky choice says its risk as its line above); then who recommends it, and why
+      const afterCost = (k) => (I.cons[k] && !I.risky.includes(k) ? `<span class="dk-cost"><b class="dk-x" aria-hidden="true">✕</b><span>${esc(I.cons[k])}</span></span>` : '');
+      const afterWho = (k) => (k !== I.suggest ? ''
+        : ownerRec ? `<span class="dk-why" title="${esc(`Recommended by ${I.agreeWho}${I.agreeRole ? ', ' + I.agreeRole : ''}${I.agreeAt ? ', ' + I.agreeAt : ''}: “${I.note}”`)}"><i class="av" aria-hidden="true">${esc(initials(I.agreeWho))}</i><span><b>${esc(I.agreeWho)}</b>${I.agreeRole ? `, ${esc(I.agreeRole)}` : ''}</span></span><q class="dk-quote" title="${esc(I.note)}">${esc(I.note)}</q>`
+        : sugWhy0 ? `<span class="dk-why mach"><i class="mc" aria-hidden="true">✦</i><span><b>smaltfl’s reading</b>: ${esc(sugWhy0)}</span></span>`
+        : I.sugBy && I.sugText ? `<span class="dk-why"><span>${esc(I.sugText)}</span></span>` : '');
+      dkAfter = (k) => (k ? `<div class="dk-after opt play${I.risky.includes(k) ? ' risk' : ''}" data-k="${k}" title="${esc(HOW[k].what)}"><span class="dk-lab">${k === I.suggest ? 'Recommended' : 'Your choice'}</span>${decidePic(k, d, dayLab)}<span class="dk-sees">${EYE}<b>${esc(afterSees(k))}</b></span><span class="dk-fate">${afterFate(k)}</span>${afterCost(k)}${afterWho(k)}</div>`
+        : `<div class="dk-after none"><span class="dk-lab">After</span><span class="dk-fate">Pick what readers see under More</span></div>`);
+      const ARROW = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-5-5 5 5-5 5"/></svg>';
+      const hero = `<div class="dk-hero" role="group" aria-label="What readers see now, and after your choice"><div class="dk-now"><span class="dk-lab">Now</span>${decidePic(I.nowHow || 'now', d, dayLab)}<span class="dk-sees">${later && !I.nowHow ? '' : EYE}<b>${esc(nowSees)}</b></span><span class="dk-fate">${nowFate}</span></div><span class="dk-arrow">${ARROW}</span>${dkAfter(k0)}</div>`;
+      // More: each block is there for one thing: pick another choice, check the evidence, see what waits, sign and ask
+      const tile = (k, i) => `<label class="opt tile${pre(k) ? ' on' : ''}${k === I.suggest ? ' sug' : ''}${I.risky.includes(k) ? ' risk' : ''}" data-k="${k}"><input type="radio" name="dec" value="${k}" ${pre(k) ? 'checked' : ''}><span class="rtx"><b><i class="rd" aria-hidden="true"></i>${esc(btnOf(k))}${k === I.suggest ? ' <small class="dk-rec">Recommended</small>' : ''}<kbd class="tk" aria-hidden="true">${i + 1}</kbd></b>${seesOf(k)}${I.cons[k] ? `<span class="con">${esc(I.cons[k])}</span>` : ''}${(I.changes || {})[k] ? `<span class="chg">${esc(I.changes[k])}</span>` : ''}${I.fileThen[k] ? `<span class="tfile">${thenMark(I.fileThen[k])}${esc(cap(I.fileThen[k].replace(/^Done for now · /, '').replace(/^Stays on your list$/, 'Stays yours to decide')))}</span>` : ''}</span></label>`;
+      const fig = I.fig ? `<div class="decfig">${I.fig}${I.rowsDiff || ''}${I.tune ? `<details class="tunefold"><summary>If it keeps happening ›</summary><div class="tune"><p>${I.tune.html}</p><div class="tuneacts">${I.tune.level ? `<button type="button" class="btn sm" data-level>${esc(I.tune.level)}</button>` : ''}<button type="button" class="btn sm" data-tune>${esc(I.tune.button)}</button></div>${I.tune.levelSaid ? `<small class="tunesaid">${esc(I.tune.levelSaid)}</small>` : ''}</div></details>` : ''}</div>` : '';
+      const fix = d.pendingFix && I.chain ? (() => { const fs = I.fixSaid || 'It passed every check', m = fs.match(/^([\s\S]*?)[.;]?\s*(It passed every check)\.?$/), more = m ? m[1].trim() : ''; return `<div class="fixchip"><b>↻ A corrected file came${I.fixAt ? ` at ${esc(I.fixAt)}` : ''}</b> · <span>${esc(m ? m[2] : fs)}</span>${more ? `<details class="fixmore"><summary>How it compares ›</summary><p>${esc(more)}.</p></details>` : ''}</div>`; })() : '';
+      const why = I.chain ? `<details class="whyp"><summary>Why it paused ›</summary>${I.chainHtml || chainHtml(I.chain)}</details>` : fails.length ? `<p class="dk-by"><span class="dk-h">Paused by</span>${fails.map((c) => `<span class="sbc">${esc(c.says)}</span>`).join('')}</p>` : '';
+      const month = !I.fig && (d.days || []).length ? `<div class="dk-month"><span class="dk-h">This month</span>${picMonth(d.days)}<p class="apline">${stripLine(d.days)}</p></div>` : ''; // peer:design r4: the month as Ctrl K draws it
+      const ask = I.ask && !d.pendingFix ? `<p class="dk-ask"><button type="button" class="link" data-askcopy>Copy a request for the file</button><button type="button" class="link" data-draft>Read it</button></p><p class="pdraft2" hidden>${esc(requestText(d))}</p>` : '';
+      const more = `<details class="dk-more"><summary><span class="dk-mo">More</span><span class="dk-hint">other choices, why it paused</span></summary><div class="dk-in">`
+        + `<section class="dk-sec dk-choices"><h4 class="dk-h">Choices</h4><div class="opts tiles rows" role="radiogroup" aria-label="What readers see">${optsOrder.map(tile).join('')}</div></section>`
+        + `<section class="dk-sec dk-ev">${fig}${fix}${why}${month}</section>`
+        + `<section class="dk-sec dk-waits"><h4 class="dk-h">${HOURGLASS} ${esc(I.nowHow ? (I.outSaid || `${n} outputs went out`) : `${outputsWait(n)} on it`)}</h4><p>${waits.map((o) => `<span title="${esc(o.about || '')}">${esc(plain(o.id))}</span>`).join(' · ')}</p></section>`
+        + `<section class="dk-sec dk-tools"><label class="whoas"><span>Deciding as</span><input id="dec-who" type="text" value="${esc(M.me || '')}" placeholder="your name and role" autocomplete="name"></label>${ask}</section>`
+        + `</div></details>`;
+      // the footer: what goes on record with your tap, and the one button; the box for your own words opens on demand
+      const foot = `<div class="dfoot dk-foot"><label class="whyrow"><span class="whyfrom" hidden></span><button type="button" class="userec" data-userec hidden></button><textarea id="dec-note" class="why two" rows="2" aria-label="Why: kept with the decision and your name" placeholder="Why? Pick a choice first"></textarea></label><div class="dk-record"><p class="onrec" aria-live="polite"></p><button type="button" class="link ownwords" data-ownwords hidden>Write your own reason</button></div><div class="dacts"><button class="btn primary${k0 && I.risky.includes(k0) ? ' risk' : ''}" data-confirm${k0 ? '' : ' disabled'}>${esc(k0 ? btnOf(k0) : 'Choose one')} <kbd class="tk" aria-hidden="true">↵</kbd></button></div></div>`;
+      body = `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><pattern id="pichatch" width="3.2" height="3.2" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect class="hp" width="1.5" height="3.2"/></pattern></defs></svg>` + state + hero + more + foot; // peer:owner (r3)
     }
     else if (col) {
       const c = d.columns.find((x) => x.name === col);
@@ -1343,7 +1513,7 @@
       body = `<p>${esc(c.meaning || 'No meaning written yet.')}</p><div class="facts">${facts.map(([v, l]) => `<div><b>${esc(v)}</b><span>${esc(l)}</span></div>`).join('')}</div>`
         + `<h3>Kind of column</h3><p>${{ key: 'The key: one per row', category: 'A code from a list', number: 'A number', date: 'A date and time', text: 'Free text' }[c.role] || c.role}</p>` + `${vals ? `<h3>Today</h3><div class="dist">${vals.slice(0, 8).map((t) => `<div class="drow"><span>${esc((c.labels || {})[t.value] || t.value)}</span><span class="dtrack"><span class="dfill" style="width:${(t.share * 100).toFixed(1)}%"></span></span><span class="num">${(t.share * 100).toFixed(t.share < .1 ? 1 : 0)}%</span></div>`).join('')}</div>` : c.examples ? `<h3>Examples</h3><p class="exs">${c.examples.slice(0, 6).map((x) => `<code>${esc(x)}</code>`).join(' ')}</p>` : ''}${M.joins.filter((j) => j.from === id && j.col === col).map((j) => `<h3>Joins</h3><p>${esc(j.rel)} <b>${esc(dsOf(j.to)?.short)}</b> on ${esc(j.toCol)}</p>`).join('')}<button class="btn" data-rows>Explore rows ›</button>`;
     } else body = `<p>${esc(d.description || '')}</p><h3>One row is</h3><p>${esc(d.one || '–')}</p><h3>Today</h3><p>${d.rowsToday != null ? fmt(d.rowsToday) + ' rows' : 'No file yet'}${d.state === 'waiting' ? ' · <b style="color:var(--bad)">paused</b>' : ''}</p><h3>Checks</h3><p>${(d.checks || []).length} checks</p><button class="btn" data-rows>Explore rows ›</button>`;
-    L.innerHTML = `<div class="scrim" data-close></div><aside class="panel${decide ? ' decide' : ''}" aria-label="${decide ? 'Decide' : 'Details'}"><div class="ph"><div class="ctx">${esc(kindOf(d.kind).name)} · ${esc(d.short)}${col ? ' · column' : ''}</div><div class="t"><h2 style="${col ? 'font-family:var(--mono)' : ''}">${decide ? `Decide on ${esc(DC().today)}` : esc(col || d.short)}</h2><button class="x" data-close aria-label="Close">✕</button></div></div><div class="pb">${body}</div></aside>`;
+    L.innerHTML = `<div class="scrim" data-close></div><aside class="panel${decide ? ' decide' : ''}" aria-label="${decide ? 'Decide' : 'Details'}"><div class="ph"><div class="ctx">${decide ? esc(d.short) : `${esc(kindOf(d.kind).name)} · ${esc(d.short)}${col ? ' · column' : ''}`}</div><div class="t"><h2 style="${col ? 'font-family:var(--mono)' : ''}">${decide /* peer:owner (r3): the question; today named by design's helper where it exists (dkDay) */ ? (() => { const T = dkDay(), c = DC(), lat = M.latest && M.latest.iso > c.iso ? M.latest : null; return `What should readers see ${esc(T.mid(c.iso, 'for ' + c.today))}?${T.small(c.iso)}${!T.is(c.iso) && lat ? ` <small class="dk-date">readers already see ${esc(T.mid(lat.iso, lat.label))}</small>` : ''}`; })() : esc(col || d.short)}</h2><button class="x" data-close aria-label="Close">✕</button></div></div><div class="pb">${body}</div></aside>`;
     L.querySelectorAll('[data-close]').forEach((b) => (b.onclick = () => closePanel()));
     L.querySelectorAll('[data-rows]').forEach((b) => (b.onclick = () => openRows(id, col)));
     L.dataset.agree = '';
@@ -1355,13 +1525,14 @@
         tiles.forEach((o) => o.classList.toggle('on', o.querySelector('input').checked));
         replay(tiles.find((o) => o.classList.contains('on')));
         { const on = tiles.find((o) => o.classList.contains('on')); if (on) requestAnimationFrame(() => on.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })); }
-        btn.innerHTML = `${esc((issueOf(d).buttons || {})[x.value] || HOW[x.value].button)} <kbd class="tk" aria-hidden="true">↵</kbd>`; after.textContent = HOW[x.value].after(n) + '.'; L.querySelector('.undoable').textContent = (owesAfter(issueOf(d), x.value) ? 'Late file waits for your OK · ' : '') + (x.value === 'accept' && issueOf(d).acceptUndo ? issueOf(d).acceptUndo : UNDO[x.value].replace('You can undo this', 'undo anytime'));
+        btn.innerHTML = `${esc((issueOf(d).buttons || {})[x.value] || HOW[x.value].button)} <kbd class="tk" aria-hidden="true">↵</kbd>`; if (after) after.textContent = HOW[x.value].after(n) + '.'; const und = L.querySelector('.undoable'); if (und) und.textContent = (owesAfter(issueOf(d), x.value) ? 'Late file waits for your OK · ' : '') + (x.value === 'accept' && issueOf(d).acceptUndo ? issueOf(d).acceptUndo : UNDO[x.value].replace('You can undo this', 'undo anytime'));
         const askRow = L.querySelector('.askfile'); if (askRow) { const show = owesAfter(issueOf(d), x.value); askRow.hidden = !show; askRow.querySelector('input').checked = show; if (!show) { const p2 = L.querySelector('.pdraft2'); if (p2) p2.hidden = true; } }
         btn.classList.toggle('risk', issueOf(d).risky.includes(x.value));
         syncWhy(x.value, true);
         { const tf = L.querySelector('details.tunefold'); if (tf) tf.open = false; } // peer:owner (r2): picking what readers see folds the limit tools, the other way to settle the day
+        { const ha = L.querySelector('.dk-after'); if (ha && dkAfter) { ha.outerHTML = dkAfter(x.value); replay(L.querySelector('.dk-after')); } } // peer:owner (r3): After shows the choice now picked
       }));
-      picTimer = setInterval(() => { const on = L.querySelector('.opt.tile.on'); if (on && !on.matches(':hover')) replay(on); }, 4800);
+      // peer:owner (r3): the After picture plays when it is shown and when the choice changes, not on a timer (motion with a job only)
       // agreeing: her reason quoted beside the choice, the box left for words of your own
       const recWords = () => { const I2 = issueOf(d); if (I2.sugBy && I2.noteOffer && I2.note && I2.agreeWho) return { text: I2.note, who: I2.agreeWho, kind: '1' }; const w = I2.sugWhy || (!I2.sugBy && I2.sugText && !/^Suggested$/i.test(I2.sugText) ? cap(I2.sugText.replace(/^[^:]+:\s*/, '')) : ''); return w ? { text: w, who: 'smaltfl', kind: 'm' } : null; };
       const needsWhy = (k) => !!k && k !== 'wait' && k !== 'stay';
@@ -1369,13 +1540,13 @@
         if (!k) return '';
         const nt = L.querySelector('#dec-note'), v = nt.value.trim(), I2 = issueOf(d), lab = esc((I2.buttons || {})[k] || HOW[k].button), rw = recWords();
         const whose = L.dataset.agree === '1' ? `${esc(rw.who)}’s reason, agreed` : L.dataset.agree === 'm' ? 'smaltfl’s reading, agreed' : 'your words', me = (L.querySelector('#dec-who')?.value || '').trim();
-        if (L.dataset.agree === '1' && v) return `<b>Goes on record when you tap Agree:</b> ${me ? esc(me) : 'you'} · ${lab} · <i>${whose}</i>`; // peer:owner: her words are on the tile above; nothing is decided before the tap
-        return `<b>Goes on record with your tap:</b> ${me ? esc(me) : 'you'} · ${lab}${v ? ` · <i>${whose}</i>` : needsWhy(k) ? ' · <span class="need">needs a reason</span>' : ' · no reason given'}`; // peer:owner (r2): the words are in the box right below, so not quoted again // peer:owner: said as still to come
+        if (L.dataset.agree === '1' && v) return `<b>On record when you tap Agree:</b> ${me ? esc(me) : 'you'} · <i>${whose}</i>`; // peer:owner (r3): the choice is on the button beside it // peer:owner: her words are on the tile above; nothing is decided before the tap
+        return `<b>On record with your tap:</b> ${me ? esc(me) : 'you'}${v ? ` · <i>${whose}</i>` : needsWhy(k) ? ' · <span class="need">needs a reason</span>' : ' · no reason given'}`; // peer:owner (r3) // peer:owner (r2): the words are in the box right below, so not quoted again // peer:owner: said as still to come
       }
       function syncWhy(k, fromChoice) {
         const nt = L.querySelector('#dec-note'), wf = L.querySelector('.whyfrom'), rw = recWords(), I2 = issueOf(d); if (!nt) return;
         if (fromChoice && k !== I2.suggest && nt.dataset.auto === '1') { nt.value = ''; nt.dataset.auto = ''; }
-        if (fromChoice && rw && rw.kind === '1' && k === I2.suggest && !nt.value.trim() && L.dataset.own !== '1') { nt.value = rw.text; nt.dataset.auto = '1'; } // peer:owner
+        if (fromChoice && rw && (rw.kind === '1' || rw.kind === 'm') && k === I2.suggest && !nt.value.trim() && L.dataset.own !== '1') { nt.value = rw.text; nt.dataset.auto = '1'; } // peer:owner (r3): smaltfl's reading agreed by default too, as a named owner's is
         const ur = L.querySelector('[data-userec]'); if (ur) { const show = !!(rw && k === I2.suggest && nt.dataset.auto !== '1'); ur.hidden = !show; ur.textContent = rw ? (rw.kind === '1' ? `Use ${rw.who}’s reason ›` : 'Use smaltfl’s reading ›') : ''; }
         const kept = !!(rw && k === I2.suggest && nt.dataset.auto === '1' && nt.value.trim() === rw.text.trim());
         L.dataset.agree = kept ? rw.kind : '';
@@ -1385,7 +1556,7 @@
         btn.disabled = !k || (needsWhy(k) && !nt.value.trim());
         const r = L.querySelector('.onrec'); if (r) r.innerHTML = recordLine(k);
         // peer:owner: agreeing needs no box: it folds, a link opens your own words, and the one button says Agree
-        { const ag = L.dataset.agree === '1', wr = L.querySelector('.whyrow'), ow = L.querySelector('[data-ownwords]'), lab = k ? ((I2.buttons || {})[k] || HOW[k].button) : ''; if (ag) L.dataset.own = ''; if (wr) wr.classList.toggle('folded', ag); if (ow) ow.hidden = !ag; if (k) btn.innerHTML = `${ag ? `Agree: ${esc(lab.charAt(0).toLowerCase() + lab.slice(1))}` : esc(lab)} <kbd class="tk" aria-hidden="true">↵</kbd>`; }
+        { const agP = L.dataset.agree === '1', ag = !!L.dataset.agree, wr = L.querySelector('.whyrow'), ow = L.querySelector('[data-ownwords]'), lab = k ? ((I2.buttons || {})[k] || HOW[k].button) : ''; if (ag) L.dataset.own = ''; if (wr) wr.classList.toggle('folded', ag); if (ow) ow.hidden = !ag; if (k) btn.innerHTML = `${agP /* peer:owner (r3) */ ? `Agree: ${esc(lab.charAt(0).toLowerCase() + lab.slice(1))}` : esc(lab)} <kbd class="tk" aria-hidden="true">↵</kbd>`; }
       }
       function setAgree() {}
       const cb0 = L.querySelector('.agreecb');
@@ -1403,8 +1574,10 @@
       L.querySelectorAll('[data-level]').forEach((b) => (b.onclick = () => { const n0 = L.querySelector('#dec-note'), nt = n0 && n0.dataset.auto !== '1' ? n0.value.trim() : ''; closePanel(); const said = M.onLevel ? M.onLevel(d, nt) : ''; renderChrome(); if (said) toast(said, true); }));
       const tuneBtn = L.querySelector('[data-tune]'); if (tuneBtn) tuneBtn.onclick = () => { const n0 = L.querySelector('#dec-note'), nt = n0 && n0.dataset.auto !== '1' ? n0.value.trim() : ''; closePanel(); const said = M.onTune ? M.onTune(d, nt) : ''; renderChrome(); if (said) toast(said, true); };
       // the panel takes the keyboard: focus on the chosen option, so 1 to 4, the arrows and Enter work at once
-      (L.querySelector('input[name="dec"]:checked') || L.querySelector('input[name="dec"]'))?.focus({ preventScroll: true }); if (narrow() && L.dataset.agree !== '1') setTimeout(() => L.querySelector('.qrow')?.scrollIntoView({ block: 'start' }), 420); // peer:owner: with her pick chosen and agreed, the top is the answer
+      { const pn = L.querySelector('.panel'); if (btn.disabled) { pn.setAttribute('tabindex', '-1'); pn.focus({ preventScroll: true }); } else btn.focus({ preventScroll: true }); } // peer:owner (r3): the one button takes the keyboard (Enter decides, 1 to 4 choose); the choices wait behind More
       const draftBtn = L.querySelector('[data-draft]'); if (draftBtn) draftBtn.onclick = (ev) => { ev.preventDefault(); const p2 = L.querySelector('.pdraft2'); p2.hidden = !p2.hidden; ev.target.textContent = p2.hidden ? 'Read it' : 'Hide it'; };
+      L.querySelectorAll('[data-waits]').forEach((b) => (b.onclick = (ev) => { ev.preventDefault(); const mo = L.querySelector('.dk-more'); if (mo) mo.open = true; const w = L.querySelector('.dk-waits'); if (w) requestAnimationFrame(() => w.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })); })); // peer:owner (r3): ⧗ 11 opens the list
+      const askB = L.querySelector('[data-askcopy]'); if (askB) askB.onclick = (ev) => { ev.preventDefault(); copyText(requestText(d), true); d.asked = new Date(); askB.textContent = 'Request copied: paste it to the sender'; }; // peer:owner (r3): asking for the file is its own tap
       // keys: 1 to 4 choose, Enter confirms, Esc cancels (the page's own Esc)
       // one handler a panel: assigned, not added, so a panel opened before can't act on this one
       L.onkeydown = (ev) => {
@@ -1618,32 +1791,93 @@
   const actOpenDs = (d) => ({ label: `Open ${d.short}`, run: () => go({ level: 'dataset', ds: d.id, kind: d.kind }) });
   const actOpenKind = (k) => ({ label: `Open ${k.name}`, run: () => go({ level: 'kind', kind: k.id }) });
   const actSpot = (k) => ({ label: `Show it on the map`, primary: true, run: () => spotlight(k.id) });
+  // peer:newcomer — an answer leads with its picture (today against the usual band, the month as a strip of days, what
+  // waits on the file), then one line, then Full answer ›. An answer's `pic` and `line` are its card; the full answer
+  // shows them first and its `more` under them. `html` stays the whole answer in words (the fallback, and Claude's facts).
+  // The day on screen as the page says it: Today, the date small. Design's helper says it (window.smDay, r3) wherever the
+  // page has it; this copy's stand-in writes the same markup. The date always comes from DC(), and a paused day readers
+  // have moved past keeps its date.
+  const dayKit = () => window.smDay || null;
+  const isToday = () => (dayKit() ? dayKit().is(DC().iso) : !laterSaid());
+  const todaySaid = () => (dayKit() ? dayKit().html(DC().iso, DC().today) : isToday() ? `<span class="today">Today <small class="tdate">${esc(DC().today)}</small></span>` : esc(DC().today));
+  const todayWord = () => (dayKit() ? dayKit().mid(DC().iso, DC().today) : isToday() ? 'today' : DC().today);
+  const dayShort = (i) => dayName(i).replace(/ \w{3} /, ' ');
+  const APMARK = { w: '◆', d: HALF, p: PAUSE };
+  // today against usual, as dq's look-inside draws it (r3): today's rows and a usual day's, two bars on one scale from
+  // zero, labelled where they end. One picture for one fact across the palette. dq's nowBars draws it wherever the page
+  // has it; nowBarsHere is a copy of it for this copy of the app (the same markup, so the same styles), to go at the merge
+  const todayBars = (d) => (typeof nowBars === 'function' ? nowBars(d) : nowBarsHere(d));
+  const nowBarsHere = (d) => {
+    const t = d.rowsToday, u = d.rowsUsual ? usualN(d.rowsUsual) : null;
+    if (t == null) return '';
+    if (u == null) return `<div class="pvn"><b>${fmt(t)}</b> rows today</div>`;
+    const max = Math.max(t, u, 1), w = (v) => `${((v / max) * 100).toFixed(1)}%`, tone = d.state === 'waiting' ? ' bad' : d.state === 'warn' ? ' warn' : '';
+    return `<div class="dqnow" role="img" aria-label="${fmt(t)} rows today; a usual day has about ${fmt(u)}"><span class="dqk">rows today</span><span class="dqb">${t > 0 ? `<i class="dqt${tone}" style="width:${w(t)}"></i>` : `<i class="dqt0${tone}"></i>`}</span><b class="dqv">${fmt(t)}</b><span class="dqk">usual</span><span class="dqb"><i class="dqu" style="width:${w(u)}"></i></span><span class="dqv">${fmt(u)}</span></div>`;
+  };
+  // the month as a strip of days, today marked at the end; one or two days out of the ordinary named where they are
+  function picMonth(days) {
+    const n = days.length; if (!n) return '';
+    const t = n - 1, odd = days.map((s, i) => [DAYCLS[s] || 'o', i]).filter(([k, i]) => k !== 'o' && i !== t);
+    const two = odd.length === 2 && (odd[1][1] - odd[0][1]) / n < 0.4; // peer:builder r4: two odd days near each other take a line each
+    const notes = odd.length && odd.length <= 2 ? `<div class="apnotes${two ? ' two' : ''}" aria-hidden="true">${odd.map(([k, i], j) => { const p = (((i + 0.5) / n) * 100).toFixed(1); return `<span${two && !j ? ' class="hi"' : ''} style="left:${p}%;transform:translateX(-${p}%)"><i class="${k}">${APMARK[k]}</i>${DAYWORD[k]} ${dayShort(i)}</span>`; }).join('')}</div>` : '';
+    return `<figure class="ap apmonth" style="--n:${n}">${notes}${strip(days, true)}<div class="apx"><span>${esc(DC().first)}</span><span>${todaySaid()}</span></div></figure>`;
+  }
+  // the strip's days counted, each with its mark: 25 fine · ◆ 1 warned · ‖ paused today
+  const stripLine = (days) => {
+    const n = { o: 0, w: 0, d: 0, p: 0 }, t = days.length - 1, last = DAYCLS[days[t]] || 'o';
+    days.forEach((s, i) => { if (i < t || last !== 'p') n[DAYCLS[s] || 'o']++; });
+    const odd = [n.w && `<i class="apm w">◆</i>${n.w} warned`, n.d && `<i class="apm d">${HALF}</i>${n.d} decided`, n.p && `${PAUSE}${n.p} paused`, last === 'p' && `${PAUSE}paused ${esc(todayWord())}`].filter(Boolean);
+    return [odd.length < 3 && n.o && `<i class="apm o"></i>${n.o} fine`, ...odd].filter(Boolean).join(' · '); // the strip shows the fine days where the odd ones need the line
+  };
+  // what is built from a file, by what it is about, each group's count with ⧗ where it waits; the names on hover
+  const groupWord = (g) => (g === 'check' ? 'Checked rows' : g === 'context' ? 'Context' : kindOf(g) ? cap(PL(g)) : 'Other');
+  // the groups as the map counts them: a file's own checked rows go with what the file is about (the map's waitsBy), so
+  // Application's ⧗ 5 on the map is Applications ⧗ 5 here; biggest first, context and the rest last
+  const fanGroups = (d, outs) => { const m = new Map(); for (const [g, l] of outGroups(outs)) { const k = g === 'check' ? d.kind : g; if (!m.has(k)) m.set(k, []); m.get(k).push(...l); } const last = (g) => (g === 'context' || g === 'other' ? 1 : 0); return [...m.entries()].sort((a, b) => last(a[0]) - last(b[0]) || b[1].length - a[1].length); };
+  function picFan(d, outs) {
+    const groups = fanGroups(d, outs); if (!groups.length) return '';
+    const R = 22, H = groups.length * R, mid = H / 2, wn = outs.filter((o) => o.waiting).length;
+    const curves = groups.map((_, i) => `<path d="M0 ${mid} C18 ${mid} 18 ${i * R + R / 2} 33 ${i * R + R / 2}"/><circle cx="33" cy="${i * R + R / 2}" r="2"/>`).join('');
+    return `<figure class="ap apfan" role="img" aria-label="${esc(`${outs.length} outputs built from ${d.short}${wn ? `, ${wn} waiting` : ''}: ${groups.map(([g, l]) => `${l.length} ${groupWord(g).toLowerCase()}`).join(', ')}`)}">`
+      + `<span class="apsrc${d.state === 'waiting' ? ' off' : ''}">${d.state === 'waiting' ? PAUSE : ''}${esc(d.short)}</span>`
+      + `<svg viewBox="0 0 36 ${H}" style="height:${H}px" aria-hidden="true">${curves}</svg>`
+      + `<ul>${groups.map(([g, l]) => { const w = l.filter((o) => o.waiting).length; return `<li title="${esc(l.map((o) => plain(o.id)).join(', '))}"><span>${esc(groupWord(g))}</span><b>${w ? `${HOURGLASS}${w}${w < l.length ? ` of ${l.length}` : ''}` : l.length}</b></li>`; }).join('')}</ul></figure>`;
+  }
+  // ⧗ 11: what waits on a paused file, as a count; hover names them, a tap asks which
+  const waitChip = (w) => { const outs = M.outputs.filter((o) => (w.builds || []).includes(o.id)), n = outs.length; return n ? `<button type="button" class="apw" data-ask="Which outputs wait?" title="${esc(`${outputsWait(n)}: ${outs.map((o) => plain(o.id)).join(', ')}`)}" aria-label="${esc(outputsWait(n))}: which?">${HOURGLASS}<span class="kwn">${n}</span></button>` : ''; }; // peer:builder r4: the map's count pill, no chevron
+  // a file's rows today in one line: how it stands against usual, or what stopped it
+  const rowsLine = (d) => { if (d.state === 'waiting') return `<b>${esc(d.short)}</b> ${esc(issueOf(d).why)} ${waitChip(d)}`; if (d.rowsToday == null) return `<b>${esc(d.short)}</b> has no file yet`; const fb = fineBand(d); return fb ? `<b>${esc(d.short)}</b> ${esc(todayWord())}: ${d.rowsToday < fb[0] ? 'fewer rows than usual' : d.rowsToday > fb[1] ? 'more rows than usual' : 'about as usual'}` : `<b>${esc(d.short)}</b>: ${fmt(d.rowsToday)} rows ${esc(todayWord())}`; }; // the bars carry the numbers
+  // a file's rows today against usual: the picture for an issue about how many rows came (else the month's strip)
+  const ROWKINDS = new Set(['empty', 'twice', 'rows']);
   function whyNow() {
     const w = waitingDs(), dd = decidedDs();
-    if (!w) return dd ? { html: `<p>Nothing is paused now. ${esc(DC().today)} is <b class="owedt">decided for now</b> (${esc(HOW[dd.how]?.said || '')}) and the corrected ${esc(dd.short)} file is still owed.</p>`, acts: [actReplace(), actUndo()] } : { html: '<p><b class="okt">✓ Nothing is paused.</b> Every file is in and every check passed.</p>', acts: [] };
+    if (!w) return dd ? { html: `<p>Nothing is paused now. ${esc(DC().today)} is <b class="owedt">decided for now</b> (${esc(HOW[dd.how]?.said || '')}) and the corrected ${esc(dd.short)} file is still owed.</p>`, line: `<b class="owedt">${HALF} Decided for now:</b> ${esc(HOW[dd.how]?.said || '')}, ${esc(dd.short)} owed`, acts: [actReplace(), actUndo()] } : { html: '<p><b class="okt">✓ Nothing is paused.</b> Every file is in and every check passed.</p>', line: '<b class="okt">✓ Nothing is paused.</b> Every check passed', acts: [] };
     const fails = (w.checks || []).filter((c) => c.mode === 'stops' && !c.column), n = (w.builds || []).length;
     const I = issueOf(w), dc = DC(), f2 = I.stoppedBy ? I.stoppedBy.map((says) => ({ says })) : fails;
-    return { q: `Why is ${dc.today} paused?`, html: `<p><b class="bad">${PAUSE} ${esc(dc.today)} is paused.</b> ${I.kind === 'empty' ? `${esc(w.short)} arrived empty: 0 rows${w.rowsUsual ? `, where a usual day has <span class="nw">about ${fmt(usualN(w.rowsUsual))}</span>` : ''}` : `${esc(w.short)} ${esc(I.why)}`}.</p><p>${f2.length ? `${f2.length === 1 ? 'Its check' : 'Its checks'} ${f2.map((c) => `“${esc(c.says)}”`).join(' and ')} stop${f2.length === 1 ? 's' : ''} a day like that, so the` : 'The'} ${n} outputs built from it wait, and readers still see ${esc(dc.prev)}.</p><p>${I.answer || '<b>Suggested:</b> keep ' + esc(dc.prev) + ' now and ask for the file again. When it comes, it is checked and waits for your OK.'}</p>`, acts: [actDecide(true), actReach(), I.ask ? actRequest() : null, actRows(w)].filter(Boolean) };
+    const why2 = `<p>${f2.length ? `${f2.length === 1 ? 'Its check' : 'Its checks'} ${f2.map((c) => `“${esc(c.says)}”`).join(' and ')} stop${f2.length === 1 ? 's' : ''} a day like that, so the` : 'The'} ${n} outputs built from it wait, and readers still see ${esc(dc.prev)}.</p><p>${I.answer || '<b>Suggested:</b> keep ' + esc(dc.prev) + ' now and ask for the file again. When it comes, it is checked and waits for your OK.'}</p>`;
+    const pic = ROWKINDS.has(I.kind || 'empty') ? todayBars(w) : (w.days || []).length ? picMonth(w.days) : ''; // peer:newcomer
+    return { q: `Why is ${todayWord()} paused?`, html: `<p><b class="bad">${PAUSE} ${esc(dc.today)} is paused.</b> ${I.kind === 'empty' ? `${esc(w.short)} arrived empty: 0 rows${w.rowsUsual ? `, where a usual day has <span class="nw">about ${fmt(usualN(w.rowsUsual))}</span>` : ''}` : `${esc(w.short)} ${esc(I.why)}`}.</p>${why2}`, pic, line: `<b>${esc(w.short)}</b> ${esc(I.why)} ${waitChip(w)}`, more: why2, acts: [actDecide(true), actReach(), I.ask ? actRequest() : null, actRows(w)].filter(Boolean) };
   }
   function waitsNow() {
     const w = waitingDs();
-    if (!w) return { html: '<p>Nothing waits: no file is paused today.</p>', acts: [] };
-    const groups = outGroups(M.outputs.filter((o) => (w.builds || []).includes(o.id)));
-    return { q: 'Which outputs wait?', html: `<p><b>${(w.builds || []).length} outputs</b> built from ${esc(w.short)} wait for the decision; readers see their ${esc(DC().prev)} version until then.</p><ul>${groups.map(([g, l]) => `<li><span><b>${esc(groupName(g))}:</b> ${l.slice(0, 5).map((o) => esc(plain(o.id))).join(', ')}${l.length > 5 ? ` and ${l.length - 5} more` : ''}</span></li>`).join('')}</ul>`, acts: [{ ...actReach(), primary: true }, actDecide(false)] };
+    if (!w) return { html: '<p>Nothing waits: no file is paused today.</p>', line: 'Nothing waits: no file is paused today', acts: [] };
+    const outs = M.outputs.filter((o) => (w.builds || []).includes(o.id)), groups = fanGroups(w, outs);
+    const names = `<ul>${groups.map(([g, l]) => `<li><span><b>${esc(groupName(g))}:</b> ${l.slice(0, 5).map((o) => esc(plain(o.id))).join(', ')}${l.length > 5 ? ` and ${l.length - 5} more` : ''}</span></li>`).join('')}</ul>`;
+    return { q: 'Which outputs wait?', html: `<p><b>${(w.builds || []).length} outputs</b> built from ${esc(w.short)} wait for the decision; readers see their ${esc(DC().prev)} version until then.</p>${names}`, pic: picFan(w, outs), line: `Readers see ${esc(DC().prev)} until you decide`, more: names, acts: [{ ...actReach(), primary: true }, actDecide(false)] }; // peer:newcomer
   }
   function nextNow() {
     const w = waitingDs(), dd = decidedDs(), rd = replacedDs();
     const dc = DC();
-    if (w) { const I = issueOf(w); return { q: 'What should I do next?', html: I.nextSteps || `<ol><li><b>Decide on ${esc(dc.today)}.</b> Keeping ${esc(dc.prev)} is suggested: readers stay on the last good day and the day stops asking.</li><li><b>Ask for the file again:</b> the ${esc(w.short)} export likely failed.</li><li>When it comes, the day runs again under the same checks and waits for your OK; publish it and the ${(w.builds || []).length} outputs are rebuilt.</li></ol>`, acts: [actDecide(true), I.ask ? actRequest() : null].filter(Boolean) }; }
-    if (dd) return { html: `<ol><li><b>Replace ${esc(dc.wd)}’s ${esc(dd.short)} file</b> when the corrected export comes.</li><li>The day runs again under the same ${(dd.checks || []).length} checks and waits for your OK; publish it and readers see ${esc(dc.today)}.</li></ol><p>Decided so far: ${esc(HOW[dd.how]?.said || '')}.</p>`, acts: [dd.pendingFix || M.replaceable !== false ? actReplace() : null, actUndo()].filter(Boolean) };
-    return { html: `<p><b class="okt">✓ Nothing needs you.</b> ${rd ? `The corrected ${esc(rd.short)} file passed all its checks, and readers see ${esc(dc.today)}.` : 'Every file is in.'}</p>`, acts: rd ? [actRows(rd), actUndo()].filter(Boolean) : [] };
+    if (w) { const I = issueOf(w); return { q: 'What should I do next?', line: `<b>Decide on ${esc(todayWord())}</b> · suggested: ${esc(HOW[I.suggest]?.button || '')}`, html: I.nextSteps || `<ol><li><b>Decide on ${esc(dc.today)}.</b> Keeping ${esc(dc.prev)} is suggested: readers stay on the last good day and the day stops asking.</li><li><b>Ask for the file again:</b> the ${esc(w.short)} export likely failed.</li><li>When it comes, the day runs again under the same checks and waits for your OK; publish it and the ${(w.builds || []).length} outputs are rebuilt.</li></ol>`, acts: [actDecide(true), I.ask ? actRequest() : null].filter(Boolean) }; }
+    if (dd) return { line: `<b>Replace ${esc(dc.wd)}’s ${esc(dd.short)} file</b> when it comes`, html: `<ol><li><b>Replace ${esc(dc.wd)}’s ${esc(dd.short)} file</b> when the corrected export comes.</li><li>The day runs again under the same ${(dd.checks || []).length} checks and waits for your OK; publish it and readers see ${esc(dc.today)}.</li></ol><p>Decided so far: ${esc(HOW[dd.how]?.said || '')}.</p>`, acts: [dd.pendingFix || M.replaceable !== false ? actReplace() : null, actUndo()].filter(Boolean) };
+    return { line: '<b class="okt">✓ Nothing needs you.</b>', html: `<p><b class="okt">✓ Nothing needs you.</b> ${rd ? `The corrected ${esc(rd.short)} file passed all its checks, and readers see ${esc(dc.today)}.` : 'Every file is in.'}</p>`, acts: rd ? [actRows(rd), actUndo()].filter(Boolean) : [] };
   }
   function decidedNow() {
     const w = waitingDs(), dd = decidedDs(), rd = replacedDs();
-    if (dd) return { html: `<p>${esc(DC().today)} is <b class="owedt">${HALF} decided for now</b>: ${esc(HOW[dd.how]?.said || '')} for ${esc(dd.short)}${dd.note ? `, because “${esc(dd.note)}”` : ''}. The corrected file is still owed.</p>`, acts: [actReplace(), actUndo()] };
-    if (rd) return { html: `<p><b class="okt">✓ ${esc(DC().today)} is complete.</b> The corrected ${esc(rd.short)} file (${fmt(rd.replaced.rows)} rows) replaced the empty one.</p>`, acts: [actUndo()] };
-    if (w) return { html: `<p>Nothing is decided yet: ${esc(DC().today)} is paused and waits for you.</p>`, acts: [actDecide(true)] };
-    return { html: '<p>There is nothing to decide today.</p>', acts: [] };
+    if (dd) return { line: `<b class="owedt">${HALF} Decided for now:</b> ${esc(HOW[dd.how]?.said || '')}`, html: `<p>${esc(DC().today)} is <b class="owedt">${HALF} decided for now</b>: ${esc(HOW[dd.how]?.said || '')} for ${esc(dd.short)}${dd.note ? `, because “${esc(dd.note)}”` : ''}. The corrected file is still owed.</p>`, acts: [actReplace(), actUndo()] };
+    if (rd) return { line: `<b class="okt">✓ ${esc(cap(todayWord()))} is complete</b>`, html: `<p><b class="okt">✓ ${esc(DC().today)} is complete.</b> The corrected ${esc(rd.short)} file (${fmt(rd.replaced.rows)} rows) replaced the empty one.</p>`, acts: [actUndo()] };
+    if (w) return { line: `Nothing is decided yet: ${esc(todayWord())} waits for you`, html: `<p>Nothing is decided yet: ${esc(DC().today)} is paused and waits for you.</p>`, acts: [actDecide(true)] };
+    return { line: 'There is nothing to decide today', html: '<p>There is nothing to decide today.</p>', acts: [] };
   }
   // a list cut short, the rest one tap away
   const listed = (items, n, sep = ', ') => items.length <= n ? items.join(sep) : `${items.slice(0, n).join(sep)} <button type="button" class="pmore" data-more>and ${items.length - n} more</button><span hidden>${sep}${items.slice(n).join(sep)}</span>`;
@@ -1654,7 +1888,7 @@
     const has = M.datasets.filter((d) => d.columns.some((c) => c.name === col));
     const c0 = (inDs && inDs.columns.find((c) => c.name === col)) || has.map((d) => d.columns.find((c) => c.name === col)).find((c) => c && c.meaning) || {};
     const js2 = [...new Map(M.joins.filter((j) => (j.col === col || j.toCol === col) && dsOf(j.from) && dsOf(j.to) && j.from !== j.to).map((j) => [j.from + '>' + j.to, j])).values()];
-    return { q: `Where is ${col} used?`, html: `<p><code>${esc(col)}</code>${c0.meaning ? `: ${esc(c0.meaning)}` : ''}</p><p>It is in <b>${has.length} dataset${has.length === 1 ? '' : 's'}</b>: ${listed(has.map((d) => esc(d.short)), 6)}.</p>${js2.length ? `<p class="plead">Where it joins: a column → the column it matches</p><ul>${js2.slice(0, 4).map((j) => `<li><span>${joinSaid(j)}</span></li>`).join('')}</ul>${js2.length > 4 ? `<div><button type="button" class="pmore" data-more>and ${js2.length - 4} more joins</button><div hidden><ul>${js2.slice(4).map((j) => `<li><span>${joinSaid(j)}</span></li>`).join('')}</ul></div></div>` : ''}` : ''}`, acts: has.slice(0, 3).map((d, i) => ({ label: `${col} in ${d.short}`, primary: !i, run: () => toDataset(d, () => openPanel(d.id, col)) })) };
+    return { q: `Where is ${col} used?`, line: `<code>${esc(col)}</code> is in <b>${has.length} dataset${has.length === 1 ? '' : 's'}</b>${js2.length ? ` · ${js2.length} join${js2.length === 1 ? '' : 's'}` : ''}`, html: `<p><code>${esc(col)}</code>${c0.meaning ? `: ${esc(c0.meaning)}` : ''}</p><p>It is in <b>${has.length} dataset${has.length === 1 ? '' : 's'}</b>: ${listed(has.map((d) => esc(d.short)), 6)}.</p>${js2.length ? `<p class="plead">Where it joins: a column → the column it matches</p><ul>${js2.slice(0, 4).map((j) => `<li><span>${joinSaid(j)}</span></li>`).join('')}</ul>${js2.length > 4 ? `<div><button type="button" class="pmore" data-more>and ${js2.length - 4} more joins</button><div hidden><ul>${js2.slice(4).map((j) => `<li><span>${joinSaid(j)}</span></li>`).join('')}</ul></div></div>` : ''}` : ''}`, acts: has.slice(0, 3).map((d, i) => ({ label: `${col} in ${d.short}`, primary: !i, run: () => toDataset(d, () => openPanel(d.id, col)) })) };
   }
   // two names asked about together: how they join, with the columns at each end
   function namesIn(q) {
@@ -1669,22 +1903,24 @@
     const dsets = (x) => (x.d ? [x.d.id] : kindOf(x.k.id).datasets), A = new Set(dsets(a)), B = new Set(dsets(b)), name = (x) => (x.d ? x.d.short : x.k.name);
     const js2 = [...new Map(M.joins.filter((j) => (A.has(j.from) && B.has(j.to)) || (B.has(j.from) && A.has(j.to))).filter((j) => dsOf(j.from) && dsOf(j.to)).map((j) => [j.from + '>' + j.to + j.col, j])).values()];
     const rs = a.k && b.k ? relPairs().filter((r) => (r.from === a.k.id && r.to === b.k.id) || (r.from === b.k.id && r.to === a.k.id)) : [];
-    if (!js2.length && !rs.length) return { html: `<p><b>${esc(name(a))}</b> and <b>${esc(name(b))}</b> don’t join directly on this map.</p>`, acts: [] };
-    return { q: `How do ${name(a)} and ${name(b)} join?`, html: `${rs.length ? `<ul>${rs.map((r) => `<li><span>${sentenceHtml(r, a.k.id)}</span></li>`).join('')}</ul>` : ''}<p class="plead">${js2.length} join${js2.length === 1 ? '' : 's'}: a column → the column it matches</p><ul>${js2.slice(0, 5).map((j) => `<li><span>${joinSaid(j)}</span></li>`).join('')}</ul>${js2.length > 5 ? `<div><button type="button" class="pmore" data-more>and ${js2.length - 5} more joins</button><div hidden><ul>${js2.slice(5).map((j) => `<li><span>${joinSaid(j)}</span></li>`).join('')}</ul></div></div>` : ''}`, acts: [a, b].filter((x) => x.d || x.k).slice(0, 2).map((x, i) => (x.d ? { ...actOpenDs(x.d), primary: !i } : { ...actOpenKind(kindOf(x.k.id)), primary: !i })) };
+    if (!js2.length && !rs.length) return { line: `<b>${esc(name(a))}</b> and <b>${esc(name(b))}</b> don’t join directly`, html: `<p><b>${esc(name(a))}</b> and <b>${esc(name(b))}</b> don’t join directly on this map.</p>`, acts: [] };
+    return { q: `How do ${name(a)} and ${name(b)} join?`, line: rs.length ? `${sentenceHtml(rs[0], a.k.id)}${rs.length > 1 ? ` · and ${rs.length - 1} more` : ''}` : `${js2.length} join${js2.length === 1 ? '' : 's'} between them`, html: `${rs.length ? `<ul>${rs.map((r) => `<li><span>${sentenceHtml(r, a.k.id)}</span></li>`).join('')}</ul>` : ''}<p class="plead">${js2.length} join${js2.length === 1 ? '' : 's'}: a column → the column it matches</p><ul>${js2.slice(0, 5).map((j) => `<li><span>${joinSaid(j)}</span></li>`).join('')}</ul>${js2.length > 5 ? `<div><button type="button" class="pmore" data-more>and ${js2.length - 5} more joins</button><div hidden><ul>${js2.slice(5).map((j) => `<li><span>${joinSaid(j)}</span></li>`).join('')}</ul></div></div>` : ''}`, acts: [a, b].filter((x) => x.d || x.k).slice(0, 2).map((x, i) => (x.d ? { ...actOpenDs(x.d), primary: !i } : { ...actOpenKind(kindOf(x.k.id)), primary: !i })) };
   }
   function rowsNow(d) {
     const u = d.rowsUsual;
     const html = d.state === 'waiting' ? (issueOf(d).kind === 'empty' ? `<p><b class="bad">${PAUSE} ${esc(d.short)} has 0 rows today</b>${u ? `; a usual day has about ${fmt(usualN(u))}` : ''}. Readers see ${esc(DC().prev)}’s rows.</p>` : `<p><b class="bad">${PAUSE} ${esc(d.short)} ${esc(issueOf(d).why)}</b>: ${fmt(d.rowsToday)} rows today. Readers see ${esc(DC().prev)}’s until it is decided.</p>`) : d.rowsToday == null ? `<p>${esc(d.short)} has no file yet${d.state === 'awaited' ? ': it is described ahead of its first file' : ''}.</p>` : `<p><b>${esc(d.short)}</b> has <b>${fmt(d.rowsToday)} rows</b> today${u ? ` (usually about ${fmt(usualN(u))})` : ''} and ${d.columns.length} columns.</p>`;
-    return { q: `How many rows does ${d.short} have today?`, html, acts: [actRows(d) ? { ...actRows(d), primary: true } : null, actOpenDs(d)].filter(Boolean) };
+    return { q: `How many rows does ${d.short} have today?`, html, pic: todayBars(d), line: rowsLine(d), more: '', /* peer:newcomer */ acts: [actRows(d) ? { ...actRows(d), primary: true } : null, actOpenDs(d)].filter(Boolean) };
   }
   function datasetNow(d) {
     const out = [...new Set(M.joins.filter((j) => j.from === d.id && j.to !== d.id && dsOf(j.to)).map((j) => dsOf(j.to).short))], builds = (d.builds || []).length;
-    return { q: `What is ${d.short}?`, html: `<p><b>${esc(d.short)}</b>${d.description ? `: ${esc(d.description.replace(/^[^:]*:\s*/, ''))}` : ''}</p><p>${d.rowsToday != null ? `${fmt(d.rowsToday)} rows today · ` : ''}${d.columns.length} columns${out.length ? ` · joins ${out.slice(0, 3).map(esc).join(', ')}${out.length > 3 ? ` and ${out.length - 3} more` : ''}` : ''}${builds ? ` · builds ${builds}` : ''}</p>${d.state === 'waiting' ? `<p><b class="bad">${PAUSE} Paused today:</b> its file arrived empty.</p>` : ''}`, acts: [{ ...actOpenDs(d), primary: true }, actRows(d)] };
+    const facts = `${d.rowsToday != null ? `${fmt(d.rowsToday)} rows today · ` : ''}${d.columns.length} columns${out.length ? ` · joins ${out.slice(0, 3).map(esc).join(', ')}${out.length > 3 ? ` and ${out.length - 3} more` : ''}` : ''}${builds ? ` · used by ${builds} output${builds === 1 ? '' : 's'}` : ''}`;
+    // peer:builder r4: the look inside's picture (dq, r3) is what a file is; the facts behind Full answer
+    return { q: `What is ${d.short}?`, pic: nowOf(d), line: '', more: `<p class="plead">${facts}</p>`, html: `<p><b>${esc(d.short)}</b>${d.description ? `: ${esc(d.description.replace(/^[^:]*:\s+/, ''))}` : ''}</p><p>${facts}</p>`, acts: [{ ...actOpenDs(d), primary: true }, actRows(d)] };
   }
   function kindNow(k, q) {
     const rs = relPairs().filter((r) => r.from === k.id || r.to === k.id), nb = neighbours(k.id);
-    if (/how many|count|number of/.test(q)) return { html: `<p><b>${fmt(k.count)} ${esc(PL(k.id))}</b>, described by ${k.datasets.length} dataset${k.datasets.length === 1 ? '' : 's'}.</p>`, acts: [{ ...actOpenKind(k), primary: true }] };
-    return { q: `What does ${k.name} relate to?`, html: `<p><b>${esc(k.name)}</b> relates to <b>${nb.length} kind${nb.length === 1 ? '' : 's'}</b>:</p><ul>${rs.slice(0, 7).map((r) => `<li><span>${sentenceHtml(r, k.id)}${viaParts(r).length ? `<i class="pvia">${esc(viaParts(r).filter((x) => !/^since/.test(x)).join(' · '))}</i>` : ''}</span></li>`).join('')}</ul>${rs.length > 7 ? `<div><button type="button" class="pmore" data-more>and ${rs.length - 7} more</button><div hidden><ul>${rs.slice(7).map((r) => `<li><span>${sentenceHtml(r, k.id)}</span></li>`).join('')}</ul></div></div>` : ''}`, acts: [actSpot(k), actOpenKind(k)] };
+    if (/how many|count|number of/.test(q)) return { line: `<b>${fmt(k.count)} ${esc(PL(k.id))}</b> · ${k.datasets.length} dataset${k.datasets.length === 1 ? '' : 's'}`, html: `<p><b>${fmt(k.count)} ${esc(PL(k.id))}</b>, described by ${k.datasets.length} dataset${k.datasets.length === 1 ? '' : 's'}.</p>`, acts: [{ ...actOpenKind(k), primary: true }] };
+    return { q: `What does ${k.name} relate to?`, line: `<b>${esc(k.name)}</b> relates to ${nb.length} kind${nb.length === 1 ? '' : 's'}`, html: `<p><b>${esc(k.name)}</b> relates to <b>${nb.length} kind${nb.length === 1 ? '' : 's'}</b>:</p><ul>${rs.slice(0, 7).map((r) => `<li><span>${sentenceHtml(r, k.id)}${viaParts(r).length ? `<i class="pvia">${esc(viaParts(r).filter((x) => !/^since/.test(x)).join(' · '))}</i>` : ''}</span></li>`).join('')}</ul>${rs.length > 7 ? `<div><button type="button" class="pmore" data-more>and ${rs.length - 7} more</button><div hidden><ul>${rs.slice(7).map((r) => `<li><span>${sentenceHtml(r, k.id)}</span></li>`).join('')}</ul></div></div>` : ''}`, acts: [actSpot(k), actOpenKind(k)] };
   }
   // a month as a strip of days, each drawn as what the day was
   const DAYCLS = { ok: 'o', note: 'o', warn: 'w', decided: 'd', waiting: 'p' }, DAYWORD = { o: 'fine', w: 'warned', d: 'decided', p: 'paused' };
@@ -1697,42 +1933,63 @@
     return compact ? row : (d && (d.counts || []).length ? `<div class="sparkrow">${spark(d)}</div>` : '') + row + `<div class="striplab"><span>${esc(DC().first)}</span><span class="stripkey">${key}</span><span>${esc(DC().today)}</span></div>`;
   };
   function monthNow(ds, kd) {
-    if (!(M.month || []).length) return { html: '<p>This generated estate keeps no days to look back on.</p>', acts: [] };
-    if (ds) { if (!(ds.days || []).length) return { html: `<p><b>${esc(ds.short)}</b> has no days yet: it is described ahead of its first file.</p>`, acts: [{ ...actOpenDs(ds), primary: true }] }; const cs = (ds.counts || []).filter((x) => x), fb = fineBand(ds); return { q: `How has ${ds.short} been this month?`, html: `<p><b>${esc(ds.short)}</b> this month: ${stripSaid(ds.days)}.</p>${strip(ds.days, false, ds)}${cs.length ? `<p class="plead">Usually about ${fmt(usualN(ds.rowsUsual || [cs[0], cs[0]]))} rows a day${ds.rowsToday != null ? `; today ${fmt(ds.rowsToday)}` : ''}${fb ? `. The check stays quiet between ${fmt(fb[0])} and ${fmt(fb[1])}, the shaded band` : ''}.</p>` : ''}${notableOf(ds)}`, acts: [{ ...actOpenDs(ds), primary: true }, actRows(ds)] }; }
+    if (!(M.month || []).length) return { line: 'No days kept to look back on', html: '<p>This generated estate keeps no days to look back on.</p>', acts: [] };
+    if (ds) { if (!(ds.days || []).length) return { line: `<b>${esc(ds.short)}</b> has no days yet`, html: `<p><b>${esc(ds.short)}</b> has no days yet: it is described ahead of its first file.</p>`, acts: [{ ...actOpenDs(ds), primary: true }] }; const cs = (ds.counts || []).filter((x) => x), fb = fineBand(ds); return { q: `How has ${ds.short} been this month?`, pic: picMonth(ds.days), line: stripLine(ds.days), more: `${todayBars(ds)}${fb ? `<p class="plead">A usual day has ${fmt(fb[0])} to ${fmt(fb[1])} rows: inside that band the rows check stays quiet.</p>` : ''}${notableOf(ds)}`, html: `<p><b>${esc(ds.short)}</b> this month: ${stripSaid(ds.days)}.</p>${strip(ds.days, false, ds)}${cs.length ? `<p class="plead">Usually about ${fmt(usualN(ds.rowsUsual || [cs[0], cs[0]]))} rows a day${ds.rowsToday != null ? `; today ${fmt(ds.rowsToday)}` : ''}${fb ? `. The check stays quiet between ${fmt(fb[0])} and ${fmt(fb[1])}, the shaded band` : ''}.</p>` : ''}${notableOf(ds)}`, acts: [{ ...actOpenDs(ds), primary: true }, actRows(ds)] }; }
     if (kd) {
       // a kind's day is the worst of its datasets' that day
       const rank = { waiting: 4, warn: 3, decided: 2, note: 1, ok: 0 }, ks = kindOf(kd.id).datasets.map(dsOf).filter((d) => (d.days || []).length), n = Math.max(0, ...ks.map((d) => d.days.length));
       const days = Array.from({ length: n }, (_, i) => ks.map((d) => d.days[i]).filter(Boolean).sort((a, b) => (rank[b] || 0) - (rank[a] || 0))[0] || 'ok');
-      return { q: `How has ${kd.name} been this month?`, html: `<p><b>${esc(kd.name)}</b> this month, each day the worst of its ${ks.length} dataset${ks.length === 1 ? '' : 's'}: ${stripSaid(days)}.</p>${strip(days)}`, acts: [{ ...actOpenKind(kd), primary: true }] };
+      return { q: `How has ${kd.name} been this month?`, pic: picMonth(days), line: stripLine(days), more: `<p class="plead">Each day is the worst of its ${ks.length} dataset${ks.length === 1 ? '' : 's'}.</p>`, html: `<p><b>${esc(kd.name)}</b> this month, each day the worst of its ${ks.length} dataset${ks.length === 1 ? '' : 's'}: ${stripSaid(days)}.</p>${strip(days)}`, acts: [{ ...actOpenKind(kd), primary: true }] };
     }
     const days = M.month.map((x) => x.state);
-    return { q: 'How has the estate been this month?', html: `<p>The estate this month: ${stripSaid(days)}.</p>${strip(days)}`, acts: waitingDs() ? [actDecide(true)] : [] };
+    return { q: 'How has the estate been this month?', pic: picMonth(days), line: stripLine(days), more: '', html: `<p>The estate this month: ${stripSaid(days)}.</p>${strip(days)}`, acts: waitingDs() ? [actDecide(true)] : [] };
   }
   const joinList = (list, n) => `<ul>${list.slice(0, n).map((j) => `<li><span>${joinSaid(j)}</span></li>`).join('')}</ul>${list.length > n ? `<div><button type="button" class="pmore" data-more>and ${list.length - n} more</button><div hidden><ul>${list.slice(n).map((j) => `<li><span>${joinSaid(j)}</span></li>`).join('')}</ul></div></div>` : ''}`;
   function dsJoinsNow(d) {
     const uniq = (l) => [...new Map(l.map((j) => [j.from + '>' + j.to + j.col, j])).values()];
     const trouble = (j) => (STATE_RANK[dsOf(j.from)?.state] ?? 9) * 2 + (j.match && j.match.hit < j.match.rows ? 0 : 1);
     const out = uniq(M.joins.filter((j) => j.from === d.id && j.to !== d.id && dsOf(j.to))), inc = uniq(M.joins.filter((j) => j.to === d.id && j.from !== d.id && dsOf(j.from))).sort((a, b) => trouble(a) - trouble(b));
-    if (!out.length && !inc.length) return { html: `<p><b>${esc(d.short)}</b> joins nothing on this map.</p>`, acts: [{ ...actOpenDs(d), primary: true }] };
-    return { q: `What does ${d.short} join?`, html: `<p><b>${esc(d.short)}</b> joins ${out.length} other${out.length === 1 ? '' : 's'}; ${inc.length} other${inc.length === 1 ? ' joins' : 's join'} it. A match is the share of rows whose column finds a row on the other side, on ${(() => { const j0 = [...out, ...inc].find((j) => j.match); return j0 ? dayLong(j0.match.day) + '’s files' : 'the day’s files'; })()}.</p>${out.length ? `<p class="plead">It joins ${out.length} other${out.length === 1 ? '' : 's'}: its column → the column it matches there</p>${joinList(out, 4)}` : ''}${inc.length ? `<p class="plead">${inc.length} other${inc.length === 1 ? ' joins' : 's join'} it: their column → its column</p>${joinList(inc, 4)}` : ''}`, acts: [{ ...actOpenDs(d), primary: true }, actRows(d)] };
+    if (!out.length && !inc.length) return { line: `<b>${esc(d.short)}</b> joins nothing on this map`, html: `<p><b>${esc(d.short)}</b> joins nothing on this map.</p>`, acts: [{ ...actOpenDs(d), primary: true }] };
+    return { q: `What does ${d.short} join?`, line: `<b>${esc(d.short)}</b> joins ${out.length} other${out.length === 1 ? '' : 's'} · ${inc.length} join${inc.length === 1 ? 's' : ''} it`, html: `<p><b>${esc(d.short)}</b> joins ${out.length} other${out.length === 1 ? '' : 's'}; ${inc.length} other${inc.length === 1 ? ' joins' : 's join'} it. A match is the share of rows whose column finds a row on the other side, on ${(() => { const j0 = [...out, ...inc].find((j) => j.match); return j0 ? dayLong(j0.match.day) + '’s files' : 'the day’s files'; })()}.</p>${out.length ? `<p class="plead">It joins ${out.length} other${out.length === 1 ? '' : 's'}: its column → the column it matches there</p>${joinList(out, 4)}` : ''}${inc.length ? `<p class="plead">${inc.length} other${inc.length === 1 ? ' joins' : 's join'} it: their column → its column</p>${joinList(inc, 4)}` : ''}`, acts: [{ ...actOpenDs(d), primary: true }, actRows(d)] };
   }
   function builtNow(d) {
     const outs = M.outputs.filter((o) => (d.builds || []).includes(o.id));
-    if (!outs.length) return { html: `<p>Nothing on this map is built from <b>${esc(d.short)}</b>.</p>`, acts: [{ ...actOpenDs(d), primary: true }] };
+    if (!outs.length) return { line: `Nothing on this map is built from <b>${esc(d.short)}</b>`, html: `<p>Nothing on this map is built from <b>${esc(d.short)}</b>.</p>`, acts: [{ ...actOpenDs(d), primary: true }] };
     const w = outs.filter((o) => o.waiting).length;
-    return { q: `What is built from ${d.short}?`, html: `<p><b>${outs.length} output${outs.length === 1 ? '' : 's'}</b> ${outs.length === 1 ? 'is' : 'are'} built from ${esc(d.short)}${w ? `; <b>${w} wait</b> for today’s decision` : ''}.</p><ul>${outGroups(outs).map(([g, l]) => `<li><span><b>${esc(groupName(g))}:</b> ${l.slice(0, 5).map((o) => esc(plain(o.id))).join(', ')}${l.length > 5 ? ` and ${l.length - 5} more` : ''}</span></li>`).join('')}</ul>`, acts: [{ ...actOpenDs(d), primary: true }, ...(w ? [actDecide(false)] : [])] };
+    return { q: `What is built from ${d.short}?`, pic: picFan(d, outs), line: d.state === 'waiting' ? `Readers see ${esc(DC().prev)} until you decide` : w ? `${HOURGLASS}${w} wait ${esc(todayWord())}, on ${esc(waitingDs()?.short || 'another file')}` : `Nothing built from it waits ${esc(todayWord())}`, more: `<ul>${fanGroups(d, outs).map(([g, l]) => `<li><span><b>${esc(groupName(g))}:</b> ${l.slice(0, 5).map((o) => esc(plain(o.id))).join(', ')}${l.length > 5 ? ` and ${l.length - 5} more` : ''}</span></li>`).join('')}</ul>`, html: `<p><b>${outs.length} output${outs.length === 1 ? '' : 's'}</b> ${outs.length === 1 ? 'is' : 'are'} built from ${esc(d.short)}${w ? `; <b>${w} wait</b> for today’s decision` : ''}.</p><ul>${outGroups(outs).map(([g, l]) => `<li><span><b>${esc(groupName(g))}:</b> ${l.slice(0, 5).map((o) => esc(plain(o.id))).join(', ')}${l.length > 5 ? ` and ${l.length - 5} more` : ''}</span></li>`).join('')}</ul>`, acts: [{ ...actOpenDs(d), primary: true }, ...(w ? [actDecide(false)] : [])] };
   }
   function kindDsNow(k) {
     const mark = (d) => (d.state === 'waiting' ? `${PAUSE} ` : d.state === 'decided' ? `${HALF} ` : d.state === 'warn' ? '◆ ' : d.state === 'awaited' ? '◌ ' : '');
-    return { q: `Which datasets describe ${PL(k.id)}?`, html: `<p><b>${fmt(k.datasets.length)} dataset${k.datasets.length === 1 ? '' : 's'}</b> describe ${esc(PL(k.id))}.</p>${groupsOf(k.id).map(([g, l]) => `${g ? `<p class="plead">${esc(g)}</p>` : ''}<p>${listed(l.map((d) => `${mark(d)}${esc(d.short)}`), 12)}</p>`).join('')}`, acts: [{ ...actOpenKind(k), primary: true }] };
+    return { q: `Which datasets describe ${PL(k.id)}?`, line: `<b>${fmt(k.datasets.length)} dataset${k.datasets.length === 1 ? '' : 's'}</b> describe ${esc(PL(k.id))}`, html: `<p><b>${fmt(k.datasets.length)} dataset${k.datasets.length === 1 ? '' : 's'}</b> describe ${esc(PL(k.id))}.</p>${groupsOf(k.id).map(([g, l]) => `${g ? `<p class="plead">${esc(g)}</p>` : ''}<p>${listed(l.map((d) => `${mark(d)}${esc(d.short)}`), 12)}</p>`).join('')}`, acts: [{ ...actOpenKind(k), primary: true }] };
   }
   const helpKeys = () => ({ title: 'Keyboard shortcuts', html: '<div class="keys"><span><kbd>Ctrl</kbd> <kbd>K</kbd> or <kbd>/</kbd></span><span>This palette: do something, find a name, or ask</span><span><kbd>↑</kbd> <kbd>↓</kbd> <kbd>↵</kbd></span><span>Move through the list and run the line picked</span><span><kbd>Tab</kbd> or <kbd>→</kbd></span><span>Look inside a kind or a dataset</span><span><kbd>⌫</kbd> or <kbd>←</kbd></span><span>On an empty line, step back out</span><span><kbd>Esc</kbd></span><span>Step back a level, as the page does; at the top it clears what you typed, then closes</span><span><kbd>1</kbd>–<kbd>4</kbd></span><span>On the Decide panel, pick a choice; <kbd>↵</kbd> confirms it and <kbd>Esc</kbd> cancels</span><span><kbd>Tab</kbd> on the map</span><span>Move between kinds; each shows how it relates</span></div>', acts: [] });
   const helpMarks = () => ({ title: 'What the marks mean', html: `<div class="marks"><b class="bad">${PAUSE}</b><span>Paused: a file stopped at a check, and the day waits for you</span><b class="mut">${HOURGLASS}</b><span>Waits: an output built from the paused file, held until you decide</span><b class="owedt">${HALF}</b><span>Decided for now: readers see the choice you made, and the file is still owed</span><b class="owedt">◆</b><span>Unusual today, but not stopped</span><b class="mut"><i class="notedmark"></i></b><span>Noted: a check noted something on the day; nothing stopped</span><b class="okt">✓</b><span>Complete: the corrected file is in</span><b class="mut">◌</b><span>Planned: described ahead of its first file; none is due yet</span><b class="act">Blue</b><span>Something you can press</span></div>`, acts: [] });
+  // peer:builder r4 — what an output is built from: its files by kind, drawn as the fan the other way round, into it; ⧗
+  // where it waits today and on which file. The page knows it (each file's builds); it used to say it couldn't answer
+  const outputIn = (q) => M.outputs.slice().sort((a, b) => plain(b.id).length - plain(a.id).length).find((o) => new RegExp(`\\b${escRe(plain(o.id).toLowerCase())}\\b`).test(q));
+  function picFeeds(o, byKind, w) {
+    const R = 22, H = byKind.length * R, mid = H / 2, held = !!(o.waiting && w && byKind.some(([, l]) => l.includes(w)));
+    const curves = byKind.map((_, i) => `<path d="M3 ${i * R + R / 2} C18 ${i * R + R / 2} 18 ${mid} 36 ${mid}"/><circle cx="3" cy="${i * R + R / 2}" r="2"/>`).join('');
+    const said = `${plain(o.id)} is built from ${byKind.reduce((a, [, l]) => a + l.length, 0)} files: ${byKind.map(([k, l]) => `${l.length} about ${PL(k)}`).join(', ')}${held ? `; it waits ${todayWord()} on ${w.short}` : ''}`;
+    return `<figure class="ap apfan apfeed" role="img" aria-label="${esc(said)}"><ul>${byKind.map(([k, l]) => { const p = !!(w && l.includes(w)); return `<li title="${esc(l.map((d) => d.short).join(', '))}"><span>${esc(cap(PL(k)))}</span><b>${p ? `${PAUSE}1 of ${l.length}` : l.length}</b></li>`; }).join('')}</ul>`
+      + `<svg viewBox="0 0 36 ${H}" style="height:${H}px" aria-hidden="true">${curves}</svg><span class="apsrc${held ? ' held' : ''}">${held ? HOURGLASS : ''}${esc(plain(o.id))}</span></figure>`;
+  }
+  function feedsNow(o, q) {
+    const files = M.datasets.filter((d) => (d.builds || []).includes(o.id)), w = waitingDs(), name = plain(o.id), asked = /\bfeeds?\b|built from|made (from|of)|comes? from|sources?\b|inputs?\b|depends? on|upstream|where does/.test(q);
+    if (!files.length) return { q: `What feeds ${name}?`, line: `No file on this map feeds <b>${esc(name)}</b>`, html: `<p>No file on this map feeds <b>${esc(name)}</b>.</p>`, acts: [] };
+    const byKind = M.kinds.map((k) => [k.id, files.filter((d) => d.kind === k.id)]).filter(([, l]) => l.length).sort((a, b) => b[1].length - a[1].length);
+    const held = !!(o.waiting && w && files.includes(w)), isFeeds = asked || !o.about;
+    const waitSaid = held ? `${HOURGLASS} Waits ${esc(todayWord())} on <b>${esc(w.short)}</b>` : `<b>${files.length}</b> files feed it · none paused ${esc(todayWord())}`;
+    const list = `<ul>${byKind.map(([k, l]) => `<li><span><b>${esc(cap(PL(k)))}:</b> ${l.slice(0, 6).map((d) => `${d === w ? `${PAUSE} ` : ''}${esc(d.short)}`).join(', ')}${l.length > 6 ? ` and ${l.length - 6} more` : ''}</span></li>`).join('')}</ul>`;
+    // the line under the picture: whether it waits (asked what feeds it), else what it is; the full answer adds the other and the files
+    return { q: isFeeds ? `What feeds ${name}?` : `What is ${name}?`, pic: picFeeds(o, byKind, w), line: isFeeds ? waitSaid : esc(o.about), more: `${isFeeds && o.about ? `<p class="plead">${esc(o.about)}</p>` : ''}${isFeeds ? '' : `<p class="plead">${waitSaid}</p>`}${list}`, html: `<p><b>${esc(name)}</b> is built from ${files.length} files.</p>${list}`, acts: held ? [actDecide(true)] : [] };
+  }
   function answerLocal(q) { const a = answerFor(q); if (a && !a.q && !a.title) a.q = tidyQ(q); return a; }
   function answerFor(q) {
     const { col, ds, kd } = mentions(q);
+    const out0 = !ds && !col ? outputIn(q) : null; if (out0 && !/this month|the month|how has/.test(q)) return feedsNow(out0, q); // peer:builder r4
     if (/\bjoin|connect|relat|link/.test(q) && !col) { const two = namesIn(q); if (two.length >= 2) return joinNow(two[0], two[1]); }
-    if (/shortcut|keyboard|\bkeys?\b|hotkey/.test(q)) return helpKeys();
+    if (/shortcut|keyboard|\bkeys?\b|hotkey/.test(q) && !ds) return helpKeys(); // peer:newcomer: "key rotation" is a file, not the keys
     if (/this month|the month|how has|been doing|history|lately|over time|recent days|each day/.test(q) && !col) return monthNow(ds, kd);
     if (/\bmarks?\b|legend|symbols?\b|colou?rs?\b|icons?\b/.test(q) && !col && !ds) return helpMarks();
     if (/what should i do|what do i do|what now|\bnext\b|how do i fix|how to fix|fix (it|this|that|the)|resolve|unblock|what can i do/.test(q)) return nextNow();
@@ -1754,17 +2011,17 @@
       const d = dsOf(S.ds);
       if (d.state === 'waiting') qs.push(`Why is ${d.short} paused?`); else if (hasMonth && (d.days || []).length) qs.push(`How has ${d.short} been this month?`);
       qs.push(`What does ${d.short} join?`, `What is built from ${d.short}?`);
-      if (w && d.id !== w.id) qs.push(`Why is ${DC().today} paused?`);
+      if (w && d.id !== w.id) qs.push(`Why is ${todayWord()} paused?`); // peer:newcomer
       return qs.slice(0, 4);
     }
     if (S.level === 'kind') {
       const k = kindOf(S.kind);
       qs.push(`What does ${k.name} relate to?`, `Which datasets describe ${PL(k.id)}?`);
       if (hasMonth) qs.push(`How has ${k.name} been this month?`);
-      if (w) qs.push(`Why is ${DC().today} paused?`);
+      if (w) qs.push(`Why is ${todayWord()} paused?`); // peer:newcomer
       return qs.slice(0, 4);
     }
-    if (w) qs.push(`Why is ${DC().today} paused?`, 'Which outputs wait?'); else if (dd) qs.push('What is still owed?');
+    if (w) qs.push(`Why is ${todayWord()} paused?`, 'Which outputs wait?'); /* peer:newcomer */ else if (dd) qs.push('What is still owed?');
     if (w && (w.days || []).length) qs.push(`How has ${w.short} been this month?`);
     const kid = M.kinds.slice().sort((a, b) => neighbours(b.id).length - neighbours(a.id).length)[0].id;
     qs.push(w ? `What does ${w.short} join?` : `What does ${kindOf(kid).name} relate to?`);
@@ -1818,6 +2075,7 @@
   const recentAdd = (q) => { try { localStorage.setItem(RECENT, JSON.stringify([q, ...recentGet().filter((x) => x.toLowerCase() !== q.toLowerCase())].slice(0, 3))); } catch (e) { /* storage may be off */ } };
   const previewOf = (a) => { const t = plainOf(String(a.html).replace(/<\/(p|li)>/g, ' · ').replace(/<div class="strip"[\s\S]*$/, '')).replace(/\s+/g, ' ').replace(/( · )+$/, '').trim(); return t.length > 130 ? t.slice(0, 128) + '…' : t; };
   const cardOf = (a) => {
+    if (a.pic || a.line) return `${a.pic || ''}${a.line ? `<p class="apline" title="${esc(plainOf(a.line).replace(/\s+/g, ' ').trim())}">${a.line}</p>` : ''}`; // peer:newcomer: the picture, then one line
     const h = String(a.html), blocks = [];
     let text = 0;
     for (const m of h.matchAll(/<(p|ol|ul)\b[^>]*>[\s\S]*?<\/\1>/g)) {
@@ -1852,11 +2110,14 @@
   const missSaid = (j) => (j.match && j.match.hit < j.match.rows ? `<li class="pvmiss">${fmt(j.match.rows - j.match.hit)} of ${fmt(j.match.rows)} find nothing: ${(j.match.miss || []).map((x) => `<code>${esc(x)}</code>`).join(' ')}${j.match.rows - j.match.hit > (j.match.miss || []).length ? ' …' : ''}</li>` : '');
   // a question as it reads best: names as the page writes them, a capital first and a question mark last
   const cap1 = (s) => String(s || '').charAt(0).toUpperCase() + String(s || '').slice(1);
-  const descOf = (d) => cap1(String(d.description || '').replace(/^[^:]*:\s*/, ''));
+  // peer:dq: a label is cut only where a colon and a space end it; ISO/IEC 27001:2022 is no label (Requirements read
+  // “2022, PCI DSS v4.0.1, SOC 2), with how the two relate”)
+  const descOf = (d) => cap1(String(d.description || '').replace(/^[^:]*:\s+/, ''));
   const tidyQ = (raw) => {
     let t = String(raw || '').trim().replace(/\s+/g, ' ');
     for (const d of [...M.datasets].sort((a, b) => b.short.length - a.short.length)) t = t.replace(new RegExp(`\\b${escRe(d.short)}\\b`, 'gi'), d.short);
     for (const k of M.kinds) t = t.replace(new RegExp(`\\b${escRe(k.name)}\\b`, 'gi'), k.name);
+    t = t.replace(/\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()); // peer:newcomer
     t = t.charAt(0).toUpperCase() + t.slice(1);
     return looksAsked(t) && !/[?.!]$/.test(t) ? t + '?' : t;
   };
@@ -1874,19 +2135,42 @@
   // the check on a day's rows tells a change only past a twentieth of a usual day (a gated flow, ADR 0020)
   const fineBand = (d) => { const u = d.rowsUsual; if (!u) return null; const mid = (u[0] + u[1]) / 2; return [Math.round(mid * 0.95), Math.round(mid * 1.05)]; };
   // the preview beside the list: what the line picked is, before it is opened
+  // peer:dq r3 — the look-inside preview says what a file is and whether it is fine today, and no more (the owner: “I like
+  // the what is this … I would rather discover the more in detail stuff”): its state, today's rows against usual drawn as
+  // one picture, and what it is. The month, its columns, its joins and what is built from it are one tap away in the
+  // list beside it (“How has MFA been this month?”, “Its columns · 5”, “What does MFA join?”, “What is built from MFA?”),
+  // not repeated here.
+  const waitingOn = (d) => M.outputs.filter((o) => (d.builds || []).includes(o.id) && o.waiting);
+  // a count is an icon: ⧗ 11, the list on hover, focus or tap (the tap asks what is built from it)
+  const waitCount = (d) => { if (d.state !== 'waiting') return ''; const w = waitingOn(d); if (!w.length) return ''; const n = w.length, said = `${n} output${n === 1 ? '' : 's'} ${M.heldWord ? 'held' : `wait${n === 1 ? 's' : ''} on it`}`; return `<button type="button" class="dqwait" data-ask="What is built from ${esc(d.short)}?" title="${esc(said)}: ${esc(w.map((o) => plain(o.id)).join(', '))}" aria-label="${esc(said)}: see them">${HOURGLASS}${n}</button>`; };
+  // the state in one chip, shape and word; why a fine day is fine is said on hover, not on the chip, and only what is true
+  // in every world: a file can carry a tighter limit of your own than Larkspur's ±5%, and this model doesn't know it
+  const offSaid = (t, u) => { const p = ((t - u) / u) * 100; return Math.abs(p) < 0.05 ? 'as usual' : `${p > 0 ? '+' : '−'}${Math.abs(p).toFixed(1)}% from usual`; };
+  const stateChip = (d) => {
+    if (d.state === 'waiting') return `<span class="pvs bad">${PAUSE} Paused today</span>`;
+    if (d.state === 'decided') return `<span class="pvs">${HALF} Decided for now · file owed</span>`;
+    if (d.state === 'warn') return '<span class="pvs warn">◆ Unusual today</span>';
+    if (d.state === 'awaited') return `<span class="pvs">◌ Planned · first file ${esc(d.awaited || '')}</span>`;
+    const t = d.rowsToday, u = d.rowsUsual ? usualN(d.rowsUsual) : null;
+    return `<span class="pvs ok" title="${d.state === 'note' ? 'A check noted something today; nothing stopped' : 'No check stopped or warned on it today'}${t != null && u ? ` · ${fmt(t)} rows, ${offSaid(t, u)}` : ''}">✓ Fine today</span>`;
+  };
+  // the one number, drawn: today's rows and a usual day's on one scale from zero, labelled where they end (no axis, no
+  // legend, no days). Same length is a usual day; an empty file is a stub at zero; twice the rows, twice the bar
+  const nowBars = (d, o = {}) => { // peer:design r4: the one today-against-usual picture; o.label names the day (rows Mon 26), o.tone the pause's severity (amber when mild)
+    const t = d.rowsToday, u = d.rowsUsual ? usualN(d.rowsUsual) : null, lab = o.label || 'rows today';
+    if (t == null) return '';
+    if (u == null) return `<div class="pvn"><b>${fmt(t)}</b> ${esc(lab)}</div>`;
+    const max = Math.max(t, u, 1), w = (v) => `${((v / max) * 100).toFixed(1)}%`, tone = o.tone !== undefined ? (o.tone ? ' ' + o.tone : '') : d.state === 'waiting' ? ' bad' : d.state === 'warn' ? ' warn' : '';
+    return `<div class="dqnow" role="img" aria-label="${fmt(t)} ${esc(lab)}; a usual day has about ${fmt(u)}"><span class="dqk">${esc(lab)}</span><span class="dqb">${t > 0 ? `<i class="dqt${tone}" style="width:${w(t)}"></i>` : `<i class="dqt0${tone}"></i>`}</span><b class="dqv">${fmt(t)}</b><span class="dqk">usual</span><span class="dqb"><i class="dqu" style="width:${w(u)}"></i></span><span class="dqv">${fmt(u)}</span></div>`;
+  };
+  // the three things, in the order the eye takes them: whether it is fine, the number that says so, what it is
+  const nowOf = (d) => `<div class="dqstate">${stateChip(d)}${waitCount(d)}</div>${nowBars(d)}${d.description ? `<p class="pvd dqwhat" title="${esc(descOf(d))}">${esc(descOf(d))}</p>` : ''}`;
+  // the preview beside the list: what the line picked is, before it is opened
   function previewDs(d) {
-    const k = kindOf(d.kind), u = d.rowsUsual, out = [...new Map(M.joins.filter((j) => j.from === d.id && j.to !== d.id && dsOf(j.to)).map((j) => [j.col + '>' + j.to, j])).values()], inc = [...new Set(M.joins.filter((j) => j.to === d.id && j.from !== d.id && dsOf(j.from)).map((j) => j.from))], nb = (d.builds || []).length, wn = M.outputs.filter((o) => (d.builds || []).includes(o.id) && o.waiting).length;
-    const fb = fineBand(d), out0 = d.rowsToday != null && d.rowsUsual && (d.rowsToday < d.rowsUsual[0] || d.rowsToday > d.rowsUsual[1]);
-    const state = d.state === 'waiting' ? `<span class="pvs bad">${PAUSE} Paused today</span>` : d.state === 'decided' ? `<span class="pvs">${HALF} Decided for now · file owed</span>` : d.state === 'warn' ? '<span class="pvs warn">◆ Unusual today</span>' : d.state === 'awaited' ? `<span class="pvs">◌ Planned · first file ${esc(d.awaited || '')}</span>` : `<span class="pvs ok">✓ Fine today${out0 && fb ? ': inside the check’s ±5% band' : ''}</span>`;
-    const notable = (d.heads || []).map((h, i) => (h ? `<li><b>${dayName(i)}</b> ${esc((d.dayNotes || [])[i] || headSaid(h))}; ${fateOf(d.days[i])}</li>` : '')).filter(Boolean);
-    return `<div class="pvh"><span class="pico">${GL.table}${stateBadge(d)}</span><div><b>${esc(d.short)}</b><span>Dataset · ${esc(k.name)}</span></div></div>${state}`
-      + (d.description ? `<p class="pvd">${esc(descOf(d))}</p>` : '')
-      + (d.rowsToday != null ? `<div class="pvn"><b>${fmt(d.rowsToday)}</b> rows today${u ? ` · usually about ${fmt(usualN(u))}` : ''}</div>` : '')
-      + ((d.counts || []).length ? `<div class="pvm"><div class="sparkhead"><span>Rows each day</span>${fb ? `<span><i class="bandkey"></i>the check stays quiet: ${fmt(fb[0])}–${fmt(fb[1])}</span>` : ''}</div>${spark(d)}<div class="striplab"><span>${esc(DC().first)}</span><span>${esc(DC().today)}</span></div>${notable.length ? `<ul class="pvl">${notable.join('')}</ul>` : ''}</div>` : '')
-      + `<h4>Columns · ${d.columns.length}</h4><ul class="pvc">${d.columns.slice(0, 6).map((c) => `<li><code>${esc(c.name)}</code>${c.role === 'category' && valsOf(c) ? `<small>${esc(valsOf(c))}</small>` : ''}<span class="pty${c.role === 'key' ? ' kb' : ''}">${tyFull(c)}</span></li>`).join('')}${d.columns.length > 6 ? `<li class="pvmore">and ${d.columns.length - 6} more · <kbd>Tab</kbd> to see them</li>` : ''}</ul>`
-      + (out.length || inc.length ? `<h4>Joins${out.some((j) => j.match) ? ` · match on ${dayLong(out.find((j) => j.match).match.day)}’s files` : ''}</h4><ul class="pvj">${out.slice(0, 4).map((j) => (j.col ? `<li><code>${esc(j.col)}</code><span>→ ${esc(dsOf(j.to).short)}</span>${matchSaid(j)}</li>${missSaid(j)}` : `<li><span class="mut">evidence for</span><span>${esc(d.controlName || dsOf(j.to).short)}</span></li>`)).join('')}${inc.length ? `<li class="pvmore">${inc.length} other${inc.length === 1 ? ' joins' : 's join'} it${inc.length <= 3 ? ': ' + inc.map((x) => esc(dsOf(x).short)).join(', ') : ''}</li>` : ''}</ul>` : '')
-      + (nb ? `<div class="pvo">${wn ? HOURGLASS + ' ' : ''}${nb} output${nb === 1 ? ' is' : 's are'} built from it${wn ? (waitingDs() === d ? `; ${wn === nb ? 'all' : wn} wait on it` : `; ${wn} wait on ${esc(waitingDs()?.short || 'the paused file')}`) : ''}</div>` : '');
+    return `<div class="pvh"><span class="pico">${GL.table}${stateBadge(d)}</span><div><b>${esc(d.short)}</b><span>Dataset · ${esc(kindOf(d.kind).name)}</span></div></div>${nowOf(d)}`;
   }
+  // a file's columns, when asked for (the “Its columns” line): each with what it means and how it is stored
+  const previewCols = (d) => `<div class="pvh"><span class="pico">${COLGLYPH}</span><div><b>${esc(d.short)}${/s$/i.test(d.short) ? '’' : '’s'} columns</b><span>${d.columns.length} column${d.columns.length === 1 ? '' : 's'} · ↵ to look at one</span></div></div><ul class="pvc dqcols">${d.columns.map((c) => `<li><code>${esc(c.name)}</code><small title="${esc(c.meaning || '')}">${esc(c.meaning || '')}</small><span class="pty${c.role === 'key' ? ' kb' : ''}">${tyFull(c)}</span></li>`).join('')}</ul>`;
   function previewKind(k) {
     const ds = k.datasets.map(dsOf).filter(Boolean).sort((a, b) => (STATE_RANK[a.state] ?? 9) - (STATE_RANK[b.state] ?? 9)), rs = relPairs().filter((r) => r.from === k.id || r.to === k.id);
     return `<div class="pvh"><span class="pico">${ICON[k.icon] || ''}</span><div><b>${esc(k.name)}</b><span>Kind · ${fmt(k.count)} ${esc(k.plural)}</span></div></div>`
@@ -1902,15 +2186,13 @@
       + ((c.examples || []).length ? `<div class="pvx">${c.examples.slice(0, 4).map((x) => `<code>${esc(x)}</code>`).join(' ')}</div>` : '')
       + (has.length ? `<h4>Also in</h4><p class="pvd">${has.slice(0, 6).map((x) => esc(x.short)).join(', ')}${has.length > 6 ? ` and ${has.length - 6} more` : ''}</p>` : '');
   }
-  const previewAsk = (x) => { const a = answerLocal(String(x).toLowerCase()); return `<div class="pvq"><span class="pico ask">✦</span><b>${esc(a?.q || tidyQ(x))}</b></div>` + (a ? `<div class="pvans">${cardOf(a)}</div><p class="pvhint"><kbd>↵</kbd> the full answer${(a.acts || []).length ? ` · then ${esc(a.acts.find((y) => y.primary)?.label || a.acts[0].label)}` : ''}</p>` : `<p class="pvd">${ASK ? 'Claude answers from this page’s data.' : 'Answered from this page’s data.'}</p>`); };
-  function previewDecide(w) {
-    const fails = (w.checks || []).filter((c) => c.mode === 'stops' && !c.column), n = (w.builds || []).length;
-    const I = issueOf(w), f2 = I.stoppedBy ? I.stoppedBy.map((says) => ({ says })) : fails;
-    return `<div class="pvpic">${decidePic('now', w)}</div><p class="pvd"><b class="bad">${PAUSE} ${esc(w.short)} ${esc(I.why)}</b>${I.kind === 'empty' ? ` · 0 rows${w.rowsUsual ? `, usually about ${fmt(usualN(w.rowsUsual))}` : ''}` : ''}</p>${f2.length ? `<p class="pvd">Stopped by ${f2.map((c) => `“${esc(c.says)}”`).join(' and ')}</p>` : ''}<p class="pvd">${HOURGLASS} ${outputsWait(n)} · readers see ${esc(DC().prev)} until you decide</p><h4>Your choices</h4><ul class="pvk">${I.options.map((k) => `<li><span>${esc(HOW[k].button)}</span>${k === I.suggest ? `<small>${esc(I.sugWord)}</small>` : ''}</li>`).join('')}</ul>`;
+  const previewAsk = (x) => { const a = answerLocal(String(x).toLowerCase()); return (a ? '' /* peer:builder r4: the row beside it says the question */ : `<div class="pvq"><span class="pico ask">✦</span><b>${esc(tidyQ(x))}</b></div>`) + (a ? `<div class="pvans">${cardOf(a)}</div><button type="button" class="apfull" data-full>Full answer ›<kbd>↵</kbd></button>` : /* peer:newcomer */ `<p class="pvd">${ASK ? 'Claude answers from this page’s data.' : 'Answered from this page’s data.'}</p>`); };
+  function previewDecide(w) { // peer:builder r4: the picture and one line; the checks and the choices are Decide's, one tap on
+    return `<div class="pvpic">${decidePic('now', w, dkDay().text(DC().iso, DC().d))}</div><p class="apline"><b>${esc(w.short)}</b> ${esc(issueOf(w).why)} ${waitChip(w)}</p>`;
   }
   function previewRows(d) {
     const cols = d.columns.slice(0, 4), rows = (d.sample || []).slice(0, 5);
-    return `<div class="pvh"><span class="pico">${GL.rows}</span><div><b>${esc(d.short)}, ${d.state === 'waiting' ? esc(DC().prev) : 'today'}</b><span>${d.state === 'waiting' ? `The last good day, while ${esc(DC().wd)} is paused` : `${fmt(d.rowsToday || 0)} rows`}</span></div></div>${rows.length ? `<table class="pvt"><thead><tr>${cols.map((c) => `<th>${esc(c.name)}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${cols.map((c, i) => `<td>${esc(String(r[i] ?? ''))}</td>`).join('')}</tr>`).join('')}</tbody></table><p class="pvhint"><kbd>↵</kbd> all the rows, to sort and filter</p>` : ''}`;
+    return `<div class="pvh"><span class="pico">${GL.rows}</span><div><b>${esc(d.short)}, ${d.state === 'waiting' ? esc(DC().prev) : 'today'}</b><span>${d.state === 'waiting' ? `The last good day, while ${esc(todayWord())} is paused` /* peer:builder r4 */ : `${fmt(d.rowsToday || 0)} rows`}</span></div></div>${rows.length ? `<table class="pvt"><thead><tr>${cols.map((c) => `<th>${esc(c.name)}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${cols.map((c, i) => `<td>${esc(String(r[i] ?? ''))}</td>`).join('')}</tr>`).join('')}</tbody></table><p class="pvhint"><kbd>↵</kbd> all the rows, to sort and filter</p>` : ''}`;
   }
   const QWORDS = /^(why|what|which|who|whom|whose|where|when|how|is|are|was|were|does|do|did|can|could|should|will|would|show|list|find|explain|tell)\b/;
   const looksAsked = (q) => /\?\s*$/.test(q) || QWORDS.test(q.trim().toLowerCase());
@@ -1919,13 +2201,13 @@
     if (w) {
       const n = (w.builds || []).length, kinds = Object.keys(waitsBy()).length;
       const I = issueOf(w), dc = DC();
-      list.push({ g: 'now', icon: PAUSE, tone: 'bad', name: `Decide on ${dc.today}…`, sub: `${w.short} ${I.why} · ${outputsWait(n)}`, keys: `decide paused fix day ${dc.wd.toLowerCase()} resolve choose`, run: decideNow, pv: () => previewDecide(w) });
-      if (I.ask) list.push({ g: 'now', icon: GL.mail, name: 'Draft a request for the file…', sub: `To whoever sends the ${w.short} export · you send it`, keys: 'draft ask request email message owner export file again resend', stay: requestFile, pv: () => `<p class="pto"><span>To</span><b>${esc(senderGet(w.id) || `whoever sends the ${w.short} export`)}</b>${senderGet(w.id) ? '' : '<small class="mut">· the data names no one yet</small>'}</p><p class="pdraft">${esc(requestText(w))}</p><p class="pvhint"><kbd>↵</kbd> shows it with a button to copy it, for you to send</p>` });
-      list.push({ g: 'now', icon: GL.built, name: 'See what’s built from it', sub: `${outputsWait(n)}, in ${kinds} kind${kinds === 1 ? '' : 's'}`, keys: 'built from reach touches impact affected outputs wait downstream', run: showReach, pv: () => `<p class="pvd">${HOURGLASS} <b>${outputsWait(n)}</b> on ${esc(w.short)}</p>${outGroups(M.outputs.filter((o) => (w.builds || []).includes(o.id))).map(([g, l]) => `<h4>${esc(groupName(g))}</h4><ul class="pvk">${l.slice(0, 5).map((o) => `<li>${HOURGLASS}<span>${esc(plain(o.id))}</span></li>`).join('')}${l.length > 5 ? `<li class="pvmore">and ${l.length - 5} more</li>` : ''}</ul>`).join('')}` });
-      if (!M.noRows) list.push({ g: 'now', icon: GL.rows, name: `See ${dc.prev}’s ${w.short} rows`, sub: `The last good day, while ${dc.wd} is paused`, keys: 'rows data table explore', run: () => openRows(w.id), pv: () => previewRows(w) });
+      list.push({ g: 'now', icon: PAUSE, tone: 'bad', name: `Decide what readers see ${todayWord()}…`, sub: `${w.short} ${I.why} · ⧗ ${n}`, subHtml: `${esc(w.short)} ${esc(I.why)} · ${HOURGLASS} ${n}`, keys: `decide paused fix day ${dc.wd.toLowerCase()} today readers resolve choose`, run: decideNow, pv: () => previewDecide(w) }); // peer:builder r4: today; ⧗ 11, as the banner says it
+      if (I.ask) list.push({ g: 'now', quiet: true /* peer:builder r4: found when typed */, icon: GL.mail, name: 'Draft a request for the file…', sub: `To whoever sends the ${w.short} export · you send it`, keys: 'draft ask request email message owner export file again resend', stay: requestFile, pv: () => `<p class="pto"><span>To</span><b>${esc(senderGet(w.id) || `whoever sends the ${w.short} export`)}</b>${senderGet(w.id) ? '' : '<small class="mut">· the data names no one yet</small>'}</p><p class="pdraft">${esc(requestText(w))}</p><p class="pvhint"><kbd>↵</kbd> shows it with a button to copy it, for you to send</p>` });
+      list.push({ g: 'now', quiet: true /* peer:builder r4: “Which outputs wait?” asks it with a picture */, icon: GL.built, name: 'See what’s built from it', sub: `⧗ ${n} · in ${kinds} kind${kinds === 1 ? '' : 's'}`, subHtml: `${HOURGLASS} ${n} · in ${kinds} kind${kinds === 1 ? '' : 's'}`, keys: 'built from reach touches impact affected outputs wait downstream', run: showReach, pv: () => `<p class="pvd">${HOURGLASS} <b>${n}</b> waiting on ${esc(w.short)}</p>${outGroups(M.outputs.filter((o) => (w.builds || []).includes(o.id))).map(([g, l]) => `<h4>${esc(groupName(g))}</h4><ul class="pvk">${l.slice(0, 5).map((o) => `<li>${HOURGLASS}<span>${esc(plain(o.id))}</span></li>`).join('')}${l.length > 5 ? `<li class="pvmore">and ${l.length - 5} more</li>` : ''}</ul>`).join('')}` });
+      if (!M.noRows) list.push({ g: 'now', quiet: true /* peer:builder r4 */, icon: GL.rows, name: `See ${dc.prev}’s ${w.short} rows`, sub: `The last good day, while ${todayWord()} is paused`, keys: 'rows data table explore', run: () => openRows(w.id), pv: () => previewRows(w) });
     } else if (dd) {
-      if (dd.pendingFix || M.replaceable !== false) list.push({ g: 'now', icon: '↥', tone: 'owed', name: dd.pendingFix ? 'Publish the corrected file…' : `Replace ${DC().wd}’s file…`, sub: `${dd.short} · decided for now, the file is owed`, keys: 'replace upload send file corrected publish', run: replaceNow });
-      list.push({ g: 'now', icon: '↶', name: `Undo: pause ${DC().today} again`, sub: `Takes back “${HOW[dd.how]?.said || ''}”`, keys: 'undo revert back', run: () => undo() });
+      if (dd.pendingFix || M.replaceable !== false) list.push({ g: 'now', icon: '↥', tone: 'owed', name: dd.pendingFix ? 'Publish the corrected file…' : `Replace ${isToday() ? 'today’s' : `${DC().wd}’s`} file…` /* peer:builder r4 */, sub: `${dd.short} · decided for now, the file is owed`, keys: 'replace upload send file corrected publish', run: replaceNow });
+      list.push({ g: 'now', icon: '↶', name: `Undo: pause ${todayWord()} again` /* peer:builder r4 */, sub: `Takes back “${HOW[dd.how]?.said || ''}”`, keys: 'undo revert back', run: () => undo() });
     } else if (rd) list.push({ g: 'now', icon: '↶', name: 'Undo: back to the file owed', sub: `Takes back the corrected ${rd.short} file`, keys: 'undo revert', run: () => undo() });
     if (S.level === 'dataset') { const d = dsOf(S.ds); if (d.state !== 'waiting' && !M.noRows) list.push({ g: 'here', icon: GL.rows, name: `Explore ${d.short}’s rows`, sub: `${d.rowsToday != null ? fmt(d.rowsToday) + ' rows · ' : ''}sort, filter, tap a value`, keys: 'rows data table explore', run: () => openRows(d.id), pv: () => previewRows(d) }); list.push({ g: 'here', icon: ICON[kindOf(d.kind).icon], name: `Open ${kindOf(d.kind).name}`, sub: 'The kind it describes, with its neighbours', keys: 'kind up parent', run: () => go({ level: 'kind', kind: d.kind }) }); }
     if (S.level === 'kind') { const k = kindOf(S.kind); list.push({ g: 'here', icon: '✳', name: `Show how ${k.name} relates on the map`, sub: `${neighbours(k.id).length} related kinds, each saying how`, keys: 'map relations spotlight show', run: () => spotlight(k.id) }); }
@@ -1945,11 +2227,11 @@
     const wide = () => matchMedia('(min-width: 1000px)').matches;
     const goTo = [...M.kinds.map((k) => ({ icon: ICON[k.icon] || '', name: k.name, sub: `Kind · ${fmt(k.count)} ${k.plural} · ${k.datasets.length} datasets`, t: 'Kind', drill: { type: 'kind', id: k.id }, run: () => go({ level: 'kind', kind: k.id }), pv: () => previewKind(k) })),
       ...M.datasets.map((d) => ({ icon: GL.table, badge: stateBadge(d), name: d.short, sub: `Dataset · ${kindOf(d.kind).name}${d.state === 'waiting' ? ` · paused today · ${fmt(d.rowsToday || 0)} rows` : d.state === 'decided' ? ' · decided for now, file owed' : d.state === 'warn' ? ' · unusual today' : ''}`, t: 'Dataset', rank: STATE_RANK[d.state] ?? 9, drill: { type: 'ds', id: d.id }, run: () => go({ level: 'dataset', ds: d.id, kind: d.kind }), pv: () => previewDs(d) })),
-      ...M.datasets.flatMap((d) => d.columns.map((c) => ({ icon: colIcon(c), ty: tyFull(c), key: c.role === 'key', name: c.name, sub: `Column of ${d.short}${c.meaning ? ' · ' + c.meaning : ''}`, t: 'Column', mono: true, run: () => toDataset(d, () => openPanel(d.id, c.name)), pv: () => previewCol(d, c) })))];
+      ...M.datasets.flatMap((d) => d.columns.map((c) => ({ icon: colIcon(c), ty: tyFull(c), key: c.role === 'key', name: c.name, sub: `Column of ${d.short}${c.meaning ? ' · ' + c.meaning : ''}`, t: 'Column', ds: d.id /* peer:builder r4 */, mono: true, run: () => toDataset(d, () => openPanel(d.id, c.name)), pv: () => previewCol(d, c) })))];
     const score = (it, q) => { const n = it.name.toLowerCase(), s2 = (it.sub || '').toLowerCase(); if (n === q) return 100; if (n.startsWith(q)) return 80 - (it.t === 'Column' ? 5 : 0); if (n.split(/[\s_]+/).some((w) => w.startsWith(q))) return 60 - (it.t === 'Column' ? 5 : 0); if (n.includes(q)) return 40; if (s2.includes(q)) return 10; if (q.length >= 3 && n.split(/[\s_]+/).some((w) => w.length > 3 && lev(q, w) <= (w.length > 6 ? 2 : 1))) return 30; { const qw = q.split(/\s+/).filter((w) => w.length > 2), nw = n.split(/[\s_]+/); if (qw.length > 1 && qw.every((w) => nw.some((x) => x.startsWith(w) || (x.length > 3 && lev(w, x) <= (x.length > 6 ? 2 : 1))))) return 34; } let i = 0; for (const ch of n.replace(/[\s_]+/g, '')) if (ch === q[i]) i++; return q.length >= 3 && i === q.length ? 6 : 0; };
     const cmdScore = (c, q) => { const n = c.name.toLowerCase(), k = (c.keys || '').toLowerCase(), s = (c.sub || '').toLowerCase(); let t = 0; for (const w of q.split(/\s+/).filter(Boolean)) { const v = n.split(/[\s’'…:]+/).some((x) => x.startsWith(w)) ? 30 : n.includes(w) ? 20 : k.split(/\s+/).some((x) => x.startsWith(w)) ? 14 : s.includes(w) ? 6 : 0; if (!v) return 0; t += v; } return t; };
     const SEC = { recent: 'Asked before', now: 'Suggested now', here: 'Here', ask: 'Ask', help: 'Help', go: 'Go to' }, SECQ = { now: 'Do', here: 'Do', help: 'Help', ask: 'Ask', go: 'Go to' };
-    let found = [], at = 0, mode = 'list', cur = null, ctl = null, scope = null, showAll = false;
+    let found = [], at = 0, mode = 'list', cur = null, ctl = null, scope = null, showAll = false, colsOpen = false; // peer:dq r3: colsOpen
     const chip = box.querySelector('.pscope');
     // inside a kind: what to do with it, then its datasets; inside a dataset: what to do with it, then its columns
     const scopeItems = (sc, q) => {
@@ -1961,15 +2243,22 @@
         return [...top, ...goTo.filter((it) => it.t === 'Dataset' && it.drill && dsOf(it.drill.id)?.kind === k.id).sort((a, b) => a.rank - b.rank).map((it) => { const d = dsOf(it.drill.id); return { ...it, g: 'inlist', sub: `${d.rowsToday != null ? fmt(d.rowsToday) + ' rows today' : 'no file yet'}${d.state === 'waiting' ? ' · paused today' : d.state === 'warn' ? ' · unusual today' : d.state === 'decided' ? ' · decided for now' : ''}` }; })].filter(f);
       }
       const d = dsOf(sc.id);
-      const top = [{ g: 'in', icon: GL.table, badge: stateBadge(d), name: `Open ${d.short}`, sub: kindOf(d.kind).name, run: () => go({ level: 'dataset', ds: d.id, kind: d.kind }), pv: () => previewDs(d) }, ...(d.state === 'awaited' ? [] : [{ g: 'in', icon: GL.rows, name: `Explore ${d.short}’s rows`, sub: 'Sort, filter, tap a value', run: () => openRows(d.id), pv: () => previewRows(d) }]), asked(`What does ${d.short} join?`), asked(`What is built from ${d.short}?`)];
+      // peer:dq r3: “Open” carries the preview's three things for a screen too narrow for the preview (sum); the rows line
+      // says what it does in its name alone
+      const top = [{ g: 'in', icon: GL.table, badge: stateBadge(d), name: `Open ${d.short}`, sub: kindOf(d.kind).name, sum: nowOf(d), run: () => go({ level: 'dataset', ds: d.id, kind: d.kind }), pv: () => previewDs(d) }, ...(d.state === 'awaited' ? [] : [{ g: 'in', icon: GL.rows, name: `Explore ${d.short}${/s$/i.test(d.short) ? '’' : '’s'} rows` /* peer:dq r3: Access reviews’, not reviews’s */, sub: '', run: () => openRows(d.id), pv: () => previewRows(d) }]), asked(`What does ${d.short} join?`), asked(`What is built from ${d.short}?`)];
       const toOf = (c) => { const j = M.joins.find((x) => x.from === d.id && x.col === c.name && x.to !== d.id && dsOf(x.to)); return j ? ` · → ${dsOf(j.to).short}’s ${j.toCol || j.col}` : ''; };
-      return [...top, ...((M.month || []).length && (d.days || []).length ? [asked(`How has ${d.short} been this month?`)] : []), ...d.columns.map((c) => ({ g: 'inlist', icon: colIcon(c), ty: tyFull(c), key: c.role === 'key', name: c.name, mono: true, sub: (c.meaning || '') + toOf(c), run: () => toDataset(d, () => openPanel(d.id, c.name)), pv: () => previewCol(d, c) }))].filter(f);
+      const cols = d.columns.map((c) => ({ g: 'inlist', icon: colIcon(c), ty: tyFull(c), key: c.role === 'key', name: c.name, mono: true, sub: (c.meaning || '') + toOf(c), run: () => toDataset(d, () => openPanel(d.id, c.name)), pv: () => previewCol(d, c) }));
+      // peer:dq r3: its columns wait behind one line: pointed at, the preview lists them; ↵ or a tap lists them here, to
+      // pick one. A search inside the file finds a column as before
+      const showCols = () => { colsOpen = true; draw(); const i = found.findIndex((x) => x.g === 'inlist'); if (i >= 0) { at = i; mark(); } };
+      const folded = q || colsOpen || !cols.length ? cols : [{ g: 'in', icon: COLGLYPH, name: `Its columns · ${cols.length}`, sub: '', open: showCols, pv: () => previewCols(d) }];
+      return [...top, ...((M.month || []).length && (d.days || []).length ? [asked(`How has ${d.short} been this month?`)] : []), ...folded].filter(f);
     };
     const nameOf = (sc) => (sc.type === 'kind' ? kindOf(sc.id).name : dsOf(sc.id).short), path = [];
     const scopeName = () => (scope ? nameOf(scope) : '');
-    const enter = (sc) => { path.push(sc); scope = sc; input.value = ''; draw(); input.focus(); };
-    const leave = () => { path.pop(); scope = path[path.length - 1] || null; input.value = ''; draw(); input.focus(); };
-    chip.onclick = (ev) => { const b = ev.target.closest('[data-lv]'); if (!b) return; const lv = +b.dataset.lv; if (lv < 0) return leave(); path.length = lv + 1; scope = path[lv]; input.value = ''; draw(); input.focus(); };
+    const enter = (sc) => { path.push(sc); scope = sc; colsOpen = false; input.value = ''; draw(); input.focus(); }; // peer:dq r3: colsOpen
+    const leave = () => { path.pop(); scope = path[path.length - 1] || null; colsOpen = false; input.value = ''; draw(); input.focus(); }; // peer:dq r3: colsOpen
+    chip.onclick = (ev) => { const b = ev.target.closest('[data-lv]'); if (!b) return; const lv = +b.dataset.lv; if (lv < 0) return leave(); path.length = lv + 1; scope = path[lv]; colsOpen = false; input.value = ''; draw(); input.focus(); }; // peer:dq r3: colsOpen
     const preview = () => { if (!wide() || mode !== 'list') return; const it = found[at]; prev.innerHTML = it ? (it.pv ? it.pv() : `<div class="pvh"><span class="pico${it.tone ? ' ' + it.tone : ''}">${it.icon || ''}</span><div><b>${esc(it.name)}</b><span>${esc(it.sub || '')}</span></div></div>`) : ''; prev.scrollTop = 0; };
     const mark = () => { list.querySelectorAll('[data-i]').forEach((li) => li.setAttribute('aria-selected', String(+li.dataset.i === at))); const el = list.querySelector(`[data-i="${at}"]`); if (el) { el.scrollIntoView({ block: 'nearest' }); input.setAttribute('aria-activedescendant', el.id); } preview(); foot(); };
     const draw = () => {
@@ -1983,19 +2272,21 @@
       else if (!q) { const rec = recentGet(), sug = questionsNow().filter((x) => !rec.some((r) => r.toLowerCase() === x.toLowerCase())); items = [...rec.slice(0, 2).map((x) => ({ g: 'recent', ask: x, name: tidyQ(x), icon: '↺', sub: '', pv: () => previewAsk(x) })), ...cmds.filter((c) => c.g !== 'help' && !c.quiet).slice(0, rec.length ? 5 : 6), ...sug.slice(0, rec.length ? 3 : 4).map((x) => ({ g: 'ask', ask: x, name: x, icon: '✦', tone: 'ask', pv: () => previewAsk(x) })), ...cmds.filter((c) => c.g === 'help')]; }
       else {
         const local = looksAsked(raw) ? answerLocal(q) : null;
-        const askIt = { g: 'ask', ask: raw, name: local ? tidyQ(raw) : `Ask “${raw}”`, sub: local ? (wide() ? 'The answer is beside this list' : '') : ASK ? 'Claude answers from this page’s data' : 'Answered from this page’s data', icon: '✦', tone: 'ask', card: local && !wide() ? cardOf(local) : null, pv: () => previewAsk(raw) };
+        const askIt = { g: 'ask', ask: raw, name: local ? local.q || tidyQ(raw) /* peer:newcomer: as the answer's heading says it */ : `Ask “${raw}”`, sub: local ? '' /* peer:newcomer: the picture beside it says so */ : ASK ? 'Claude answers from this page’s data' : 'Answered from this page’s data', icon: '✦', tone: 'ask', card: local && !wide() ? cardOf(local) : null, pv: () => previewAsk(raw) };
         const cm = cmds.map((c) => ({ c, s: cmdScore(c, q) })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s).slice(0, 5).map((x) => x.c);
-        const allGo = goTo.map((it) => ({ it, s: score(it, q) })).filter((x) => x.s > 0).sort((a, b) => b.s - a.s || (a.it.rank ?? 9) - (b.it.rank ?? 9));
+        { const ord = []; cm.forEach((c) => { if (!ord.includes(SECQ[c.g])) ord.push(SECQ[c.g]); }); cm.sort((a, b) => ord.indexOf(SECQ[a.g]) - ord.indexOf(SECQ[b.g])); } // peer:builder r4: one heading per group, best group first
+        const go0 = goTo.map((it) => ({ it, s: score(it, q) })).filter((x) => x.s > 0), hitDs = new Set(go0.filter((x) => x.it.t === 'Dataset' && x.s >= 60).map((x) => x.it.drill.id)); // peer:builder r4
+        const allGo = go0.filter((x) => !(x.it.t === 'Column' && x.s < 40 && hitDs.has(x.it.ds))).sort((a, b) => b.s - a.s || (a.it.rank ?? 9) - (b.it.rank ?? 9)); // a file found by name keeps its columns one Tab away
         let gt = allGo.slice(0, showAll ? 60 : 6).map((x) => ({ ...x.it, g: 'go' }));
         const rest = allGo.length - gt.length;
         if (rest > 0) gt.push({ g: 'go', more: true, icon: '⋯', name: `${rest} more named like “${raw}”`, sub: [['Kind', 'kind'], ['Dataset', 'dataset'], ['Column', 'column']].map(([t, w]) => { const c = allGo.slice(gt.length).filter((x) => x.it.t === t).length; return c ? `${c} ${w}${c === 1 ? '' : 's'}` : ''; }).filter(Boolean).join(' · '), pv: () => `<p class="pvd">${allGo.slice(gt.length, gt.length + 12).map((x) => `${x.it.t === 'Column' ? `<code>${esc(x.it.name)}</code>` : `<b>${esc(x.it.name)}</b>`} <small class="mut">${esc(x.it.t.toLowerCase())}</small>`).join(' · ')}${rest > 12 ? ' …' : ''}</p><p class="pvhint"><kbd>↵</kbd> lists them all</p>` });
         if (looksAsked(raw)) { const mt = mentions(q), named = goTo.filter((it) => (mt.ds && it.t === 'Dataset' && it.drill?.id === mt.ds.id) || (mt.kd && it.t === 'Kind' && it.drill?.id === mt.kd.id) || (mt.col && it.t === 'Column' && it.name === mt.col)).slice(0, 3).map((it) => ({ ...it, g: 'go' })); gt = [...named, ...gt.filter((x) => !named.some((y) => y.name === x.name && y.t === x.t))].slice(0, 6); }
-        items = looksAsked(raw) ? [askIt, ...cm, ...gt] : [...cm, ...gt, askIt];
+        items = looksAsked(raw) ? [askIt, ...cm, ...gt] : raw.length < 3 ? [...gt, ...cm, askIt] /* peer:builder r4: a name being typed */ : [...cm, ...gt, askIt];
       }
       found = items; at = 0; let last = null;
       const SECS = scope ? { in: scopeName(), inlist: scope.type === 'kind' ? 'Its datasets' : 'Its columns', else: 'Everywhere' } : q ? SECQ : SEC;
-      list.innerHTML = items.length ? items.map((it, i) => { const sec = SECS[it.g]; const head = sec !== last ? `<li class="psec" role="presentation">${sec}</li>` : ''; last = sec; if (it.card) return head + `<li role="option" id="po${i}" aria-selected="${i === at}" data-i="${i}" class="pcard"><span class="pico ask">✦</span><span class="pcq">${esc(it.name)}</span><span class="pk">Full answer ↵</span><div class="pcb">${it.card}</div></li>`; return head + `<li role="option" id="po${i}" aria-selected="${i === at}" data-i="${i}"${it.more ? ' class="pmorerow"' : ''}><span class="pico${it.tone ? ' ' + it.tone : ''}">${it.icon || ''}${it.badge || ''}</span><span class="pn${it.mono ? ' mono' : ''}">${esc(it.name)}</span><span class="ps${it.prev ? ' prev' : ''}">${esc(it.sub || '')}</span><span class="pr">${it.ty ? `<span class="pty${it.key ? ' kb' : ''}">${it.ty}</span>` : ''}<span class="pk">${it.more ? 'Show ↵' : it.ask ? 'Ask ↵' : it.stay ? 'Open ↵' : '↵'}</span>${it.drill ? '<button type="button" class="pdrill" tabindex="-1" aria-label="Look inside">›</button>' : ''}</span></li>`; }).join('') : `<li class="none">Nothing ${scope ? 'inside ' + esc(scopeName()) + ' ' : ''}by that name${scope ? '' : '. Press Enter to ask instead.'}</li>`;
-      list.querySelectorAll('[data-i]').forEach((li) => { li.onmousemove = () => { if (at !== +li.dataset.i) { at = +li.dataset.i; mark(); } }; li.onclick = (ev) => { const it = found[+li.dataset.i]; if (ev.target.closest('.pdrill') && it.drill) return enter(it.drill); runIt(it); }; });
+      list.innerHTML = items.length ? items.map((it, i) => { const sec = SECS[it.g]; const head = sec !== last ? `<li class="psec" role="presentation">${sec}</li>` : ''; last = sec; if (it.card) return head + `<li role="option" id="po${i}" aria-selected="${i === at}" data-i="${i}" class="pcard"><span class="pico ask">✦</span><span class="pcq">${esc(it.name)}</span><div class="pcb">${it.card}<span class="apfull">Full answer ›</span></div></li>`; /* peer:newcomer */ return head + `<li role="option" id="po${i}" aria-selected="${i === at}" data-i="${i}"${it.more ? ' class="pmorerow"' : ''}><span class="pico${it.tone ? ' ' + it.tone : ''}">${it.icon || ''}${it.badge || ''}</span><span class="pn${it.mono ? ' mono' : ''}">${esc(it.name)}</span><span class="ps${it.prev ? ' prev' : ''}">${it.subHtml || esc(it.sub || '')}</span><span class="pr">${it.ty ? `<span class="pty${it.key ? ' kb' : ''}">${it.ty}</span>` : ''}<span class="pk">${it.more || it.open ? 'Show ↵' : it.ask ? 'Ask ↵' : it.stay ? 'Open ↵' : '↵'}</span>${it.drill ? '<button type="button" class="pdrill" tabindex="-1" aria-label="Look inside">›</button>' : ''}</span>${it.sum ? `<div class="dqsum">${it.sum}</div>` : '' /* peer:dq r3 */}</li>`; }).join('') : `<li class="none">Nothing ${scope ? 'inside ' + esc(scopeName()) + ' ' : ''}by that name${scope ? '' : '. Press Enter to ask instead.'}</li>`;
+      list.querySelectorAll('[data-i]').forEach((li) => { li.onmousemove = () => { if (at !== +li.dataset.i) { at = +li.dataset.i; mark(); } }; li.onclick = (ev) => { const it = found[+li.dataset.i]; const a = ev.target.closest('[data-ask]'); if (a) { ev.stopPropagation(); return ask(a.dataset.ask); } /* peer:dq r3 */ if (ev.target.closest('.pdrill') && it.drill) return enter(it.drill); runIt(it); }; }); /* merged: peer:newcomer + peer:dq r3 */
       mark();
     };
     // Esc closes from anywhere; ⌫ or ← on an empty line steps back out of an answer, a dataset or a kind
@@ -2005,12 +2296,13 @@
     const doAct = (a) => { if (!a) return; if (a.ask) return ask(a.ask); if (a.stay) { const x = a.stay(); return showAnswer(x.title || a.label, x, 'page'); } if (a.keep) return a.run(); close(); a.run(); };
     const showAnswer = (q, a, src) => {
       mode = 'answer'; cur = a; list.hidden = true; ans.hidden = false; body.classList.add('answering'); input.removeAttribute('aria-activedescendant'); input.value = ''; input.placeholder = 'Ask another, or ⌫ to go back'; foot();
-      ans.innerHTML = `<div class="pq"><span class="pico ask">${a.icon || (a.title ? '?' : '✦')}</span><b>${esc(a.title || a.q || tidyQ(q))}</b><button type="button" class="pback">‹ Back</button></div><div class="pa">${a.html}</div>${a.acts && a.acts.length ? `<div class="pacts">${a.acts.map((x, i) => `<button type="button" class="btn${x.primary ? ' primary' : ''}${x.ask ? ' askq' : ''}" data-a="${i}">${x.ask ? '✦ ' : ''}${esc(x.label)}${x === (a.acts.find((y) => y.primary) || null) ? ' <span class="pkbd" aria-hidden="true">↵</span>' : ''}</button>`).join('')}</div>` : ''}${a.title ? '' : `<div class="psrc">${src === 'claude' ? '✦ Claude, from this page’s data' : 'From this page’s data'}${src !== 'claude' && ASK ? ' · <button type="button" class="link" data-claude>Ask Claude instead</button>' : ''}</div>`}`;
+      ans.innerHTML = `<div class="pq"><span class="pico ask">${a.icon || (a.title ? '?' : '✦')}</span><b>${esc(a.title || a.q || tidyQ(q))}</b><button type="button" class="pback">‹ Back</button></div><div class="pa">${a.pic ? `${a.note ? `<p class="pnote">${esc(a.note)}</p>` : ''}${a.pic}${a.line ? `<p class="apline">${a.line}</p>` : ''}${a.more || ''}` /* peer:newcomer */ : a.html}</div>${a.acts && a.acts.length ? `<div class="pacts">${a.acts.map((x, i) => `<button type="button" class="btn${x.primary ? ' primary' : ''}${x.ask ? ' askq' : ''}" data-a="${i}">${x.ask ? '✦ ' : ''}${esc(x.label)}${x === (a.acts.find((y) => y.primary) || null) ? ' <span class="pkbd" aria-hidden="true">↵</span>' : ''}</button>`).join('')}</div>` : ''}${a.title ? '' : `<div class="psrc">${src === 'claude' ? '✦ Claude, from this page’s data' : 'From this page’s data'}${src !== 'claude' && ASK ? ' · <button type="button" class="link" data-claude>Ask Claude instead</button>' : ''}</div>`}`;
       ans.querySelector('.pback').onclick = () => { draw(); input.focus(); };
       const tf = ans.querySelector('.tofield'); if (tf) { tf.oninput = () => senderSet(tf.dataset.to, tf.value.trim()); tf.onkeydown = (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); doAct((a.acts || []).find((x) => x.primary)); } }; }
       ans.querySelectorAll('[data-a]').forEach((b) => (b.onclick = () => doAct(a.acts[+b.dataset.a])));
       const c = ans.querySelector('[data-claude]'); if (c) c.onclick = () => askClaude(q);
       ans.querySelectorAll('[data-more]').forEach((b) => (b.onclick = () => { const rest = b.nextElementSibling; if (rest) rest.hidden = false; b.remove(); input.focus(); }));
+      ans.querySelectorAll('.pa [data-ask]').forEach((b) => (b.onclick = () => ask(b.dataset.ask))); // peer:newcomer
     };
     const askClaude = async (q) => {
       try { ctl && ctl.abort(); } catch (e) { /* already stopped */ }
@@ -2028,11 +2320,11 @@
         if (e && /not_granted|sampling_disabled|capability_disabled|capability_removed|not_declared/.test(e.code || '')) ASK = null;
         const why = e && e.code === 'not_granted' ? 'Claude isn’t allowed on this page, so this answer comes from the page itself.' : e && e.code === 'rate_limited' ? 'Claude is busy for you right now, so this answer comes from the page itself.' : 'Claude couldn’t answer, so this comes from the page itself.';
         const local = answerLocal(q.toLowerCase()) || fallbackAnswer();
-        showAnswer(q, { ...local, html: `<p class="pnote">${why}</p>${local.html}` }, 'page');
+        showAnswer(q, { ...local, note: why, html: `<p class="pnote">${why}</p>${local.html}` }, 'page');
       }
     };
     const ask = (q) => { q = String(q).trim(); if (!q) return; const local = answerLocal(q.toLowerCase()); recentAdd(local?.q || q); if (local) return showAnswer(q, local, 'page'); if (ASK) return askClaude(q); showAnswer(q, fallbackAnswer(), 'page'); };
-    const runIt = (it) => { if (!it) return; if (it.more) { showAll = true; draw(); input.focus(); return; } if (it.ask) return ask(it.ask); if (it.stay) return showAnswer(it.name, it.stay(), 'page'); close(); it.run(); };
+    const runIt = (it) => { if (!it) return; if (it.open) { it.open(); input.focus(); return; } /* peer:dq r3 */ if (it.more) { showAll = true; draw(); input.focus(); return; } if (it.ask) return ask(it.ask); if (it.stay) return showAnswer(it.name, it.stay(), 'page'); close(); it.run(); };
     input.oninput = () => { showAll = false; draw(); };
     input.onkeydown = (e) => {
       if (e.key === 'ArrowDown' && mode === 'list') { at = Math.min(found.length - 1, at + 1); mark(); e.preventDefault(); }
@@ -2046,6 +2338,7 @@
     input.addEventListener('keyup', () => foot());
     box.addEventListener('keydown', (e) => { if (e.key === 'Escape' && e.target !== input) { e.preventDefault(); e.stopPropagation(); close(); } });
     box.querySelector('.pscrim').onclick = close; box.querySelector('.pclose').onclick = close;
+    prev.onclick = (ev) => { const qa = ev.target.closest('[data-ask]'); if (qa) { ev.preventDefault(); ask(qa.dataset.ask); input.focus(); return; } if (ev.target.closest('[data-full]')) runIt(found[at]); }; // peer:newcomer + peer:dq r3
     draw(); input.focus();
     window.__palette = { ask, draw, enter, leave, help: () => showAnswer('What the marks mean', helpMarks(), 'page') };
   }
@@ -2055,6 +2348,7 @@
   canvas.addEventListener('click', () => { if (S.spotPin) { S.spotPin = null; lightUp(); return; } if (S.level === 'kind') go({ level: 'estate' }); });
   document.addEventListener('keydown', (e) => { if ((e.key === 'k' && (e.ctrlKey || e.metaKey)) || (e.key === '/' && !/input|textarea/i.test(document.activeElement?.tagName || ''))) { e.preventDefault(); openSearch(); return; } });
   $('.search').addEventListener('click', openSearch); $('.search').setAttribute('role', 'button'); $('.search').tabIndex = 0; $('.search').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openSearch(); } });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.level === 'dataset' && S.outsOpen && !S.panel && !$('.palette')) { S.outsOpen = null; render(); e.stopImmediatePropagation(); } }, true); // peer:builder
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.pin && !S.panel && !$('.palette')) { S.pin = null; lightUp(); render(true); e.stopImmediatePropagation(); return; } }, true);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.reachPin && !S.panel && !$('.palette')) { S.reachPin = false; S.reach = false; renderChrome(); lightUp(); e.stopImmediatePropagation(); } }, true);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.spotPin && !S.panel && !$('.palette')) { S.spotPin = null; lightUp(); e.stopImmediatePropagation(); } }, true);
@@ -2064,9 +2358,82 @@
   $('#estname').addEventListener('click', (ev) => { ev.stopPropagation(); const mn = $('#estmenu'); const open = mn.hasAttribute('hidden'); mn.toggleAttribute('hidden', !open); $('#estname').setAttribute('aria-expanded', String(open)); if (open) mn.querySelector('button.on, button')?.focus(); });
   document.addEventListener('click', (ev) => { const mn = $('#estmenu'); if (mn && !mn.hasAttribute('hidden') && !mn.contains(ev.target)) { mn.setAttribute('hidden', ''); $('#estname').setAttribute('aria-expanded', 'false'); } });
   document.querySelectorAll('#which button').forEach((b) => (b.onclick = () => { $('#estmenu').setAttribute('hidden', ''); $('#estname').setAttribute('aria-expanded', 'false'); if (b.dataset.m === 'build') { history.pushState(null, '', '#build'); return fromHash(); } history.pushState(null, '', '#estate' + (b.dataset.m === 'big' ? '-big' : '')); if (S.m === 'build' && window.__buildLeave) window.__buildLeave(); switchModel(b.dataset.m, () => Object.assign(S, { level: 'estate', kind: null, ds: null })); }));
-  stage.addEventListener('click', (ev) => { const c = ev.target.closest('.kwait[data-reach]'); if (!c) return; ev.stopPropagation(); ev.preventDefault(); showReach(); }, true);
+  // ------------------------------------------------------------------ peer:design: one tip for a count, a link and the key
+  // A count on the map is an hourglass and a number (⧗ 2), a link a few words, what the marks mean a "?". What each stands
+  // for opens in the same box: on hover, on focus or on a tap; it closes on leaving, a tap elsewhere or Escape.
+  const tipBox = document.createElement('div'); tipBox.id = 'smtip'; tipBox.className = 'smtip'; tipBox.setAttribute('role', 'tooltip'); tipBox.hidden = true; document.body.append(tipBox);
+  const tipList = (l) => `<ul>${l.map((o) => `<li>${esc(plain(o.id))}</li>`).join('')}</ul>`;
+  const TIPS = {
+    // a kind's count: the outputs about that kind which wait on the paused file
+    wait: (kid) => { const w0 = waitingDs(), l = waitsBy()[kid] || []; return w0 && l.length ? `<p class="tiph">${HOURGLASS}<span>${outputsWait(l.length)} on ${esc(w0.short)}</span></p>${tipList(l)}` : ''; },
+    // the banner's count: every output built from the paused file, by the kind each is about, as the map's counts are
+    waits: () => {
+      const w0 = waitingDs(); if (!w0) return '';
+      const by = new Map(); for (const id of w0.builds || []) { const o = M.outputs.find((x) => x.id === id) || { id }; let kk = outKind(id); if (kk === 'check') kk = w0.kind; const g = kk && kindOf(kk) ? cap(PL(kk)) : 'Other'; by.set(g, [...(by.get(g) || []), o]); }
+      const n = (w0.builds || []).length; if (!n) return '';
+      return `<p class="tiph">${HOURGLASS}<span>${outputsWait(n)} on ${esc(w0.short)}</span></p>${[...by].sort((a, b) => b[1].length - a[1].length).map(([g, l]) => `<p class="tipg">${esc(g)} · ${l.length}</p>${tipList(l)}`).join('')}`;
+    },
+    link: (k) => linkTips.get(k) || '',
+    say: (k) => (sayTips.get(k) ? `<p class="tips">${sayTips.get(k)}</p>` : ''), // peer:design r4
+    key: () => `<div class="tipkey">${legendHtml('')}</div><p class="tipn">${S.level === 'kind' ? 'Point at a neighbour to light the files that carry its link · Esc steps back' /* peer:newcomer (r4) */ : S.level === 'dataset' ? 'Open its columns, then tap one for its values · Esc steps back' /* peer:design r4 rev 1 */ : 'Point at a kind, or Tab to one, for its links in full'}</p>`,
+  };
+  let tipAt = null, tipPin = false;
+  const tipHtml = (el) => { const v = el.dataset.tip || '', i = v.indexOf(':'), f = TIPS[i < 0 ? v : v.slice(0, i)]; return f ? f(i < 0 ? '' : v.slice(i + 1)) : ''; };
+  function tipPlace() {
+    if (!tipAt) return;
+    const r = tipAt.getBoundingClientRect(), m = 8, W = document.documentElement.clientWidth, H = innerHeight;
+    tipBox.style.maxWidth = Math.min(320, W - 2 * m) + 'px'; tipBox.style.left = '0px'; tipBox.style.top = '0px';
+    const w2 = tipBox.offsetWidth, h2 = tipBox.offsetHeight, below = r.bottom + 6, above = r.top - 6 - h2;
+    tipBox.style.left = Math.round(Math.max(m, Math.min(W - m - w2, r.left + r.width / 2 - w2 / 2))) + 'px';
+    // a kind's count sits on the kind's top edge: its tip opens above it, clear of the kind; every other tip below
+    const up = tipAt.matches('.kind > .kwait') ? above >= m : !(below + h2 <= H - m || above < m);
+    tipBox.style.top = Math.round(up ? above : below) + 'px';
+  }
+  function tipOpen(el, pin) {
+    const html = tipHtml(el); if (!html) return;
+    if (tipAt && tipAt !== el) tipClose();
+    tipAt = el; tipPin = !!pin; tipBox.innerHTML = html; tipBox.hidden = false; tipBox.classList.toggle('pinned', tipPin);
+    el.setAttribute('aria-expanded', 'true'); el.setAttribute('aria-describedby', 'smtip'); tipPlace();
+  }
+  function tipClose() {
+    if (!tipAt) return;
+    tipAt.setAttribute('aria-expanded', 'false'); tipAt.removeAttribute('aria-describedby'); tipAt = null; tipPin = false; tipBox.hidden = true;
+  }
+  // the map draws its links again on every point: an open tip moves to its link drawn again, or closes with it
+  function tipSync() {
+    if (!tipAt || tipAt.isConnected) return;
+    const again = document.querySelector(`[data-tip="${CSS.escape(tipAt.dataset.tip || '')}"]`);
+    if (!again) { tipAt = null; tipPin = false; tipBox.hidden = true; return; }
+    tipAt = again; again.setAttribute('aria-expanded', 'true'); again.setAttribute('aria-describedby', 'smtip'); tipPlace();
+  }
+  const tipOf = (t) => (t && t.closest ? t.closest('[data-tip]') : null);
+  document.addEventListener('mouseover', (ev) => {
+    const t = tipOf(ev.target);
+    if (t && t.hasAttribute('data-tipgo')) return; // peer:design r4: a card's tip waits for the pointer to move over it (below)
+    if (t) { const k = t.closest('.node.kind'); tipKind = k && S.level === 'estate' ? k.dataset.id : null; if (tipKind && S.hover === tipKind) { S.hover = null; lightUp(); } if (!tipPin && tipAt !== t) tipOpen(t, false); return; }
+    if (tipKind) { const k = ev.target.closest && ev.target.closest('.node.kind'); if (k && k.dataset.id === tipKind && S.level === 'estate' && !S.hover) { S.hover = tipKind; lightUp(); } tipKind = null; }
+  });
+  document.addEventListener('mousemove', (ev) => { if (!(ev.movementX || ev.movementY)) return; const t = tipOf(ev.target); if (t && t.hasAttribute('data-tipgo') && !tipPin && tipAt !== t) tipOpen(t, false); }); // peer:design r4
+  document.addEventListener('mouseout', (ev) => { if (!tipAt || tipPin || !tipAt.contains(ev.target)) return; if (ev.relatedTarget && tipAt.contains(ev.relatedTarget)) return; tipClose(); });
+  document.addEventListener('focusin', (ev) => { const t = tipOf(ev.target); if (t) { if (t !== tipAt) tipOpen(t, false); return; } if (tipAt && !tipBox.contains(ev.target)) tipClose(); });
+  document.addEventListener('focusout', (ev) => { if (tipAt && ev.target === tipAt && !tipPin && !(ev.relatedTarget && tipBox.contains(ev.relatedTarget))) tipClose(); });
+  // a tap or a click keeps it open; another, or a tap on the tip, closes it; a tap anywhere else closes it and still does
+  // what was tapped
+  window.addEventListener('click', (ev) => {
+    const t = tipOf(ev.target);
+    if (t && t.hasAttribute('data-tipgo')) { tipClose(); return; } // peer:design r4: a card's tap goes where it goes
+    if (t) { ev.preventDefault(); ev.stopPropagation(); if (tipAt === t && tipPin) tipClose(); else tipOpen(t, true); return; }
+    if (tipAt) tipClose();
+  }, true);
+  window.addEventListener('keydown', (ev) => {
+    const t = tipOf(ev.target);
+    if (t && !t.hasAttribute('data-tipgo') && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); ev.stopPropagation(); if (tipAt === t && tipPin) tipClose(); else tipOpen(t, true); return; }
+    if (ev.key === 'Escape' && tipAt) { const back = tipPin ? tipAt : null; tipClose(); ev.preventDefault(); ev.stopImmediatePropagation(); if (back) back.focus({ preventScroll: true }); }
+  }, true);
+  addEventListener('scroll', () => { if (!tipAt) return; if (tipPin) tipPlace(); else tipClose(); }, true);
+  addEventListener('resize', () => tipClose());
   $('#waits').onclick = () => { if (waitingDs()) decideNow(); else if (decidedDs()) replaceNow(); };
-  window.__explore = { S, go, render, spotlight, models, switchModel, refresh: () => { estateCache = null; spotMemo = { key: '' }; S.ver++; render(); }, getM: () => M, sentence: (r) => sentence(r, false), decideNow, replaceNow, publishFix: (note) => { const dd = decidedDs(); if (dd && dd.pendingFix) replaceFile(dd.id, dd.pendingFix, note); }, toast, openSearch, closePanel, openPanel, PAUSE, HOURGLASS, HALF, ICON, esc, fmt };
+  window.__explore = { S, go, render, spotlight, models, switchModel, refresh: () => { estateCache = null; spotMemo = { key: '' }; S.ver++; render(); }, getM: () => M, sentence: (r) => sentence(r, false), decideNow, replaceNow, publishFix: (note) => { const dd = decidedDs(); if (dd && dd.pendingFix) replaceFile(dd.id, dd.pendingFix, note); }, toast, openSearch, closePanel, openPanel, PAUSE, HOURGLASS, HALF, ICON, esc, fmt, smDay /* peer:design */ };
   const fonts = document.fonts ? Promise.race([Promise.all(['600 15px Geist', '400 13px Geist', '500 13px Geist', '500 13px "Geist Mono"'].map((f) => document.fonts.load(f))), new Promise((r) => setTimeout(r, 2500))]).catch(() => {}) : Promise.resolve();
   fonts.then(() => fromHash()).then(() => { document.body.dataset.ready = '1'; });
 })();

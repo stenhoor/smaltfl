@@ -111,3 +111,41 @@ These are the owner's words turned into pass/fail checks. A screen that fails on
 The prototype, the tools, the briefs, the reviews and this plan all live in the session's scratchpad, which doesn't
 survive the container being reclaimed. The explorer page artifact holds the explorer and the videos, but not the tools.
 To be safe, commit them to the branch or publish them, if the owner agrees.
+
+## Done on 2026-11-23: rounds 3 and 4, run as this plan says
+
+- **Round 3, the owner's five screens, one owner each, two reviewers each:**
+  - the estate map, with counts as ⧗ badges, links in a few words, and Today from one helper (`window.smDay`);
+  - Decide, as one question, now against recommended and one button;
+  - Ctrl K answers, picture first;
+  - the look-inside, as what it is plus Fine today and one number;
+  - the file's view, as its state, what waits and why that matters.
+
+  All five were agreed (the file view after one revision: "held, not wrong").
+- **Round 4, fresh eyes on round 3's screens, plus the two screens named next:**
+  - setup's checks as one checks × days grid;
+  - the receipts as timeline rows;
+  - the opened kind (it had failed five tests), Ctrl K's empty palette and search results, and the seams between
+    round 3's screens.
+
+  All five were agreed (design's file view after one revision).
+- A sixth walkthrough, `v5_today`, starts where the owner starts.
+
+Visible words, mean/max per step, before the peer rounds → now:
+
+| walkthrough | before | now |
+|---|---|---|
+| setup | 364/490 | 308/370 |
+| problem and fix | 521/740 | 228/296 |
+| explore | 295/406 | 153/221 |
+| a little odd | 597/832 | 241/276 |
+| outlier | 541/700 | 248/303 |
+| today | 290/492 | 123/184 |
+
+## Next
+
+- Setup is now the wordiest journey: reading a file (keys, rules) and the gaps step at 300–370 words. Hold it to the
+  seven tests.
+- The build journey's Decide steps (228–248 words) and the day screen's calendar and legend.
+- A fresh-eyes pass by a new reviewer on all six journeys, judged only by the seven tests and the five-second test.
+- The owner's look at the round 3 and 4 before-and-after sheets (`r3/`, `r4/`).
