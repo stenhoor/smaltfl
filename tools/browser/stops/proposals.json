@@ -1,9 +1,113 @@
 [
   {
-    "name": "proposals-ontology",
-    "what": "Larkspur's tour, Wed Feb 7 (the normal day): the Ontology page with backup_jobs open; under it, Proposed from the data (ADR 0022 §5, Q-139, Q-213): the controller column's four values, a band for the last job's common value and the recovery point's three values, each saying what it rests on and what accepting it does, with Accept… and Not now for the owner",
+    "name": "map-estate",
+    "what": "Larkspur's tour, Wed Feb 7 on screen: the Data model opens on its map (ADR 0028 §9, phase 4, the explorer's design): what waits first, as the record has it, without a run: Wed Mar 27 paused, Access reviews arrived empty, 11 outputs waiting on it; then the five kinds of thing with their files and how they relate, a count of what waits on each kind's top edge",
     "day": "Wed 7",
     "view": "ontology",
+    "expect": {
+      "textIn": {
+        "#dm-map .alert": [
+          "Wed Mar 27 is paused",
+          "Access reviews arrived empty",
+          "11",
+          "Decide"
+        ],
+        "#dm-map .node.kind[data-id=\"k:application\"]": [
+          "Application",
+          "2,416 applications",
+          "14 datasets"
+        ],
+        "#dm-map .dm-switch": [
+          "Map",
+          "Rules and files"
+        ]
+      },
+      "count": {
+        "#dm-map .node.kind": 5,
+        "#dm-map .node.kind .kwait": 4
+      }
+    }
+  },
+  {
+    "name": "map-kind",
+    "what": "Application opened: its register, the CMDB, then the evidence about each application, Access reviews marked paused; its neighbours at the edges, each said from its own side in a few words",
+    "day": "Wed 7",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      "#dm-map .node.kind[data-id=\"k:application\"]"
+    ],
+    "expect": {
+      "textIn": {
+        "#dm-map #trail": [
+          "Data model",
+          "Application"
+        ],
+        "#dm-map .stage": [
+          "The register: every application",
+          "Evidence about each application",
+          "1 paused",
+          "owns applications",
+          "hosts applications",
+          "checks applications"
+        ]
+      }
+    }
+  },
+  {
+    "name": "map-file",
+    "what": "Access reviews: its state on the day the map shows, its rows against the days before, the outputs that wait on it and what readers see meanwhile, what one row is and what it is evidence for; Decide opens the day's decision sheet",
+    "day": "Wed 7",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      "#dm-map .node.ds[data-id=\"d:access_reviews\"]"
+    ],
+    "expect": {
+      "textIn": {
+        "#dm-map #trail": [
+          "Data model",
+          "Application",
+          "Access reviews"
+        ],
+        "#dm-map .stage": [
+          "Paused on Wed 27",
+          "1,435",
+          "See Tue Mar 26’s rows",
+          "Decide ›",
+          "11 waiting",
+          "Readers see Tue Mar 26 until you decide",
+          "one per in-scope application",
+          "Quarterly access review"
+        ]
+      }
+    }
+  },
+  {
+    "name": "map-search",
+    "what": "Search, act or ask (Ctrl K) from the file: what waits first, then where you are, then questions this page answers from its own data",
+    "day": "Wed 7",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      "#dm-map .search"
+    ],
+    "expect": {
+      "textIn": {
+        "#dm-map .palette": [
+          "Decide what readers see Wed Mar 27",
+          "Access reviews arrived empty",
+          "Why is Access reviews paused?",
+          "Back to the whole estate"
+        ]
+      }
+    }
+  },
+  {
+    "name": "proposals-ontology",
+    "what": "Larkspur's tour, Wed Feb 7 (the normal day): the Data model's rules and files (the Ontology page as it was) with backup_jobs open; under it, Proposed from the data (ADR 0022 §5, Q-139, Q-213): the controller column's four values, a band for the last job's common value and the recovery point's three values, each saying what it rests on and what accepting it does, with Accept… and Not now for the owner",
+    "day": "Wed 7",
+    "view": "ontology/rules",
     "viewFirst": true,
     "click": ".of-item[data-file=\"backup_jobs\"] .of-row",
     "waitFor": ".of-item.open .pp",
@@ -55,7 +159,7 @@
   {
     "name": "proposals-accept-form",
     "what": "On the Ontology page (backup_jobs left open), the owner taps Accept… on the controller's values: a reason, the day it takes effect from (the next day to arrive, Mon Apr 1, by default) and what it reaches, and Accept, which waits for the reason",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [
       ".pp[data-proposal=\"values:backup_jobs:controller\"] .pp-accept"
@@ -77,7 +181,7 @@
   {
     "name": "proposals-accepted",
     "what": "The reason typed and Accept tapped: the values are a change set in force from Mon Apr 1, recorded at once; the card says so with the reason, and the flow's changes list it",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [
       [
@@ -99,7 +203,7 @@
   {
     "name": "proposals-not-now",
     "what": "Not now on the band for the last job: set aside in this browser, with a way to show it again",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [
       ".pp[data-proposal=\"bands:backup_jobs:last_state\"] .pp-notnow"

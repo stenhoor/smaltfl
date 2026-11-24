@@ -7,6 +7,7 @@
  */
 import { donorBinding, pinnedDdl, type Binding } from '../../examples/sources.js';
 import { deliveriesOf, namedFiles, readDataList, versionsOfDay, type DataList, type Delivered, type PostureProduct } from './datalist.js';
+import type { MapHandle, MapHost, MapLevel } from './datamodel.js';
 import { holidayOf, seasonOf, US_NYC_1, type Calendar } from '../core/calendar.js';
 
 /** The calendar the watched source is judged by (ADR 0010 §2): its days marked on the strips and charts, Election Day
@@ -30,6 +31,7 @@ import { baseOf, carriedSaid, decidedElsewhere, givesWay, leadingHere, notCarrie
 import { holdGroups, loadRoles, possessive, waitingOn, whoseSaid, withRoles } from '../core/deciding.js';
 import { cardFlow, flowCard, flowDay, flowHas, flowLine, flowSaid, givenBy, levelDoc, readersOfFlow, readHere, trailOf, type FlowDay, type RunSaid } from '../core/levels.js';
 import { flowMonthOutcome, flowOff, flowRows, flowRowSaid, onlyFollowed, onlyWaited, scopeFlows, scopeNodes, tierRows, type FlowRow } from '../core/tiers.js';
+import { dataModelOf, dayOfCell, usualOf, type DmModel } from '../core/datamodel.js';
 import { lookOf, sceneHash, type SceneLook, type ScenesFile } from '../core/scenes.js';
 import { briefOf, briefText, type BriefIn, type BriefOption } from '../core/brief.js';
 import { compareSummary, diffKeyOf, diffOf, type RowDiff } from '../core/compare.js';
@@ -6450,6 +6452,7 @@ function eventsLine(day: string): HTMLElement | null {
 /** An event asked for from elsewhere: shown in the register once the Ontology view has drawn its head. */
 let pendingEvent: string | null = null;
 function openEvent(id: string): void {
+  toRulesView();
   pendingEvent = id;
   if (location.hash === '#ontology') showChange();
   else location.hash = '#ontology';
@@ -6546,7 +6549,7 @@ function sincePart(): HTMLElement | null {
 function sinceLine(): HTMLElement | null {
   const since = sinceNow();
   if (!since) return null;
-  return h('p', { class: 'mo-since' }, h('b', {}, 'The ontology changed since you last looked: '), h('a', { class: 'mo-since-go', href: '#ontology' }, `${sinceSaid(since).replace(/\.$/, '')} ›`));
+  return h('p', { class: 'mo-since' }, h('b', {}, 'The ontology changed since you last looked: '), h('a', { class: 'mo-since-go', href: '#ontology/rules' }, `${sinceSaid(since).replace(/\.$/, '')} ›`));
 }
 
 /** What the Ontology view shows in place of itself, where a link or a button asked: a period's digest, or the history
@@ -6751,7 +6754,7 @@ async function renderHistoryPage(view: { from: string; to: string }): Promise<vo
       h('button', { type: 'button', class: 'btn small hp-back', onclick: () => {
         toldView = null;
         void renderOntology();
-      } }, '‹ The Ontology view'),
+      } }, '‹ Rules and files'),
       h('label', { class: 'hp-pick' }, 'From ', from), h('label', { class: 'hp-pick' }, 'to ', to),
       h('button', { type: 'button', class: 'btn small primary hp-print', onclick: () => window.print() }, 'Print'),
       copyActs({ text: () => text, title: `${hist.flow.name}: the ontology’s history, ${periodSaid(view.from, view.to)}`, link: `#ontology/history/${view.from}..${view.to}` })),
@@ -6771,6 +6774,7 @@ async function renderHistoryPage(view: { from: string; to: string }): Promise<vo
 function takeOntologyLink(): void {
   const m = /^#ontology\/(change|event|digest|history)\/(.+)$/.exec(location.hash);
   if (!m) return;
+  toRulesView();
   const [, what, arg] = m as unknown as [string, string, string];
   const period = /^(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})$/.exec(arg);
   if (what === 'change') pendingChange = decodeURIComponent(arg);
@@ -6821,6 +6825,7 @@ function entryWhen(e: RegisterEntry): string {
 let pendingChange: string | null = null;
 function openChange(id: string): void {
   pendingChange = id;
+  toRulesView();
   if (location.hash === '#ontology') showChange();
   else location.hash = '#ontology';
 }
@@ -8308,6 +8313,7 @@ async function setCheck(card: string, id: string, name: CheckName, mode: CheckMo
 
 /** Open the Ontology page at a file's section, where its rules are added and changed. */
 function openFileRules(file: string): void {
+  toRulesView();
   ontologyFiles.open = file;
   ontologyFiles.from = '';
   if (location.hash === '#ontology') void renderOntology().then(() => requestAnimationFrame(() => document.querySelector<HTMLElement>(`.of-item[data-file="${CSS.escape(file)}"]`)?.scrollIntoView({ block: 'start' })));
@@ -8494,6 +8500,7 @@ const MODE_SAID: Record<CheckMode, string> = { hold: 'Stops the day', warn: 'War
 
 /** Open the Ontology page at a file, with one of its checks shown and marked: where the check is defined. */
 function openOntologyCheck(file: string, check: string): void {
+  toRulesView();
   ontologyFiles.open = file;
   ontologyFiles.from = '';
   const mark = () => requestAnimationFrame(() => {
@@ -15468,7 +15475,224 @@ async function renderFiles(stale: () => boolean): Promise<void> {
 }
 
 let ontologyRender = 0;
+// ------------------------------------------------------------------ the Data model's map (ADR 0028 §9, phase 4)
+
+/**
+ * The Data model's views: the map of what the data describes, first; and the rules and files as the page had them,
+ * one tap away. The view and the map's level are kept here: the address stays `#ontology`, so every link and every edit
+ * that draws the page again finds it where it was; a link may name one (`#ontology/rules`, `#ontology/kind/<id>`,
+ * `#ontology/dataset/<id>`), taken once and put back to `#ontology` (`takeDataModelLink`).
+ */
+const dataModelView = { on: 'map' as 'map' | 'rules', level: null as MapLevel };
+let mapHandle: MapHandle | null = null;
+let mapLoad: Promise<typeof import('./datamodel.js')> | null = null;
+
+/** A link that names a view of the Data model, or a level of its map: taken, and the address put back to `#ontology`. */
+function takeDataModelLink(): void {
+  const m = /^#ontology\/(map|rules|kind|dataset)(?:\/([\w-]+))?$/.exec(location.hash);
+  if (!m) return;
+  const [, what, id] = m as unknown as [string, string, string | undefined];
+  dataModelView.on = what === 'rules' ? 'rules' : 'map';
+  if (what === 'kind' && id) dataModelView.level = { kind: id };
+  else if (what === 'dataset' && id) dataModelView.level = { dataset: id };
+  else if (what === 'map') dataModelView.level = null;
+  if (mapHandle && dataModelView.on === 'map') mapHandle.show(dataModelView.level);
+  window.history.replaceState(null, '', '#ontology');
+}
+
+/** The rules and files of the Data model shown, as a link to a place among them (a file's section, a check's line, a
+ * change on the register) asks before it opens the view. */
+const toRulesView = () => {
+  dataModelView.on = 'rules';
+};
+
+/** The switch between the Data model's views, the one on screen pressed. In the map's own line it is drawn by the map's
+ * style sheet (`seg`), on the rules and files by the page's. */
+function dataModelSwitch(): HTMLElement {
+  const go = (on: 'map' | 'rules') => () => {
+    if (dataModelView.on === on) return;
+    dataModelView.on = on;
+    void renderOntology();
+  };
+  const b = (on: 'map' | 'rules', label: string) => h('button', { type: 'button', 'data-dm': on, class: dataModelView.on === on ? 'on' : '', 'aria-pressed': String(dataModelView.on === on), onclick: go(on) }, label);
+  return h('span', { class: 'seg dm-switch', role: 'group', 'aria-label': 'Data model views' }, b('map', 'Map'), b('rules', 'Rules and files'));
+}
+
+/**
+ * The day the map shows: the first day still waiting for a decision, as the month picks it (what needs you leads);
+ * else the day on screen; else the latest day arrived. With the month's facts it is read from.
+ */
+function mapDay(): { day: string | null; days: string[]; entries: RecordEntry[]; waits: Set<string>; outcomes: Map<string, DayOutcome> } {
+  const days = daysShown();
+  const entries = readEntries();
+  const month = monthOf(days, entries, { at: monthView.at, judged: loadSource() });
+  const outcomes = new Map(month.map((d) => [d.day, { day: d.day, ...outcomeOf(calendarDay(d)) } as DayOutcome]));
+  const waits = new Set([...outcomes.values()].filter((o) => o.outcome === 'waiting').map((o) => o.day));
+  const known = [...month].reverse().find((d) => d.state !== 'notRun' && d.state !== 'notArrived')?.day ?? null;
+  const day = days.find((d) => waits.has(d)) ?? viewedDay() ?? known;
+  return { day: day ?? null, days, entries, waits, outcomes };
+}
+
+/** A date as the map says it: "Wed Mar 27". */
+const mapDate = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }).replace(',', '');
+const mapWeekday = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
+
+/**
+ * The map's model now (ADR 0028 §9): the flow's kinds and files as the ontology and the display file give them
+ * (core/datamodel.ts), with the day the map shows added from the record, nothing run for it: each file's state over its
+ * month to that day and on it, its rows against the days before, the outputs that wait on it. A day run here and not
+ * recorded reads from this browser's own record, which the record layers under.
+ */
+function dataModelNow(): DmModel & Record<string, unknown> {
+  const doc = viewDoc();
+  const base = dataModelOf(doc, {
+    columns: (s) => dataList?.sources[s]?.columns,
+    daily: new Set(dataList?.daily ?? []),
+    display: dataList?.datamodel ?? null,
+    // The day a change set began a relation or a dataset described ahead, as the register reads it.
+    since: (key) => {
+      if (!ruleChanges.length) return null;
+      const reg = registerNow();
+      return sinceOf(reg.entries, key, resolvedFor.day ?? reg.today)?.change.from ?? null;
+    },
+  });
+  const { day, days, entries, waits, outcomes } = mapDay();
+  const at = monthView.at;
+  const runsOn = runsByDay(knownOn(entries, at));
+  const lastRun = (d: string): RunAbout | null => {
+    const es = runsOn.get(d) ?? [];
+    for (let i = es.length - 1; i >= 0; i--) {
+      const a = es[i]!.about as RunAbout;
+      if (a.outcome !== 'failed' && typeof a.manifest === 'string') return a;
+    }
+    return null;
+  };
+  const rowsIn = (a: RunAbout | null, id: string): number | null => {
+    const m = a?.manifest ? manifestOf(a.manifest) : null;
+    const n = m?.nodes.find((x) => x.origin === id && typeof x.rows === 'number' && x.op === 'table') ?? m?.nodes.find((x) => x.origin === id && typeof x.rows === 'number');
+    return n?.rows ?? null;
+  };
+  // The days the strips show: the map day's month, to the map day.
+  const strip = day ? days.filter((d) => d.slice(0, 7) === day.slice(0, 7) && d <= day) : [];
+  const before = day ? days.filter((d) => d < day).slice(-28) : [];
+  const files = base.datasets.filter((d) => d.state !== 'awaited');
+  const health = monthHealth(files.map((d) => ({ id: d.id, label: d.short, kind: 'file' as const, origins: [d.id] })), strip, entries, manifestOf, at);
+  const cellsOf = new Map(health.map((r) => [r.id, r.cells]));
+  const run = day ? lastRun(day) : null;
+  const waiting = !!day && waits.has(day);
+  const heldNow = new Set(waiting ? (run?.waiting ?? []) : []);
+  for (const d of files) {
+    const cells = cellsOf.get(d.id) ?? [];
+    d.days = strip.map((x, i) => dayOfCell(cells[i] ?? null, waits.has(x)));
+    d.counts = strip.map((x) => rowsIn(lastRun(x), d.id));
+    d.heads = strip.map((x) => lastRun(x)?.claims?.find((c) => c.source === d.id)?.head ?? null);
+    d.rowsToday = run ? rowsIn(run, d.id) : null;
+    d.rowsUsual = usualOf(before.map((x) => rowsIn(lastRun(x), d.id)));
+    d.state = d.days.at(-1) ?? 'none';
+    if (d.state === 'waiting') {
+      const head = d.heads.at(-1);
+      (d as DmModel['datasets'][number] & { issue?: Record<string, string> }).issue = { why: d.rowsToday === 0 ? 'arrived empty' : head ? `paused: ${head}` : 'paused by its checks' };
+    }
+  }
+  for (const k of base.kinds) k.count = run ? rowsIn(run, k.dataset) : null;
+  for (const o of base.outputs) {
+    o.rows = run ? rowsIn(run, o.id) : null;
+    o.waiting = heldNow.has(o.id);
+  }
+  const last = days.at(-1) ?? null;
+  const prev = day ? (keptThen(day) ?? days.filter((d) => d < day).at(-1) ?? null) : null;
+  const STATE: Partial<Record<Outcome, DmModel['month'][number]['state']>> = { normal: 'ok', unusual: 'warn', waiting: 'waiting', decided: 'decided', kept: 'decided' };
+  return {
+    ...base,
+    day,
+    month: strip.map((x) => ({ day: x, state: STATE[outcomes.get(x)?.outcome ?? 'notRun'] ?? 'none', held: x === day ? [...heldNow] : [] })),
+    markers: [
+      ...ruleChanges.map((c) => ({ day: c.from, kind: 'change' as const, id: c.id })),
+      ...flowEvents().map((e) => ({ day: e.from, kind: 'event' as const, id: e.id, name: e.name })),
+    ],
+    // What the map says around the day: "Today" is the latest day arrived, the date small beside it; the day readers
+    // see while it waits; the words of its weekday.
+    todayIso: last,
+    latest: last ? { iso: last, label: mapDate(last) } : null,
+    dayCtx: day ? {
+      iso: day, today: mapDate(day), wd: mapWeekday(day), d: mapDate(day).replace(/ \w+ /, ' '),
+      ...(prev ? { prev: mapDate(prev), prevIso: prev, pwd: mapWeekday(prev), pd: mapDate(prev).replace(/ \w+ /, ' ') } : {}),
+      first: strip[0] ? mapDate(strip[0]) : mapDate(day),
+    } : undefined,
+    replaceable: false,
+    onDecideBanner: () => day && openDecision(day),
+  };
+}
+
+/** What the page does for the map: its model, its level, Decide on the day's sheet, a card on its day. */
+const mapHost: MapHost = {
+  model: () => dataModelNow(),
+  level: () => dataModelView.level,
+  navigate: (level) => {
+    dataModelView.level = level;
+  },
+  decide: (day) => {
+    const d = day ?? mapDay().day;
+    if (d) openDecision(d);
+  },
+  openCard: (id, tab, on) => {
+    const day = on ?? mapDay().day;
+    const card = [...state.doc.sources, ...state.doc.steps].some((x) => x.id === id) ? id : null;
+    if (!card) return;
+    if (!day) return void select(card);
+    pendingLook = { day, label: dayLabel(day), card, tab: tab === 'data' ? 'data' : 'happened' };
+    if (location.hash === dayHash(day)) showView();
+    else location.hash = dayHash(day);
+  },
+  ready: () => undefined,
+};
+
+/** The map drawn in the Data model's first view: its bundle loaded the first time, then given the model now. */
+async function renderDataModelMap(): Promise<void> {
+  const el = $('dm-map');
+  if (mapHandle) return void mapHandle.setModel(dataModelNow());
+  mapLoad ??= import(/* @vite-ignore */ new URL('./datamodel.js', import.meta.url).href) as Promise<typeof import('./datamodel.js')>;
+  const mod = await mapLoad;
+  // Another draw may have mounted it while the bundle loaded.
+  const mounted = mapHandle as MapHandle | null;
+  if (mounted) return void mounted.setModel(dataModelNow());
+  mapHandle = mod.mountDataModel(el, mapHost, dataModelSwitch());
+}
+
+// Ctrl K (⌘K) and "/" open the map's search from anywhere on the page but a field being typed in: the Data model's view
+// first, where it isn't on screen.
+document.addEventListener('keydown', (e) => {
+  const k = e.key === 'k' && (e.ctrlKey || e.metaKey);
+  const slash = e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey;
+  if (!k && !slash) return;
+  // The field typed in, inside the map's shadow root too (where the page sees the event come from its host).
+  const t = (e.composedPath()[0] ?? e.target) as HTMLElement | null;
+  if (t instanceof HTMLElement && (t.isContentEditable || /^(input|textarea|select)$/i.test(t.tagName) || t.closest('.cm-editor, [contenteditable="true"]'))) return;
+  if (slash && $('view-ontology').hidden) return;
+  e.preventDefault();
+  dataModelView.on = 'map';
+  const open = () => void renderDataModelMap().then(() => mapHandle?.openSearch());
+  if (location.hash === '#ontology') {
+    if ($('dm-map').hidden) void renderOntology().then(open);
+    else open();
+  } else {
+    location.hash = '#ontology';
+    setTimeout(open, 0);
+  }
+});
+
 async function renderOntology(): Promise<void> {
+  // The Data model's views (ADR 0028 §9): the map first, the rules and files one tap away.
+  const onMap = dataModelView.on === 'map' && !toldView;
+  $('dm-map').hidden = !onMap;
+  $('dm-rules').hidden = onMap;
+  $('dm-rules-head').replaceChildren(dataModelSwitch());
+  if (onMap) {
+    mapHandle?.show(dataModelView.level);
+    return renderDataModelMap();
+  }
+  mapHandle?.closePanel(true);
+  mapHandle?.closeSearch();
   const engine = state.engine;
   // A newer render (the viewer changed, an object was chosen) wins over one still waiting on the engine.
   const token = ++ontologyRender;
@@ -17561,7 +17785,7 @@ function gatePart(k: number): HTMLElement | null {
         stop.arrivals.length > 1 && may && !forming ? ticks[i]! : '', h('span', {}, `${arrivalSaid(rule, entry, changed)}. ${plural(n, 'row carries', 'rows carry')} it.${endedAtGate(rule, entry[0] ?? '')}`)))),
       stop.more ? h('p', { class: 'foot' }, `And ${plural(stop.more, 'more')}, not named: that many at once is more likely a file gone wrong than the business changing.`) : '',
       stop.reaches.length ? h('p', { class: 'gt-waits' }, waits(stop.reaches)) : '',
-      waitingKeys.length ? h('p', { class: 'gt-agree' }, h('b', {}, `${listed(waitingKeys.map((key) => gateKey(rule, key)))} ${waitingKeys.length === 1 ? 'is' : 'are'} declared, `), `and the declaration ${declared.get(waitingKeys[0]!.toLowerCase())!}: until then it is in force on no day, and the day stays as it is. `, h('a', { href: '#ontology' }, 'On the register ›')) : '',
+      waitingKeys.length ? h('p', { class: 'gt-agree' }, h('b', {}, `${listed(waitingKeys.map((key) => gateKey(rule, key)))} ${waitingKeys.length === 1 ? 'is' : 'are'} declared, `), `and the declaration ${declared.get(waitingKeys[0]!.toLowerCase())!}: until then it is in force on no day, and the day stays as it is. `, h('a', { href: '#ontology/rules' }, 'On the register ›')) : '',
       forming ? formFor(stop, forming.entries)
         : may ? h('p', { class: 'cm-ask gt-ask' },
           allDeclared ? '' : ask('declare', 'primary gt-declare', 'Declare it ›'),
@@ -22007,6 +22231,7 @@ function openDay(day: string, version: number | null = null, level = false): voi
 
 function showView(): void {
   takeOntologyLink();
+  takeDataModelLink();
   const { view, day, version, look, month, level } = routeOf(location.hash);
   // The history's page is the Ontology view's while it is on screen: any other view puts the page back as it was.
   if (view !== 'ontology' && document.body.dataset.told) {
@@ -22122,6 +22347,12 @@ async function start(): Promise<void> {
   picker.value = state.viewer;
   picker.addEventListener('change', () => setViewer(picker.value));
   window.addEventListener('hashchange', showView);
+  // The Data model's tab opens its map at the whole estate, wherever the view was left (ADR 0028 §9).
+  $('tab-ontology').addEventListener('click', () => {
+    dataModelView.on = 'map';
+    dataModelView.level = null;
+    if (location.hash === '#ontology') void renderOntology();
+  });
   let resize = 0;
   window.addEventListener('resize', () => {
     cancelAnimationFrame(resize);

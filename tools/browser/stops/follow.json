@@ -137,7 +137,7 @@
   {
     "name": "register-trial",
     "what": "What a change would have done on the days before it is said on its entry in the register (ADR 0027 §2, Q-259): the band's test, just run from its flow's sheet, reads the same there, with its figures",
-    "view": "ontology",
+    "view": "ontology/rules",
     "element": "#rules-time .rg-item[data-change=\"waf-band-tenth\"]",
     "expect": {
       "textIn": {

@@ -226,7 +226,7 @@
   {
     "name": "doors-ontology",
     "what": "The Ontology view after it: what was made here says the source added, with its reason, and the first line still says the ontology comes first: every file says what one row is, and every column is described or set aside",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "full": true,
     "expect": {
@@ -430,7 +430,7 @@
       ],
       ".vf-detail .df-go"
     ],
-    "view": "ontology",
+    "view": "ontology/rules",
     "waitFor": "#rules-time .aw-item[data-awaited=\"risk_register\"]",
     "element": "#rules-time .aw",
     "expect": {
@@ -523,7 +523,7 @@
   {
     "name": "doors-has-data",
     "what": "The Ontology view: the description stays, the record of what was asked for, and says the dataset has its data by now",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "element": "#rules-time .aw",
     "expect": {

@@ -102,6 +102,14 @@ main {
   max-width: 1180px; margin: 0 auto; box-sizing: border-box;
 }
 section.view { display: grid; gap: 14px; }
+/* The Data model (ADR 0028 §9): its map fills the view edge to edge under the header, in its own shadow root
+   (src/app/datamodel/explorer.css); the rules and files keep the page's frame, the switch between the two at their head. */
+body:has(#view-ontology:not([hidden]) #dm-map:not([hidden])) main { padding: 0; max-width: none; }
+#view-ontology:has(#dm-map:not([hidden])) { gap: 0; }
+.dm-map { display: block; min-width: 0; }
+.dm-rules { display: grid; gap: 14px; min-width: 0; }
+.dm-head { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; }
+.dm-title { margin: 0; font-size: 24px; line-height: 32px; font-weight: 600; }
 .lede { margin: 0; color: var(--ink-2); max-width: 62ch; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); margin: 0; padding: 0; list-style: none; }
 .legend li { display: flex; align-items: center; gap: 6px; }
@@ -2895,7 +2903,7 @@ div.fl-row.fl-given > .fl-row-go { align-self: center; padding-right: 10px; }
   <nav class="tabs" aria-label="Views">
     <a href="#month" id="tab-month" hidden>Month</a>
     <a href="#flow" id="tab-flow" aria-current="page">Day</a>
-    <a href="#ontology" id="tab-ontology">Ontology</a>
+    <a href="#ontology" id="tab-ontology">Data model</a>
     <a href="#policies" id="tab-policies">Policies</a>
     <a href="#results" id="tab-results">Results</a>
     <a href="#runs" id="tab-runs">Record</a>
@@ -2932,9 +2940,12 @@ div.fl-row.fl-given > .fl-row-go { align-self: center; padding-right: 10px; }
     </div>
   </section>
 
-  <section class="view" id="view-ontology" aria-label="Ontology" hidden>
-    <p class="lede">Each file the flow reads, then each dataset it makes that a gate judges: what its columns hold, and the checks its data is held to. Each check’s state today is beside it, a tap from the file’s card.</p>
+  <section class="view" id="view-ontology" aria-label="Data model" hidden>
+    <div id="dm-map" class="dm-map" role="region" aria-label="The data model as a map: kinds of thing, how they relate, and the files that describe them"></div>
     <div id="history-page" role="region" aria-label="The ontology’s history, for an auditor" hidden></div>
+    <div id="dm-rules" class="dm-rules" hidden>
+    <div class="dm-head"><h1 class="dm-title">Data model</h1><span id="dm-rules-head"></span></div>
+    <p class="lede">Each file the flow reads, then each dataset it makes that a gate judges: what its columns hold, and the checks its data is held to. Each check’s state today is beside it, a tap from the file’s card.</p>
     <div id="ontology-estate" role="region" aria-label="Where the ontology comes from" hidden></div>
     <div id="rules-time" role="region" aria-label="The rules over time" hidden></div>
     <div id="flow-edits" role="region" aria-label="Changes made to this flow here" hidden></div>
@@ -2944,6 +2955,7 @@ div.fl-row.fl-given > .fl-row-go { align-self: center; padding-right: 10px; }
     <div id="ontology-map" hidden></div>
     <div class="panel" id="objects" hidden><p class="foot">Choose an object type to see its objects.</p></div>
     <div class="panel" id="edits" hidden></div>
+    </div>
   </section>
 
   <section class="view" id="view-policies" aria-label="Policies" hidden>

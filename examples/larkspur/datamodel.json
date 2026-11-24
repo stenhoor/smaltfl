@@ -1,0 +1,60 @@
+{
+  "format": "smaltfl-datamodel/1",
+  "kinds": {
+    "org_unit": { "icon": "org", "one": "unit", "many": "units" },
+    "person": { "icon": "person", "one": "person", "many": "people" },
+    "application": { "icon": "app", "one": "application", "many": "applications" },
+    "platform": { "icon": "platform", "one": "platform", "many": "platforms" },
+    "control": { "icon": "control", "one": "control", "many": "controls" }
+  },
+  "datasets": {
+    "hr_org_units": { "short": "Org units" },
+    "hr_people": { "short": "People" },
+    "cmdb_apps": { "short": "CMDB" },
+    "findings": { "short": "Findings" },
+    "tls": { "short": "TLS" },
+    "waf": { "short": "WAF" },
+    "pentest_schedule": { "short": "Pen tests" },
+    "encryption": { "short": "Encryption" },
+    "key_rotation": { "short": "Key rotation" },
+    "backup_jobs": { "short": "Backups" },
+    "dr_exercises": { "short": "DR exercises" },
+    "mfa": { "short": "MFA" },
+    "access_reviews": { "short": "Access reviews" },
+    "logging_coverage": { "short": "Logging" },
+    "privileged_vault": { "short": "Vault" },
+    "edr_coverage": { "short": "EDR" },
+    "sbom_inventory": { "short": "SBOM inventory" },
+    "cloud_assets": { "short": "Cloud assets", "kind": "platform" },
+    "platforms": { "short": "Platform list" },
+    "platform_links": { "short": "Platform links", "kind": "platform" },
+    "control_catalog": { "short": "Control catalogue" },
+    "control_requirements": { "short": "Requirements", "kind": "control" },
+    "exceptions": { "short": "Exceptions", "kind": "control" }
+  },
+  "joins": [
+    { "from": "hr_people", "col": "org_unit_id", "to": "hr_org_units", "toCol": "org_unit_id", "rel": "works in" },
+    { "from": "exceptions", "col": "approver_id", "to": "hr_people", "toCol": "person_id", "rel": "approved by" },
+    { "from": "cloud_assets", "col": "app_tag", "to": "cmdb_apps", "toCol": "app_id", "rel": "tagged with" },
+    { "from": "control_catalog", "col": "depends_on", "to": "control_catalog", "toCol": "control_id", "rel": "depends on" }
+  ],
+  "evidence": {
+    "kind": "control",
+    "rel": "evidence for",
+    "datasets": {
+      "tls": { "id": "tls", "name": "TLS on exposed endpoints" },
+      "waf": { "id": "waf", "name": "Web application firewall" },
+      "pentest_schedule": { "id": "pentest", "name": "Yearly penetration test" },
+      "encryption": { "id": "encryption", "name": "Encryption at rest" },
+      "key_rotation": { "id": "key_rotation", "name": "Yearly key rotation" },
+      "backup_jobs": { "id": "backup", "name": "Backups within the recovery point" },
+      "dr_exercises": { "id": "dr_exercise", "name": "Yearly disaster-recovery exercise" },
+      "findings": { "id": "vuln_sla", "name": "Vulnerabilities fixed within their SLA" },
+      "mfa": { "id": "mfa", "name": "MFA enforced" },
+      "access_reviews": { "id": "access_review", "name": "Quarterly access review" },
+      "logging_coverage": { "id": "logging", "name": "Central logging" },
+      "privileged_vault": { "id": "privileged_access", "name": "Privileged accounts vaulted" },
+      "edr_coverage": { "id": "edr", "name": "Endpoint detection" }
+    }
+  }
+}

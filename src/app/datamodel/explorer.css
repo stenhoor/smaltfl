@@ -1,0 +1,1976 @@
+/* The Data model's map (ADR 0028 §9), as the explorer prototype drew it (tools/explorer/), inside its own shadow root:
+   the app's colour roles and type scale read through, nothing here leaking out and nothing of the page's styles
+   leaking in. src/app/datamodel/explorer.js draws it; test/style-system.test.ts holds this sheet to the same sizes,
+   weights and roles as the page's. */
+:host {
+  display: block; position: relative; height: calc(100dvh - var(--head, 112px)); min-height: 520px;
+  color: var(--ink); font: 15px/1.45 var(--font); -webkit-text-size-adjust: 100%;
+  --shadow-1: 0 1px 2px rgb(8 11 18 / .05), 0 2px 6px rgb(8 11 18 / .04);
+  --shadow-2: 0 1px 2px rgb(8 11 18 / .05), 0 12px 32px -8px rgb(8 11 18 / .16);
+  --shadow-3: 0 2px 4px rgb(8 11 18 / .06), 0 20px 44px -12px rgb(8 11 18 / .26);
+  /* The prototype's own scale and semantic names, on the page's roles. A file's tile is a tone between the sunk surface
+     and the card it sits on. */
+  --fs-1: 11px; --fs-2: 12px; --fs-3: 13px; --fs-4: 15px; --fs-5: 17px; --fs-6: 20px; --fs-7: 24px;
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px;
+  --r-1: 6px; --r-2: 10px;
+  --text-primary: var(--ink); --text-secondary: var(--ink-2); --text-muted: var(--muted); --action-primary: var(--action);
+  --border-subtle: var(--line); --surface-raised: var(--surface); --surface-sunk: color-mix(in srgb, var(--sunk) 60%, var(--surface));
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+  /* The pause mark as a shape, drawn in the role's colour through it. */
+  --pz-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M8 .5a7.5 7.5 0 1 0 0 15A7.5 7.5 0 0 0 8 .5zM4.9 5.6a1.2 1.2 0 0 1 2.4 0v4.8a1.2 1.2 0 0 1-2.4 0zM8.7 5.6a1.2 1.2 0 0 1 2.4 0v4.8a1.2 1.2 0 0 1-2.4 0z'/%3E%3C/svg%3E");
+}
+/* The Data model as a map to explore: kinds of thing and how they relate, a kind opened with its neighbours at the
+   edges, a dataset's neighbourhood. Neutral with depth: white cards on a dotted canvas, soft shadows, one icon a
+   kind, grey connections; red only for what needs you. */
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; }
+.app { display: grid; grid-template-rows: auto auto auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); height: 100%; }
+.alertslot:empty { display: none; }
+.app > .trailbar { grid-row: 2; }
+.app > .alertslot { grid-row: 3; }
+.app > .canvas { grid-row: 4; }
+/* the app's bar, as on every page */
+.search { margin-left: auto; display: flex; align-items: center; gap: 8px; min-width: 280px; padding: 7px 10px; border: 1px solid var(--edge-control); border-radius: 6px; background: var(--surface); color: var(--muted); }
+.search { cursor: pointer; }
+.search:hover { border-color: var(--action); }
+.kbd { white-space: nowrap; font-family: var(--mono); font-size: 12px; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; background: var(--row-alt); margin-left: auto; }
+/* the explorer's own line: where you are, and what you can do */
+.trailbar { display: flex; align-items: center; gap: 12px; flex-wrap: nowrap; padding: 12px max(16px, env(safe-area-inset-left, 0px)) 0; position: relative; z-index: 3; }
+.trail { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 17px; }
+.trail h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 600; }
+.trail button { border: 0; background: none; padding: 2px 4px; border-radius: 6px; cursor: pointer; color: var(--action); font-size: 17px; }
+.trail button:hover { background: var(--action-wash); }
+.trail .sep { color: var(--muted); }
+.trail .here { font-weight: 600; }
+.tools { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; flex: none; }
+.trail { flex: none; }
+.btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--edge-control); background: var(--surface); color: var(--ink); font-weight: 500; cursor: pointer; white-space: nowrap; }
+.btn:hover { border-color: var(--action); color: var(--action); }
+.btn.primary { background: var(--action); border-color: var(--action); color: var(--surface); }
+.seg { display: inline-flex; border: 1px solid var(--edge-control); border-radius: 6px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; background: none; padding: 6px 12px; cursor: pointer; font-weight: 500; color: var(--ink-2); font-size: 13px; }
+.seg button.on { background: var(--action-wash); color: var(--action); }
+/* the canvas */
+.canvas { position: relative; overflow: hidden; background-color: var(--bg); background-image: radial-gradient(circle, var(--line) 1px, transparent 1.3px); background-size: 22px 22px; }
+.stage { position: absolute; inset: 0; transform-origin: 0 0; }
+.links { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; transition: opacity .18s; }
+.links.off { opacity: 0; }
+.links.drawing .ln:not(.dash) { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw .55s cubic-bezier(.3, .7, .2, 1) forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.lab.enter { animation: labIn .32s .28s both; }
+@keyframes labIn { from { opacity: 0; } }
+.ln { fill: none; stroke: var(--edge-control); stroke-width: 1.5; }
+.ln.bundle { stroke-width: 3; stroke-opacity: .8; }
+.ln.bad { stroke: var(--bad); stroke-width: 2; }
+.ln.dash { stroke-dasharray: 4 4; }
+.ln.conn { stroke-width: 2; stroke-linecap: round; }
+.ah { fill: var(--edge-control); }
+.ah.bad { fill: var(--bad); }
+.lab { position: absolute; transform: translate(-50%, -50%); padding: 2px 9px; border-radius: 10px; line-height: 16px; text-align: center; background: var(--surface); border: 1px solid var(--line); font-size: 12px; color: var(--ink-2); white-space: nowrap; pointer-events: none; box-shadow: var(--shadow-1); transition: opacity .18s; }
+.lab:not(.tag):not(.bad) { background: color-mix(in srgb, var(--bg) 92%, transparent); border-color: transparent; box-shadow: none; }
+.lab.opens { pointer-events: auto; cursor: pointer; font-family: var(--font); font-size: 12px; color: var(--ink-2); border-color: var(--line) !important; background: var(--surface) !important; }
+.lab.taps { pointer-events: auto; cursor: pointer; font: inherit; font-size: 12px; }
+.lab.taps:hover { background: var(--surface) !important; border-color: var(--line) !important; }
+.lab.taps[aria-expanded="true"] { background: var(--surface) !important; border-color: var(--action) !important; }
+.lab .lm { display: block; font-size: 12px; line-height: 15px; font-weight: 600; color: var(--action); margin-top: 2px; }
+.lab.conn-lab { font-size: 11px; line-height: 14px; padding: 0 6px; color: var(--ink-2); background: var(--bg) !important; }
+.lab.opens:hover { border-color: var(--action); color: var(--action); }
+.lab.bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
+.lab b { font-weight: 600; }
+.lab .lv { display: block; font-weight: 500; color: var(--ink); line-height: 15px; }
+.lab .lw { display: block; font-size: 11px; line-height: 15px; color: var(--muted); }
+.lab .lsep { display: block; height: 5px; }
+.lab.tag { transform: translate(0, -100%); white-space: normal; border-color: var(--action); color: var(--action); font-weight: 500; z-index: 5; text-align: left; border-radius: 8px; padding: 3px 8px; }
+.node { position: absolute; left: 0; top: 0; will-change: transform; }
+/* a kind */
+.kind { background: var(--surface); border: 1px solid color-mix(in srgb, var(--ink) 6%, transparent); border-radius: 18px; box-shadow: var(--shadow-2); }
+.kind.hit { cursor: pointer; transition: box-shadow .18s, border-color .18s, opacity .15s; }
+.kind.hit:hover { border-color: var(--action); box-shadow: var(--shadow-3); }
+.khead { position: absolute; left: 14px; right: 14px; top: 12px; display: flex; align-items: center; gap: 10px; pointer-events: none; }
+.kicon { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--row-alt); display: grid; place-items: center; }
+.kicon svg { width: 19px; height: 19px; fill: none; stroke: var(--ink-2); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.kname { font-weight: 600; font-size: 17px; line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kcount { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.kbad { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--bad); background: var(--bad-wash); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.kself { position: absolute; left: 58px; top: 54px; font-size: 12px; color: var(--ink-2); white-space: nowrap; pointer-events: none; }
+.ksays { position: absolute; left: 58px; right: 14px; display: grid; gap: 2px; font-size: 13px; line-height: 16px; color: var(--ink-2); pointer-events: none; }
+.ksays span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 10px; position: relative; }
+.ksays span::before { content: ''; position: absolute; left: 0; top: 7px; width: 4px; height: 4px; border-radius: 50%; background: var(--edge-control); }
+.krel { color: var(--ink-2); font-weight: 500; }
+.kbad.sm { margin-left: 4px; padding: 1px 6px; vertical-align: 1px; }
+.kind > .kwait { position: absolute; top: -11px; right: 16px; z-index: 1; font-size: 12px; line-height: 18px; font-weight: 500; color: var(--ink-2); white-space: nowrap; background: var(--surface); border: 1px solid var(--edge-control); border-radius: 999px; padding: 1px 9px; pointer-events: none; }
+.kind.compact > .kwait { top: -10px; right: 12px; font-size: 12px; line-height: 17px; padding: 0 8px; }
+.st.waits { color: var(--ink-2); background: var(--sunk); }
+svg.half { width: .95em; height: .95em; vertical-align: -.12em; display: inline-block; }
+.alert .ai svg.half { width: 18px; height: 18px; vertical-align: -3px; }
+.kcount { overflow: hidden; text-overflow: ellipsis; }
+.kind.port .kcount { white-space: normal; line-height: 16px; overflow: visible; }
+.mosaic { position: absolute; left: 14px; right: 14px; bottom: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 3px; pointer-events: none; }
+.mosaic .mc { font-size: 12px; line-height: 12px; color: var(--muted); margin-left: 5px; white-space: nowrap; }
+.mosaic i { width: 9px; height: 9px; border-radius: 2px; background: color-mix(in srgb, var(--edge-control) 30%, var(--surface)); }
+.mosaic i.waiting { background: linear-gradient(90deg, var(--bad) 0 36%, transparent 36% 64%, var(--bad) 64%); border-radius: 1px; }
+.mosaic i.warn { background: var(--warn); transform: rotate(45deg) scale(.86); border-radius: 1px; }
+.mosaic i.awaited { background: transparent; border: 1px dashed var(--edge-control); border-radius: 50%; }
+.kind.port { border-radius: 14px; box-shadow: var(--shadow-1); }
+.kind.port .khead { top: 10px; }
+.kind.port .kicon { width: 30px; height: 30px; }
+.kind.port .kname { font-size: 15px; }
+/* a kind at ten times the size: a tile, its name and how many, its datasets as squares */
+.kind.compact { border-radius: 14px; }
+.kind.compact .khead { top: 10px; gap: 10px; }
+.kind.compact .kicon { width: 30px; height: 30px; }
+.kind.compact .kicon svg { width: 17px; height: 17px; }
+.kind.compact .kname { font-size: 15px; }
+.kind.compact .kn { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 4px; }
+.kind.compact .mosaic { left: 54px; right: 12px; top: 44px; bottom: auto; gap: 3px; }
+.kind.compact .mosaic i { width: 8px; height: 8px; }
+.mosaic i.decided { background: linear-gradient(90deg, var(--warn) 50%, transparent 50%); box-shadow: inset 0 0 0 1px var(--warn); border-radius: 50%; }
+.mosaic i.me { outline: 2px solid var(--action); outline-offset: 1px; }
+.kind.compact .kself { left: 54px; top: auto; bottom: 9px; font-size: 12px; }
+.kind.compact .kflags { position: absolute; left: 54px; right: 12px; display: flex; gap: 10px; font-size: 12px; line-height: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; pointer-events: none; }
+.kflags .waiting { color: var(--bad); font-weight: 600; }
+.kflags .warn { color: var(--warn); font-weight: 600; }
+.kflags .decided { color: var(--ok); font-weight: 600; }
+.kind.compact .krels { position: absolute; left: 54px; right: 12px; top: 66px; display: grid; gap: 0; pointer-events: none; }
+.kind.compact .krels .ks { font-size: 13px; line-height: 16px; font-weight: 500; color: var(--ink); margin-top: 4px; }
+.kind.compact .krels .kv { font-size: 12px; line-height: 15px; color: var(--ink-2); text-align: left; }
+.kind.compact .krels button.kv { pointer-events: auto; border: 0; background: none; padding: 0; font-family: var(--font); cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; justify-self: start; }
+.kind.compact .krels button.kv:hover, .kind.compact .krels button.kv[aria-pressed="true"] { color: var(--action); text-decoration-style: solid; }
+.gname { position: absolute; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; line-height: 18px; }
+.gname.area { color: var(--ink-2); border-bottom: 1px solid var(--line); }
+@media (max-width: 760px) {
+.gname { white-space: normal; }
+.ophead { flex-wrap: wrap; row-gap: 8px; }
+.ostate { margin-left: 62px; justify-content: flex-start; }
+}
+/* a kind opened: its own head, its themes as sections of chips */
+.kind.open { border-radius: 20px; box-shadow: var(--shadow-3); }
+.ophead { position: absolute; left: 22px; right: 22px; top: 18px; display: flex; align-items: center; gap: 14px; pointer-events: none; }
+.kind.open .kicon { width: 48px; height: 48px; background: var(--action-wash); }
+.kind.open .kicon svg { width: 24px; height: 24px; stroke: var(--action); }
+.opt { min-width: 0; }
+.oname { font-size: 20px; line-height: 28px; font-weight: 600; }
+.osub { font-size: 13px; color: var(--muted); }
+.ostate { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.st { font-size: 12px; font-weight: 600; border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.st.bad { color: var(--bad); background: var(--bad-wash); }
+.st.warn { color: var(--warn); background: var(--warn-wash); }
+.stage.hovering .ds.lit { border-color: var(--action); box-shadow: 0 0 0 2px color-mix(in srgb, var(--action) 22%, transparent); }
+.stage.hovering .kind.lit:not(.open) { border-color: color-mix(in srgb, var(--ink) 32%, transparent); }
+/* the kind pointed at: the one ring in the action's colour; it is what a click opens */
+.stage.hovering .kind.hot { border-color: var(--action); box-shadow: 0 0 0 3px color-mix(in srgb, var(--action) 22%, transparent), var(--shadow-3); }
+.stage[data-level="estate"].hovering .ds.lit { border-color: color-mix(in srgb, var(--ink) 30%, var(--line)); box-shadow: none; }
+/* its lines: dark, drawn out from it one after another, round every other kind */
+.ln.spot { stroke: var(--ink-2); stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.ln.spot.grow { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw .46s cubic-bezier(.3, .7, .2, 1) forwards; }
+.lab.tag.spot { transform: none; text-align: left; color: var(--ink-2); background: var(--surface); border: 1px solid color-mix(in srgb, var(--ink) 14%, var(--line)); border-left: 3px solid var(--ink-2); border-radius: 6px; box-shadow: var(--shadow-1); padding: 3px 8px; }
+.lab.tag.spot .tl { display: block; }
+.lab.tag.spot .tl + .tl { margin-top: 4px; }
+.lab.tag.spot .tl.tmore { font-size: 11px; color: var(--muted); }
+.node.kind.tagged .kname[data-via] .kn { display: none; }
+.node.kind.tagged .kname[data-via]::after { content: '· ' attr(data-via); margin-left: 3px; font-size: 11px; font-weight: 500; color: var(--ink-2); }
+.node.kind.grown { transition: height .18s cubic-bezier(.2, 0, 0, 1); z-index: 1; }
+.node.kind.tagged > :not(.khead):not(.kwait) { visibility: hidden; }
+.stage .lab.tag.spot { padding: 2px 8px 3px; }
+.lab.tag.spot.clip .tl { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--cl, 2); overflow: hidden; }
+.lab.tag.spot b { color: var(--ink); font-weight: 600; }
+.lab.tag.spot.grow { animation: tagIn .26s ease both; }
+@keyframes tagIn { from { opacity: 0; translate: 0 3px; } }
+.lab kbd { font: 500 11px var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--surface); }
+.legend.inbar .lt b { color: var(--ink); font-weight: 600; }
+.legend.inbar .lt kbd { font: 500 12px var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; background: var(--surface); }
+/* what the pause touches, in the problem's colour */
+.stage.reaching.hovering .kind.lit:not(.open) { border-color: transparent; outline: 2px dashed var(--edge-control); outline-offset: 3px; box-shadow: var(--shadow-2); }
+.stage.reaching.hovering .ds.lit { border-color: var(--bad); box-shadow: none; }
+.lab.tag.bad { border-color: var(--edge-control); color: var(--ink-2); background: var(--surface); }
+.alert .link[aria-pressed="true"] { font-weight: 600; }
+/* an area of the estate: a frame and a label, as sections are everywhere */
+.domain { border: 1.5px dashed color-mix(in srgb, var(--edge-control) 55%, transparent); border-radius: 22px; background: color-mix(in srgb, var(--surface) 35%, transparent); pointer-events: none; z-index: 0; }
+.dmn { position: absolute; left: 20px; top: 12px; font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+/* what a paused file holds up */
+.reach { border-radius: 10px; background: var(--bad-wash); display: flex; align-items: center; gap: 8px; padding: 0 12px; cursor: pointer; white-space: nowrap; overflow: hidden; font-size: 13px; }
+.reach .ri { color: var(--bad); font-weight: 600; }
+.reach b { color: var(--bad); font-weight: 600; }
+.reach span { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; }
+.reach u { margin-left: auto; color: var(--action); text-underline-offset: 2px; }
+.reach:hover u { text-decoration-thickness: 2px; }
+/* the rest of a theme, one tap away */
+.more { border-radius: 10px; border: 1px dashed var(--edge-control); background: color-mix(in srgb, var(--surface) 55%, transparent); display: grid; align-content: center; gap: 1px; padding: 6px 12px; cursor: pointer; }
+.more:hover { border-color: var(--action); background: var(--surface); }
+.more b { font-size: 15px; font-weight: 600; color: var(--action); }
+.more { justify-items: center; }
+.more span { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.waitpill { border: 0; border-radius: 999px; background: var(--bad-wash); color: var(--bad); font-weight: 500; font-size: 13px; padding: 6px 12px; cursor: pointer; }
+.waitpill u { color: var(--action); text-underline-offset: 2px; }
+.waitpill.done { background: var(--ok-wash); color: var(--ok); }
+.waitpill.owed { background: var(--action-wash); color: var(--action); }
+.legend .lg { font-weight: 600; margin-right: 5px; }
+.legend .lg.ok { color: var(--ok); }
+.legend .lg.owed { color: var(--ink-2); }
+.legend .lg.bad { color: var(--bad); }
+.legend .lg.warn { color: var(--warn); }
+.legend .lg.aw { color: var(--muted); }
+.legend .q { display: inline-block; width: 9px; height: 9px; border-radius: 2px; background: color-mix(in srgb, var(--edge-control) 30%, var(--surface)); vertical-align: -1px; margin: 0 5px 0 0; }
+.legend.inbar { display: flex; align-items: center; gap: 4px 14px; flex-wrap: wrap; font-size: 12px; line-height: 18px; height: 18px; overflow: hidden; flex: 1 1 auto; min-width: 0; color: var(--muted); margin-left: 8px; }
+.legend.inbar span { white-space: nowrap; }
+.legend.inbar .lt { color: var(--ink-2); }
+@media (max-width: 1100px) {
+.legend.inbar .lt { display: none; }
+}
+.legend .q.warn { background: var(--warn); transform: rotate(45deg) scale(.86); }
+.legend .q.bad { background: linear-gradient(90deg, var(--bad) 0 36%, transparent 36% 64%, var(--bad) 64%); }
+.legend .q.aw { background: transparent; border: 1px dashed var(--edge-control); border-radius: 50%; }
+/* a dataset */
+.ds { border-radius: 10px; background: var(--surface); border: 1px solid var(--line); cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 0 10px; overflow: hidden; }
+.ds:hover { border-color: var(--action); }
+.ds .dn { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds .dn, .ds .dt { transition: opacity .22s; }
+.ds.fromsq .dn, .ds.fromsq .dt, .ds.tosq .dn, .ds.tosq .dt { opacity: 0; }
+.ds .dt { margin-left: auto; font-size: 13px; white-space: nowrap; color: var(--ink-2); }
+.ds.waiting { background: var(--bad-wash); border-color: var(--bad); }
+.ds.waiting .dt { color: var(--bad); font-weight: 600; }
+.ds.awaited { background: transparent; border: 1px dashed var(--edge-control); }
+.ds.warn { border-color: color-mix(in srgb, var(--warn) 50%, var(--line)); }
+.ds.warn .dt { color: var(--warn); font-weight: 600; }
+.ds.decided { border-color: color-mix(in srgb, var(--warn) 50%, var(--line)); }
+.ds.decided .dt { color: var(--warn); font-weight: 600; }
+.ds.fixed { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+.ds.fixed .dt { color: var(--ok); font-weight: 600; }
+.ds { transition: background-color .45s, border-color .45s, box-shadow .2s, opacity .15s; }
+.ds.card { background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1); display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; align-content: center; gap: 2px 8px; padding: 10px 12px; }
+.ds.card .dn { font-size: 15px; font-weight: 600; }
+.ds.card.sm { padding: 6px 10px; gap: 0 8px; }
+.ds.card.sm .dn { font-size: 13px; }
+.ds.card.sm .dm { font-size: 12px; line-height: 16px; }
+.ds.card .dm { grid-column: 1 / -1; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds.card.waiting { background: var(--bad-wash); border-color: var(--bad); box-shadow: 0 0 0 3px color-mix(in srgb, var(--bad) 18%, transparent); }
+.ds.card.awaited { background: transparent; border: 1px dashed var(--edge-control); box-shadow: none; }
+.ds.card.warn { border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); }
+.ds.card.waiting .dm b { color: var(--bad); font-weight: 600; }
+.ds.nb { background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1); display: grid; gap: 1px; align-content: center; padding: 8px 12px; }
+.ds.nb .dn { font-size: 13px; font-weight: 600; }
+.ds.nb .dm { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the dataset in the middle of its neighbourhood */
+.focus { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow-2); overflow: hidden; }
+.focus.waiting { border-color: var(--bad); box-shadow: 0 0 0 4px color-mix(in srgb, var(--bad) 16%, transparent), var(--shadow-2); }
+.fhead { box-sizing: border-box; height: 114px; padding: 12px 14px 10px; border-bottom: 1px solid var(--line); display: grid; grid-template-rows: 28px 18px 1fr; row-gap: 2px; }
+.fhead .fa { display: flex; align-items: center; gap: 6px; }
+.fhead .fa .sp { flex: 1; }
+.fhead .fn { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.fhead .ft { display: flex; align-items: center; gap: 8px; }
+.fhead .fn { font-size: 20px; font-weight: 600; }
+.fhead .fs { font-size: 12px; font-weight: 600; color: var(--bad); background: var(--bad-wash); border-radius: 999px; padding: 3px 10px; white-space: nowrap; transition: background-color .45s, color .45s; }
+.fhead .fs.warn { color: var(--warn); background: var(--warn-wash); }
+.fhead .fs.aw { color: var(--muted); background: var(--row-alt); }
+.fhead .fs.done { color: var(--ok); background: var(--ok-wash); }
+.fhead .fs.owed { color: var(--ink); background: var(--sunk); }
+.fhead .fm { font-size: 13px; color: var(--muted); }
+.cols { list-style: none; margin: 0; padding: 4px 0; }
+.col { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; height: 30px; padding: 0 14px; cursor: pointer; box-sizing: border-box; }
+.col.two { height: 46px; align-items: start; padding-top: 6px; }
+.col:hover { background: var(--row-alt); }
+.col .ty { font-size: 12px; color: var(--muted); }
+.col .ty.kb { font-weight: 600; color: var(--ink-2); background: var(--sunk); border-radius: 4px; padding: 0 6px; }
+.btn.sm { min-height: 28px; padding: 0 10px; font-size: 13px; }
+.fhead .fs + .btn { margin-left: 6px; }
+.col .cn { font-family: var(--mono); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.col .cm { font-size: 12px; line-height: 16px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.col .kb { font-size: 12px; font-weight: 600; color: var(--ink-2); background: var(--sunk); border-radius: 4px; padding: 0 5px; }
+.col.join .cn { color: var(--ink); font-weight: 500; }
+.more { padding: 6px 14px 10px; font-size: 13px; color: var(--muted); }
+.outs { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-1); overflow: hidden; }
+.outs header { padding: 10px 12px 6px; font-size: 13px; font-weight: 600; display: grid; gap: 2px; }
+.outs header .bad { color: var(--bad); }
+.outs .og { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 6px 12px 2px; }
+.outs li.rel i { background: var(--ok); }
+.outs ul { list-style: none; margin: 0; padding: 0 6px 2px; }
+.outs header .okt { color: var(--ok); }
+.outs header .owedt { color: var(--ink-2); }
+.outs li.kept i { background: linear-gradient(90deg, var(--ink-2) 50%, transparent 50%); box-shadow: inset 0 0 0 1px var(--ink-2); border-radius: 50%; }
+.outs li { padding: 0; }
+.outs li button { width: 100%; display: flex; gap: 8px; align-items: center; padding: 3px 6px; border: 0; border-radius: 6px; background: none; cursor: pointer; font-size: 13px; color: var(--ink); text-align: left; white-space: nowrap; }
+.outs li button span.on { min-width: 0; overflow: hidden; text-overflow: ellipsis; display: grid; }
+.outs li button span.on small { font-size: 12px; line-height: 14px; color: var(--muted); white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.outs li button { align-items: flex-start; }
+.outs li button i { margin-top: 5px; }
+.outs li button .go { margin-left: auto; color: var(--action); opacity: .55; transition: opacity .15s; }
+.outs li button:hover { background: var(--row-alt); }
+.outs li button:hover .go { opacity: 1; }
+ul.reads { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.reads button { width: 100%; display: flex; justify-content: space-between; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); cursor: pointer; font-size: 15px; color: var(--ink); }
+.reads button:hover { border-color: var(--action); }
+.reads .go { color: var(--action); }
+.plainstep { display: block; padding: 8px 12px; border-radius: 8px; background: var(--row-alt); font-size: 15px; color: var(--ink-2); }
+.outs li i { width: 8px; height: 8px; border-radius: 2px; background: var(--sunk); flex: none; }
+.outs li.w i { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink-2); }
+/* the headline when something needs you */
+.alert { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); top: 10px; z-index: 4; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 12px; background: var(--bad-wash); box-shadow: var(--shadow-1); }
+.alert .ai { font-size: 20px; font-weight: 600; color: var(--bad); }
+.alert .at { flex: 1; min-width: 0; }
+.alert .at b { color: var(--bad); font-weight: 600; }
+.alert.done { background: var(--ok-wash); }
+.alert.done .ai { color: var(--ok); }
+.alert.done .at b { color: var(--ok); }
+.alert.owed { background: var(--sunk); }
+.alert.owed .ai { color: var(--ink-2); }
+.alert.owed .at b { color: var(--ink); }
+.alert.owed .at b.next { color: var(--ink); }
+.alert .noted { color: var(--ink-2); font-style: italic; }
+.alert .owed { display: inline-block; margin-left: 6px; font-size: 13px; font-weight: 500; color: var(--ink-2); background: var(--surface); border-radius: 999px; padding: 1px 9px; white-space: nowrap; }
+.alert .btn + .btn { margin-left: -4px; }
+.alert .link { color: var(--action); background: none; border: 0; padding: 0; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+/* the overview in the corner while a part is open */
+.mini { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 3px 8px; }
+.mini svg { display: block; }
+.mini .mk { fill: var(--sunk); stroke: var(--edge-control); stroke-width: .6; cursor: pointer; }
+.mini .mk.on { fill: var(--action); stroke: var(--action); }
+.mini .cap { font-size: 12px; color: var(--muted); }
+.hint.legend { left: 16px; right: auto; }
+.eschint { margin-left: 12px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.eschint kbd { font: 500 12px var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--surface); color: var(--ink-2); margin-right: 3px; }
+.hint { position: absolute; right: 16px; bottom: 16px; z-index: 4; font-size: 12px; color: var(--muted); background: color-mix(in srgb, var(--surface) 90%, transparent); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; }
+/* hover: one kind and what it touches */
+.stage.hovering .node:not(.lit) { opacity: .42 !important; }
+.stage.hovering .lab:not(.lit) { opacity: .28; }
+.stage.hovering .ln:not(.lit) { opacity: .25; }
+.node, .lab, .ln { transition: opacity .2s ease; }
+/* the side panel */
+.scrim { position: fixed; inset: 0; background: rgb(8 11 18 / .16); z-index: 8; }
+.panel { position: fixed; top: 0; right: 0; bottom: 0; width: min(520px, 100%); background: var(--surface); border-left: 1px solid var(--line); z-index: 9; display: flex; flex-direction: column; box-shadow: -8px 0 24px rgb(8 11 18 / .08); }
+.ph { padding: 16px 20px 12px; border-bottom: 1px solid var(--line); display: grid; gap: 4px; }
+.ph .ctx { font-size: 13px; color: var(--muted); }
+.ph .t { display: flex; align-items: center; gap: 10px; }
+.ph h2 { margin: 0; font-size: 20px; font-weight: 600; }
+.ph .x { margin-left: auto; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); cursor: pointer; }
+.pb { padding: 16px 20px 32px; overflow: auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-content: start; }
+.pb h3 { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.pb p { margin: 0; color: var(--ink-2); }
+.dist { display: grid; gap: 4px; }
+/* deciding: each choice says what follows; the button says what it will do */
+.opts { display: grid; gap: 6px; }
+label.opt { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+label.opt:hover { border-color: var(--action); }
+label.opt.on { border-color: var(--action); box-shadow: 0 0 0 2px var(--action-wash); }
+label.opt.risk.on { border-color: var(--bad); box-shadow: 0 0 0 2px var(--bad-wash); }
+.opt input { margin-top: 3px; accent-color: var(--action); }
+.opt .ot b { display: block; font-weight: 600; }
+.opt .ot span { display: block; font-size: 13px; color: var(--muted); }
+.opt .sug { font-size: 12px; font-weight: 600; color: var(--surface); background: var(--ink-2); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.after { font-size: 13px; color: var(--ink-2); background: var(--row-alt); border-radius: 8px; padding: 10px 12px; }
+.after b { color: var(--ink); font-weight: 600; }
+.dacts { display: flex; justify-content: flex-end; gap: 8px; }
+.dfoot { position: sticky; bottom: -32px; margin: 0 -20px -32px; padding: 12px 20px 20px; background: var(--surface); border-top: 1px solid var(--line); display: grid; gap: 10px; }
+.btn.primary.risk { background: var(--bad); border-color: var(--bad); }
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.facts div { background: var(--row-alt); border-radius: 8px; padding: 8px 10px; display: grid; }
+.facts b { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.facts span { font-size: 12px; color: var(--muted); }
+.fails { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.fails li { display: flex; gap: 8px; font-size: 15px; color: var(--ink); }
+.fails b { color: var(--bad); }
+.opt .why { color: var(--ink-2); font-weight: 500; }
+label.note { display: grid; gap: 4px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+label.note span { font-weight: 400; color: var(--muted); }
+label.note input { padding: 8px 10px; border: 1px solid var(--edge-control); border-radius: 6px; font: 15px var(--font); background: var(--surface); color: var(--ink); }
+button.est { border: 0; background: none; padding: 4px 6px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+button.est:hover { background: var(--row-alt); }
+table.rows td.blank { color: var(--muted); font-style: italic; font-family: var(--font); cursor: pointer; }
+table.rows td.v { cursor: pointer; }
+table.rows td.v:hover, table.rows td.blank:hover { background: var(--action-wash); }
+table.rows td.bad { color: var(--bad); font-weight: 600; }
+table.rows td.warn { color: var(--warn); }
+.rpicks { min-height: 28px; display: flex; align-items: center; gap: 8px; }
+.rhint { font-size: 12px; color: var(--muted); }
+.rpick { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--action); background: var(--action-wash); color: var(--ink); border-radius: 999px; padding: 3px 10px; font-size: 13px; cursor: pointer; }
+.rpick code { font: 12px var(--mono); }
+.rpick span { color: var(--action); }
+.drop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px; border: 1px dashed var(--edge-control); border-radius: 10px; }
+.drop input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.drop span { color: var(--muted); font-size: 13px; }
+.drop input[type=file]:focus-visible + label { outline: 2px solid var(--action); outline-offset: 2px; }
+.picked { display: grid; gap: 2px; padding: 10px 12px; border-radius: 8px; background: var(--row-alt); font-size: 13px; }
+.picked b { font: 500 13px var(--mono); }
+.picked .okt { color: var(--ok); font-weight: 500; }
+.picked .warnt { color: var(--warn); font-weight: 500; }
+.rowbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.rowbar input { min-width: 0; flex: 0 1 220px; padding: 7px 10px; border: 1px solid var(--edge-control); border-radius: 6px; background: var(--surface); color: var(--ink); font: 15px var(--font); }
+table.rows th button { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; }
+table.rows th button:hover { color: var(--action); }
+table.rows .sa { font-size: 12px; color: var(--action); }
+table.rows td.none { color: var(--muted); font-family: var(--font); }
+.exs code { font: 12px var(--mono); background: var(--row-alt); border-radius: 4px; padding: 2px 6px; }
+/* a few rows to look at */
+.panel.wide { width: min(760px, 100%); }
+.tablewrap { overflow: auto; max-height: 52vh; border: 1px solid var(--line); border-radius: 8px; }
+table.rows thead th { position: sticky; top: 0; z-index: 1; }
+.rmore:empty { display: none; }
+.rcount { font-size: 13px; color: var(--ink-2); }
+table.rows { border-collapse: collapse; width: 100%; }
+table.rows th { text-align: left; font: 600 12px var(--mono); color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--line); background: var(--row-alt); white-space: nowrap; }
+table.rows td { padding: 7px 10px; border-bottom: 1px solid var(--line); font: 12px var(--mono); white-space: nowrap; font-variant-numeric: tabular-nums; }
+table.rows tr:last-child td { border-bottom: 0; }
+table.rows .k { color: var(--ink); font-weight: 600; }
+ul.colsum { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.colsum button { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: baseline; padding: 8px 10px; border: 0; border-radius: 6px; background: none; cursor: pointer; text-align: left; color: var(--ink); }
+.colsum button:hover { background: var(--row-alt); }
+.colsum code { font: 13px var(--mono); }
+.colsum span { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.colsum .go { color: var(--action); }
+/* a decision's receipt, with its undo */
+.toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 20; display: flex; align-items: center; gap: 14px; max-width: calc(100% - 32px); padding: 10px 14px; border-radius: 10px; background: var(--ink); color: var(--surface); box-shadow: var(--shadow-3); font-size: 15px; animation: toastIn .25s ease both; transition: opacity .5s; }
+.toast button { background: none; border: 0; color: var(--action-wash); font: 600 15px var(--font); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.toast.gone { opacity: 0; }
+/* what a decision changed, once */
+.node.domain { z-index: 0; }
+.node.kind { z-index: 1; }
+.node.ds, .node.more, .node.gname { z-index: 2; }
+.lab { z-index: 3; }
+.flash { animation: flash 1.2s ease-out; }
+@keyframes flash { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--action) 45%, transparent); } 40% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--action) 20%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
+@media (prefers-reduced-motion: reduce) {
+.flash { animation: none; }
+}
+@keyframes toastIn { from { opacity: 0; transform: translate(-50%, 8px); } }
+/* search: any word, then straight there */
+.palette { position: fixed; inset: 0; z-index: 30; }
+.pscrim { position: absolute; inset: 0; background: rgb(8 11 18 / .28); }
+.pbox { position: absolute; left: 50%; top: 12vh; transform: translateX(-50%); width: min(640px, calc(100% - 32px)); background: var(--surface); border-radius: 14px; box-shadow: var(--shadow-3); overflow: hidden; animation: palIn .18s ease both; }
+@keyframes palIn { from { opacity: 0; transform: translate(-50%, -6px); } }
+.pin { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); color: var(--muted); }
+.pin input { flex: 1; min-width: 0; border: 0; outline: 0; font: 17px var(--font); background: transparent; color: var(--ink); }
+.pin kbd { font: 500 12px var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+.pres { list-style: none; margin: 0; padding: 6px; max-height: 50vh; overflow: auto; }
+.pres li { display: grid; grid-template-columns: 72px auto minmax(0, 1fr); gap: 10px; align-items: baseline; padding: 9px 10px; border-radius: 8px; cursor: pointer; }
+.pres li[aria-selected="true"] { background: var(--action-wash); }
+.pn { font-weight: 600; }
+.pn.mono { font-family: var(--mono); font-weight: 500; }
+.ps { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pres .none { color: var(--muted); padding: 12px; cursor: default; }
+@media (prefers-reduced-motion: reduce) {
+.toast, .pbox { animation: none; }
+}
+ul.rels { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.rels button { width: 100%; display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 10px; align-items: center; text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); cursor: pointer; font-size: 15px; color: var(--ink); }
+.rels button:hover { border-color: var(--action); }
+.rels .ri { width: 30px; height: 30px; border-radius: 50%; background: var(--row-alt); display: grid; place-items: center; }
+.rels .ri svg { width: 17px; height: 17px; fill: none; stroke: var(--ink-2); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.rels .go { color: var(--action); font-weight: 600; }
+.drow { display: grid; grid-template-columns: minmax(0, 120px) minmax(40px, 1fr) 44px; gap: 8px; align-items: center; font-size: 13px; }
+.dtrack { height: 10px; background: var(--sunk); border-radius: 3px; position: relative; }
+.dfill { position: absolute; inset: 0 auto 0 0; background: var(--ink-2); border-radius: 3px; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) {
+.node, .lab, .ln, .links { transition: none !important; }
+}
+/* deciding in pictures: the day as it stands, then each choice acting out what readers would see */
+.alert .at b.okt { color: var(--ok); }
+.whyrow { display: grid; gap: 3px; }
+.whyfrom { font-size: 12px; font-weight: 600; letter-spacing: .03em; color: var(--muted); }
+.dfoot textarea.why { width: 100%; min-height: 36px; height: 36px; padding: 6px 10px; border: 1px solid var(--edge-control); border-radius: 6px; font: 15px/19px var(--font); background: var(--surface); color: var(--ink); resize: vertical; }
+.dfoot textarea.why.need { border-color: var(--action); }
+.dfoot textarea.why.two { height: 56px; }
+.pic .tick.done .tkb { fill: var(--ink-2); }
+.node.kind.ghost, .node.ds.ghost { border: 1.5px dashed color-mix(in srgb, var(--action) 55%, var(--edge-control)); box-shadow: none; background: color-mix(in srgb, var(--action-wash) 35%, var(--surface)); }
+.node.kind.ghost .kname, .node.kind.ghost .kcount, .node.ds.ghost .dn { color: var(--action); }
+.ln.ghost { stroke: color-mix(in srgb, var(--action) 60%, var(--edge-control)); }
+.lab.ghost { color: var(--action); }
+.pic .seen { fill: none; stroke: var(--action); stroke-width: 1.6; opacity: .75; }
+.pic .from path { fill: none; stroke: var(--ink-2); stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.pic .from .day { font-size: 11px; }
+.node.ds .db { margin-left: auto; display: inline-flex; align-items: center; gap: 2px; font-size: 11px; color: var(--muted); }
+.node.ds .db svg { width: 46px; height: 14px; }
+.node.ds .db .k { font-size: 10px; color: var(--ink-2); }
+.node.ds .db .w { font-size: 10px; color: var(--warn); }
+.node.ds .db + .dt { margin-left: 6px; }
+.pic .card.later { fill: var(--surface); stroke: var(--edge-control); stroke-width: 1; opacity: .55; }
+.opts.tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+label.opt.tile { position: relative; min-width: 0; grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 8px 10px 11px; border-radius: 12px; align-content: start; }
+label.opt.tile input { position: absolute; width: 1px; height: 1px; opacity: 0; margin: 0; pointer-events: none; }
+label.opt.tile:has(input:focus-visible) { outline: 2px solid var(--action); outline-offset: 2px; }
+label.opt.tile .pic { margin-bottom: 4px; border-radius: 8px; background: var(--row-alt); transition: background-color .2s; }
+label.opt.tile.on .pic { background: color-mix(in srgb, var(--action-wash) 55%, var(--row-alt)); }
+label.opt.tile.risk.on .pic { background: color-mix(in srgb, var(--bad-wash) 70%, var(--row-alt)); }
+label.opt.tile > b { font-size: 13px; font-weight: 600; line-height: 19px; display: flex; align-items: center; gap: 7px; }
+label.opt.tile .rd { flex: none; width: 15px; height: 15px; border-radius: 50%; border: 1.5px solid var(--edge-control); display: grid; place-items: center; transition: border-color .15s; }
+label.opt.tile .rd::after { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--action); transform: scale(0); transition: transform .22s cubic-bezier(.3, 1.6, .5, 1); }
+label.opt.tile.on .rd { border-color: var(--action); }
+label.opt.tile.on .rd::after { transform: none; }
+label.opt.tile.risk.on .rd { border-color: var(--bad); }
+label.opt.tile.risk.on .rd::after { background: var(--bad); }
+label.opt.tile .sug { justify-self: start; margin-top: 5px; }
+.pic { display: block; width: 100%; height: auto; overflow: visible; }
+.pic .day { font: 500 13px var(--font); fill: var(--muted); }
+.pic .card { fill: var(--surface); stroke: var(--edge-control); stroke-width: 1.2; }
+.pic .card.empty { fill: none; stroke-dasharray: 3.5 3; }
+.pic .card.risk { fill: var(--bad-wash); stroke: var(--bad); stroke-width: 1.5; }
+.pic .bar { fill: var(--ink-2); opacity: .5; }
+.pic .bar.copy { fill: url(#pichatch); opacity: 1; stroke: var(--ink-2); stroke-width: .6; stroke-opacity: .7; }
+.hp { fill: var(--ink-2); }
+.pic .lid { fill: var(--surface); stroke: var(--ink); stroke-width: 1.4; }
+.pic .iris { fill: var(--ink); }
+.pic .ring { fill: none; stroke: var(--ink-2); stroke-width: 1.2; opacity: 0; transform-box: fill-box; transform-origin: center; }
+.pic .who { font: 500 11px var(--font); fill: var(--ink-2); }
+.pic .owed { transform-box: fill-box; transform-origin: center; }
+.pic .ob { fill: var(--surface); }
+.pic .oc { fill: none; stroke: var(--ink-2); stroke-width: 1.5; }
+.pic .of { fill: var(--ink-2); }
+.pic .zero { font: 600 13px var(--font); fill: var(--bad); }
+.pic .bar.bad { fill: var(--bad); opacity: .85; }
+.pic .gap { fill: none; stroke: var(--bad); stroke-width: 1; stroke-dasharray: 2.5 2; }
+.pic .card.sent { fill: var(--ok-wash); stroke: var(--ok); stroke-width: 1.3; }
+.pic .bar.fresh { fill: var(--ok); opacity: .6; }
+.pic .tkb { fill: var(--surface); stroke: var(--ok); stroke-width: 1.4; }
+.pic .tkp { fill: none; stroke: var(--ok); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.pic .tick { transform-box: fill-box; transform-origin: center; }
+.opt.play .pic .tick { animation: picPop 1.5s cubic-bezier(.3, 1.5, .5, 1) both; animation-delay: var(--pd, 0ms); }
+.opt.play .pic .copy { animation: picFly .7s cubic-bezier(.2, 0, 0, 1) both; animation-delay: calc(var(--pd, 0ms) + var(--i) * 90ms); }
+@keyframes picFly { from { transform: translateX(-96px); opacity: .15; } }
+.opt.play .pic .eye.move { animation: picEye 1.5s cubic-bezier(.4, 0, .2, 1) both; animation-delay: var(--pd, 0ms); }
+@keyframes picEye { 0%, 52% { transform: translateX(-96px); } 100% { transform: none; } }
+.opt.play .pic .eye.stay .ring { animation: picRing 1.1s ease-out 2 both; animation-delay: calc(var(--pd, 0ms) + .15s); }
+@keyframes picRing { from { transform: scale(.5); opacity: .8; } to { transform: scale(1.6); opacity: 0; } }
+.opt.play .pic .owed { animation: picPop 1.5s cubic-bezier(.3, 1.5, .5, 1) both; animation-delay: var(--pd, 0ms); }
+.opt.play .pic .owed.early { animation-name: picPopEarly; animation-duration: .9s; }
+@keyframes picPop { 0%, 66% { transform: scale(0); } 100% { transform: scale(1); } }
+@keyframes picPopEarly { 0%, 30% { transform: scale(0); } 100% { transform: scale(1); } }
+.opt.play .pic .card.risk { animation: picRisk 1.6s ease both; animation-delay: var(--pd, 0ms); }
+@keyframes picRisk { 0%, 74% { fill: transparent; stroke: var(--edge); stroke-width: 1.2; stroke-dasharray: 3.5 3; } }
+.opt.play .pic .zero { animation: picShow 1.6s ease both; animation-delay: var(--pd, 0ms); }
+@keyframes picShow { 0%, 76% { opacity: 0; } }
+@keyframes picBlink { 0%, 100% { opacity: .2; } 50% { opacity: 1; } }
+.opt.play .pic .pz { animation: picPulse 1.2s ease-in-out 2; animation-delay: var(--pd, 0ms); }
+@keyframes picPulse { 50% { transform: scale(1.14); } }
+.pic .pzp { transform-box: fill-box; transform-origin: center; }
+/* the palette: what to do now first, a question, a name; an answer in place with what to press */
+.pbox { display: flex; flex-direction: column; max-height: min(680px, 78vh); }
+.pbody { overflow: auto; min-height: 0; overscroll-behavior: contain; }
+.pres { max-height: none; }
+.pres .psec { display: block; padding: 10px 10px 4px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); cursor: default; }
+.pres li[role="option"] { grid-template-columns: 28px auto minmax(0, 1fr) auto; align-items: center; padding: 7px 10px; }
+.pico { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--row-alt); color: var(--ink-2); font-size: 15px; font-weight: 600; line-height: 1; }
+.pico svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.pico svg.half { width: 15px; height: 15px; }
+.pico .mono { font: 600 12px var(--mono); }
+.pico.bad { background: var(--bad-wash); color: var(--bad); }
+.pico.owed { background: var(--sunk); color: var(--ink-2); }
+.pico.ask { background: var(--action-wash); color: var(--action); }
+.pk { font-size: 12px; color: var(--muted); visibility: hidden; white-space: nowrap; }
+.pres li[aria-selected="true"] .pk { visibility: visible; }
+.pfoot { display: flex; align-items: center; gap: 14px; padding: 8px 14px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.pfoot kbd { font: 500 12px var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; margin-right: 2px; background: var(--surface); color: var(--ink-2); }
+.pfoot .pwho { margin-left: auto; }
+.pans { padding: 14px 18px 18px; display: grid; gap: 12px; animation: ansIn .22s ease both; }
+@keyframes ansIn { from { opacity: 0; transform: translateY(4px); } }
+.pq { display: flex; align-items: center; gap: 10px; }
+.pq b { font-size: 17px; font-weight: 600; line-height: 24px; }
+.pback { margin-left: auto; flex: none; border: 0; background: none; color: var(--action); cursor: pointer; font-size: 13px; padding: 4px 8px; border-radius: 6px; }
+.pback:hover { background: var(--action-wash); }
+.pa { display: grid; gap: 8px; font-size: 15px; line-height: 21px; color: var(--ink-2); }
+.pa p { margin: 0; }
+.pa b { color: var(--ink); font-weight: 600; }
+.pa .bad { color: var(--bad); }
+.pa .owedt { color: var(--ink-2); }
+.pa .okt { color: var(--ok); }
+.pa .mut { color: var(--muted); }
+.pa .act { color: var(--action); }
+.pa .nw { white-space: nowrap; }
+.pa code { font: 13px var(--mono); background: var(--row-alt); border-radius: 4px; padding: 1px 5px; color: var(--ink); }
+.pa ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.pa li { display: flex; gap: 8px; }
+.pa ul li::before { content: ''; flex: none; width: 5px; height: 5px; border-radius: 50%; background: var(--edge-control); margin-top: 8px; }
+.pa ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.pa ol li { display: list-item; }
+.pa .keys { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 16px; align-items: baseline; }
+.pa .marks { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 8px 10px; align-items: baseline; }
+.pa .marks b { text-align: center; }
+.pa kbd { font: 500 12px var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; background: var(--surface); color: var(--ink-2); }
+.pa .pnote { font-size: 13px; color: var(--muted); }
+.pacts { display: flex; flex-wrap: wrap; gap: 8px; }
+.pacts .btn.askq { color: var(--action); }
+.psrc { font-size: 12px; color: var(--muted); }
+.psrc .link { color: var(--action); background: none; border: 0; padding: 0; font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.pthink { color: var(--muted); animation: think 1.4s ease-in-out infinite; }
+@keyframes think { 50% { opacity: .45; } }
+.palette.closing .pbox { animation: palOut .14s ease both; }
+.palette.closing .pscrim { animation: fadeOut .14s ease both; }
+@keyframes palOut { to { opacity: 0; transform: translate(-50%, -4px); } }
+@media (max-width: 760px) {
+.pfoot .pk2 { display: none; }
+.pres li[role="option"] { grid-template-columns: 28px minmax(0, 1fr); }
+.pres li[role="option"] .ps { grid-column: 2; }
+.pres li[role="option"] .pk { display: none; }
+}
+/* transitions: a panel slides in and out, content swaps in place, what a view leaves fades, a new estate arrives */
+.scrim { animation: fadeIn .22s ease both; }
+.panel { animation: panelIn .3s cubic-bezier(.2, 0, 0, 1) both; }
+@keyframes fadeIn { from { opacity: 0; } }
+@keyframes fadeOut { to { opacity: 0; } }
+@keyframes panelIn { from { transform: translateX(32px); opacity: 0; } }
+@keyframes panelOut { to { transform: translateX(32px); opacity: 0; } }
+#layer.swap .scrim, #layer.swap .panel { animation: none; }
+#layer.swap .ph, #layer.swap .pb { animation: swapIn .22s ease both; }
+@keyframes swapIn { from { opacity: 0; transform: translateY(6px); } }
+#layer.closing .scrim { animation: fadeOut .18s ease both; }
+#layer.closing .panel { animation: panelOut .2s cubic-bezier(.4, 0, 1, 1) both; }
+.alert { animation: alertIn .34s cubic-bezier(.2, 0, 0, 1) both; }
+@keyframes alertIn { from { opacity: 0; transform: translateY(-6px); } }
+.legend.inbar, .mini, .eschint { animation: fadeIn .3s ease both; }
+.alert.leaving, .mini.leaving, .mini-x.leaving, .eschint.leaving, .hint.leaving { animation: fadeOut .18s ease both !important; pointer-events: none; }
+.node.morph > * { animation: fadeIn .36s .16s ease both; }
+.stage { transition: opacity .18s ease; }
+.stage.fadeout { opacity: 0; }
+.stage.arrive .node { animation: nodeIn .5s cubic-bezier(.2, 0, 0, 1) both; animation-delay: var(--d, 0ms); }
+@keyframes nodeIn { from { opacity: 0; translate: 0 10px; } }
+.stage.arrive .links.drawing .ln:not(.dash) { animation-delay: .38s; }
+.stage.arrive .lab.enter { animation-delay: .6s; }
+@media (prefers-reduced-motion: reduce) {
+.scrim, .panel, .alert, .legend.inbar, .mini, .eschint, .node.morph > *, .stage.arrive .node, #layer .ph, #layer .pb, .pans, .lab.tag.spot, .ln.spot, .pic *, .pthink { animation: none !important; }
+.ln.spot { stroke-dasharray: none; stroke-dashoffset: 0; }
+.stage { transition: none; }
+}
+/* a tablet: the search an icon, the pill its action, the views a strip that scrolls on its own; the page never scrolls sideways */
+@media (max-width: 1279px) {
+.search { min-width: 0; }
+.search .lbl { display: none; }
+}
+@media (max-width: 1100px) {
+.trailbar { flex-wrap: wrap; row-gap: 8px; }
+.tools { margin-left: auto; }
+}
+@media (max-width: 760px) {
+.fhead { height: 154px; grid-template-rows: 28px 18px 1fr; }
+.fhead .fa { flex-wrap: wrap; row-gap: 6px; align-content: center; }
+.fhead .fa .sp { flex-basis: 100%; height: 0; }
+.trailbar, .tools { flex-wrap: wrap; }
+.trail { flex: 1 1 100%; }
+.tools { flex: 1 1 100%; margin-left: 0; min-width: 0; }
+.search { min-width: 0; }
+.search .lbl, .search .kbd { display: none; }
+.trail h1 { font-size: 20px; }
+.alert { position: relative; left: auto; right: auto; top: auto; margin: 10px 16px 0; flex-wrap: wrap; }
+.alert .at { flex: 1 1 calc(100% - 44px); }
+.alert > .btn:first-of-type { margin-left: auto; }
+.alert .noted { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.hint { display: none; }
+.mini { display: none; }
+.eschint { display: none; }
+.legend.inbar { display: none; }
+}
+/* round 9, after the first judge: words under Wednesday where two pictures keep readers on Tuesday; undo said by the button */
+.pic .cap { font: 600 10px var(--font); letter-spacing: .02em; }
+.pic .cap.ow { fill: var(--ink-2); }
+.pic .hgp path { fill: none; stroke: var(--ink-2); stroke-width: 1.4; stroke-linecap: round; }
+.pic .hgp .hc { stroke-width: 1.7; }
+.pic .hgp .hs { fill: var(--ink-2); stroke: none; }
+.opt.play .pic .hgp { animation: picShow 1.2s ease both; animation-delay: calc(var(--pd, 0ms) + .3s); }
+.sbc { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; background: var(--sunk); color: var(--ink); border-left: 3px solid var(--bad); }
+svg.fmk { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linejoin: round; flex: none; }
+.askd { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; color: var(--ink-2); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; margin-left: 6px; white-space: nowrap; }
+.askd::before { content: '✓'; color: var(--ok); }
+.fa .askd { margin-left: 0; }
+.ranok { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 8px; background: var(--ok-wash); }
+.ranok .rk { color: var(--ok); font-weight: 600; font-size: 17px; }
+.ranok b { display: block; color: var(--ink); }
+.ranok span { font-size: 13px; color: var(--ink-2); }
+.pa .pto { display: flex; gap: 8px; align-items: baseline; margin: 0 0 6px; }
+.pa .pto span { font-size: 12px; color: var(--muted); min-width: 22px; }
+.pa .pto b { color: var(--ink); font-weight: 600; }
+.opt.play .pic .cap { animation: picShow 1s ease both; animation-delay: var(--pd, 0ms); }
+.dacts { align-items: center; flex-wrap: wrap; }
+.undoable { font-size: 12px; color: var(--muted); white-space: normal; }
+.spotdot { fill: var(--ink-2); }
+.spotdot.grow { animation: dotIn .22s ease both; transform-box: fill-box; transform-origin: center; }
+@keyframes dotIn { from { opacity: 0; transform: scale(.3); } }
+.lab.tag.spot .tl i { display: block; font-style: normal; font-weight: 400; font-size: 11px; line-height: 15px; color: var(--muted); }
+.pmore { border: 0; background: none; padding: 0; font: inherit; color: var(--action); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.pa .plead { font-size: 13px; color: var(--muted); margin-top: 2px; }
+.pa .pvia { display: block; font-style: normal; font-size: 12px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) {
+.spotdot { animation: none !important; }
+}
+/* round 9, after the three judges: the pointed kind strongest, its relations tied to it by the same blue, the incident quiet meanwhile */
+.stage.hovering .kind.hot { border-color: var(--action); box-shadow: 0 0 0 2px var(--action), 0 0 0 7px color-mix(in srgb, var(--action) 16%, transparent), var(--shadow-3); }
+.lab.tag.spot { border: 1px solid color-mix(in srgb, var(--action) 22%, var(--line)); border-left: 3px solid var(--action); box-shadow: none; }
+.lab.tag.spot.touch { border-color: var(--line); border-left-color: var(--ink-2); }
+.pic .op { fill: var(--warn-wash); stroke: var(--warn); stroke-width: 1; }
+.dfoot input.why { flex: 1 1 120px; min-width: 0; height: 36px; padding: 0 10px; border: 1px solid var(--edge-control); border-radius: 6px; font: 15px var(--font); background: var(--surface); color: var(--ink); }
+.pa .pdraft { padding: 10px 12px; border-radius: 8px; background: var(--row-alt); color: var(--ink); font-size: 15px; line-height: 21px; user-select: all; }
+/* round 10: paused is one drawn mark, a disc with two bars cut out, the same in a sentence, a chip, a square of the map and a picture */
+svg.pz { width: 1em; height: 1em; vertical-align: -.15em; display: inline-block; flex: none; }
+svg.pz > path, .pico svg.pz > path { fill: var(--bad); stroke: none; }
+svg.pz.hg > path, .pico svg.pz.hg > path { fill: none; stroke: var(--ink-2); stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; }
+svg.pz.hg > path.hc, .pico svg.pz.hg > path.hc { stroke-width: 1.6; }
+svg.pz.hg > path.hs, .pico svg.pz.hg > path.hs { fill: var(--ink-2); stroke: none; }
+.alert .ai svg.pz { width: 22px; height: 22px; vertical-align: -4px; }
+.alert .ai { display: grid; place-items: center; }
+.mosaic i.waiting, .legend .q.bad { background: var(--bad); -webkit-mask: var(--pz-img) center / contain no-repeat; mask: var(--pz-img) center / contain no-repeat; border-radius: 50%; box-shadow: none; }
+.pico svg.pz { width: 16px; height: 16px; }
+.ds .dt svg.pz { width: 14px; height: 14px; vertical-align: -2px; }
+.reach .ri svg.pz { width: 15px; height: 15px; vertical-align: -3px; }
+.pic .pzp path { fill: var(--bad); }
+.opt.play .pic .pzp { animation: picPulse 1.2s ease-in-out 2; animation-delay: var(--pd, 0ms); }
+/* round 10: Ctrl K looks inside, previews its answers, draws a month */
+.pscope { flex: none; display: inline-flex; align-items: center; gap: 4px; border: 0; border-radius: 999px; background: var(--action-wash); color: var(--action); font: 600 13px var(--font); padding: 3px 10px; cursor: pointer; white-space: nowrap; max-width: 45%; overflow: hidden; text-overflow: ellipsis; }
+.pres .pr { display: inline-flex; align-items: center; gap: 6px; }
+.pdrill { border: 0; background: none; color: var(--muted); font: 600 17px var(--font); width: 26px; height: 26px; border-radius: 6px; cursor: pointer; display: grid; place-items: center; }
+.pico { position: relative; }
+.pico svg .fc { fill: currentColor; stroke: none; opacity: .85; }
+.pbadge { position: absolute; right: -5px; bottom: -5px; width: 15px; height: 15px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; font-size: 10px; line-height: 1; box-shadow: 0 0 0 1px var(--line); }
+.pbadge svg.pz { width: 13px; height: 13px; vertical-align: 0; }
+.pbadge.owed { color: var(--ink-2); }
+.pbadge.owed svg.half { width: 11px; height: 11px; }
+.pbadge.warn { color: var(--warn); }
+.pbadge.aw { color: var(--muted); }
+.pscope { cursor: default; gap: 2px; }
+.pscope .pseg { border: 0; background: none; color: var(--action); font: inherit; cursor: pointer; padding: 0 3px; border-radius: 4px; text-decoration: underline; text-underline-offset: 2px; }
+.pscope .pseg:hover { background: color-mix(in srgb, var(--action) 12%, transparent); }
+.pscope .pup { text-decoration: none; font-size: 17px; line-height: 1; padding: 0 5px 1px 0; margin-right: 2px; border-right: 1px solid color-mix(in srgb, var(--action) 25%, transparent); border-radius: 0; }
+.pscope .psep { opacity: .6; }
+.pscope .pcur { color: var(--ink); padding: 0 2px; }
+.pres li.pmorerow .pn { font-weight: 500; color: var(--action); }
+.pprev { display: none; }
+@media (min-width: 1000px) {
+.pbox { width: min(980px, calc(100% - 32px)); }
+.pbody { display: grid; grid-template-columns: minmax(0, 1fr) 372px; align-items: stretch; }
+.pbody .pans { grid-column: 1 / -1; }
+.pbody.answering .pprev, .pbody.answering .pres { display: none; }
+.pprev { display: grid; gap: 9px; align-content: start; position: sticky; top: 0; align-self: start; max-height: min(600px, 66vh); overflow: auto; padding: 14px 16px 18px; border-left: 1px solid var(--line); background: var(--row-alt); font-size: 13px; line-height: 19px; color: var(--ink-2); }
+}
+.pprev:empty { display: none; }
+.pprev .pvh { display: flex; gap: 10px; align-items: center; }
+.pprev .pvh b { display: block; color: var(--ink); font-size: 15px; font-weight: 600; }
+.pprev .pvh b.mono { font-family: var(--mono); font-size: 15px; }
+.pprev .pvh span:not(.pico):not(.pbadge) { font-size: 12px; color: var(--muted); }
+.pprev .pvh .pico { background: var(--surface); }
+.pprev h4 { margin: 4px 0 -4px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.pprev p { margin: 0; }
+.pprev b { color: var(--ink); font-weight: 600; }
+.pprev .bad { color: var(--bad); }
+.pprev .mut { color: var(--muted); }
+.pprev code { font: 12px var(--mono); color: var(--ink); background: var(--surface); border-radius: 4px; padding: 0 4px; }
+.pprev .pvd { color: var(--ink-2); }
+.pprev .pvhint { font-size: 12px; color: var(--muted); }
+.pprev kbd { font: 500 12px var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--surface); color: var(--ink-2); }
+.pprev .pvs { justify-self: start; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--surface); color: var(--ink-2); border: 1px solid var(--line); }
+.pprev .pvs.bad { color: var(--bad); background: var(--bad-wash); border-color: transparent; }
+.pprev .pvs.warn { color: var(--warn); }
+.pprev .pvs.ok { color: var(--ink-2); }
+.pprev .pvn { font-size: 13px; }
+.pprev .pvx { display: flex; flex-wrap: wrap; gap: 4px; }
+.pprev ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; }
+.pprev ul li { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.pprev ul li.pvmore { color: var(--muted); font-size: 12px; }
+svg.spark { border-bottom: 1px solid var(--line); }
+.pprev .pvc li code { flex: none; }
+.pprev .pvc li .pty { margin-left: auto; }
+.pvmatch { font-size: 12px; font-weight: 600; color: var(--ink-2); background: var(--sunk); border-radius: 999px; padding: 0 7px; white-space: nowrap; }
+.pvmatch.part { color: var(--warn); background: var(--warn-wash); }
+.pprev .pvc li small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+svg.spark .fband { fill: color-mix(in srgb, var(--ok) 20%, transparent); stroke: color-mix(in srgb, var(--ok) 60%, transparent); stroke-width: .8; stroke-dasharray: 2 2; }
+.pa .pto, .pprev .pto { display: flex; gap: 8px; align-items: center; }
+.pa .pto .tofield { flex: 1; min-width: 0; font: inherit; font-size: 15px; padding: 6px 10px; border: 1px solid var(--edge-control); border-radius: 6px; background: var(--surface); color: var(--ink); }
+.pprev .pvk li { align-items: center; }
+.pprev .pvk li span { color: var(--ink); }
+.pprev .pvk li small { margin-left: auto; font-size: 12px; color: var(--muted); }
+.pprev .pvk li svg.pz { width: 13px; height: 13px; flex: none; }
+.pprev .pvk li .owedt, .pprev .pvk li .warnt, .pprev .pvk li .mut { width: 13px; text-align: center; font-weight: 600; }
+.pprev .warnt { color: var(--warn); }
+.pprev .owedt { color: var(--ink-2); }
+.okdot { flex: none; width: 7px; height: 7px; margin: 0 3px; border-radius: 50%; background: color-mix(in srgb, var(--edge-control) 45%, var(--surface)); align-self: center; }
+.pprev .pvr li { display: block; }
+.pprev .striplab { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+svg.spark { display: block; width: 100%; height: 30px; }
+svg.spark .sb { fill: color-mix(in srgb, var(--edge-control) 45%, var(--surface)); }
+svg.spark .sb.w { fill: var(--warn); }
+svg.spark .sb.d { fill: var(--ink-2); }
+svg.spark .sb.p, svg.spark .sb0.p { fill: var(--bad); }
+svg.spark .sb0 { fill: var(--ink-2); }
+.pa .sparkrow, .pcb .sparkrow { margin: 4px 0 -1px; }
+.pa .sparkrow svg.spark, .pcb .sparkrow svg.spark { height: 26px; }
+.pprev .pvpic { background: var(--surface); border-radius: 8px; border: 1px solid var(--line); }
+.pprev .pvpic .pic { max-height: 92px; }
+.pprev .pvq { display: flex; gap: 10px; align-items: center; }
+.pprev .pvq b { font-size: 15px; }
+.pprev .pvans { display: grid; gap: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.pprev .pvans ul li::before { content: ''; flex: none; width: 4px; height: 4px; border-radius: 50%; background: var(--edge-control); margin-top: 8px; }
+.pprev .pvans .plead { font-size: 12px; color: var(--muted); }
+.pprev .pvans .strip { display: grid; grid-template-columns: repeat(27, minmax(0, 1fr)); gap: 2px; }
+.pprev .pvans .strip i { aspect-ratio: 1; border-radius: 2px; background: var(--sunk); display: grid; place-items: center; }
+.pprev .pvans .strip i.w { background: var(--warn); transform: rotate(45deg) scale(.7); }
+.pprev .pvans .strip i.d { background: linear-gradient(90deg, var(--ink-2) 50%, var(--surface) 50%); border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--ink-2); transform: scale(.82); }
+.pprev .pvans .strip i.p { background: none; }
+.pprev .pvans .strip i.p svg.pz { width: 100%; height: 100%; vertical-align: 0; }
+.pprev .pvans .striplab .stripkey { display: none; }
+.pprev .pto { display: flex; gap: 8px; align-items: baseline; }
+.pprev .pto span { font-size: 12px; color: var(--muted); }
+.pprev .pdraft { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; color: var(--ink); }
+.pprev .keys, .pprev .marks { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: baseline; font-size: 12px; }
+.pprev .marks svg.pz { width: 14px; height: 14px; }
+.pprev table.pvt { width: 100%; border-collapse: collapse; font-size: 12px; background: var(--surface); border-radius: 8px; overflow: hidden; }
+.pprev .pvt th { text-align: left; font: 600 12px var(--mono); color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.pprev .pvt td { font: 12px var(--mono); color: var(--ink); padding: 5px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px; }
+.pdrill:hover, .pres li[aria-selected="true"] .pdrill { color: var(--action); background: color-mix(in srgb, var(--action-wash) 70%, transparent); }
+.ps.prev { color: var(--ink-2); }
+.pkbd { font: 500 12px var(--mono); opacity: .8; margin-left: 2px; }
+.pa .strip { display: grid; grid-template-columns: repeat(27, minmax(0, 1fr)); gap: 3px; margin-top: 4px; }
+.pa .strip i, .pa .stripkey i { aspect-ratio: 1; border-radius: 3px; background: var(--sunk); display: grid; place-items: center; }
+.pa .strip i.n, .pa .stripkey i.n { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--warn) 60%, transparent); }
+.pa .strip i.w, .pa .stripkey i.w { background: var(--warn); transform: rotate(45deg) scale(.7); border-radius: 2px; }
+.pa .strip i.d, .pa .stripkey i.d { background: linear-gradient(90deg, var(--ink-2) 50%, var(--surface) 50%); border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--ink-2); transform: scale(.82); }
+.pa .strip i.p, .pa .stripkey i.p { background: none; }
+.pa .strip i.p svg.pz, .pa .stripkey i.p svg.pz { width: 100%; height: 100%; vertical-align: 0; }
+.pa .striplab { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); }
+.pa .stripkey { display: inline-flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.pa .stripkey span { display: inline-flex; align-items: center; gap: 4px; }
+.pa .stripkey i { width: 10px; }
+@media (max-width: 760px) {
+.pres .pr { display: none; }
+.pa .strip { gap: 2px; }
+}
+.pa .notedmark { display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: var(--sunk); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--warn) 60%, transparent); vertical-align: -1px; }
+/* round 10: the answer shows in the list as you type, its first lines and any month it draws */
+.pres li.pcard { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 10px; border-radius: 10px; cursor: pointer; }
+.pres li.pcard .pcq { font-weight: 600; }
+.pres li.pcard .pk { grid-column: 3; }
+.pres li.pcard .pcb { grid-column: 2 / -1; display: grid; gap: 6px; font-size: 13px; line-height: 19px; color: var(--ink-2); }
+.pres li.pcard .pcb p { margin: 0; }
+.pres li.pcard .pcb b { color: var(--ink); font-weight: 600; }
+.pres li.pcard .pcb .bad { color: var(--bad); }
+.pres li.pcard .pcb .okt { color: var(--ok); }
+.pres li.pcard .pcb .owedt { color: var(--ink-2); }
+.pres li.pcard .pcb ul, .pres li.pcard .pcb ol { margin: 0; padding: 0 0 0 2px; list-style: none; display: grid; gap: 2px; }
+.pres li.pcard .pcb ol { list-style: decimal; padding-left: 18px; }
+.pres li.pcard .pcb ul li { display: flex; gap: 8px; }
+.pres li.pcard .pcb ul li::before { content: ''; flex: none; width: 4px; height: 4px; border-radius: 50%; background: var(--edge-control); margin-top: 8px; }
+.pres li.pcard .pcb .pcm { color: var(--muted); }
+.pres li.pcard .pcb .plead { font-size: 12px; color: var(--muted); }
+.pres li.pcard .pcb code { font: 12px var(--mono); background: var(--row-alt); border-radius: 4px; padding: 0 4px; color: var(--ink); }
+.pres li.pcard .pcb .strip { display: grid; grid-template-columns: repeat(27, minmax(0, 1fr)); gap: 3px; }
+.pres li.pcard .pcb .strip i, .pres li.pcard .pcb .stripkey i { aspect-ratio: 1; border-radius: 3px; background: var(--sunk); display: grid; place-items: center; }
+.pres li.pcard .pcb .strip i.n, .pres li.pcard .pcb .stripkey i.n { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--warn) 60%, transparent); }
+.pres li.pcard .pcb .strip i.w, .pres li.pcard .pcb .stripkey i.w { background: var(--warn); transform: rotate(45deg) scale(.7); border-radius: 2px; }
+.pres li.pcard .pcb .strip i.d, .pres li.pcard .pcb .stripkey i.d { background: linear-gradient(90deg, var(--ink-2) 50%, var(--surface) 50%); border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--ink-2); transform: scale(.82); }
+.pres li.pcard .pcb .strip i.p, .pres li.pcard .pcb .stripkey i.p { background: none; }
+.pres li.pcard .pcb .strip i.p svg.pz, .pres li.pcard .pcb .stripkey i.p svg.pz { width: 100%; height: 100%; vertical-align: 0; }
+.pres li.pcard .pcb .striplab { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--muted); }
+.pres li.pcard .pcb .stripkey { display: inline-flex; gap: 10px; }
+.pres li.pcard .pcb .stripkey span { display: inline-flex; align-items: center; gap: 4px; }
+.pres li.pcard .pcb .stripkey i { width: 10px; }
+.pres li.pcard .pcb li { display: flex; grid-template-columns: none; padding: 0; border-radius: 0; cursor: inherit; align-items: flex-start; }
+.pres li.pcard .pcb li span { display: block; }
+.pres li.pcard .pcb .pvia { display: block; font-style: normal; font-size: 12px; color: var(--muted); }
+.pres li.pcard .pcb .nw { white-space: nowrap; }
+.pres li.pcard .pcb ol li { display: list-item; }
+@media (max-width: 760px) {
+.pres li.pcard { grid-template-columns: 28px minmax(0, 1fr); }
+.pres li.pcard .pk { display: none; }
+.pres li.pcard .pcb { grid-column: 1 / -1; }
+}
+/* round 10, after the judges */
+.pic .op { fill: var(--warn-wash); stroke: var(--warn); stroke-width: 1; }
+label.opt.tile > b .tk { margin-left: auto; }
+.tk { font: 500 12px var(--mono); color: var(--muted); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; line-height: 14px; background: var(--surface); }
+.btn .tk { margin-left: 6px; }
+label.opt.tile { position: relative; }
+.tfile { font-size: 12px; line-height: 16px; color: var(--muted); margin-top: 2px; }
+.opts.tiles.rows { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.opts.rows label.opt.tile { grid-template-columns: 164px minmax(0, 1fr); align-items: center; gap: 4px 12px; padding: 6px 12px 6px 8px; }
+.opts.rows label.opt.tile .pic { margin: 0; }
+.opts.rows .rtx { display: grid; gap: 0; min-width: 0; }
+.opts.rows .rtx > b { font-size: 15px; font-weight: 600; line-height: 18px; display: flex; align-items: center; gap: 7px; margin-bottom: 2px; }
+.opts.rows .rtx > b .tk { margin-left: auto; }
+.opts.rows .con, .opts.rows .tfile { line-height: 15px; }
+.opts.rows .tfile { margin-top: 1px; }
+.con { display: flex; gap: 6px; font-size: 12px; line-height: 16px; color: var(--ink-2); }
+.con::before { flex: none; width: 10px; font-weight: 600; text-align: center; }
+.con::before { content: '✕'; color: var(--muted); }
+@media (max-width: 520px) {
+.opts.rows label.opt.tile { grid-template-columns: 118px minmax(0, 1fr); gap: 4px 10px; }
+.opts.rows .pic .who { display: none; }
+}
+.dacts input.why.need { border-color: var(--action); }
+.btn.primary:disabled { opacity: .45; cursor: not-allowed; }
+.kstat { margin-left: auto; font-size: 11px; line-height: 1; }
+.kstat.warn { color: var(--warn); }
+.kstat svg.pz { width: 12px; height: 12px; }
+.sparkbox { position: relative; padding-left: 34px; }
+.sparkbox .sy { position: absolute; left: 0; font-size: 10px; line-height: 1; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sparkbox .sy.top { top: 0; }
+.sparkbox .sy.bot { bottom: 1px; }
+.sugwhy { font-size: 12px; line-height: 16px; color: var(--ink-2); }
+label.opt.tile .sug { margin-top: 0; }
+.pa .strip { display: grid; grid-template-columns: repeat(27, minmax(0, 1fr)); gap: 3px; }
+.askfile { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2); }
+.askfile span { flex: 1 1 auto; min-width: 0; }
+.askfile .link { flex: none; }
+.askfile input { accent-color: var(--action); margin: 0; }
+.askfile .link { color: var(--action); background: none; border: 0; padding: 0; font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.pdraft2 { margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--row-alt); font-size: 13px; line-height: 19px; color: var(--ink); }
+.stage.hovering .kind.hot { background: color-mix(in srgb, var(--action-wash) 92%, var(--surface)); }
+.stage.hovering .kind.hot .kname { color: var(--action); }
+.lab.tag.spot { border: 1px solid var(--line); border-left: 3px solid var(--action); box-shadow: none; }
+.pico .mono { font: 600 12px var(--mono); letter-spacing: -.02em; }
+.pclose { display: none; border: 0; background: none; color: var(--action); font: 500 15px var(--font); padding: 4px 2px; cursor: pointer; }
+@media (max-width: 760px) {
+.pclose { display: inline-block; }
+.pesck { display: none; }
+.app > .alertslot { grid-row: 2; }
+.app > .trailbar { grid-row: 3; }
+.whyrow .whyfrom { display: none; }
+.dfoot textarea.why, .dfoot textarea.why.two { height: 38px; }
+.dfoot .askfile { display: none; }
+.dfoot { position: sticky; bottom: -32px; margin: 0 -16px -32px; padding: 10px 16px calc(12px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -8px 20px -14px rgba(0,0,0,.35); }
+.tk { display: none; }
+}
+/* a short window: the pictures a little smaller, so every choice and its button fit */
+@media (max-height: 860px) and (min-width: 761px) {
+.opts.tiles.rows { gap: 5px; }
+.opts.rows label.opt.tile { padding-top: 4px; padding-bottom: 4px; }
+.opts.rows label.opt.tile .pic { max-height: 60px; }
+.dfoot { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
+.dfoot .whyrow { grid-column: 1; }
+.dfoot .dacts { grid-column: 2; flex-wrap: nowrap; }
+}
+@media (max-height: 940px) and (min-width: 761px) {
+label.opt.tile .pic { max-height: 70px; }
+.dfoot { padding: 8px 20px 14px; gap: 8px; }
+}
+/* round 10, after the verification judges */
+.kind > .kwait { display: inline-flex; align-items: center; gap: 4px; pointer-events: auto; cursor: pointer; }
+.kind > .kwait svg.pz { width: 12px; height: 12px; }
+.kind > .kwait:hover { border-color: var(--action); color: var(--action); }
+.outs li i svg.pz { display: block; width: 10px; height: 10px; }
+.outs li.w i { width: 10px; height: 10px; background: none; box-shadow: none; margin-top: 4px; }
+.mosaic i.me { outline: none; position: relative; }
+.mosaic i.me::after { content: ''; position: absolute; left: -1px; right: -1px; bottom: -4px; height: 2px; border-radius: 1px; background: var(--action); }
+.legend.inbar > span { display: inline-flex; align-items: center; gap: 4px; }
+.legend svg.pz { width: 11px; height: 11px; }
+.pa .marks b svg.pz { width: 15px; height: 15px; }
+.btn.primary .tk { background: transparent; color: var(--surface); border-color: color-mix(in srgb, var(--surface) 45%, transparent); }
+.pico svg { width: 16px; height: 16px; }
+.pty { font: 500 12px var(--mono); color: var(--muted); }
+.pty.kb { font-weight: 600; color: var(--ink-2); background: var(--sunk); border-radius: 4px; padding: 0 5px; }
+@media (max-width: 760px) {
+.pres li[role="option"] .ps { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+}
+.maphint { margin-left: auto; font-size: 12px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.maphint b { color: var(--ink); font-weight: 600; }
+.maphint kbd { font: 500 12px var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; background: var(--surface); }
+.maphint + .tools { margin-left: 12px; }
+@media (max-width: 760px) {
+.tools #add { display: none; }
+}
+/* ---------------------------------------------------------------- building Larkspur from its files: the map left, the steps right */
+/* round 19: the build's own pieces */
+/* the checks grid fits its column at every size: names read upward, marks centred */
+/* round 20: one chain for a pause, checks by kind, outcomes first, the phone */
+.seg { display: inline-flex; border: 1px solid var(--edge-control); border-radius: 7px; overflow: hidden; flex: none; }
+.seg button { border: 0; border-left: 1px solid var(--edge-control); background: var(--surface); padding: 0 9px; height: 30px; font: 500 12px var(--font); color: var(--ink-2); cursor: pointer; white-space: nowrap; }
+.seg button:first-child { border-left: 0; }
+.seg button.on { background: var(--action); color: var(--surface); font-weight: 600; }
+.seg button:hover:not(.on) { background: var(--row-alt); }
+.node.ds .db { font-size: 11px; }
+.node.ds .db .k, .node.ds .db .w { font-size: 11px; }
+.chain .cc.out { background: none; box-shadow: inset 0 0 0 1px var(--line); color: var(--ink-2); align-items: center; }
+.chain .cc.out svg { width: 12px; height: 12px; }
+@media (max-width: 760px) {
+.seg button { height: 40px; padding: 0 10px; }
+}
+/* round 21: the record in two lanes, settled days, the outputs on the map, the phone's head */
+.lane { display: inline-block; margin-right: 4px; padding: 0 6px; border-radius: 999px; font-size: 12px; font-weight: 600; line-height: 17px; white-space: nowrap; vertical-align: 1px; }
+.lane.rec { background: var(--sunk); color: var(--muted); }
+.lane.you { background: var(--action-wash); color: var(--action); }
+.chain .cc small { display: block; font-size: 12px; line-height: 14px; color: var(--muted); margin-top: 1px; }
+.chain .cc.held { background: var(--row-alt); color: var(--ink-2); }
+.seg button.part { box-shadow: inset 0 0 0 2px var(--action); color: var(--action); font-weight: 600; }
+.seg button[disabled] { cursor: default; }
+/* round 22: what paused first, the cause beneath, settled days grey; checks with a real mixed state; keys where the eye is */
+.node.ds .db { white-space: nowrap; flex: none; }
+.node.ds .db .k, .node.ds .db .w { white-space: nowrap; }
+.chain .cc { flex: 1 1 220px; }
+.chain .cc.cause { background: var(--warn-wash); }
+.chain .cc.cause .cw, .chain .cc.warn .cw { color: var(--warn); }
+.chain .cc.past { background: var(--row-alt); color: var(--ink-2); }
+.chain .cc.past svg.pz path { fill: var(--muted); }
+.seg button.on { background: var(--action-wash); color: var(--ink); font-weight: 600; box-shadow: inset 0 0 0 1.5px var(--action); }
+/* round 23, the build */
+.node.ds .db .l, .node.ds .db .n { font-size: 11px; white-space: nowrap; }
+.node.ds .db .l { color: var(--warn); }
+.node.ds .db .n { color: var(--ink-2); }
+.node.ds .db > span + span { margin-left: 4px; }
+.ev.ask { color: var(--ink); }
+.chain .cc.cause { background: var(--bad-wash); }
+.chain.done .cc, .chain .cc.past { background: var(--row-alt); color: var(--ink-2); }
+.chain.done .cc b { color: var(--ink-2); }
+.alert.short { padding-top: 8px; padding-bottom: 8px; }
+.alert.short .at { font-size: 13px; line-height: 19px; }
+.alert.short .at b { font-weight: 600; }
+/* round 20, the explorer: last, so it holds */
+.rtx .chg::before, .opts .chg::before { content: 'Changes:'; width: auto; font-weight: 600; color: var(--ink-2); }
+.alert .okn, .alert .okn b { color: var(--ink); font-weight: 600; }
+.alert .okn .okm { color: var(--ok); }
+@media (max-width: 760px) {
+.opts.rows label.opt.tile { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+.opts.rows label.opt.tile .pic { max-width: 230px; max-height: none; }
+}
+.whyp > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--action); width: fit-content; padding: 2px 0; }
+.whyp[open] > summary { margin-bottom: 6px; }
+.tfile .tm.then { color: var(--muted); font-weight: 400; }
+.panel .dfoot textarea.why { field-sizing: content; max-height: 96px; }
+.nw { white-space: nowrap; }
+.chain.v { flex-direction: column; align-items: flex-start; gap: 3px; }
+.chain .cv { font-style: normal; font-size: 12px; line-height: 14px; color: var(--muted); padding-left: 10px; }
+.chain .cgrp { display: flex; flex-wrap: wrap; gap: 6px; }
+.pic .tick.done .tkp { stroke: var(--surface); }
+.pic .card.later2 { fill: var(--surface); stroke: var(--edge-control); stroke-dasharray: 3 2; }
+.pic .tmra { fill: none; stroke: var(--muted); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+.chain { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; width: 100%; }
+.chain .ca { font-style: normal; color: var(--muted); font-weight: 600; }
+.chain .cc { display: inline-flex; align-items: flex-start; gap: 6px; padding: 5px 9px; border-radius: 8px; background: var(--row-alt); font-size: 12px; line-height: 16px; color: var(--ink-2); max-width: 100%; }
+.chain .cc b { color: var(--ink); font-weight: 600; }
+.chain .cc.pause { background: var(--bad-wash); }
+.chain .cc.pause svg.pz { flex: none; width: 13px; height: 13px; margin-top: 1.5px; }
+.chain .cc.warn .cw { flex: none; font-style: normal; color: var(--warn); }
+.fixchip { margin: 0; display: flex; flex-wrap: wrap; gap: 2px 6px; padding: 8px 12px; border-radius: 10px; background: var(--ok-wash); font-size: 13px; color: var(--ink-2); }
+.fixchip b { color: var(--ok); font-weight: 600; }
+.chg { display: flex; gap: 6px; font-size: 12px; line-height: 15px; color: var(--ink-2); }
+.chg::before { content: '↻'; flex: none; width: 10px; text-align: center; color: var(--ink-2); }
+.tfile { display: flex; align-items: center; gap: 5px; }
+.tfile .tm { flex: none; display: inline-grid; place-items: center; width: 12px; height: 12px; font-style: normal; font-size: 12px; font-weight: 600; }
+.tfile .tm.done { color: var(--ink-2); }
+.tfile .tm svg { width: 11px; height: 11px; }
+.tfile .tm.owed { color: var(--ink-2); }
+.tfile .tm.stays svg.pz path { fill: none; stroke: var(--muted); }
+@media (max-height: 940px) and (min-width: 761px) {
+.opts.rows label.opt.tile { padding-top: 4px; padding-bottom: 4px; }
+.opts.tiles.rows { gap: 5px; }
+.opts.rows .rtx > b { margin-bottom: 1px; }
+}
+@media (max-height: 860px) and (min-width: 761px) {
+.opts.rows label.opt.tile .pic { max-height: 56px; }
+.opts.rows .con, .opts.rows .tfile, .opts.rows .chg { line-height: 14px; }
+}
+@media (max-width: 760px) {
+.dfoot .whyrow .whyfrom { display: block; font-size: 12px; }
+.dfoot .whyrow .whyfrom[hidden] { display: none; }
+.panel .dfoot textarea.why, .panel .dfoot textarea.why.two { height: auto; min-height: 38px; max-height: 132px; field-sizing: content; }
+}
+/* round 23, last: the phone's decision tiles, a picture beside its words */
+@media (max-width: 760px) {
+.opts.rows label.opt.tile { grid-template-columns: 124px minmax(0, 1fr); align-items: start; gap: 4px 10px; padding: 8px 10px 8px 8px; }
+.opts.rows label.opt.tile .pic { max-width: 124px; max-height: none; margin: 0; }
+.opts.rows .pic text.day { font-size: 17px; font-weight: 600; transform: translateY(4px); }
+.opts.rows .pic .who { display: none; }
+}
+/* round 24: the owner's choice marked quietly; agreeing inside it, under her words; a short footer */
+.rtx .sugwhy { display: block; margin-top: 4px; font-size: 12px; line-height: 16px; color: var(--ink-2); font-style: italic; }
+label.opt.tile input.agreecb { position: static; width: 16px; height: 16px; opacity: 1; pointer-events: auto; margin: 0; flex: none; accent-color: var(--action); cursor: pointer; }
+.panel .dfoot textarea.why, .panel .dfoot textarea.why.two { height: 36px; min-height: 36px; }
+@media (max-width: 760px) {
+.rtx .sugwhy { font-size: 13px; line-height: 17px; }
+}
+/* round 24, the build */
+.seg button[disabled] { opacity: .4; cursor: not-allowed; }
+.node.ds .db sup { font-size: 10px; line-height: 0; margin-left: 1px; vertical-align: 4px; font-weight: 600; }
+.chain .cc.cause { background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--bad); }
+.cw.note { color: var(--ink-2); }
+/* round 25 */
+.ds.decided { border-color: var(--edge-control) !important; }
+.ds.decided .dt { color: var(--ink-2) !important; }
+.chain .cc.cause { box-shadow: inset 0 0 0 1.5px var(--warn) !important; background: var(--surface) !important; }
+.node.ds .db > span + span { margin-left: 6px; }
+.node.ds .db .k, .node.ds .db .w, .node.ds .db .l, .node.ds .db .n { font-size: 12px; letter-spacing: .02em; }
+.seg button.lk { position: relative; }
+.alert .still { color: var(--warn); font-weight: 600; }
+.whyrow.folded { display: none !important; }
+@media (max-width: 760px) {
+.opts.rows label.opt.tile { grid-template-columns: minmax(0, 1fr) !important; }
+.opts.rows label.opt.tile .pic { max-width: 230px !important; justify-self: start; }
+.opts.rows .pic text.day { font-size: 13px !important; transform: none !important; }
+}
+/* round 26: held is not paused; a change decided in rows with pictures; each check's days; calendar fills */
+.node.ds .db .k.soon { color: var(--muted); border: 1px dashed var(--edge-control); border-radius: 3px; padding: 0 2px; }
+/* round 27: one record for every count; a held output's fate; known gaps accepted; every check on a day; evidence */
+.sugev { display: grid; gap: 4px; margin: 4px 0 2px; }
+@media (max-width: 760px) {
+.chain .cc small { font-size: 15px !important; line-height: 20px !important; }
+.seg button { height: 44px !important; padding: 0 12px !important; font-size: 15px !important; }
+}
+@media (max-width: 760px) {
+.chain .cc > span { font-size: 15px !important; line-height: 20px !important; }
+.chain .cc small { font-size: 13px !important; line-height: 18px !important; }
+}
+/* round 28: five calendar marks; the cause said once; the 56 days as one strip; held first; one owner chip; phone targets */
+.seg { display: inline-grid !important; grid-auto-flow: column; grid-auto-columns: 1fr; }
+.seg button { text-align: center; }
+@media (max-width: 760px) {
+input[type="checkbox"], input[type="radio"] { width: 20px; height: 20px; }
+}
+/* round 28c: both records on the end's rows; one owner's-pick badge; the evidence a level rests on */
+.pick { display: inline-flex !important; align-items: center; gap: 4px; padding: 1px 8px !important; border-radius: 999px !important; border: 1px solid var(--edge-control) !important; background: var(--surface) !important; color: var(--ink-2) !important; font: 600 12px/16px var(--font) !important; font-style: normal !important; white-space: normal; justify-self: start; position: static !important; box-shadow: none !important; }
+/* round 28d */
+.lab .lp { color: var(--action); border: 1px dashed var(--action); border-radius: 4px; padding: 0 4px; margin: 1px 0; }
+input[type="checkbox"]:disabled:checked { accent-color: var(--ink-2); opacity: 1; }
+/* round 28e */
+.chain .cc.out b { color: var(--ink); margin-right: 2px; }
+/* round 29: plain words, magenta only for what is held, forecast marks, one ask bar, phone rows */
+.ev.okt { color: var(--ok); font-weight: 600; }
+.node.ds .db:has(.causeo), .node.ds:has(.causeo) .db { box-shadow: 0 0 0 2px var(--ink) !important; }
+@media (max-width: 760px) {
+.opts.rows label.opt.tile { grid-template-columns: 96px minmax(0, 1fr) !important; align-items: start; }
+.opts.rows label.opt.tile .pic { max-width: 96px !important; justify-self: stretch; }
+}
+/* round 30: gaps as lines; the chain with its marks; a warned cause outlined, never pink; defaults faded; the map readable */
+i.causebox { display: inline-block; width: 12px; height: 10px; border-radius: 3px; box-shadow: inset 0 0 0 2px var(--ink); background: var(--warn-wash); margin-right: 5px; vertical-align: -1px; }
+.ds.waiting.cause, .node .ds.waiting.cause, .db.ds.waiting.cause { background: var(--warn-wash) !important; color: var(--ink) !important; box-shadow: 0 0 0 2px var(--ink) !important; border-color: var(--ink) !important; }
+/* round 31: one mark a state; the 56 days a strip while a day is open; the cause's chart in its card; a line from the cause to what it holds; change cards to pick */
+.bhold { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; overflow: visible; }
+.btn.sm { min-height: 32px; padding: 4px 12px; font-size: 13px; border-radius: 8px; }
+/* round 31, phone: Map and the step in one row; Back a ‹; toasts at the top that leave; 44px targets; the drawing as the map; a choice opens full width */
+@media (max-width: 760px) {
+.dacts .btn, .dfoot .btn { min-height: 44px; }
+.panel .link { min-height: 32px; display: inline-flex; align-items: center; }
+.pick { white-space: nowrap; }
+.opts.rows label.opt.tile.on { grid-template-columns: minmax(0, 1fr) !important; }
+.opts.rows label.opt.tile.on .pic { max-width: none !important; width: 100% !important; max-height: 180px !important; justify-self: stretch !important; }
+.opts.rows label.opt.tile:not(.on) .con, .opts.rows label.opt.tile:not(.on) .chg, .opts.rows label.opt.tile:not(.on) .tfile, .opts.rows label.opt.tile:not(.on) .sugwhy, .opts.rows label.opt.tile:not(.on) .sugev { display: none !important; }
+}
+@keyframes saidin { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+/* round 31: an open gap its own mark; the end's gap counts */
+/* round 31: a description a line; the method behind a tap; values as a bar of their shares; evidence with totals and days */
+/* round 31: feeds' tags wrap; the chevron its own column */
+.lab .lp::before { content: ''; display: inline-block; width: 18px; border-top: 2px dashed currentColor; vertical-align: middle; margin-right: 6px; }
+/* round 31: a range chart readable at every size */
+/* round 32: the strip's marks under their numbers; a decided day solid; forecasts dashed; one panel width; one pick mark; phone toasts, choices, history, targets */
+.pick::before { content: '◷ '; color: var(--muted); }
+@media (max-width: 760px) {
+.opts.rows label.opt.tile:not(.on) { grid-template-columns: 140px minmax(0, 1fr) !important; }
+.opts.rows label.opt.tile:not(.on) .pic { max-width: 140px !important; }
+.opts.rows label.opt.tile:not(.on) .con { display: block !important; }
+input[data-kname] { min-height: 44px !important; font-size: 17px !important; }
+}
+/* round 32: chain cards plain, the arithmetic behind Why; held named in the panel; the bar's held row first; the end's strip and rows */
+.chain .cc.out { white-space: normal; display: block; }
+/* round 32: the cause the strongest card; what followed from it quieter */
+/* round 33, the reduction: the explorer's marks on the calendar; a day's extra detail behind one tap; the record its own view */
+/* videos A: a file's rules with Feb 1's evidence, a rule of your own, the usual chart */
+.usual { display: block; margin: 8px 0 4px; }
+.usual svg { width: 100%; max-width: 340px; height: auto; display: block; }
+/* R34a: one picture of how far a day is from usual */
+.decfig { margin: 6px 0 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+/* R34b/c/e: the recommendation first in one style, one reason with its record line, receipts, tuning your own limit */
+.recchip { justify-self: start; display: inline-block; max-width: 100%; margin: 0 0 3px; padding: 2px 8px; border-radius: 8px; font-size: 12px; font-weight: 600; line-height: 15px; background: var(--action-wash); color: var(--action); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--action) 35%, transparent); white-space: normal; }
+.recchip.record { background: var(--row-alt); color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--line); }
+.opt.tile .sugwhy { display: block; font-size: 12px; line-height: 16px; color: var(--ink-2); margin: 0 0 2px; }
+.opt.tile .sugwhy.mach { color: var(--ink-2); }
+.opts.rows label.opt.tile, .opts.rows label.opt.tile.on { align-items: start; }
+.opts.rows label.opt.tile .pic { align-self: start; }
+.dfoot .whyrow { display: grid; gap: 3px; }
+.dfoot .whyrow .whyfrom { display: block; font-size: 12px; font-weight: 600; letter-spacing: .02em; color: var(--muted); }
+.dfoot .whyrow .whyfrom[hidden] { display: none; }
+.dfoot textarea.why.need::placeholder { color: var(--ink-2); }
+.dfoot .onrec { margin: 0; font-size: 12px; line-height: 16px; color: var(--ink-2); }
+.dfoot .onrec:empty { display: none; }
+.dfoot .onrec b { font-weight: 600; color: var(--ink); }
+.dfoot .onrec i { font-style: normal; color: var(--muted); }
+.dfoot .onrec .need { color: var(--bad); font-weight: 600; }
+.decfig .tune { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); display: grid; gap: 8px; justify-items: start; }
+.decfig .tune p { margin: 0; font-size: 13px; line-height: 18px; color: var(--ink-2); }
+.decfig .tune p b { color: var(--ink); font-weight: 600; }
+/* R34e: the evidence beside the choices on a desktop; the picture's legend and a corrected file's rows */
+@media (min-width: 1100px) {
+.panel.decide { width: min(1000px, calc(100vw - 280px)); }
+}
+/* R34f: a carried day is crimson only while it still waits for you */
+/* R34d: a rule tried on the 184 days; your rules in force */
+/* R34d: a rule's row: what it does and the rule on the first line; today's result and its 184 days beneath */
+/* R34d: gaps that may be findings, gaps your rule watches, counts accepted */
+/* R34f: shape as well as colour: a paused day a full bar, a warned day a half one; a published day no tick */
+th.tap button { color: var(--action); }
+/* R34h: the banner carries its own Decide */
+.alert.short { align-items: center; }
+.alert.short [data-decide] { margin-left: auto; flex: none; }
+/* R34i: key candidates side by side; a column's type with its evidence */
+/* R34e: no picture of rows: the cause open on the left, and the evidence behind the recommendation beside it */
+.opt.tile .sugev.mini { font-size: 11px; color: var(--muted); }
+/* R34e: on a wide screen the footer is one band under both columns: the reason and its record on the left, what follows and the buttons on the right */
+@media (min-width: 1100px) {
+.panel.decide .dfoot { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "why after" "rec acts"; gap: 6px 24px; align-items: start; }
+.panel.decide .dfoot .whyrow { grid-area: why; }
+.panel.decide .dfoot .onrec { grid-area: rec; }
+.panel.decide .dfoot .dacts { grid-area: acts; justify-self: end; align-self: end; }
+}
+/* R35a: how serious a paused day is */
+.sev { display: inline-block; font-size: 12px; font-weight: 600; line-height: 16px; padding: 1px 7px; border-radius: 999px; margin-left: 6px; vertical-align: 1px; }
+.sev.mild { background: var(--warn-wash); color: var(--warn); }
+/* R35b/d: who decided; person and machine apart; the rows behind a count; the day view after setup */
+.recchip.owner { background: var(--row-alt); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+.recchip .av { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-right: 5px; border-radius: 50%; background: var(--ink-2); color: var(--surface); font: 600 12px/1 var(--font); font-style: normal; vertical-align: -3px; }
+.recchip.machine { background: transparent; color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--edge-control); border-radius: 8px; }
+.recchip.machine { outline: 1px dashed var(--edge-control); outline-offset: -1px; box-shadow: none; }
+.recchip .mc { font-style: normal; margin-right: 4px; color: var(--muted); }
+.dfoot .userec { justify-self: start; border: 1px solid var(--line); background: var(--row-alt); color: var(--action); font: 500 12px var(--font); border-radius: 999px; padding: 3px 10px; cursor: pointer; }
+.dfoot .userec[hidden] { display: none; }
+.dfoot .whoas { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.dfoot .whoas input { flex: 1 1 auto; min-width: 0; max-width: 240px; font: 12px var(--font); padding: 3px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); }
+@media (min-width: 1100px) {
+.panel.decide .dfoot { grid-template-areas: "why after" "rec acts" "who acts"; }
+.panel.decide .dfoot .whoas { grid-area: who; }
+}
+.alert .decidelink { margin-left: auto; flex: none; font-weight: 600; }
+.tune .tuneacts { display: flex; flex-wrap: wrap; gap: 6px; }
+.tune .tunesaid { font-size: 12px; color: var(--muted); }
+/* R35c/e: each gap's choice and reason; a mode on every rule; the share against its tolerance */
+/* R35: Larkspur's pick is a plain dot, not a clock */
+/* peer:dq start */
+/* How far from usual: one picture, rows from zero on a scale every file shares; the day's bar alone carries colour */
+/* the chart scales with its figure, so its type is set by the figure's width: every label draws at 11 px or more */
+/* r2: the merged day card can be narrower (172 px on 2/17 at 820×1180): two more steps keep labels at 11 px or more */
+/* r2, the combination: the gaps reading found. Each gap one row: its name and count, one bar on one scale with the gap
+   the dark mark (the open finding amber, a blank hatched), a blank gap's segment, your rule's line; two groups, the one
+   worth asking about first; one control from the kit (Pause · Warn · Note · Off) with what it does over the 56 days;
+   one fold of evidence with no control in it; the head said once */
+/* the map beside it shows the kinds; a phone keeps it */
+/* the finding's own accept, under its control; Why › keeps its place */
+/* one control, the kit's: pill-sized on a desktop; a phone keeps the kit's 44 px buttons, across the row */
+/* Larkspur's pick, a dot after its word (a later rule had made it 0 px wide on every segmented control) */
+/* the fold doesn't repeat the row's control; it keeps "Warn when", the days strip and what pausing would stop */
+/* !important: the base page's .seg is display: inline-grid !important */
+/* pointing at a gap lights its files, and a link's line, on the map */
+/* r2: what a closed fold holds isn't drawn; said so the word count counts what is on screen, as the owner did for Decide */
+/* peer:dq end */
+/* peer:owner start */
+/* The Decide panel answers the owner's four questions at a glance: how serious, what readers see now and after each
+   choice, who recommends what; then one tap decides, on record (inspiration §3.5 one focal point, §3.7 the answer first,
+   §6 one primary action, never colour alone). Scoped to #layer .panel.decide: other panels are untouched. */
+/* What a closed fold holds is not drawn: the answer first, the evidence one tap away (§3.7). */
+#layer .panel.decide details:not([open]) > :not(summary) { display: none !important; }
+/* While you decide, the page behind stays, dimmed: the map shows what the decision is about (the paused file, its
+   line to what it holds). The Build panel and the map's relation labels step away: nothing else competes (§3.5). */
+#layer:has(.panel.decide) .scrim { background: rgb(8 11 18 / .28); }
+/* How serious: a badge with the pause mark and a word, its reason beside it in grey; the title in ink, not red; grey
+   surfaces, colour only on the badge (§3.6 grey everything, then highlight the one thing). */
+/* the month is the main screen's; here, the day */
+/* The one number, then its picture. The picture is the figure the paused-day card draws (dq's, in the merge): this
+   block only takes its frame off and sets its headline, so any figure fits, full width, under the badge. */
+#layer .panel.decide .decfig { border: 0; background: none; padding: 2px 2px 0; margin: 4px 0 2px; }
+/* the badge, the bars and the ↻ line carry the colour */
+/* A corrected file: the answer in a line, in ink with a green mark; how it compares one tap away. */
+#layer .panel.decide .fixchip { display: block; background: none; padding: 0 2px; font-size: 13px; line-height: 19px; color: var(--ink-2); }
+#layer .panel.decide .fixchip b { color: var(--ok); }
+#layer .panel.decide .fixmore { margin-top: 2px; }
+/* One link language: smalt, medium weight, no underline until pointed at; › where it opens something. */
+#layer .panel.decide .tunefold > summary, #layer .panel.decide .fixmore > summary, #layer .panel.decide .whyp > summary, #layer .panel.decide .dfoot .ownwords, #layer .panel.decide .askfile .link { cursor: pointer; list-style: none; font-size: 13px; font-weight: 500; color: var(--action); text-decoration: none; }
+#layer .panel.decide .tunefold > summary:hover, #layer .panel.decide .fixmore > summary:hover, #layer .panel.decide .whyp > summary:hover, #layer .panel.decide .dfoot .ownwords:hover, #layer .panel.decide .askfile .link:hover { text-decoration: underline; text-underline-offset: 2px; }
+#layer .panel.decide .dfoot .ownwords::after, #layer .panel.decide .askfile .link::after { content: '\00a0›'; }
+#layer .panel.decide .dfoot .userec { border: 0 !important; background: none !important; padding: 0 !important; border-radius: 0 !important; font: 500 13px var(--font) !important; color: var(--action) !important; }
+#layer .panel.decide .dfoot .userec:hover { text-decoration: underline; text-underline-offset: 2px; }
+#layer .panel.decide .tunefold > summary::-webkit-details-marker, #layer .panel.decide .fixmore > summary::-webkit-details-marker, #layer .panel.decide .whyp > summary::-webkit-details-marker { display: none; }
+#layer .panel.decide .tunefold { margin-top: 10px; }
+#layer .panel.decide .tunefold .tune { margin-top: 6px; }
+#layer .panel.decide .fixmore p { margin: 4px 0 0; font-size: 12px; line-height: 17px; color: var(--ink-2); }
+/* The choices: each a row that says where readers' eye lands after it. The recommended one leads with who, then the
+   choice, then her words; the others are two lines. One picture on the panel, of now: each choice's eye line says
+   where readers look after it, so four near-identical pictures go. */
+/* One list, not stacked cards (§7): one frame, a hairline between choices, the chosen one a smalt state layer. */
+#layer .panel.decide .opts.tiles.rows { gap: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+#layer .panel.decide .opts.rows label.opt.tile { grid-template-columns: minmax(0, 1fr) !important; padding: 10px 14px 11px !important; gap: 0 !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; transition: background-color .2s cubic-bezier(.22, 1, .36, 1); }
+#layer .panel.decide .opts.rows label.opt.tile + label.opt.tile { border-top: 1px solid var(--line) !important; }
+#layer .panel.decide .opts.rows label.opt.tile:hover { background: var(--row-alt); }
+#layer .panel.decide .opts.rows label.opt.tile.on { background: color-mix(in srgb, var(--action) 6%, var(--surface)); }
+#layer .panel.decide .opts.rows label.opt.tile.risk.on { background: color-mix(in srgb, var(--bad) 6%, var(--surface)); }
+#layer .panel.decide .opts.rows label.opt.tile:has(input:focus-visible) { outline: 2px solid var(--action); outline-offset: -2px; }
+#layer .panel.decide .opts.rows label.opt.tile .pic { display: none !important; }
+#layer .panel.decide .opts.rows .rtx { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+#layer .panel.decide .opts.rows .rtx > * { flex: 1 1 100%; min-width: 0; margin: 0 !important; }
+#layer .panel.decide .opts.rows .rtx > .recchip { order: 0; flex: 0 1 auto; }
+#layer .panel.decide .opts.rows .rtx > b { order: 1; font-size: 15px; line-height: 20px; }
+#layer .panel.decide .opts.rows .rtx > .sugwhy { order: 2; display: block !important; font-size: 13px; line-height: 18px; color: var(--ink-2); }
+#layer .panel.decide .opts.rows .rtx > .sees { order: 3; flex: 0 1 auto; }
+#layer .panel.decide .opts.rows .rtx > .tfile { order: 4; flex: 0 1 auto; display: inline-flex !important; }
+#layer .panel.decide .opts.rows .rtx > .con { order: 5; display: flex !important; }
+#layer .panel.decide .opts.rows .rtx > .chg { order: 6; }
+/* the figure already shows first → sent again */
+#layer .panel.decide .opts.rows .rtx > .sugev { display: none !important; }
+#layer .panel.decide .sees { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--ink); }
+#layer .panel.decide .eyemk { flex: none; width: 17px; height: 12px; overflow: visible; }
+#layer .panel.decide .eyemk path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
+#layer .panel.decide .eyemk circle { fill: currentColor; }
+#layer .panel.decide .opts.rows .tfile { font-size: 12px; line-height: 18px; color: var(--muted); }
+#layer .panel.decide .opts.rows .con { font-size: 12px; line-height: 17px; color: var(--ink-2); }
+#layer .panel.decide .recchip.owner { display: inline-flex; align-items: center; padding: 0 !important; background: none !important; box-shadow: none !important; font-size: 12px; font-weight: 500; line-height: 18px; color: var(--ink-2); }
+#layer .panel.decide .recchip .av { width: 22px; height: 22px; font-size: 12px; vertical-align: 0; }
+#layer .panel.decide .recchip.machine { padding: 0 6px !important; }
+/* On record, then the one button. Agreeing needs no box: "Write your own reason" opens it. */
+#layer .panel.decide .dfoot .askfile { display: flex; align-items: center; justify-content: flex-start; gap: 6px 10px; font-size: 12px; color: var(--ink-2); }
+#layer .panel.decide .dfoot .askfile span { flex: 0 1 auto; }
+#layer .panel.decide .dfoot .onrec { font-size: 13px; line-height: 18px; }
+#layer .panel.decide .dfoot .ownwords { justify-self: start; border: 0; background: none; padding: 0; font-family: var(--font); }
+#layer .panel.decide .dfoot .ownwords[hidden] { display: none; }
+#layer .panel.decide .dfoot .onrec { order: 1; }
+#layer .panel.decide .dfoot .whyrow { order: 2; }
+#layer .panel.decide .dfoot .ownwords { order: 3; }
+#layer .panel.decide .dfoot .whoas { order: 4; }
+#layer .panel.decide .dfoot .dacts { order: 6; }
+/* A wide panel (from 1100 px, where it gets its two columns): as tall as what it holds, a card seated right on the
+   dimmed page, so the record and the one button end the content instead of floating mid-screen; the record on the
+   left, the buttons beside it. A long day still fits: the body scrolls and the footer stays. */
+@media (min-width: 1100px) {
+#layer .panel.decide { top: 24px; bottom: 24px; right: 24px; height: fit-content; max-height: calc(100vh - 48px); margin: auto 0; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-3); overflow: hidden; }
+#layer .panel.decide .pb { min-height: 0; }
+#layer .panel.decide .dfoot { grid-template-columns: minmax(0, 1fr) auto !important; grid-template-areas: none !important; gap: 4px 24px !important; align-items: center; }
+#layer .panel.decide .dfoot > * { grid-column: 1; grid-area: auto !important; }
+#layer .panel.decide .dfoot .dacts { order: 0; grid-column: 2 !important; grid-row: 1 / span 3 !important; align-self: center; justify-self: end; }
+}
+/* One column (under 1100 px): a group's space between the situation and the choices. */
+/* A phone: one pane, the answer first. The picture of now stays, smaller; the footer keeps the record and the button. */
+@media (max-width: 760px) {
+#layer .panel.decide .opts.rows label.opt.tile:not(.on):not(.risk) .con { display: none !important; }
+/* round 2: a risky row keeps its risk */
+#layer .panel.decide .dfoot .whoas input { max-width: none; }
+}
+/* Round 2. Behind the decision, only what it is about. While Decide is open the page behind keeps the kinds' cards
+   and names, the paused file's chip, its line to what it holds, and what readers get. The rest steps away: the kinds'
+   counts, the other files' chips, the held outputs' names (one tap away in the panel, "See which ›"), the legend, and
+   the banner with its own Decide (§3.5 one focal point, §3.6 grey everything then highlight the one thing, §7 one
+   primary per view). */
+/* Revision 1: what steps away takes no room (design). The kinds are drawn as outlines, a quiet diagram rather than
+   emptied cards (builder, newcomer); the held strip closes up to one line: what readers get, held, out. */
+/* Round 2. An alternative is one line: its name, where readers would look after it, and what becomes of the day
+   (revision 1: the fate stays on every row, so "Wait" and "Keep" never read the same; dq, newcomer). Its risk shows
+   when it is picked, pointed at or focused (revision 1, builder); a risky row keeps its risk always (§3.7 the answer
+   first, §6 two levels on demand). The now-picture's "readers see" goes: the sentence beside it says it. */
+#layer .panel.decide .opts.rows label.opt.tile:not(.on) .rtx > .chg, #layer .panel.decide .opts.rows label.opt.tile:not(.on):not(.risk) .rtx > .con { display: none !important; }
+#layer .panel.decide .opts.rows label.opt.tile:not(.on):is(:hover, :focus-within) .rtx > .con { display: flex !important; }
+/* Revision 1: the panel's last small text on the scale (design): the keycaps at 11 px, and the now-picture's day
+   labels drawn at 11 px or more on every size (the picture is drawn at 0.74 of its size beside the words, 0.52 on a
+   phone). */
+#layer .panel.decide .tk { font-size: 12px; line-height: 15px; }
+/* Revision 1: the card is seated from the top, below the bar, not centred: a row that grows when picked or pointed
+   at then moves only what is under it, never the whole card. */
+@media (min-width: 1100px) {
+#layer .panel.decide { top: 72px; bottom: auto; margin: 0; max-height: calc(100vh - 96px); }
+}
+/* Revision 1: inside "If it keeps happening ›", its lead ("Only your ±2% limit paused this") is the badge's own fact,
+   said once there; the effect of "Accept … as usual" shows when the button is pointed at or focused, on a device
+   that can point (a touch screen keeps it in view, since tapping the button acts at once). */
+#layer .panel.decide .tune p > b:first-child { display: none; }
+@media (hover: hover) and (pointer: fine) {
+#layer .panel.decide .tune .tunesaid { display: none; }
+#layer .panel.decide .tune:has([data-level]:hover, [data-level]:focus-visible) .tunesaid { display: block; }
+}
+/* peer:owner end */
+/* peer:design start */
+/* One quiet system for the four surfaces every journey passes through: the map, the paused-day banner, the Build
+   panel and the Decide panel (inspiration §3, §6, §7). The pre-ship pass, applied: every size from one scale
+   (11 12 13 15 17 20 24 px) in three weights; spacing instead of frames, never a bordered box in a bordered box;
+   one card language (one radius each for controls and cards, one soft shadow); colour by role from the existing
+   tokens, no new colour: smalt for the one action and the state you picked; how serious a pause is, said twice over,
+   by hue (amber mild, crimson serious, as dq's figure and the owner's badge) and by volume (serious filled, mild
+   outlined), with its word kept; motion with a job, about 200 ms, ease-out. Round 1: the figure inside .ufig is dq's,
+   so nothing here reaches into it; the Decide panel's structure and the page behind it are the owner's.
+   Measured before: 19 font sizes and 4 weights declared, 18 radii, 84 colour-mix tints; on the paused day 17 text
+   sizes, 52 words of the map drawn at 8.5 px, the 11 held outputs listed twice and alarm-pink on 12% of the screen. */
+/* 1. The map. A kind lifts by one soft shadow, not a ring and a deep shadow; a file is a tone inside it, not a box in
+   a box; however far the map is scaled to fit, its words stay at 11 px or more (--ks is the scale, set where a node is
+   placed); relations read as quieter support than the kinds they join. The paused file is the one magenta thing. */
+.kind { border-color: transparent; box-shadow: var(--shadow-1); border-radius: calc(var(--r-2) / var(--ks, 1)); }
+.kind.hit:hover { box-shadow: var(--shadow-2); }
+.kind .kname { font-size: max(17px, calc(var(--fs-1) / var(--ks, 1))); }
+.kind .kcount, .kind > .kwait { font-size: max(12px, calc(var(--fs-1) / var(--ks, 1))); }
+.kind:not(.compact) .kself { left: 9px; font-size: max(12px, calc(var(--fs-1) / var(--ks, 1))); letter-spacing: -.01em; max-width: calc(100% - 12px); overflow: hidden; text-overflow: ellipsis; }
+.ds { background: var(--surface-sunk); border-color: transparent; border-radius: calc(var(--r-1) / var(--ks, 1)); padding: 0 max(7px, calc(5px / var(--ks, 1))); }
+.ds .dn, .ds .dt { font-size: max(13px, calc(var(--fs-1) / var(--ks, 1))); }
+.ds.waiting { background: var(--surface-raised); border: calc(1.5px / var(--ks, 1)) solid var(--bad); }
+.ds.waiting .dn { color: var(--bad); font-weight: 600; }
+.lab .lv { color: var(--text-secondary); font-weight: 400; }
+/* what reading proposes and hasn't been added yet is dashed and grey: smalt stays for the one action, Add */
+.node.kind.ghost, .node.ds.ghost { border-color: var(--edge-control); background: color-mix(in srgb, var(--surface) 55%, transparent); }
+.node.kind.ghost .kname { color: var(--text-primary); }
+.node.kind.ghost .kcount, .node.ds.ghost .dn { color: var(--text-secondary); }
+.ln.ghost { stroke: var(--edge-control); }
+.lab.ghost { color: var(--text-secondary); }
+/* what readers get: the held outputs are consequences, grey with their hourglass; the line from the cause ends here */
+/* 2. The banner: one line, what happened, how serious, what waits. A serious pause is filled crimson; a mild pause is
+   amber end to end (its outline, its pause mark, its words and its chip) on the surface; waiting for a file, decided
+   for now and complete sit on the surface with their mark, so a glance tells a little odd from a real problem. The
+   map's paused file, its line to what it holds and the month strip keep the pause's crimson mark: they say "held",
+   which is the same for a mild or a serious day, and amber there would read as "warned", a published day. */
+.alert.short { background: var(--surface-raised); border: 1px solid var(--border-subtle); box-shadow: none; border-radius: var(--r-2); }
+.alert.short:has(.sev.mild) { border-color: color-mix(in srgb, var(--warn) 60%, var(--line)); }
+.alert.short .at { font-size: var(--fs-3); color: var(--text-secondary); }
+.alert.short .at b, .alert.done.short .at b, .alert.owed.short .at b { color: var(--text-primary); }
+.alert.short:has(.sev) .at > b:first-child { color: var(--bad); }
+.alert.short .sev { font-size: var(--fs-1); }
+.alert.short:has(.sev.mild) .ai { color: var(--warn); }
+.alert.short:has(.sev.mild) .ai svg.pz > path { fill: var(--warn); }
+.alert.short:has(.sev.mild) .at > b:first-child { color: var(--warn); }
+/* 3. The Build panel. Steps without boxes; the days a strip of marks (a number on each Monday, on every day with a mark
+   and on the day shown; a plain day's date on hover); the day's card is the panel itself; the cause outlined, its
+   severity a bar at its edge, and the day's mark and the cause's mark amber when it is mild; the held outputs listed
+   once, on the map, where the line from the cause ends. While setting up, what reading proposes is
+   sections, not boxes; lists are rows with a divider; a secondary link reads as a link; a confirmation is a mark and a
+   line, not a coloured box. */
+/* 4. The Decide panel, as the system on top of the owner's structure (which hides the page behind and says each
+   choice's fate once): the state grey with its mark, amber when mild; choices are rows without boxes, the chosen one
+   outlined in smalt; keyboard numbers show when the keyboard is in use; one filled button. */
+.scrim { background: rgb(8 11 18 / .28); }
+.panel.decide .ph h2 { font-size: var(--fs-6); }
+.panel.decide .decfig { border: 0; padding: 0; background: none; }
+.panel.decide .fixchip { background: var(--surface-sunk); border-radius: var(--r-2); }
+.opts.rows label.opt.tile { border-color: transparent; border-radius: var(--r-2); }
+.opts.rows label.opt.tile:hover { border-color: var(--border-subtle); }
+.opts.rows label.opt.tile.on { border-color: var(--action-primary); box-shadow: none; background: color-mix(in srgb, var(--action-wash) 45%, var(--surface)); }
+.opts.rows label.opt.tile.risk.on { border-color: var(--bad); background: var(--surface-raised); }
+.opts.rows label.opt.tile .pic { border-radius: var(--r-1); }
+.opts.rows .rtx > b { font-size: var(--fs-4); }
+.opts .tk { display: none; }
+.opts:has(input:focus-visible) .tk { display: inline-block; }
+.recchip, .recchip.owner, .recchip.record { background: none; box-shadow: none; padding: 0; border-radius: 0; font-size: var(--fs-2); font-weight: 500; color: var(--text-secondary); }
+.recchip.machine { outline: 0; }
+.panel.decide .dfoot textarea.why, .panel.decide #dec-who { font-size: var(--fs-4); }
+.panel .con::before { font-weight: 600; }
+/* 5. Motion with a job: the choices' pictures arrive together in about 200 ms, eased out, no bounce, no repeat. */
+.opt.play .pic * { animation-duration: .24s !important; animation-iteration-count: 1 !important; animation-timing-function: var(--ease-out) !important; animation-delay: calc(var(--pd, 0ms) / 6) !important; }
+label.opt.tile .rd::after { transition: transform .15s var(--ease-out); }
+/* Round 2 (revised): the one kit finished outside the gaps list, which is dq's combination: nothing below names
+   .ag-gaps, .ag-row, .agpick, .ag-scale or their parts. A closed fold draws nothing; now nothing in it is laid out or
+   counted either, anywhere in the app (the owner's rule did this for the Decide panel alone). !important, because a few
+   panel rules lay out a fold's body with their own display (.chain .cgrp); on all 80 merged snapshots it draws the same
+   pixels. */
+details:not([open]) > :not(summary) { display: none !important; }
+/* one control family: the segment's radius from the scale; the chosen segment a tonal fill with ink text at 600 and no
+   smalt ring, so the one filled button stays the only loud thing (the row says the setting in words); the rule list's
+   compact select in the segment's box */
+.seg { border-radius: var(--r-1); }
+.seg button.on { background: var(--action-wash); color: var(--text-primary); font-weight: 600; box-shadow: none; }
+/* Larkspur's pick, a plain dot after its word on every segmented control (in the merge it had become 0 px wide) */
+/* three weights and the scale on the panel: a bold <b> at 600 unless a class sets its weight (:where keeps it weakest);
+   the marks and the "¼" at 600; the step's lead at 13 px; the checks' headline at 15; the stepper's − + at 15; the big
+   counts at 17 */
+strong) { font-weight: 600; }
+/* every file in: the kinds line repeats the map beside it on a desktop; a phone, with no map in view, keeps it (the
+   builder's and the newcomer's rule is the same: keep one) */
+/* history (step 27): the files as rows on the panel, not tinted tiles; each sparkline at its drawn width under its name */
+/* checks (step 28): the days each would have paused, a list read down with its dates aligned, not nine outlined pills;
+   the groups rows on the panel with a divider, not a box inside it */
+/* the 11 px floor finished: the map's check badges at any scale, the checks' table heads, the history's column names,
+   the quarter mark */
+.node.ds .db .k, .node.ds .db .w, .node.ds .db .l, .node.ds .db .n { font-size: max(12px, calc(var(--fs-1) / var(--ks, 1))) !important; }
+/* peer:design end */
+/* peer:builder start */
+/* a link shown as the join it is (build.js joinCard): the column on each side, a few of its values matched, how many found */
+/* the link's control: a switch with one label, "Linked"; on is tonal smalt, off is outlined; the state is the switch, not the words */
+/* the map while files are read: a kind pointed at but not read is grey and says how many the files read name; a line names its columns */
+.node.kind.ghost.pointed, .node.ds.ghost.pointed { border-color: var(--edge-control); background: transparent; }
+.node.kind.ghost.pointed .kname, .node.ds.ghost.pointed .dn { color: var(--ink-2); }
+.node.ds.ghost.pointed .dn { font-family: var(--mono); }
+.kcount .kpoint { color: var(--muted); }
+.lab .lwhy { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.lab .lwhy.hov { display: none; }
+.lab:hover .lwhy.hov, .lab:focus-visible .lwhy.hov { display: block; }
+/* a file's description, closed, is one line: what More opens is not on screen until then (the browser never drew it) */
+/* peer:builder end */
+/* peer:newcomer start */
+/* a file opened shows one real row, read down: the day's first row beside each column's meaning, in place of its kind */
+.cvhead { height: 24px; box-sizing: border-box; display: flex; justify-content: space-between; gap: 12px; align-items: flex-end; padding: 0 14px 2px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.col .cv { font: 400 12px var(--mono); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; font-variant-numeric: tabular-nums; }
+.col .cv.k { font-weight: 600; color: var(--ink); }
+.col .cv.blank { font-family: var(--font); font-style: italic; color: var(--muted); }
+.col .cv .cvl { font-family: var(--font); color: var(--muted); }
+.col.two .cv { padding-top: 1px; }
+/* the rows open on the column you tapped, marked down its cells as well as in its header */
+table.rows td.tapc { background: var(--row-alt); }
+table.rows th.tap { box-shadow: inset 0 -2px 0 var(--action); }
+/* peer:newcomer end */
+/* integrator r1 start */
+/* The Decide panel repeats the banner; behind the panel the banner's lower half was cut by its edge */
+/* integrator r1 end */
+/* peer:design start */
+/* Round 3, the owner's first screen. A count is an hourglass and a number, its list a tip; a link is a few words, its
+   sentences a tip; the day is Today, its date small; what the marks mean is a "?" by the title. One tip for all of them,
+   from the tokens: the raised surface, one border, one radius, one shadow, 150 ms in. */
+.smtip { position: fixed; z-index: 25; max-width: 320px; padding: var(--sp-2) var(--sp-3); background: var(--surface-raised); color: var(--text-primary); border: 1px solid var(--border-subtle); border-radius: var(--r-2); box-shadow: var(--shadow-2); font-size: var(--fs-3); line-height: 18px; text-align: left; pointer-events: none; animation: smtipIn .15s var(--ease-out) both; }
+.smtip.pinned { pointer-events: auto; }
+@keyframes smtipIn { from { opacity: 0; transform: translateY(-2px); } }
+@media (prefers-reduced-motion: reduce) {
+.smtip { animation: none; }
+}
+.smtip p { margin: 0; }
+.smtip .tiph { display: flex; align-items: center; gap: var(--sp-1); font-weight: 600; }
+.smtip .tiph svg.pz { width: 12px; height: 12px; flex: none; }
+.smtip ul { list-style: none; margin: var(--sp-1) 0 0; padding: 0; color: var(--text-secondary); }
+.smtip li { padding: 1px 0; }
+.smtip .tipg { margin-top: var(--sp-2); font-size: var(--fs-2); color: var(--text-muted); }
+.smtip .tipg + ul { margin-top: 0; }
+.smtip .tl { display: block; }
+.smtip .tl + .tl { margin-top: var(--sp-2); }
+.smtip .tl i { display: block; font: 400 var(--fs-1)/16px var(--mono); font-style: normal; color: var(--text-muted); }
+.smtip .tipkey { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-2); color: var(--text-secondary); }
+.smtip .tipkey > span { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.smtip .tipkey svg.pz { width: 11px; height: 11px; }
+.smtip .tipn { margin-top: var(--sp-2); font-size: var(--fs-2); color: var(--text-muted); }
+/* the count: one button language, wherever it sits (a kind's corner, an opened kind, the banner); its number the one
+   weight in it, the hourglass grey: what waits is a consequence, not the cause */
+.kind > button.kwait, .ostate button.st.waits, .alert .awn { display: inline-flex; align-items: center; gap: 3px; margin: 0; font-family: var(--font); font-weight: 500; color: var(--text-secondary); background: var(--surface-raised); border: 1px solid var(--edge-control); border-radius: 999px; cursor: pointer; white-space: nowrap; }
+.kind > button.kwait { padding: 1px 8px; }
+.ostate button.st.waits { padding: 2px 9px; font-size: var(--fs-2); pointer-events: auto; }
+.alert .awn { padding: 0 8px; min-height: 22px; font-size: var(--fs-3); line-height: 20px; vertical-align: 1px; }
+.kwn { font-weight: 600; color: var(--text-primary); }
+.alert .awn .awl { margin-left: 2px; }
+.kind > button.kwait svg.pz, .ostate button.st.waits svg.pz, .alert .awn svg.pz { width: 12px; height: 12px; }
+.kind > button.kwait:hover, .ostate button.st.waits:hover, .alert .awn:hover, .kind > button.kwait[aria-expanded="true"], .ostate button.st.waits[aria-expanded="true"], .alert .awn[aria-expanded="true"] { border-color: var(--action); color: var(--action); }
+.kind > button.kwait:hover .kwn, .kind > button.kwait[aria-expanded="true"] .kwn, .alert .awn:hover .kwn, .alert .awn[aria-expanded="true"] .kwn, .ostate button.st.waits[aria-expanded="true"] .kwn { color: var(--action); }
+/* the banner: the day said once, Today with its date small; the file and what came in; the count; the one button */
+.alert:not(.short) .at { font-size: var(--fs-4); color: var(--text-secondary); }
+.alert .aday { white-space: nowrap; }
+.alert .tdate { font-size: var(--fs-2); font-weight: 400; color: var(--text-muted); white-space: nowrap; }
+.alert .asep { margin: 0 var(--sp-2); color: var(--text-muted); }
+.alert .awhy { color: var(--text-primary); }
+.alert .askd { margin-left: 0; }
+/* Today, with its date small, wherever a screen says the day */
+.today { white-space: nowrap; }
+.today .tdate { font-size: var(--fs-2); font-weight: 400; color: var(--text-muted); }
+/* a link at rest: its few words, quieter than the kinds they join; pointing at one shows its sentences */
+.lab.few { font-weight: 500; color: var(--text-secondary); }
+.lab.few[aria-expanded="true"] { background: var(--surface-raised) !important; border-color: var(--action) !important; color: var(--action); }
+/* the key: a "?" by the title, as on a phone before; its tip says what the marks mean */
+.mapkey { flex: none; display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0; margin-left: calc(-1 * var(--sp-1)); border-radius: 50%; border: 1px solid var(--edge-control); background: var(--surface-raised); color: var(--text-secondary); font: 600 var(--fs-3)/1 var(--font); cursor: pointer; }
+.mapkey:hover, .mapkey[aria-expanded="true"] { border-color: var(--action); color: var(--action); }
+@media (max-width: 760px) {
+.trailbar:has(.mapkey) .trail { flex: 0 1 auto; }
+.mapkey { margin-left: 0; }
+}
+/* + Add a dataset: a quiet text action, so Decide is the one filled button on the screen */
+.tools #add { border-color: transparent; background: none; color: var(--action); padding: 0 var(--sp-2); }
+.tools #add:hover { background: var(--action-wash); border-color: transparent; }
+/* peer:design end */
+/* peer:owner start */
+/* Round 3. Decide has one focal point, for the owner between meetings: "the decide side panel feels very busy and I
+   don't know what to immediately focus on … I don't know why a lot of the info is there". One question; two pictures of
+   what readers see now and after the chosen choice (the recommended one, chosen and ready); the one button under them.
+   Everything else waits behind More, and the page behind steps back (inspiration §3.5 one focal point, §3.7 the answer
+   first, §7 one primary per view; ADR 0028 one primary action, two levels on demand, never colour alone). Last in the
+   page, so where it meets the panel's earlier rules it wins; tokens only. */
+/* A card the size of what it holds: one column, 640 px at most, seated right below the bar from 761 px (a tablet held
+   upright too, where a full-height sheet left the button far below the answer). */
+@media (min-width: 761px) {
+#layer .panel.decide { top: 72px; right: 24px; bottom: auto; width: min(640px, calc(100vw - 48px)) !important; height: fit-content; max-height: calc(100vh - 96px); margin: 0; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-3); overflow: hidden; }
+#layer .panel.decide .pb { min-height: 0; }
+}
+#layer .panel.decide .pb { gap: var(--sp-4); }
+/* The head: which file, then the question, the day small beside it. */
+#layer .panel.decide .ph .ctx { font-size: var(--fs-3); }
+#layer .panel.decide .ph h2 .dk-date, #layer .panel.decide .ph h2 .tdate { margin-left: var(--sp-1); font-size: var(--fs-3); font-weight: 400; color: var(--text-muted); white-space: nowrap; }
+/* The state and its one number, one line: a badge where the day has a severity (shape, word and colour), else the mark. */
+#layer .panel.decide .dk-state { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); margin: 0; font-size: var(--fs-3); line-height: 18px; color: var(--text-secondary); }
+#layer .panel.decide .dk-state b { font-weight: 600; color: var(--text-primary); }
+#layer .panel.decide .dk-pz { display: inline-flex; }
+#layer .panel.decide .dk-pz svg.pz { width: 15px; height: 15px; vertical-align: 0; }
+#layer .panel.decide .dk-sev { display: inline-flex; align-items: center; gap: 5px; padding: 1px 9px 1px 6px; border-radius: 999px; font-size: var(--fs-2); font-weight: 600; line-height: 18px; }
+#layer .panel.decide .dk-sev::before { content: ''; flex: none; width: 12px; height: 12px; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M8 .5a7.5 7.5 0 1 0 0 15A7.5 7.5 0 0 0 8 .5zM4.9 5.6a1.2 1.2 0 0 1 2.4 0v4.8a1.2 1.2 0 0 1-2.4 0zM8.7 5.6a1.2 1.2 0 0 1 2.4 0v4.8a1.2 1.2 0 0 1-2.4 0z'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M8 .5a7.5 7.5 0 1 0 0 15A7.5 7.5 0 0 0 8 .5zM4.9 5.6a1.2 1.2 0 0 1 2.4 0v4.8a1.2 1.2 0 0 1-2.4 0zM8.7 5.6a1.2 1.2 0 0 1 2.4 0v4.8a1.2 1.2 0 0 1-2.4 0z'/%3E%3C/svg%3E") center / contain no-repeat; }
+#layer .panel.decide .dk-sev.mild { background: var(--warn-wash); color: var(--warn); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 40%, transparent); }
+/* Now → After: the same two days drawn twice, the eye under the day readers see. After is the focal point: the chosen
+   state, framed in smalt; Now is quiet grey. Under each picture, the day readers see, then one line. */
+#layer .panel.decide .dk-hero { display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1.55fr); align-items: stretch; gap: 0 var(--sp-1); }
+#layer .panel.decide .dk-now, #layer .panel.decide .dk-after { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); min-width: 0; padding: var(--sp-3); border-radius: var(--r-2); }
+#layer .panel.decide .dk-now { background: var(--surface-sunk); }
+#layer .panel.decide .dk-after { background: color-mix(in srgb, var(--action) 6%, var(--surface)); box-shadow: inset 0 0 0 1.5px var(--action); }
+#layer .panel.decide .dk-after.risk { background: color-mix(in srgb, var(--bad) 6%, var(--surface)); box-shadow: inset 0 0 0 1.5px var(--bad); }
+#layer .panel.decide .dk-lab { font-size: var(--fs-1); font-weight: 600; line-height: 16px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+#layer .panel.decide .dk-after .dk-lab { color: var(--action); }
+#layer .panel.decide .dk-after.risk .dk-lab { color: var(--bad); }
+#layer .panel.decide .dk-hero .pic { width: 100%; max-width: 220px; height: auto; margin: 2px 0; border-radius: var(--r-1); background: var(--surface); }
+#layer .panel.decide .dk-hero .pic text.day { font-size: 13px; }
+#layer .panel.decide .dk-hero .pic .who { display: none; }
+#layer .panel.decide .dk-arrow { align-self: center; display: grid; place-items: center; color: var(--text-muted); }
+#layer .panel.decide .dk-arrow svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#layer .panel.decide .dk-sees { display: flex; align-items: center; gap: 6px; font-size: var(--fs-4); line-height: 20px; color: var(--text-primary); }
+#layer .panel.decide .dk-sees b { min-width: 0; font-weight: 600; }
+#layer .panel.decide .dk-fate { display: block; font-size: var(--fs-3); line-height: 22px; color: var(--text-secondary); }
+#layer .panel.decide .dk-fate > * { vertical-align: middle; }
+#layer .panel.decide .dk-fate > * + * { margin-left: 5px; }
+#layer .panel.decide .dk-fate svg.pz, #layer .panel.decide .dk-fate svg.half { width: 14px; height: 14px; }
+#layer .panel.decide .dk-fate .tm, #layer .panel.decide .dk-fate .dk-pz { font-style: normal; display: inline-flex; }
+#layer .panel.decide .dk-count { display: inline-flex; align-items: center; gap: 3px; height: 22px; padding: 0 8px 0 6px; border: 0; border-radius: 999px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); font: 600 var(--fs-3) var(--font); color: var(--text-primary); cursor: pointer; }
+#layer .panel.decide .dk-count svg.pz { width: 13px; height: 13px; }
+#layer .panel.decide .dk-count:hover { box-shadow: inset 0 0 0 1px var(--edge-control); }
+#layer .panel.decide .dk-count:focus-visible { outline: 2px solid var(--action); outline-offset: 1px; }
+#layer .panel.decide .dk-why { display: flex; align-items: flex-start; gap: 6px; margin-top: 2px; font-size: var(--fs-3); line-height: 18px; color: var(--text-secondary); }
+#layer .panel.decide .dk-why b { font-weight: 600; color: var(--text-primary); }
+#layer .panel.decide .dk-cost { display: flex; align-items: flex-start; gap: 6px; font-size: var(--fs-3); line-height: 18px; color: var(--text-secondary); }
+/* what the choice costs, on its card */
+#layer .panel.decide .dk-quote { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin: 0 0 0 26px; font-size: var(--fs-3); line-height: 18px; font-style: italic; color: var(--text-secondary); quotes: '“' '”'; }
+/* her words under her name: two lines at most, all of them on hover and in the record */
+#layer .panel.decide .dk-why .av { flex: none; display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--ink-2); color: var(--surface); font-size: var(--fs-1); font-weight: 600; font-style: normal; line-height: 1; }
+#layer .panel.decide .dk-why .mc { flex: none; width: 20px; text-align: center; font-style: normal; font-weight: 600; color: var(--text-muted); }
+#layer .panel.decide .dk-ok { font-weight: 600; color: var(--ok); }
+#layer .panel.decide .dk-x { font-weight: 600; color: var(--bad); }
+#layer .panel.decide .dk-after.none { justify-content: center; }
+/* More: one quiet link. Open, each block is there for one thing: another choice, the evidence, what waits, your name. */
+#layer .panel.decide .dk-more { display: block; }
+#layer .panel.decide .dk-more > .dk-in { display: grid; gap: var(--sp-5); margin-top: var(--sp-4); }
+#layer .panel.decide .dk-more > summary { display: inline-flex; align-items: baseline; gap: var(--sp-2); list-style: none; cursor: pointer; font-size: var(--fs-3); line-height: 20px; }
+#layer .panel.decide .dk-more > summary .dk-mo { font-weight: 500; color: var(--action); }
+#layer .panel.decide .dk-more > summary .dk-hint { font-size: var(--fs-2); color: var(--text-muted); }
+#layer .panel.decide .dk-more[open] > summary .dk-hint { display: none; }
+#layer .panel.decide .dk-more > summary::-webkit-details-marker { display: none; }
+#layer .panel.decide .dk-more > summary .dk-mo::after { content: '›'; display: inline-block; margin-left: 5px; transition: transform .2s var(--ease-out); }
+#layer .panel.decide .dk-more[open] > summary .dk-mo::after { transform: rotate(90deg); }
+#layer .panel.decide .dk-more > summary:hover .dk-mo { text-decoration: underline; text-underline-offset: 2px; }
+#layer .panel.decide .dk-more > summary:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; border-radius: 4px; }
+#layer .panel.decide .dk-sec { display: grid; gap: var(--sp-2); min-width: 0; }
+#layer .panel.decide .dk-sec:empty { display: none; }
+#layer .panel.decide .dk-h { margin: 0; font-size: var(--fs-2); font-weight: 600; line-height: 16px; color: var(--text-muted); }
+#layer .panel.decide .dk-h svg.pz { width: 12px; height: 12px; vertical-align: -1px; }
+#layer .panel.decide .dk-rec { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--action-wash); color: var(--action); font-size: var(--fs-1); font-weight: 600; line-height: 16px; vertical-align: 1px; }
+#layer .panel.decide .dk-by { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) 6px; margin: 0; font-size: var(--fs-2); }
+#layer .panel.decide .dk-by .dk-h { margin-right: 2px; }
+#layer .panel.decide .dk-month { display: grid; gap: var(--sp-1); }
+#layer .panel.decide .dk-month .strip { display: grid; grid-template-columns: repeat(27, minmax(0, 1fr)); gap: 3px; }
+#layer .panel.decide .dk-month .strip i, #layer .panel.decide .dk-month .stripkey i { aspect-ratio: 1; display: grid; place-items: center; border-radius: 3px; background: var(--sunk); }
+#layer .panel.decide .dk-month .strip i.w, #layer .panel.decide .dk-month .stripkey i.w { background: var(--warn); transform: rotate(45deg) scale(.7); border-radius: 2px; }
+#layer .panel.decide .dk-month .strip i.d, #layer .panel.decide .dk-month .stripkey i.d { background: linear-gradient(90deg, var(--ink-2) 50%, var(--surface) 50%); border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--ink-2); transform: scale(.82); }
+#layer .panel.decide .dk-month .strip i.p, #layer .panel.decide .dk-month .stripkey i.p { background: none; }
+#layer .panel.decide .dk-month .strip i.p svg.pz, #layer .panel.decide .dk-month .stripkey i.p svg.pz { width: 100%; height: 100%; vertical-align: 0; }
+#layer .panel.decide .dk-month .striplab { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2); font-size: var(--fs-1); color: var(--text-muted); }
+#layer .panel.decide .dk-month .stripkey { display: inline-flex; gap: var(--sp-2); }
+#layer .panel.decide .dk-month .stripkey span { display: inline-flex; align-items: center; gap: 4px; }
+#layer .panel.decide .dk-month .stripkey i { width: 10px; }
+#layer .panel.decide .dk-waits p { margin: 0; font-size: var(--fs-3); line-height: 20px; color: var(--text-secondary); }
+#layer .panel.decide .dk-tools { gap: var(--sp-2); }
+#layer .panel.decide .dk-tools .whoas { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-2); color: var(--text-muted); }
+#layer .panel.decide .dk-tools .whoas input { flex: 1 1 auto; min-width: 0; max-width: 280px; height: 32px; padding: 0 var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-1); background: var(--surface); font: var(--fs-3) var(--font); color: var(--text-primary); }
+#layer .panel.decide .dk-ask { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); margin: 0; }
+#layer .panel.decide .dk-ask .link { border: 0; background: none; padding: 0; cursor: pointer; font: 500 var(--fs-3) var(--font); color: var(--action); }
+#layer .panel.decide .dk-ask .link::after { content: '\00a0›'; }
+#layer .panel.decide .dk-ask .link:hover { text-decoration: underline; text-underline-offset: 2px; }
+#layer .panel.decide .dk-tools .pdraft2 { margin: 0; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-1); background: var(--surface-sunk); font-size: var(--fs-2); line-height: 17px; color: var(--text-secondary); }
+/* the choices, inside More: one list, each a line (round 2's rows); the recommended one marked by a word, not a colour */
+#layer .panel.decide .dk-choices .opts.tiles.rows { margin: 0; }
+/* The footer: what goes on record with your tap on the left, the one button on the right; the box for your own words
+   above them only while it is needed (another choice that needs a reason, or "Write your own reason"). */
+#layer .panel.decide .dfoot.dk-foot { display: grid !important; grid-template-columns: minmax(0, 1fr) auto !important; grid-template-areas: none !important; gap: var(--sp-2) var(--sp-4) !important; align-items: center !important; }
+#layer .panel.decide .dfoot.dk-foot > * { grid-area: auto !important; order: 0 !important; }
+#layer .panel.decide .dfoot.dk-foot > .whyrow { grid-column: 1 / -1 !important; grid-row: auto !important; }
+#layer .panel.decide .dfoot.dk-foot > .dk-record { grid-column: 1 !important; display: grid; justify-items: start; gap: 2px; min-width: 0; }
+#layer .panel.decide .dfoot.dk-foot > .dacts { grid-column: 2 !important; grid-row: auto !important; align-self: center !important; justify-self: end !important; display: flex; }
+#layer .panel.decide .dfoot.dk-foot .dk-record > * { grid-area: auto !important; order: 0 !important; text-align: start; }
+#layer .panel.decide .dfoot.dk-foot .dk-record > .ownwords { order: 1 !important; }
+#layer .panel.decide .dfoot.dk-foot .onrec { margin: 0; font-size: var(--fs-2); line-height: 17px; color: var(--text-secondary); }
+#layer .panel.decide .dfoot.dk-foot .onrec b { font-weight: 500; color: var(--text-secondary); }
+#layer .panel.decide .dfoot.dk-foot .ownwords { font-size: var(--fs-2); }
+/* The page behind steps back. Over a file's own view the panel would cut its card in half and leave its columns and the
+   list of what is built from it in view: while you decide, they give way to the dimmed canvas (the panel names the file,
+   and the list is one tap away in it: ⧗ 11). Over the map (the build), round 2's quiet diagram stays. */
+/* Polish: the bar's tools (the estate's mini map, "+ Add a dataset") showed their edge beside the panel, and "Esc steps
+   back" isn't what Esc does while the panel is open (it closes it): both give way while Decide is open. */
+/* A phone's full-height sheet: the record and the button sit at its foot, in reach of a thumb, not mid-sheet. */
+@media (max-width: 760px) {
+#layer .panel.decide .pb { flex: 1 1 auto; grid-template-rows: auto auto 1fr auto; }
+}
+/* A phone: one pane, the same order. Now above After, each a row: the picture, then the day readers see and its line;
+   the arrow points down; the button takes the footer's width. */
+@media (max-width: 760px) {
+#layer .panel.decide .dk-hero { grid-template-columns: minmax(0, 1fr); gap: 2px 0; }
+#layer .panel.decide .dk-now, #layer .panel.decide .dk-after { display: grid; grid-template-columns: 128px minmax(0, 1fr); grid-template-areas: "lab lab" "pic sees" "fate fate" "cost cost" "why why"; align-items: center; gap: 2px var(--sp-3); padding: 10px var(--sp-3); }
+#layer .panel.decide .dk-lab { grid-area: lab; }
+#layer .panel.decide .dk-hero .pic { grid-area: pic; margin: 0; }
+#layer .panel.decide .dk-sees { grid-area: sees; align-self: center; }
+#layer .panel.decide .dk-quote { grid-column: 1 / -1; }
+#layer .panel.decide .dk-fate { grid-area: fate; line-height: 20px; margin-top: 2px; }
+#layer .panel.decide .dk-cost { grid-area: cost; }
+#layer .panel.decide .dk-why { grid-area: why; margin-top: var(--sp-1); }
+#layer .panel.decide .dk-hero .pic text.day { font-size: 17px; }
+#layer .panel.decide .dk-arrow { transform: rotate(90deg); height: 18px; }
+#layer .panel.decide .dk-arrow svg { width: 16px; height: 16px; }
+#layer .panel.decide .dfoot.dk-foot { grid-template-columns: minmax(0, 1fr) !important; }
+#layer .panel.decide .dfoot.dk-foot > .dacts { grid-column: 1 !important; justify-self: stretch !important; }
+#layer .panel.decide .dfoot.dk-foot > .dacts .btn { flex: 1 1 auto; }
+}
+/* peer:owner end */
+/* peer:newcomer r3 start */
+/* Ctrl K answers lead with their picture (today against usual as dq's two bars, the month's strip, what waits), then
+   one line, then Full answer › (the owner's tests 1, 5 and 6). Sizes from design's scale, colour by role: grey for usual,
+   the pause colour only for the paused day, smalt only for Full answer. */
+.ap { margin: 0; display: grid; gap: 4px; min-width: 0; }
+.ap .apx { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12px; line-height: 14px; color: var(--muted); white-space: nowrap; }
+.ap .today { font-size: 12px; font-weight: 600; color: var(--ink); }
+.ap .tdate { font-size: 11px; font-weight: 400; color: var(--muted); }
+/* today against usual: dq's two labelled bars (dq r3, .dqnow), copied as they are so the merge keeps one set */
+/* peer:dq start */
+/* r3, the look-inside (Ctrl K, Tab on a file): what it is and whether it is fine today, and no more (the owner: “I like
+   the what is this … I would rather discover the more in detail stuff”). The state chip, with a paused file's count of
+   what waits beside it (⧗ 11, the list on hover, a tap asks for it); today's rows against a usual day as two bars on one
+   scale from zero, each labelled where it ends; what it is, in two lines at most. Its month, columns, joins and what is
+   built from it are one line away in the list beside it (inspiration §3.5 one focal point, §3.6 one scale, labelled
+   directly, §3.7 the answer first, the evidence one tap away). Sizes, spacing and colours from the page's tokens. */
+.pprev .dqstate, .pres .dqsum .dqstate { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); }
+.dqwait { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; height: 22px; padding: 0 var(--sp-2); border-radius: 999px; font-size: var(--fs-2); font-weight: 600; color: var(--text-secondary); background: var(--surface-raised); box-shadow: inset 0 0 0 1px var(--border-subtle); font-variant-numeric: tabular-nums; }
+.dqwait svg.pz { width: 12px; height: 12px; }
+.dqwait:hover, .dqwait:focus-visible { color: var(--action); box-shadow: inset 0 0 0 1px var(--action); }
+.dqnow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-1) 10px; font-size: var(--fs-2); line-height: 16px; }
+.dqnow .dqk { color: var(--text-muted); white-space: nowrap; }
+.dqnow .dqb { position: relative; height: 8px; }
+.dqnow .dqb i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; }
+.dqnow .dqt, .dqnow .dqt0 { background: var(--ink-2); }
+.dqnow .dqt.bad, .dqnow .dqt0.bad { background: var(--bad); }
+.dqnow .dqt.warn, .dqnow .dqt0.warn { background: var(--warn); }
+.dqnow .dqt0 { width: 3px; }
+.dqnow .dqt, .dqnow .dqu { min-width: 2px; }
+.dqnow .dqu { background: color-mix(in srgb, var(--edge-control) 38%, var(--surface)); }
+.dqnow .dqv { justify-self: end; font-size: var(--fs-3); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.dqnow b.dqv { color: var(--text-primary); font-weight: 600; }
+/* the month's strip reuses the page's .strip markup: scoped to the palette so the older .pprev, .pcard and .pa strip rules
+   don't reach in (the same strip in the preview, the phone's card and the full answer) */
+.palette .pbox .ap.apmonth .strip { display: grid; grid-template-columns: repeat(var(--n, 27), minmax(0, 1fr)); gap: 2px; margin: 0; }
+.palette .pbox .ap.apmonth .strip i { aspect-ratio: 1; border-radius: 2px; background: color-mix(in srgb, var(--edge-control) 30%, var(--surface)); box-shadow: none; transform: none; display: grid; place-items: center; }
+.palette .pbox .ap.apmonth .strip i.w { background: var(--warn); transform: rotate(45deg) scale(.7); }
+.palette .pbox .ap.apmonth .strip i.d { background: linear-gradient(90deg, var(--ink-2) 50%, var(--surface) 50%); border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--ink-2); transform: scale(.82); }
+.palette .pbox .ap.apmonth .strip i.p { background: none; }
+.palette .pbox .ap.apmonth .strip i.p svg.pz { width: 100%; height: 100%; vertical-align: 0; }
+.palette .pbox .ap.apmonth .strip i:last-child:not(.p) { box-shadow: 0 0 0 1.5px var(--ink); }
+.apnotes { position: relative; height: 15px; }
+.apnotes span { position: absolute; top: 0; display: inline-flex; align-items: center; gap: 3px; font-size: 12px; line-height: 15px; color: var(--ink-2); white-space: nowrap; }
+.apnotes i { font-style: normal; }
+.apnotes i.w, .apline .apm.w { color: var(--warn); }
+.apnotes svg, .apline .apm svg { width: 10px; height: 10px; }
+.apfan { grid-template-columns: auto 36px minmax(0, 1fr); align-items: center; gap: 0; }
+.apfan .apsrc { display: inline-flex; align-items: center; gap: 4px; max-width: 120px; padding: 3px 8px; border-radius: var(--r-1, 6px); background: var(--sunk); font-size: 12px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.apfan .apsrc.off { background: var(--bad-wash); color: var(--bad); }
+.apfan .apsrc svg.pz { width: 12px; height: 12px; }
+.apfan > svg { display: block; width: 36px; }
+.apfan > svg path { fill: none; stroke: color-mix(in srgb, var(--edge-control) 60%, transparent); stroke-width: 1.2; }
+.apfan > svg circle { fill: var(--edge-control); }
+.palette .pbox .ap.apfan ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 0; min-width: 0; }
+.palette .pbox .ap.apfan ul li { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 22px; padding-left: 4px; font-size: 12px; line-height: 22px; color: var(--ink-2); }
+.palette .pbox .ap.apfan ul li::before { content: none; display: none; }
+.apfan li span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.apfan li b { display: inline-flex; align-items: center; gap: 3px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+.apfan li b svg.pz { width: 12px; height: 12px; }
+.apline { margin: 0; font-size: 13px; line-height: 20px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.apline b { font-weight: 600; color: var(--ink); }
+.apline .bad { color: var(--bad); }
+.apline .okt { color: var(--ok); }
+.apline .owedt { color: var(--ink-2); }
+.apline svg.pz, .apline svg.half { width: 12px; height: 12px; vertical-align: -1px; margin-right: 3px; }
+.apline .apm { font-style: normal; margin-right: 3px; }
+.apline .apm.o { display: inline-block; width: 9px; height: 9px; border-radius: 2px; background: color-mix(in srgb, var(--edge-control) 30%, var(--surface)); vertical-align: 0; }
+.apline code { font: 12px var(--mono); background: var(--row-alt); border-radius: 4px; padding: 0 4px; color: var(--ink); }
+.apw { display: inline-flex; align-items: center; gap: 3px; margin-left: 4px; padding: 0 8px; border: 1px solid var(--edge-control); border-radius: 999px; background: var(--surface); color: var(--ink-2); font: 500 12px/18px var(--font); vertical-align: 1px; cursor: pointer; }
+.apw:hover, .apw:focus-visible { border-color: var(--action); color: var(--action); }
+.apw svg.pz { width: 12px; height: 12px; margin: 0; }
+.apw:hover svg.pz.hg > path, .apw:focus-visible svg.pz.hg > path { stroke: var(--action); }
+.apfull { justify-self: start; display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; padding: 2px 0; font: 600 13px var(--font); color: var(--action); cursor: pointer; }
+.apfull:hover { text-decoration: underline; text-underline-offset: 3px; }
+.apfull kbd { font: 500 12px var(--mono); }
+.pprev .pvans { gap: 8px; }
+.pprev .apfull { margin-top: -2px; }
+.pres li.pcard .pcb { gap: 6px; }
+.pres li.pcard .pcb .apfull { padding: 0; }
+.pa .ap, .pa .dqnow { max-width: 520px; }
+.pa .apline { white-space: normal; }
+/* peer:newcomer r3 end */
+.dqnow .dqt0 { width: 3px; }
+.dqnow .dqt, .dqnow .dqu { min-width: 2px; }
+/* a bar never vanishes beside one ten times longer */
+.dqnow .dqu { background: color-mix(in srgb, var(--edge-control) 38%, var(--surface)); }
+.dqnow .dqv { justify-self: end; font-size: var(--fs-3); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.dqnow b.dqv { color: var(--text-primary); font-weight: 600; }
+.pprev .dqwhat, .pres .dqsum .dqwhat { margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.pprev .dqcols li small { flex: 1 1 0; min-width: 0; }
+.pprev .dqcols li .pty { flex: none; white-space: nowrap; }
+/* a screen too narrow for the preview pane: the line that opens the file carries the same three things */
+.pres li .dqsum { grid-column: 2 / -1; display: grid; gap: var(--sp-2); max-width: 420px; padding: 2px 0; font-size: var(--fs-3); line-height: 19px; color: var(--text-secondary); }
+.pres .dqsum .pvs { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-2); font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--surface-raised); color: var(--text-secondary); border: 1px solid var(--border-subtle); }
+.pres .dqsum .pvs.bad { color: var(--bad); background: var(--bad-wash); border-color: transparent; }
+.pres .dqsum .pvs.warn { color: var(--warn); }
+.pres .dqsum .pvs svg { width: 13px; height: 13px; flex: none; }
+@media (min-width: 1000px) {
+.pres li .dqsum { display: none; }
+/* the preview is a pane the height of the list beside it: its tone and its one divider run to the bottom, where they
+     stopped with the preview's own content (sticky, so it stays in view while a long list scrolls) */
+.pbody:not(.answering):has(> .pprev:not(:empty)) { background: linear-gradient(to left, var(--row-alt) 371px, var(--line) 371px 372px, transparent 372px); }
+}
+/* peer:dq end */
+/* peer:builder start */
+/* Round 3, the file's view (5-today 09 and 10): the file, its state and one number first; each link said by what it
+   means in two to four words with its number, the sentence on hover; what uses it as one count with what that means;
+   the columns and the list of outputs a tap away. Sizes from the scale (11 12 13 20), weights 400 500 600, colour by
+   role: smalt only on the one action and what a tap opens. */
+.node.focus .fhead { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-3) 14px; border-bottom: 0; overflow: hidden; }
+.node.focus .fhead .ft { flex: none; height: 28px; }
+.node.focus .fhead .ft .fs { flex: none; margin-left: auto; }
+.node.focus .fhead .fst { flex: none; height: 24px; display: flex; align-items: center; }
+.node.focus .fhead .fd { flex: none; font-size: var(--fs-2); line-height: 16px; color: var(--text-secondary); display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; text-wrap: balance; }
+.node.focus .fhead .fm { flex: none; height: 18px; line-height: 18px; font-size: var(--fs-3); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.node.focus .fhead .fm b { font-weight: 600; color: var(--text-primary); }
+.node.focus .fhead .fa { flex: none; margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; align-content: flex-start; gap: 6px; }
+.node.focus .fhead .fa .sp { flex: 1 1 0; flex-basis: auto; height: auto; }
+.node.focus .fhead .fa .askd { font-size: var(--fs-2); color: var(--text-muted); }
+/* the columns, one tap: a quiet row along the card's foot, its chevron the only smalt */
+.fcols { display: flex; align-items: center; justify-content: space-between; width: 100%; height: 40px; padding: 0 14px; border: 0; border-top: 1px solid var(--border-subtle); background: none; font: 500 var(--fs-3)/1 var(--font); color: var(--text-secondary); cursor: pointer; }
+.fcols:hover { background: var(--surface-sunk); color: var(--text-primary); }
+.fcols .fch { font-weight: 400; color: var(--text-muted); }
+.fcols:focus-visible { outline: 2px solid var(--action); outline-offset: -2px; }
+.fcols .chev { color: var(--action); font-size: var(--fs-4); transition: transform .2s var(--ease-out); }
+.fcols[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.fcols[aria-expanded="true"] { border-bottom: 1px solid var(--border-subtle); }
+/* a link: what it means on top, quiet; then the file or control it reaches, with its number */
+.ds.nb.lk { display: grid; align-content: center; gap: 2px; padding: var(--sp-2) var(--sp-3); background: var(--surface-raised); border: 1px solid var(--border-subtle); box-shadow: var(--shadow-1); border-radius: var(--r-2); }
+.ds.nb.lk:hover { box-shadow: var(--shadow-2); }
+.ds.nb.lk:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; }
+.ds.nb.lk .eb { font-size: var(--fs-2); line-height: 16px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds.nb.lk .nl { display: flex; align-items: center; gap: 6px; min-width: 0; height: 20px; }
+.ds.nb.lk .ki { flex: none; display: grid; place-items: center; width: 16px; height: 16px; }
+.ds.nb.lk .ki svg { width: 16px; height: 16px; fill: none; stroke: var(--text-muted); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.ds.nb.lk .dn { flex: 1 1 auto; min-width: 0; font-size: var(--fs-3); font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds.nb.lk .nm { flex: none; font-size: var(--fs-2); color: var(--text-secondary); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ds.nb.lk .nm .nd { color: var(--text-muted); }
+/* what uses it: one count and its meaning; tapped, the list by name */
+.node.outs header { padding: 10px 12px 8px; gap: 2px; font-weight: 400; }
+.node.outs .ohd { display: flex; align-items: center; gap: 8px; width: 100%; height: 20px; padding: 0; border: 0; background: none; font: 600 var(--fs-3)/20px var(--font); color: var(--text-primary); text-align: left; cursor: pointer; }
+.node.outs .ohd:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; border-radius: 4px; }
+.node.outs .ohd .ot { flex: 1 1 auto; min-width: 0; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.node.outs .ohd .oc { font-size: var(--fs-4); font-variant-numeric: tabular-nums; }
+.node.outs .ohd .oc svg.pz, .node.outs .ohd .oc svg.half { width: 14px; height: 14px; vertical-align: -2px; margin-right: 3px; }
+.node.outs .ohd .oc.ok { color: var(--ok); }
+.node.outs .ohd .chev { flex: none; color: var(--action); font-size: var(--fs-4); line-height: 1; transition: transform .2s var(--ease-out); }
+.node.outs.open .ohd .chev { transform: rotate(90deg); }
+.node.outs .osub { font-size: var(--fs-2); line-height: 16px; color: var(--text-secondary); }
+.node.outs .osub svg.pz { width: 12px; height: 12px; vertical-align: -1px; }
+.node.outs .osub.then { color: var(--text-muted); }
+.node.outs.shut { cursor: pointer; }
+.node.outs.shut:hover { box-shadow: var(--shadow-2); }
+.node.outs .og { height: 26px; padding: 10px 12px 2px; line-height: 14px; }
+.node.outs ul { padding: 0 6px; }
+.node.outs li button { height: 26px; padding: 0 6px; align-items: center; }
+.node.outs li button i { margin-top: 0; }
+/* peer:builder end */
+/* peer:owner start */
+/* Round 4. The decision receipts as timeline rows: what was decided, by whom, when, and what readers saw, in order.
+   One clock (the story's), oldest first, one row a thing: the day and time on the left on a line of marks, what
+   happened or was decided in bold with who beside it, what readers saw on the right under an eye, and in whose words
+   one tap away (inspiration §3.6 label directly, §3.7 the answer first, §5 Vercel's deploys as a timeline; ADR 0028 never
+   colour alone: each mark has its own shape). Tokens only. */
+/* the marks on one line: each row's mark, joined to the next by a hairline */
+/* what, who, what readers saw; in whose words under it */
+/* polish (design): the app's one link style */
+/* polish (design): the decided card on the radius scale, 10 px */
+/* the build panel's own receipt styles step aside for the rows */
+/* A phone: the same rows; what readers saw drops under what happened when the line is full */
+/* peer:owner end */
+/* peer:builder start */
+/* Round 4, Ctrl K with fresh eyes. A month's two odd days near each other take a line each. What feeds an output is the
+   fan the other way round: its files by kind, into it. The look inside's picture answers "What is X?", so its chip,
+   state row and sentence are styled in a full answer and in a phone's answer card too, as they are in the preview. */
+.apnotes.two { height: 30px; }
+.apnotes.two span:not(.hi) { top: 15px; }
+.palette .pbox .ap.apfan.apfeed { grid-template-columns: minmax(0, 1fr) 36px auto; }
+.palette .pbox .ap.apfan.apfeed ul li { padding-left: 0; padding-right: var(--sp-1); }
+.apfan .apsrc.held { color: var(--text-secondary); }
+.apfan .apsrc.held svg.pz { width: 12px; height: 12px; }
+.pa .dqstate, .pcb .dqstate { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); }
+.pa .pvs, .pcb .pvs { justify-self: start; display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-2); font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--surface-raised); color: var(--text-secondary); border: 1px solid var(--border-subtle); }
+.pa .pvs.bad, .pcb .pvs.bad { color: var(--bad); background: var(--bad-wash); border-color: transparent; }
+.pa .pvs.warn, .pcb .pvs.warn { color: var(--warn); }
+.pa .pvs svg, .pcb .pvs svg { width: 13px; height: 13px; flex: none; }
+.pa .dqwhat { margin: 0; }
+.pcb .dqwhat { margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+/* whole in a full answer */
+/* one count pill in Ctrl K, the map's: the same values as design's shared rule, so nothing differs once both are in */
+.palette .apw, .palette .dqwait { display: inline-flex; align-items: center; gap: 3px; box-sizing: border-box; height: 22px; padding: 0 8px 0 6px; border: 0; border-radius: 999px; background: var(--surface-raised); box-shadow: inset 0 0 0 1px var(--edge-control); font: 600 var(--fs-2)/20px var(--font); color: var(--text-primary); font-variant-numeric: tabular-nums; white-space: nowrap; vertical-align: middle; cursor: pointer; }
+.palette .apw svg.pz, .palette .dqwait svg.pz { width: 12px; height: 12px; margin: 0; }
+.palette .apw { margin-left: 4px; }
+.palette .apw .kwn { font-weight: inherit; color: inherit; }
+.palette .apw:hover, .palette .apw:focus-visible, .palette .dqwait:hover, .palette .dqwait:focus-visible { color: var(--action); box-shadow: inset 0 0 0 1px var(--action); }
+/* peer:builder end */
+/* peer:newcomer r4 start */
+/* An opened kind, said simply: each neighbour's link is a few words you can tap to light the files that carry it, its
+   sentences on hover; a section's join on hover. Sizes and colours from the page's scale and tokens. */
+.kind.compact .krels button.kphr { pointer-events: auto; justify-self: start; border: 0; background: none; padding: 0; font: 500 13px/16px var(--font); color: var(--ink); text-align: left; cursor: pointer; text-decoration: underline dotted color-mix(in srgb, var(--edge-control) 70%, transparent); text-underline-offset: 3px; }
+.kind.compact .krels button.kphr:hover, .kind.compact .krels button.kphr:focus-visible, .kind.compact .krels button.kphr[aria-pressed="true"] { color: var(--action); text-decoration-color: currentColor; }
+.node.gname[title] { pointer-events: auto; cursor: help; }
+/* polish: on a tablet (761–1279 px) the bar's pill keeps its words, "Today is paused · Decide ›", where it said only
+   "Decide ›"; the date small beside Today from 1100 px, where the bar has the room. Below that the search is its ⌕, as
+   on a phone (Ctrl K still opens it), so the pill never squeezes it; the estate's name wraps evenly where it must. */
+/* peer:newcomer r4 end */
+/* peer:dq start */
+/* r4, setup's Checks step as one checks × days grid ("which checks would have stopped which days, at a glance"): a row a
+   check, a column a day, one date axis over them all (inspiration §3.6 one scale, labelled directly; §5 the uptime strip).
+   A tall crimson bar is a day it would have paused, a half-height amber bar a day it would have warned (shape and colour:
+   never colour alone), a hairline a day it let through. Each row's control at its end: pill-sized from 761 px, and on its
+   own line at the kit's size where the panel is narrow. A row's sentence opens from its name. The rows share their
+   columns (subgrid), so every day sits under its date. Sizes, spacing and colours from the page's tokens. */
+/* polish (the reviewers): at every width each row is one line, its setting one quiet word at its end that opens the
+   row, where its four-way control sits (pill-sized from 761 px, the kit's 44 px on a phone): the marks outweigh it */
+@media (min-width: 761px) {
+/* a pointer needs no more; a phone keeps 32 px to tap */
+}
+/* peer:dq end */
+/* peer:design start */
+/* Round 4, fresh eyes on Decide and the file's view, and the seams between round 3's five screens, so they read as one
+   system:
+   - one count badge;
+   - one today-against-usual picture (Ctrl K's two bars) and one month strip;
+   - one tip;
+   - the type scale kept inside charts;
+   - one cost mark, and one mark for smaltfl's voice;
+   - two radii: --r-1 for controls, --r-2 for cards and sheets.
+   Tokens only; last in the page, so where it meets an earlier rule it wins. */
+/* 1. One count badge: an hourglass and a number in the same pill everywhere a count stands. That is a kind's corner, an
+   opened kind, the banner, Ctrl K's answer and look-inside, and Decide's Now. Its edge is --edge, so it reads as a
+   control; its number is the one weight in it; a chevron would make one of them look different. */
+.kind > button.kwait, .ostate button.st.waits, .alert .awn, .palette .apw, .palette .dqwait, #layer .panel.decide .dk-count {
+  display: inline-flex; align-items: center; gap: 3px; box-sizing: border-box; height: 22px; padding: 0 8px 0 6px;
+  border: 0; border-radius: 999px; background: var(--surface-raised); box-shadow: inset 0 0 0 1px var(--edge-control);
+  font: 600 var(--fs-2)/20px var(--font); color: var(--text-primary); font-variant-numeric: tabular-nums; white-space: nowrap;
+  vertical-align: middle; cursor: pointer;
+}
+.kind > button.kwait svg.pz, .ostate button.st.waits svg.pz, .alert .awn svg.pz, .palette .apw svg.pz, .palette .dqwait svg.pz, #layer .panel.decide .dk-count svg.pz { width: 12px; height: 12px; margin: 0; }
+.kind > button.kwait .kwn, .ostate button.st.waits .kwn, .alert .awn .kwn, #layer .panel.decide .dk-count b { font-weight: inherit; color: inherit; }
+.alert .awn .awl { margin-left: 2px; font-weight: 500; color: var(--text-secondary); }
+.palette .apw { margin-left: 4px; }
+.kind > button.kwait:hover, .ostate button.st.waits:hover, .alert .awn:hover, .palette .apw:hover, .palette .dqwait:hover, #layer .panel.decide .dk-count:hover, .kind > button.kwait[aria-expanded="true"], .ostate button.st.waits[aria-expanded="true"], .alert .awn[aria-expanded="true"] { color: var(--action); box-shadow: inset 0 0 0 1px var(--action); }
+.alert .awn:hover .awl, .alert .awn[aria-expanded="true"] .awl { color: var(--action); }
+/* 2. Today against usual: the two bars Ctrl K draws, in Decide's head under the cause and on the file's card in place
+   of the sentence. They sit as wide as Ctrl K's preview, so the same counts draw the same lengths. */
+#layer .panel.decide .dk-top { display: grid; gap: var(--sp-2); }
+#layer .panel.decide .dk-top .dqnow, .node.focus .fhead .fm.fbars .dqnow { max-width: 360px; }
+.node.focus .fhead .fm.fbars { height: 36px; line-height: 16px; white-space: normal; overflow: visible; }
+.node.focus .fhead .fm.fbars .dqk { color: var(--text-muted); }
+/* 3. The month in Decide's More: the strip Ctrl K's answer draws (Fri Mar 1 … Today), then its one line. */
+#layer .panel.decide .dk-month .ap.apmonth { gap: var(--sp-1); }
+#layer .panel.decide .ap.apmonth .strip { display: grid; grid-template-columns: repeat(var(--n, 27), minmax(0, 1fr)); gap: 2px; margin: 0; }
+#layer .panel.decide .ap.apmonth .strip i { aspect-ratio: 1; border-radius: 2px; background: color-mix(in srgb, var(--edge-control) 30%, var(--surface)); box-shadow: none; transform: none; display: grid; place-items: center; }
+#layer .panel.decide .ap.apmonth .strip i.w { background: var(--warn); transform: rotate(45deg) scale(.7); }
+#layer .panel.decide .ap.apmonth .strip i.d { background: linear-gradient(90deg, var(--ink-2) 50%, var(--surface) 50%); border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--ink-2); transform: scale(.82); }
+#layer .panel.decide .ap.apmonth .strip i.p { background: none; }
+#layer .panel.decide .ap.apmonth .strip i.p svg.pz { width: 100%; height: 100%; vertical-align: 0; }
+#layer .panel.decide .ap.apmonth .strip i:last-child:not(.p) { box-shadow: 0 0 0 1.5px var(--ink); }
+#layer .panel.decide .dk-month .apline { white-space: normal; }
+/* 4. Type inside the pictures. More's evidence chart was drawn 320 wide for the Build panel, and scaled to the sheet
+   its labels grew to 18–22 px. At 352 they land on the scale: 11 px labels, 13 px values. Its verdict reads as a heading
+   inside More (15 px), not as the page's title. The two Now and After pictures are one size, so their day names match
+   (13 px). */
+#layer .panel.decide .dk-hero .pic { width: 186px; max-width: 100%; }
+@media (max-width: 760px) {
+#layer .panel.decide .dk-hero .pic { width: 100%; }
+}
+.palette .pprev .pvq b { font-size: var(--fs-4); }
+/* 5. One cost mark: what a choice costs is a grey ✕, on its card as in the Choices list. Crimson stays for a risk (a
+   risky choice's card) and for the pause. */
+#layer .panel.decide .dk-cost .dk-x { color: var(--text-muted); font-weight: 600; }
+#layer .panel.decide .dk-why.mach .mc { color: var(--text-muted); font-weight: 500; }
+/* 6. Two radii: controls --r-1, cards and sheets --r-2. */
+@media (min-width: 761px) {
+#layer .panel.decide { border-radius: var(--r-2); }
+}
+#layer .panel.decide .opts.tiles.rows, #layer .panel.decide label.opt.tile { border-radius: var(--r-2); }
+.node.focus, .node.outs, .alert, .palette .pbox, .palette .pprev .pvans, .palette .pprev .pvpic, .palette .pprev table.pvt { border-radius: var(--r-2); }
+.node.focus .btn.sm, .palette .pres li, .palette .pico { border-radius: var(--r-1); }
+/* 7. One tip: a card that goes somewhere when tapped says its sentence in the same tip on hover and focus. */
+.smtip .tips { margin: 0; color: var(--text-secondary); }
+/* peer:design end */

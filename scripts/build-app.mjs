@@ -77,6 +77,8 @@ const common = {
   // Only codecs other than Snappy need it (the example's files are Snappy), and the plugin loads it only then.
   external: ['hyparquet-compressors'],
   plugins: [oneSmaltdb],
+  // A style sheet a bundle imports is its text: the Data model's map puts its own in its shadow root (src/app/datamodel.ts).
+  loader: { '.css': 'text' },
   logLevel: 'warning',
 };
 
@@ -195,13 +197,14 @@ const shipCatalogue = async (path, storyPath = null) => {
 };
 // The app itself: its bundles and its page. Before the data, so a page that doesn't build says so at once.
 if (!dataOnly) {
-  // derive.js: the notebook parser, loaded the first time someone builds in the app (a join written as a cell).
-  await build({ ...common, entryPoints: { app: 'src/app/main.ts', worker: 'src/app/worker.ts', inline: 'src/app/inline.ts', parse: 'src/app/parse.ts', derive: 'src/app/derive.ts' }, outdir: out });
+  // derive.js: the notebook parser, loaded the first time someone builds in the app (a join written as a cell);
+  // datamodel.js: the Data model's map, loaded the first time its view opens (ADR 0028 §9).
+  await build({ ...common, entryPoints: { app: 'src/app/main.ts', worker: 'src/app/worker.ts', inline: 'src/app/inline.ts', parse: 'src/app/parse.ts', derive: 'src/app/derive.ts', datamodel: 'src/app/datamodel.ts' }, outdir: out });
   // The bundles named by their content (app.3f2a9c1d.js), so a new build is never served from a browser's cache of the
   // last one under the same name: the page's script tag and the page's references to the worker and the in-page engine
   // take the new names; so does its reference to the SQL parser, loaded when a screen asks where a column is used.
   const hashed = {};
-  for (const name of ['worker', 'inline', 'parse', 'derive', 'app']) {
+  for (const name of ['worker', 'inline', 'parse', 'derive', 'datamodel', 'app']) {
     let js = readFileSync(`${out}/${name}.js`, 'utf8');
     for (const [from, to] of Object.entries(hashed)) js = js.split(`./${from}.js`).join(`./${to}`);
     const to = `${name}.${sha256(Buffer.from(js)).slice(0, 8)}.js`;
@@ -317,13 +320,23 @@ if (!dataOnly) {
   // The demo's scenes (ADR 0023 §4): what it shows, the month screen's list, shipped as they are written (the page checks
   // them, core/scenes.ts).
   const scenes = bind.scenes ? JSON.parse(readFileSync(bind.scenes, 'utf8')) : null;
+  // The Data model's display file beside the flow (core/datamodel.ts): what the map calls each file and kind, the joins
+  // the ontology names no relation for, what each file is evidence for. Shipped as it is written; the page checks it.
+  // The nearest one up from the flow's folder, below examples/: a flow read as a page of its own (Evidence feeds) has its
+  // estate's names.
+  const dmPath = (() => {
+    if (!flowPath.endsWith('.json') || flowPath.endsWith('.smaltfl.json')) return null;
+    for (let d = dirname(flowPath); d !== dirname(d) && basename(d) !== 'examples'; d = dirname(d)) if (existsSync(join(d, 'datamodel.json'))) return join(d, 'datamodel.json');
+    return null;
+  })();
+  const datamodel = dmPath ? JSON.parse(readFileSync(dmPath, 'utf8')) : null;
   // What was going on (ADR 0027 §6): the story's events, context the page shows on its days, lanes and charts.
   const events = bind.story ? (JSON.parse(readFileSync(bind.story, 'utf8')).events ?? []) : [];
   // The feed beside the page (ADR 0027 §10): made from what ships, so it says what the page's register says.
   const built = new Date().toISOString().slice(0, 19) + 'Z';
   const dayList = [...new Set(Object.values(sources).flatMap((s) => (s.loads ?? []).map((l) => l.slot.slice(0, 10))))];
   const feed = await shipFeed(flowPath, bind.story ?? null, { events, monthPath: join(work, 'month.json'), days: dayList, made: built });
-  const index = { format: 2, month: first?.slot.slice(0, 7), built, data: null, flow: flowEntry, ...(Object.keys(flowEntries).length ? { flows: flowEntries } : {}), ...(estateEntries.length ? { estates: estateEntries } : {}), ...(catalogueEntries.length ? { catalogue: catalogueEntries } : {}), sources, histories, ...(Object.keys(samples).length ? { samples } : {}), ...(Object.keys(ranges).length ? { ranges } : {}), ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), ...(bind.judged ? { judged: bind.judged } : {}), ...(bind.posture ? { posture: bind.posture } : {}), ...(scenes ? { scenes } : {}), ...(events.length ? { events } : {}), ...(Object.keys(pages).length ? { pages } : {}), feed: 'feed.xml' };
+  const index = { format: 2, month: first?.slot.slice(0, 7), built, data: null, flow: flowEntry, ...(Object.keys(flowEntries).length ? { flows: flowEntries } : {}), ...(estateEntries.length ? { estates: estateEntries } : {}), ...(catalogueEntries.length ? { catalogue: catalogueEntries } : {}), sources, histories, ...(Object.keys(samples).length ? { samples } : {}), ...(Object.keys(ranges).length ? { ranges } : {}), ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), ...(bind.judged ? { judged: bind.judged } : {}), ...(bind.posture ? { posture: bind.posture } : {}), ...(scenes ? { scenes } : {}), ...(datamodel ? { datamodel } : {}), ...(events.length ? { events } : {}), ...(Object.keys(pages).length ? { pages } : {}), feed: 'feed.xml' };
   writeFileSync(`${out}/data/loads.json`, JSON.stringify(index, null, 2) + '\n');
   console.log(`built ${out} (${commit.slice(0, 12)}) with ${flowPath}: ${days} days of ${Object.values(sources).filter((s) => s.loads).length} daily source(s) and ${watches.length} histories, generated by ${bind.generate}; feed.xml has ${feed.entries} entries, as of ${feed.today}`);
 }
@@ -341,6 +354,7 @@ async function dataKey(flowPath, bind) {
   const { metafile } = await build({ entryPoints: entries, bundle: true, write: false, metafile: true, platform: 'node', format: 'esm', outdir: 'node_modules/.cache/smaltfl/keys', packages: 'external', logLevel: 'silent' });
   const files = new Set([...Object.keys(metafile.inputs), bind.generate, 'scripts/data/history.mjs', 'scripts/data/record.mjs', 'packed.json', 'package-lock.json']);
   // A demo's scenes are words the page shows (ADR 0023 §4), nothing the data is made from: a change to them keeps it.
+  // So does a change to its Data model's display file (datamodel.json, ADR 0028 §9): names and pictures for the map.
   // So does a change to its catalogue (ADR 0026 §10): the flows in its `catalogue` folder are added in the page, and
   // built there from the day's run.
   // The flows it reads (ADR 0026), wherever their folders are: each one's document and notebooks. A read flow's own data
@@ -358,7 +372,7 @@ async function dataKey(flowPath, bind) {
     if (statSync(p).isDirectory()) {
       if (read.has(p)) ofFlow(p);
       else if (basename(p) !== 'catalogue') for (const e of readdirSync(p)) walk(join(p, e));
-    } else if (!p.endsWith('scenes.json')) files.add(p);
+    } else if (!p.endsWith('scenes.json') && !p.endsWith('datamodel.json')) files.add(p);
   };
   if (flowPath.endsWith('.smaltfl.json')) files.add(flowPath).add(flowPath.replace(/\.smaltfl\.json$/, '.data.json'));
   else walk(dirname(flowPath));

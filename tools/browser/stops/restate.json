@@ -3,7 +3,7 @@
     "name": "restate-from",
     "what": "Sign-ins, Fri Mar 1, the Ontology view: the rules in force on the day on screen by hash, as shipped; edits take effect from the day on screen, chosen over the next day to arrive (Tue Mar 26), and what that reaches: all 21 recorded days, 17 of them published, run again under the new rules and restated by one decision (ADR 0021 §5, Q-197)",
     "day": "Fri 1",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "select": ["#rules-time .rf-when", "screen"],
     "element": "#rules-time",
@@ -19,7 +19,7 @@
   {
     "name": "restate-form",
     "what": "The owner changes the Latency rule on the sign-in file: from 0 to 10,000 ms, and a row that breaks it holds the day; the form says when the change takes effect (the day on screen) and what it reaches",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [
       ".of-item[data-file=\"auth\"] .of-row",
@@ -38,7 +38,7 @@
   {
     "name": "restate-sheet",
     "what": "Saved (the form still open from the stop before): every recorded day runs again under the new rules, latest first, and the restatement opens: two days would change (Mon Mar 4 and Wed Mar 6, each published and now held, one sign-in slower than 10 s), ticked; the other 19 came out the same, noted and not decided again; a reason, and one button",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [
       [".of-rule-form input[type=number] >> nth=1", "10000"],
@@ -136,7 +136,7 @@
     "name": "restate-reload",
     "what": "After a reload: the change set comes back with the flow kept in this browser, in force from Fri Mar 1 and listed on the Ontology view with who made it; the restated versions and the restatement come back with the record",
     "reload": true,
-    "view": "ontology",
+    "view": "ontology/rules",
     "element": "#rules-time",
     "expect": {
       "pageText": [

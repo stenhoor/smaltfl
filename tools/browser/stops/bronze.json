@@ -89,7 +89,7 @@
     "name": "bronze-from-ontology",
     "what": "From a check's line on the Ontology page (waf left open by the stop before) back to waf's card, on that check",
     "day": "Tue 12",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [
       ".of-item[data-file=\"waf\"] .of-rule.st-alert .of-card-link"

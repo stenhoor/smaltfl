@@ -25,7 +25,7 @@
   {
     "name": "columns-ontology",
     "what": "The Ontology view, the sign-in file opened: client_app listed after its seven columns as not read by the flow, with what it holds; the change recorded above the files",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "click": ".of-item[data-file=\"auth\"] .of-row",
     "waitFor": ".of-item.open .of-unread-list",

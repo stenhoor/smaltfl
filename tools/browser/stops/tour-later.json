@@ -155,7 +155,7 @@
   {
     "name": "tour-scene7-register",
     "what": "The Ontology view's register on the tour: the control declared on Thu 28 with the board's reason, who decided and that the security lead agreed five minutes later, with its own step; the WAF's band said three days ahead, agreed to by its own author; the estate's relation; and what the story wrote down as going on, a migration and a reorganisation",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "element": "#rules-time .rg-list",
     "expect": {

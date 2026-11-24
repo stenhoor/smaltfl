@@ -6,6 +6,7 @@
  */
 import type { Binding } from '../../examples/sources.js';
 import type { CatalogueEntry } from '../core/catalogue.js';
+import { dataModelProblems, isDataModelFile, type DataModelFile } from '../core/datamodel.js';
 import { isScenesFile, scenesProblems, type ScenesFile } from '../core/scenes.js';
 import { eventsProblems, type FlowEvent } from '../core/events.js';
 import type { Expected } from './fetch-checked.js';
@@ -92,6 +93,10 @@ export interface DataList {
   /** The demo's scenes (ADR 0023 §4, core/scenes.ts): what it shows, listed on the month screen; none where the list
    * names none, or they aren't a good scenes file (said in the console, never in the way). */
   scenes?: ScenesFile;
+  /** The Data model map's display file (ADR 0028 §9, core/datamodel.ts): what the map calls each file and kind, the
+   * joins the ontology names no relation for, what each file is evidence for; none where the build shipped none, or it
+   * isn't a good one (said in the console, never in the way). */
+  datamodel?: DataModelFile;
   /** What was going on (ADR 0027 §6, core/events.ts): the events the build's story names; none where it names none,
    * or they aren't good events (said in the console, never in the way). */
   events?: FlowEvent[];
@@ -130,6 +135,14 @@ const scenesOf = (v: unknown): ScenesFile | undefined => {
   if (v === undefined) return undefined;
   if (isScenesFile(v)) return v;
   console.warn(`smaltfl: the data list's scenes aren't shown: ${scenesProblems(v).join('; ')}`);
+  return undefined;
+};
+
+/** The data list's Data model display file, where it is a good one. */
+const datamodelOf = (v: unknown): DataModelFile | undefined => {
+  if (v === undefined) return undefined;
+  if (isDataModelFile(v)) return v;
+  console.warn(`smaltfl: the data list's Data model names aren't used: ${dataModelProblems(v).join('; ')}`);
   return undefined;
 };
 
@@ -217,6 +230,7 @@ export function readDataList(raw: unknown): DataList {
       format: 2, ...(typeof index.month === 'string' ? { month: index.month } : {}), ...(typeof index.built === 'string' ? { built: index.built } : {}), data, flow, flows, estates, catalogue, sources, histories, samples, ranges, ...(types ? { types } : {}), ...(recorded ? { recorded } : {}), loadSource, daily, judged,
       ...(postureOf(index.posture) ? { posture: postureOf(index.posture)! } : {}),
       ...(scenesOf(index.scenes) ? { scenes: scenesOf(index.scenes)! } : {}),
+      ...(datamodelOf(index.datamodel) ? { datamodel: datamodelOf(index.datamodel)! } : {}),
       ...(eventsOf(index.events).length ? { events: eventsOf(index.events) } : {}),
       // A feed is a file beside the page: a path, never an address somewhere else.
       ...(typeof index.feed === 'string' && /^[\w.-]+$/.test(index.feed) ? { feed: index.feed } : {}),
