@@ -92,22 +92,31 @@ The 28 days before Wed Mar 27 on the tour, read from the record:
 
 A dot plot of 8 px dots can't stack 16, let alone 28, inside a card's 36 px *(inference)*.
 
-## 5. The design
+## 5. The design, first pass: a histogram
 
-- **A histogram of the days before.**
-  - Whole counts within a few dozen of each other get a column each. Otherwise the values go into round bands (a
-    width of 1, 2 or 5 times a power of ten), about twenty across the line.
-  - A column's height is the days that had it, against the tallest. A column of one day is still 2 px tall.
-  - Columns are grey, at most 24 px wide, with a 2 px gap between neighbours.
-  - Hovering a column says "497 rows on 16 of the 28 days before".
-- **The usual range** (the middle eight in ten of those days) is shaded behind the columns. It is named as a number in
-  the line of words above, with a swatch of the same shade.
-- **The day itself** is a 12 px dot on the line, ringed in the surface colour: neutral when the day is fine, red when
-  paused, amber when unusual. Its weekday is written under it.
-  - The day isn't one of the 28, so it is a marker, not a column.
-  - Its count is the bold number in the line above. Its standing is said as a count in the picture's accessible name,
-    for example "more than on any of the 28 days before".
-- **The line runs from the least count to the most, the day included,** and both ends are labelled. Access reviews' 0
-  stands far from the pile at 1,438, and EDR's empty day stands far from the rest. The labels say how wide the line is,
-  so the CMDB's nine-row spread doesn't read as a big swing *(inference)*.
-- **A file the same on every day gets words,** not a one-bar chart: "14 rows Wed 27 · the same on all 28 days before".
+- A column for each count of rows the days before had (round bands where they spread wide), as tall as the days that
+  had it; the usual range shaded behind; the day the dot on the line.
+- The owner, on seeing it: make it look better, "it doesn't have to be a histogram, just some clean modern way to show
+  the data, its distribution and where the current data sits on that, so it's clear if today is normal or not". Its
+  columns were sparse where whole counts lie a few rows apart (WAF's five columns), and the shaded band was a box
+  behind them.
+
+## 6. The design, second pass: a smooth shape, the day a line through it
+
+Three options were drawn on the six files' real days in light and dark (a smooth shape with its usual part darker, the
+shape over a range bar like a lab result's, a dot a day stacked); the dots made piles where 16 days are alike, and the
+range bar said again what the darker part says. As built:
+
+- **The days as one smooth shape.** Each day is a soft bump (a kernel density, its width from the days' own spread by
+  Silverman's rule, at least three quarters of a row for whole counts and a thirtieth of the line), so many days alike
+  make the shape tall where they stand.
+- **The usual part darker.** The middle eight in ten of the days is the shape's darker part, named under it ("usual
+  496–497").
+- **The day a line through it,** in its state's colour (neutral, amber, red), with a ringed dot on the line and its
+  weekday above. Inside the darker part is plainly usual; far from the shape is plainly not.
+- **Words first.** "✓ Normal" where the checks let the day through, then where it sits, counted: "like most of the last
+  28 days", "higher than 27 of the last 28 days", "lower than all of the last 28 days". A paused or unusual day has its
+  state's chip on the card already, so its words are the count alone.
+- **A day too lone to show** in the shape (EDR's one empty day among full ones) is a small dot on the line.
+- **The ends** of the line are labelled where they don't touch the usual range's words. A file the same on every day
+  still says so in words.

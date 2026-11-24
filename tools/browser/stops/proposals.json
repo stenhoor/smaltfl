@@ -68,7 +68,7 @@
   },
   {
     "name": "map-file",
-    "what": "Access reviews: its state on the day the map shows, its rows that day among the 28 days before (a column a count, as tall as the days that had it, the usual range shaded behind; the day the red dot at 0, far from the pile at 1,438), the outputs that wait on it and what readers see meanwhile, what one row is and the control it is evidence for; Decide opens the day's decision sheet",
+    "what": "Access reviews: its state on the day the map shows, its rows that day against the 28 days before (the days a smooth shape, its usual part darker, the day a red line at 0 far from them), the outputs that wait on it and what readers see meanwhile, what one row is and the control it is evidence for; Decide opens the day's decision sheet",
     "day": "Wed 7",
     "view": "ontology",
     "viewFirst": true,
@@ -85,8 +85,8 @@
         "#dm-map .stage": [
           "Paused on Wed 27",
           "0 rows Wed 27",
+          "lower than all of the last 28 days",
           "usual 1,433–1,437",
-          "1,438",
           "See Tue Mar 26’s rows",
           "Decide ›",
           "11 waiting",
@@ -97,7 +97,7 @@
         ]
       },
       "count": {
-        "#dm-map .node[data-id=\"d:access_reviews\"] .dqdist .dqs": 1,
+        "#dm-map .node[data-id=\"d:access_reviews\"] .dqdist .dqline.bad": 1,
         "#dm-map .node[data-id=\"d:access_reviews\"] .dqdist .dqtd.bad": 1
       }
     }
@@ -130,7 +130,7 @@
   },
   {
     "name": "map-links",
-    "what": "The CMDB, the applications' register: what each application links to and what points to it, each a sentence about one row the same at either end, the controls' evidence one card; its rows among the days before as a column a count (2,407 to 2,416, nine counts the days had); what it feeds counted once on the other side",
+    "what": "The CMDB, the applications' register: what each application links to and what points to it, each a sentence about one row the same at either end, the controls' evidence one card; its rows against the days before (normal, higher than 27 of them); what it feeds counted once on the other side",
     "day": "Wed 7",
     "view": "ontology",
     "viewFirst": true,
@@ -154,6 +154,8 @@
           "Cloud assets",
           "Each exception names an application",
           "Feeds 15 outputs",
+          "Normal",
+          "higher than 27 of the last 28 days",
           "usual 2,408–2,414",
           "2,407"
         ]
@@ -165,8 +167,8 @@
         ]
       },
       "count": {
-        "#dm-map .node[data-id=\"d:cmdb_apps\"] .dqdist .dqs": 9,
-        "#dm-map .node[data-id=\"d:cmdb_apps\"] .dqdist .dqtd": 1
+        "#dm-map .node[data-id=\"d:cmdb_apps\"] .dqdist .dqline": 1,
+        "#dm-map .node[data-id=\"d:cmdb_apps\"] .dqdist .dqok": 1
       }
     }
   },

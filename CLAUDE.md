@@ -788,9 +788,10 @@ release (smaltty ADR 0030).
   card on its day a tap further, `openCard`, `pendingLook`), `renderDataModelMap`; Ctrl K and "/" open the map's search
   from any view. A file's view says each link as a sentence about one row, the same at either end (`linkOf`, `incOf`,
   `rowNounOf`: "Each application is owned by a unit"; a control's evidence one card, "13 controls check applications"),
-  what it feeds counted once ("Feeds 15 outputs"), and its rows among the days before (`nowBars`, `distOf`: a column
-  a count, as tall as the days that had it, the usual range shaded, the day the dot on the line, the line's ends and the
-  day labelled; a file the same every day said in words; the model's `past`; docs/research/ui-rows-distribution.md). Larkspur's display file draws a control's evidence
+  what it feeds counted once ("Feeds 15 outputs"), and its rows against the days before (`nowBars`, `distOf`, `distH`:
+  the days a smooth shape, each a soft bump, its usual part darker, the day a line through it in its state's colour,
+  "✓ Normal" and where it sits counted in words, a lone day a dot; a file the same every day said in words; the model's
+  `past`; docs/research/ui-rows-distribution.md). Larkspur's display file draws a control's evidence
   among the controls (a feed `checks` the kind its rows entry names, a file of findings or exceptions only names it). A link into the rules and files (a check, a
   change, the register) opens that view (`toRulesView`); the Data model tab opens the map. `tour.cjs` reads text inside
   a shown shadow root (`deep`: `__deepAll`, a selector starting at the host matched inside; `__deepText`), and a stop's

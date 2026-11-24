@@ -646,7 +646,7 @@ export function mountExplorer(root, host) {
   const whatOf = (d) => (d.description ? descOf(d) : ''); // r1: dq's look-inside sentence, so a file reads the same in its preview and its view
   const descLines = (d, fw) => (whatOf(d) ? Math.min(2, wrapLines(whatOf(d), '400 12px Geist', fw - 28).length) : 0);
   const hasNum = (d) => d.rowsToday != null || !!d.awaited;
-  const barsOn = (d) => { const D = distOf(d); return !!D && !D.same; }; // the day among the days before, drawn (DIST_H tall)
+  const barsOn = (d) => { const D = distOf(d); return !!D && !D.same; }; // the day against the days before, drawn (distH tall)
   // the file's own buttons, as its card draws them
   function fileActs(d) {
     const st = d.state, rows = (t) => (M.noRows ? [] : [[t, 'rows']]);
@@ -666,7 +666,7 @@ export function mountExplorer(root, host) {
     const ask = askedSaid(d), ws = [...(ask ? [tw(ask, '400 12px Geist') + 40] : []), ...fileActs(d).map(([t]) => tw(t, '500 13px Geist') + 28)]; if (!ws.length) return 0;
     let rows = 1, x = 0; for (const w of ws) { if (x && x + 6 + w > fw - 28 - 6) { rows++; x = w; } else x += (x ? 6 : 0) + w; } return rows;
   };
-  const headH = (d, fw) => { const L = descLines(d, fw), ar = actsRows(d, fw); return 12 + 28 + (chipLow(d, fw) ? 4 + 24 : 0) + (L ? 4 + L * 16 : 0) + (hasNum(d) ? 4 + (barsOn(d) ? DIST_H : 18) : 0) + (ar ? 10 + ar * 32 + (ar - 1) * 6 : 0) + 12; };
+  const headH = (d, fw) => { const L = descLines(d, fw), ar = actsRows(d, fw); return 12 + 28 + (chipLow(d, fw) ? 4 + 24 : 0) + (L ? 4 + L * 16 : 0) + (hasNum(d) ? 4 + (barsOn(d) ? distH(d, fw - 28) : 18) : 0) + (ar ? 10 + ar * 32 + (ar - 1) * 6 : 0) + 12; };
   // a link, said by what it means: its words, its number, and the whole sentence for hover
   const prevIso = (iso) => new Date(Date.parse(iso + 'T12:00:00Z') - 864e5).toISOString().slice(0, 10);
   const isoSaid = (iso) => (!iso ? '' : iso === DC().iso ? 'today' : iso === prevIso(DC().iso) ? DC().prev : new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }).replace(',', ''));
@@ -866,7 +866,7 @@ export function mountExplorer(root, host) {
         const stateHtml = st === 'waiting' ? `<span class="fs">${PAUSE} Paused ${dW()}</span>` : st === 'decided' ? `<span class="fs owed">${HALF} ${esc(HOW[d.how]?.pill || 'Decided')} · file owed</span>` : d.replaced ? '<span class="fs done">✓ Corrected file in</span>' : st === 'warn' ? `<span class="fs warn">◆ Unusual ${dW()}</span>` : d.awaited ? `<span class="fs aw">◌ ${d.awaited && d.awaited.length === 10 ? `First file ${smDay.date(d.awaited)}` : 'No file yet'}</span>` : '';
         const BTN = { rows: 'btn sm" data-rows', decide: 'btn primary sm" data-decide', undo: 'btn sm" data-undo', replace: 'btn primary sm" data-replace' };
         const L2 = descLines(d, r.w), ar = actsRows(d, r.w), ask = askedSaid(d), n = d.columns.length;
-        el.innerHTML = `<div class="fhead" style="height:${r.hh || headH(d, r.w)}px"><div class="ft"><span class="kicon" style="width:28px;height:28px">${ICON[kindOf(d.kind).icon]}</span><span class="fn">${esc(d.short)}</span>${chipLow(d, r.w) ? '' : stateHtml}</div>${chipLow(d, r.w) ? `<div class="fst">${stateHtml}</div>` : ''}${L2 ? `<div class="fd" style="height:${L2 * 16}px;-webkit-line-clamp:${L2}" title="${esc(d.description)}">${esc(whatOf(d))}</div>` : ''}${hasNum(d) ? `<div class="fm${barsOn(d) ? ' fbars' : ''}">${barsOn(d) ? nowBars(d) /* peer:design r4 */ : d.rowsToday != null ? `<b>${fmt(d.rowsToday)}</b> rows ${dW()}${distOf(d)?.same ? ` · the same on all ${distOf(d).n} days before` : ''}` : 'Described ahead of its first file'}</div>` : ''}${ar ? `<div class="fa" style="height:${ar * 32 + (ar - 1) * 6}px">${ask ? `<span class="askd">${esc(ask)}</span>` : ''}<span class="sp"></span>${fileActs(d).map(([t, k]) => `<button class="${BTN[k]}>${esc(t)}</button>`).join('')}</div>` : ''}</div>`
+        el.innerHTML = `<div class="fhead" style="height:${r.hh || headH(d, r.w)}px"><div class="ft"><span class="kicon" style="width:28px;height:28px">${ICON[kindOf(d.kind).icon]}</span><span class="fn">${esc(d.short)}</span>${chipLow(d, r.w) ? '' : stateHtml}</div>${chipLow(d, r.w) ? `<div class="fst">${stateHtml}</div>` : ''}${L2 ? `<div class="fd" style="height:${L2 * 16}px;-webkit-line-clamp:${L2}" title="${esc(d.description)}">${esc(whatOf(d))}</div>` : ''}${hasNum(d) ? `<div class="fm${barsOn(d) ? ' fbars' : ''}">${barsOn(d) ? nowBars(d, { w: r.w - 28 }) /* peer:design r4 */ : d.rowsToday != null ? `<b>${fmt(d.rowsToday)}</b> rows ${dW()}${distOf(d)?.same ? ` · the same on all ${distOf(d).n} days before` : ''}` : 'Described ahead of its first file'}</div>` : ''}${ar ? `<div class="fa" style="height:${ar * 32 + (ar - 1) * 6}px">${ask ? `<span class="askd">${esc(ask)}</span>` : ''}<span class="sp"></span>${fileActs(d).map(([t, k]) => `<button class="${BTN[k]}>${esc(t)}</button>`).join('')}</div>` : ''}</div>`
           + `<button type="button" class="fcols" data-cols aria-expanded="${open}"><span>${n} column${n === 1 ? '' : 's'}${open && !row1 ? '<span class="fch"> · tap one for its values</span>' : ''}</span><span class="chev" aria-hidden="true">›</span></button>`
           + (open ? `${row1 ? `<div class="cvhead"><span>Tap a column for all its values</span><span>Today’s first row</span></div>` : ''}<ul class="cols">${shown.map((c, i) => `<li class="col${joinCols.has(c.name) ? ' join' : ''}${colTwo(c, r.w, row1 ? cvW(cvOf(c, i)) : undefined) ? ' two' : ''}" data-col="${esc(c.name)}"><span class="cn">${esc(c.name)}</span><span class="cm">${esc(c.meaning || (c.title && c.title.toLowerCase() !== c.name.replace(/_/g, ' ') ? c.title : ''))}</span>${row1 ? `<span class="cv${c.role === 'key' ? ' k' : ''}${row1[i] == null || row1[i] === '' ? ' blank' : ''}" style="max-width:${cvMax(r.w)}px" title="${esc(cvTitle(c, cvOf(c, i)))}">${esc(cvOf(c, i).raw)}${cvOf(c, i).label ? `<span class="cvl"> · ${esc(cvOf(c, i).label)}</span>` : ''}</span>` : `<span class="ty${c.role === 'key' ? ' kb' : ''}">${ty(c)}</span>`}</li>`).join('')}</ul>${n > 12 ? `<div class="more">and ${n - 12} more columns</div>` : ''}` : '');
         el.removeAttribute('role'); el.tabIndex = -1;
@@ -1510,7 +1510,7 @@ export function mountExplorer(root, host) {
       const cause = I.kind === 'rows' && sevW && sevW.why ? cap(sevW.why) : cap(String(I.why || ''));
       const nums = d.rowsToday != null ? `${fmt(d.rowsToday)} rows${d.rowsUsual ? `, usually about ${fmt(usualN(d.rowsUsual))}` : ''}` : '';
       // peer:design r4: today against usual in the one picture the app draws it with (Ctrl K's answer, look inside, the file)
-      const bars = nowBars(d, { label: dkDay().is(dc.iso) ? 'rows today' : `rows ${dc.d}`, tone: I.sev && I.sev.level === 'mild' ? 'warn' : undefined });
+      const bars = nowBars(d, { label: dkDay().is(dc.iso) ? 'rows today' : `rows ${dc.d}`, tone: I.sev && I.sev.level === 'mild' ? 'warn' : undefined, w: 460 });
       const state = `<div class="dk-top"><p class="dk-state">${sevW ? `<span class="dk-sev ${esc(I.sev.level)}">${esc(sevW.word)}</span>` : `<span class="dk-pz">${PAUSE}</span>`}<span>${esc(cause)}${nums && !bars ? ` · <b>${esc(nums)}</b>` : ''}</span></p>${bars}</div>`;
       // counts are icons: ⧗ 11, its list on hover and behind a tap
       const countB = `<button type="button" class="dk-count" data-waits title="${esc(`${outputsWait(n)}: ${waits.map((o) => plain(o.id)).join(', ')}`)}" aria-label="${esc(`${outputsWait(n)}: see which`)}">${HOURGLASS}<b>${n}</b></button>`;
@@ -2205,56 +2205,66 @@ export function mountExplorer(root, host) {
   const stateChip = (d) => {
     if (d.state === 'waiting') return `<span class="pvs bad">${PAUSE} Paused ${dW()}</span>`;
     if (d.state === 'decided') return `<span class="pvs">${HALF} Decided for now · file owed</span>`;
-    if (d.state === 'warn') return '<span class="pvs warn">◆ Unusual today</span>';
+    if (d.state === 'warn') return `<span class="pvs warn">◆ Unusual ${dW()}</span>`;
     if (d.state === 'awaited') return `<span class="pvs">◌ Planned · first file ${esc(d.awaited || '')}</span>`;
     const t = d.rowsToday, u = d.rowsUsual ? usualN(d.rowsUsual) : null;
-    return `<span class="pvs ok" title="${d.state === 'note' ? 'A check noted something today; nothing stopped' : 'No check stopped or warned on it today'}${t != null && u ? ` · ${fmt(t)} rows, ${offSaid(t, u)}` : ''}">✓ Fine today</span>`;
+    return `<span class="pvs ok" title="${d.state === 'note' ? `A check noted something ${dW()}; nothing stopped` : `No check stopped or warned on it ${dW()}`}${t != null && u ? ` · ${fmt(t)} rows, ${offSaid(t, u)}` : ''}">✓ Fine ${dW()}</span>`;
   };
-  // the day's rows among the days before, as a histogram (docs/research/ui-rows-distribution.md): a column for each
-  // count of rows the days before had (or each round band of counts where they spread wide), as tall as the days that
-  // had it, the usual range shaded behind, and the day itself the dot on the line in its state's colour, so many days
-  // alike stand tall instead of hiding behind one another. The line spans the days and the day, its two ends labelled
-  // and the day named under its dot. A file the same on every day says so in words; too few days for a range, the
-  // number alone
-  const niceStep = (r) => { const k = Math.pow(10, Math.floor(Math.log10(r))), f = r / k; return k * (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10); };
+  // the day's rows against the days before (docs/research/ui-rows-distribution.md): the days drawn as one smooth shape,
+  // each a soft bump so that many days alike stand tall, the usual part of it darker, and the day itself a line through
+  // it in its state's colour, named above it; a day the shape is too thin to show (one empty day among full ones) is a
+  // dot on the line. Its words say first whether the day is normal, then where it sits among the days before. A file the
+  // same on every day says so in words; too few days for a range, the number alone
   const distOf = (d) => {
     const t = d.rowsToday, u = d.rowsUsual, past = (d.past || []).filter((x) => x != null);
     if (t == null || !u || past.length < 3) return null;
-    const all = [...past, t], lo0 = Math.min(...all), hi0 = Math.max(...all), n = past.length;
+    const n = past.length, lo0 = Math.min(t, ...past), hi0 = Math.max(t, ...past);
     if (lo0 === hi0) return { same: true, n };
-    // whole counts a few dozen apart: a column each; else round bands, about twenty across the line
-    const each = all.every(Number.isInteger) && hi0 - lo0 <= 40, bw = each ? 1 : niceStep((hi0 - lo0) / 20);
-    const lo = each ? lo0 : Math.floor(lo0 / bw) * bw, hi = each ? hi0 + 1 : (Math.floor(hi0 / bw) + 1) * bw, nb = Math.round((hi - lo) / bw);
-    const counts = new Array(nb).fill(0); for (const v of past) counts[Math.min(nb - 1, Math.floor((v - lo) / bw))]++;
-    const x = (v) => (100 * (v - lo)) / (hi - lo), at = (v) => (each ? x(v + 0.5) : x(v)); // a whole count sits mid-column
-    const below = past.filter((v) => v < t).length, above = past.filter((v) => v > t).length;
-    const where = below === n ? `more than on any of the ${n} days before` : above === n ? `fewer than on any of the ${n} days before` : `more than on ${below} of the ${n} days before${n - below - above ? `, as many as on ${n - below - above}` : ''}`;
-    return { same: false, n, lo0, hi0, lo, bw, nb, counts, max: Math.max(...counts), each, x, at, where, band: [x(u[0]), each ? x(u[1] + 1) : x(u[1])] };
+    // each day a bump as wide as the days' own spread asks (Silverman's rule), never so narrow that whole counts a row
+    // apart stand alone, nor narrower than a thirtieth of the line
+    const s = [...past].sort((a, b) => a - b), q = (p) => { const k = (n - 1) * p, f = Math.floor(k), c = Math.min(f + 1, n - 1); return s[f] + (s[c] - s[f]) * (k - f); };
+    const mean = past.reduce((a, v) => a + v, 0) / n, sd = Math.sqrt(past.reduce((a, v) => a + (v - mean) ** 2, 0) / n), iqr = q(0.75) - q(0.25);
+    const h = Math.max(0.9 * Math.min(sd, iqr / 1.34 || sd) * Math.pow(n, -0.2), past.every(Number.isInteger) ? 0.75 : 0, (hi0 - lo0) / 30);
+    const lo = lo0 - 2.2 * h, hi = hi0 + 2.2 * h, x = (v) => (100 * (v - lo)) / (hi - lo);
+    const k = (at) => past.reduce((a, v) => a + Math.exp(-0.5 * ((at - v) / h) ** 2), 0);
+    const xs = Array.from({ length: 96 }, (_, i) => lo + ((hi - lo) * i) / 95), ys = xs.map(k), top = Math.max(...ys);
+    const pad = u[0] === u[1] ? Math.max(0.5, h / 2) : 0, z0 = Math.max(lo, u[0] - pad), z1 = Math.min(hi, u[1] + pad);
+    const zs = Array.from({ length: 33 }, (_, i) => z0 + ((z1 - z0) * i) / 32);
+    const lone = [...new Set(past)].filter((v) => k(v) / top < 0.12); // days too few where they stand for the shape to show
+    const below = past.filter((v) => v < t).length, above = past.filter((v) => v > t).length, within = t >= u[0] && t <= u[1];
+    const where = within ? `like most of the last ${n} days` : t > u[1] ? `higher than ${below === n ? 'all' : below} of the last ${n} days` : `lower than ${above === n ? 'all' : above} of the last ${n} days`;
+    return { same: false, n, lo0, hi0, x, xs, ys, top, zs, k, lone, where, within };
   };
-  const DIST_H = 82; // the picture's height in a file's card: its line of words, the columns, the line and its labels
-  const nowBars = (d, o = {}) => { // peer:design r4: the one today-against-usual picture; o.label names the day (rows Mon 26), o.tone the pause's severity (amber when mild)
-    const t = d.rowsToday, u = d.rowsUsual, lab = o.label || (dW() === 'today' ? 'rows today' : `rows ${DC().d}`), day = lab.replace(/^rows /, '');
+  const normalOf = (d) => d.state === 'ok' || d.state === 'note'; // the checks let the day through: "✓ Normal"
+  const SHAPE_H = 32;
+  // the picture's height in a file's card: its words (two lines where they don't fit on one), the day's name, the shape
+  // and the line, its labels
+  const distH = (d, w) => { const D = distOf(d), t = d.rowsToday; if (!D || D.same) return 18; const one = tw(`${fmt(t)} rows ${dW() === 'today' ? 'today' : DC().d}`, '500 13px Geist') + 12 + tw(`${normalOf(d) ? '✓ Normal · ' : ''}${D.where}`, '400 12px Geist') <= w; return (one ? 16 : 32) + 6 + 16 + SHAPE_H + 6 + 16; };
+  const nowBars = (d, o = {}) => { // peer:design r4: the one today-against-usual picture; o.label names the day (rows Mon 26), o.tone the pause's severity (amber when mild), o.w its width
+    const t = d.rowsToday, u = d.rowsUsual, lab = o.label || (dW() === 'today' ? 'rows today' : `rows ${DC().d}`), day = lab.replace(/^rows /, ''), w = o.w || 360;
     if (t == null) return '';
     const D = distOf(d);
     if (!D) return `<div class="pvn"><b>${fmt(t)}</b> ${esc(lab)}</div>`;
     if (D.same) return `<div class="pvn"><b>${fmt(t)}</b> ${esc(lab)} · the same on all ${D.n} days before</div>`;
     const tone = o.tone !== undefined ? (o.tone ? ' ' + o.tone : '') : d.state === 'waiting' ? ' bad' : d.state === 'warn' ? ' warn' : '';
-    const range = u[0] === u[1] ? fmt(u[0]) : `${fmt(u[0])}–${fmt(u[1])}`, slot = 100 / D.nb, at = D.at(t);
-    const said = `${fmt(t)} ${lab}: ${D.where}. Usually ${range}. Each column is how many of the ${D.n} days before had that many rows.`;
-    const cols = D.counts.map((c, i) => {
-      if (!c) return '';
-      const v = D.lo + i * D.bw, what = D.bw === 1 ? fmt(v) : `${fmt(v)}–${fmt(v + D.bw - 1)}`, h = Math.max(2, Math.round((c / D.max) * 36));
-      return `<i class="dqs" style="left:${(i * slot).toFixed(3)}%;width:${slot.toFixed(3)}%" title="${esc(`${what} rows on ${c} of the ${D.n} days before`)}"><b style="height:${h}px"></b></i>`;
-    }).join('');
-    // the ends of the line, each hidden where the day's own label stands at that end
-    const ends = `${at > 16 ? `<span class="dqe l">${fmt(D.lo0)}</span>` : ''}${at < 84 ? `<span class="dqe r">${fmt(D.hi0)}</span>` : ''}`;
+    const H = SHAPE_H, y = (v) => (H - (v / D.top) * (H - 3)).toFixed(2), px = (v) => D.x(v).toFixed(2);
+    const area = `M0,${H} ${D.xs.map((v, i) => `L${px(v)},${y(D.ys[i])}`).join(' ')} L100,${H} Z`;
+    const zone = `M${px(D.zs[0])},${H} ${D.zs.map((v) => `L${px(v)},${y(D.k(v))}`).join(' ')} L${px(D.zs[D.zs.length - 1])},${H} Z`;
+    const range = u[0] === u[1] ? fmt(u[0]) : `${fmt(u[0])}–${fmt(u[1])}`, at = D.x(t), verdict = normalOf(d) && o.verdict !== false ? '<span class="dqok">✓ Normal</span> · ' : '';
+    const said = `${fmt(t)} ${lab}${normalOf(d) ? ', normal' : ''}: ${D.where}. Usually ${range}. The shape is the ${D.n} days before, its darker part the usual range.`;
+    // under the line: the least and the most at their places, the usual range under its part; an end that would touch the
+    // usual range's words is left out
+    const ut = `usual ${range}`, uw = tw(ut, '400 12px Geist'), uc = Math.min(Math.max(((D.x(D.zs[0]) + D.x(D.zs[D.zs.length - 1])) / 200) * w, uw / 2), w - uw / 2);
+    const lx = (D.x(D.lo0) / 100) * w, rx = (D.x(D.hi0) / 100) * w, lw = tw(fmt(D.lo0), '400 12px Geist'), rw = tw(fmt(D.hi0), '400 12px Geist');
+    const ends = `${lx + lw / 2 + 10 < uc - uw / 2 ? `<span class="dqe" style="left:${D.x(D.lo0).toFixed(2)}%;transform:translateX(${lx < lw / 2 ? '0' : '-50%'})">${fmt(D.lo0)}</span>` : ''}${rx - rw / 2 - 10 > uc + uw / 2 ? `<span class="dqe" style="left:${D.x(D.hi0).toFixed(2)}%;transform:translateX(${w - rx < rw / 2 ? '-100%' : '-50%'})">${fmt(D.hi0)}</span>` : ''}`;
     const align = at < 8 ? 'translateX(0)' : at > 92 ? 'translateX(-100%)' : 'translateX(-50%)';
-    return `<div class="dqdist" role="img" aria-label="${esc(said)}"><div class="dqh"><span class="dqn"><b>${fmt(t)}</b> ${esc(lab)}</span><span class="dqr"><i class="dqsw" aria-hidden="true"></i>usual ${range}</span></div>`
-      + `<div class="dqplot" aria-hidden="true"><i class="dqband" style="left:${D.band[0].toFixed(2)}%;width:${(D.band[1] - D.band[0]).toFixed(2)}%"></i>${cols}<i class="dqtd${tone}" style="left:${at.toFixed(2)}%" title="${esc(said)}"></i></div>`
-      + `<div class="dqx" aria-hidden="true">${ends}<span class="dqday" style="left:${at.toFixed(2)}%;transform:${align}">${esc(day)}</span></div></div>`;
+    return `<div class="dqdist" role="img" aria-label="${esc(said)}" title="${esc(said)}"><div class="dqh"><span class="dqn"><b>${fmt(t)}</b> ${esc(lab)}</span><span class="dqr">${verdict}${esc(D.where)}</span></div>`
+      + `<div class="dqplot" aria-hidden="true"><span class="dqday" style="left:${at.toFixed(2)}%;transform:${align}">${esc(day)}</span><svg class="dqsvg" viewBox="0 0 100 ${H}" preserveAspectRatio="none"><path class="dqa" d="${area}"/><path class="dqz" d="${zone}"/></svg>`
+      + `${D.lone.map((v) => `<i class="dqlone" style="left:${px(v)}%"></i>`).join('')}<i class="dqline${tone}" style="left:${at.toFixed(2)}%"></i><i class="dqtd${tone}" style="left:${at.toFixed(2)}%"></i></div>`
+      + `<div class="dqx" aria-hidden="true">${ends}<span class="dqu" style="left:${((uc / w) * 100).toFixed(2)}%">${esc(ut)}</span></div></div>`;
   };
   // the three things, in the order the eye takes them: whether it is fine, the number that says so, what it is
-  const nowOf = (d) => `<div class="dqstate">${stateChip(d)}${waitCount(d)}</div>${nowBars(d)}${d.description ? `<p class="pvd dqwhat" title="${esc(descOf(d))}">${esc(descOf(d))}</p>` : ''}`;
+  const nowOf = (d) => `<div class="dqstate">${stateChip(d)}${waitCount(d)}</div>${nowBars(d, { w: 300, verdict: false })}${d.description ? `<p class="pvd dqwhat" title="${esc(descOf(d))}">${esc(descOf(d))}</p>` : ''}`;
   // the preview beside the list: what the line picked is, before it is opened
   function previewDs(d) {
     return `<div class="pvh"><span class="pico">${GL.table}${stateBadge(d)}</span><div><b>${esc(d.short)}</b><span>Dataset · ${esc(kindOf(d.kind).name)}</span></div></div>${nowOf(d)}`;
