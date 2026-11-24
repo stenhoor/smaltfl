@@ -342,6 +342,7 @@ ul.reads { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .ph { padding: 16px 20px 12px; border-bottom: 1px solid var(--line); display: grid; gap: 4px; }
 .ph .ctx { font-size: 13px; color: var(--muted); }
 .ph .t { display: flex; align-items: center; gap: 10px; }
+.ph .pacts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-2); font-size: var(--fs-2); color: var(--text-muted); }
 .ph h2 { margin: 0; font-size: 20px; font-weight: 600; }
 .ph .x { margin-left: auto; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); cursor: pointer; }
 .pb { padding: 16px 20px 32px; overflow: auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-content: start; }
@@ -404,6 +405,8 @@ table.rows td.none { color: var(--muted); font-family: var(--font); }
 /* a few rows to look at */
 .panel.wide { width: min(760px, 100%); }
 .tablewrap { overflow: auto; max-height: 52vh; border: 1px solid var(--line); border-radius: 8px; }
+/* the rows panel's body scrolls as a whole: its table keeps its height (to 52vh) however long the columns below it run */
+.panel.rowsp .pb { grid-auto-rows: max-content; }
 table.rows thead th { position: sticky; top: 0; z-index: 1; }
 .rmore:empty { display: none; }
 .rcount { font-size: 13px; color: var(--ink-2); }
@@ -1699,6 +1702,20 @@ table.rows th.tap { box-shadow: inset 0 -2px 0 var(--action); }
 .ap .apx { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12px; line-height: 14px; color: var(--muted); white-space: nowrap; }
 .ap .today { font-size: 12px; font-weight: 600; color: var(--ink); }
 .ap .tdate { font-size: 11px; font-weight: 400; color: var(--muted); }
+/* today among the days before: a line of dots, the usual band behind them, the day the large dot (nowBars) */
+.dqdist { display: grid; gap: var(--sp-1); font-size: var(--fs-2); line-height: 16px; }
+.dqdist .dqh { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-2); min-width: 0; }
+.dqdist .dqn { color: var(--text-secondary); white-space: nowrap; }
+.dqdist .dqn b { font-size: var(--fs-3); font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.dqdist .dqr { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dqdist .dqsw { width: 14px; height: 8px; border-radius: 2px; background: color-mix(in srgb, var(--edge-control) 30%, var(--surface)); }
+.dqdist .dqstrip { position: relative; height: 18px; }
+.dqdist .dqstrip::before { content: ""; position: absolute; left: 0; right: 0; top: 8px; height: 2px; border-radius: 1px; background: var(--border-subtle); }
+.dqdist .dqband { position: absolute; top: 2px; height: 14px; min-width: 6px; transform: translateX(-3px); border-radius: 4px; background: color-mix(in srgb, var(--edge-control) 30%, var(--surface)); }
+.dqdist .dqp { position: absolute; top: 6px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--text-muted); opacity: .45; }
+.dqdist .dqtd { position: absolute; top: 2px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--text-primary); box-shadow: 0 0 0 2px var(--surface-raised); }
+.dqdist .dqtd.bad { background: var(--bad); }
+.dqdist .dqtd.warn { background: var(--warn); }
 /* today against usual: dq's two labelled bars (dq r3, .dqnow), copied as they are so the merge keeps one set */
 /* peer:dq start */
 /* r3, the look-inside (Ctrl K, Tab on a file): what it is and whether it is fine today, and no more (the owner: “I like
@@ -1822,7 +1839,7 @@ table.rows th.tap { box-shadow: inset 0 -2px 0 var(--action); }
 .ds.nb.lk { display: grid; align-content: center; gap: 2px; padding: var(--sp-2) var(--sp-3); background: var(--surface-raised); border: 1px solid var(--border-subtle); box-shadow: var(--shadow-1); border-radius: var(--r-2); }
 .ds.nb.lk:hover { box-shadow: var(--shadow-2); }
 .ds.nb.lk:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; }
-.ds.nb.lk .eb { font-size: var(--fs-2); line-height: 16px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds.nb.lk .eb { font-size: var(--fs-2); line-height: 16px; color: var(--text-secondary); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .ds.nb.lk .nl { display: flex; align-items: center; gap: 6px; min-width: 0; height: 20px; }
 .ds.nb.lk .ki { flex: none; display: grid; place-items: center; width: 16px; height: 16px; }
 .ds.nb.lk .ki svg { width: 16px; height: 16px; fill: none; stroke: var(--text-muted); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }

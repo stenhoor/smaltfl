@@ -17,8 +17,18 @@ export interface MapHost {
   decide(day: string | null): void;
   /** A dataset's or an output's card, at a tab, on the map's day or the one named (the day readers see). */
   openCard(id: string, tab: 'data' | 'summary', day?: string | null): void;
+  /** A file's rows on the map's day or the one named, as the recorded run read them: null where none can be read here. */
+  rows(id: string, day?: string | null): Promise<MapRows | null>;
   /** Drawn for the first time. */
   ready(): void;
+}
+
+/** A file's rows on a day: how many it has, its header, and its first rows to filter and sort (a blank field null). */
+export interface MapRows {
+  day: string;
+  total: number;
+  columns: string[];
+  rows: (string | null)[][];
 }
 
 /** What the page can do with the map once mounted. */

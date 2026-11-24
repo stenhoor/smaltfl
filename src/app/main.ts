@@ -7,7 +7,7 @@
  */
 import { donorBinding, pinnedDdl, type Binding } from '../../examples/sources.js';
 import { deliveriesOf, namedFiles, readDataList, versionsOfDay, type DataList, type Delivered, type PostureProduct } from './datalist.js';
-import type { MapHandle, MapHost, MapLevel } from './datamodel.js';
+import type { MapHandle, MapHost, MapLevel, MapRows } from './datamodel.js';
 import { holidayOf, seasonOf, US_NYC_1, type Calendar } from '../core/calendar.js';
 
 /** The calendar the watched source is judged by (ADR 0010 §2): its days marked on the strips and charts, Election Day
@@ -69,7 +69,7 @@ import { dayBars, matchBars, scoreSpark, scoreTrend, type BarDay, type ScoreCut,
 import { sha256Hex } from '../core/hash.js';
 import { LEVEL_NAME, leaderSaid, postureTree, scoreSaid, trendSaid, unitCounts, type PostureNode } from '../core/posture.js';
 import { counted, glossOf, meaningBeyond, meaningOf, nounOf as ontologyNoun, propertyOf, readAsOf, saysMore, type AwaitedDataset, type Condition, type Edit, type Ended, type EndedKind, type LinkType, type NeedsDef, type Noun, type ObjectType, type PropertyType, type RowsDef } from '../core/ontology.js';
-import { columnChangeSaid, columnsHold, csvColumn, csvHeader, readAsIn, type ColumnMap } from '../core/columns.js';
+import { columnChangeSaid, columnsHold, csvColumn, csvHeader, csvRecords, readAsIn, type ColumnMap } from '../core/columns.js';
 import { columnUses, joinImpactSaid, joinMatch, usesSaid, type ColumnUses, type JoinUse, type ParseSql } from '../core/uses.js';
 import { endedArrivalSaid, endedEntry, endedInWords, entryCalled, estateSaid, handlingSaid, ontologyPage, originSaid, redefinable, redefinedWhere, redefineEdits, typesShown, type ColumnCard, type FileSection, type Handling, type OntologyPage, type Rule } from '../core/ontologypage.js';
 import { MAX_CODES, proposalsOf, shareRange, valueCandidates, watchedFile, type Proposal } from '../core/proposals.js';
@@ -15587,7 +15587,9 @@ function dataModelNow(): DmModel & Record<string, unknown> {
     d.counts = strip.map((x) => rowsIn(lastRun(x), d.id));
     d.heads = strip.map((x) => lastRun(x)?.claims?.find((c) => c.source === d.id)?.head ?? null);
     d.rowsToday = run ? rowsIn(run, d.id) : null;
-    d.rowsUsual = usualOf(before.map((x) => rowsIn(lastRun(x), d.id)));
+    const past = before.map((x) => rowsIn(lastRun(x), d.id));
+    d.past = past.filter((n): n is number => n !== null);
+    d.rowsUsual = usualOf(past);
     d.state = d.days.at(-1) ?? 'none';
     if (d.state === 'waiting') {
       const head = d.heads.at(-1);
@@ -15644,8 +15646,50 @@ const mapHost: MapHost = {
     if (location.hash === dayHash(day)) showView();
     else location.hash = dayHash(day);
   },
+  rows: (id, day) => {
+    const d = day ?? mapDay().day;
+    return d ? mapRows(id, d) : Promise.resolve(null);
+  },
   ready: () => undefined,
 };
+
+/** The last run the record has of a day, as known at the moment the page reads at, that didn't fail and kept its
+ * manifest: the run the map reads a day from. */
+function recordedRunOn(day: string): RunAbout | null {
+  const es = runsByDay(knownOn(mapDay().entries, monthView.at)).get(day) ?? [];
+  for (let i = es.length - 1; i >= 0; i--) {
+    const a = es[i]!.about as RunAbout;
+    if (a.outcome !== 'failed' && typeof a.manifest === 'string') return a;
+  }
+  return null;
+}
+
+/** The most rows the map's panel takes from a file to filter and sort; the file's count is said whole. */
+const MAP_ROWS = 5000;
+
+/** A file's rows on a day as the recorded run read them, for the map's rows panel: the file the run's manifest names,
+ * fetched and checked against its sha256 as every file the page reads is, then read as CSV. Null where the record has no
+ * run of the day that read the file, or the file isn't CSV text. */
+async function mapRows(source: string, day: string): Promise<MapRows | null> {
+  const run = recordedRunOn(day);
+  const node = run?.manifest ? manifestOf(run.manifest)?.nodes.find((n) => n.origin === source && n.file) : undefined;
+  if (!node?.file) return null;
+  const sha = node.file.sha256;
+  const k = loads.list.findIndex((l) => l.day === day);
+  const l = k >= 0 ? loads.list[k] : undefined;
+  // A daily file of the day or of one of its versions, or a source's one file (the inventory, a fixed list).
+  const fixed = dataList?.sources[source]?.entry;
+  const listed = (l ? [l, ...Object.values(l.files ?? {}), ...versionsOfLoad(k).flatMap((v) => Object.values(v.files))] : [])
+    .map((f) => ({ path: f.file, sha256: f.sha256, bytes: f.bytes }))
+    .concat(fixed ? [{ path: fixed.path, sha256: fixed.sha256, bytes: fixed.bytes }] : [])
+    .find((f) => f.sha256 === sha);
+  if (!listed || !/\.csv$/i.test(listed.path)) return null;
+  const held = (l && l.sha256 === sha ? loads.bytes.get(k) : undefined) ?? Object.entries(loads.others.get(k) ?? {}).find(([at]) => at.endsWith(`:${sha}`))?.[1];
+  const bytes = held ?? (await checked(listed.path, { sha256: sha, bytes: listed.bytes ?? -1, from: listed.path }));
+  const records = csvRecords(new TextDecoder().decode(bytes)).filter((r) => r.length > 1 || r[0] !== '');
+  const columns = (records[0] ?? []).map((c) => c.trim());
+  return { day, total: Math.max(0, records.length - 1), columns, rows: records.slice(1, MAP_ROWS + 1).map((r) => r.map((v) => (v === '' ? null : v))) };
+}
 
 /** The map drawn in the Data model's first view: its bundle loaded the first time, then given the model now. */
 async function renderDataModelMap(): Promise<void> {

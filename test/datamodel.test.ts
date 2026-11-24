@@ -28,14 +28,14 @@ describe('the display file', () => {
 describe("Larkspur's map", async () => {
   const doc = await loadFlowDir(dir);
 
-  it('draws its five kinds, each with the files that describe it, its own first', () => {
+  it('draws its five kinds, each with the files that describe it, its own first: the applications their register, the controls their catalogue and each one’s evidence', () => {
     const m = dataModelOf(doc, inputs(true));
     expect(m.kinds.map((k) => [k.id, k.icon, k.plural, k.datasets[0], k.datasets.length])).toEqual([
       ['org_unit', 'org', 'units', 'hr_org_units', 1],
       ['person', 'person', 'people', 'hr_people', 1],
-      ['application', 'app', 'applications', 'cmdb_apps', 14],
+      ['application', 'app', 'applications', 'cmdb_apps', 1],
       ['platform', 'platform', 'platforms', 'platforms', 3],
-      ['control', 'control', 'controls', 'control_catalog', 3],
+      ['control', 'control', 'controls', 'control_catalog', 16],
     ]);
   });
 
@@ -51,6 +51,8 @@ describe("Larkspur's map", async () => {
     const ar = m.datasets.find((d) => d.id === 'access_reviews')!;
     expect(ar.short).toBe('Access reviews');
     expect(ar.flow).toBe('Evidence feeds');
+    // Drawn among the controls, a row of it is still one application, as its rows entry says.
+    expect(ar.kind).toBe('control');
     expect(ar.one).toBe('one application: data class card data or personal data or confidential · lifecycle live or retiring');
     expect(ar.builds).toHaveLength(11);
     expect([ar.control, ar.controlName]).toEqual(['access_review', 'Quarterly access review']);
@@ -67,9 +69,11 @@ describe("Larkspur's map", async () => {
     expect(rel('application', 'org_unit')).toEqual(['owned by: owned by']);
     expect(rel('person', 'org_unit')).toEqual(['works in: works in']);
     expect(rel('control', 'person')).toEqual(['approved by: Exceptions approved by a person']);
-    expect(rel('platform', 'application')).toEqual(['tagged with: Cloud assets tagged with an application']);
-    expect(rel('application', 'control')).toEqual(['evidence for: evidence for · 13 datasets']);
-    expect(rel('application', 'application')).toEqual(['about: 13 datasets name an application']);
+    expect(rel('platform', 'application')).toEqual(['about: Cloud assets name an application']);
+    // A control checks the applications its evidence has a row for (TLS); a file of findings or exceptions names one.
+    expect(rel('control', 'application')).toEqual(['about: Findings and Exceptions name an application', 'checks: checks']);
+    expect(rel('application', 'control')).toEqual([]);
+    expect(rel('control', 'control')).toContain('evidence for: evidence for · 13 datasets');
     expect(m.outputs).toHaveLength(40);
   });
 });
@@ -88,6 +92,23 @@ describe('the day, as the page adds it', () => {
   it('names an id as people read it and gives each kind an icon', () => {
     expect([plainName('pentest_schedule'), plainName('edr_coverage'), plainName('hr_org_units')]).toEqual(['Pentest schedule', 'EDR coverage', 'HR org units']);
     expect([iconFor({ id: 'vendor', name: 'Supplier' }), iconFor({ id: 'zzz', name: 'Thing' })]).toEqual(['vendor', 'box']);
+  });
+});
+
+describe("Evidence feeds' page, a flow of the evidence alone", () => {
+  it('draws the controls the display file describes though its ontology has no catalogue: a kind with no register', async () => {
+    const feeds = new URL('../examples/larkspur/feeds/', import.meta.url);
+    const doc = await loadFlowDir(feeds);
+    const data = JSON.parse(readFileSync(new URL('data.json', feeds), 'utf8')) as { sources: Record<string, { columns: [string, string][] }> };
+    const m = dataModelOf(doc, { columns: (s) => data.sources[s]?.columns, daily: new Set(Object.keys(data.sources).filter((s) => !fixed.has(s))), display });
+    const kind = (id: string) => m.kinds.find((k) => k.id === id)!;
+    // The applications are their register alone, as on the estate's own page; the feeds are the controls'.
+    expect(kind('application').datasets).toEqual(['cmdb_apps']);
+    expect([kind('control').name, kind('control').dataset, kind('control').datasets.length]).toEqual(['Control', '', 13]);
+    // A feed still has a row an application, and checks the applications its rows are.
+    const tls = m.datasets.find((d) => d.id === 'tls')!;
+    expect([tls.kind, tls.one?.split(':')[0]]).toEqual(['control', 'one application']);
+    expect(m.joins.find((j) => j.from === 'tls' && j.to === 'cmdb_apps')?.rel).toBe('checks');
   });
 });
 
