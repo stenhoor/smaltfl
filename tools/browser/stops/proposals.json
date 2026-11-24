@@ -1,7 +1,7 @@
 [
   {
     "name": "map-estate",
-    "what": "Larkspur's tour, Wed Feb 7 on screen: the Data model opens on its map (ADR 0028 §9, phase 4, the explorer's design): what waits first, as the record has it, without a run: Wed Mar 27 paused, Access reviews arrived empty, 11 outputs waiting on it; then the five kinds of thing with their files and how they relate, a count of what waits on each kind's top edge",
+    "what": "Larkspur's tour, Wed Feb 7 on screen: the Data model opens on its map (ADR 0028 §9, phase 4, the explorer's design): what waits first, as the record has it, without a run: Wed Mar 27 paused, Access reviews arrived empty, 11 outputs waiting on it; then the five kinds of thing with their files and how they relate, a count of what waits on each kind's top edge: the applications their register alone, the controls their catalogue and each one's evidence",
     "day": "Wed 7",
     "view": "ontology",
     "expect": {
@@ -15,7 +15,18 @@
         "#dm-map .node.kind[data-id=\"k:application\"]": [
           "Application",
           "2,416 applications",
-          "14 datasets"
+          "1 dataset"
+        ],
+        "#dm-map .node.kind[data-id=\"k:control\"]": [
+          "Control",
+          "14 controls",
+          "16 datasets"
+        ],
+        "#dm-map .stage": [
+          "CMDB",
+          "Control catalogue",
+          "Access reviews",
+          "Requirements"
         ],
         "#dm-map .dm-switch": [
           "Map",
@@ -30,33 +41,34 @@
   },
   {
     "name": "map-kind",
-    "what": "Application opened: its register, the CMDB, then the evidence about each application, Access reviews marked paused; its neighbours at the edges, each said from its own side in a few words",
+    "what": "Control opened: its register, the catalogue, then each control's evidence (a row an application, Access reviews marked paused), then the files about each control; its neighbours at the edges, each said from its own side in a few words",
     "day": "Wed 7",
     "view": "ontology",
     "viewFirst": true,
     "clicks": [
-      "#dm-map .node.kind[data-id=\"k:application\"]"
+      "#dm-map .node.kind[data-id=\"k:control\"]"
     ],
     "expect": {
       "textIn": {
         "#dm-map #trail": [
           "Data model",
-          "Application"
+          "Control"
         ],
         "#dm-map .stage": [
-          "The register: every application",
-          "Evidence about each application",
+          "The register: every control",
+          "Evidence for each control",
+          "a row an application",
           "1 paused",
-          "owns applications",
-          "hosts applications",
-          "checks applications"
+          "About each control",
+          "approves exceptions to controls",
+          "checked by controls"
         ]
       }
     }
   },
   {
     "name": "map-file",
-    "what": "Access reviews: its state on the day the map shows, its rows against the days before, the outputs that wait on it and what readers see meanwhile, what one row is and what it is evidence for; Decide opens the day's decision sheet",
+    "what": "Access reviews: its state on the day the map shows, its rows that day against the 28 days before (the days a smooth shape, its usual part darker, the day a red line at 0 far from them), the outputs that wait on it and what readers see meanwhile, what one row is and the control it is evidence for; Decide opens the day's decision sheet",
     "day": "Wed 7",
     "view": "ontology",
     "viewFirst": true,
@@ -67,25 +79,102 @@
       "textIn": {
         "#dm-map #trail": [
           "Data model",
-          "Application",
+          "Control",
           "Access reviews"
         ],
         "#dm-map .stage": [
           "Paused on Wed 27",
-          "1,435",
+          "0 rows Wed 27",
+          "lower than all of the last 28 days",
+          "usual 1,433–1,437",
           "See Tue Mar 26’s rows",
           "Decide ›",
           "11 waiting",
           "Readers see Tue Mar 26 until you decide",
-          "one per in-scope application",
+          "Each row is one application in scope",
+          "Evidence for the control",
           "Quarterly access review"
         ]
+      },
+      "count": {
+        "#dm-map .node[data-id=\"d:access_reviews\"] .dqdist .dqline.bad": 1,
+        "#dm-map .node[data-id=\"d:access_reviews\"] .dqdist .dqtd.bad": 1
+      }
+    }
+  },
+  {
+    "name": "map-rows",
+    "what": "Its rows beside the map, not in the pipeline: nothing arrived on Wed 27, so the panel reads the day readers see, Tue Mar 26's file as the record keeps it (fetched and checked against its hash), to filter, sort and keep a value's rows; the pipeline a tap further",
+    "day": "Wed 7",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      "#dm-map .node.focus button[data-rows]"
+    ],
+    "expect": {
+      "textIn": {
+        "#dm-map .panel": [
+          "Access reviews",
+          "Open in the pipeline ›",
+          "No rows arrived on Wed 27",
+          "Tue Mar 26’s, the rows readers see",
+          "1,438 rows in Tue Mar 26’s file",
+          "app_id",
+          "last_review"
+        ]
+      },
+      "count": {
+        "#dm-map table.rows tbody tr": 50
+      }
+    }
+  },
+  {
+    "name": "map-links",
+    "what": "The CMDB, the applications' register: what each application links to and what points to it, each a sentence about one row the same at either end, the controls' evidence one card; its rows against the days before (normal, higher than 27 of them); what it feeds counted once on the other side",
+    "day": "Wed 7",
+    "view": "ontology",
+    "viewFirst": true,
+    "clicks": [
+      "#dm-map .node.ds[data-id=\"d:cmdb_apps\"]"
+    ],
+    "expect": {
+      "textIn": {
+        "#dm-map #trail": [
+          "Data model",
+          "Application",
+          "CMDB"
+        ],
+        "#dm-map .stage": [
+          "Each application is owned by a unit",
+          "Org units",
+          "Each application runs on a platform",
+          "Platform list",
+          "13 controls check applications",
+          "Each tag names an application",
+          "Cloud assets",
+          "Each exception names an application",
+          "Feeds 15 outputs",
+          "Normal",
+          "higher than 27 of the last 28 days",
+          "usual 2,408–2,414",
+          "2,407"
+        ]
+      },
+      "noTextIn": {
+        "#dm-map .stage": [
+          "datasets point to it",
+          "Used by"
+        ]
+      },
+      "count": {
+        "#dm-map .node[data-id=\"d:cmdb_apps\"] .dqdist .dqline": 1,
+        "#dm-map .node[data-id=\"d:cmdb_apps\"] .dqdist .dqok": 1
       }
     }
   },
   {
     "name": "map-search",
-    "what": "Search, act or ask (Ctrl K) from the file: what waits first, then where you are, then questions this page answers from its own data",
+    "what": "Search, act or ask (Ctrl K) from the CMDB: what waits first, then what can be done here, then questions this page answers from its own data",
     "day": "Wed 7",
     "view": "ontology",
     "viewFirst": true,
@@ -97,8 +186,9 @@
         "#dm-map .palette": [
           "Decide what readers see Wed Mar 27",
           "Access reviews arrived empty",
-          "Why is Access reviews paused?",
-          "Back to the whole estate"
+          "Explore CMDB’s rows",
+          "Back to the whole estate",
+          "What does CMDB join?"
         ]
       }
     }

@@ -4,7 +4,7 @@
 import css from './datamodel/explorer.css';
 import { mountExplorer, type MapHandle, type MapHost } from './datamodel/explorer.js';
 
-export type { MapHandle, MapHost, MapLevel } from './datamodel/explorer.js';
+export type { MapHandle, MapHost, MapLevel, MapRows } from './datamodel/explorer.js';
 
 /** The map's frame: where you are and what you can do, what waits, the canvas, and the layer its panels open in. */
 const SKELETON = `<div class="app">

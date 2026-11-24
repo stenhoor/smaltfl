@@ -11,20 +11,20 @@
     "hr_org_units": { "short": "Org units" },
     "hr_people": { "short": "People" },
     "cmdb_apps": { "short": "CMDB" },
-    "findings": { "short": "Findings" },
-    "tls": { "short": "TLS" },
-    "waf": { "short": "WAF" },
-    "pentest_schedule": { "short": "Pen tests" },
-    "encryption": { "short": "Encryption" },
-    "key_rotation": { "short": "Key rotation" },
-    "backup_jobs": { "short": "Backups" },
-    "dr_exercises": { "short": "DR exercises" },
-    "mfa": { "short": "MFA" },
-    "access_reviews": { "short": "Access reviews" },
-    "logging_coverage": { "short": "Logging" },
-    "privileged_vault": { "short": "Vault" },
-    "edr_coverage": { "short": "EDR" },
-    "sbom_inventory": { "short": "SBOM inventory" },
+    "findings": { "short": "Findings", "kind": "control" },
+    "tls": { "short": "TLS", "kind": "control" },
+    "waf": { "short": "WAF", "kind": "control" },
+    "pentest_schedule": { "short": "Pen tests", "kind": "control" },
+    "encryption": { "short": "Encryption", "kind": "control" },
+    "key_rotation": { "short": "Key rotation", "kind": "control" },
+    "backup_jobs": { "short": "Backups", "kind": "control" },
+    "dr_exercises": { "short": "DR exercises", "kind": "control" },
+    "mfa": { "short": "MFA", "kind": "control" },
+    "access_reviews": { "short": "Access reviews", "kind": "control" },
+    "logging_coverage": { "short": "Logging", "kind": "control" },
+    "privileged_vault": { "short": "Vault", "kind": "control" },
+    "edr_coverage": { "short": "EDR", "kind": "control" },
+    "sbom_inventory": { "short": "SBOM inventory", "kind": "control" },
     "cloud_assets": { "short": "Cloud assets", "kind": "platform" },
     "platforms": { "short": "Platform list" },
     "platform_links": { "short": "Platform links", "kind": "platform" },
@@ -35,12 +35,13 @@
   "joins": [
     { "from": "hr_people", "col": "org_unit_id", "to": "hr_org_units", "toCol": "org_unit_id", "rel": "works in" },
     { "from": "exceptions", "col": "approver_id", "to": "hr_people", "toCol": "person_id", "rel": "approved by" },
-    { "from": "cloud_assets", "col": "app_tag", "to": "cmdb_apps", "toCol": "app_id", "rel": "tagged with" },
+    { "from": "cloud_assets", "col": "app_tag", "to": "cmdb_apps", "toCol": "app_id", "rel": "about" },
     { "from": "control_catalog", "col": "depends_on", "to": "control_catalog", "toCol": "control_id", "rel": "depends on" }
   ],
   "evidence": {
     "kind": "control",
     "rel": "evidence for",
+    "checks": "checks",
     "datasets": {
       "tls": { "id": "tls", "name": "TLS on exposed endpoints" },
       "waf": { "id": "waf", "name": "Web application firewall" },
@@ -54,7 +55,8 @@
       "access_reviews": { "id": "access_review", "name": "Quarterly access review" },
       "logging_coverage": { "id": "logging", "name": "Central logging" },
       "privileged_vault": { "id": "privileged_access", "name": "Privileged accounts vaulted" },
-      "edr_coverage": { "id": "edr", "name": "Endpoint detection" }
+      "edr_coverage": { "id": "edr", "name": "Endpoint detection" },
+      "sbom_inventory": { "id": "sbom", "name": "Software bill of materials" }
     }
   }
 }

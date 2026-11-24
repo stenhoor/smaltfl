@@ -783,8 +783,16 @@ release (smaltty ADR 0030).
   loaded when the view first opens; the build's `.css` loader is text). In main.ts: `dataModelView` (`map` or `rules`;
   `takeDataModelLink` reads `#ontology/rules`, `#ontology/kind/<id>`, `#ontology/dataset/<id>` once and puts the address
   back to `#ontology`, so every edit's redraw finds the view where it was), `dataModelSwitch`, `mapHost` (Decide opens
-  the day's decision sheet, `openDecision`; rows and outputs open their card on the map's day, `pendingLook`),
-  `renderDataModelMap`; Ctrl K and "/" open the map's search from any view. A link into the rules and files (a check, a
+  the day's decision sheet, `openDecision`; a file's rows open beside the map from the file the day's recorded run read,
+  fetched and checked against its hash and read as CSV, `mapRows`, `recordedRunOn`; an output opens beside it too; each
+  card on its day a tap further, `openCard`, `pendingLook`), `renderDataModelMap`; Ctrl K and "/" open the map's search
+  from any view. A file's view says each link as a sentence about one row, the same at either end (`linkOf`, `incOf`,
+  `rowNounOf`: "Each application is owned by a unit"; a control's evidence one card, "13 controls check applications"),
+  what it feeds counted once ("Feeds 15 outputs"), and its rows against the days before (`nowBars`, `distOf`, `distH`:
+  the days a smooth shape, each a soft bump, its usual part darker, the day a line through it in its state's colour,
+  "✓ Normal" and where it sits counted in words, a lone day a dot; a file the same every day said in words; the model's
+  `past`; docs/research/ui-rows-distribution.md). Larkspur's display file draws a control's evidence
+  among the controls (a feed `checks` the kind its rows entry names, a file of findings or exceptions only names it). A link into the rules and files (a check, a
   change, the register) opens that view (`toRulesView`); the Data model tab opens the map. `tour.cjs` reads text inside
   a shown shadow root (`deep`: `__deepAll`, a selector starting at the host matched inside; `__deepText`), and a stop's
   `"view": "ontology/rules"` opens the rules and files; `tools/browser/stops/proposals.json` walks the map first.

@@ -245,6 +245,33 @@ files (`"view": "ontology/rules"`). Left for phase 4's second part: Rules and fi
 Rules and Changes, each on the map's components; the map's join matches counted in the engine; the decision sheet in
 the prototype's last design (the recommended choice and one button, the rest behind More), once phase 3 has the panel.
 
+**After the owner's first look (the same day).** The owner found the applications' box read as the controls, a
+control's list odd as a file coming in, "15 datasets point to it" and "Used by 15 outputs" hard to tell apart, "owned by"
+and "runs on" unclear, two bars hard to compare, and Explore rows leaving the map. So:
+
+- **Applications are their register alone; a control's evidence is the control's.** Larkspur's display file draws the
+  thirteen feeds and the SBOM inventory among the controls: the catalogue, then "Evidence for each control · a row an
+  application", then the files about each control. A row of a feed is still an application, as its rows entry says,
+  and a feed checks the applications its rows are (`checks`); a file of findings or exceptions only names one.
+- **A link is a sentence about one row, the same at either end.** "Each application is owned by a unit" (Org units),
+  "Each application runs on a platform" (Platform list), "Each row is one application in scope" (CMDB, from a feed),
+  "Each tag names an application" (Cloud assets). What points to a file is said as the file that points says it, each
+  its own card, and a control's evidence is one card ("13 controls check applications", its files named). What a file
+  feeds is counted once, on the other side ("Feeds 15 outputs").
+- **The day against the days before, so it's clear whether it is normal** (research in
+  docs/research/ui-rows-distribution.md; a line of dots hid how many days were alike, and a histogram after it was
+  sparse and boxy).
+  - The 28 days before are one smooth shape, each day a soft bump, so many days alike stand tall. The usual range
+    (their middle eight in ten) is its darker part, named under it.
+  - The day itself is a line through the shape in its state's colour, with its weekday above.
+  - The words say first whether the day is normal ("✓ Normal", where the checks let it through), then where it sits,
+    counted: "like most of the last 28 days", "higher than 27 of the last 28 days".
+  - A day the shape is too thin to show is a dot on the line. A file the same on every day says so in words.
+- **Rows and outputs beside the map.** Explore rows opens a panel on the map with the file the day's recorded run read,
+  fetched and checked against the hash the record keeps for it (nothing run), to filter, sort and keep a value's rows;
+  where the day is paused or arrived empty, the day readers see, said first. An output opens beside the map too (held
+  or published, its rows, what it is, the files it is built from). Each has **Open in the pipeline ›** for its card.
+
 ## Amendment 1: UX beyond the visuals (2026-11-21, Q-351 to Q-354)
 
 The maintainer asked for a deep dive on UX as a whole, not only color, hierarchy and interaction

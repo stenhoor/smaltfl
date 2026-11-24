@@ -57,6 +57,7 @@ export function mountExplorer(root, host) {
   const passive = (v) => / by$| with$|^found |^(at|in|on|under|about)$/.test(v);
   const PLURAL = { person: 'people', process: 'business processes', cloud: 'cloud resources', zone: 'network zones', account: 'user accounts' };
   const PL = (kid) => PLURAL[kid] || kindOf(kid)?.plural || kid;
+  const kindCount = (k, then = ' · ') => (k.count == null ? '' : `${fmt(k.count)} ${k.plural}${then}`); // a kind's count, said only where it is known
   const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
   function plVerb(name) {
     if (name === 'changes') return 'modify';
@@ -73,7 +74,7 @@ export function mountExplorer(root, host) {
     if (r.name === 'approved by' && ex) return { from: r.to, to: r.from, verb: 'approve exceptions to' };
     if (r.name === 'acted for by') return { from: r.from, to: r.to, verb: 'are acted for by' };
     const one = (r.via || []).length === 1 ? dsOf(r.via[0].ds) : null;
-    if (one && r.name !== 'about' && kindOf(r.from)?.datasets[0] !== one.id) return { from: r.from, to: r.to, verb: plVerb(r.name), subj: one.nouns || one.short.toLowerCase() };
+    if (one && r.name !== 'about' && kindOf(r.from)?.dataset !== one.id) return { from: r.from, to: r.to, verb: plVerb(r.name), subj: one.nouns || one.short.toLowerCase() };
     return { from: r.from, to: r.to, verb: plVerb(r.name) };
   }
   function sentence(r, withVia = true) {
@@ -90,7 +91,7 @@ export function mountExplorer(root, host) {
   // peer:design: a link said in two to four words, read along its line from the kind on its left, or above it ("an
   // organisational unit is made up of people"); its sentences, and what carries each, are its tip. Each relation has its
   // words both ways; between two kinds, the one first in this list leads.
-  const SAY = [['works in', 'works in', 'made up of'], ['owned by', 'owned by', 'owns'], ['runs on', 'runs on', 'hosts'], ['evidence for', 'checks', 'checked by'], ['approve exceptions to', 'approves exceptions to', 'exceptions approved by'], ['led by', 'led by', 'leads'], ['tagged with', 'tagged with', 'tagged on'], ['have exceptions to', 'has exceptions to', 'exceptions for'], ['acted for by', 'acted for by', 'acts for'], ['about', 'names', 'named by']];
+  const SAY = [['works in', 'works in', 'made up of'], ['owned by', 'owned by', 'owns'], ['runs on', 'runs on', 'hosts'], ['evidence for', 'checks', 'checked by'], ['checks', 'checks', 'checked by'], ['approve exceptions to', 'approves exceptions to', 'exceptions approved by'], ['led by', 'led by', 'leads'], ['tagged with', 'tagged with', 'tagged on'], ['have exceptions to', 'has exceptions to', 'exceptions for'], ['acted for by', 'acted for by', 'acts for'], ['about', 'names', 'named by']];
   const sayOf = (r) => { const v = relView(r), key = /exceptions/.test(v.verb) ? v.verb : r.name, i = SAY.findIndex((s) => s[0] === key); return { r, from: v.from, to: v.to, fwd: i < 0 ? r.name : SAY[i][1], back: i < 0 ? null : SAY[i][2], rank: i < 0 ? SAY.length : i }; };
   const leadOf = (rels) => rels.map(sayOf).sort((x, y) => x.rank - y.rank)[0] || null;
   const sayFrom = (lead, kid) => (lead.from === kid ? lead.fwd : lead.back || lead.fwd);
@@ -207,7 +208,7 @@ export function mountExplorer(root, host) {
   const viaParts = (r) => {
     const v = r.via || [], cols = [...new Set(v.map((x) => x.col).filter(Boolean))], since = r.since ? `since ${smDay.date(r.since).replace(/^\w+ /, '')}` : null;
     // where several datasets carry it, the register among them is named: the one the others repeat
-    const reg = v.find((x) => { const d = dsOf(x.ds); return d && kindOf(d.kind)?.datasets[0] === x.ds; });
+    const reg = v.find((x) => { const d = dsOf(x.ds); return d && kindOf(d.kind)?.dataset === x.ds; });
     const what = !v.length ? null : v.length === 1 ? `via ${dsOf(v[0].ds)?.short || plain(v[0].ds)}` : reg ? `via ${dsOf(reg.ds).short} and ${v.length - 1} more` : `via ${dsOf(v[0].ds)?.short || plain(v[0].ds)}, ${dsOf(v[1].ds)?.short || plain(v[1].ds)}${v.length > 2 ? ` and ${v.length - 2} more` : ''}`;
     return [what, cols.length === 1 ? `on ${cols[0]}` : null, since].filter(Boolean);
   };
@@ -238,7 +239,7 @@ export function mountExplorer(root, host) {
     aw = aw || estateCache?.aw || 1300; ah = ah || estateCache?.ah || 600;
     if (!M.kinds.length) return (estateCache = { m: S.m, aw, ah, rect: {}, box: { x: 0, y: 0, w: 1, h: 1 }, compact: false, area: {} });
     const compact = M.kinds.length > 8, size = {};
-    const TW = compact ? Math.min(310, Math.max(232, ...M.kinds.map((k) => 70 + tw(k.name, '600 15px Geist') + tw(fmt(k.count), '400 13px Geist') + 8 + (paused(k.id).length ? 92 : 0)))) : 0;
+    const TW = compact ? Math.min(310, Math.max(232, ...M.kinds.map((k) => 70 + tw(k.name, '600 15px Geist') + (k.count == null ? 0 : tw(fmt(k.count), '400 13px Geist')) + 8 + (paused(k.id).length ? 92 : 0)))) : 0;
     const flagged = (kid) => kindOf(kid).datasets.some((x) => ['waiting', 'warn', 'decided'].includes(dsOf(x).state));
     for (const k of M.kinds) {
       const n = k.datasets.length;
@@ -506,16 +507,27 @@ export function mountExplorer(root, host) {
     const K = kindOf(k), list = K.datasets.map(dsOf);
     // a file described ahead sits with the register it will join; the rest are evidence where each is a control's
     if (list.length < 4) return [[null, list]];
-    const reg = list[0], key = (reg.columns.find((c) => c.role === 'key') || {}).name;
-    if (list.slice(1).some((d) => d.group)) {
+    const own = !!K.dataset && list[0].id === K.dataset; // a kind with no register on this page (its catalogue not read here) has none to show
+    const reg = own ? list[0] : null, key = reg ? (reg.columns.find((c) => c.role === 'key') || {}).name : null;
+    if (reg && list.slice(1).some((d) => d.group)) {
       // themes, the biggest first; inside each, what needs a look first, then the largest
       const rank = (d) => (d.state === 'waiting' ? 0 : d.state === 'warn' ? 1 : 2), themes = new Map();
       for (const d of list.slice(1)) { const g = d.group || 'Other'; if (!themes.has(g)) themes.set(g, []); themes.get(g).push(d); }
       for (const l of themes.values()) l.sort((a, b) => rank(a) - rank(b) || (b.rowsToday || 0) - (a.rowsToday || 0));
       return [[`The register: every ${K.noun || K.name.toLowerCase()}`, [reg]], ...[...themes.entries()].sort((a, b) => b[1].length - a[1].length)];
     }
-    const rest = list.slice(1).filter((d) => !d.awaited), ahead = list.slice(1).filter((d) => d.awaited), evid = rest.length && rest.every((d) => d.control);
-    return [[`The register: every ${K.noun || K.name.toLowerCase()}`, [reg, ...ahead]], [`${evid ? 'Evidence about' : 'About'} each ${K.noun || K.name.toLowerCase()}${key ? ' · joined on ' + key : ''}`, rest]];
+    // the register first; then the evidence, a file for each of the kind's objects (a control's feed, a row an
+    // application it checks); then the rest about each object, joined on its key
+    const noun = K.noun || K.name.toLowerCase(), rest = reg ? list.slice(1) : list;
+    const evid = rest.filter((d) => d.control), other = rest.filter((d) => !d.control);
+    // what a row of the evidence is, as most of its files say (a control's feed: a row an application)
+    const nouns = evid.map((d) => String(d.one || '').replace(/^one /, '').split(':')[0].trim()).filter(Boolean);
+    const rowNoun = nouns.sort((a, b) => nouns.filter((x) => x === b).length - nouns.filter((x) => x === a).length)[0] || '';
+    const groups = reg ? [[`The register: every ${noun}`, [reg, ...other.filter((d) => d.awaited)]]] : [];
+    if (evid.length) groups.push([`Evidence for each ${noun}${rowNoun && rowNoun !== noun ? ` · a row ${article(rowNoun)}` : ''}`, evid]);
+    const plain = other.filter((d) => !d.awaited || !reg);
+    if (plain.length) groups.push([`About each ${noun}${key ? ' · joined on ' + key : ''}`, plain]);
+    return groups;
   }
   // peer:newcomer (r4) — a neighbour's link said in two to four words from its own side, in design's link words
   // ("owns applications", "hosts applications", "checks applications"); its sentences, and what carries each, on hover;
@@ -621,7 +633,7 @@ export function mountExplorer(root, host) {
   function neighbourhood(id) {
     const d = dsOf(id);
     const out = M.joins.filter((j) => j.from === id && j.to !== id && dsOf(j.to));
-    const inc = M.joins.filter((j) => j.to === id && j.from !== id);
+    const inc = incOf(d);
     const outs = (d.builds || []).map((o) => M.outputs.find((x) => x.id === o) || { id: o });
     return { d, out, inc, outs };
   }
@@ -630,11 +642,11 @@ export function mountExplorer(root, host) {
   // evidence for · Quarterly access review), the full sentence on hover; what uses it as one count with what that
   // means, said once, its list a tap away; its columns a tap away too (S.colsOpen, kept from file to file). No kind
   // tile above it: the trail names the kind, and the file's own link to its register says what one row is.
-  const FOLD_H = 40, LINK_H = 60;
+  const FOLD_H = 40;
   const whatOf = (d) => (d.description ? descOf(d) : ''); // r1: dq's look-inside sentence, so a file reads the same in its preview and its view
   const descLines = (d, fw) => (whatOf(d) ? Math.min(2, wrapLines(whatOf(d), '400 12px Geist', fw - 28).length) : 0);
   const hasNum = (d) => d.rowsToday != null || !!d.awaited;
-  const barsOn = (d) => d.rowsToday != null && !!d.rowsUsual; // peer:design r4: today against usual drawn, two rows tall
+  const barsOn = (d) => { const D = distOf(d); return !!D && !D.same; }; // the day against the days before, drawn (distH tall)
   // the file's own buttons, as its card draws them
   function fileActs(d) {
     const st = d.state, rows = (t) => (M.noRows ? [] : [[t, 'rows']]);
@@ -654,36 +666,61 @@ export function mountExplorer(root, host) {
     const ask = askedSaid(d), ws = [...(ask ? [tw(ask, '400 12px Geist') + 40] : []), ...fileActs(d).map(([t]) => tw(t, '500 13px Geist') + 28)]; if (!ws.length) return 0;
     let rows = 1, x = 0; for (const w of ws) { if (x && x + 6 + w > fw - 28 - 6) { rows++; x = w; } else x += (x ? 6 : 0) + w; } return rows;
   };
-  const headH = (d, fw) => { const L = descLines(d, fw), ar = actsRows(d, fw); return 12 + 28 + (chipLow(d, fw) ? 4 + 24 : 0) + (L ? 4 + L * 16 : 0) + (hasNum(d) ? 4 + (barsOn(d) ? 36 : 18) : 0) + (ar ? 10 + ar * 32 + (ar - 1) * 6 : 0) + 12; };
+  const headH = (d, fw) => { const L = descLines(d, fw), ar = actsRows(d, fw); return 12 + 28 + (chipLow(d, fw) ? 4 + 24 : 0) + (L ? 4 + L * 16 : 0) + (hasNum(d) ? 4 + (barsOn(d) ? distH(d, fw - 28) : 18) : 0) + (ar ? 10 + ar * 32 + (ar - 1) * 6 : 0) + 12; };
   // a link, said by what it means: its words, its number, and the whole sentence for hover
   const prevIso = (iso) => new Date(Date.parse(iso + 'T12:00:00Z') - 864e5).toISOString().slice(0, 10);
   const isoSaid = (iso) => (!iso ? '' : iso === DC().iso ? 'today' : iso === prevIso(DC().iso) ? DC().prev : new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }).replace(',', ''));
   const pctSaid = (m) => { if (!m || !m.rows) return ''; const p = (100 * m.hit) / m.rows; return (p >= 99.95 ? '100' : p >= 99 ? p.toFixed(1) : String(Math.round(p))) + '%'; };
+  // what one row of a file is, in a word ("application", "finding"), as its rows entry or the ontology's nouns say
+  const rowNounOf = (d) => String(d.one || '').replace(/^one /, '').split(':')[0].trim() || nounOf(d.kind);
+  // a relation said of one row: "is owned by", "runs on"; a column that only holds another file's key "names" it
+  const rowVerb = (rel) => { if (rel === 'about' || rel === 'in' || rel === 'on') return 'names'; const v = (SAY.find((x) => x[0] === rel) || [rel, rel])[1]; return /\b(by|with|of)$/.test(v) ? 'is ' + v : v; };
+  const scopeOf = (d) => (d.one && d.one.includes(':') ? plainScope(d.one.slice(d.one.indexOf(':') + 1).trim()) : null);
+  // a link, said as a sentence about one row, the same in the views at either end ("Each application is owned by a
+  // unit", "Each row is one application in scope"); the file it points to beneath, with its match
   function linkOf(d, js) {
-    const T = dsOf(js[0].to), tk = T.kind, noun = nounOf(tk), reg = tk === d.kind && kindOf(d.kind).datasets[0] === T.id, per = reg && !!d.one && d.one.startsWith('one ' + nounOf(d.kind));
+    const T = dsOf(js[0].to), tk = T.kind, noun = nounOf(tk), rn = rowNounOf(d), per = kindOf(tk).dataset === T.id && rn === noun, scope = per ? scopeOf(d) : null;
     const said = js.map((j) => {
-      const about = j.rel === 'about' || j.rel === 'in' || j.rel === 'on', eb = about ? (per ? (d.one.includes(':') ? `one per in-scope ${noun}` : `one row per ${noun}`) : `about ${article(noun)}`) : j.rel; // r1: in scope, as the rows entry says
+      const eb = per ? `Each row is one ${noun}${scope ? ' in scope' : ''}` : `Each ${rn} ${rowVerb(j.rel)} ${article(noun)}`;
       const m = j.match, pct = pctSaid(m), when = m && m.day && m.day !== DC().iso ? isoSaid(m.day) : '';
-      const scope = per && d.one.includes(':') ? plainScope(d.one.slice(d.one.indexOf(':') + 1).trim()) : null;
-      const tip = `${per ? `Each row is one ${noun} in ${T.short}` : `Each row is ${about ? 'about' : j.rel} ${article(noun)} in ${T.short}`}, matched on ${j.col}${j.toCol && j.toCol !== j.col ? ' → ' + j.toCol : ''}${pct ? `: ${fmt(m.hit)} of ${fmt(m.rows)} rows ${when ? 'on ' + when : 'today'}` : ''}.${scope ? ` Only ${PL(d.kind)} ${scope}.` : ''}`;
+      const tip = `${eb}${per ? ` of ${T.short}` : ` in ${T.short}`}, matched on ${j.col}${j.toCol && j.toCol !== j.col ? ' → ' + j.toCol : ''}${pct ? `: ${fmt(m.hit)} of ${fmt(m.rows)} rows ${when ? 'on ' + when : 'today'}` : ''}.${scope ? ` Only ${PL(tk)} ${scope}.` : ''}`;
       return { eb, pct, when, tip };
     });
     return { eb: said.map((x) => x.eb).join(' · '), nm: said[0].pct ? `${said[0].pct} match` : '', nd: said[0].pct && said[0].when ? said[0].when : '', tip: said.map((x) => x.tip).join(' '), icon: kindOf(tk).icon };
   }
   // a file's rows that point to other rows of the same file: another unit, another person
-  const selfOf = (d, js) => { const noun = nounOf(d.kind), pct = pctSaid(js[0].match); return { eb: js.map((j) => j.rel).join(' · '), title: `another ${noun}`, nm: pct ? `${pct} match` : '', nd: '', tip: js.map((j) => `Each ${noun} ${j.rel} another ${noun} in ${d.short}, on ${j.col}${j.match && j.match.rows ? `: ${fmt(j.match.hit)} of ${fmt(j.match.rows)} rows` : ''}.`).join(' '), icon: kindOf(d.kind).icon }; };
-  const evidenceOf = (d, ev) => { const name = d.controlName || ev.value || dsOf(ev.to).short; return { eb: 'evidence for', title: name, nm: '', tip: `${d.short} is the evidence for the control ${name}: whether each ${nounOf(d.kind)} it applies to passes.`, icon: 'control' }; };
+  const selfOf = (d, js) => { const rn = rowNounOf(d), pct = pctSaid(js[0].match); return { eb: js.map((j) => `Each ${rn} ${rowVerb(j.rel)} another ${rn}`).join(' · '), title: `${d.short} · this file`, nm: pct ? `${pct} match` : '', nd: '', tip: js.map((j) => `Each ${rn} ${rowVerb(j.rel)} another ${rn} in ${d.short}, on ${j.col}${j.match && j.match.rows ? `: ${fmt(j.match.hit)} of ${fmt(j.match.rows)} rows` : ''}.`).join(' '), icon: kindOf(d.kind).icon }; };
+  const evidenceOf = (d, ev) => { const name = d.controlName || ev.value || dsOf(ev.to).short; return { eb: 'Evidence for the control', title: name, nm: '', tip: `${d.short} is the evidence for the control ${name}: whether each ${rowNounOf(d)} it applies to passes.`, icon: 'control' }; };
+  // the files whose rows point to this one, each said as its own view says it ("Each tag names an application"); a
+  // control's evidence together, one card for them all ("13 controls check applications")
+  function incOf(d) {
+    const inc = M.joins.filter((j) => j.to === d.id && j.from !== d.id && dsOf(j.from)), rn = rowNounOf(d), out = [];
+    const ev = inc.filter((j) => dsOf(j.from).control), rest = inc.filter((j) => !dsOf(j.from).control);
+    if (ev.length) {
+      const files = [...new Set(ev.map((j) => j.from))], names = files.map((x) => dsOf(x).short), n = files.length, one = ev.every((j) => j.col == null); // the catalogue's: each file the evidence for one control
+      const eb = one ? `${n} file${n === 1 ? ' is' : 's are'} the evidence for ${n === 1 ? 'a control' : PL(d.kind)}` : `${n} control${n === 1 ? ' checks' : 's check'} ${PL(d.kind)}`;
+      out.push({ key: 'evidence', eb, title: names.slice(0, 3).join(', ') + (n > 3 ? ` +${n - 3}` : ''), nm: '', nd: '', icon: 'control', list: files, col: (ev.find((j) => j.toCol) || {}).toCol || null, go: { level: 'kind', kind: dsOf(files[0]).kind }, tip: `${eb}: ${names.join(', ')}.` });
+    }
+    const byFrom = new Map(); for (const j of rest) { if (!byFrom.has(j.from)) byFrom.set(j.from, []); byFrom.get(j.from).push(j); }
+    for (const [from, js] of byFrom) {
+      const F = dsOf(from), fn = rowNounOf(F), eb = js.map((j) => `Each ${fn} ${rowVerb(j.rel)} ${article(rn)}`).join(' · ');
+      out.push({ key: from, eb, title: F.short, nm: '', nd: '', icon: kindOf(F.kind).icon, list: [from], col: js[0].toCol, go: { level: 'dataset', ds: from, kind: F.kind }, tip: `${eb}: ${F.short}, matched on ${js[0].col}${js[0].toCol && js[0].toCol !== js[0].col ? ' → ' + js[0].toCol : ''}.` });
+    }
+    return out;
+  }
+  // a link card's height: its sentence on one or two lines, then the file it names
+  const LINK_W = 264, cardH = (r, w) => 40 + 16 * Math.min(2, wrapLines(r.eb || '', '400 12px Geist', w - 26).length);
   // what uses the file: one count and what it means, said once; the list a tap away
   function outsSaid(d, list) {
     const n = list.length, w = list.filter((o) => o.waiting).length, wd = waitingDs(), here = !!(wd && wd.id === d.id), pl = (k) => (k === 1 ? '' : 's');
     const rel = list.filter((o) => o.released).length, how = (list.find((o) => o.released) || {}).released, reb = list.filter((o) => o.rebuilt).length, I = issueOf(issueDs() || d);
     const value = 'If this file is wrong, these show wrong numbers';
     if (w && here) return { title: `<span class="oc">${HOURGLASS} ${w === n ? '' : `${w} of `}${n}</span> waiting`, sub: `Readers see ${esc(DC().prev)} until you decide`, more: '', tip: `${w === n ? 'All' : w} of the ${n} output${pl(n)} built from ${d.short} wait for your decision: readers see ${DC().prev} until you decide.` }; // r1: held, not wrong; the banner's words
-    if (w) return { title: `Used by <span class="oc">${n}</span> output${pl(n)}`, sub: `${HOURGLASS} ${w === n ? 'All' : w} held ${dW()} by ${esc(wd ? wd.short : 'another file')}`, more: value, tip: `${n} output${pl(n)} built from ${d.short}. ${value}. Today ${w === n ? 'they wait' : `${w} wait`} on ${wd ? wd.short : 'another file'}.` };
+    if (w) return { title: `Feeds <span class="oc">${n}</span> output${pl(n)}`, sub: `${HOURGLASS} ${w === n ? 'All' : w} held ${dW()} by ${esc(wd ? wd.short : 'another file')}`, more: value, tip: `${n} output${pl(n)} built from ${d.short}. ${value}. Today ${w === n ? 'they wait' : `${w} wait`} on ${wd ? wd.short : 'another file'}.` };
     if (rel && how === 'keep') return { title: `<span class="oc">${HALF} ${rel}</span> output${pl(rel)} stay on ${esc(DC().prev)}`, sub: 'until the corrected file', more: value, tip: `${value}.` };
     if (rel) return { title: `<span class="oc ok">✓ ${rel}</span> output${pl(rel)} published`, sub: how === 'asis' ? (I.kind === 'empty' ? `with no ${esc(I.noun)}` : 'as it arrived') : how === 'accept' ? 'at the new level' : `with ${esc(I.fillFrom)}’s rows, marked filled`, more: value, tip: `${value}.` };
     if (reb) return { title: `<span class="oc ok">✓ ${reb}</span> output${pl(reb)} rebuilt`, sub: `with ${esc(DC().wd)}’s file`, more: value, tip: `${value}.` };
-    return { title: `Used by <span class="oc">${n}</span> output${pl(n)}`, sub: value, more: '', tip: `${n} output${pl(n)} built from ${d.short}. ${value}.` };
+    return { title: `Feeds <span class="oc">${n}</span> output${pl(n)}`, sub: value, more: '', tip: `${n} output${pl(n)} built from ${d.short}. ${value}.` };
   }
   const subLines = (html, w) => wrapLines(plainOf(html), '400 12px Geist', w - 24 - (/<svg/.test(html) ? 18 : 2)).length;
   function outsBox(d, list, w, open) {
@@ -700,31 +737,34 @@ export function mountExplorer(root, host) {
     const byTo = new Map(); for (const j of out) { if (!byTo.has(j.to)) byTo.set(j.to, []); byTo.get(j.to).push(j); }
     const links = [...byTo.values()], self = M.joins.filter((j) => j.from === d.id && j.to === d.id);
     if (narrow()) return stackDataset(W, d, links, inc, outs, fh, self);
-    const mid = W < 1180, fw = 460, ev = (links.find((js) => js[0].rel === 'evidence for') || [])[0];
-    const targets = [...links.filter((js) => js[0].rel !== 'evidence for').map((js) => ({ id: 'd:' + js[0].to, col: js[0].col, k: linkOf(d, js) })), ...(self.length ? [{ id: 'sf:' + d.id, col: self[0].col, k: selfOf(d, self) }] : [])];
-    const leftN = targets.length + (inc.length ? 1 : 0) + (mid && ev ? 1 : 0), oOpen = S.outsOpen === d.id, ob = outs.length ? outsBox(d, outs, mid ? fw : 300, oOpen) : null;
+    const mid = W < 1180, fw = 460, ev = (links.find((js) => js[0].rel === 'evidence for') || [])[0], lw = mid ? 264 : LINK_W;
+    const targets = [...links.filter((js) => js[0].rel !== 'evidence for').map((js) => ({ id: 'd:' + js[0].to, col: js[0].col, k: linkOf(d, js) })), ...(self.length ? [{ id: 'sf:' + d.id, col: self[0].col, k: selfOf(d, self) }] : [])].map((t) => ({ ...t, h: cardH(t.k, lw) }));
+    const incs = inc.map((g) => ({ id: 'in:' + d.id + ':' + g.key, col: g.col, k: g, h: cardH(g, lw) }));
+    const leftN = targets.length + incs.length + (mid && ev ? 1 : 0), oOpen = S.outsOpen === d.id, ob = outs.length ? outsBox(d, outs, mid ? fw : 300, oOpen) : null;
     let total = Math.max(H, fh + 140);
-    const groupH = fh + (ev ? 56 + LINK_H : 0); // the card and the control under it, a little above the middle
-    const F = mid ? { x: leftN ? Math.max(16, Math.min(W - fw - 16, 312)) : Math.max(16, Math.round((W - fw) / 2)), y: 40, w: fw, h: fh } : { x: Math.round(W * 0.5 - fw / 2 - (outs.length ? 60 : 0)), y: Math.max(32, Math.round((total - groupH) / 2) - 32), w: fw, h: fh };
+    const evH = ev ? cardH(evidenceOf(d, ev), 260) : 0, groupH = fh + (ev ? 56 + evH : 0); // the card and the control under it, a little above the middle
+    const F = mid ? { x: leftN ? Math.max(16, Math.min(W - fw - 16, lw + 48)) : Math.max(16, Math.round((W - fw) / 2)), y: 40, w: fw, h: fh } : { x: Math.max(lw + 76, Math.round(W * 0.5 - fw / 2 - (outs.length ? 60 : 0))), y: Math.max(32, Math.round((total - groupH) / 2) - 32), w: fw, h: fh };
     L.set('d:' + d.id, { ...F, s: 1, v: 'focus', o: 1, cols: open, hh });
-    const left = mid ? 16 : F.x - 300, mid0 = Math.round(hh / 2), at = (c) => (open && rowY[c] != null ? rowY[c] + 15 : mid0);
-    // what it links to, each card level with its column where the columns show, the cards never on top of each other
-    let below = mid ? F.y : 12;
-    const placed = targets.map((t) => ({ ...t, want: F.y + at(t.col) - LINK_H / 2 })).sort((x, y) => x.want - y.want);
-    for (const it of placed) { it.y = Math.max(below, it.want); below = it.y + LINK_H + 10; }
-    const over = below - 10 - (Math.max(H, fh + 140) - 12); if (over > 0 && !mid) for (const it of placed) it.y -= over;
-    for (const it of placed) L.set(it.id, { x: Math.max(16, left), y: Math.max(12, it.y), w: 240, h: LINK_H, s: 1, v: 'nb', o: 1, ...it.k });
-    if (inc.length) {
-      const names = [...new Set(inc.map((j) => j.from))], iy = Math.max(F.y + fh - 70, below);
-      L.set('in:' + d.id, { x: Math.max(16, left), y: iy, w: 240, h: 64, s: 1, v: 'inc', o: 1, list: names, col: inc[0].toCol }); below = Math.max(below, iy + 64 + 12);
-    }
+    const left = mid ? 16 : F.x - lw - 60, mid0 = Math.round(hh / 2), at = (c) => (open && rowY[c] != null ? rowY[c] + 15 : mid0);
+    // what it links to, each card level with its column where the columns show, the cards never on top of each other;
+    // with the columns shut, the whole column of cards centred on the card's head
+    const stackH = [...targets, ...incs].reduce((a, t) => a + t.h + 10, -10);
+    let below = mid ? F.y : open ? 12 : Math.max(12, F.y + mid0 - stackH / 2);
+    const placed = targets.map((t) => ({ ...t, want: open ? F.y + at(t.col) - t.h / 2 : below })).sort((x, y) => x.want - y.want);
+    for (const it of placed) { it.y = Math.max(below, it.want); below = it.y + it.h + 10; }
+    for (const it of incs) { it.y = Math.max(below, open || mid ? F.y + (targets.length ? 0 : mid0 - it.h / 2) : below); below = it.y + it.h + 10; }
+    const over = below - 10 - (Math.max(H, fh + 140) - 12); if (over > 0 && !mid && open) for (const it of [...placed, ...incs]) it.y -= Math.min(over, it.y - 12);
+    for (const it of placed) L.set(it.id, { x: Math.max(16, left), y: Math.max(12, it.y), w: lw, h: it.h, s: 1, v: 'nb', o: 1, ...it.k });
+    for (const it of incs) L.set(it.id, { x: Math.max(16, left), y: Math.max(12, it.y), w: lw, h: it.h, s: 1, v: 'inc', o: 1, ...it.k });
+    total = Math.max(total, below + 24);
     if (ev) {
-      const ey = mid ? Math.max(below, F.y + Math.min(fh, hh + FOLD_H) - LINK_H) : F.y + fh + 56;
-      L.set('d:' + ev.to, mid ? { x: 16, y: ey, w: 240, h: LINK_H, s: 1, v: 'nb', o: 1, ...evidenceOf(d, ev) } : { x: F.x + fw / 2 - 130, y: ey, w: 260, h: LINK_H, s: 1, v: 'nb', o: 1, ...evidenceOf(d, ev) });
-      if (mid) below = ey + LINK_H + 12; else total = Math.max(total, ey + LINK_H + 24);
+      const ey = mid ? Math.max(below, F.y + Math.min(fh, hh + FOLD_H) - evH) : F.y + fh + 56;
+      L.set('d:' + ev.to, mid ? { x: 16, y: ey, w: lw, h: evH, s: 1, v: 'nb', o: 1, ...evidenceOf(d, ev) } : { x: F.x + fw / 2 - 130, y: ey, w: 260, h: evH, s: 1, v: 'nb', o: 1, ...evidenceOf(d, ev) });
+      if (mid) below = ey + evH + 12; else total = Math.max(total, ey + evH + 24);
     }
     if (ob) {
-      const r = mid ? { x: F.x, y: F.y + fh + 52, w: fw, h: ob.h } : { x: F.x + fw + 90, y: Math.max(12, oOpen ? F.y + (fh - ob.h) / 2 : F.y + mid0 - ob.h / 2), w: 300, h: ob.h };
+      const gap = Math.max(40, Math.min(90, W - 16 - 300 - F.x - fw)); // as far out as the window lets it, its edge inside the window
+      const r = mid ? { x: F.x, y: F.y + fh + 52, w: fw, h: ob.h } : { x: F.x + fw + gap, y: Math.max(12, oOpen ? F.y + (fh - ob.h) / 2 : F.y + mid0 - ob.h / 2), w: 300, h: ob.h };
       L.set('o:' + d.id, { ...r, s: 1, v: 'outs', o: 1, list: outs, open: oOpen });
       total = Math.max(total, r.y + r.h + 32);
     }
@@ -732,7 +772,8 @@ export function mountExplorer(root, host) {
     const edges = [];
     for (const it of placed) edges.push({ a: 'd:' + d.id, b: it.id, aY: at(it.col), aCol: it.col, aSide: 'left', label: null, arrow: false });
     if (ev) edges.push({ a: 'd:' + d.id, b: 'd:' + ev.to, label: null, arrow: false });
-    if (inc.length) { const kc = (d.columns.find((c) => c.role === 'key') || d.columns[0]).name; edges.push({ a: 'in:' + d.id, b: 'd:' + d.id, bY: at(kc), bCol: kc, bSide: 'left', label: null, arrow: false }); }
+    const kc = (d.columns.find((c) => c.role === 'key') || d.columns[0] || {}).name;
+    for (const it of incs) { const c = it.col && rowY[it.col] != null ? it.col : kc; edges.push({ a: it.id, b: 'd:' + d.id, bY: at(c), bCol: c, bSide: 'left', label: null, arrow: false }); }
     if (ob) edges.push({ a: 'd:' + d.id, b: 'o:' + d.id, label: null, bad: outs.some((o) => o.waiting) && d.state === 'waiting', arrow: true });
     return { nodes: L, edges, scroll: total };
   }
@@ -764,9 +805,10 @@ export function mountExplorer(root, host) {
     const L = new Map(); let y = 16; const x = 16, w = W - 32;
     L.set('d:' + d.id, { x, y, w, h: fh, s: 1, v: 'focus', o: 1, cols: !!S.colsOpen, hh: headH(d, w) }); y += fh + 14;
     if (outs.length) { const op = S.outsOpen === d.id, ob = outsBox(d, outs, w, op); L.set('o:' + d.id, { x, y, w, h: ob.h, s: 1, v: 'outs', o: 1, list: outs, open: op }); y += ob.h + 10; }
-    for (const js of links) { L.set('d:' + js[0].to, { x, y, w, h: LINK_H, s: 1, v: 'nb', o: 1, ...(js[0].rel === 'evidence for' ? evidenceOf(d, js[0]) : linkOf(d, js)) }); y += LINK_H + 10; }
-    if (self.length) { L.set('sf:' + d.id, { x, y, w, h: LINK_H, s: 1, v: 'nb', o: 1, ...selfOf(d, self) }); y += LINK_H + 10; }
-    if (inc.length) { L.set('in:' + d.id, { x, y, w, h: 64, s: 1, v: 'inc', o: 1, list: [...new Set(inc.map((j) => j.from))], col: inc[0].toCol }); y += 72; }
+    const card = (id, v, k) => { const h = cardH(k, w); L.set(id, { x, y, w, h, s: 1, v, o: 1, ...k }); y += h + 10; };
+    for (const js of links) card('d:' + js[0].to, 'nb', js[0].rel === 'evidence for' ? evidenceOf(d, js[0]) : linkOf(d, js));
+    if (self.length) card('sf:' + d.id, 'nb', selfOf(d, self));
+    for (const g of inc) card('in:' + d.id + ':' + g.key, 'inc', g);
     return { nodes: L, edges: [], scroll: y + 30 };
   }
   function layout() {
@@ -787,18 +829,18 @@ export function mountExplorer(root, host) {
       el.classList.add('kind', 'hit'); if (port) el.classList.add('port'); el.classList.toggle('ghost', !!k.ghost); el.classList.toggle('pointed', !!k.pointed); // peer:builder
       if (r.v === 'kind-compact') {
         el.classList.add('compact');
-        el.innerHTML = `${waitBadge(k.id)}<div class="khead"><span class="kicon">${ICON[k.icon] || ICON.app}</span><span class="kname">${esc(k.name)} <span class="kn">${fmt(k.count)}</span></span>${bad ? `<span class="kbad">${PAUSE} ${bad} paused</span>` : ''}</div><div class="mosaic">${k.datasets.map((x) => `<i class="${dsOf(x).state}${r.sub === 'me:' + x ? ' me' : ''}"></i>`).join('')}<span class="mc">${dsWord(k.datasets.length)}</span></div>${(() => { const mb = 44 + Math.ceil((k.datasets.length + 7) / tilePer(r.w)) * 11, self = selfShown().filter((x) => x.from === k.id), stacked = !!(r.says && r.says.length); return self.map((x) => `<div class="kself"${stacked ? ` style="top:${mb + 2}px;bottom:auto"` : ''}>↻ ${esc(x.name)} another ${esc(k.noun || k.name.toLowerCase())}</div>`).join('') + (!stacked && S.level === 'estate' ? (() => { const fl = k.datasets.map(dsOf).filter((x) => ['waiting', 'warn', 'decided'].includes(x.state)); if (!fl.length) return ''; const mark = (x) => (x.state === 'waiting' ? PAUSE : x.state === 'decided' ? HALF : '◆'); return `<div class="kflags" style="top:${mb + 2}px">${fl.slice(0, 2).map((x) => `<span class="${x.state}">${mark(x)} ${esc(x.short)}</span>`).join('')}${fl.length > 2 ? `<span>+${fl.length - 2}</span>` : ''}</div>`; })() : '') + (stacked ? `<div class="krels" style="top:${mb + 4 + (self.length ? 18 : 0)}px">${r.says.map((t) => typeof t === 'string' ? `<span class="ks">${esc(t)}</span>` : t.phrase ? `<button type="button" class="ks kphr" data-carry aria-pressed="${S.pin === id}" title="${esc(t.tip)}">${esc(t.s)}</button>` /* peer:newcomer (r4) */ : `<span class="ks">${esc(t.s)}</span>${t.via ? (S.level === 'kind' ? `<button type="button" class="kv" data-carry aria-pressed="${S.pin === id}" title="${esc([...carriers(S.kind, k.id)].map((x) => dsOf(x)?.short).filter(Boolean).join(', '))}">${esc(t.via)}</button>` : `<span class="kv">${esc(t.via)}</span>`) : ''}`).join('')}</div>` : ''); })()}`;
-        el.setAttribute('role', 'button'); el.tabIndex = 0; el.setAttribute('aria-label', `${k.name}: ${fmt(k.count)} ${k.plural}, ${k.datasets.length} datasets${bad ? `, ${bad} paused` : ''}`);
+        el.innerHTML = `${waitBadge(k.id)}<div class="khead"><span class="kicon">${ICON[k.icon] || ICON.app}</span><span class="kname">${esc(k.name)}${k.count == null ? '' : ` <span class="kn">${fmt(k.count)}</span>`}</span>${bad ? `<span class="kbad">${PAUSE} ${bad} paused</span>` : ''}</div><div class="mosaic">${k.datasets.map((x) => `<i class="${dsOf(x).state}${r.sub === 'me:' + x ? ' me' : ''}"></i>`).join('')}<span class="mc">${dsWord(k.datasets.length)}</span></div>${(() => { const mb = 44 + Math.ceil((k.datasets.length + 7) / tilePer(r.w)) * 11, self = selfShown().filter((x) => x.from === k.id), stacked = !!(r.says && r.says.length); return self.map((x) => `<div class="kself"${stacked ? ` style="top:${mb + 2}px;bottom:auto"` : ''}>↻ ${esc(x.name)} another ${esc(k.noun || k.name.toLowerCase())}</div>`).join('') + (!stacked && S.level === 'estate' ? (() => { const fl = k.datasets.map(dsOf).filter((x) => ['waiting', 'warn', 'decided'].includes(x.state)); if (!fl.length) return ''; const mark = (x) => (x.state === 'waiting' ? PAUSE : x.state === 'decided' ? HALF : '◆'); return `<div class="kflags" style="top:${mb + 2}px">${fl.slice(0, 2).map((x) => `<span class="${x.state}">${mark(x)} ${esc(x.short)}</span>`).join('')}${fl.length > 2 ? `<span>+${fl.length - 2}</span>` : ''}</div>`; })() : '') + (stacked ? `<div class="krels" style="top:${mb + 4 + (self.length ? 18 : 0)}px">${r.says.map((t) => typeof t === 'string' ? `<span class="ks">${esc(t)}</span>` : t.phrase ? `<button type="button" class="ks kphr" data-carry aria-pressed="${S.pin === id}" title="${esc(t.tip)}">${esc(t.s)}</button>` /* peer:newcomer (r4) */ : `<span class="ks">${esc(t.s)}</span>${t.via ? (S.level === 'kind' ? `<button type="button" class="kv" data-carry aria-pressed="${S.pin === id}" title="${esc([...carriers(S.kind, k.id)].map((x) => dsOf(x)?.short).filter(Boolean).join(', '))}">${esc(t.via)}</button>` : `<span class="kv">${esc(t.via)}</span>`) : ''}`).join('')}</div>` : ''); })()}`;
+        el.setAttribute('role', 'button'); el.tabIndex = 0; el.setAttribute('aria-label', `${k.name}: ${kindCount(k, ', ')}${k.datasets.length} datasets${bad ? `, ${bad} paused` : ''}`);
         return;
       }
       if (r.v === 'kind-open') {
         el.classList.add('open'); el.classList.remove('hit');
         const warn = k.datasets.filter((x) => dsOf(x).state === 'warn').length;
-        el.innerHTML = `<div class="ophead"><span class="kicon">${ICON[k.icon] || ICON.app}</span><div class="opt"><div class="oname">${esc(k.name)}</div><div class="osub">${fmt(k.count)} ${esc(k.plural)} · ${k.datasets.length} datasets</div></div><div class="ostate">${bad ? `<span class="st bad">${PAUSE} ${bad} paused</span>` : ''}${(waitsBy()[k.id] || []).length ? `<button type="button" class="st waits" data-tip="wait:${esc(k.id)}" aria-expanded="false" aria-label="${outputsWait((waitsBy()[k.id] || []).length)} on ${esc(waitingDs()?.short || '')}">${HOURGLASS}<span class="kwn">${(waitsBy()[k.id] || []).length}</span></button>` /* peer:design */ : ''}${warn ? `<span class="st warn">◆ ${warn} unusual</span>` : ''}</div></div>`;
+        el.innerHTML = `<div class="ophead"><span class="kicon">${ICON[k.icon] || ICON.app}</span><div class="opt"><div class="oname">${esc(k.name)}</div><div class="osub">${esc(kindCount(k))}${k.datasets.length} datasets</div></div><div class="ostate">${bad ? `<span class="st bad">${PAUSE} ${bad} paused</span>` : ''}${(waitsBy()[k.id] || []).length ? `<button type="button" class="st waits" data-tip="wait:${esc(k.id)}" aria-expanded="false" aria-label="${outputsWait((waitsBy()[k.id] || []).length)} on ${esc(waitingDs()?.short || '')}">${HOURGLASS}<span class="kwn">${(waitsBy()[k.id] || []).length}</span></button>` /* peer:design */ : ''}${warn ? `<span class="st warn">◆ ${warn} unusual</span>` : ''}</div></div>`;
         el.removeAttribute('role'); el.tabIndex = -1; return;
       }
       const wn = (waitsBy()[k.id] || []).length;
-      el.innerHTML = `${wn && !port ? waitBadge(k.id) : ''}<div class="khead"><span class="kicon">${ICON[k.icon] || ICON.app}</span><span style="min-width:0;flex:1"><div class="kname">${esc(k.name)}${bad && port && S.level === 'kind' ? ` <span class="kbad sm">${PAUSE} ${bad}</span>` : ''}</div><div class="kcount">${r.rel ? `<span class="krel">${r.rel.map(esc).join('<br>')}</span>` : k.pointed ? `<span class="kpoint">${esc(k.pointed)}</span>` /* peer:builder */ : `${fmt(k.count)} ${esc(k.plural)}${r.v === 'kind-compact' ? '' : ` · ${dsWord(k.datasets.length)}`}`}</div></span></div>${!port && r.v !== 'kind-open' ? selfShown().filter((x) => x.from === k.id).map((x) => `<div class="kself" title="${esc(k.name)} ${esc(x.name)} ${esc(k.name)}">↻ ${esc(x.name)} another ${esc(k.noun || k.name.toLowerCase())}</div>`).join('') : ''}${r.says && r.says.length ? `<div class="ksays" style="top:${64 + (selfShown().some((x) => x.from === k.id) ? 22 : 0)}px">${r.says.map((t) => `<span>${esc(t)}</span>`).join('')}</div>` : ''}${r.v === 'kind-compact' ? `<div class="mosaic">${k.datasets.map((x) => `<i class="${dsOf(x).state}"></i>`).join('')}<span class="mc">${k.datasets.length} dataset${k.datasets.length === 1 ? '' : 's'}</span></div>` : ''}`;
+      el.innerHTML = `${wn && !port ? waitBadge(k.id) : ''}<div class="khead"><span class="kicon">${ICON[k.icon] || ICON.app}</span><span style="min-width:0;flex:1"><div class="kname">${esc(k.name)}${bad && port && S.level === 'kind' ? ` <span class="kbad sm">${PAUSE} ${bad}</span>` : ''}</div><div class="kcount">${r.rel ? `<span class="krel">${r.rel.map(esc).join('<br>')}</span>` : k.pointed ? `<span class="kpoint">${esc(k.pointed)}</span>` /* peer:builder */ : (k.count == null ? dsWord(k.datasets.length) : `${fmt(k.count)} ${esc(k.plural)}${r.v === 'kind-compact' ? '' : ` · ${dsWord(k.datasets.length)}`}`)}</div></span></div>${!port && r.v !== 'kind-open' ? selfShown().filter((x) => x.from === k.id).map((x) => `<div class="kself" title="${esc(k.name)} ${esc(x.name)} ${esc(k.name)}">↻ ${esc(x.name)} another ${esc(k.noun || k.name.toLowerCase())}</div>`).join('') : ''}${r.says && r.says.length ? `<div class="ksays" style="top:${64 + (selfShown().some((x) => x.from === k.id) ? 22 : 0)}px">${r.says.map((t) => `<span>${esc(t)}</span>`).join('')}</div>` : ''}${r.v === 'kind-compact' ? `<div class="mosaic">${k.datasets.map((x) => `<i class="${dsOf(x).state}"></i>`).join('')}<span class="mc">${k.datasets.length} dataset${k.datasets.length === 1 ? '' : 's'}</span></div>` : ''}`;
       el.setAttribute('role', 'button'); el.tabIndex = 0; el.setAttribute('aria-label', `${k.name}: ${k.datasets.length} datasets${bad ? `, ${bad} paused` : ''}`);
       if (r.v === 'kind-open') { el.classList.remove('hit'); el.removeAttribute('role'); el.tabIndex = -1; }
     } else if (type === 'd') {
@@ -824,7 +866,7 @@ export function mountExplorer(root, host) {
         const stateHtml = st === 'waiting' ? `<span class="fs">${PAUSE} Paused ${dW()}</span>` : st === 'decided' ? `<span class="fs owed">${HALF} ${esc(HOW[d.how]?.pill || 'Decided')} · file owed</span>` : d.replaced ? '<span class="fs done">✓ Corrected file in</span>' : st === 'warn' ? `<span class="fs warn">◆ Unusual ${dW()}</span>` : d.awaited ? `<span class="fs aw">◌ ${d.awaited && d.awaited.length === 10 ? `First file ${smDay.date(d.awaited)}` : 'No file yet'}</span>` : '';
         const BTN = { rows: 'btn sm" data-rows', decide: 'btn primary sm" data-decide', undo: 'btn sm" data-undo', replace: 'btn primary sm" data-replace' };
         const L2 = descLines(d, r.w), ar = actsRows(d, r.w), ask = askedSaid(d), n = d.columns.length;
-        el.innerHTML = `<div class="fhead" style="height:${r.hh || headH(d, r.w)}px"><div class="ft"><span class="kicon" style="width:28px;height:28px">${ICON[kindOf(d.kind).icon]}</span><span class="fn">${esc(d.short)}</span>${chipLow(d, r.w) ? '' : stateHtml}</div>${chipLow(d, r.w) ? `<div class="fst">${stateHtml}</div>` : ''}${L2 ? `<div class="fd" style="height:${L2 * 16}px;-webkit-line-clamp:${L2}" title="${esc(d.description)}">${esc(whatOf(d))}</div>` : ''}${hasNum(d) ? `<div class="fm${barsOn(d) ? ' fbars' : ''}">${barsOn(d) ? nowBars(d) /* peer:design r4 */ : d.rowsToday != null ? `<b>${fmt(d.rowsToday)}</b> rows ${dW()}` : 'Described ahead of its first file'}</div>` : ''}${ar ? `<div class="fa" style="height:${ar * 32 + (ar - 1) * 6}px">${ask ? `<span class="askd">${esc(ask)}</span>` : ''}<span class="sp"></span>${fileActs(d).map(([t, k]) => `<button class="${BTN[k]}>${esc(t)}</button>`).join('')}</div>` : ''}</div>`
+        el.innerHTML = `<div class="fhead" style="height:${r.hh || headH(d, r.w)}px"><div class="ft"><span class="kicon" style="width:28px;height:28px">${ICON[kindOf(d.kind).icon]}</span><span class="fn">${esc(d.short)}</span>${chipLow(d, r.w) ? '' : stateHtml}</div>${chipLow(d, r.w) ? `<div class="fst">${stateHtml}</div>` : ''}${L2 ? `<div class="fd" style="height:${L2 * 16}px;-webkit-line-clamp:${L2}" title="${esc(d.description)}">${esc(whatOf(d))}</div>` : ''}${hasNum(d) ? `<div class="fm${barsOn(d) ? ' fbars' : ''}">${barsOn(d) ? nowBars(d, { w: r.w - 28 }) /* peer:design r4 */ : d.rowsToday != null ? `<b>${fmt(d.rowsToday)}</b> rows ${dW()}${distOf(d)?.same ? ` · the same on all ${distOf(d).n} days before` : ''}` : 'Described ahead of its first file'}</div>` : ''}${ar ? `<div class="fa" style="height:${ar * 32 + (ar - 1) * 6}px">${ask ? `<span class="askd">${esc(ask)}</span>` : ''}<span class="sp"></span>${fileActs(d).map(([t, k]) => `<button class="${BTN[k]}>${esc(t)}</button>`).join('')}</div>` : ''}</div>`
           + `<button type="button" class="fcols" data-cols aria-expanded="${open}"><span>${n} column${n === 1 ? '' : 's'}${open && !row1 ? '<span class="fch"> · tap one for its values</span>' : ''}</span><span class="chev" aria-hidden="true">›</span></button>`
           + (open ? `${row1 ? `<div class="cvhead"><span>Tap a column for all its values</span><span>Today’s first row</span></div>` : ''}<ul class="cols">${shown.map((c, i) => `<li class="col${joinCols.has(c.name) ? ' join' : ''}${colTwo(c, r.w, row1 ? cvW(cvOf(c, i)) : undefined) ? ' two' : ''}" data-col="${esc(c.name)}"><span class="cn">${esc(c.name)}</span><span class="cm">${esc(c.meaning || (c.title && c.title.toLowerCase() !== c.name.replace(/_/g, ' ') ? c.title : ''))}</span>${row1 ? `<span class="cv${c.role === 'key' ? ' k' : ''}${row1[i] == null || row1[i] === '' ? ' blank' : ''}" style="max-width:${cvMax(r.w)}px" title="${esc(cvTitle(c, cvOf(c, i)))}">${esc(cvOf(c, i).raw)}${cvOf(c, i).label ? `<span class="cvl"> · ${esc(cvOf(c, i).label)}</span>` : ''}</span>` : `<span class="ty${c.role === 'key' ? ' kb' : ''}">${ty(c)}</span>`}</li>`).join('')}</ul>${n > 12 ? `<div class="more">and ${n - 12} more columns</div>` : ''}` : '');
         el.removeAttribute('role'); el.tabIndex = -1;
@@ -842,10 +884,9 @@ export function mountExplorer(root, host) {
         + (r.open ? outGroups(r.list).map(([g, l]) => `<div class="og">${esc(groupName(g))}</div><ul>${l.map((o) => `<li class="${o.waiting ? 'w' : o.released === 'keep' ? 'kept' : o.released || o.rebuilt ? 'rel' : ''}"><button type="button" data-out="${esc(o.id)}" title="${esc(o.about || o.id)}${o.waiting ? ` · held ${dW()}` : o.released === 'keep' ? ` · readers stay on ${esc(DC().prev)}` : ''}"><i>${o.waiting && !allHeld ? HOURGLASS : ''}</i><span class="on">${esc(plain(o.id))}</span><span class="go">›</span></button></li>`).join('')}</ul>`).join('') : '');
     } else if (type === 'sf') { el.className = 'node ds nb lk'; sayTip(el, id, r.tip); /* peer:design r4 */ el.innerHTML = linkHtml(r, r.title); // peer:builder: rows that point to rows of the same file
     } else if (type === 'in') {
-      // peer:builder — the files whose rows point to this one, in three words; their names on hover
-      const n = r.list.length, names = r.list.map((x) => dsOf(x)?.short || plain(x));
-      el.className = 'node ds nb'; el.title = `${n} dataset${n === 1 ? '' : 's'} point to this one, on ${r.col}: ${names.join(', ')}`;
-      el.innerHTML = `<span class="dn">${n} dataset${n === 1 ? ' points' : 's point'} to it</span><span class="dm">${esc(names.slice(0, 4).join(', '))}${n > 4 ? '…' : ''}</span>`;
+      // what points to the file, said as the file that points says it; a control's evidence one card for them all
+      el.className = 'node ds nb lk'; sayTip(el, id, r.tip); el.setAttribute('role', 'button'); el.tabIndex = 0;
+      el.setAttribute('aria-label', `${r.eb}: ${r.title}. ${r.tip || ''}`); el.innerHTML = linkHtml(r, r.title);
     }
   }
   function place(el, r) {
@@ -1290,7 +1331,7 @@ export function mountExplorer(root, host) {
       if (t === 'd') { const r = R.get(id); if (r && (r.v === 'focus')) return openPanel(key); return go({ level: 'dataset', ds: key, kind: dsOf(key).kind }); }
       if (t === 'k' && ev.target.closest('[data-carry]')) { S.pin = S.pin === id ? null : id; els.forEach((x) => x.querySelectorAll('[data-carry]').forEach((b) => b.setAttribute('aria-pressed', String(S.pin && x.dataset.id === S.pin)))); lightUp(); return; }
       if (t === 'k') { if (S.level === 'kind' && S.kind === key) return; return go({ level: 'kind', kind: key }); }
-      if (t === 'in') { const f = R.get(id); if (f?.list?.length) go({ level: 'kind', kind: dsOf(f.list[0]).kind }); }
+      if (t === 'in') { const f = R.get(id); if (f?.go) go(f.go); }
       if (t === 'r') go({ level: 'dataset', ds: key, kind: dsOf(key).kind });
       if (t === 'm') { const kk = key.split(':')[0], g = key.slice(kk.length + 1); S.open = { ...(S.open || {}), [kk]: (S.open || {})[kk] === g ? null : g }; render(); }
     });
@@ -1469,7 +1510,7 @@ export function mountExplorer(root, host) {
       const cause = I.kind === 'rows' && sevW && sevW.why ? cap(sevW.why) : cap(String(I.why || ''));
       const nums = d.rowsToday != null ? `${fmt(d.rowsToday)} rows${d.rowsUsual ? `, usually about ${fmt(usualN(d.rowsUsual))}` : ''}` : '';
       // peer:design r4: today against usual in the one picture the app draws it with (Ctrl K's answer, look inside, the file)
-      const bars = nowBars(d, { label: dkDay().is(dc.iso) ? 'rows today' : `rows ${dc.d}`, tone: I.sev && I.sev.level === 'mild' ? 'warn' : undefined });
+      const bars = nowBars(d, { label: dkDay().is(dc.iso) ? 'rows today' : `rows ${dc.d}`, tone: I.sev && I.sev.level === 'mild' ? 'warn' : undefined, w: 460 });
       const state = `<div class="dk-top"><p class="dk-state">${sevW ? `<span class="dk-sev ${esc(I.sev.level)}">${esc(sevW.word)}</span>` : `<span class="dk-pz">${PAUSE}</span>`}<span>${esc(cause)}${nums && !bars ? ` · <b>${esc(nums)}</b>` : ''}</span></p>${bars}</div>`;
       // counts are icons: ⧗ 11, its list on hover and behind a tap
       const countB = `<button type="button" class="dk-count" data-waits title="${esc(`${outputsWait(n)}: ${waits.map((o) => plain(o.id)).join(', ')}`)}" aria-label="${esc(`${outputsWait(n)}: see which`)}">${HOURGLASS}<b>${n}</b></button>`;
@@ -1672,13 +1713,17 @@ export function mountExplorer(root, host) {
     toast(laterSaid() ? `${DC().today} decided: its corrected file went out. Readers stay on ${laterSaid()}.` : M.quietBanner ? `${DC().today} decided: its corrected file went out.` : `Published: ${fmt(chosen.rows)} rows passed all ${(d.checks || []).length} checks, and readers now see ${DC().today}.`, true);
   }
   // a dataset's rows: a few to look at, under its columns, with what each column holds
+  // a file's rows beside the map, from the file the day's recorded run read (checked against its hash by the page): the
+  // day's own, or, where the day is paused or arrived empty, the day readers see; filter, sort and keep a value's rows
+  // here, the pipeline a tap further for its checks, its history and what is built from it
   function openRows(id, tapped) {
-    return host.openCard(id, 'data', dsOf(id)?.state === 'waiting' && M.dayCtx ? M.dayCtx.prevIso || null : null);
     closeToasts(); const d = dsOf(id); S.panel = { rows: id };
+    const readers = (d.state === 'waiting' || d.rowsToday === 0) && M.dayCtx && M.dayCtx.prevIso ? M.dayCtx.prevIso : null, day = readers || M.day || null;
     const L = layer();
-    L.innerHTML = `<div class="scrim" data-close></div><aside class="panel wide" aria-label="Rows"><div class="ph"><div class="ctx">${esc(kindOf(d.kind).name)} · ${esc(d.short)} · rows</div><div class="t"><h2>${esc(d.short)}</h2><button class="x" data-close aria-label="Close">✕</button></div></div><div class="pb"><div class="rowbar"><p class="rcount" aria-live="polite">Loading the rows…</p><input type="search" id="rows-q" placeholder="Filter the rows" aria-label="Filter the rows"></div><div class="rpicks"></div><div class="tablewrap"><table class="rows"><thead></thead><tbody></tbody></table></div><div class="rmore"></div><h3>Columns</h3><ul class="colsum">${d.columns.map((c) => `<li><button data-col="${esc(c.name)}"><code>${esc(c.name)}</code><span>${esc(c.meaning || c.title || '')}</span><span class="go">›</span></button></li>`).join('')}</ul></div></aside>`;
+    L.innerHTML = `<div class="scrim" data-close></div><aside class="panel wide rowsp" aria-label="Rows"><div class="ph"><div class="ctx">${esc(kindOf(d.kind).name)} · ${esc(d.short)} · rows</div><div class="t"><h2>${esc(d.short)}</h2><button class="x" data-close aria-label="Close">✕</button></div><div class="pacts"><button type="button" class="btn sm" data-pipe>Open in the pipeline ›</button><span>its checks, its history and what is built from it</span></div></div><div class="pb"><div class="rowbar"><p class="rcount" aria-live="polite">Reading the file…</p><input type="search" id="rows-q" placeholder="Filter the rows" aria-label="Filter the rows"></div><div class="rpicks"></div><div class="tablewrap"><table class="rows"><thead></thead><tbody></tbody></table></div><div class="rmore"></div><h3>Columns</h3><ul class="colsum">${d.columns.map((c) => `<li><button data-col="${esc(c.name)}"><code>${esc(c.name)}</code><span>${esc(c.meaning || c.title || '')}</span><span class="go">›</span></button></li>`).join('')}</ul></div></aside>`;
     L.querySelectorAll('[data-close]').forEach((b) => (b.onclick = () => closePanel()));
     L.querySelectorAll('[data-col]').forEach((b) => (b.onclick = () => openPanel(id, b.dataset.col)));
+    L.querySelector('[data-pipe]').onclick = () => { closePanel(true); host.openCard(id, 'data', readers); };
     const show = (data) => {
       if (S.panel?.rows !== id) return;
       const keyCols = new Set(d.columns.filter((c) => c.role === 'key').map((c) => c.name)), ti = tapped ? data.columns.indexOf(tapped) : -1;
@@ -1693,8 +1738,9 @@ export function mountExplorer(root, host) {
         const chips = L.querySelector('.rpicks'); chips.innerHTML = pick ? `<button type="button" class="rpick" data-unpick><code>${esc(cols[pick.i])}</code> = ${esc(pick.v || 'blank')} <span aria-hidden="true">✕</span></button>` : '<span class="rhint">Tap a value to keep only its rows</span>';
         chips.querySelector('[data-unpick]')?.addEventListener('click', () => { pick = null; limit = 50; draw(); });
         if (sortBy >= 0) rows = rows.slice().sort((a, b) => { const x = a[sortBy], y = b[sortBy], bx = x == null || x === '', by = y == null || y === ''; if (bx || by) return bx === by ? 0 : bx ? 1 : -1; const nx = parseFloat(x), ny = parseFloat(y); return (isFinite(nx) && isFinite(ny) && /^-?[\d.]+$/.test(x) && /^-?[\d.]+$/.test(y) ? nx - ny : String(x).localeCompare(String(y))) * dir; });
-        const shown = rows.slice(0, limit), whose = data.day !== DC().iso ? `${DC().prev}’s` : `${DC().today}’s`;
-        count.textContent = (data.day !== DC().iso ? `Today’s file is empty: these are ${DC().prev}’s rows. ` : '') + (q || pick ? `${fmt(rows.length)} of ${fmt(all.length)} of ${whose} rows${q ? ` have “${q}”` : ''}${pick ? `${q ? ' and' : ' have'} ${cols[pick.i]} = ${pick.v || 'blank'}` : ''}` : `${fmt(shown.length)} of ${fmt(data.total)} of ${whose} rows`) + (all.length < data.total ? ` · the first ${fmt(all.length)} can be filtered and sorted here` : '');
+        const shown = rows.slice(0, limit), other = !!M.dayCtx && data.day !== DC().iso, whose = other ? `${DC().prev}’s` : `${DC().today}’s`;
+        const why = other ? (d.rowsToday === 0 ? `No rows arrived ${dW() === 'today' ? 'today' : 'on ' + DC().d}: these are ${whose}, the rows readers see. ` : `${dW() === 'today' ? 'Today' : DC().d} is paused: these are ${whose} rows, the ones readers see. `) : '';
+        count.textContent = why + (q || pick ? `${fmt(rows.length)} of ${fmt(all.length)} rows${q ? ` have “${q}”` : ''}${pick ? `${q ? ' and' : ' have'} ${cols[pick.i]} = ${pick.v || 'blank'}` : ''}` : `${fmt(data.total)} rows in ${whose} file${shown.length < data.total ? `, the first ${fmt(shown.length)} shown` : ''}`) + (all.length < data.total ? ` · the first ${fmt(all.length)} can be filtered and sorted here` : '');
         const flag = (v) => (/^(fail|failed|failing)$/i.test(v) ? ' bad' : /^(not_assessed|unknown|missing)$/i.test(v) ? ' warn' : '');
         const tc = (c) => (c === tapped ? ' tapc' : ''); // peer:newcomer: the tapped column, marked down its cells
         body.innerHTML = shown.length ? shown.map((r) => `<tr>${cols.map((c, i) => (r[i] == null || r[i] === '' ? `<td class="blank${tc(c)}" data-i="${i}" data-v="">blank</td>` : `<td class="${keyCols.has(c) ? 'k' : 'v'}${flag(r[i])}${tc(c)}" data-i="${i}" data-v="${esc(r[i])}">${esc(r[i])}</td>`)).join('')}</tr>`).join('') : `<tr><td colspan="${cols.length}" class="none">No row has “${esc(q)}”</td></tr>`;
@@ -1706,18 +1752,24 @@ export function mountExplorer(root, host) {
       draw();
       L.querySelector('#rows-q').oninput = (ev) => { q = ev.target.value.trim().toLowerCase(); limit = 50; draw(); };
     };
-    const fallback = () => ({ day: d.rowsToday === 0 ? '2024-03-26' : '2024-03-27', total: d.rowsToday || (d.sample || []).length, columns: d.columns.slice(0, Math.max(1, ...(d.sample || []).map((r) => r.length))).map((c) => c.name), rows: d.sample || [] });
-    (S.m === 'larkspur' ? fetch(`rows/${encodeURIComponent(id)}.json`).then((r) => (r.ok ? r.json() : fallback())).catch(fallback) : Promise.resolve(fallback())).then(show);
+    // nothing to read here: the record has no run of the day that read this file, or the file is no CSV text
+    const none = (why) => { if (S.panel?.rows !== id) return; L.querySelector('.rcount').textContent = why || `This file’s rows can’t be read here. Open it in the pipeline to run the day and read them.`; L.querySelector('#rows-q').hidden = true; };
+    host.rows(id, day).then((data) => (data ? show(data) : none())).catch((e) => none(e && /sha256|hash|integrity/i.test(String(e.message)) ? `The file didn’t match the hash the record keeps for it, so its rows aren’t shown.` : `The file couldn’t be read: ${String((e && e.message) || e)}`));
   }
+  // an output beside the map, as the record has it on the day: held or published, its rows, what it says it is and the
+  // files it is built from (each a tap to that file's view); the pipeline a tap further
   function openOutput(oid, from) {
-    return host.openCard(oid, 'summary');
     closeToasts();
-    const o = M.outputs.find((x) => x.id === oid) || { id: oid, reads: [] }, src = dsOf(from);
+    const o = M.outputs.find((x) => x.id === oid) || { id: oid, reads: [], from: [] }, src = dsOf(from), wd = waitingDs();
     S.panel = { out: oid };
-    const reads = (o.reads || []).map((r) => dsOf(r) ? `<li><button data-ds="${esc(r)}">${esc(dsOf(r).short)}<span class="go">›</span></button></li>` : `<li><span class="plainstep">${esc(plain(r))}</span></li>`).join('');
+    const files = [...new Set([...(o.from || []), ...(o.reads || []).filter((r) => dsOf(r))])].filter((r) => dsOf(r));
+    const reads = files.map((r) => `<li><button data-ds="${esc(r)}">${esc(dsOf(r).short)}<span class="go">›</span></button></li>`).join('');
+    const on = dW() === 'today' ? 'today' : `on ${DC().d}`;
+    const state = o.waiting ? `<p><b style="color:var(--bad)">${HOURGLASS} Held ${on}.</b> Readers see ${esc(DC().prev)} until ${esc(wd ? wd.short : 'the file that holds it')} is decided.</p>` : `<p>Published ${on}.</p>`;
     const Lr = layer();
-    Lr.innerHTML = `<div class="scrim" data-close></div><aside class="panel" aria-label="Built dataset"><div class="ph"><div class="ctx">Built from ${esc(src ? src.short : 'the flow')}</div><div class="t"><h2>${esc(plain(oid))}</h2><button class="x" data-close aria-label="Close">✕</button></div></div><div class="pb">${o.waiting ? `<p><b style="color:var(--bad)">${PAUSE} Held ${dW()}.</b> Readers still see ${esc(DC().prev)} until ${esc(src ? src.short : 'its source')} is decided.</p>` : `<p>Published ${dW()}.</p>`}${o.rows != null ? `<h3>Rows</h3><p>${fmt(o.rows)}</p>` : ''}${reads ? `<h3>Built from</h3><ul class="reads">${reads}</ul>` : ''}</div></aside>`;
+    Lr.innerHTML = `<div class="scrim" data-close></div><aside class="panel" aria-label="Output"><div class="ph"><div class="ctx">Output${src ? ` · built from ${esc(src.short)}` : ''}</div><div class="t"><h2>${esc(plain(oid))}</h2><button class="x" data-close aria-label="Close">✕</button></div><div class="pacts"><button type="button" class="btn sm" data-pipe>Open in the pipeline ›</button><span>its checks, its rows and its contract</span></div></div><div class="pb">${o.about ? `<p>${esc(o.about)}</p>` : ''}${state}${o.rows != null ? `<h3>Rows</h3><p>${fmt(o.rows)} ${o.waiting ? `when it was held` : on}</p>` : ''}${reads ? `<h3>Built from ${files.length === 1 ? 'one file' : `${files.length} files`}</h3><ul class="reads">${reads}</ul>` : ''}</div></aside>`;
     Lr.querySelectorAll('[data-close]').forEach((x) => (x.onclick = () => closePanel()));
+    Lr.querySelector('[data-pipe]').onclick = () => { closePanel(true); host.openCard(oid, 'summary'); };
     Lr.querySelectorAll('[data-ds]').forEach((x) => (x.onclick = () => { closePanel(); go({ level: 'dataset', ds: x.dataset.ds, kind: dsOf(x.dataset.ds).kind }); }));
   }
   // the relations between two areas, each a sentence, each opening the kind it starts from
@@ -2153,22 +2205,66 @@ export function mountExplorer(root, host) {
   const stateChip = (d) => {
     if (d.state === 'waiting') return `<span class="pvs bad">${PAUSE} Paused ${dW()}</span>`;
     if (d.state === 'decided') return `<span class="pvs">${HALF} Decided for now · file owed</span>`;
-    if (d.state === 'warn') return '<span class="pvs warn">◆ Unusual today</span>';
+    if (d.state === 'warn') return `<span class="pvs warn">◆ Unusual ${dW()}</span>`;
     if (d.state === 'awaited') return `<span class="pvs">◌ Planned · first file ${esc(d.awaited || '')}</span>`;
     const t = d.rowsToday, u = d.rowsUsual ? usualN(d.rowsUsual) : null;
-    return `<span class="pvs ok" title="${d.state === 'note' ? 'A check noted something today; nothing stopped' : 'No check stopped or warned on it today'}${t != null && u ? ` · ${fmt(t)} rows, ${offSaid(t, u)}` : ''}">✓ Fine today</span>`;
+    return `<span class="pvs ok" title="${d.state === 'note' ? `A check noted something ${dW()}; nothing stopped` : `No check stopped or warned on it ${dW()}`}${t != null && u ? ` · ${fmt(t)} rows, ${offSaid(t, u)}` : ''}">✓ Fine ${dW()}</span>`;
   };
-  // the one number, drawn: today's rows and a usual day's on one scale from zero, labelled where they end (no axis, no
-  // legend, no days). Same length is a usual day; an empty file is a stub at zero; twice the rows, twice the bar
-  const nowBars = (d, o = {}) => { // peer:design r4: the one today-against-usual picture; o.label names the day (rows Mon 26), o.tone the pause's severity (amber when mild)
-    const t = d.rowsToday, u = d.rowsUsual ? usualN(d.rowsUsual) : null, lab = o.label || (dW() === 'today' ? 'rows today' : `rows ${DC().d}`);
+  // the day's rows against the days before (docs/research/ui-rows-distribution.md): the days drawn as one smooth shape,
+  // each a soft bump so that many days alike stand tall, the usual part of it darker, and the day itself a line through
+  // it in its state's colour, named above it; a day the shape is too thin to show (one empty day among full ones) is a
+  // dot on the line. Its words say first whether the day is normal, then where it sits among the days before. A file the
+  // same on every day says so in words; too few days for a range, the number alone
+  const distOf = (d) => {
+    const t = d.rowsToday, u = d.rowsUsual, past = (d.past || []).filter((x) => x != null);
+    if (t == null || !u || past.length < 3) return null;
+    const n = past.length, lo0 = Math.min(t, ...past), hi0 = Math.max(t, ...past);
+    if (lo0 === hi0) return { same: true, n };
+    // each day a bump as wide as the days' own spread asks (Silverman's rule), never so narrow that whole counts a row
+    // apart stand alone, nor narrower than a thirtieth of the line
+    const s = [...past].sort((a, b) => a - b), q = (p) => { const k = (n - 1) * p, f = Math.floor(k), c = Math.min(f + 1, n - 1); return s[f] + (s[c] - s[f]) * (k - f); };
+    const mean = past.reduce((a, v) => a + v, 0) / n, sd = Math.sqrt(past.reduce((a, v) => a + (v - mean) ** 2, 0) / n), iqr = q(0.75) - q(0.25);
+    const h = Math.max(0.9 * Math.min(sd, iqr / 1.34 || sd) * Math.pow(n, -0.2), past.every(Number.isInteger) ? 0.75 : 0, (hi0 - lo0) / 30);
+    const lo = lo0 - 2.2 * h, hi = hi0 + 2.2 * h, x = (v) => (100 * (v - lo)) / (hi - lo);
+    const k = (at) => past.reduce((a, v) => a + Math.exp(-0.5 * ((at - v) / h) ** 2), 0);
+    const xs = Array.from({ length: 96 }, (_, i) => lo + ((hi - lo) * i) / 95), ys = xs.map(k), top = Math.max(...ys);
+    const pad = u[0] === u[1] ? Math.max(0.5, h / 2) : 0, z0 = Math.max(lo, u[0] - pad), z1 = Math.min(hi, u[1] + pad);
+    const zs = Array.from({ length: 33 }, (_, i) => z0 + ((z1 - z0) * i) / 32);
+    const lone = [...new Set(past)].filter((v) => k(v) / top < 0.12); // days too few where they stand for the shape to show
+    const below = past.filter((v) => v < t).length, above = past.filter((v) => v > t).length, within = t >= u[0] && t <= u[1];
+    const where = within ? `like most of the last ${n} days` : t > u[1] ? `higher than ${below === n ? 'all' : below} of the last ${n} days` : `lower than ${above === n ? 'all' : above} of the last ${n} days`;
+    return { same: false, n, lo0, hi0, x, xs, ys, top, zs, k, lone, where, within };
+  };
+  const normalOf = (d) => d.state === 'ok' || d.state === 'note'; // the checks let the day through: "✓ Normal"
+  const SHAPE_H = 32;
+  // the picture's height in a file's card: its words (two lines where they don't fit on one), the day's name, the shape
+  // and the line, its labels
+  const distH = (d, w) => { const D = distOf(d), t = d.rowsToday; if (!D || D.same) return 18; const one = tw(`${fmt(t)} rows ${dW() === 'today' ? 'today' : DC().d}`, '500 13px Geist') + 12 + tw(`${normalOf(d) ? '✓ Normal · ' : ''}${D.where}`, '400 12px Geist') <= w; return (one ? 16 : 32) + 6 + 16 + SHAPE_H + 6 + 16; };
+  const nowBars = (d, o = {}) => { // peer:design r4: the one today-against-usual picture; o.label names the day (rows Mon 26), o.tone the pause's severity (amber when mild), o.w its width
+    const t = d.rowsToday, u = d.rowsUsual, lab = o.label || (dW() === 'today' ? 'rows today' : `rows ${DC().d}`), day = lab.replace(/^rows /, ''), w = o.w || 360;
     if (t == null) return '';
-    if (u == null) return `<div class="pvn"><b>${fmt(t)}</b> ${esc(lab)}</div>`;
-    const max = Math.max(t, u, 1), w = (v) => `${((v / max) * 100).toFixed(1)}%`, tone = o.tone !== undefined ? (o.tone ? ' ' + o.tone : '') : d.state === 'waiting' ? ' bad' : d.state === 'warn' ? ' warn' : '';
-    return `<div class="dqnow" role="img" aria-label="${fmt(t)} ${esc(lab)}; a usual day has about ${fmt(u)}"><span class="dqk">${esc(lab)}</span><span class="dqb">${t > 0 ? `<i class="dqt${tone}" style="width:${w(t)}"></i>` : `<i class="dqt0${tone}"></i>`}</span><b class="dqv">${fmt(t)}</b><span class="dqk">usual</span><span class="dqb"><i class="dqu" style="width:${w(u)}"></i></span><span class="dqv">${fmt(u)}</span></div>`;
+    const D = distOf(d);
+    if (!D) return `<div class="pvn"><b>${fmt(t)}</b> ${esc(lab)}</div>`;
+    if (D.same) return `<div class="pvn"><b>${fmt(t)}</b> ${esc(lab)} · the same on all ${D.n} days before</div>`;
+    const tone = o.tone !== undefined ? (o.tone ? ' ' + o.tone : '') : d.state === 'waiting' ? ' bad' : d.state === 'warn' ? ' warn' : '';
+    const H = SHAPE_H, y = (v) => (H - (v / D.top) * (H - 3)).toFixed(2), px = (v) => D.x(v).toFixed(2);
+    const area = `M0,${H} ${D.xs.map((v, i) => `L${px(v)},${y(D.ys[i])}`).join(' ')} L100,${H} Z`;
+    const zone = `M${px(D.zs[0])},${H} ${D.zs.map((v) => `L${px(v)},${y(D.k(v))}`).join(' ')} L${px(D.zs[D.zs.length - 1])},${H} Z`;
+    const range = u[0] === u[1] ? fmt(u[0]) : `${fmt(u[0])}–${fmt(u[1])}`, at = D.x(t), verdict = normalOf(d) && o.verdict !== false ? '<span class="dqok">✓ Normal</span> · ' : '';
+    const said = `${fmt(t)} ${lab}${normalOf(d) ? ', normal' : ''}: ${D.where}. Usually ${range}. The shape is the ${D.n} days before, its darker part the usual range.`;
+    // under the line: the least and the most at their places, the usual range under its part; an end that would touch the
+    // usual range's words is left out
+    const ut = `usual ${range}`, uw = tw(ut, '400 12px Geist'), uc = Math.min(Math.max(((D.x(D.zs[0]) + D.x(D.zs[D.zs.length - 1])) / 200) * w, uw / 2), w - uw / 2);
+    const lx = (D.x(D.lo0) / 100) * w, rx = (D.x(D.hi0) / 100) * w, lw = tw(fmt(D.lo0), '400 12px Geist'), rw = tw(fmt(D.hi0), '400 12px Geist');
+    const ends = `${lx + lw / 2 + 10 < uc - uw / 2 ? `<span class="dqe" style="left:${D.x(D.lo0).toFixed(2)}%;transform:translateX(${lx < lw / 2 ? '0' : '-50%'})">${fmt(D.lo0)}</span>` : ''}${rx - rw / 2 - 10 > uc + uw / 2 ? `<span class="dqe" style="left:${D.x(D.hi0).toFixed(2)}%;transform:translateX(${w - rx < rw / 2 ? '-100%' : '-50%'})">${fmt(D.hi0)}</span>` : ''}`;
+    const align = at < 8 ? 'translateX(0)' : at > 92 ? 'translateX(-100%)' : 'translateX(-50%)';
+    return `<div class="dqdist" role="img" aria-label="${esc(said)}" title="${esc(said)}"><div class="dqh"><span class="dqn"><b>${fmt(t)}</b> ${esc(lab)}</span><span class="dqr">${verdict}${esc(D.where)}</span></div>`
+      + `<div class="dqplot" aria-hidden="true"><span class="dqday" style="left:${at.toFixed(2)}%;transform:${align}">${esc(day)}</span><svg class="dqsvg" viewBox="0 0 100 ${H}" preserveAspectRatio="none"><path class="dqa" d="${area}"/><path class="dqz" d="${zone}"/></svg>`
+      + `${D.lone.map((v) => `<i class="dqlone" style="left:${px(v)}%"></i>`).join('')}<i class="dqline${tone}" style="left:${at.toFixed(2)}%"></i><i class="dqtd${tone}" style="left:${at.toFixed(2)}%"></i></div>`
+      + `<div class="dqx" aria-hidden="true">${ends}<span class="dqu" style="left:${((uc / w) * 100).toFixed(2)}%">${esc(ut)}</span></div></div>`;
   };
   // the three things, in the order the eye takes them: whether it is fine, the number that says so, what it is
-  const nowOf = (d) => `<div class="dqstate">${stateChip(d)}${waitCount(d)}</div>${nowBars(d)}${d.description ? `<p class="pvd dqwhat" title="${esc(descOf(d))}">${esc(descOf(d))}</p>` : ''}`;
+  const nowOf = (d) => `<div class="dqstate">${stateChip(d)}${waitCount(d)}</div>${nowBars(d, { w: 300, verdict: false })}${d.description ? `<p class="pvd dqwhat" title="${esc(descOf(d))}">${esc(descOf(d))}</p>` : ''}`;
   // the preview beside the list: what the line picked is, before it is opened
   function previewDs(d) {
     return `<div class="pvh"><span class="pico">${GL.table}${stateBadge(d)}</span><div><b>${esc(d.short)}</b><span>Dataset · ${esc(kindOf(d.kind).name)}</span></div></div>${nowOf(d)}`;
@@ -2177,7 +2273,7 @@ export function mountExplorer(root, host) {
   const previewCols = (d) => `<div class="pvh"><span class="pico">${COLGLYPH}</span><div><b>${esc(d.short)}${/s$/i.test(d.short) ? '’' : '’s'} columns</b><span>${d.columns.length} column${d.columns.length === 1 ? '' : 's'} · ↵ to look at one</span></div></div><ul class="pvc dqcols">${d.columns.map((c) => `<li><code>${esc(c.name)}</code><small title="${esc(c.meaning || '')}">${esc(c.meaning || '')}</small><span class="pty${c.role === 'key' ? ' kb' : ''}">${tyFull(c)}</span></li>`).join('')}</ul>`;
   function previewKind(k) {
     const ds = k.datasets.map(dsOf).filter(Boolean).sort((a, b) => (STATE_RANK[a.state] ?? 9) - (STATE_RANK[b.state] ?? 9)), rs = relPairs().filter((r) => r.from === k.id || r.to === k.id);
-    return `<div class="pvh"><span class="pico">${ICON[k.icon] || ''}</span><div><b>${esc(k.name)}</b><span>Kind · ${fmt(k.count)} ${esc(k.plural)}</span></div></div>`
+    return `<div class="pvh"><span class="pico">${ICON[k.icon] || ''}</span><div><b>${esc(k.name)}</b><span>Kind${k.count == null ? '' : ` · ${fmt(k.count)} ${esc(k.plural)}`}</span></div></div>`
       + `<h4>Datasets · ${ds.length}</h4><ul class="pvk">${ds.slice(0, 7).map((d) => `<li>${stateMark(d)}<span>${esc(d.short)}</span><small>${d.rowsToday != null ? fmt(d.rowsToday) + ' rows' : 'no file yet'}</small></li>`).join('')}${ds.length > 7 ? `<li class="pvmore">and ${ds.length - 7} more · <kbd>Tab</kbd> to see them</li>` : ''}</ul>`
       + (rs.length ? `<h4>Relates to</h4><ul class="pvr">${rs.slice(0, 4).map((r) => `<li>${sentenceHtml(r, k.id)}</li>`).join('')}${rs.length > 4 ? `<li class="pvmore">and ${rs.length - 4} more</li>` : ''}</ul>` : '');
   }
@@ -2231,7 +2327,7 @@ export function mountExplorer(root, host) {
     root.append(box);
     const input = box.querySelector('input'), list = box.querySelector('.pres'), ans = box.querySelector('.pans'), prev = box.querySelector('.pprev'), body = box.querySelector('.pbody');
     const wide = () => matchMedia('(min-width: 1000px)').matches;
-    const goTo = [...M.kinds.map((k) => ({ icon: ICON[k.icon] || '', name: k.name, sub: `Kind · ${fmt(k.count)} ${k.plural} · ${k.datasets.length} datasets`, t: 'Kind', drill: { type: 'kind', id: k.id }, run: () => go({ level: 'kind', kind: k.id }), pv: () => previewKind(k) })),
+    const goTo = [...M.kinds.map((k) => ({ icon: ICON[k.icon] || '', name: k.name, sub: `Kind · ${kindCount(k)}${k.datasets.length} datasets`, t: 'Kind', drill: { type: 'kind', id: k.id }, run: () => go({ level: 'kind', kind: k.id }), pv: () => previewKind(k) })),
       ...M.datasets.map((d) => ({ icon: GL.table, badge: stateBadge(d), name: d.short, sub: `Dataset · ${kindOf(d.kind).name}${d.state === 'waiting' ? ` · paused ${dW()} · ${fmt(d.rowsToday || 0)} rows` : d.state === 'decided' ? ' · decided for now, file owed' : d.state === 'warn' ? ` · unusual ${dW()}` : ''}`, t: 'Dataset', rank: STATE_RANK[d.state] ?? 9, drill: { type: 'ds', id: d.id }, run: () => go({ level: 'dataset', ds: d.id, kind: d.kind }), pv: () => previewDs(d) })),
       ...M.datasets.flatMap((d) => d.columns.map((c) => ({ icon: colIcon(c), ty: tyFull(c), key: c.role === 'key', name: c.name, sub: `Column of ${d.short}${c.meaning ? ' · ' + c.meaning : ''}`, t: 'Column', ds: d.id /* peer:builder r4 */, mono: true, run: () => toDataset(d, () => openPanel(d.id, c.name)), pv: () => previewCol(d, c) })))];
     const score = (it, q) => { const n = it.name.toLowerCase(), s2 = (it.sub || '').toLowerCase(); if (n === q) return 100; if (n.startsWith(q)) return 80 - (it.t === 'Column' ? 5 : 0); if (n.split(/[\s_]+/).some((w) => w.startsWith(q))) return 60 - (it.t === 'Column' ? 5 : 0); if (n.includes(q)) return 40; if (s2.includes(q)) return 10; if (q.length >= 3 && n.split(/[\s_]+/).some((w) => w.length > 3 && lev(q, w) <= (w.length > 6 ? 2 : 1))) return 30; { const qw = q.split(/\s+/).filter((w) => w.length > 2), nw = n.split(/[\s_]+/); if (qw.length > 1 && qw.every((w) => nw.some((x) => x.startsWith(w) || (x.length > 3 && lev(w, x) <= (x.length > 6 ? 2 : 1))))) return 34; } let i = 0; for (const ch of n.replace(/[\s_]+/g, '')) if (ch === q[i]) i++; return q.length >= 3 && i === q.length ? 6 : 0; };
@@ -2245,7 +2341,7 @@ export function mountExplorer(root, host) {
       const asked = (x) => ({ g: 'in', ask: x, name: x, icon: '✦', tone: 'ask', pv: () => previewAsk(x) });
       if (sc.type === 'kind') {
         const k = kindOf(sc.id);
-        const top = [{ g: 'in', icon: ICON[k.icon] || '', name: `Open ${k.name}`, sub: `${fmt(k.count)} ${k.plural} · ${k.datasets.length} datasets`, run: () => go({ level: 'kind', kind: k.id }), pv: () => previewKind(k) }, asked(`What does ${k.name} relate to?`), ...((M.month || []).length ? [asked(`How has ${k.name} been this month?`)] : [])];
+        const top = [{ g: 'in', icon: ICON[k.icon] || '', name: `Open ${k.name}`, sub: `${kindCount(k)}${k.datasets.length} datasets`, run: () => go({ level: 'kind', kind: k.id }), pv: () => previewKind(k) }, asked(`What does ${k.name} relate to?`), ...((M.month || []).length ? [asked(`How has ${k.name} been this month?`)] : [])];
         return [...top, ...goTo.filter((it) => it.t === 'Dataset' && it.drill && dsOf(it.drill.id)?.kind === k.id).sort((a, b) => a.rank - b.rank).map((it) => { const d = dsOf(it.drill.id); return { ...it, g: 'inlist', sub: `${d.rowsToday != null ? fmt(d.rowsToday) + ` rows ${dW()}` : 'no file yet'}${d.state === 'waiting' ? ` · paused ${dW()}` : d.state === 'warn' ? ` · unusual ${dW()}` : d.state === 'decided' ? ' · decided for now' : ''}` }; })].filter(f);
       }
       const d = dsOf(sc.id);

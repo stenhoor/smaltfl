@@ -29,8 +29,9 @@ export interface DataModelFile {
   /** Joins people read that the ontology names no relation for: a column of one file holding another file's key. */
   joins?: { from: string; col: string; to: string; toCol: string; rel: string }[];
   /** The files that are evidence for another kind's objects (each control's feed): that kind, the words that join
-   * them (`evidence for`), and each file's object by its id and name. */
-  evidence?: { kind: string; rel?: string; datasets: Record<string, { id: string; name: string }> };
+   * them (`evidence for`), each file's object by its id and name, and, for a file drawn inside that kind, the words
+   * that join the kind to the objects the file's rows are about (`checks`: a control checks applications). */
+  evidence?: { kind: string; rel?: string; checks?: string; datasets: Record<string, { id: string; name: string }> };
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -71,6 +72,7 @@ export function dataModelProblems(v: unknown): string[] {
     if (!isRecord(e) || !isText(e.kind) || !isRecord(e.datasets)) out.push('evidence needs a kind and its datasets');
     else {
       if (e.rel !== undefined && !isText(e.rel)) out.push('evidence.rel is not text');
+      if (e.checks !== undefined && !isText(e.checks)) out.push('evidence.checks is not text');
       for (const [id, x] of Object.entries(e.datasets)) if (!isRecord(x) || !isText(x.id) || !isText(x.name)) out.push(`evidence.datasets.${id} needs an id and a name`);
     }
   }
@@ -146,6 +148,8 @@ export interface DmDataset {
   // The day, the page's: absent until it adds them.
   rowsToday: number | null;
   rowsUsual: [number, number] | null;
+  /** Its rows on each of the days before the day (up to 28), the days the usual range is read from, oldest first. */
+  past: number[];
   /** Its state on each day of the month, null where it has no run. */
   days: (DmDay | null)[];
   counts: (number | null)[];
@@ -334,12 +338,27 @@ export function dataModelOf(doc: FlowDocument, inputs: DmInputs): DmModel {
   // carries (the one with the fewest files so far where it carries several: a file of mappings or exceptions describes
   // the narrower kind); else the kind most of its own flow's files have.
   const kindOf = new Map<string, string>();
+  // A kind the display file draws a file in and describes, though this flow's ontology doesn't have it (the controls on a
+  // page of their evidence alone, where the catalogue isn't read), is the file's kind still: drawn below, with no register.
+  const drawnBy = (id: string) => { const said = display?.datasets?.[id]?.kind; return said && !types.some((t) => t.id === said) && display?.kinds?.[said] ? said : null; };
   for (const s of sources) {
+    if (drawnBy(s.id)) continue;
     const said = display?.datasets?.[s.id]?.kind;
     const own = types.find((t) => t.dataset === s.id)?.id;
     const entry = rowsOf.get(s.id)?.of;
     const k = [said, own, entry].find((x) => x !== undefined && types.some((t) => t.id === x));
     if (k) kindOf.set(s.id, k);
+  }
+  // Those kinds: each of its own, with no register, named as the display file says.
+  const drawn: ObjectType[] = [];
+  for (const s of sources) {
+    const said = drawnBy(s.id);
+    if (!said) continue;
+    if (!drawn.some((t) => t.id === said)) {
+      const one = display?.kinds?.[said]?.one ?? said;
+      drawn.push({ id: said, name: one.charAt(0).toUpperCase() + one.slice(1), dataset: '', key: [], title: '' });
+    }
+    kindOf.set(s.id, said);
   }
   const count = (k: string) => [...kindOf.values()].filter((x) => x === k).length;
   for (const s of sources) {
@@ -368,7 +387,7 @@ export function dataModelOf(doc: FlowDocument, inputs: DmInputs): DmModel {
     extra.push({ id, name, dataset: first.id, key: [], title: '' });
     for (const s of loose) kindOf.set(s.id, id);
   }
-  const allTypes = [...types, ...extra];
+  const allTypes = [...types, ...drawn, ...extra];
 
   const outputs = sourcesOfOutputs(doc);
   const watched = new Set(Object.keys(doc.publish?.watch ?? {}));
@@ -384,10 +403,12 @@ export function dataModelOf(doc: FlowDocument, inputs: DmInputs): DmModel {
 
   const checksOf = (id: string, kind: ObjectType | undefined, columns: DmColumn[]): DmCheck[] => {
     const out: DmCheck[] = [];
+    // What a row is is the rows entry's, whatever kind the file is drawn in (a control's feed: a row an application).
     const entry = rowsOf.get(id);
-    if (entry && kind) {
-      out.push({ says: `One row per ${nounOfKind(kind).one} in scope`, column: null, mode: 'stops', origin: 'Data model' });
-      const key = entry.key ?? kind.key[0];
+    const rowsKind = entry ? (types.find((t) => t.id === entry.of) ?? kind) : kind;
+    if (entry && rowsKind) {
+      out.push({ says: `One row per ${nounOfKind(rowsKind).one} in scope`, column: null, mode: 'stops', origin: 'Data model' });
+      const key = entry.key ?? rowsKind.key[0];
       if (key) out.push({ says: `No ${key} blank or repeated`, column: key, mode: 'stops', origin: 'Data model' });
     }
     for (const c of columns) {
@@ -409,9 +430,10 @@ export function dataModelOf(doc: FlowDocument, inputs: DmInputs): DmModel {
 
   const oneOf = (id: string, kind: ObjectType | undefined): string | null => {
     const entry = rowsOf.get(id);
-    if (entry && kind) {
-      const said = entry.where ? conditionSaid(o, kind.dataset, entry.where) : '';
-      return `one ${nounOfKind(kind).one}${said ? `: ${said}` : ''}`;
+    const rowsKind = entry ? (types.find((t) => t.id === entry.of) ?? kind) : undefined;
+    if (entry && rowsKind) {
+      const said = entry.where ? conditionSaid(o, rowsKind.dataset, entry.where) : '';
+      return `one ${nounOfKind(rowsKind).one}${said ? `: ${said}` : ''}`;
     }
     if (kind?.dataset === id && !extra.includes(kind)) return `one ${nounOfKind(kind).one}`;
     const n = o?.nouns?.[id];
@@ -419,7 +441,7 @@ export function dataModelOf(doc: FlowDocument, inputs: DmInputs): DmModel {
   };
 
   const evidence = display?.evidence;
-  const empty = { rowsToday: null, rowsUsual: null, days: [], counts: [], heads: [], state: 'none' as DmState };
+  const empty = { rowsToday: null, rowsUsual: null, past: [], days: [], counts: [], heads: [], state: 'none' as DmState };
   const datasets: DmDataset[] = sources.filter((s) => kindOf.has(s.id)).map((s) => {
     const kind = allTypes.find((t) => t.id === kindOf.get(s.id));
     const columns = columnsOf(s.id, kind);
@@ -442,7 +464,8 @@ export function dataModelOf(doc: FlowDocument, inputs: DmInputs): DmModel {
   // A file described ahead of its data (ADR 0027 §5): drawn in the kind its key names, dashed until it arrives.
   for (const a of o?.awaited ?? []) {
     if (ids.has(a.id)) continue;
-    const kind = types.find((t) => t.key.length === 1 && a.key.includes(t.key[0]!)) ?? types.find((t) => a.columns.some((c) => t.key.includes(c.column)));
+    const said = display?.datasets?.[a.id]?.kind;
+    const kind = types.find((t) => t.id === said) ?? types.find((t) => t.key.length === 1 && a.key.includes(t.key[0]!)) ?? types.find((t) => a.columns.some((c) => t.key.includes(c.column)));
     if (!kind) continue;
     const day = inputs.since?.(`awaited:${a.id}`) ?? null;
     datasets.push({
@@ -492,11 +515,15 @@ export function dataModelOf(doc: FlowDocument, inputs: DmInputs): DmModel {
   for (const j of display?.joins ?? []) {
     if (shown.has(j.from) && shown.has(j.to) && !has(j.from, j.col)) joins.push({ from: j.from, col: j.col, to: j.to, toCol: j.toCol, rel: j.rel, since: null });
   }
+  // A control's feed drawn among the controls joins them to the objects its rows are, in the evidence's own words (the
+  // control checks the application: TLS, a row an application); a column naming another file's key is otherwise only
+  // about it (a finding names an application).
+  const checking = (d: DmDataset, t: ObjectType) => !!evidence?.datasets[d.id] && d.kind === evidence.kind && rowsOf.get(d.id)?.of === t.id;
   for (const d of datasets) {
     for (const c of d.columns) {
       const t = keyCols.get(c.name.toLowerCase());
       if (!t || t.dataset === d.id || !shown.has(t.dataset) || has(d.id, c.name)) continue;
-      joins.push({ from: d.id, col: c.name, to: t.dataset, toCol: t.key[0]!, rel: 'about', since: null });
+      joins.push({ from: d.id, col: c.name, to: t.dataset, toCol: t.key[0]!, rel: checking(d, t) && t.id !== d.kind ? (evidence?.checks ?? 'checks') : 'about', since: null });
     }
   }
   const evKind = evidence ? typeOf(evidence.kind) : undefined;
@@ -512,13 +539,15 @@ export function dataModelOf(doc: FlowDocument, inputs: DmInputs): DmModel {
     const key = `${kindOfDs.get(j.from)}|${kindOfDs.get(j.to)}|${j.rel}`;
     groups.set(key, [...(groups.get(key) ?? []), j]);
   }
+  // the files a relation is said of: by name while they are few ("Findings and Exceptions"), else counted
+  const namesSaid = (names: string[]) => (names.length > 3 ? `${names.length} datasets` : names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0] ?? '');
   const relations: DmRelation[] = [...groups.entries()].map(([key, js]) => {
     const [from, to, name] = key.split('|') as [string, string, string];
     const toKind = kinds.find((k) => k.id === to);
     const noun = toKind?.noun ?? to;
     const own = js.length === 1 && kinds.find((k) => k.id === from)?.dataset === js[0]!.from;
     const label = name === 'about'
-      ? js.length > 1 ? `${js.length} datasets name ${article(noun)}` : `${shortOf.get(js[0]!.from)} name ${article(noun)}`
+      ? `${namesSaid([...new Set(js.map((j) => shortOf.get(j.from) ?? j.from))])} name ${article(noun)}`
       : name === (evidence?.rel ?? 'evidence for') && js.every((j) => j.col === null)
         ? `${name} · ${js.length} datasets`
         : own || js.length > 1 ? name : `${shortOf.get(js[0]!.from)} ${name} ${article(noun)}`;

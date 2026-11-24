@@ -342,6 +342,7 @@ ul.reads { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .ph { padding: 16px 20px 12px; border-bottom: 1px solid var(--line); display: grid; gap: 4px; }
 .ph .ctx { font-size: 13px; color: var(--muted); }
 .ph .t { display: flex; align-items: center; gap: 10px; }
+.ph .pacts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-2); font-size: var(--fs-2); color: var(--text-muted); }
 .ph h2 { margin: 0; font-size: 20px; font-weight: 600; }
 .ph .x { margin-left: auto; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); cursor: pointer; }
 .pb { padding: 16px 20px 32px; overflow: auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-content: start; }
@@ -404,6 +405,8 @@ table.rows td.none { color: var(--muted); font-family: var(--font); }
 /* a few rows to look at */
 .panel.wide { width: min(760px, 100%); }
 .tablewrap { overflow: auto; max-height: 52vh; border: 1px solid var(--line); border-radius: 8px; }
+/* the rows panel's body scrolls as a whole: its table keeps its height (to 52vh) however long the columns below it run */
+.panel.rowsp .pb { grid-auto-rows: max-content; }
 table.rows thead th { position: sticky; top: 0; z-index: 1; }
 .rmore:empty { display: none; }
 .rcount { font-size: 13px; color: var(--ink-2); }
@@ -1699,6 +1702,28 @@ table.rows th.tap { box-shadow: inset 0 -2px 0 var(--action); }
 .ap .apx { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12px; line-height: 14px; color: var(--muted); white-space: nowrap; }
 .ap .today { font-size: 12px; font-weight: 600; color: var(--ink); }
 .ap .tdate { font-size: 11px; font-weight: 400; color: var(--muted); }
+/* the day against the days before (nowBars): the days a smooth shape, its usual part darker, the day a line through it
+   in its state's colour; a day too lone for the shape a dot on the line; its ends and the usual range said under it */
+.dqdist { display: grid; gap: 6px; font-size: var(--fs-2); line-height: 16px; }
+.dqdist .dqh { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; column-gap: 12px; min-width: 0; }
+.dqdist .dqn { color: var(--text-secondary); white-space: nowrap; }
+.dqdist .dqn b { font-size: var(--fs-3); font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.dqdist .dqr { color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dqdist .dqok { color: var(--ok); font-weight: 600; }
+.dqdist .dqplot { position: relative; height: 48px; }
+.dqdist .dqplot::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--edge-control); }
+.dqdist .dqday { position: absolute; top: 0; color: var(--text-secondary); font-weight: 600; white-space: nowrap; }
+.dqdist .dqsvg { position: absolute; left: 0; top: 16px; width: 100%; height: 32px; overflow: visible; }
+.dqdist .dqa { fill: var(--border-subtle); opacity: .8; }
+.dqdist .dqz { fill: var(--edge-control); opacity: .55; }
+.dqdist .dqlone { position: absolute; bottom: -2px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--edge-control); }
+.dqdist .dqline { position: absolute; top: 16px; bottom: 0; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--text-primary); }
+.dqdist .dqtd { position: absolute; bottom: -5px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--text-primary); box-shadow: 0 0 0 2px var(--surface-raised); }
+.dqdist .dqline.bad, .dqdist .dqtd.bad { background: var(--bad); }
+.dqdist .dqline.warn, .dqdist .dqtd.warn { background: var(--warn); }
+.dqdist .dqx { position: relative; height: 16px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dqdist .dqe { position: absolute; top: 0; }
+.dqdist .dqu { position: absolute; top: 0; transform: translateX(-50%); color: var(--text-secondary); }
 /* today against usual: dq's two labelled bars (dq r3, .dqnow), copied as they are so the merge keeps one set */
 /* peer:dq start */
 /* r3, the look-inside (Ctrl K, Tab on a file): what it is and whether it is fine today, and no more (the owner: “I like
@@ -1822,7 +1847,7 @@ table.rows th.tap { box-shadow: inset 0 -2px 0 var(--action); }
 .ds.nb.lk { display: grid; align-content: center; gap: 2px; padding: var(--sp-2) var(--sp-3); background: var(--surface-raised); border: 1px solid var(--border-subtle); box-shadow: var(--shadow-1); border-radius: var(--r-2); }
 .ds.nb.lk:hover { box-shadow: var(--shadow-2); }
 .ds.nb.lk:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; }
-.ds.nb.lk .eb { font-size: var(--fs-2); line-height: 16px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds.nb.lk .eb { font-size: var(--fs-2); line-height: 16px; color: var(--text-secondary); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .ds.nb.lk .nl { display: flex; align-items: center; gap: 6px; min-width: 0; height: 20px; }
 .ds.nb.lk .ki { flex: none; display: grid; place-items: center; width: 16px; height: 16px; }
 .ds.nb.lk .ki svg { width: 16px; height: 16px; fill: none; stroke: var(--text-muted); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
@@ -1939,7 +1964,7 @@ table.rows th.tap { box-shadow: inset 0 -2px 0 var(--action); }
    of the sentence. They sit as wide as Ctrl K's preview, so the same counts draw the same lengths. */
 #layer .panel.decide .dk-top { display: grid; gap: var(--sp-2); }
 #layer .panel.decide .dk-top .dqnow, .node.focus .fhead .fm.fbars .dqnow { max-width: 360px; }
-.node.focus .fhead .fm.fbars { height: 36px; line-height: 16px; white-space: normal; overflow: visible; }
+.node.focus .fhead .fm.fbars { height: auto; line-height: 16px; white-space: normal; overflow: visible; } /* distH in explorer.js */
 .node.focus .fhead .fm.fbars .dqk { color: var(--text-muted); }
 /* 3. The month in Decide's More: the strip Ctrl K's answer draws (Fri Mar 1 … Today), then its one line. */
 #layer .panel.decide .dk-month .ap.apmonth { gap: var(--sp-1); }
