@@ -1702,20 +1702,27 @@ table.rows th.tap { box-shadow: inset 0 -2px 0 var(--action); }
 .ap .apx { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12px; line-height: 14px; color: var(--muted); white-space: nowrap; }
 .ap .today { font-size: 12px; font-weight: 600; color: var(--ink); }
 .ap .tdate { font-size: 11px; font-weight: 400; color: var(--muted); }
-/* today among the days before: a line of dots, the usual band behind them, the day the large dot (nowBars) */
-.dqdist { display: grid; gap: var(--sp-1); font-size: var(--fs-2); line-height: 16px; }
+/* the day among the days before (nowBars): a column a count, as tall as the days that had it, the usual band behind,
+   the day the dot on the line; the line's ends and the day labelled under it */
+.dqdist { display: grid; gap: 6px; font-size: var(--fs-2); line-height: 16px; }
 .dqdist .dqh { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-2); min-width: 0; }
 .dqdist .dqn { color: var(--text-secondary); white-space: nowrap; }
 .dqdist .dqn b { font-size: var(--fs-3); font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
 .dqdist .dqr { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.dqdist .dqsw { width: 14px; height: 8px; border-radius: 2px; background: color-mix(in srgb, var(--edge-control) 30%, var(--surface)); }
-.dqdist .dqstrip { position: relative; height: 18px; }
-.dqdist .dqstrip::before { content: ""; position: absolute; left: 0; right: 0; top: 8px; height: 2px; border-radius: 1px; background: var(--border-subtle); }
-.dqdist .dqband { position: absolute; top: 2px; height: 14px; min-width: 6px; transform: translateX(-3px); border-radius: 4px; background: color-mix(in srgb, var(--edge-control) 30%, var(--surface)); }
-.dqdist .dqp { position: absolute; top: 6px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--text-muted); opacity: .45; }
-.dqdist .dqtd { position: absolute; top: 2px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--text-primary); box-shadow: 0 0 0 2px var(--surface-raised); }
+.dqdist .dqsw { width: 14px; height: 8px; border-radius: 2px; background: color-mix(in srgb, var(--edge-control) 22%, var(--surface)); }
+.dqdist .dqplot { position: relative; height: 36px; border-bottom: 1px solid var(--edge-control); }
+.dqdist .dqband { position: absolute; top: 0; bottom: 0; min-width: 4px; border-radius: 4px 4px 0 0; background: color-mix(in srgb, var(--edge-control) 22%, var(--surface)); }
+.dqdist .dqs { position: absolute; top: 0; bottom: 0; display: flex; align-items: flex-end; justify-content: center; }
+.dqdist .dqs b { display: block; width: min(24px, calc(100% - 2px)); min-width: 2px; border-radius: 2px 2px 0 0; background: color-mix(in srgb, var(--text-muted) 70%, var(--surface)); }
+.dqdist .dqs:hover b { background: var(--text-secondary); }
+.dqdist .dqtd { position: absolute; bottom: -6px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--text-primary); box-shadow: 0 0 0 2px var(--surface-raised); }
 .dqdist .dqtd.bad { background: var(--bad); }
 .dqdist .dqtd.warn { background: var(--warn); }
+.dqdist .dqx { position: relative; height: 16px; font-size: var(--fs-2); color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dqdist .dqe { position: absolute; top: 0; }
+.dqdist .dqe.l { left: 0; }
+.dqdist .dqe.r { right: 0; }
+.dqdist .dqday { position: absolute; top: 0; color: var(--text-secondary); font-weight: 600; }
 /* today against usual: dq's two labelled bars (dq r3, .dqnow), copied as they are so the merge keeps one set */
 /* peer:dq start */
 /* r3, the look-inside (Ctrl K, Tab on a file): what it is and whether it is fine today, and no more (the owner: “I like
@@ -1956,7 +1963,7 @@ table.rows th.tap { box-shadow: inset 0 -2px 0 var(--action); }
    of the sentence. They sit as wide as Ctrl K's preview, so the same counts draw the same lengths. */
 #layer .panel.decide .dk-top { display: grid; gap: var(--sp-2); }
 #layer .panel.decide .dk-top .dqnow, .node.focus .fhead .fm.fbars .dqnow { max-width: 360px; }
-.node.focus .fhead .fm.fbars { height: 36px; line-height: 16px; white-space: normal; overflow: visible; }
+.node.focus .fhead .fm.fbars { height: 82px; line-height: 16px; white-space: normal; overflow: visible; } /* DIST_H in explorer.js */
 .node.focus .fhead .fm.fbars .dqk { color: var(--text-muted); }
 /* 3. The month in Decide's More: the strip Ctrl K's answer draws (Fri Mar 1 … Today), then its one line. */
 #layer .panel.decide .dk-month .ap.apmonth { gap: var(--sp-1); }

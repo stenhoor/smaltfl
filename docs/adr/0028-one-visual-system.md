@@ -258,10 +258,15 @@ and "runs on" unclear, two bars hard to compare, and Explore rows leaving the ma
   "Each tag names an application" (Cloud assets). What points to a file is said as the file that points says it, each
   its own card, and a control's evidence is one card ("13 controls check applications", its files named). What a file
   feeds is counted once, on the other side ("Feeds 15 outputs").
-- **The day among the days before.** A file's rows on the day are drawn on one line with each of the 28 days before as
-  a dot, the usual range (their middle eight in ten) shaded behind them and the day the large dot in its state's colour.
-  The line is never narrower than a twentieth either side of a usual day, the least a day's rows move to be told, so a
-  file that changes by a row or two draws as one cluster with the day on it, and an empty file as a dot far from them.
+- **The day among the days before, with height** (research in docs/research/ui-rows-distribution.md, after the owner
+  found a line of dots hid how many days were alike).
+  - A file's rows on the day are drawn against the 28 days before as a histogram: a column for each count of rows those
+    days had (or each round band of counts where they spread wide), as tall as the days that had it.
+  - The usual range (their middle eight in ten) is shaded behind the columns, and the day itself is the dot on the line
+    in its state's colour.
+  - The line runs from the least count to the most, the day included, with its two ends labelled and the day named
+    under its dot. So an empty file is a dot far from the pile, and the labels say how wide the line is.
+  - A file the same on every day says so in words, not as a one-bar chart.
 - **Rows and outputs beside the map.** Explore rows opens a panel on the map with the file the day's recorded run read,
   fetched and checked against the hash the record keeps for it (nothing run), to filter, sort and keep a value's rows;
   where the day is paused or arrived empty, the day readers see, said first. An output opens beside the map too (held
