@@ -218,6 +218,41 @@ const isoOf = (label, dir = root) => {
  * `window.__tour.idle` waits until none of it is left, the app says it isn't at work, and the page hasn't changed for
  * a few frames. It changes nothing the page does: each wrapped function is called as it was and returns what it did.
  */
+// What the checks read, reaching into an open shadow root where the page draws one (the Data model's map, ADR 0028 §9:
+// its own styles kept apart): every match of a selector, the page's first; and an element's text with a shown shadow
+// root's text after it. A hidden host's text isn't read: the map behind the rules and files says nothing.
+function deep() {
+  const hosts = (root) => [...root.querySelectorAll('*')].filter((e) => e.shadowRoot);
+  // A selector may start at the host ("#dm-map .alert"): its first part matched against the host, the rest inside.
+  const split = (sel) => {
+    let depth = 0, quote = '';
+    for (let i = 0; i < sel.length; i++) {
+      const c = sel[i];
+      if (quote) { if (c === quote) quote = ''; continue; }
+      if (c === '"' || c === "'") quote = c;
+      else if (c === '[' || c === '(') depth++;
+      else if (c === ']' || c === ')') depth--;
+      else if (c === ' ' && depth === 0) return [sel.slice(0, i), sel.slice(i + 1).trim()];
+    }
+    return null;
+  };
+  window.__deepAll = (sel, root = document) => {
+    const out = [...root.querySelectorAll(sel)];
+    const parts = split(sel);
+    for (const h of hosts(root)) {
+      out.push(...window.__deepAll(sel, h.shadowRoot));
+      if (parts && parts[1] && h.matches(parts[0])) out.push(...window.__deepAll(parts[1], h.shadowRoot));
+    }
+    return [...new Set(out)];
+  };
+  window.__deepText = (el) => {
+    if (!el) return '';
+    let text = el.innerText ?? '';
+    for (const h of hosts(el)) if (h.getClientRects().length) for (const c of h.shadowRoot.children) if (c.getClientRects?.().length) text += ` ${c.innerText ?? ''}`;
+    return text;
+  };
+}
+
 function tracker() {
   if (window.__tour) return;
   // What is started and unfinished, in all and by what it is (said when a wait ends at its limit).
@@ -476,6 +511,7 @@ function tracker() {
     scheme = wanted;
     ctx = await browser.newContext({ viewport: { width: W, height: H }, isMobile: device.isMobile, hasTouch: device.hasTouch, deviceScaleFactor: Number(process.env.TOUR_SCALE || 1), colorScheme: wanted, acceptDownloads: true });
     await ctx.addInitScript(tracker);
+    await ctx.addInitScript(deep);
     p = await ctx.newPage();
     p.on('pageerror', (e) => problems.push(`PAGEERROR ${e.message}${process.env.TOUR_STACK ? `\n${e.stack}` : ''}`));
     p.on('console', (m) => m.type() === 'error' && problems.push(`console ${m.text()}`));
@@ -512,7 +548,7 @@ function tracker() {
     const scope = (stop.click || stop.clicks) && (await p.locator('.vf-detail').count()) ? '.vf-detail' : stop.card || stop.box || stop.flow ? '#sheet' : 'body';
     const m = await p.evaluate((sel) => {
       const el = document.querySelector(sel);
-      const text = (el?.innerText ?? '').replace(/\s+/g, ' ').trim();
+      const text = (window.__deepText ? window.__deepText(el) : el?.innerText ?? '').replace(/\s+/g, ' ').trim();
       const words = (t) => (t.match(/[A-Za-z0-9’'%.,:–-]+/g) ?? []).filter((w) => /[A-Za-z0-9]/.test(w)).length;
       const long = [...(el?.querySelectorAll('p, li, dd, h3') ?? [])].filter((x) => x.offsetParent !== null).map((x) => x.innerText.replace(/\s+/g, ' ').trim()).filter((t) => words(t) > 25);
       const charts = [...(el?.querySelectorAll('svg, canvas') ?? [])].filter((x) => x.getBoundingClientRect().width > 60 && x.getBoundingClientRect().height > 24 && x.offsetParent !== null);
@@ -555,18 +591,18 @@ function tracker() {
     for (const t of x.text ?? []) if (!m.text.includes(t)) fail(`no "${t}" in the ${scope} text`);
     for (const t of x.noText ?? []) if (m.text.includes(t)) fail(`"${t}" in the ${scope} text`);
     if (x.pageText || x.noPageText) {
-      const all = await p.evaluate(() => document.body.innerText.replace(/\s+/g, ' '));
+      const all = await p.evaluate(() => (window.__deepText ? window.__deepText(document.body) : document.body.innerText).replace(/\s+/g, ' '));
       for (const t of x.pageText ?? []) if (!all.includes(t)) fail(`no "${t}" on the page`);
       for (const t of x.noPageText ?? []) if (all.includes(t)) fail(`"${t}" on the page`);
     }
     if (x.maxWords !== undefined && m.words > x.maxWords) fail(`${m.words} words, at most ${x.maxWords}`);
     if (x.minCharts !== undefined && m.charts < x.minCharts) fail(`${m.charts} charts, at least ${x.minCharts}`);
-    const visibleAll = (sel) => p.evaluate((s) => [...document.querySelectorAll(s)].filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; }).length, sel);
+    const visibleAll = (sel) => p.evaluate((s) => [...(window.__deepAll ? window.__deepAll(s) : document.querySelectorAll(s))].filter((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; }).length, sel);
     for (const [sel, n] of Object.entries(x.count ?? {})) { const c = await visibleAll(sel); if (c !== n) fail(`${c} × ${sel}, expected ${n}`); }
     // The first visible match: whether it is disabled, and its words outside drawings (visible text nodes not in an
     // svg; a drawing's labels are budgeted in the Node tests), and all its words.
     const firstVisible = (sel) => p.evaluate((s) => {
-      const e = [...document.querySelectorAll(s)].find((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
+      const e = [...(window.__deepAll ? window.__deepAll(s) : document.querySelectorAll(s))].find((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
       if (!e) return null;
       const count = (t) => (t.match(/[A-Za-z0-9’'%.,:–-]+/g) ?? []).filter((w) => /[A-Za-z0-9]/.test(w)).length;
       let out = 0;
@@ -593,7 +629,7 @@ function tracker() {
     }
     // Text inside one element, its drawings' text included (a bar's or a dumbbell's label).
     const textOf = (sel) => p.evaluate((s) => {
-      const e = [...document.querySelectorAll(s)].find((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
+      const e = [...(window.__deepAll ? window.__deepAll(s) : document.querySelectorAll(s))].find((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
       return e ? (e.textContent ?? '').replace(/\s+/g, ' ') : null;
     }, sel);
     for (const [sel, want] of Object.entries(x.textIn ?? {})) {

@@ -3,7 +3,7 @@
     "name": "overrides-head",
     "what": "Larkspur's tour, Wed Feb 7: the Ontology page says first where its ontology comes from (ADR 0026 §8): Larkspur estate's ontology by its hash and the path the flow gives it by, the flows read here that import the same one, and the one column a flow handles its own way, with the flow, its datasets and its reason",
     "day": "Wed 7",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "waitFor": "#ontology-estate .oe-same:not(:empty)",
     "element": "#ontology-estate",
@@ -26,7 +26,7 @@
     "name": "overrides-own",
     "what": "The handling's first dataset tapped: apps, which Applications makes, opens at the column's card. The card says the meaning is Applications' own handling, why, and what the estate's ontology says in its place",
     "day": "Wed 7",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "click": "#ontology-estate .oe-go[data-dataset=\"apps\"]",
     "waitFor": ".of-item[data-made=\"apps\"].open .of-col[data-column=\"owner_team_id\"] .of-handled",
@@ -47,7 +47,7 @@
     "name": "overrides-elsewhere",
     "what": "The register's own file, cmdb_apps, where the column means what the estate says: its card notes where it is handled differently, by which flow and why",
     "day": "Wed 7",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "click": ".of-item[data-file=\"cmdb_apps\"] .of-row",
     "waitFor": ".of-item[data-file=\"cmdb_apps\"].open .of-col[data-column=\"owner_team_id\"] .of-elsewhere",
@@ -68,7 +68,7 @@
     "what": "The head of the page and the handled column's card in the dark scheme, while the one handling is the flow's own as shipped",
     "day": "Wed 7",
     "scheme": "dark",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "click": "#ontology-estate .oe-go[data-dataset=\"app_owners\"]",
     "waitFor": ".of-item[data-made=\"app_owners\"].open .of-col[data-column=\"owner_team_id\"] .of-handled",
@@ -81,7 +81,7 @@
     "name": "overrides-form",
     "what": "As the owner, a column the estate describes, edited on its file's card: tls's Issuer. The form asks why this flow handles it its own way, and says whose handling it would be and that it is noted and hashed",
     "day": "Wed 7",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [
       ".of-item[data-file=\"tls\"] .of-row",
@@ -103,7 +103,7 @@
   {
     "name": "overrides-asks",
     "what": "In the form left open, a new name saved with no reason: nothing is written, and the form asks for the reason",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [
       [".of-form input[id$=\"-name\"]", "Certificate authority"],
@@ -119,7 +119,7 @@
   {
     "name": "overrides-made",
     "what": "With its reason, saved: recorded as Evidence feeds' own handling of the column in tls and the steps that pass it on, listed at the head of the page beside the first, and noted on the card with what the estate says",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [
       [".of-form textarea[id$=\"-why\"]", "The feed names the authority, not the certificate’s issuer field"],

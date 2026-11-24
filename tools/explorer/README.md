@@ -8,9 +8,11 @@ A prototype of smaltfl's **Data model** screen on Larkspur's tour data, in plain
 - a paused day and its Decide panel;
 - building Larkspur from its 22 files and then playing its days.
 
-It is published as it is beside the demos, at `/explorer/` on the project's site (`.github/workflows/docs.yml`). It is
-not part of the package, the tests or the build. It was built in rounds in a session's scratch space and is kept
-here so later sessions can carry on.
+Its map is now the app's Data model view (ADR 0028, phase 4's first part): `src/app/datamodel/explorer.js` is this
+folder's `explore.js` ported as it was reviewed, on the app's own data (`src/core/datamodel.ts`). The prototype is no
+longer published on the site; it is kept here as the design record of the review rounds, and for what is not in the app
+yet: its own Decide panel's last design, and building Larkspur from its files (`build.js`). It is not part of the
+package, the tests or the build.
 
 The last four rounds were peer rounds. Five reviewers (builder, owner, designer, newcomer, data quality) each built a
 working fix in their own copy. In rounds 1 and 2 a fix shipped once three of the other four agreed. In rounds 3 and 4

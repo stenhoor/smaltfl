@@ -4,7 +4,7 @@
     "what": "A new browser: on Evidence feeds' own page the owner handles a column the estate describes its own way, so the flow there is no longer the flow the estate reads",
     "fresh": true,
     "page": "feeds",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [
       ".of-item[data-file=\"tls\"] .of-row",

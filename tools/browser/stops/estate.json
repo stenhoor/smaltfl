@@ -97,7 +97,7 @@
   "name": "mar06-ontology",
   "what": "Control estate, calm Wed Mar 6: the Ontology view as a phone opens it: the files the flow reads, a row each (its name, what it is, the rows of the day's load, how many rules it has), none open yet; no object-type box and no flat list of columns",
   "day": "Wed 6",
-  "view": "ontology",
+  "view": "ontology/rules",
   "viewFirst": true,
   "expect": {
    "text": [
@@ -122,7 +122,7 @@
   "name": "mar06-ontology-control",
   "what": "Control estate, calm Wed Mar 6: the Ontology view with a control's file (the WAF's) opened in place: what the file is (said once: the open row drops its line), this file's rules (one row an application, the applications it covers, its key), a card a column with its values in the day's load drawn at the top (a bar has one label: what its value stands for in the ontology’s words, Blocking for block, and Akamai for akamai or Exception for exception though they only repeat the value (Q-145), else the value as the file writes it), its meaning and its rules (on the Application card the file's two rules about it, so no \"No rules yet.\" under the key; then a new value, the bad value, the bands), then what is proposed from the data (Q-139): bands for the WAF provider's four values and the mode's common one, to accept or set aside. A column's name as the file writes it is beside its title only where the two differ (app_id beside Application, none beside Status), and \"What its values stand for\" lists only the values whose meaning says more (none for the WAF provider, whose four are named as themselves)",
   "day": "Wed 6",
-  "view": "ontology",
+  "view": "ontology/rules",
   "viewFirst": true,
   "click": ".of-item[data-file=\"waf\"] .of-row",
   "waitFor": ".of-item.open .pp",
@@ -204,7 +204,7 @@
   "name": "mar06-ontology-inventory",
   "what": "Control estate, calm Wed Mar 6: the Ontology view with the inventory opened (one tap, and the control's section closes): it says it is the list the other files are checked against, has no rule of its own, and its nine columns are drawn from the day's file. No label only repeats the thing: Name has no \"name\" beside it and Business unit no \"business_unit\" (Application keeps app_id, another word); the columns whose values are named as themselves (the six business units, yes and no) offer no \"What its values stand for\", and Data class lists only the two of its four that stand for something else (pci: Card data, pii: Personal data)",
   "day": "Wed 6",
-  "view": "ontology",
+  "view": "ontology/rules",
   "viewFirst": true,
   "click": ".of-item[data-file=\"apps\"] .of-row",
   "waitFor": ".of-item.open .of-draw .colline",
@@ -247,7 +247,7 @@
   "name": "mar06-ontology-readby",
   "what": "Control estate, calm Wed Mar 6: TLS’s file says the datasets the flow makes from it (Q-144): three by name, each a tap to its own section, and how many more; the made datasets are listed after the files, closed",
   "day": "Wed 6",
-  "view": "ontology",
+  "view": "ontology/rules",
   "viewFirst": true,
   "click": ".of-item[data-file=\"tls\"] .of-row",
   "waitFor": ".of-item.open .of-readby",
@@ -270,7 +270,7 @@
   "name": "mar06-ontology-made",
   "what": "Control estate, calm Wed Mar 6: the posture’s own section, opened from TLS’s line (Q-144), laid out as a file’s and read-only: what it is (silver, which readers get), its checks (its key and the inventory’s, written in the notebook; key rotation needing encryption, written in the ontology, Q-119), then its columns",
   "day": "Wed 6",
-  "view": "ontology",
+  "view": "ontology/rules",
   "viewFirst": true,
   "clicks": [
    ".of-readby [data-made=\"posture\"]"
@@ -305,7 +305,7 @@
   "name": "mar07-ontology-refused",
   "what": "Control estate, Thu Mar 7 (the logging file lacks a column: refused): the Ontology view with the logging file opened: its row says the file was refused and still counts its eight rules, and its section has the five columns the flow expects, each with its meaning and its rules and nothing drawn, since none of the day's file was read",
   "day": "Thu 7",
-  "view": "ontology",
+  "view": "ontology/rules",
   "viewFirst": true,
   "click": ".of-item[data-file=\"logging\"] .of-row",
   "waitFor": ".of-item.open .of-col",
@@ -410,7 +410,7 @@
   "name": "mar12-ontology-control",
   "what": "Control estate, Tue Mar 12 (held: the WAF pass rate collapses): the Ontology view with the WAF's file opened: the same rules, and the held day's own rows drawn beside them (Failing at six in ten, under the rule that says at most 15%)",
   "day": "Tue 12",
-  "view": "ontology",
+  "view": "ontology/rules",
   "viewFirst": true,
   "click": ".of-item[data-file=\"waf\"] .of-row",
   "waitFor": ".of-item.open .of-draw .colline",
@@ -466,7 +466,7 @@
   "name": "mar14-ontology-due",
   "what": "Control estate, Thu Mar 14 (vulnerability due dates cluster: Failing up, the day published): the Ontology view with the vulnerability file opened: the due date's rule on Next due, and on Status the bad value's jump said as not checked, since this file's due date tells it instead",
   "day": "Thu 14",
-  "view": "ontology",
+  "view": "ontology/rules",
   "viewFirst": true,
   "click": ".of-item[data-file=\"vuln_sla\"] .of-row",
   "waitFor": ".of-item.open .of-draw .colline",
@@ -530,7 +530,7 @@
     "name": "names-form",
     "what": "Control estate, Wed Mar 6, as the owner: the WAF file's WAF mode card with its quiet Edit tapped: a small form in place of the card's body (the name, what it means, a label for each of its three values, Save and Cancel), with the file's own name for the column said under the name field (it never changes), where the column is used (its check passes it on, ADR 0022 §2), and one line that a change is recorded and takes effect from the next run, for the file and the step that passes it on",
     "day": "Wed 6",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [".of-item[data-file=\"waf\"] .of-row", ".of-item.open .of-col[data-column=\"mode\"] .of-edit"],
     "waitFor": ".of-item.open .of-form .of-where[data-known]",
@@ -559,7 +559,7 @@
  {
   "name": "names-rename",
   "what": "Control estate, as the owner: the TLS file's Status renamed to Result and its value fail labelled Broken, saved (the WAF's open form closes with its section): the card's head says Result with the file's own name, status, beside it; its bar and its rules say Broken; and above the files a strip says one change is kept in this browser, what it was, that it takes effect from the next run, and offers the way back to the flow as shipped. The status line says what was recorded; the rules in force say names and labels were edited here, no longer as shipped",
-  "view": "ontology",
+  "view": "ontology/rules",
   "viewFirst": true,
   "clicks": [
    ".of-item[data-file=\"tls\"] .of-row",
@@ -600,7 +600,7 @@
  {
   "name": "names-other-file",
   "what": "Control estate, after the rename in the TLS file: the WAF's file, opened. Its Status is still Status with no name beside it, and its rules still say Failing: the rename and the label were the TLS file's own (Q-140)",
-  "view": "ontology",
+  "view": "ontology/rules",
   "viewFirst": true,
   "click": ".of-item[data-file=\"waf\"] .of-row",
   "waitFor": ".of-item.open .of-draw .colline",
@@ -642,7 +642,7 @@
   "name": "names-reload",
   "what": "Control estate, the page loaded again after the rename: the edited flow came back from this browser (by the hash of the flow as shipped). The TLS file's column is still Result, its bad value still Broken, and the strip still lists the one change",
   "reload": true,
-  "view": "ontology",
+  "view": "ontology/rules",
   "viewFirst": true,
   "click": ".of-item[data-file=\"tls\"] .of-row",
   "waitFor": ".of-item.open .of-col[data-column=\"status\"] .of-draw .colline",
@@ -680,7 +680,7 @@
    "#viewer",
    "ciso"
   ],
-  "view": "ontology",
+  "view": "ontology/rules",
   "viewFirst": true,
   "waitFor": ".of-item.open .of-col[data-column=\"status\"] .of-draw .colline",
   "full": true,
@@ -704,7 +704,7 @@
    "#viewer",
    "owner"
   ],
-  "view": "ontology",
+  "view": "ontology/rules",
   "viewFirst": true,
   "clicks": [
    "#flow-edits .fe-back",
@@ -751,7 +751,7 @@
  {
     "name": "meaning-ask",
     "what": "Control estate, as the owner, the flow as shipped again (ADR 0027 §3, Q-251): the inventory's Criticality card with its Edit tapped and what it means typed over. The form asks which it is: reworded, which says the same thing better, on every day; or redefined, which means something else from a day. Reworded is ticked, as a name or a label has always been saved",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [
       ".of-item[data-file=\"apps\"] .of-row",
@@ -778,7 +778,7 @@
  {
     "name": "meaning-redefined",
     "what": "Redefined, ticked: the form asks what every dated change is asked, the day it takes effect from, its kind and its reason. Given and saved, the meaning is redefined from the next day to arrive, a dated change of its own on the register. On the day on screen the card still says what Criticality has meant, and under it what it will mean and from when, a tap from the change; no recorded day moves",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [
       ".of-form .of-how-opt[data-how=\"redefined\"] input",
@@ -807,7 +807,7 @@
  {
     "name": "kinds-own",
     "what": "Kinds and relations on the control estate (ADR 0027 §3), on Fri Mar 1, the day the page loaded on again: one kind of thing, the application, and no relation. It is this flow's own, so its line has Change and End; the map is one box",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": ["#rules-time .kd-all > summary"],
     "element": "#rules-time .kd",
@@ -836,7 +836,7 @@
  {
     "name": "kinds-add-kind",
     "what": "Add a kind: the business unit, one row of the table the flow publishes by unit, told apart by its name. A dated change with its kind and reason: it is the ontology's from the next day to arrive, listed until then as still to come, with the day it begins",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [
       "#rules-time .kd-add-kind",
@@ -869,7 +869,7 @@
  {
     "name": "kinds-add-link",
     "what": "Add a relation, between the application and the kind still to come: an application belongs to the business unit its inventory row names. It begins the day the kind does",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [
       "#rules-time .kd-add-link",
@@ -897,7 +897,7 @@
  {
     "name": "kinds-coming-map",
     "what": "Two dates compared, the day on screen against the day the changes begin: in words, the kind and the relation that are new and what Criticality will mean; on the map, the new kind's box and the relation's line hatched, still to come",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [
       ["#rules-time .kd-pick-a", "2024-03-06"],
@@ -925,7 +925,7 @@
  {
     "name": "kinds-cant-end",
     "what": "End, on the application: nothing is deleted, a thing ends from a day with what follows it. A kind that relations and rows entries still name can't end, and the form says so",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [
       "#rules-time .kd-kind[data-kind=\"application\"] .kd-end",
@@ -946,7 +946,7 @@
  {
     "name": "kinds-end-link",
     "what": "End, on the relation still to come, from the week after it begins, with nothing after it: its line says the day it begins and the day it ends, each a tap from its change",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [
       "#rules-time .kd-link[data-link=\"belongs_to\"] .kd-end",
@@ -971,7 +971,7 @@
  {
     "name": "rows-change",
     "what": "What a row is, changed (ADR 0027 §3): the TLS file's rows are applications reachable from the internet; from April, the critical and high ones only. The condition is read on the inventory, and the gate counts by it from that day",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [
       ".of-item[data-file=\"tls\"] .of-row",
@@ -993,7 +993,7 @@
  {
     "name": "needs-add",
     "what": "A dependency, added on the WAF's file: a firewall in blocking mode passes the control, or holds an exception. Written once, in the ontology, from its day; a row that says otherwise is a contradiction the gate counts. The register then lists the six changes still to come, each with its kind and reason, the soonest first, a day outside the month said with its month",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [
       ".of-item[data-file=\"waf\"] .of-row",
@@ -1034,7 +1034,7 @@
  {
     "name": "kinds-back",
     "what": "Back to the flow as shipped, tapped twice: every dated change made here is taken away and recorded, and the ontology is as it was shipped. The TLS file is opened again, as the stops after expect it",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": ["#flow-edits .fe-back", "#flow-edits .fe-back", ".of-item[data-file=\"tls\"] .of-row"],
     "waitFor": ".of-item[data-file=\"tls\"].open .of-draw .colline",
@@ -1058,7 +1058,7 @@
   "what": "Control estate, Tue Mar 12: the Ontology view's first screen, dark",
   "day": "Tue 12",
   "scheme": "dark",
-  "view": "ontology",
+  "view": "ontology/rules",
   "viewFirst": true,
   "expect": {
    "text": [
@@ -1074,7 +1074,7 @@
   "what": "Control estate, Tue Mar 12: the Ontology view with the WAF's file opened, dark: the section's parts, the drawings and the rules",
   "day": "Tue 12",
   "scheme": "dark",
-  "view": "ontology",
+  "view": "ontology/rules",
   "viewFirst": true,
   "click": ".of-item[data-file=\"waf\"] .of-row",
   "waitFor": ".of-item.open .of-draw .colline",
@@ -1095,7 +1095,7 @@
     "what": "Control estate, Tue Mar 12 (held), dark: the WAF file's WAF mode card with its Edit tapped (the file is open from the stop before): the form's fields, hints and buttons, and since a day waits for a decision, the line that it is judged again when it next runs",
     "day": "Tue 12",
     "scheme": "dark",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [".of-item.open .of-col[data-column=\"mode\"] .of-edit"],
     "waitFor": ".of-item.open .of-form .of-where[data-known]",
@@ -1116,7 +1116,7 @@
   "name": "names-rename-dark",
   "what": "Control estate, dark: the WAF mode renamed to Mode and saved from the open form: the strip above the files (one change, what it was, the way back), and the card's head with the new name; no name beside it, since mode is Mode again",
   "scheme": "dark",
-  "view": "ontology",
+  "view": "ontology/rules",
   "viewFirst": true,
   "clicks": [
    [

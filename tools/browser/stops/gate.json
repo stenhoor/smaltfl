@@ -126,7 +126,7 @@
  {
     "name": "gate-ontology",
     "what": "The Ontology view after it: the change on the register, with its kind and its reason, and Method's values, magic_link among them, since Sat 23 by that change",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "click": ".of-item[data-file=\"auth\"] .of-row",
     "waitFor": ".of-item.open .of-entries",
@@ -150,7 +150,7 @@
  {
   "name": "gate-lanes",
   "what": "From tablet width the register's lanes: magic_link a row of what there is, from Sat 23, and the days something stopped at the gate, a bar on each",
-  "view": "ontology",
+  "view": "ontology/rules",
   "devices": [
    "tablet",
    "tablet-wide",
@@ -292,7 +292,7 @@
  {
     "name": "gate-entry-ended",
     "what": "An entry of a closed column ends from a day (ADR 0027 §2, Q-264): API keys are merged into single sign-on from the next day to arrive, with a reason. Nothing is deleted: the ontology keeps that it ended and what follows it, and from that day a row that carries it stops at the gate. Until then the entry's line says the day it ends. The list of Method's values is open as the reader left it",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [
       ".of-item.open .of-entry[data-key=\"api_key\"] .of-entry-end",

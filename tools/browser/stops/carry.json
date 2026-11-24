@@ -94,7 +94,7 @@
     "name": "carry-feeds-ontology",
     "what": "Its Ontology page: the estate's ontology as far as it is about this flow's datasets; a type whose objects are a file no step here reads shows no count, and nothing fails",
     "page": "feeds",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "full": true,
     "expect": {

@@ -3,7 +3,7 @@
     "name": "rules-ontology",
     "day": "Thu 21",
     "what": "Sign-ins, the Ontology view with the sign-in file (auth) opened: its three rules set on columns, each in words with what a broken row does (Method one of its five values, else the day holds; Latency 0 to 30,000 ms and Country never blank, else the row is flagged), each with Change and Remove for the owner, and an Add a rule button on every column's card; a note that the file's meanings and rules are shared (examples/ontologies/auth.json), with its download",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "click": ".of-item[data-file=\"auth\"] .of-row",
     "waitFor": ".of-item.open .of-draw .colline",
@@ -27,7 +27,7 @@
   {
     "name": "rules-add-form",
     "what": "The owner taps Add a check on the User card, and has edits take effect from the day on screen (Thu Mar 21, ADR 0021 §5; they reach every day recorded after it, to Mon Mar 25, too): the form in place of the button, what User must be (never blank by default), what a row that breaks it does, Add the check and Cancel",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [
       ".of-col[data-column=\"user\"] .of-add",
@@ -50,7 +50,7 @@
   {
     "name": "rules-why",
     "what": "Saving a rule asks why (ADR 0027 §2, Q-256): the kind of change, one of four with the one the edit usually is picked, and a reason, both required; who decided, what led to it and the thinking fold away beneath. Without a reason it says one is needed",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [".of-rule-form .of-save", ".vf-detail .wy-go"],
     "element": ".vf-detail",
@@ -76,7 +76,7 @@
   {
     "name": "rules-added",
     "what": "The rule added, in force from Thu Mar 21: the five days recorded from Thu 21 run again under it and come out the same (Fri 22 still held for its renamed column, the three days after it at the gate), and the restatement opens for its sign-off (Q-199 as answered, ADR 0022 §1); User is never blank, else flag the row and keep it, listed on the User card and among the changes above the files; the check cell auth_valid gains user_required: 'on' in its ontology list",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "clicks": [
       ".of-rule-form .of-save",
@@ -213,7 +213,7 @@
   {
     "name": "rules-ontology-off",
     "what": "The Ontology view says Latency's rule is switched off in auth_valid's cell",
-    "view": "ontology",
+    "view": "ontology/rules",
     "viewFirst": true,
     "click": ".of-item[data-file=\"auth\"] .of-row",
     "full": true,

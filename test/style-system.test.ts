@@ -96,3 +96,43 @@ describe('one kit of components (ADR 0028 §4)', () => {
     }
   });
 });
+
+// The Data model's map draws in its own shadow root (ADR 0028 §9), with its own sheet: held to the same scale,
+// weights and roles. Its drawings are the map's cards and links, its strips and its pictures.
+describe("the Data model map's own sheet (ADR 0028 §9)", () => {
+  const mapSheet = readFileSync(new URL('../src/app/datamodel/explorer.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const mapRules = [...mapSheet.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1]!.replace(/\s+/g, ' ').trim(), body: m[2]! }));
+  const MAP_DRAWING = /\.(node|lab|links|ln|pic|ufig|strip|spark|sparkbox|kwait|kwn|pbadge|bars|chart|ds|tile|kstat|gname|stripkey|pz|ah|tdate|sq|q)\b|svg|(^|[\s,>])text\b/;
+
+  it('sets text in the seven sizes, and its drawings in two more', () => {
+    const off: string[] = [];
+    for (const { sel, body } of mapRules) {
+      const allowed = MAP_DRAWING.test(sel) ? [10, 11, ...TEXT] : TEXT;
+      for (const m of body.matchAll(/font-size:\s*([0-9.]+)px/g)) if (!allowed.includes(Number(m[1]))) off.push(`${sel}: ${m[1]}px`);
+      for (const m of body.matchAll(/font:\s*(?:[0-9]+\s+)?([0-9.]+)px/g)) if (!allowed.includes(Number(m[1]))) off.push(`${sel}: font ${m[1]}px`);
+    }
+    expect(off).toEqual([]);
+  });
+
+  it('uses three weights', () => {
+    const off: string[] = [];
+    for (const { sel, body } of mapRules) {
+      for (const m of body.matchAll(/font-weight:\s*([0-9]{3})/g)) if (![400, 500, 600].includes(Number(m[1]))) off.push(`${sel}: ${m[1]}`);
+      for (const m of body.matchAll(/font:\s*([0-9]{3})\s/g)) if (![400, 500, 600].includes(Number(m[1]))) off.push(`${sel}: font ${m[1]}`);
+    }
+    expect(off).toEqual([]);
+  });
+
+  it("writes no color of its own: the page's roles, black and white for shadows and scrims alone", () => {
+    const off: string[] = [];
+    expect(mapSheet).not.toMatch(/var\(--(teal|violet|smalt)[a-z-]*/);
+    for (const { sel, body } of mapRules) {
+      for (const m of body.matchAll(/#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)|hsla?\([^)]*\)|%23[0-9a-fA-F]{3,8}\b/g)) {
+        const lit = m[0];
+        const neutral = lit === '#000' || lit === '#fff' || /^rgba?\(\s*0[ ,]+0[ ,]+0\b/.test(lit) || /^rgb\(8 11 18 \//.test(lit);
+        if (!neutral) off.push(`${sel}: ${lit}`);
+      }
+    }
+    expect(off).toEqual([]);
+  });
+});

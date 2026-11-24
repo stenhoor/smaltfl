@@ -209,6 +209,42 @@ browser regression's stop sets pass at every size (488 stops).
 
 Left for phase 2: Run is still a second filled button in the header; the header, the page anatomy and the words.
 
+### Phase 4, first part: the map (2026-11-24)
+
+Built before phases 2 and 3, at the maintainer's request ("replace this on the main demo and get rid of the explorer
+separation"). The Data model explorer had been reviewed as a prototype beside the demos (`tools/explorer/`, published
+at `/explorer/`): fourteen judge rounds and four peer rounds against the owner's own screenshots and seven tests (counts
+are icons, links in two to four words, one focus, every block says why it is there, pictures before words, detail on
+demand, today is today). Its map is now the Data model view of every demo, and `/explorer/` is no longer published.
+
+- **The tab is Data model** (§6), and the view opens on **the map** (§9): what waits first (the first day still
+  waiting, its file and what it holds, ⧗ a count, **Decide ›**), then the kinds of thing with their files and how they
+  relate, each relation in a few words, a count of what waits on a kind on its top edge. A kind opens to its register
+  and the files about each of its objects, its neighbours at the edges; a file opens to its state on the day, its rows
+  against the days before, the outputs that wait on it and what readers see meanwhile, what one row is and what it is
+  evidence for. **Search, act or ask** (Ctrl K, ⌘K or "/", §12) opens from any view.
+- **Real, not a stand-in.** The map is read from the flow document, the data list's columns and a display file beside
+  the flow (`datamodel.json`: short names, the kind a file the ontology ties to none is drawn in, the joins no relation
+  names, what each file is evidence for), with the day added from the record: nothing is run for it, and nothing is
+  frozen. Decide opens the day's own decision sheet, and a file's rows or an output open its card on the day. The
+  prototype's own Decide panel, its simulated decisions and its build from nothing are not brought in.
+- **The page as it was, one tap away.** §9's four views are two in this part: **Map** and **Rules and files**, the
+  page as it was (the register, versions, kinds over time, each file's rules and proposals). A link to a check, a
+  change or the register opens that view; the address stays `#ontology`, so every edit's redraw finds the view.
+- **Two style sheets that don't meet.** The renderer is the prototype's own, ported as it was reviewed, in a shadow
+  root with its own sheet on the page's roles and type scale; `test/style-system.test.ts` holds that sheet to the same
+  sizes, weights and colors. It loads as its own bundle the first time the view opens, so the page's first load is
+  what it was. The browser regression reads text inside a shown shadow root.
+- **Today is today, truthfully.** The record runs past the day that waits (the tour's last day is Sun Mar 31), so the
+  map says the day by its date ("Wed Mar 27 is paused", "Paused on Wed 27", "rows Wed 27"), and "today" only on the
+  latest day.
+
+Checked: `npm run check`; the tour's Data model set (`tools/browser/stops/proposals.json`, the map first, then the
+proposals as before) at every size, its one run unchanged; every stop set that opened the Ontology view opens Rules and
+files (`"view": "ontology/rules"`). Left for phase 4's second part: Rules and files split into Files and datasets,
+Rules and Changes, each on the map's components; the map's join matches counted in the engine; the decision sheet in
+the prototype's last design (the recommended choice and one button, the rest behind More), once phase 3 has the panel.
+
 ## Amendment 1: UX beyond the visuals (2026-11-21, Q-351 to Q-354)
 
 The maintainer asked for a deep dive on UX as a whole, not only color, hierarchy and interaction
